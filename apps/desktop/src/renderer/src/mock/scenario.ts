@@ -66,6 +66,7 @@ import { zoning } from "./studio-read-in";
 import { zoneProposing } from "./studio-zone-proposal";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
+import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 import { writingLogs } from "./check-logs-fleet";
@@ -521,6 +522,8 @@ export const SCENARIOS: readonly Scenario[] = [
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
+  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
+  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
   // A Job the gaming check holds with its Drone still on the step: a weakened
   // assertion and three refused commands, answered under the lead (#1672).
   holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),

@@ -9,7 +9,15 @@
 import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
-import { askStudioRun, checkoutRunnablesOf, studioName, titleOf, useStudioRunOff } from "@armada/screens";
+import {
+  askStudioAdd,
+  askStudioRun,
+  checkoutRunnablesOf,
+  studioName,
+  titleOf,
+  useStudioAddOff,
+  useStudioRunOff,
+} from "@armada/screens";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
 /** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */
@@ -35,10 +43,10 @@ export type PaletteMountProps = {
   board: readonly PaletteBoardRow[];
   /**
    * Everything a choice can do, in `carryOut`'s own shape — but the Studio's
-   * Run, which this reaches itself: the rail takes the ask directly, so `App`
-   * holds nothing for it.
+   * Run and Add, which this reaches itself: the rail takes the ask directly, so
+   * `App` holds nothing for them.
    */
-  acts: Omit<Parameters<typeof carryOut>[2], "studioRun">;
+  acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd">;
   /** A destructive act chosen from the palette, handed on to confirm. */
   onConfirmAct: (id: string, jobId: string) => void;
 };
@@ -64,6 +72,7 @@ export function PaletteMount({
   onConfirmAct,
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
+  const studioAdd = useStudioAddOff();
   return (
     <Palette
       open={open}
@@ -95,10 +104,10 @@ export function PaletteMount({
       // Fleet settings is the section's first row. It carries no value, because
       // choosing it opens the sheet rather than stating a field.
       settings={[{ id: "fleet_settings", label: "Fleet settings" }]}
-      dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, studioRun })}
+      dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, studioRun, studioAdd })}
       absent={absentIn({ reading: reading !== null, cursor })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>
-        carryOut(choice, on?.id ?? null, { ...acts, studioRun: askStudioRun })
+        carryOut(choice, on?.id ?? null, { ...acts, studioRun: askStudioRun, studioAdd: askStudioAdd })
       }
       // Every destructive act confirms, even from the palette. It hands the act
       // over and stays open behind the dialog, which is the way back.

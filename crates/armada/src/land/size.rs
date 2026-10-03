@@ -1,6 +1,8 @@
 //! How many waiting branches a turn takes: halved after a red turn, doubled
 //! after a green one, between 1 and the ceiling `ARMADA_LAND_BATCH` sets.
-//! Kept in the state directory, so a new runner goes on from it.
+//! Kept in the state directory, so a new runner goes on from it, with the
+//! ceiling the runner took it under, so `--status` says the runner's and not
+//! its own environment's.
 //! `docs/capabilities/merge-line.md`, *Batching*.
 
 use std::path::PathBuf;
@@ -32,17 +34,47 @@ struct Size {
     at: String,
 }
 
+/// `batch.json`: the ceiling a runner last turned under, and the size the last
+/// turn that counted left. Either may be missing.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+struct Held {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ceiling: Option<usize>,
+    #[serde(flatten)]
+    last: Option<Size>,
+}
+
 fn path(state: &StateDir) -> PathBuf {
     state.path().join("batch.json")
 }
 
-fn read(state: &StateDir) -> Option<Size> {
-    codec::read("batch size", &path(state)).ok().flatten()
+fn read(state: &StateDir) -> Held {
+    codec::read("batch size", &path(state))
+        .ok()
+        .flatten()
+        .unwrap_or_default()
 }
 
 /// What the next turn takes. An unreadable file starts again at the ceiling.
 pub fn current(state: &StateDir, ceiling: usize) -> usize {
-    read(state).map_or(ceiling, |held| held.size.clamp(1, ceiling))
+    read(state)
+        .last
+        .map_or(ceiling, |held| held.size.clamp(1, ceiling))
+}
+
+/// Record the ceiling this runner takes its turns under. Best effort, as
+/// [`after`] is.
+pub fn uses(state: &StateDir, ceiling: usize) {
+    let held = read(state);
+    if held.ceiling != Some(ceiling) {
+        let _ = codec::write(
+            &path(state),
+            &Held {
+                ceiling: Some(ceiling),
+                ..held
+            },
+        );
+    }
 }
 
 /// The size after a turn that went `went`.
@@ -63,12 +95,19 @@ pub fn after(state: &StateDir, ceiling: usize, went: Went) {
         after: went,
         at: SystemClock::new().now().as_str().to_string(),
     };
-    let _ = codec::write(&path(state), &size);
+    let held = Held {
+        ceiling: Some(ceiling),
+        last: Some(size),
+    };
+    let _ = codec::write(&path(state), &held);
 }
 
-/// `taking up to 4 — halved after a red at 14:02 UTC`, for `--status`.
-pub fn describe(state: &StateDir, ceiling: usize) -> String {
-    let Some(held) = read(state) else {
+/// `taking up to 4 — halved after a red at 14:02 UTC`, for `--status`, under
+/// the ceiling the runner recorded, or `unrecorded` where none has.
+pub fn describe(state: &StateDir, unrecorded: usize) -> String {
+    let Held { ceiling, last } = read(state);
+    let ceiling = ceiling.unwrap_or(unrecorded);
+    let Some(held) = last else {
         return format!("taking up to {ceiling} — the ceiling");
     };
     let size = held.size.clamp(1, ceiling);
@@ -93,7 +132,7 @@ pub fn describe(state: &StateDir, ceiling: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{after, current, describe, next, Went};
+    use super::{after, current, describe, next, uses, Went};
     use crate::land::dir::StateDir;
     use crate::tests::TempDir;
 
@@ -116,6 +155,22 @@ mod tests {
         assert_eq!(current(&state, 8), 4);
         assert!(describe(&state, 8).starts_with("taking up to 4 — halved after a red at "));
         assert_eq!(current(&state, 2), 2, "a lowered ceiling holds it");
-        assert!(describe(&state, 2).starts_with("taking up to 2 — the ceiling ARMADA_LAND_BATCH"));
+        uses(&state, 2);
+        assert!(describe(&state, 8).starts_with("taking up to 2 — the ceiling ARMADA_LAND_BATCH"));
+    }
+
+    #[test]
+    fn status_reads_the_ceiling_the_runner_recorded_not_its_own() {
+        let dir = TempDir::new();
+        let state = StateDir::for_testing(dir.path().to_path_buf());
+        assert_eq!(
+            describe(&state, 8),
+            "taking up to 8 — the ceiling",
+            "none recorded yet"
+        );
+        uses(&state, 1);
+        assert_eq!(describe(&state, 8), "taking up to 1 — the ceiling");
+        after(&state, 4, Went::Red);
+        assert!(describe(&state, 8).starts_with("taking up to 2 — halved after a red at "));
     }
 }

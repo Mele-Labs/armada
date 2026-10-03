@@ -24,12 +24,12 @@ use crate::clean::{clean, CleanRefused, FileGone, RecordOutcome, Scope};
 use crate::serve::STORE_FILE;
 use crate::tests::TempDir;
 
-const MANIFEST_ID: &str = "a-test-project";
-const JOB: &str = "01K3Q4R5S6T7V8W9X0Y1Z2A3B4";
-const OTHER_JOB: &str = "01K3Q4R5S6T7V8W9X0Y1Z2C5D6";
+pub(super) const MANIFEST_ID: &str = "a-test-project";
+pub(super) const JOB: &str = "01K3Q4R5S6T7V8W9X0Y1Z2A3B4";
+pub(super) const OTHER_JOB: &str = "01K3Q4R5S6T7V8W9X0Y1Z2C5D6";
 
 /// A git repository with one commit and an `armada.yml` naming [`MANIFEST_ID`].
-fn a_repository() -> TempDir {
+pub(super) fn a_repository() -> TempDir {
     let dir = TempDir::new();
     dir.write(
         "armada.yml",
@@ -58,7 +58,7 @@ fn a_repository() -> TempDir {
     dir
 }
 
-fn git(at: &Path, args: &[&str]) -> String {
+pub(super) fn git(at: &Path, args: &[&str]) -> String {
     let run = Command::new("git")
         .arg("-C")
         .arg(at)
@@ -69,7 +69,7 @@ fn git(at: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&run.stdout).into_owned()
 }
 
-fn branches(at: &Path) -> Vec<String> {
+pub(super) fn branches(at: &Path) -> Vec<String> {
     git(at, &["branch", "--format=%(refname:short)"])
         .lines()
         .map(str::to_string)
@@ -87,11 +87,11 @@ fn a_job_with_a_worktree(machine: &Path, repo: &Path, job: &str, manifest: &str)
         .expect("the job is stored");
 }
 
-fn at() -> Timestamp {
+pub(super) fn at() -> Timestamp {
     Timestamp::from_rfc3339("2026-08-26T09:00:00.000Z")
 }
 
-fn a_job(id: &str, manifest: &str) -> Job {
+pub(super) fn a_job(id: &str, manifest: &str) -> Job {
     Job::create_top_level(
         NewJob {
             id: JobId::carried(Ulid::carried(id)),
