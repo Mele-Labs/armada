@@ -107,9 +107,24 @@ pub trait Commands: Send + Sync + 'static {
     /// **What comes back is `queued`, not `running`.** The dispatch is a
     /// turn's, because one inside this request died whenever a client stopped
     /// waiting for it — `fleet::daemon::Fleet::approve` and `#428`.
+    ///
+    /// **`left` is the proposal as the person left it** (#1641, since 23.8):
+    /// its words, workflow, gates, criteria, tiers, Drone cap and landing,
+    /// kept whole or refused whole. `None` approves it as it stands.
     fn approve_dispatch(
         self: std::sync::Arc<Self>,
         job_id: JobId,
+        left: Option<ipc::ApproveDispatch>,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `edit_job` — a proposal's title, facts or criteria, saved without
+    /// releasing it (#1699's route). [`Refusal::IllegalMove`] on a Job past
+    /// `awaiting_approval`; [`Refusal::Unacceptable`] on a body changing
+    /// nothing, or naming a criterion the Job does not hold.
+    fn edit_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        edit: ipc::EditJob,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `kill_drone` — kills a Drone, captures learnings, holds the worktree.

@@ -1,6 +1,6 @@
 # Workflow
 
-**What it is:** The template a Job runs against: an ordered or loop-capable set of steps, each carrying its mechanical checks, Judge checks, evidence scope, advance gate and retry/iteration policy. Referenced by `workflow_id` and frozen into the Job at creation, so the yardstick cannot move under the work.
+**What it is:** The template a Job runs against: an ordered or loop-capable set of steps, each carrying its mechanical checks, Judge checks, evidence scope, advance gate and retry/iteration policy. Referenced by `workflow_id` and frozen into the Job at the approval press, so the yardstick cannot move under the work.
 
 ---
 
@@ -18,7 +18,7 @@ The system below enforces that principle mechanically wherever possible, and che
 
 Every workflow is a `WorkflowDef`: an ordered (or loop-capable) set of steps.
 
-**The resolved `WorkflowDef` is frozen into the Job at creation** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
+**The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
 
 **The full field-by-field schema is `crates/core-model/domain/workflowdef-fields.toml`.** It carries every top-level field and every field nested under `steps[]`, with its type, whether it is required and the reasoning behind it. One row per field, nested the way the schema nests: the top-level rows are the `WorkflowDef`'s own fields, and everything under `steps[]` is a field of a step.
 
@@ -38,7 +38,7 @@ Every workflow is a `WorkflowDef`: an ordered (or loop-capable) set of steps.
 
 **Fleet's own look is not one of the boxes and cannot be turned off.** The drift check against the step's declared paths, and the gaming look over its evidence, run whatever is set — `crates/fleet/src/gate.rs`. A step with nothing ticked is still refused for work that went outside what the plan declared.
 
-**The settings freeze at approval, with the workflow.** Which is the change: the resolved `WorkflowDef` freezes at creation today, so a per-Job gate has nowhere to live — see [Job](job.md), Reading the request is a status, and approval is what locks. Which wins when the repository's own rule changes after a Job froze an override is not settled.
+**The settings freeze at approval, with the workflow** — see [Job](job.md), Reading the request is a status, and approval is what locks. A box can take a declaration away and never add one: unticked Checks drop the repository's Checks the step named, and an unticked Judge drops what it would read. **An override of the repository's rule holds for the life of the Job, however the rule moves** (the owner's call of 1 Oct 2026, spike 022 answer 4): the step keeps deferring on the record, and the override is laid over the repository's word at every gate, so the Record shows what each gate read.
 
 **Not all workflows are linear.** Coding workflows (Feature, Bug, Refactor) are a fixed sequence. Planning/exploratory workflows (Design Plan, Investigation) are draft↔feedback loops that repeat until converged or capped.
 
@@ -69,7 +69,7 @@ A live mismatch does not auto-fail, because legitimate investigation sometimes r
 **You do not have to pick.** A Job can be dispatched from a prompt or a link to a ticket, and the [Job proposer](job-proposer.md) reads that request and proposes which workflow the work should run under. 
 Picking one by hand stays available and is the override, not the path. That document owns the call.
 
-**What is proposed is not what is stored.** The resolved `WorkflowDef` is frozen into the Job at creation, as above. The proposal chooses which one; freezing is what stops it moving afterwards, so a workflow edited in the repo between the proposal and the dispatch reaches no Job already created against it.
+**What is proposed is not what is stored.** The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press, as above. The proposal chooses which one and a person may choose another before the press; freezing is what stops it moving afterwards, so a workflow edited in the repo after the copy reaches no Job already holding one.
 
 ### Where a definition comes from
 
@@ -89,7 +89,7 @@ Picking one by hand stays available and is the override, not the path. That docu
 
 **The full workflow catalogue is `crates/core-model/domain/workflows.toml`**, one row per workflow shape — the shape, gate profile and status, including policy variants and workflows still needing a step list, so there is one list rather than three. The instantiated `WorkflowDef` sits beside it as JSON in `crates/core-model/domain/workflow-samples/`, where a sample exists.
 
-A Job instance references `workflow_id` and carries its own `status`, `current_step`, `retry_count` and `iteration_count` per step, `acceptance_criteria[]` (frozen at Job creation), `facts[]` (append-only), and `escalations[]` (using the trigger taxonomy below). A `WorkflowDef` is the template; the Job is the running instance against it. Those counters live in `job_steps`, one row per step, on [Job](job.md).
+A Job instance references `workflow_id` and carries its own `status`, `current_step`, `retry_count` and `iteration_count` per step, `acceptance_criteria[]` (frozen at the approval press), `facts[]` (append-only once approved), and `escalations[]` (using the trigger taxonomy below). A `WorkflowDef` is the template; the Job is the running instance against it. Those counters live in `job_steps`, one row per step, on [Job](job.md).
 
 ### The plan step
 

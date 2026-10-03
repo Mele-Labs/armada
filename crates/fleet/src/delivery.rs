@@ -119,7 +119,7 @@ where
         job_id: &core_model::JobId,
         worktree: &Worktree,
     ) -> Result<Option<TheBaseMoved>, Adrift> {
-        let Some(base) = self.the_base(job_id, worktree)? else {
+        let Some(base) = self.the_base(job_id, worktree).await? else {
             return Ok(None);
         };
         if self.behind(job_id, worktree, &base)? == 0 {
@@ -168,7 +168,7 @@ where
     ) -> Result<Delivered, Adrift> {
         let job_id = job.id().clone();
         let mut delivered = Delivered {
-            base: self.the_base(&job_id, worktree)?,
+            base: self.the_base(&job_id, worktree).await?,
             ..Delivered::default()
         };
         if let Some(base) = delivered.base.clone() {
@@ -220,7 +220,7 @@ where
         job: &Job,
         worktree: &Worktree,
     ) -> Result<Option<Delivered>, Adrift> {
-        if let Some(base) = self.the_base(job.id(), worktree)? {
+        if let Some(base) = self.the_base(job.id(), worktree).await? {
             let ahead = self
                 .vcs()
                 .ahead(worktree, &base)
@@ -263,6 +263,11 @@ where
             .changed_files(worktree)
             .unwrap_or_else(|_| Changed::nothing());
         let (review, structured) = review_of(job, &checks, base, &remote, &changed);
+        // A draft where a person chose one at approval (spike 022, slice 4).
+        let review = match self.landing_of(job.id()).await.pr_mode {
+            core_model::PrMode::Draft => review.as_draft(),
+            core_model::PrMode::Ready => review,
+        };
         let opened = self
             .vcs()
             .open_for_review(worktree, base, &review)
@@ -289,18 +294,20 @@ where
         Ok(opened)
     }
 
-    /// The branch this repository's work merges into.
+    /// The branch this Job's work merges into: the target a person chose at
+    /// approval (spike 022, slice 4), else the Manifest's `base:`.
     ///
-    /// The Manifest's `base:` is handed down; **inference is what the adapter
-    /// does when nothing was declared**, so the fallback lives beside the
-    /// repository it is reading rather than here.
-    fn the_base(
+    /// **Inference is what the adapter does when nothing was declared**, so
+    /// the fallback lives beside the repository it is reading rather than here.
+    async fn the_base(
         &self,
         job_id: &core_model::JobId,
         worktree: &Worktree,
     ) -> Result<Option<Base>, Adrift> {
+        let served = self.served_by_id(job_id)?;
+        let target = self.target_of(&served, job_id).await;
         self.vcs()
-            .base(worktree, self.served_by_id(job_id)?.manifest().base())
+            .base(worktree, target.as_deref())
             .map_err(|why| Adrift::from_delivery(job_id, why))
     }
 
@@ -362,7 +369,7 @@ where
             .await
             .step_checks(job.id())
             .map_err(Adrift::Reading)?;
-        let base = self.the_base(job.id(), worktree)?;
+        let base = self.the_base(job.id(), worktree).await?;
         let remote = match &base {
             Some(base) => Some(
                 self.vcs()

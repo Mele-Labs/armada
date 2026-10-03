@@ -24,7 +24,7 @@ import type { FileReport } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJobAsSent, EditTask, MovePlan } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
@@ -143,7 +143,7 @@ const api: BridgeApi = {
   approveWave: (jobId: string, wave: ApproveWave): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.approveWave, jobId, wave),
 
-  editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
+  editJob: (jobId: string, edit: EditJobAsSent): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
 
   // The disk, never the record — every row this reaches stays on the board,

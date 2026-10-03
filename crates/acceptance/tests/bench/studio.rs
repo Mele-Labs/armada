@@ -68,6 +68,7 @@ pub fn received_request(draft: &str) -> JobRequest {
         request: draft.to_string(),
         client_ref: None,
         attachments: Vec::new(),
+        settings: None,
     };
     let body = ipc::encode(&sent).expect("a request that serialises");
     ipc::decode("a Job request", body.as_bytes()).expect("a request that reads back")

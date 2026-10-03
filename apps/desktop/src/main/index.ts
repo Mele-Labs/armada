@@ -8,7 +8,7 @@ import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { AddTask, ApproveWave, DropTask, EditJobAsSent, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type {
   Artifact,
   CommandAnswer,
@@ -515,7 +515,7 @@ void app.whenReady().then(() => {
     connection?.commands.approveWave(jobId, wave),
   );
   // One Job of an Epic's proposed wave, edited before the wave is approved — #1699.
-  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
+  ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJobAsSent) =>
     connection?.commands.editJob(jobId, edit),
   );
   // The disk rather than the record, and the one act here `armada clean` could

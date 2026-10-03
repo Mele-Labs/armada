@@ -159,6 +159,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/manifest/edit", post(edit_manifest::<D>))
         .route("/manifest/files", get(search_files::<D>))
         .route(
+            "/manifest/branches",
+            get(crate::queries::list_branches::<D>),
+        )
+        .route(
             "/manifest/allowed_commands",
             get(get_repository_allowed_commands::<D>),
         )
@@ -269,6 +273,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/approve_dispatch",
             post(approve_dispatch::<D>),
         )
+        .route("/jobs/:job_id/edit", post(crate::commands::edit_job::<D>))
         .route("/jobs/:job_id/raise_cost_cap", post(raise_cost_cap::<D>))
         .route("/jobs/:job_id/raise_turn_cap", post(raise_turn_cap::<D>))
         .route("/jobs/:job_id/kill_drone", post(kill_drone::<D>))

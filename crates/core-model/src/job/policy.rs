@@ -208,6 +208,34 @@ pub struct ResolvedPolicies {
     pub decided: bool,
 }
 
+/// What one Job's approval said in place of the repository, policy by policy.
+/// Spike 022, slice 4.
+///
+/// **It wins for the life of the Job, however the repository's rule moves**
+/// (answer 4, the owner's call of 1 Oct 2026). Not a fourth Manifest in the
+/// most-restrictive fold: the override is a person's explicit choice about one
+/// Job, and folding it would let a stricter file undo it. `fleet::policy`
+/// applies it after the fold, so `ResolvedPolicies` on every run says what the
+/// gate read — the override, where there is one.
+///
+/// **`None` is the repository deciding**, which is every Job nobody overrode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PolicyOverrides {
+    pub auto_merge: Option<AutoMerge>,
+    pub review_gate: Option<ReviewGate>,
+}
+
+impl PolicyOverrides {
+    /// Nothing overridden.
+    pub fn none() -> PolicyOverrides {
+        PolicyOverrides::default()
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.auto_merge.is_none() && self.review_gate.is_none()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

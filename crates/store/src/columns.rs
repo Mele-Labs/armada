@@ -24,9 +24,10 @@
 //! quietly missing it, which is the failure the version number exists for.
 
 use core_model::{
-    AcceptanceCriterion, Actor, Citation, CriteriaOwed, CriterionId, CriterionSource,
-    DependencyDirection, DependencyEdge, EscalationTrigger, Given, JobId, PilotReason, RepoPath,
-    ScopeRevision, ScopeRevisionOutcome, StepId, Timestamp, TransitionReason, Ulid,
+    AcceptanceCriterion, Actor, Citation, CriteriaOwed, CriterionId, CriterionOrigin,
+    CriterionSource, DependencyDirection, DependencyEdge, EscalationTrigger, Given, JobId,
+    PilotReason, RepoPath, ScopeRevision, ScopeRevisionOutcome, StepId, Timestamp,
+    TransitionReason, Ulid,
 };
 use serde_json::{json, Map, Value};
 
@@ -108,6 +109,7 @@ pub fn write_acceptance_criteria(criteria: &[AcceptanceCriterion]) -> String {
                 "criterion_id": criterion.criterion_id.as_str(),
                 "text": criterion.text,
                 "source": criterion.source.as_wire(),
+                "origin": criterion.origin.as_wire(),
             })
         })
         .collect();
@@ -120,11 +122,24 @@ pub fn read_acceptance_criteria(stored: &str) -> Result<Vec<AcceptanceCriterion>
         .map(|entry| {
             let entry = object(entry)?;
             let source = text(entry, "source")?;
+            // **The one field here read where it is absent**, and not as a
+            // default: a criterion kept before V98 recorded no origin, and
+            // `unsaid` is the variant whose meaning is exactly that. A
+            // spelling outside the set is still malformed.
+            let origin = match entry.get("origin") {
+                None => CriterionOrigin::Unsaid,
+                Some(_) => {
+                    let origin = text(entry, "origin")?;
+                    CriterionOrigin::from_wire(&origin)
+                        .ok_or_else(|| format!("`origin` holds `{origin}`"))?
+                }
+            };
             Ok(AcceptanceCriterion {
                 criterion_id: CriterionId::new(text(entry, "criterion_id")?),
                 text: text(entry, "text")?,
                 source: CriterionSource::from_wire(&source)
                     .ok_or_else(|| format!("`source` holds `{source}`"))?,
+                origin,
             })
         })
         .collect()
