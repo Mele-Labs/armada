@@ -18,7 +18,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, JobId};
+use crate::ids::{DroneId, Instant, JobId};
 use crate::journal::NotedField;
 
 /// What Fleet recorded for this Job's Drone, and what is at that pid now.
@@ -72,9 +72,16 @@ pub struct JobProcess {
     /// `1-04:22:15`. Opaque, rendered, never parsed: it is a fact about a
     /// process rather than an instant to do arithmetic on.
     pub running_for: String,
-    /// Whether this is the process Fleet recorded, rather than something
-    /// descended from it. Exactly one row carries `true` where any does.
+    /// Whether this is a process Fleet recorded, a Drone itself, rather than
+    /// something descended from one. **One row per live Drone carries
+    /// `true`** — since 23.9 a Job may run several at once, and *Drones
+    /// running* is how many rows do.
     pub recorded: bool,
+    /// The Drone whose process this is, or whose process started it. Absent
+    /// from a Fleet older than 23.9, and where Fleet recorded the process
+    /// under no Drone it can name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone_id: Option<DroneId>,
 }
 
 /// The Job's checkout, and what it has taken.
@@ -115,7 +122,8 @@ pub struct JobResources {
     /// without its instant is claiming it is current.
     pub read_at: Instant,
     pub held: Held,
-    /// The recorded process and everything descended from it, that one first.
+    /// Each live Drone's process and everything descended from it, the Job's
+    /// kept Drone first, then each Drone it runs beside that one.
     ///
     /// **Empty is loud.** A Job whose `held` is `running` and whose list is
     /// empty is a process that answered a liveness probe and holds nothing —

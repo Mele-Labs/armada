@@ -65,7 +65,10 @@ async fn heard(watch: &mut api::Watch) -> (String, String) {
     let Saw::Said { text } = &row.saw else {
         panic!("prose");
     };
-    let by = row.drone_id.map(|id| id.as_str().to_string()).unwrap_or_default();
+    let by = row
+        .drone_id
+        .map(|id| id.as_str().to_string())
+        .unwrap_or_default();
     (by, text.clone())
 }
 
@@ -116,8 +119,7 @@ async fn tasks_marked_safe_together_run_at_once_one_can_be_stopped_and_an_overla
     let first = tasking::next_task_beside(&plan, &runs, &[]).expect("G1 has a task open");
     assert_eq!(first.id(), task("T1"));
     plan = planned.marked(tasking::started(task("T1")), "implement", 1);
-    let second =
-        tasking::next_task_beside(&plan, &runs, &[task("T1")]).expect("T2 runs beside T1");
+    let second = tasking::next_task_beside(&plan, &runs, &[task("T1")]).expect("T2 runs beside T1");
     assert_eq!(second.id(), task("T2"), "the task marked safe beside T1");
     plan = planned.marked(tasking::started(task("T2")), "implement", 1);
     assert!(
@@ -201,7 +203,10 @@ async fn tasks_marked_safe_together_run_at_once_one_can_be_stopped_and_an_overla
 
     // ------------------- message or stop one Drone: routes that name a Drone
     for (operation, path) in [
-        ("redirect_one_drone", "/jobs/:job_id/drones/:drone_id/redirect"),
+        (
+            "redirect_one_drone",
+            "/jobs/:job_id/drones/:drone_id/redirect",
+        ),
         ("kill_one_drone", "/jobs/:job_id/drones/:drone_id/kill"),
     ] {
         assert!(
@@ -229,7 +234,7 @@ async fn tasks_marked_safe_together_run_at_once_one_can_be_stopped_and_an_overla
     );
 
     // --------------------------------- two at once wrote one file: no commit
-    plan = planned.marked(tasking::handed_in(task("T1"), "the diff"), "implement", 1);
+    planned.marked(tasking::handed_in(task("T1"), "the diff"), "implement", 1);
     plan = planned.marked(tasking::handed_in(task("T2"), "the diff"), "implement", 1);
     let wrote = [
         edited("T1", 1, 10, 30, &["crates/store/src/read.rs"]),
@@ -263,6 +268,7 @@ async fn tasks_marked_safe_together_run_at_once_one_can_be_stopped_and_an_overla
     );
     let again = tasking::next_task_beside(&plan, &runs, &[]).expect("T1 runs again");
     assert_eq!(again.id(), task("T1"));
+    plan = planned.marked(tasking::started(task("T1")), "implement", 1);
     assert!(
         tasking::next_task_beside(&plan, &runs, &[task("T1")]).is_none(),
         "and T2 waits for it: the two run one after the other"

@@ -27,7 +27,7 @@
 use std::collections::BTreeMap;
 
 use api::Caller;
-use core_model::JobId;
+use core_model::{DroneId, JobId, TaskId};
 
 /// Why a call could not be attributed to a Drone.
 ///
@@ -63,25 +63,92 @@ impl std::error::Error for NotACaller {}
 /// puts a row in, the departure takes it out — so the two cannot drift without
 /// a departure having gone unrecorded, which `crate::boundary` already refuses
 /// to let happen quietly.
+///
+/// **A Job's kept Drone, and each Drone beside it** (spike 022, slice 5): a
+/// call from one beside the kept Drone is placed on its Job *and* named, so
+/// its tool calls reach its own slot.
 #[derive(Debug, Default)]
-pub struct Drones(BTreeMap<JobId, u32>);
+pub struct Drones {
+    kept: BTreeMap<JobId, u32>,
+    crew: BTreeMap<DroneId, (JobId, u32)>,
+    /// The task each live task Drone is on, the kept one's included.
+    tasks: BTreeMap<JobId, BTreeMap<DroneId, TaskId>>,
+    /// Tasks a Drone beside the kept one did not hand in, which the kept
+    /// Drone takes rather than another beside it.
+    kept_only: std::collections::BTreeSet<(JobId, TaskId)>,
+}
 
 impl Drones {
     /// A Drone started on this Job, as this process.
     pub fn arrived(&mut self, job: &JobId, pid: u32) {
-        self.0.insert(job.clone(), pid);
+        self.kept.insert(job.clone(), pid);
     }
 
-    /// The Drone on this Job has gone.
+    /// The kept Drone on this Job has gone, and the task it was on is free.
     pub fn left(&mut self, job: &JobId) {
-        self.0.remove(job);
+        self.kept.remove(job);
+        if let Some(tasks) = self.tasks.get_mut(job) {
+            let crew = &self.crew;
+            tasks.retain(|drone, _| crew.contains_key(drone));
+        }
     }
 
-    /// Every Drone this Fleet is holding, as pid and Job.
+    /// A Drone started beside this Job's kept one, as this process.
+    pub fn joined(&mut self, job: &JobId, drone: &DroneId, pid: u32) {
+        self.crew.insert(drone.clone(), (job.clone(), pid));
+    }
+
+    /// A Drone beside a Job's kept one has gone.
+    pub fn parted(&mut self, job: &JobId, drone: &DroneId) {
+        self.crew.remove(drone);
+        if let Some(tasks) = self.tasks.get_mut(job) {
+            tasks.remove(drone);
+        }
+    }
+
+    /// This Drone of this Job is on this task.
+    pub fn on_task(&mut self, job: &JobId, drone: &DroneId, task: TaskId) {
+        self.tasks
+            .entry(job.clone())
+            .or_default()
+            .insert(drone.clone(), task);
+    }
+
+    /// This task waits for the Job's kept Drone.
+    pub fn leave_for_kept(&mut self, job: &JobId, task: TaskId) {
+        self.kept_only.insert((job.clone(), task));
+    }
+
+    /// Whether this task waits for the Job's kept Drone.
+    pub fn left_for_kept(&self, job: &JobId, task: TaskId) -> bool {
+        self.kept_only.contains(&(job.clone(), task))
+    }
+
+    /// Every task a live Drone of this Job is on.
+    pub fn live_tasks(&self, job: &JobId) -> Vec<TaskId> {
+        self.tasks
+            .get(job)
+            .map_or_else(Vec::new, |tasks| tasks.values().copied().collect())
+    }
+
+    /// The task a live Drone of this Job is on.
+    pub fn task_of(&self, job: &JobId, drone: &DroneId) -> Option<TaskId> {
+        self.tasks.get(job)?.get(drone).copied()
+    }
+
+    /// Every kept Drone this Fleet is holding, as pid and Job.
     pub fn each(&self) -> Vec<(JobId, u32)> {
-        self.0
+        self.kept
             .iter()
             .map(|(job, pid)| (job.clone(), *pid))
+            .collect()
+    }
+
+    /// Every Drone beside a kept one, as Job, Drone and pid.
+    pub fn crew(&self) -> Vec<(JobId, DroneId, u32)> {
+        self.crew
+            .iter()
+            .map(|(drone, (job, pid))| (job.clone(), drone.clone(), *pid))
             .collect()
     }
 }

@@ -683,6 +683,44 @@ where
         self.summarised(&job).await
     }
 
+    /// One Drone of the Job, by id: `crate::one_drone`.
+    async fn kill_one_drone(
+        self: Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+    ) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            let drone = drone_id.to_domain();
+            async move { Fleet::kill_one_drone(&fleet, &job_id.to_domain(), &drone).await }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    /// Words to one Drone of the Job, by id: `crate::one_drone`.
+    async fn redirect_one_drone(
+        self: Arc<Self>,
+        job_id: JobId,
+        drone_id: ipc::DroneId,
+        instruction: Redirection,
+        by: api::Redirector,
+    ) -> Result<JobSummary, Refusal> {
+        let said = Instruction::saying(&instruction.instruction)
+            .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            let drone = drone_id.to_domain();
+            async move {
+                Fleet::redirect_one_drone(&fleet, &job_id.to_domain(), &drone, &said, by).await
+            }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// One process and what it started; the Drone's own pid is `kill_drone`.
     async fn kill_process(self: Arc<Self>, job_id: JobId, pid: u32) -> Result<JobSummary, Refusal> {
         let job = budgeted_for(self.command_budget(), job_id.clone(), {

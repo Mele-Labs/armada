@@ -76,7 +76,7 @@ where
             .group_runs_of(&job)
             .await
             .map_err(|why| self.refusal(why))?;
-        Ok(ipc::WorkPlan::of(&plan, &runs))
+        Ok(self.served_plan(&job, &plan, &runs).await)
     }
 
     /// Set the Job's tier map, from Bridge, and answer with the Job.

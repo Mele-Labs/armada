@@ -559,7 +559,9 @@ pub struct Closed {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Silence {
-    /// The Drone that was writing has finished. The history is complete.
+    /// The Job stopped writing: every Drone it had has finished and its
+    /// channel closed (since 23.9; before, the one Drone writing had). The
+    /// history is complete.
     DroneEnded,
     /// Nothing was writing when this opened, so the history is all there is.
     NothingWriting,

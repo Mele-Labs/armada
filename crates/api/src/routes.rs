@@ -280,6 +280,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/kill_job", post(kill_job::<D>))
         .route("/jobs/:job_id/processes/:pid/kill", post(kill_process::<D>))
         .route("/jobs/:job_id/processes/kill", post(kill_processes::<D>))
+        .route(
+            "/jobs/:job_id/drones/:drone_id/kill",
+            post(crate::one_drone::kill_one_drone::<D>),
+        )
+        .route(
+            "/jobs/:job_id/drones/:drone_id/redirect",
+            post(crate::one_drone::redirect_one_drone::<D>),
+        )
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",

@@ -11,6 +11,9 @@
 //!   stays for the outcome, as a step retry is one Drone today.
 //! - **Since slice 2 that is per group**: the group's last hand-in fills it,
 //!   and `crate::grouping` decides what its gate leads to.
+//! - **Since slice 5 tasks marked safe together run at once**, beside the
+//!   kept Drone (`crate::crew`), and the join reads their edit calls first
+//!   (`crate::edit_calls`).
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
@@ -40,9 +43,30 @@ pub use crate::grouping::{
 /// `None` once that group's tasks are all handed in, done, failed or dropped,
 /// which is when the group's gate fires.
 pub fn next_task<'p>(plan: &'p WorkPlan, runs: &GroupRuns) -> Option<&'p PlanTask> {
+    next_task_beside(plan, runs, &[])
+}
+
+/// [`next_task`], beside the tasks live Drones are on: one of none of them,
+/// safe to run with each that is still working. Slice 5.
+pub fn next_task_beside<'p>(
+    plan: &'p WorkPlan,
+    runs: &GroupRuns,
+    live: &[TaskId],
+) -> Option<&'p PlanTask> {
     let group = current_group(plan, runs)?;
+    let working: Vec<TaskId> = live
+        .iter()
+        .copied()
+        .filter(|id| plan.task(*id).map(PlanTask::state) == Some(TaskState::Working))
+        .collect();
     plan.tasks_in(group)
-        .find(|task| matches!(task.state(), TaskState::Open | TaskState::Working))
+        .filter(|task| matches!(task.state(), TaskState::Open | TaskState::Working))
+        .filter(|task| !live.contains(&task.id()))
+        .find(|task| {
+            working
+                .iter()
+                .all(|other| runs.together(plan, task.id(), *other))
+        })
 }
 
 /// What Fleet appends when a task's Drone is spawned.
@@ -177,7 +201,8 @@ where
             return Ok(None);
         };
         let runs = self.group_runs_of(job.id()).await?;
-        let task = next_task(&plan, &runs).cloned();
+        let live = self.live_tasks(job.id());
+        let task = next_task_beside(&plan, &runs, &live).cloned();
         Ok(task.map(|task| (plan, task)))
     }
 
@@ -201,6 +226,7 @@ where
                 .map_err(Adrift::Writing)?;
             plan
         };
+        self.drone_on_task(job.id(), drone, task);
         self.task_moved(job.id(), &plan, task, &at);
         // Fleet stamps the group's start at its first task's spawn.
         if let Some(group) = plan.task(task).map(PlanTask::group) {
@@ -232,6 +258,9 @@ where
             call.not_claimed,
         )
         .map_err(NotSubmitted::Malformed)?;
+        self.kept_edits(at_work, &at)
+            .await
+            .map_err(|why| NotSubmitted::NotKept(why.to_string()))?;
         let (plan, hand_ins) = self
             .kept_hand_in(&job, &step, &drone, task, call, &at)
             .await
@@ -242,6 +271,14 @@ where
             .group_runs_of(&job)
             .await
             .map_err(|why| NotSubmitted::NotKept(why.to_string()))?;
+        if together(&plan, &runs, &hand_ins).is_some()
+            && self
+                .ran_apart(&job, &step, &plan, &runs, &at)
+                .await
+                .map_err(|why| NotSubmitted::NotKept(why.to_string()))?
+        {
+            return Ok(Recorded);
+        }
         let Some(together) = together(&plan, &runs, &hand_ins) else {
             return Ok(Recorded);
         };
@@ -340,6 +377,18 @@ where
             return Ok(());
         };
         if !self.between_tasks(at_work).await? {
+            return Ok(());
+        }
+        // A task left may be one a Drone beside this one is on, or one not
+        // safe beside it: then this Drone waits rather than taking the step.
+        let job = self.load(&at_work.standing().0).await?;
+        let mut live = self.live_tasks(job.id());
+        live.retain(|task| Some(*task) != at_work.task());
+        let Some(plan) = self.plan_of(job.id()).await? else {
+            return Ok(());
+        };
+        let runs = self.group_runs_of(job.id()).await?;
+        if next_task_beside(&plan, &runs, &live).is_none() {
             return Ok(());
         }
         self.put_next_task_drone(working).await
