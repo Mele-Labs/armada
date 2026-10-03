@@ -352,6 +352,7 @@ worktrees a repository leases*.
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
+| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
