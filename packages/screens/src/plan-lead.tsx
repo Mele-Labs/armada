@@ -7,12 +7,22 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { Button, Card, CardContent, Skeleton, SkeletonText, Textarea } from "@armada/components";
+import {
+  Button,
+  Card,
+  CardContent,
+  CriterionMovedMark,
+  CriterionOriginMark,
+  Skeleton,
+  SkeletonText,
+  Textarea,
+} from "@armada/components";
 
 import type { JobDetail as JobWhole, JobSummary, JudgeAnswer, StepDetail } from "@armada/protocol";
 
 import { Eyebrow } from "./regions";
-import { decidedSaidOf, originLineOf } from "./draft/criterion";
+import { decidedSaidOf, originSaidOf } from "./draft/criterion";
+import { absoluteOf } from "./duration";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import type { ActingAct } from "./pending";
 import type { CriterionView } from "./draft/criterion";
@@ -51,17 +61,29 @@ export type PlanGateProps = {
 };
 
 /**
- * Where a criterion's words came from, and what will decide it.
+ * Where a criterion's words came from, as its mark and the issue's reference,
+ * the issue having moved since Fleet read it, and what will decide it.
  *
- * **Both halves are `draft/criterion.ts`'s, not spelled again here.** This
- * file was written while the same sentence was being fixed on `main`, and
- * carried the old spelling with it when the card moved off the foot of the
- * tab — `answered by the check`, which the owner called useless and
- * confusing on 28 Sep. A second copy is how it came back the first time.
+ * **Every half is `draft/criterion.ts`'s or a component's, not spelled again
+ * here.** This file was written while the same sentence was being fixed on
+ * `main`, and carried the old spelling with it when the card moved off the
+ * foot of the tab — `answered by the check`, which the owner called useless
+ * and confusing on 28 Sep. A second copy is how it came back the first time.
  */
-function originSaid(criterion: CriterionView): string {
-  const from = originLineOf(criterion);
-  return from === undefined ? decidedSaidOf(criterion) : `${from} · ${decidedSaidOf(criterion)}`;
+function OriginLine({ criterion }: { criterion: CriterionView }) {
+  const from = originSaidOf(criterion);
+  const moved = criterion.origin_moved_at === undefined ? null : absoluteOf(criterion.origin_moved_at);
+  return (
+    <span className="armada-plan-tab__criterion-origin">
+      {from === undefined ? null : <CriterionOriginMark origin={from.kind} />}
+      {from?.issue === undefined ? null : <span className="mono">{from.issue.ref}</span>}
+      {/* The Job keeps the words it was given and says the issue has moved
+          since — `#1530`, 22 Sep. It never re-reads them. */}
+      {moved === null ? null : <CriterionMovedMark at={moved} />}
+      {from === undefined ? null : <span aria-hidden="true">·</span>}
+      <span>{decidedSaidOf(criterion)}</span>
+    </span>
+  );
 }
 
 /**
@@ -245,14 +267,7 @@ export function PlanLead({ criteria, gate, reading = false }: PlanLeadProps) {
             {criteria.map((criterion, at) => (
               <li key={criterion.criterion_id ?? at}>
                 <span className="armada-plan-tab__criterion-text">{criterion.text}</span>
-                <span className="armada-plan-tab__criterion-origin">{originSaid(criterion)}</span>
-                {/* The Job keeps the words it froze and says the issue has
-                    moved since — `#1530`, 22 Sep. It never re-reads them. */}
-                {criterion.origin_moved_at === undefined ? null : (
-                  <span className="armada-plan-tab__criterion-moved">
-                    The issue has been edited since these words were frozen.
-                  </span>
-                )}
+                <OriginLine criterion={criterion} />
               </li>
             ))}
           </ul>

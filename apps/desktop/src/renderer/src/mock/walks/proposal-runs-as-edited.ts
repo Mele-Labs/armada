@@ -11,7 +11,7 @@ const LANDS_IN = inside(APPROVING, role("combobox", "Lands in"));
 export const proposalRunsAsEdited = walk("real/proposal-from-an-issue", [
   { look: APPROVING, say: "The proposal Fleet served, under the lead, yours to change" },
   { look: inside(DONE_WHEN, text("armada#1162")), say: "Two criteria came from the issue" },
-  { look: inside(DONE_WHEN, role("note")), say: "and the issue was edited after Fleet read it" },
+  { look: inside(DONE_WHEN, role("img", "The issue has been edited since Fleet read it")), say: "and the issue was edited after Fleet read it" },
   {
     type: "Retire guide 8, and refuse a guide with no drawn pieces",
     into: inside(APPROVING, role("textbox", "Title", { exact: true })),

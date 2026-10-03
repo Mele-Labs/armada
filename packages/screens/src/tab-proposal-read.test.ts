@@ -183,10 +183,10 @@ describe("what the Job is held to", () => {
   it("says where each line's words came from, apart from what will decide it", () => {
     const rows = criteriaRowsOf(criteria);
 
-    expect(rows[0]?.origin).toBe("From issue");
+    expect(rows[0]?.origin).toBe("issue");
     expect(rows[0]?.issue?.ref).toBe("armada/1162");
     expect(rows[0]?.decidedBy).toBe("A Check will decide it");
-    expect(rows[1]?.origin).toBe("From your prompt");
+    expect(rows[1]?.origin).toBe("prompt");
     expect(rows[1]?.issue).toBeUndefined();
   });
 

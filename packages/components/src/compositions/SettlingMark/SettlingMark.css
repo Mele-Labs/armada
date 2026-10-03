@@ -1,0 +1,25 @@
+/* A field the proposer is still settling: a 12px caret in --fg-muted that
+   blinks at --duration-pulse, on and off with no fade, as a caret does. */
+.armada-settling-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-settling-mark > svg {
+  flex: none;
+  animation: armada-settling-blink var(--duration-pulse) steps(1, end) infinite;
+}
+
+@keyframes armada-settling-blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Held still: the caret in its cell still says the field is unsettled. */
+@media (prefers-reduced-motion: reduce) {
+  .armada-settling-mark > svg {
+    animation: none;
+  }
+}
