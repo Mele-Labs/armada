@@ -465,14 +465,6 @@ export function SketchPad(props: SketchPadProps) {
             <BoxActs picked={picked} onRemove={onRemove} onJoin={onJoin} disabled={disabled} />
           )}
         </GraphCanvas>
-        {/* A blank canvas under the controls says nothing about what it is for,
-            and this is the one moment with no picture to read instead. */}
-        {boxes.length > 0 || strokes.length > 0 || pictures.length > 0 ? null : (
-          <p className="armada-sketch-pad__empty" role="note">
-            Nothing is drawn yet. Add a box and write what it is, join the boxes that feed each
-            other, or draw on the pad by hand.
-          </p>
-        )}
       </div>
       {said === undefined || onSaid === undefined ? null : (
         <Textarea

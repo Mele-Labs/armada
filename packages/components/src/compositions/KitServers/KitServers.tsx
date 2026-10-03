@@ -143,9 +143,7 @@ A server reaches no drone until you allow it — in Kit, for every repository, o
         </Button>
       </form>
 
-      {servers === undefined ? (
-        <p className="armada-kit-servers__reading">Reading your Kit.</p>
-      ) : servers.length === 0 ? (
+      {servers === undefined ? null : servers.length === 0 ? (
         <p className="armada-kit-servers__reading">
           Nothing in your Kit yet. A drone here gets Armada&rsquo;s own tool and nothing else.
         </p>

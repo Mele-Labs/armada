@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { JobDrones, type JobDronesRow } from "./JobDrones";
 
 /**
@@ -83,9 +83,14 @@ export const EveryState: Story = {
   },
 };
 
-/** A filter nothing answers to says so, rather than drawing an empty frame. */
+/** A filter nothing answers to draws nothing under its menu: no table, no sentence. */
 export const NothingUnderTheFilter: Story = {
-  args: { rows: [], filters: FILTERS, filter: "killed", onFilter: fn(), emptyNote: "No Drone under this filter." },
+  args: { rows: [], filters: FILTERS, filter: "killed", onFilter: fn() },
+  play: async ({ canvas }) => {
+    const panel = canvas.getByRole("region", { name: "Drones on this Job" });
+    await expect(within(panel).queryByRole("table")).toBeNull();
+    await expect(within(panel).queryByRole("note")).toBeNull();
+  },
 };
 
 /** A running Drone open in the sheet, following its transcript's tail. */

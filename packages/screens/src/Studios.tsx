@@ -333,11 +333,8 @@ function ListBody({ studios, live, naming, onOpen, onRename }: ListBodyProps) {
       </Alert>
     );
   }
-  // `none` is the frame before the read is asked for, and says what `reading` says.
-  if (studios.state !== "read") return <p className="text-fg-muted">Reading this repository's Studios.</p>;
-  if (studios.list.studios.length === 0) {
-    return <p className="text-fg-muted">No Studios yet. Start one to keep what you work out before it is a Job.</p>;
-  }
+  // Before the read answers, and with none kept, there is nothing to draw: an empty slot stays empty.
+  if (studios.state !== "read" || studios.list.studios.length === 0) return null;
   return (
     <Table className="armada-studio-list">
       <TableHead>
@@ -445,9 +442,7 @@ function OpenedStudio(props: StudiosProps & { open: OpenStudio }) {
         <Alert tone="neutral" title="This Studio was deleted">
           Nothing of it is kept.
         </Alert>
-      ) : (
-        <p className="text-fg-muted">Reading this Studio.</p>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -860,13 +855,7 @@ function Board(props: StudiosProps & { open: OpenStudio; graph: Studio }) {
               />
             </GraphCanvasNodeBar>
           }
-        >
-          {studio.nodes.length === 0 ? (
-            <Card>
-              <CardContent>Nothing on this Studio yet. Add a note, a link or a sketch to start it.</CardContent>
-            </Card>
-          ) : null}
-        </StudioWhiteboard>
+        />
       </div>
       {/* Outside the whiteboard, both of these: React Flow paints its nodes over anything inside
           its own subtree, so a layer drawn in there is read through the Notes it is about. */}

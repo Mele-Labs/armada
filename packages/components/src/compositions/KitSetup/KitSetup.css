@@ -70,8 +70,7 @@
 
 .armada-kit-setup__note,
 .armada-kit-setup__none,
-.armada-kit-setup__not-read,
-.armada-kit-setup__reading {
+.armada-kit-setup__not-read {
   margin: 0;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);

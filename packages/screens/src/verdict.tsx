@@ -285,11 +285,8 @@ export function figuresOf({
       figures.push({ label: "Document", value: basename(kept[0]?.path ?? ""), mono: true });
     }
   } else {
-    figures.push(
-      job.branch === undefined
-        ? { label: "Branch", absent: "No branch yet" }
-        : { label: "Branch", value: job.branch, mono: true },
-    );
+    // No branch yet draws no Branch figure: an empty slot stays empty.
+    if (job.branch !== undefined) figures.push({ label: "Branch", value: job.branch, mono: true });
     const files = filesCountOf(diff, job.id);
     if (files !== undefined) figures.push({ label: "Files", value: String(files), mono: true });
   }

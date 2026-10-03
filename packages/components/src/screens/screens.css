@@ -1838,6 +1838,48 @@
   text-wrap: pretty;
 }
 
+/* The Job already fixing what failed, named in the line and pressed to open
+   it — #1673. The header's own link (`.armada-job-head__value[data-opens]`):
+   accent at rest, so it is found as a link, and underlined on hover. */
+.armada-lead__opens {
+  font: inherit;
+  padding: 0;
+  border: none;
+  background: none;
+  vertical-align: baseline;
+  color: var(--accent);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.armada-lead__opens:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+/* The Jobs parked on this one's fix, under the line — #1673. The second
+   line's size and tone, the Jobs in a row that wraps. */
+.armada-lead__parked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+.armada-lead__parked > ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* The Drone's question, as the markdown it wrote: the second line's size and
    tone, with Prose's blocks left as blocks. The lead holds no clamp, so a list
    or a code block under the headline reads as the structure it is. */

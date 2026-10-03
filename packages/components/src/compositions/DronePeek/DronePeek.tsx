@@ -32,8 +32,8 @@ export type DronePeekProps = {
   turns: DroneTurn[];
   /** The Drone is writing, so the tail is followed. */
   live: boolean;
-  /** What the transcript says with no rows. */
-  emptyNote: string;
+  /** What the transcript says with no rows. Absent draws nothing. */
+  emptyNote?: string;
   /** Open the whole Drone. Absent draws no Open. */
   onOpen?: () => void;
   /** The message box at the foot. Absent where the Drone cannot be reached. */
@@ -87,7 +87,7 @@ export function DronePeek({
       </div>
       {/* Focusable, so a keyboard can scroll back up the transcript. */}
       <div ref={tail} className="armada-drone-peek__tail" tabIndex={0} aria-label="Transcript">
-        <DroneTurns turns={turns} emptyNote={emptyNote} live={live} steps={false} />
+        <DroneTurns turns={turns} {...(emptyNote === undefined ? {} : { emptyNote })} live={live} steps={false} />
       </div>
       {message === undefined ? null : <DroneMessageBox {...message} />}
     </Card>

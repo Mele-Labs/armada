@@ -240,12 +240,6 @@
   text-decoration: underline;
 }
 
-.armada-members__pr[data-absent="true"] {
-  background: none;
-  font-family: var(--font-sans);
-  color: var(--fg-subtle);
-}
-
 .armada-members__pr-state {
   font-family: var(--font-sans);
 }
@@ -288,12 +282,6 @@
 
 .armada-members__branch:hover {
   color: var(--accent);
-}
-
-.armada-members__branch[data-absent="true"] {
-  font-family: var(--font-sans);
-  color: var(--fg-subtle);
-  cursor: default;
 }
 
 /* The word for the state, ending the row where the bar left off. */

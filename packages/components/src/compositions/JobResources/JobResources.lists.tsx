@@ -133,10 +133,13 @@ export function Processes({
   onKill?: (process: PulseProcessRow) => void;
 }) {
   if (reading.processes.length === 0) {
+    const fault = nothingRunningIsAFault(reading.held, examined);
+    // None held and nothing wrong with that: an empty slot stays empty.
+    if (reading.held === "none" && !fault) return null;
     return (
       <p
         className="armada-holds__nothing"
-        data-loud={nothingRunningIsAFault(reading.held, examined) || undefined}
+        data-loud={fault || undefined}
       >
         {NO_PROCESS[reading.held] ?? unknownHold(reading.held)}
       </p>
@@ -287,9 +290,7 @@ export function Worktrees({
   worktrees: PulseWorktreeRow[];
   onOpen?: (what: Artifact) => void;
 }) {
-  if (worktrees.length === 0) {
-    return <p className="armada-holds__note">No worktree on disk.</p>;
-  }
+  if (worktrees.length === 0) return null;
   return (
     <ul className="armada-holds__rows" data-list="worktrees">
       {worktrees.map((one) => (
@@ -360,9 +361,7 @@ export function Logs({
   viewing?: string;
 }) {
   const shown = member === ANY ? logs : logs.filter((one) => one.owner === member);
-  if (logs.length === 0) {
-    return <p className="armada-holds__note">{NO_LOGS}</p>;
-  }
+  if (logs.length === 0) return null;
   return (
     <ul className="armada-holds__rows" data-list="logs">
       {shown.map((one) => (
@@ -489,9 +488,6 @@ export function BeingWritten() {
     </Tooltip>
   );
 }
-
-/** A Job nothing has written a log for. Not a missing read — there are none. */
-const NO_LOGS = "Nothing has been written to this job's logs.";
 
 /** A log that belongs to the Job rather than to one of its members. */
 const THE_JOBS_OWN = "this job";

@@ -58,7 +58,6 @@ import {
   droneOnTask,
   droneTurnsOf,
   ranForOf,
-  TRANSCRIPT_EMPTY,
   TRANSCRIPT_UNSERVED,
 } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
@@ -493,7 +492,8 @@ export function usePlanReview({
           ...(ran === undefined ? {} : { ranFor: ran }),
           turns: peekTurns,
           live: own.state === "running",
-          emptyNote: own.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
+          // Unserved is a gap worth naming; a Drone that has written nothing yet is not.
+          ...(own.transcript === undefined ? { emptyNote: TRANSCRIPT_UNSERVED } : {}),
           ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
         };
   // **What only a task's own Drone can say: what it is doing, what it last

@@ -17,21 +17,13 @@ export function stillReading(watched: Watched, jobId: string): boolean {
 }
 
 /**
- * Why there is no brief. **Three sentences, and none describes the wire** — a
- * Job that has not arrived, a Job Fleet would not answer for, and a Job nothing
- * has written one for yet, which are three different things to do next.
+ * Why there is no brief, where that is a failure: Fleet would not answer for
+ * the Job. **A Job nothing has written one for yet, and a read still out, say
+ * nothing** — an empty slot stays empty.
  */
-export function whyNoBrief(watched: Watched, jobId: string): string {
+export function whyNoBrief(watched: Watched, jobId: string): string | undefined {
   if (watched.state === "failed" && watched.jobId === jobId) {
     return "Fleet did not answer";
   }
-  // Read, and nothing wrote a brief: the proposer writes it, and the request is
-  // the Job's own title until it does. Saying *reading this job* about a Job
-  // Fleet has already answered for is the one reading that is never true.
-  if (watched.state === "read" && watched.jobId === jobId) {
-    return watched.detail.job.status === "proposing"
-      ? "The proposer has not written one yet. The Job's title is the request as it was sent."
-      : "No brief was written.";
-  }
-  return "Reading this job.";
+  return undefined;
 }

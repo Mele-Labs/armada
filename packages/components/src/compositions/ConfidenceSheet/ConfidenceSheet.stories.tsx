@@ -82,7 +82,7 @@ export const ARemovedTest: Story = {
   },
 };
 
-/** Confident, with nothing for the person: Needs you says so, and the empty sections are left out. */
+/** Confident, with nothing for the person: Needs you draws no sentence, and the empty sections are left out. */
 export const NothingNeedsYou: Story = {
   args: {
     confidence: {
@@ -95,7 +95,7 @@ export const NothingNeedsYou: Story = {
     },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Nothing needs you.")).toBeVisible();
+    await expect(canvas.queryByText("Nothing needs you.")).toBeNull();
     await expect(canvas.queryByRole("button", { name: /Small fixes for a Drone/ })).toBeNull();
     await expect(canvas.queryByRole("note")).toBeNull();
   },
