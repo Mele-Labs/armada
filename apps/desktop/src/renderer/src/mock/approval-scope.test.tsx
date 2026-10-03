@@ -56,12 +56,26 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   // No branch list read for this Job, so the field takes a typed name.
   await expect.element(approving().getByRole("textbox", { name: "Lands in" })).toBeVisible();
 
-  // Between the lead and the Brief.
+  // Straight under the lead.
   const lead = document.querySelector(".armada-lead");
   const region = document.querySelector('[aria-label="What you are approving"]');
-  const brief = document.querySelector('[aria-label="Brief"]');
   expect(lead?.nextElementSibling).toBe(region);
-  expect(region?.compareDocumentPosition(brief as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});
+
+// The owner, 3 Oct 2026: the panel holds the request, editable, so the Brief
+// is not drawn beside it; after the press the Brief reads the approved words.
+test("the Brief is not drawn at the gate, and reads the request as approved after the press", async () => {
+  mount(onJob(proposalFromAnIssue()));
+  const asked = approving().getByRole("textbox", { name: "What was asked" });
+  await expect.element(asked).toBeVisible();
+  expect(page.getByRole("region", { name: "Brief", exact: true }).all()).toHaveLength(0);
+
+  await asked.fill("Retire guide 8 and refuse a guide with no drawn pieces");
+  await page.getByRole("button", { name: "Approve dispatch" }).last().click();
+
+  const brief = page.getByRole("region", { name: "Brief", exact: true });
+  await expect.element(brief).toHaveTextContent("Retire guide 8 and refuse a guide with no drawn pieces");
+  expect(approving().all()).toHaveLength(0);
 });
 
 test("once the Job is running nothing draws: the approval is behind it", async () => {

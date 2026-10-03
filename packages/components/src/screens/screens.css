@@ -1531,6 +1531,12 @@
   grid-column: 1 / -1;
 }
 
+/* At the gate the request is the panel's and the Brief is not drawn, so the
+   Workflow alone spans and the two cards under it pair as they do below it. */
+.armada-overview-board__cards[data-brief="in-panel"] > :nth-child(2) {
+  grid-column: auto;
+}
+
 /* What the lead's Approve dispatch approves: what counts as done beside how
    each step gates, one glass card the width of the lead. The two regions are
    the proposal's own, and Done when's card surface comes off here — the glass

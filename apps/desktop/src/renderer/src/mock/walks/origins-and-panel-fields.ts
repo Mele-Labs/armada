@@ -2,7 +2,8 @@
 // editing the request, the tiers and the Drone cap (2 Oct 2026): a request
 // filling in with its workflow cell blinking, a Job at its gate whose criteria
 // carry each origin's mark and an issue that moved, and that Job edited in the
-// panel, approved, and read back.
+// panel, approved, and read back. No Brief card at the gate, where the panel
+// holds the request; it comes back after the press (the owner, 3 Oct 2026).
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
@@ -37,10 +38,14 @@ export const originsAndPanelFields = walk("origins-and-panel-fields", [
   },
   { hover: inside(DONE_WHEN, role("img", "Written or reworded by a person")), say: "So it carries the person's mark" },
   { type: ASKED, into: inside(APPROVING, role("textbox", "What was asked")), say: "The request, rewritten in the panel" },
+  {
+    look: inside(role("tabpanel", "Overview"), role("region", "Workflow", { exact: true })),
+    say: "Under the panel the cards start at Workflow: no Brief while the panel holds the request",
+  },
   { type: "opus", into: inside(APPROVING, role("combobox", "Difficult")), say: "Difficult work runs on opus" },
   { type: "3", into: inside(APPROVING, role("spinbutton", "Drones at once")), say: "Three Drones at once" },
   { press: button("Approve dispatch"), say: "Approve sends what moved" },
-  { look: text(ASKED), say: "The Job's brief is the request as rewritten" },
+  { look: inside(role("region", "Brief", { exact: true }), text(ASKED)), say: "The Brief is back, with the request as approved" },
   { press: tab("Settings"), say: "What froze at the press" },
   { look: inside(region("Frozen at approval"), text("opus")), say: "Difficult froze to opus" },
   { look: inside(region("Frozen at approval"), text(/^3$/)), say: "and three Drones at once" },
