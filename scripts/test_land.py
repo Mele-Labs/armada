@@ -33,6 +33,8 @@ from hashlib import sha256
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LAND = os.path.join(HERE, "scripts", "land")
 REAL_ARMADA = os.path.join(HERE, "target", "debug", "armada")
+# The states `--status` exits 3 for.
+IN_LINE = ("waiting", "gating", "merging")
 
 
 def setUpModule():
@@ -320,14 +322,28 @@ class LineFixture(unittest.TestCase):
             raise AssertionError(f"land {args} exited {done.returncode}:\n{done.stdout}{done.stderr}")
         return done
 
-    def settle(self, where, branch, timeout=60):
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+    def settle(self, where, branch):
+        """`--status` until `branch` leaves the line. No wall-clock bound: a
+        loaded machine stretches a turn past any fixed one, so a hang is ended
+        by the Check's own limit, and the line on stderr names what it hung on."""
+        said = time.monotonic() + 60
+        while True:
             done = self.land(where, "--status", branch, check=False)
             if done.returncode != 3:
                 return done
+            if said is not None and time.monotonic() > said:
+                print(f"\n{self.id()}: still waiting on {branch}\n{done.stdout}", file=sys.stderr)
+                said = None
             time.sleep(0.2)
-        raise AssertionError(f"{branch} still in line:\n{done.stdout}")
+
+    def until(self, branch, reached, what):
+        """Wait for `reached()` while `branch` is in line. Its turn ending
+        first is the failure, not a clock, as in `settle`."""
+        while not reached():
+            outcome = self.outcome(branch)
+            if outcome.get("state") not in IN_LINE and not reached():
+                raise AssertionError(f"{what}: {branch} left the line first:\n{outcome}")
+            time.sleep(0.1)
 
     def main_clone(self):
         work = os.path.join(self.root, "check-" + str(time.monotonic_ns()))
@@ -384,10 +400,8 @@ class LineFixture(unittest.TestCase):
         })
         self.land(blocker, "preflight")
         self.land(blocker)
-        deadline = time.monotonic() + 30
-        while "running ui" not in self.outcome("fix/blocker").get("detail", ""):
-            self.assertLess(time.monotonic(), deadline, "the blocker never reached its Check")
-            time.sleep(0.1)
+        self.until("fix/blocker", lambda: "running ui" in self.outcome("fix/blocker").get("detail", ""),
+                   "the blocker never reached its Check")
         return gate, held
 
     def queue(self, names_and_files):
@@ -655,10 +669,7 @@ class Line(LineFixture):
         self.land(where, "preflight")
         self.land(where)
 
-        deadline = time.monotonic() + 30
-        while not os.path.exists(marker):
-            self.assertLess(time.monotonic(), deadline, "the slow Check never started")
-            time.sleep(0.1)
+        self.until("fix/slow", lambda: os.path.exists(marker), "the slow Check never started")
         os.killpg(os.getpgid(self.outcome("fix/slow")["runner"]), signal.SIGKILL)
 
         done = self.settle(where, "fix/slow")  # --status starts a runner for the turn left behind
@@ -876,7 +887,7 @@ class Line(LineFixture):
         self.assertEqual(self.settle(mover, "fix/moves-4").returncode, 0)
         self.land(where, "preflight")
         self.land(where)
-        done = self.settle(where, "fix/races-main", timeout=90)
+        done = self.settle(where, "fix/races-main")
         self.assertEqual(done.returncode, 0, done.stdout)
         landed = self.outcome("fix/races-main")["merge_commit"]
         self.git(self.repo, "fetch", "--quiet", "origin")
@@ -893,7 +904,7 @@ class Line(LineFixture):
         self.assertEqual(self.settle(mover, "fix/moves-5").returncode, 0)
         self.land(where, "preflight")
         self.land(where)
-        done = self.settle(where, "fix/never-quiet", timeout=120)
+        done = self.settle(where, "fix/never-quiet")
         self.assertEqual(done.returncode, 7, done.stdout)
         self.assertIn("moved during each of", done.stdout)
 
@@ -906,10 +917,8 @@ class Line(LineFixture):
         self.assertEqual(self.settle(mover, "fix/moves-7").returncode, 0)
         self.land(where, "preflight")
         self.land(where)
-        deadline = time.monotonic() + 30
-        while self.outcome("fix/pushed-under").get("state") != "gating" or "running test" not in self.outcome("fix/pushed-under")["detail"]:
-            self.assertLess(time.monotonic(), deadline, "the Check never started")
-            time.sleep(0.1)
+        self.until("fix/pushed-under", lambda: "running test" in self.outcome("fix/pushed-under").get("detail", ""),
+                   "the Check never started")
         self.commit(where, {"late.txt": "written while it was gated\n"}, "more work", push=False)
         open(gate, "w").close()
         done = self.settle(where, "fix/pushed-under")
@@ -1054,10 +1063,7 @@ class Line(LineFixture):
         self.land(where, "preflight")
         self.land(where)
 
-        deadline = time.monotonic() + 30
-        while not os.path.exists(once):
-            self.assertLess(time.monotonic(), deadline, "the slow Check never started")
-            time.sleep(0.1)
+        self.until("fix/killed-mid-turn", lambda: os.path.exists(once), "the slow Check never started")
         os.killpg(os.getpgid(self.outcome("fix/killed-mid-turn")["runner"]), signal.SIGKILL)
 
         done = self.settle(where, "fix/killed-mid-turn")
@@ -1350,10 +1356,8 @@ class Batch(LineFixture):
         open(gate, "w").close()
         self.assertEqual(self.settle(self.repo, "fix/blocker").returncode, 0)
 
-        deadline = time.monotonic() + 30
-        while "running ui" not in self.outcome("fix/batch-c").get("detail", ""):
-            self.assertLess(time.monotonic(), deadline, "the batch never reached its Check")
-            time.sleep(0.1)
+        self.until("fix/batch-c", lambda: "running ui" in self.outcome("fix/batch-c").get("detail", ""),
+                   "the batch never reached its Check")
         status = self.land(wts[2], "--status", check=False).stdout
         for name in names:
             self.assertIn(f"{name}  #", status)
@@ -1491,10 +1495,8 @@ class Batch(LineFixture):
             ("fix/half-c", {"c.txt": "1\n", "foundations.txt": "FAIL  a new rule\n        missing: a new subject\n" + known}),
         ])
         open(gate, "w").close()
-        deadline = time.monotonic() + 30
-        while "running ui" not in self.outcome("fix/half-a").get("detail", ""):
-            self.assertLess(time.monotonic(), deadline, "the first half never reached its Check")
-            time.sleep(0.1)
+        self.until("fix/half-a", lambda: "running ui" in self.outcome("fix/half-a").get("detail", ""),
+                   "the first half never reached its Check")
         self.assertIn("together with fix/half-b", self.outcome("fix/half-a")["detail"])
         self.assertNotIn("fix/half-c", self.outcome("fix/half-a")["detail"], "split before the Checks")
         before = len(self.foundations_runs())

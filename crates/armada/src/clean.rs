@@ -23,11 +23,15 @@
 //! branch the base cannot reach is named and left, on the same grounds as an
 //! unclaimed worktree. A checkout holding *uncommitted* work is the same claim
 //! one step earlier — see [`WorkKept`]. `--force` takes both.
+//!
+//! A pool slot is the exception: `--force` gives it back only by the pool's
+//! rules, which keep both. See [`held`].
+
+mod held;
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{slot_path, BaseSpec, Vcs, WorktreeSpec};
-use adapters::leasing::Holder;
+use adapter_traits::{BaseSpec, Vcs, WorktreeSpec};
 use adapters::{BranchGone, Reclaimed, UnmergedWork, WorktreeStanding};
 use config::Manifest;
 use core_model::{JobId, Timestamp};
@@ -37,6 +41,8 @@ use store::{Forgotten, Retained, Store};
 
 use crate::serve;
 use crate::setup::MANIFEST;
+
+pub use held::{Holding, SlotHeld};
 
 /// The machine files `--all` removes, beside the runtime file itself.
 ///
@@ -157,6 +163,8 @@ pub struct Cleaned {
     pub unreadable: Vec<RowCleared>,
     /// Checkouts holding uncommitted work. **Left alone**, records and all.
     pub uncommitted: Vec<WorkKept>,
+    /// Pool slots a Job still holds. **Left alone**, branches and records too.
+    pub held: Vec<SlotHeld>,
     /// Rows that would not rebuild and belong to some other Manifest. Left for
     /// the repository that owns them, and counted so a person is not told
     /// nothing about rows they can see in Fleet's boot line.
@@ -382,6 +390,13 @@ fn forget_this_manifests_jobs(
                 path,
                 files,
             }),
+            GaveBack::SlotHeld { slot, path, why } => cleaned.held.push(SlotHeld {
+                job_id: job_id.as_str().to_string(),
+                title,
+                slot,
+                path,
+                why,
+            }),
             GaveBack::Skipped => continue,
             GaveBack::RepositoryClosed => return,
         }
@@ -448,7 +463,8 @@ fn clear_this_manifests_unreadable_rows(
                 path,
                 files,
             }),
-            GaveBack::Skipped => continue,
+            // A row that would not rebuild carries no slot, so none is held.
+            GaveBack::SlotHeld { .. } | GaveBack::Skipped => continue,
             GaveBack::RepositoryClosed => return,
         }
     }
@@ -478,6 +494,13 @@ enum GaveBack {
     /// nor the record went. Reported by the caller, which is the one that knows
     /// the Job's title.
     HeldUncommitted { path: String, files: Vec<String> },
+    /// A pool slot the Job still holds, so neither its branch nor its record
+    /// was touched.
+    SlotHeld {
+        slot: u32,
+        path: String,
+        why: Holding,
+    },
     /// This id did not come back; the next may.
     Skipped,
     /// The repository itself would not open, so no id will do better.
@@ -523,18 +546,18 @@ fn give_back(
             return GaveBack::Skipped;
         }
     };
-    // **A slot the Job still holds is read, and left to the pool**: `reclaim`
-    // takes only the branch from it. One given back is another holder's now,
-    // so the Job has no checkout and the derived path, with nothing at it, is
-    // what stands in for it.
-    let spec = match slot {
-        Some(slot)
-            if adapters::leasing::holder_of(Path::new(&slot_path(
-                &root.to_string_lossy(),
+    // **A slot the Job still holds is the pool's to give back**, and `reclaim`
+    // takes only the branch once it has. Its branch is checked out there until
+    // then, so asking git to delete it only earns a refusal.
+    let spec = match slot.map(|slot| (slot, held::give_back(root, slot, job_id.as_str(), unmerged)))
+    {
+        Some((slot, Some(Ok(())))) => spec.in_slot(slot),
+        Some((slot, Some(Err(why)))) => {
+            return GaveBack::SlotHeld {
                 slot,
-            ))) == Some(Holder::job(job_id.as_str())) =>
-        {
-            spec.in_slot(slot)
+                path: spec.in_slot(slot).worktree_path(),
+                why,
+            }
         }
         _ => spec,
     };

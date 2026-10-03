@@ -64,20 +64,21 @@ export function stepAttemptOf(step: StepDetail | undefined): number {
 }
 
 /**
- * The coordinate a task sits at, from today's wire.
+ * The coordinate a task sits at, from the wire.
  *
- * With no groups served, one task is one group — `derivedGroupId` mints the id
- * and the attempt is the step's own, because nothing retries a group on its
- * own yet.
+ * **Fleet's group where it serves one** (23.4): its id, and its latest run's
+ * number. A Fleet before that served no groups, so one task is one group there
+ * — `derivedGroupId` mints the id and the attempt is the step's own.
  */
 export function coordOfTask(detail: JobDetail, task: PlanTask): RunCoord {
   const step = currentStep(detail);
   const attempt = stepAttemptOf(step);
+  const served = detail.work_plan?.groups?.find((group) => group.id === task.group);
   return {
     step: step?.step_id ?? "",
     step_attempt: attempt,
-    group: derivedGroupId(task.id),
-    group_attempt: attempt,
+    group: served?.id ?? derivedGroupId(task.id),
+    group_attempt: served === undefined ? attempt : Math.max(1, served.attempts?.length ?? 0),
     task: task.id,
   };
 }
