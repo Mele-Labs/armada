@@ -119,7 +119,7 @@ export type WorkflowInspectorProps = {
   /** Why no test runs at this boundary, where none does. */
   testsAbsent?: WorkflowInspectorTestsAbsent;
   tasks?: readonly WorkflowInspectorTask[];
-  /** Why there are no tasks, where there are none. */
+  /** Why there are no tasks, where there are none. Absent, the region draws nothing. */
   tasksAbsent?: string;
   checks?: readonly WorkflowInspectorCheck[];
   checksAbsent?: string;
@@ -266,10 +266,10 @@ export function WorkflowInspector({
         <Region name="The plan">
           <PlanCard plan={plan} />
         </Region>
-      ) : kind === "step" ? null : (
+      ) : kind === "step" || (tasks.length === 0 && tasksAbsent === undefined) ? null : (
         <Region name="Its tasks">
-          {tasks.length === 0 ? (
-            <Absent said={tasksAbsent ?? "No tasks are recorded here."} />
+          {tasksAbsent !== undefined && tasks.length === 0 ? (
+            <Absent said={tasksAbsent} />
           ) : (
             <ul className="armada-wf-inspector__tasks">
               {tasks.map((task) => (

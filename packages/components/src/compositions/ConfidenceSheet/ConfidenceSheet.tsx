@@ -141,11 +141,7 @@ export function ConfidenceSheet({ confidence, onView, grounds, captured, ci, fol
         <span className="armada-confidence__label">
           Needs you <span className="armada-confidence__count">{needs_you.length}</span>
         </span>
-        {needs_you.length === 0 ? (
-          <p className="armada-confidence__empty">Nothing needs you.</p>
-        ) : (
-          <Findings findings={needs_you} marked onView={onView} />
-        )}
+        {needs_you.length === 0 ? null : <Findings findings={needs_you} marked onView={onView} />}
       </div>
       {small_fixes.length > 0 && (
         <Fold title="Small fixes for a Drone" summary={findingCount(small_fixes)}>

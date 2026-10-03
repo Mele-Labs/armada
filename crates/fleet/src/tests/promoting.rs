@@ -105,6 +105,7 @@ async fn added(fleet: &Fixture, studio: &Studio, content: StudioNodeContent) -> 
                 content: content.try_into().expect("not a picture"),
                 position: at(0, 0),
                 produced_by: None,
+                within: None,
             },
             Redirector::Person,
             None,
@@ -976,4 +977,80 @@ async fn a_cluster_frames_its_notes_inside_their_zone_and_a_note_is_in_one() {
         (Some(&cluster.id), at(24, 48)),
         "it came with the Zone, untouched"
     );
+}
+
+/// **A node pressed inside a Zone is added in it, in one write**, measured
+/// from its corner — the owner, 2 Oct 2026. What a move would refuse, an add
+/// refuses too, and writes nothing: a Zone in a Zone, and anything in a
+/// Cluster.
+#[tokio::test]
+async fn a_node_is_added_inside_a_zone_and_never_a_zone_in_one_or_into_a_cluster() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let studio = a_studio(&fleet).await;
+    let zone = added(&fleet, &studio, StudioNodeContent::Zone).await;
+    let in_frame = |content: StudioNodeContent, frame: &StudioNodeId| AddStudioNode {
+        content: content.try_into().expect("not a picture"),
+        position: at(40, 60),
+        produced_by: None,
+        within: Some(frame.clone()),
+    };
+    let note = |said: &str| StudioNodeContent::Note {
+        said: said.to_string(),
+        capture: None,
+    };
+
+    let inside = fleet
+        .add_studio_node(
+            studio.id.clone(),
+            in_frame(note("Pressed in the Zone"), &zone),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("added in the Zone");
+    let made = inside.nodes.last().expect("the node just added");
+    assert_eq!(
+        (made.within.as_ref(), made.position),
+        (Some(&zone), at(40, 60)),
+        "in the Zone, from its corner"
+    );
+
+    let (first, second) = two_notes(&fleet, &studio).await;
+    let clustered = fleet
+        .group_studio_nodes(
+            studio.id.clone(),
+            GroupStudioNodes {
+                content: StudioNodeContent::Cluster {
+                    title: "Counts go stale".to_string(),
+                },
+                from: vec![first, second],
+                position: at(0, 0),
+            },
+            None,
+        )
+        .await
+        .expect("clustered");
+    let cluster = of_kind(&clustered, StudioNodeKind::Cluster)[0].id.clone();
+
+    for (content, frame) in [
+        (StudioNodeContent::Zone, &zone),
+        (note("Pressed in the Cluster"), &cluster),
+    ] {
+        let refused = fleet
+            .add_studio_node(
+                studio.id.clone(),
+                in_frame(content, frame),
+                Redirector::Person,
+                None,
+            )
+            .await
+            .expect_err("a move there is refused");
+        assert_eq!(code(&refused), "fleet.studio_frame_cannot_hold");
+    }
+    let after = fleet
+        .get_studio(studio.id.clone(), None)
+        .await
+        .expect("read");
+    assert_eq!(after.nodes.len(), clustered.nodes.len(), "nothing written");
 }

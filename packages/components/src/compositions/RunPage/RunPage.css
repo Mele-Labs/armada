@@ -254,8 +254,7 @@
 
 /* --- the main column: control, panel, run list ---------------------------- */
 
-.armada-run-page__control-empty,
-.armada-run-page__nothing {
+.armada-run-page__control-empty {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);

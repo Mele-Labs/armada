@@ -209,11 +209,13 @@ export const ThinkingWhileLive: Story = {
 
 /**
  * A Job nobody dispatched. **Ordinary, not an error** — the socket opens, says
- * nothing is writing, sends no rows and closes. A blank pane would read as a
- * view that failed to load.
+ * nothing is writing, sends no rows and closes — so **nothing is drawn**.
  */
 export const AJobWithNoTranscript: Story = {
-  args: { turns: [], emptyNote: NOTHING_YET },
+  args: { turns: [] },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };
 
 /**

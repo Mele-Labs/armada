@@ -29,7 +29,8 @@ export type DestinationCardProps = {
    * falls through to the head's.
    */
   onOpen?: () => void;
-  children: ReactNode;
+  /** What the card holds. Nothing draws no body: the head alone, never an empty box under it. */
+  children?: ReactNode;
 };
 
 /** `chevron-right`'s *goes to* usage: 12px, trailing, at the text's own size. */
@@ -63,7 +64,9 @@ export function DestinationCard({ label, guide, trailing, onOpen, children }: De
           />
         )}
       </div>
-      <div className="armada-destination-card__body">{children}</div>
+      {children === null || children === undefined || children === false ? null : (
+        <div className="armada-destination-card__body">{children}</div>
+      )}
     </section>
   );
 }

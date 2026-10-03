@@ -124,7 +124,10 @@ export type JobLedgerProps = {
   inspectorTitle?: string;
   /** Why no row is open, where none is. */
   inspectorAbsent?: string;
-  /** What the table says where the chosen filter holds nothing. */
+  /**
+   * What the table says where the chosen filter holds nothing. **Absent draws
+   * nothing**: an empty slot stays empty rather than holding a sentence.
+   */
   emptyNote?: ReactNode;
   /**
    * How many rows are drawn. A Record grows for as long as the Job lives, and
@@ -159,7 +162,7 @@ export function JobLedger({
   inspector,
   inspectorTitle,
   inspectorAbsent = "Press a row to read it whole",
-  emptyNote = "Nothing under this filter yet",
+  emptyNote,
   bound = BOUND,
   kindMarks = false,
   floor = false,
@@ -199,9 +202,11 @@ export function JobLedger({
           )}
 
           {drawn.length === 0 ? (
-            <p className="armada-ledger__note armada-ledger__note--inset" role="note">
-              {emptyNote}
-            </p>
+            emptyNote === undefined ? null : (
+              <p className="armada-ledger__note armada-ledger__note--inset" role="note">
+                {emptyNote}
+              </p>
+            )
           ) : (
             <Table className="armada-ledger__table">
               <TableHead>

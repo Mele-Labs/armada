@@ -72,22 +72,18 @@ test("Overview: the read lands and the Plan card draws the plan it holds", async
   expect(card("Brief").getByRole("status").elements()).toHaveLength(0);
 });
 
-test("Overview: a read that holds no plan says so, once it has been read", async () => {
+test("Overview: a read that holds no plan draws nothing in the Plan card, once it has been read", async () => {
   const fleet = await openedReading();
   fleet.answer(running());
-  await expect.element(card("Plan").getByRole("note")).toBeVisible();
-  expect(card("Plan").getByRole("status").elements()).toHaveLength(0);
+  await expect.poll(() => card("Plan").getByRole("status").elements().length).toBe(0);
+  expect(card("Plan").getByRole("note").elements()).toHaveLength(0);
+  expect(card("Plan").getByText("No plan has been recorded.").elements()).toHaveLength(0);
 });
 
 test("Overview: a refused read does not say there is no plan", async () => {
   await opened(unreadable());
   await expect.element(card("Plan").getByText("Fleet did not answer")).toBeVisible();
   expect(card("Plan").getByText("No plan has been recorded.").elements()).toHaveLength(0);
-});
-
-test("Overview: a read Job with no plan still says none was recorded", async () => {
-  await opened(running());
-  await expect.element(card("Plan").getByText("No plan has been recorded.")).toBeVisible();
 });
 
 test("Workflow, unread: the run's frame stands in rather than a sentence", async () => {

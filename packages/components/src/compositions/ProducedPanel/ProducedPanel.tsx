@@ -75,8 +75,8 @@ export type ChangeSummaryProps = {
   folders: ProducedFolder[];
   /** `and 6 more files`, where the caller drew fewer than there are. */
   more?: string;
-  /** What a reading with no files says. Never a blank. */
-  emptyNote: string;
+  /** What a reading with no files says. Absent draws nothing: an empty slot stays empty. */
+  emptyNote?: string;
   /** Under the list: where it went outside a plan. */
   note?: ReactNode;
 };
@@ -91,7 +91,7 @@ export type ChangeSummaryProps = {
 export function ChangeSummary({ folders, more, emptyNote, note }: ChangeSummaryProps) {
   const files = folders.flatMap((folder) => folder.files);
   if (files.length === 0) {
-    return (
+    return emptyNote === undefined ? null : (
       <p className="armada-produced__empty" role="note">
         {emptyNote}
       </p>

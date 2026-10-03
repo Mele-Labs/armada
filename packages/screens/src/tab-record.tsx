@@ -90,7 +90,7 @@ export type RecordTabProps = {
  * names a Check that failed on whichever step it was found on, and a Job with
  * no plan has no step that works the groups to fall back to.
  */
-export type CheckAt = { name: string; stepAttempt: number; step?: string };
+export type CheckAt = { name: string; stepAttempt: number; step?: string; group?: string };
 
 /**
  * The Record row a Check's run is: `checked`, that name, on the step the caller
@@ -105,7 +105,9 @@ export function checkRowOf(rows: readonly LedgerRow[], detail: JobWhole | null, 
       one.kind === "checked" &&
       one.what === at.name &&
       one.coord?.step === step &&
-      one.coord?.step_attempt === at.stepAttempt,
+      one.coord?.step_attempt === at.stepAttempt &&
+      // Two groups gated on one run of a step each ran it; the group decides.
+      (at.group === undefined || one.coord?.group === at.group),
   );
   return row === undefined ? undefined : String(row.cursor);
 }
@@ -232,7 +234,6 @@ export function RecordTab({
           kindMarks={filter === "all"}
           floor={floor}
           back={trail?.back}
-          emptyNote={EMPTY[filter]}
           {...(open === undefined ? {} : { inspectorTitle: titleOf(open) })}
           {...(open === undefined || openDrawn === undefined
             ? {}
@@ -267,15 +268,3 @@ export function RecordTab({
 
 const ANY_STEP = "Any step";
 
-/** What each filter says when it holds nothing. Never one sentence for nine. */
-const EMPTY: Record<RecordFilter, string> = {
-  all: "Nothing has happened on this Job yet.",
-  job: "Nothing about the Job itself has been recorded yet.",
-  evidence: "No Drone has submitted evidence on this Job.",
-  files: "Nothing has written a file on this Job yet.",
-  checks: "No Check has run on this Job yet.",
-  judges: "No Judge has answered on this Job yet.",
-  drones: "No Drone has opened a step on this Job yet.",
-  tasks: "No task on this Job has moved yet.",
-  tests: "No case has been run on this Job yet.",
-};

@@ -58,7 +58,6 @@ import {
   droneOnTask,
   droneTurnsOf,
   ranForOf,
-  TRANSCRIPT_EMPTY,
   TRANSCRIPT_UNSERVED,
 } from "./tab-drones-read";
 import type { TrailProps } from "./trail";
@@ -141,7 +140,7 @@ export type PlanReviewProps = {
   /**
    * A group or a task dragged somewhere new, sent straight to Fleet (owner,
    * 30 Sep 2026: *edits to the plan should just be made directly through
-   * fleet*). **Absent, nothing is draggable.** Ahead of its route, #1685.
+   * fleet*). **Absent, nothing is draggable.** #1685, served since 23.4.
    */
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /** What an add or a drop that was taken says, once. */
@@ -388,15 +387,23 @@ export function usePlanReview({
           .filter((one) => reading.beside.includes(one.id))
           .map((one) => taskCard(one, () => openTaskAt(one.id)));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
-  // below, these two, and Edit this task, each ahead of its route.
+  // below, these two, and Edit this task, each ahead of its route. A done task
+  // in a group the Judge refused offers Restart alone (owner, 2 Oct 2026).
+  const refused =
+    reading?.state === "done" &&
+    groups.some((group) => group.judge_refused === true && group.tasks.some((task) => task.id === reading.id));
   const acts =
-    reading === undefined || reading.state !== "failed"
+    reading === undefined
       ? undefined
-      : {
-          onPilot: () => void onTaskAct?.("pilot_task", job.id, reading.id),
-          onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id),
-          disabled: stale,
-        };
+      : reading.state === "failed"
+        ? {
+            onPilot: () => void onTaskAct?.("pilot_task", job.id, reading.id),
+            onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id),
+            disabled: stale,
+          }
+        : refused
+          ? { onRestart: () => void onTaskAct?.("restart_task", job.id, reading.id), disabled: stale }
+          : undefined;
   // **Edit this task, on a task nothing is working on yet or any more**: open
   // or failed. A working task's Drone is mid-way through what the fields say,
   // and a done or dropped one has nothing left to change (owner, 30 Sep 2026).
@@ -485,7 +492,8 @@ export function usePlanReview({
           ...(ran === undefined ? {} : { ranFor: ran }),
           turns: peekTurns,
           live: own.state === "running",
-          emptyNote: own.transcript === undefined ? TRANSCRIPT_UNSERVED : TRANSCRIPT_EMPTY,
+          // Unserved is a gap worth naming; a Drone that has written nothing yet is not.
+          ...(own.transcript === undefined ? { emptyNote: TRANSCRIPT_UNSERVED } : {}),
           ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(own.id) }),
         };
   // **What only a task's own Drone can say: what it is doing, what it last

@@ -131,26 +131,16 @@ function Body({ reports, onCopied }: { reports: ReportsRead; onCopied: (value: s
       </Alert>
     );
   }
-  // `none` is the moment before the effect above has run, which is a frame and
-  // not a state anybody reads — it says the same thing as `reading` rather than
-  // drawing an empty list that would read as nothing having been filed.
-  if (reports.state !== "read") {
-    // A muted line rather than an `Alert`, which requires the facts needed to
-    // decide — `Panels.tsx` says a reading state the same way. There is nothing
-    // to decide here and nothing yet to say.
-    return <p className="text-fg-muted">Reading what has been reported.</p>;
-  }
+  // Before the read answers there is nothing yet to say, so nothing is drawn.
+  if (reports.state !== "read") return null;
 
   return (
     <>
       <Counts calibration={reports.list.calibration} />
-      {reports.list.reports.length === 0 ? (
-        <Nothing />
-      ) : (
-        reports.list.reports.map((report) => (
-          <Filed key={report.id} report={report} onCopied={onCopied} />
-        ))
-      )}
+      {/* Nothing filed draws nothing: an empty slot stays empty. */}
+      {reports.list.reports.map((report) => (
+        <Filed key={report.id} report={report} onCopied={onCopied} />
+      ))}
     </>
   );
 }
@@ -321,32 +311,3 @@ function Scope({ report }: { report: Report }) {
   );
 }
 
-/**
- * Nothing filed, said as the fact it is.
- *
- * **Not "no data".** An empty list here means nobody has disagreed with a
- * verdict, which is a real reading of the machine and not a failure of this
- * page — and it says where filing happens, because a surface that shows only
- * what it cannot show is a dead end.
- */
-function Nothing() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Nothing has been reported</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>
-          Nobody has said a job failed in error. That is a reading of the machine and not a gap
-          in this page — though a wrong pass surfaces only because somebody says so, so it is
-          also what a machine nobody has checked looks like.
-        </p>
-        <p>
-          Reports are filed from the job they are about: open one that stopped and use{" "}
-          <strong>Report this job</strong>. The job&apos;s own record is attached for you, and the
-          report outlives the job — cleaning it up leaves the report whole.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
