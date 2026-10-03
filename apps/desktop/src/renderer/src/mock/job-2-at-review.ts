@@ -10,7 +10,7 @@
 //
 // **What 23.5 adds, and only that.** The recording predates protocol 23.5, so
 // `delivery.pull_request_title` and `delivery.pull_request_comments` are put
-// on here: #1750's title as GitHub holds it, and its count, which was 0 — no
+// on here: #1750's title as the forge holds it, and its count, which was 0 — no
 // conversation comment and no review with text. `job2AtReviewBefore235` is the
 // recording as served, a pull request no read has named since.
 
