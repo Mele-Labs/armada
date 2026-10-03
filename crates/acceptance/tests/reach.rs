@@ -738,7 +738,7 @@ fn a_request_naming_a_milestone_is_offered_the_workflow_that_runs_one() {
         "and not in the steps' word, which is the defect restated: {what_for}"
     );
     assert!(
-        question[at..].contains("\n    Plan the wave -> Dispatch the wave -> Roll up the wave\n"),
+        question[at..].contains("\n    Plan the wave -> Roll up the wave\n"),
         "the steps stay beside it — they answer a different question"
     );
     assert!(
