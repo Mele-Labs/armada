@@ -48,7 +48,7 @@ mod under_review;
 mod work_product;
 mod worktree;
 
-pub use basing::{BaseCheckout, BaseSpec, BaseSpecRefused};
+pub use basing::{BaseCheckout, BaseSpec, BaseSpecRefused, BranchListed};
 pub use ci::{
     CiCommand, CiConfiguration, CiNotFollowed, CiReading, FileEntry, FileRead, RepositoryFiles,
 };
@@ -67,7 +67,7 @@ pub use harness::{
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
-pub use link_lookup::{LinkLookup, LookupCall};
+pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
@@ -225,6 +225,18 @@ pub trait Vcs {
         repo_root: &str,
         declared: Option<&str>,
     ) -> Result<Option<alloc::string::String>, Self::Error>;
+
+    /// The repository's local branches, the base first and the rest by name.
+    /// #1605, spike 022 slice 4.
+    ///
+    /// `declared` is `base:` from the Manifest, resolved as
+    /// [`base_commit`](Vcs::base_commit) resolves it, so the branch marked
+    /// base is the one a worktree is cut from when nobody says otherwise.
+    fn branches(
+        &self,
+        repo_root: &str,
+        declared: Option<&str>,
+    ) -> Result<alloc::vec::Vec<BranchListed>, Self::Error>;
 
     /// Check the repository out at one commit, detached, for every Job on that
     /// commit to share.

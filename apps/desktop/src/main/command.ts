@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { ApproveWave, CapRaise, ChosenAnswer, EditJobAsSent, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -451,10 +451,10 @@ export class JobCommands {
 
   /**
    * A plan task's own acts, from its panel — a failed task's Pilot and
-   * Restart, and Edit on an open or failed one. **Each is ahead of its
-   * route** — #250 pilots, #1656 restarts, #1657 edits, with the fields it
-   * changed as the body — so the answer is
-   * `bridge.not_implemented` until each ships. Restart shares the step's
+   * Restart, and Edit on an open or failed one. **Pilot and Edit are ahead
+   * of their routes** — #250 pilots, #1657 edits, with the fields it changed
+   * as the body — so the answer is `bridge.not_implemented` until each ships.
+   * Restart is served since 23.4 (#1656), with no body. Restart shares the step's
    * restart lock; Pilot and Edit share the redirect's, since both change what
    * the Job's Drone is doing. The task id is encoded, as a pid is.
    */
@@ -479,7 +479,7 @@ export class JobCommands {
   /**
    * A person's move on the plan, direct rather than asked of the Drone —
    * the owner's decision of 30 Sep 2026, *plan edits go straight through Fleet*.
-   * **Ahead of its route** (#1685), with the move as the body. Edit's lock,
+   * Served since 23.4 (#1685), placed by `after`. Edit's lock,
    * since both change the plan the Drone is held to.
    */
   async movePlan(jobId: string, move: MovePlan): Promise<Outcome> {
@@ -920,7 +920,7 @@ export class JobCommands {
    * fields a person changed as the body. The review's lock, as `approveWave`,
    * since it is an answer at the same gate.
    */
-  async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+  async editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
     );

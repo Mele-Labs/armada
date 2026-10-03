@@ -71,6 +71,7 @@ fn a_sketch(drawing: SketchDrawn) -> AddStudioNode {
         content: StudioNodeAdded::Sketch { drawing },
         position: StudioPosition { x: 40, y: 80 },
         produced_by: None,
+        within: None,
     }
 }
 
@@ -297,6 +298,7 @@ async fn a_blank_drawing_and_a_redraw_of_another_kind_are_refused() {
                 content: note.try_into().expect("a write"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
+                within: None,
             },
             Redirector::Person,
             None,

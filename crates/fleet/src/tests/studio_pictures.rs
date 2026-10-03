@@ -54,6 +54,7 @@ fn a_picture(path: &Path) -> AddStudioNode {
         },
         position: StudioPosition { x: 40, y: 80 },
         produced_by: None,
+        within: None,
     }
 }
 

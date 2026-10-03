@@ -86,6 +86,14 @@ impl Vcs for GitVcs {
         crate::basing::base_commit(repo_root, declared)
     }
 
+    fn branches(
+        &self,
+        repo_root: &str,
+        declared: Option<&str>,
+    ) -> Result<Vec<adapter_traits::BranchListed>, Self::Error> {
+        crate::basing::branches(repo_root, declared)
+    }
+
     fn base_checkout(&self, spec: &BaseSpec) -> Result<BaseCheckout, Self::Error> {
         crate::basing::base_checkout(spec)
     }

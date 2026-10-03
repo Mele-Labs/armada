@@ -39,7 +39,6 @@ import { OverviewBoard } from "./OverviewBoard";
 import { Approving } from "./approving";
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
-import { CircleDashed } from "lucide-react";
 
 import { shapeSaid } from "./plan-board";
 
@@ -737,9 +736,8 @@ export function OverviewTab(props: OverviewTabProps) {
                 count: group.tasks.length,
                 concurrent: group.concurrent,
                 shapeLabel: shapeSaid(group),
+                state: group.state,
                 said: GROUP_STATE[group.state]?.verb ?? group.state,
-                status: GROUP_STATE[group.state]?.badgeStatus ?? "not-started",
-                icon: GROUP_STATE[group.state]?.icon ?? CircleDashed,
               })),
             },
           })}

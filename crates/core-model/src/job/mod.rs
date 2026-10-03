@@ -25,6 +25,7 @@
 //! way there asserts nothing about the machine it claims to be testing.
 
 mod allowed;
+mod approval;
 mod asking;
 mod attempt;
 mod breakage;
@@ -66,6 +67,10 @@ mod workflow;
 mod tests;
 
 pub use allowed::{AllowedCommand, Reach, WhenBlocked};
+pub use approval::{
+    branch_named, criterion_numbered, next_criterion_number, IssueSource, Landing, NotAtApproval,
+    PrMode, ProposalEdit,
+};
 pub use asking::WhenRefused;
 pub use attempt::{Attempt, Iteration, Spent};
 pub use breakage::{Breakage, BreakageClaim, FixWaiter, LandedHold};
@@ -78,9 +83,9 @@ pub use escalation::{EscalationTrigger, StepLevelTrigger, TriggerKind, TriggerLe
 pub use event::{JobEvent, StepEvent};
 pub use fields::{
     AcceptanceCriterion, AdmissionHold, Attachment, BlankBranch, Branch, BudgetHold,
-    CriterionSource, DependencyDirection, DependencyEdge, DispatchOrigin, Facts, GateManifest,
-    GateOutcome, NotRunDisposition, NotRunReason, Origin, QueuedReason, Resumption, ScopeRevision,
-    ScopeRevisionOutcome, Subject, TopLevelOrigin, Urgency, WriteTargets,
+    CriterionOrigin, CriterionSource, DependencyDirection, DependencyEdge, DispatchOrigin, Facts,
+    GateManifest, GateOutcome, NotRunDisposition, NotRunReason, Origin, QueuedReason, Resumption,
+    ScopeRevision, ScopeRevisionOutcome, Subject, TopLevelOrigin, Urgency, WriteTargets,
 };
 pub use gaming::{
     CitedAt, ClearedFlag, DecidedBy, EvidenceRef, GamingCheck, GamingFlag, GamingPattern,
@@ -96,7 +101,7 @@ pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgm
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
 pub use plan_group::{GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
-pub use policy::{AutoMerge, ResolvedPolicies, ReviewGate};
+pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
 pub use review::{

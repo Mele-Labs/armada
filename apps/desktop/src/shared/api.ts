@@ -11,7 +11,7 @@ import type {
   EditTask,
   MovePlan,
   ApproveWave,
-  EditJob,
+  EditJobAsSent,
   Artifact,
   CaptureOpened,
   CheckOutputRead,
@@ -161,7 +161,7 @@ export type BridgeApi = {
    * until it does, the answer is `bridge.not_implemented`.
    */
   pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
-  /** Run a failed plan task again. #1656, as `pilotTask`. */
+  /** Run a failed plan task again. #1656, served since 23.4. */
   restartTask: (jobId: string, taskId: string) => Promise<Outcome>;
   /**
    * Change a plan task that is open or failed — only the fields `edit`
@@ -170,7 +170,7 @@ export type BridgeApi = {
   editTask: (jobId: string, taskId: string, edit: EditTask) => Promise<Outcome>;
   /**
    * Move a group, or a task into a group, where a person dropped it on the
-   * plan. #1685, as `pilotTask`; the move rides on the debug info.
+   * plan, by the task or group it now follows. #1685, served since 23.4.
    */
   movePlan: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
@@ -182,7 +182,7 @@ export type BridgeApi = {
    * Edit one Job of an Epic's proposed wave, still at `awaiting_approval`.
    * #1699, as `approveWave`; the edit rides on the debug info.
    */
-  editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  editJob: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the

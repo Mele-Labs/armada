@@ -21,6 +21,7 @@ mod adopting;
 mod allowance;
 mod always_allow;
 mod amending;
+mod approving;
 mod asked;
 mod asking;
 mod attachments;

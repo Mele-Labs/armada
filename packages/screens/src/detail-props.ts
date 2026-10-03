@@ -25,7 +25,7 @@ import type { WorkflowView } from "./workflow-view";
 import type {
   CommandAnswer,
   CommandExplainedRead,
-  EditJob,
+  EditJobAsSent,
   EditTask,
   MovePlan,
   Examination,
@@ -121,14 +121,14 @@ export type JobDetailProps = {
   onTaskAct?: (act: TaskAct, jobId: string, taskId: string, edit?: EditTask) => Promise<Outcome>;
   /**
    * A group or a task dragged somewhere new on the plan, sent straight to
-   * Fleet. Ahead of its route (#1685), so the answer is `Not implemented`.
+   * Fleet by the task or group it now follows (#1685, served since 23.4).
    */
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
    * Edit this Job, on a Job of an Epic's proposed wave, with only what
    * changed. Ahead of its route (#1699), so the answer is `Not implemented`.
    */
-  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  onEditJob?: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

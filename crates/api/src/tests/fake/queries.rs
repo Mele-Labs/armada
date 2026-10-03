@@ -844,4 +844,22 @@ impl Queries for FakeDaemon {
             paths: shapes::files_found(&query),
         })
     }
+
+    async fn list_branches(
+        &self,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::Branches, Refusal> {
+        Ok(ipc::Branches {
+            branches: vec![
+                ipc::BranchRow {
+                    name: "main".to_string(),
+                    base: true,
+                },
+                ipc::BranchRow {
+                    name: "release/2.0".to_string(),
+                    base: false,
+                },
+            ],
+        })
+    }
 }
