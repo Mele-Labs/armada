@@ -40,11 +40,15 @@ test("the red group's task carries the failed mark, and says which group and run
 });
 
 // #1652's own claim: group 3 also ran `test`, red on every run, and group 1's
-// card opens group 1's run, which passed and held nothing back.
+// card opens group 1's run, which passed and held nothing back. The press opens
+// the Check's log, which goes on to the Record (owner, 2 Oct 2026).
+const toTheRecord = () => page.getByRole("dialog", { name: "Check log" }).getByRole("button", { name: "Open in the Record" });
+
 test("pressing test on group one's card opens group one's own run, though group three also ran test", async () => {
   await onThePlanList();
   await boundaryOf(1).getByRole("button", { name: /^Checks/ }).click();
   await boundaryOf(1).getByRole("button", { name: "test, passed" }).click();
+  await toTheRecord().click();
   await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByRole("heading", { name: "test" })).toBeVisible();
   expect(page.getByText("Exited 1 — 2 of 1104 failed").query()).toBeNull();
@@ -54,6 +58,7 @@ test("pressing test on group one's card opens group one's own run, though group 
 test("a red run of test names the group it held back from the record, not by inference", async () => {
   await onThePlanList();
   await boundaryOf(3).getByRole("button", { name: "test, failed" }).click();
+  await toTheRecord().click();
   await expect.element(page.getByRole("tab", { name: /^Record/ })).toHaveAttribute("aria-selected", "true");
   await expect.element(page.getByText("Exited 1 — 2 of 1104 failed")).toBeVisible();
   await expect.element(page.getByText("Blocked group 3 from passing.")).toBeVisible();

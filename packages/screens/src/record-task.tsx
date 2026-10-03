@@ -7,6 +7,7 @@ import { FieldLabel, Eyebrow } from "./regions";
 import type { CaseView } from "./draft/cases";
 import type { GroupView } from "./draft/group";
 import type { LedgerRow } from "./draft/ledger";
+import type { JobCheckLog } from "./check-log-sheet";
 import { boundaryOf } from "./plan-board";
 import { touchedByOf } from "./tab-plan-read";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
@@ -24,7 +25,7 @@ import { basename, Field } from "./record-fields";
  * **The Checks are the group's, drawn by the Plan board's `GroupBoundary`** off
  * `boundaryOf`, so the Record and the Plan cannot disagree about a boundary
  * (the owner, 29 Sep 2026). Its tests strip is not drawn: the task's own cases
- * are `Tests` above. **Pressing a Check opens its own row.**
+ * are `Tests` above. **Pressing a Check opens its log**, as it does on Plan.
  */
 export function TaskRead({
   row,
@@ -32,14 +33,14 @@ export function TaskRead({
   groups,
   cases,
   detail,
-  onOpenCheck,
+  onOpenCheckLog,
 }: {
   row: LedgerRow;
   task: GroupView["tasks"][number];
   groups: readonly GroupView[];
   cases: readonly CaseView[];
   detail: JobWhole;
-  onOpenCheck: (name: string, stepAttempt: number, group?: string) => void;
+  onOpenCheckLog: (log: JobCheckLog) => void;
 }) {
   const owed = task.cases
     .map((id) => cases.find((one) => one.id === id))
@@ -108,7 +109,7 @@ export function TaskRead({
                   [],
                   detail,
                   detail.steps.find((one) => one.step_id === stepThatWorksTheGroups(detail)),
-                  onOpenCheck,
+                  onOpenCheckLog,
                 )}
               />
             </div>

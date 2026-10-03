@@ -287,7 +287,9 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
       // A node by hand — #1364. **The four kinds and no more**, the way Fleet
       // refuses the rest from Bridge: a mock that took a Finding here would let
       // a test pass against a door that would not open.
-      addStudioNode: async (studioId, node: StudioNodeByHand, position) => {
+      // `within` is the Zone a press put it in, in one write here where main
+      // makes two: the mock answers what Fleet ends up holding.
+      addStudioNode: async (studioId, node: StudioNodeByHand, position, within) => {
         // Main refuses these from a renderer: each names a file only main stages.
         if (node.kind === "picture") throw new Error("a Picture is added with its bytes, by addStudioPicture");
         if (node.kind === "sketch") throw new Error("a Sketch is added with its pictures' bytes, by addStudioSketch");
@@ -296,6 +298,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
             ...node,
             id: mint(`${node.kind}-`),
             position,
+            ...(within === null ? {} : { within }),
             created_at: tick(),
             added_by: "person",
           };
@@ -346,7 +349,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         return answer.ok ? OK : answer.outcome;
       },
       // A Sketch drawn on the pad — 1 Oct 2026.
-      addStudioSketch: async (studioId, drawing, position) => {
+      addStudioSketch: async (studioId, drawing, position, within) => {
         const id = mint("sketch-");
         const kept = sketchKept(id, drawing, undefined);
         if (!kept.ok) return kept.outcome;
@@ -354,7 +357,15 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
           ...studio,
           nodes: [
             ...studio.nodes,
-            { kind: "sketch", drawing: kept.drawing, id, position, created_at: tick(), added_by: "person" } satisfies StudioNode,
+            {
+              kind: "sketch",
+              drawing: kept.drawing,
+              id,
+              position,
+              ...(within === null ? {} : { within }),
+              created_at: tick(),
+              added_by: "person",
+            } satisfies StudioNode,
           ],
         }));
         if (answer.ok) for (const [key, bytes] of kept.bytes) pictures.set(key, bytes);

@@ -186,6 +186,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines",
     },
+    // One Check's log on that line, as it is written. Named by the line's own
+    // three words in the query, never by a path: a root is a path itself.
+    Route {
+        operation: "observe_land_check",
+        method: "GET",
+        path: "/merge_lines/checks/observe",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",

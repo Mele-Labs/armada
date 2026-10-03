@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use super::codec::{self, ReadStateError};
 use super::dir::{git_common_dir, StateDir};
-use super::outcome::{read_outcome, Outcome, OutcomeState};
+use super::outcome::{read_outcome, CheckState, Outcome, OutcomeState};
 use super::queue::{queued, QueueEntry, QueuedError};
 use crate::reading_in::FORGE_HOST;
 
@@ -112,6 +112,94 @@ pub fn read(at: &Located, now: SystemTime) -> Result<Option<Line>, ReadLineError
         landed: left.landed,
         sent_back: left.sent_back,
     }))
+}
+
+/// One Check's log in the turn a branch's outcome names.
+///
+/// **Found from the outcome and never from a path anybody sent.** The runner
+/// writes each Check of a turn to `logs/<entry>/<turn>/<check>.log`, and the
+/// outcome lists the turn's logs as it goes; the turn is the directory those
+/// sit in. A Check still running is not in that list yet, so the file is named
+/// from the turn and the Check rather than looked up in it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckLog {
+    /// Where the runner writes it. May not exist yet: a Check just started
+    /// has not opened it.
+    pub file: PathBuf,
+    check: String,
+    /// The turn's directory, resolved, so a later turn is told apart.
+    turn: PathBuf,
+}
+
+/// `check`'s log in the turn `branch`'s outcome is on, or `None` where there
+/// is none to read: no line, no outcome, no such Check, a Check still
+/// `waiting`, or a turn whose directory is not under this line's `logs/`.
+///
+/// **What makes the names safe to read a file with.** `check` must be one path
+/// component and a Check the outcome lists as started; the turn must resolve to
+/// exactly `logs/<entry>/<turn>` once links are followed; and a link planted
+/// where the log goes is refused rather than followed.
+pub fn check_log(at: &Located, branch: &str, check: &str) -> Option<CheckLog> {
+    let one_name =
+        !check.is_empty() && check != "." && check != ".." && !check.contains(['/', '\\', '\0']);
+    if !one_name {
+        return None;
+    }
+    let state = StateDir::existing(&at.common)?;
+    let outcome = read_outcome(&state, branch).ok()??;
+    let started = outcome
+        .checks
+        .iter()
+        .any(|run| run.name == check && run.state != CheckState::Waiting);
+    if !started {
+        return None;
+    }
+    let turn = turn_of(&outcome)?;
+    let logs = state.path().join("logs").canonicalize().ok()?;
+    if turn.parent().and_then(Path::parent) != Some(logs.as_path()) {
+        return None;
+    }
+    let file = turn.join(format!("{check}.log"));
+    if is_link(&file) {
+        return None;
+    }
+    Some(CheckLog {
+        file,
+        check: check.to_string(),
+        turn,
+    })
+}
+
+/// Whether the runner is still writing `log`: the branch is gating, the Check
+/// is `running`, and the turn is still the one `log` was found in.
+pub fn check_writing(at: &Located, branch: &str, log: &CheckLog) -> bool {
+    let Some(state) = StateDir::existing(&at.common) else {
+        return false;
+    };
+    let Ok(Some(outcome)) = read_outcome(&state, branch) else {
+        return false;
+    };
+    outcome.state == OutcomeState::Gating
+        && outcome
+            .checks
+            .iter()
+            .any(|run| run.name == log.check && run.state == CheckState::Running)
+        && turn_of(&outcome).as_ref() == Some(&log.turn)
+}
+
+/// Whether `path` is a link. Read on every pass, so one planted after the log
+/// was found is not followed either.
+pub fn is_link(path: &Path) -> bool {
+    path.symlink_metadata()
+        .is_ok_and(|meta| meta.file_type().is_symlink())
+}
+
+/// The turn's directory, resolved: where the outcome's logs sit.
+fn turn_of(outcome: &Outcome) -> Option<PathBuf> {
+    Path::new(outcome.logs.first()?)
+        .parent()?
+        .canonicalize()
+        .ok()
 }
 
 /// The outcomes of branches no longer in line, three ways.

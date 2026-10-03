@@ -655,6 +655,17 @@ pub enum Adrift {
     ///
     /// [`NoSuchCheckOutput`]: Adrift::NoSuchCheckOutput
     NoSuchBrief { named: String },
+    /// A merge line Check's log was asked for that Fleet will not open.
+    ///
+    /// **One answer for every reason**: a root this Fleet does not serve, a
+    /// branch with no outcome, a Check its turn has not started, or a name
+    /// that would leave the turn's directory. The outcome file is the only
+    /// thing that resolves the three names to a file.
+    NoSuchLandLog {
+        root: String,
+        branch: String,
+        check: String,
+    },
     /// A reading was asked for on a call this Job is neither waiting on nor
     /// refused.
     ///

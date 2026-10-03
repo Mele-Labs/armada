@@ -266,6 +266,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       });
     },
     followCheckOutput: async () => publish({ followed: nothing }),
+    followLandCheck: async () => publish({ landFollowed: nothing }),
     // A fixture with no history is one whose story never asked for it, and `none` is what it draws.
     readHistory: async (jobId) =>
       publish({ history: jobId === null ? nothing : (readsOf(jobId)?.history ?? nothing) }),

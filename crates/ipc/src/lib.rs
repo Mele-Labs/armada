@@ -272,8 +272,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_line::{
-    LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry, MergeLinePullRequest,
-    MergeLines,
+    LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
+    MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};

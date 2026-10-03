@@ -38,6 +38,7 @@ import type {
 import { PlanGate } from "./plan-lead";
 import type { ActingAct } from "./pending";
 import { casesOf, droneOfTask, groupsOf, PROPOSE_ASK, REMOVE_GROUP_LABEL, taskSheetOf, tasksOf } from "./tab-plan-read";
+import type { JobCheckLog } from "./check-log-sheet";
 import { movedGroups, moveSent, planBoardOf } from "./plan-board";
 import { steeringOf } from "./steering";
 import { stepThatWorksTheGroups } from "./workflow-canvas";
@@ -167,10 +168,10 @@ export type PlanReviewProps = {
   /** Now, injected, so a running Drone's run time moves with the header's. */
   now?: number;
   /**
-   * Open a boundary Check's own row in the Record, by its name and the step
-   * attempt that ran it. **The screen's.** Absent, no Check is a button.
+   * Open a boundary Check's log in the log panel. **The screen's**, which holds
+   * the panel. Absent, no Check is a button.
    */
-  onOpenCheck?: (name: string, stepAttempt: number, group?: string) => void;
+  onOpenCheckLog?: (log: JobCheckLog) => void;
   /**
    * The way back, where a press in another destination's panel landed here,
    * and where this one's open panel is reported — `trail.ts`.
@@ -243,7 +244,7 @@ export function usePlanReview({
   onOpenDrone,
   drones,
   now,
-  onOpenCheck,
+  onOpenCheckLog,
   trail,
 }: PlanReviewProps): PlanReviewParts {
   // Which task the inspector is on. **This region's own state, not the
@@ -317,7 +318,7 @@ export function usePlanReview({
   // (owner, 28 Sep 2026), and a Check result lives on that step's `check_runs`.
   const worksAt =
     whole === null ? undefined : whole.steps.find((one) => one.step_id === stepThatWorksTheGroups(whole));
-  const read = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheck);
+  const read = planBoardOf(whole, draft, openTaskAt, openTask ?? undefined, revisable, worksAt, onOpenCheckLog);
   const board = read === undefined || moving === null ? read : { ...read, groups: movedGroups(read.groups, moving) };
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.

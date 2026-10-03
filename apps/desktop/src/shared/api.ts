@@ -41,6 +41,7 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
+import type { LandCheckAt } from "@armada/protocol";
 import type { BridgeState, Summons } from "./bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "./capture-window";
 import type { Pattern } from "./haptics";
@@ -510,6 +511,13 @@ export type BridgeApi = {
    */
   followCheckOutput: (jobId: string | null, kept: string | null) => Promise<void>;
   /**
+   * Read one merge line Check's log, running or ended, or `null` to stop.
+   *
+   * **Read-only, `followCheckOutput`'s terms**, by the line's three names and never a path:
+   * Fleet finds the file from the branch's outcome and opens nothing else.
+   */
+  followLandCheck: (at: LandCheckAt | null) => Promise<void>;
+  /**
    * Read one Job's transition history, or `null` to stop.
    *
    * **Its own entry because it is its own operation.** A history is not on
@@ -819,6 +827,8 @@ export type BridgeApi = {
   renameStudio: (studioId: string, name: string) => Promise<Outcome>;
   /**
    * Put a Note, a Link, a Sketch or a File on a Studio, where the person is looking — #1364.
+   * `within` is the Zone a press inside one put it in, with `position` from
+   * that Zone's corner as `moveStudioNode`'s is; `null` is the board.
    *
    * **Four kinds, and the type is what says so.** Every other kind is made by
    * the act that earns it, and Fleet refuses one from Bridge by name; a
@@ -829,6 +839,7 @@ export type BridgeApi = {
     studioId: string,
     node: StudioNodeByHand,
     position: StudioPosition,
+    within: string | null,
   ) => Promise<Outcome>;
   /**
    * Where a file pasted onto a Studio is on disk, or `""` for one that is not —
@@ -847,7 +858,12 @@ export type BridgeApi = {
    * was left — 1 Oct 2026. **Bytes in for a new picture, never a path**, a
    * pasted Picture's rule: main stages them and names each staged file to Fleet.
    */
-  addStudioSketch: (studioId: string, drawing: SketchToKeep, position: StudioPosition) => Promise<Outcome>;
+  addStudioSketch: (
+    studioId: string,
+    drawing: SketchToKeep,
+    position: StudioPosition,
+    within: string | null,
+  ) => Promise<Outcome>;
   saveStudioSketch: (studioId: string, nodeId: string, drawing: SketchToKeep) => Promise<Outcome>;
   /**
    * Save where a person put a node down: the frame it landed in, `null` for the

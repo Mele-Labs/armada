@@ -265,6 +265,11 @@ export function Sheet({
       if (document.querySelector(".armada-palette")) return;
       // A toast stands over the sheet, and a press made inside it is the toast's.
       if (document.activeElement?.closest(".armada-toast")) return;
+      // A sheet drawn after this one lies over it, so the press is that one's. **The order on the
+      // page, not the order they opened in**: a Check's log opened from a strip inside another
+      // sheet closes first, and which listener was added first says nothing about which is on top.
+      const sheets = document.querySelectorAll(".armada-sheet");
+      if (sheetRef.current !== null && sheets.length > 0 && sheets[sheets.length - 1] !== sheetRef.current) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
