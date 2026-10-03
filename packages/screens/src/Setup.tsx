@@ -46,9 +46,8 @@ export function Setup({ setting, now, sheet, onStartVerify, onStopRun, onOpenEdi
       </Alert>
     );
   }
-  if (held.state === "reading") {
-    return <p className="text-fg-muted">Reading this checkout's workspaces.</p>;
-  }
+  // Before the read answers there is nothing yet to say.
+  if (held.state === "reading") return null;
 
   const opened = held.proposals.proposals.find((one) => one.dir === held.open);
   const edit = (change: ProposalEdit | null) => opened !== undefined && change !== null && setting.onEdit(opened.dir, change);

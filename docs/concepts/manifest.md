@@ -365,7 +365,7 @@ checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}$/)
+      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
 ```
 
 Decided 13 Sep 2026 for #999, after several running Jobs each fixed the same flaky test inside their own change. A Drone that says a test is broken on main is asking a question: Fleet runs just that test there, drafts the fix only where it fails there too, and claims the test for that fix so a second report drafts nothing.

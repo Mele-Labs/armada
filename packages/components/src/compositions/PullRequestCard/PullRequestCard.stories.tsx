@@ -44,13 +44,28 @@ export const Open: Story = {
   },
 };
 
-/** Job 2 as Fleet served it at its gate: no title read, and nobody had commented. */
+/** Job 2 as a 23.5 Fleet serves it at its gate: its title, and nobody had commented. */
 export const AsServed: Story = {
-  args: { ...JOB_2, comments: 0 },
+  args: {
+    ...JOB_2,
+    title: "Retire guides 8 and 20, add validation that every guide's piece is drawn somewhere",
+    comments: 0,
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // No title was served, so the name is the number alone and nothing stands in.
+    // A served 0 is a count, so it is drawn.
+    await expect(canvas.getByText("0 comments")).toBeVisible();
+  },
+};
+
+/** A pull request from before 23.5 that no read has named since: no title, no count. */
+export const BeforeTitles: Story = {
+  args: JOB_2,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The name is the number alone, and nothing stands in for the count.
     await expect(canvas.getByRole("link", { name: "Pull request #1750" })).toBeVisible();
+    await expect(canvas.queryByText(/comment/)).toBeNull();
   },
 };
 

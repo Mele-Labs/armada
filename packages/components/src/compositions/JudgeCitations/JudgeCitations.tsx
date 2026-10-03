@@ -53,11 +53,12 @@ export type JudgeCitationsProps = {
   rows: JudgeCitation[];
   /** The label over the list, where it stands on its own. */
   label?: ReactNode;
-  /** What a panel that cited nothing says. Never an empty frame. */
+  /** What a panel that cited nothing says. Absent draws nothing, label and all. */
   emptyNote?: ReactNode;
 };
 
 export function JudgeCitations({ rows, label, emptyNote }: JudgeCitationsProps) {
+  if (rows.length === 0 && emptyNote === undefined) return null;
   return (
     <div className="armada-judge-citations">
       {label ? <span className="armada-judge-citations__label">{label}</span> : null}

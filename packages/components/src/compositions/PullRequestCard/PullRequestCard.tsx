@@ -9,7 +9,8 @@ import { Badge } from "../../primitives/Badge/Badge";
  * (#1680): number and title, branch, state, Armada's Checks in one line, the
  * comment count. The whole card opens it in the browser.
  *
- * **A flat well, not a glass card** — it sits inside one. **Each line is drawn
+ * **A flat well, not a glass card** — it sits inside one. An eyebrow names it
+ * a pull request before anything says which (owner, 3 Oct 2026). **Each line is drawn
  * only where its fact was served**: an absent prop is an absent line.
  */
 export type PullRequestCardProps = {
@@ -59,10 +60,9 @@ export function PullRequestCard({
         onOpen?.();
       }}
     >
-      <span className="armada-pr-card__head">
-        <GitPullRequest className="armada-pr-card__mark" size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-pr-card__number">{number}</span>
-        {title === undefined ? null : <span className="armada-pr-card__title">{title}</span>}
+      <span className="armada-pr-card__eyebrow">
+        <GitPullRequest className="armada-pr-card__mark" size={16} strokeWidth={2} aria-hidden />
+        Pull request
         {state === undefined ? null : (
           <span className="armada-pr-card__state">
             <Badge status={state.status} icon={state.icon}>
@@ -70,6 +70,10 @@ export function PullRequestCard({
             </Badge>
           </span>
         )}
+      </span>
+      <span className="armada-pr-card__head">
+        <span className="armada-pr-card__number">{number}</span>
+        {title === undefined ? null : <span className="armada-pr-card__title">{title}</span>}
       </span>
       {branch === undefined ? null : <span className="armada-pr-card__branch">{branch}</span>}
       {facts.length === 0 ? null : (

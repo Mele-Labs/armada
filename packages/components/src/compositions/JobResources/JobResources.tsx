@@ -24,6 +24,7 @@ import {
   LogMember,
   Logs,
   MEMORY_USAGE,
+  nothingRunningIsAFault,
   Processes,
   processesTotal,
   TOTAL_SIZE_ON_DISK,
@@ -184,11 +185,9 @@ export function JobResources({
           <FigureList figures={figures} column="strip" />
         )}
         {examined === null ? null : <Looks looks={examined.looks} />}
-        {reading === null ? (
+        {reading === null && (nothingToAsk !== undefined || note !== undefined) ? (
           <p className="armada-holds__note">
-            {nothingToAsk === undefined
-              ? (note ?? "Nothing has been read yet.")
-              : INSTEAD[nothingToAsk]}
+            {nothingToAsk === undefined ? note : INSTEAD[nothingToAsk]}
           </p>
         ) : null}
       </DestinationCard>
@@ -197,7 +196,8 @@ export function JobResources({
         <>
           {/* **A card for every list, including an empty one.** A card that
               disappeared when it held nothing would make "no worktree on
-              disk" and "this build does not draw worktrees" the same screen. */}
+              disk" and "this build does not draw worktrees" the same screen.
+              An empty one keeps its head and draws nothing under it. */}
           <div className="armada-holds__pair">
             <DestinationCard
               label="Processes"
@@ -209,11 +209,13 @@ export function JobResources({
                 />
               }
             >
-              <Processes
-                reading={reading}
-                examined={examined}
-                {...(onKillProcess === undefined ? {} : { onKill: onKillProcess })}
-              />
+              {quietlyEmpty(reading, examined) ? null : (
+                <Processes
+                  reading={reading}
+                  examined={examined}
+                  {...(onKillProcess === undefined ? {} : { onKill: onKillProcess })}
+                />
+              )}
             </DestinationCard>
             <DestinationCard
               label="Worktrees"
@@ -226,25 +228,34 @@ export function JobResources({
                 )
               }
             >
-              <Worktrees worktrees={reading.worktrees} {...(onOpen === undefined ? {} : { onOpen })} />
+              {reading.worktrees.length === 0 ? null : (
+                <Worktrees worktrees={reading.worktrees} {...(onOpen === undefined ? {} : { onOpen })} />
+              )}
             </DestinationCard>
           </div>
           <DestinationCard
             label="Job logs"
             trailing={<LogMember logs={reading.logs} member={member} onMember={setMember} />}
           >
-            <Logs
-              logs={reading.logs}
-              member={member}
-              {...(onOpen === undefined ? {} : { onOpen })}
-              {...(onViewLog === undefined ? {} : { onView: onViewLog })}
-              {...(viewingLog === undefined ? {} : { viewing: viewingLog })}
-            />
+            {reading.logs.length === 0 ? null : (
+              <Logs
+                logs={reading.logs}
+                member={member}
+                {...(onOpen === undefined ? {} : { onOpen })}
+                {...(onViewLog === undefined ? {} : { onView: onViewLog })}
+                {...(viewingLog === undefined ? {} : { viewing: viewingLog })}
+              />
+            )}
           </DestinationCard>
         </>
       )}
     </section>
   );
+}
+
+/** No process held, and nothing wrong with that: the Processes card holds nothing. */
+function quietlyEmpty(reading: PulseReading, examined: JobExamined | null): boolean {
+  return reading.processes.length === 0 && reading.held === "none" && !nothingRunningIsAFault(reading.held, examined);
 }
 
 /**

@@ -90,6 +90,13 @@ branch hits, and those `main` brought in when it moved, against the real
 every rebase, beside another session's test run, and the owner's machine was
 unusable.
 
+**Never make load to reproduce a flake.** No CPU or disk burners, no stress
+loop beside a full suite, nothing left running in the background. One
+`--stress-count` run of the one test, and if it will not fail, fix what the code
+shows. Confirmed 2 Oct 2026: a brief asked for load 50+, the agent started
+endless 2 GB `dd` loops and a 30-worker burner, and the owner's machine froze
+until he killed them by hand. There is no other machine.
+
 | You changed | Run |
 |---|---|
 | A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |

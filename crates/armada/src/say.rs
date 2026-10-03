@@ -54,8 +54,8 @@ pub fn ran(ran: &Ran, verb: &str) {
     match &ran.test {
         Some(test) if ran.matched_nothing() => println!(
             "{} has no test named `{test}`. Name it as the runner prints it: a Rust test by \
-             its function name or a path ending in it (`servers::a_span_holding_one_taken_port_is_not_free`), \
-             a vitest test by any part of its name",
+             its function name, a path ending in it (`servers::a_span_holding_one_taken_port_is_not_free`) \
+             or a module above it (`tests::servers`), a vitest test by any part of its name",
             ran.name
         ),
         Some(test) => match checks_runner::one_test_count(&ran.attempt.output) {

@@ -74,9 +74,12 @@ export const EveryLineCurrent: Story = {
   args: { rows: CURRENT },
 };
 
-/** Before the read has answered. Free, so it is already underway on opening. */
+/** Before the read has answered. Free, so it is already underway on opening — and **nothing stands in** for it. */
 export const Reading: Story = {
-  args: { note: "Reading whether this checkout still has what armada.yml names." },
+  args: {},
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText(/Reading/)).toBeNull();
+  },
 };
 
 /** At `--window-floor`: flush to both edges, no file in the subtitle, icon close. */

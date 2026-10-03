@@ -33,10 +33,14 @@ const EVERYWHERE: KitServerRowProps = {
   resolves: true,
 };
 
-/** Nothing read yet. Not an empty kit — nobody has asked one. */
+/** Nothing read yet. Not an empty kit — nobody has asked one — and **no sentence stands in**. */
 export const Reading: Story = {
   name: "Reading",
   args: { servers: undefined },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("table")).toBeNull();
+    await expect(canvas.queryByText(/Reading/)).toBeNull();
+  },
 };
 
 /** A kit with nothing in it. A drone here gets Armada's own tool and no other. */

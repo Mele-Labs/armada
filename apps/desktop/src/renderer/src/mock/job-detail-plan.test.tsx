@@ -377,11 +377,12 @@ test("a refused Add task says nothing was sent, and keeps the title typed", asyn
 
 // The one claim that is Overview's own: a Job whose workflow records no plan
 // draws a Plan card that says so, rather than a card of nothing.
-test("a Job with no plan draws a Plan card that says why", async () => {
+test("a Job with no plan draws a Plan card with nothing in it: no sentence stands in", async () => {
   await opened(running());
   const card = page.getByRole("region", { name: "Plan" });
   await expect.element(card).toBeVisible();
-  await expect.element(card.getByRole("note")).toBeVisible();
+  await expect.poll(() => card.getByRole("status").elements().length).toBe(0);
+  expect(card.getByRole("note").query()).toBeNull();
 });
 
 test("Job settings: the sixth destination, and a choice sends this Job's id and the wire's word", async () => {

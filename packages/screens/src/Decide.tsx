@@ -156,7 +156,8 @@ export type DecideProps = {
 export function DecidedDiff({ diff, jobId }: { diff: Diff; jobId: string }) {
   const mine = diff.state !== "none" && diff.jobId === jobId ? diff : null;
   if (mine === null || mine.state !== "read") {
-    return <p className="text-fg-muted">{whyNoDiff(diff, jobId)}</p>;
+    const why = whyNoDiff(diff, jobId);
+    return why === undefined ? null : <p className="text-fg-muted">{why}</p>;
   }
   return <UnifiedDiff {...diffOf(mine.work)} />;
 }
@@ -248,7 +249,7 @@ export function Decide({
               mergeNote:
                 frozen.length > 0
                   ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
-                  : `Merges the pull request on ${host}, then takes the work. Armada runs the ` +
+                  : `Merges the pull request on ${host}. Armada runs the ` +
                     `repository's after-merge checks against what landed; merging it on ${host} ` +
                     "yourself skips them.",
               approveNote: "Takes the work without merging — the pull request stays open.",
@@ -301,7 +302,7 @@ export function Decide({
         open={asking === "merge"}
         tone="neutral"
         title={merge.title}
-        confirmLabel="Merge and take the work"
+        confirmLabel="Merge pull request"
         onCancel={() => setAsking(null)}
         onConfirm={() => {
           setAsking(null);
@@ -336,7 +337,9 @@ export function Decide({
           Drawn only where there is a pull request, which is what the read
           above is opened on. */}
       {pullRequest === undefined ? null : mineRemarks(remarks, job.id) === null ? (
-        <p className="text-fg-muted">{whyNoRemarks(remarks, job.id)}</p>
+        whyNoRemarks(remarks, job.id) === undefined ? null : (
+          <p className="text-fg-muted">{whyNoRemarks(remarks, job.id)}</p>
+        )
       ) : (
         <ReviewComments
           comments={mineRemarks(remarks, job.id) ?? []}

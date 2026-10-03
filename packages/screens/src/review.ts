@@ -264,18 +264,15 @@ function labelOf(stepId: string, whole: JobWhole | null): string {
 }
 
 /**
- * Why there is no diff on screen, which is never the same sentence twice.
- *
- * **Four silences, four sentences.** Nobody asked, still reading, the read
- * failed, and a Job with no worktree are four different facts, and one sentence
- * for all of them would tell somebody a Drone wrote nothing when what is true
- * is that nothing was read.
+ * Why there is no diff on screen, where that is a failure. **Nobody asked and
+ * still reading say nothing** — an empty slot stays empty — so a silence is
+ * never read as a Drone that wrote nothing.
  */
-export function whyNoDiff(diff: Diff, jobId: string): string {
+export function whyNoDiff(diff: Diff, jobId: string): string | undefined {
   if (diff.state === "failed" && diff.jobId === jobId) {
     return "Fleet did not answer";
   }
-  return "Reading this job's diff.";
+  return undefined;
 }
 
 /** What an empty reading says. **Ordinary, and never an error.** */
@@ -393,8 +390,8 @@ export function whyNoClaims(evidence: Evidence, jobId: string): string {
 export const CLAIMED_NOTHING = "No evidence submitted";
 
 /**
- * Why there is no conversation on screen, which is never the same sentence
- * twice — and the failure here says more than the other two.
+ * Why there is no conversation on screen, where that is a failure — and the
+ * failure here says more than the others do.
  *
  * **A forge that would not answer is not a pull request nobody commented on.**
  * Every other read on this surface reaches the machine Fleet is on; this one
@@ -402,14 +399,15 @@ export const CLAIMED_NOTHING = "No evidence submitted";
  * review would conclude their comments had vanished. So the sentence says
  * outright which of the two this is.
  */
-export function whyNoRemarks(remarks: Remarks, jobId: string): string {
+export function whyNoRemarks(remarks: Remarks, jobId: string): string | undefined {
   if (remarks.state === "failed" && remarks.jobId === jobId) {
     return (
       "Fleet could not read this pull request, so what anybody wrote on it is unknown. " +
       "That is not the same as a pull request with no comments on it."
     );
   }
-  return "Reading what people wrote on this pull request.";
+  // Still reading: nothing yet to say.
+  return undefined;
 }
 
 /**

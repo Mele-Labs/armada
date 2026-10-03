@@ -2900,9 +2900,15 @@ step 2 of 5, `auth/session.rs`, 12 min." Kill and Redirect are not
 notification actions. When the line is cut, identity and verb survive,
 then location, then elapsed.
 
-**Empty states** point at available work. "No active jobs. 3 waiting on
-the Job Board." An empty screen is where you have the least
-information, so the one line goes to orientation.
+**Empty states** draw nothing. An empty slot stays empty: a sentence or a
+placeholder that only fills the space, or says that something is absent, is
+filler — "No Drone under this filter", "Nothing recorded yet", "Ask Helm
+about this repository." Two things still speak: a fact a person would act on,
+where the empty result is the result ("This run changed nothing.", "Printed
+nothing." for a command that finished), and a failure ("Fleet did not
+answer"). A label left over nothing goes with the sentence. The owner, 29 Sep
+2026, swept on 2 Oct 2026: *"We dont need to say anything."* The Overview
+empty state below predates the sweep and is still drawn.
 
 **Helm** answers, then may add a single observation, only after
 actually looking, always flagged as its own inference. No
@@ -2932,7 +2938,7 @@ explains. The mark goes where the vocabulary is Armada's own — a group
 boundary, a landing rule, how a graph is read — and never on every noun. The
 mark is the character `?` rather than a glyph: `circle-*` is reserved to Judge
 criterion verdicts, and the owner's own word for the control is a question
-mark. An empty state saying what would be here is a fact about now and stays.
+mark. An empty slot draws nothing at all — *Empty states*, above.
 
 **A guide's piece is drawn somewhere, or the guide is retired.** Guide 8
 explained a bar the Overview reframe of 29 September 2026 took off every
