@@ -30,6 +30,8 @@ pub fn status(cwd: &Path, branch: Option<&str>) -> Result<u8, Refused> {
             .map_err(|why| Refused(why.to_string()))?;
     }
 
+    // The runner's ceiling, where one has recorded it: this process's
+    // environment need not be the runner's.
     let size = super::size::describe(&state, Env::read().batch);
     if line.is_empty() {
         println!("merge line: empty, {size}");

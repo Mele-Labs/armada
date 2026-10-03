@@ -856,4 +856,16 @@ pub trait Queries: Send + Sync + 'static {
         query: String,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<FilesFound, Refusal>> + Send;
+
+    /// `list_branches` — the repository's local branches, the base first
+    /// (#1605, spike 022 slice 4). What a Job may start from and land in, read
+    /// through git rather than composed from the worktrees Bridge has seen.
+    ///
+    /// `manifest_id` names the repository, absent being the one Fleet was
+    /// started in. [`Refusal::Unacceptable`] on a repository this Fleet does
+    /// not serve.
+    fn list_branches(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::Branches, Refusal>> + Send;
 }

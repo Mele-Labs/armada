@@ -309,6 +309,7 @@ where
         detail.model_override = self.model_override_of(job.id()).await;
         detail.review_model_override = self.review_model_override_of(job.id()).await;
         detail.tiers = ipc::TierModels::from(&self.tiers_of(job.id()).await);
+        self.approval_served(&job, &mut detail).await;
         detail.review_step = job
             .workflow()
             .steps()

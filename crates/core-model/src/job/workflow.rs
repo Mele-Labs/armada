@@ -587,6 +587,26 @@ impl ResolvedStep {
         self
     }
 
+    /// This step as a person gated it at the approval press. Spike 022, slice 4.
+    ///
+    /// **A box can take a declaration away and never add one.** `checks: false`
+    /// drops the repository's Checks the step named — never Fleet's own looks,
+    /// `diff_nonempty` and the like, which are what the step is rather than a
+    /// gate on it — and `judge: false` drops what the Judge would read. A tick
+    /// on a step that declared nothing runs nothing, because there is nothing
+    /// frozen to run.
+    pub fn gated_by_person(mut self, gate: AdvanceGate, checks: bool, judge: bool) -> ResolvedStep {
+        self.advance_gate = gate;
+        if !checks {
+            self.checks.retain(|check| check.kind() != MANIFEST_CHECK);
+            self.gates_on_every_check = false;
+        }
+        if !judge {
+            self.judge_checks.clear();
+        }
+        self
+    }
+
     /// Whether the definition said `every_manifest_check`, for
     /// [`dispatching`](Self::dispatching)'s reason.
     ///
@@ -916,6 +936,15 @@ impl FrozenWorkflow {
     /// The same workflow, read from `source`.
     pub fn from_source(self, source: WorkflowSource) -> FrozenWorkflow {
         FrozenWorkflow { source, ..self }
+    }
+
+    /// The same workflow with each step passed through `gate`, in order — how
+    /// a person's gates reach the frozen copy at the approval press.
+    pub fn regated(self, gate: impl FnMut(ResolvedStep) -> ResolvedStep) -> FrozenWorkflow {
+        FrozenWorkflow {
+            steps: self.steps.into_iter().map(gate).collect(),
+            ..self
+        }
     }
 
     /// Which of the three places this was read from.

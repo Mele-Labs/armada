@@ -148,10 +148,14 @@ where
         // falls back to the remote's head and then to `main`/`master` — and
         // where nothing answers at all, the branch is kept unanswered rather
         // than deleted on a guess.
-        let reclaimed = adapters::reclaim(&spec, served.manifest().base(), UnmergedWork::Keep)
-            .map_err(|cause| Adrift::NotReclaimed {
-                job: job_id.clone(),
-                cause,
+        // A Job a person landed elsewhere is asked against where it landed.
+        let target = self.target_of(&served, job_id).await;
+        let reclaimed =
+            adapters::reclaim(&spec, target.as_deref(), UnmergedWork::Keep).map_err(|cause| {
+                Adrift::NotReclaimed {
+                    job: job_id.clone(),
+                    cause,
+                }
             })?;
         // The stale half `armada clean` already clears — a Drone's pid row
         // naming a worktree that just went — and the mark that tells a later

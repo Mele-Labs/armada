@@ -296,6 +296,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
 
+**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs.
+
 **A person picks which comments a Drone should act on, and it is Fleet asking rather than a Drone.** Not every comment is a change request — some are questions, some are agreement, some are about something else — and a Drone handed all of them tries to satisfy all of them. So the comments are served when somebody asks for them, that person picks, and the ones they picked are written whole into a file in the Drone's worktree — no size a person's choice can be too large for, `#648`. **That is the road a note already travels**, entered a second time rather than built again: a pointer to the file goes onto the record where a person's typed note goes, the Job takes `awaiting_review -> queued`, and the same block reaches the Drone, naming the file, the count and who wrote them.
 
 **Nothing decides what a Drone is told except a person and the forge.** The press names what the forge calls each comment, and Fleet reads the pull request again to find out what they say — so a comment edited in between is handed over as it now reads, and no client can put words in a prompt or in the file. A comment goes into that file with every line of it behind a marker, which is what makes where it starts and stops Armada's to state rather than the comment's; `../contracts/agent-prompt.md` carries the rule.
@@ -354,6 +356,7 @@ worktrees a repository leases*.
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long |
+| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
@@ -392,7 +395,8 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 > work; a person may answer them days later.
 
 > **Rule.** A completed Job holds its slot until a person clears it, from the
-> Board's Clear or by deleting its record. The sweep never gives it back.
+> Board's Clear, by deleting its record, or with `armada clean --force`. The
+> sweep never gives it back.
 > Why: the owner's decision of 2 Oct 2026, so Show again and anything else
 > reading a finished Job's tree keeps working.
 
@@ -402,7 +406,7 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
 | `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
-| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>`. A completed Job's is not swept |
+| Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
 > held by another, given back, or gone is escalated as `no_worktree`, naming
@@ -422,7 +426,9 @@ holds its slot, and for any other end only while the pool kept it.
 **Completed Jobs nobody clears can fill the pool.** With every slot held, the
 next Job waits at `queued` as `waiting_on_resources`, and `armada worktree
 --status` names the `done` slots. Clear the finished Jobs on the Board, which
-gives each slot back, or `armada worktree release <path>` one by hand.
+gives each slot back, `armada worktree release <path>` one by hand, or
+`armada clean --force` every one that is clean and landed. A plain `armada
+clean` names them and leaves them.
 
 ## Ports
 

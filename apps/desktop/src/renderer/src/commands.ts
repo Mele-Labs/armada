@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { ApproveWave, EditJobAsSent, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
@@ -816,7 +816,7 @@ export function useCommands(sending: Sending) {
    * closes only on one that was taken. `Not implemented` names #1699 until
    * Fleet serves the route.
    */
-  async function editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+  async function editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
     const answer = await window.armada.editJob(jobId, edit);
     setOutcome(answer);
     tap(patternFor(answer.ok ? "accepted" : "refused"));

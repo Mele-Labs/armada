@@ -578,6 +578,12 @@ pub struct JobRequest {
     /// duplicating an attachment onto Jobs that never asked for it.
     #[serde(default)]
     pub attachments: Vec<AttachmentRef>,
+    /// What a person set before dispatching: a workflow, a tier map, a Drone
+    /// cap, whether anybody is asked before it lands. **Since 23.8**, and
+    /// absent is every one decided elsewhere. Applied to every Job the request
+    /// becomes, as the proposer answers; still editable until the approval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<crate::DispatchSettings>,
 }
 
 /// One DAG link, sequencing this Job against a peer.

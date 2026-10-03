@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { ApproveWave, CapRaise, ChosenAnswer, EditJobAsSent, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -920,7 +920,7 @@ export class JobCommands {
    * fields a person changed as the body. The review's lock, as `approveWave`,
    * since it is an answer at the same gate.
    */
-  async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
+  async editJob(jobId: string, edit: EditJobAsSent): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
     );

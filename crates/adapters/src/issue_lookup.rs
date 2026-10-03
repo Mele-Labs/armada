@@ -18,7 +18,7 @@
 //! only reads whatever comes back on stdout, which is text already, not JSON.
 //! That keeps this crate off `serde_json`'s allowlist by never needing it.
 
-use adapter_traits::{LinkLookup, LookupCall};
+use adapter_traits::{IssueAddress, LinkLookup, LookupCall};
 
 /// One shape only: `github.com/<owner>/<repo>/issues/<number>`, with or
 /// without a scheme in front and whatever query or fragment trails the
@@ -42,6 +42,36 @@ impl LinkLookup for IssueLookup {
                 "title,body".into(),
                 "--jq".into(),
                 r#".title + "\n\n" + .body"#.into(),
+            ],
+        ))
+    }
+
+    /// `repo#number`, and the canonical address — never the link as typed,
+    /// which may carry a query or a fragment Bridge would open as given.
+    fn issue(&self, request: &str) -> Option<IssueAddress> {
+        let (owner, repo, number) = issue_reference(request)?;
+        Some(IssueAddress::at(
+            &format!("{repo}#{number}"),
+            &format!("https://github.com/{owner}/{repo}/issues/{number}"),
+        ))
+    }
+
+    /// `updatedAt`, reduced to the bare instant by `--jq`, for this file's
+    /// reason: nothing here parses the answer.
+    fn edited(&self, issue: &IssueAddress) -> Option<LookupCall> {
+        let (owner, repo, number) = issue_reference(issue.url())?;
+        Some(LookupCall::rendered(
+            "gh",
+            vec![
+                "issue".into(),
+                "view".into(),
+                number,
+                "--repo".into(),
+                format!("{owner}/{repo}"),
+                "--json".into(),
+                "updatedAt".into(),
+                "--jq".into(),
+                ".updatedAt".into(),
             ],
         ))
     }

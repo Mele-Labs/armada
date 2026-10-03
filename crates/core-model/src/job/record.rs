@@ -47,6 +47,7 @@ use crate::job::step_machine::{admits_step, IllegalStepTransition, StepTarget};
 use crate::job::transition::{admits, IllegalTransition, Target};
 use crate::job::workflow::{FrozenWorkflow, ResolvedStep};
 
+mod approving;
 mod proposing;
 pub use proposing::{Answered, NewProposal};
 
@@ -76,8 +77,8 @@ pub struct NewJob {
     /// Whether the write targets must land as one unit.
     pub atomic: bool,
     pub model: ModelName,
-    /// Frozen at creation; appendable only at an approved widening. You may
-    /// raise the bar, not lower it.
+    /// Editable until the approval press, frozen at it, and appendable only at
+    /// an approved widening after. You may raise the bar, not lower it.
     pub acceptance_criteria: Vec<AcceptanceCriterion>,
     /// One per step of the frozen WorkflowDef, in order.
     pub steps: Vec<StepSeed>,
