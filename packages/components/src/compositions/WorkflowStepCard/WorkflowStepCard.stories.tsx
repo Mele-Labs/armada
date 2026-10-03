@@ -37,6 +37,27 @@ export const NotStarted: Story = {
   },
 };
 
+/**
+ * The step at work with its gate running its Checks: the phase's mark beside
+ * the step's own, named by its tooltip (owner's annotation of 3 Oct 2026,
+ * `ouqa`). **It breathes on a card that sweeps**, which is the owner's call for
+ * a live state against the contract's one loop per card.
+ */
+export const RunningItsChecks: Story = {
+  args: {
+    kind: "step",
+    name: "Implement",
+    activity: "running",
+    said: "running",
+    ordinal: 2,
+    current: true,
+    line: "55m · 2 Drones",
+    phase: { phase: "checks", label: "Checks running" },
+    onOpen: fn(),
+  },
+  parameters: { motion: "on" },
+};
+
 /** The plan's four groups as the step at work's bar: two passed, one working, one to come. */
 const FOUR_GROUPS = { groups: ["done", "done", "working", "open"], label: "2 of 4 groups done" } as const;
 

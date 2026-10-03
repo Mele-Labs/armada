@@ -5,6 +5,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
+import { StepPhaseMark, type StepPhase } from "../StepPhaseMark/StepPhaseMark";
 
 /**
  * One node of a Job's graphs — a step, a group inside a plan, or a task
@@ -87,6 +88,12 @@ export type WorkflowStepCardProps = {
    * aggregate the owner ruled out on 29 Sep 2026.
    */
   bar?: { groups: readonly TaskBarSegment[]; label: string };
+  /**
+   * Which part of the running step it is in — a Drone, the gate's Checks, the
+   * Judge, or a person — as a mark beside the step's own, named by its tooltip
+   * (owner's annotation of 3 Oct 2026, `ouqa`). Absent on a step not running.
+   */
+  phase?: { phase: StepPhase; label: string };
 };
 
 export function WorkflowStepCard({
@@ -105,6 +112,7 @@ export function WorkflowStepCard({
   onOpen,
   needs = [],
   bar,
+  phase,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -162,6 +170,7 @@ export function WorkflowStepCard({
         ) : (
           <OwnMark mark={mark} label={said} says={`${name}, ${said}`} />
         )}
+        {phase === undefined ? null : <StepPhaseMark phase={phase.phase} label={phase.label} />}
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
@@ -186,6 +195,9 @@ export function WorkflowStepCard({
     </>
   );
 
+  // The phase is in the card's own name too: a button's contents are
+  // presentational, so a mark inside it reaches a screen reader no other way.
+  const named = phase === undefined ? `${name}, ${said}` : `${name}, ${said}, ${phase.label}`;
   const attributes = {
     className: "armada-wf-card",
     "data-kind": kind,
@@ -194,7 +206,7 @@ export function WorkflowStepCard({
   };
 
   return onOpen === undefined ? (
-    <span {...attributes} role="group" aria-label={`${name}, ${said}`}>
+    <span {...attributes} role="group" aria-label={named}>
       {body}
     </span>
   ) : (
@@ -202,7 +214,7 @@ export function WorkflowStepCard({
       {...attributes}
       type="button"
       aria-current={selected ? "true" : undefined}
-      aria-label={`${name}, ${said}`}
+      aria-label={named}
       onClick={onOpen}
     >
       {body}

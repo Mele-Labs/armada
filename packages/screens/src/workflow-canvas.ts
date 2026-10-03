@@ -30,6 +30,7 @@ import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
 import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
+import { phaseOf } from "./step-phase";
 
 // Where the groups were made and are worked is the groups' own fact, and lives
 // beside them; the canvas and its readers still ask here.
@@ -199,6 +200,7 @@ function stepCard(
   const needs = needsOf(whole, step, activity, groups);
   const running = drones.filter((one) => one.step === step.step_id && one.state === "running").length;
   const line = lineOf(step, said, activity, running, took(step, now, frozen !== undefined), needs.length > 0);
+  const phase = phaseOf(whole, step, activity, drones);
   return {
     kind: "step",
     name: step.label,
@@ -212,6 +214,7 @@ function stepCard(
     ...(onOpen === undefined ? {} : { onOpen }),
     ...(needs.length === 0 ? {} : { needs }),
     ...(working && groups.length > 0 ? { bar: barOf(groups) } : {}),
+    ...(phase === undefined ? {} : { phase }),
   };
 }
 

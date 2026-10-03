@@ -18,6 +18,8 @@ import { issueLink, type JobDetail as JobWhole, type StepDetail } from "@armada/
 import { span } from "./duration";
 import { checksOf as gateChecksOf, isRunning } from "./gates";
 import type { GroupView } from "./draft/group";
+import type { DroneView } from "./draft/drone";
+import { phaseOf } from "./step-phase";
 import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
 import { activityOf, stateOf } from "./run";
@@ -119,6 +121,8 @@ export type WorkflowInspectorReading = {
   onOpenPlan?: () => void;
   /** What a running Check measures to. The caller's clock. */
   now?: number;
+  /** Every Drone the Job has had, for the phase a running step is in. Absent reads none. */
+  drones?: readonly DroneView[];
 };
 
 /**
@@ -132,6 +136,7 @@ export function workflowReadingOf({
   groupsUnder,
   onOpenPlan,
   now = Date.now(),
+  drones = [],
 }: WorkflowInspectorReading): WorkflowReading | undefined {
   if (selected === null) return undefined;
 
@@ -160,11 +165,14 @@ export function workflowReadingOf({
   const frozen = frozenBeneath(whole.job.status, step.state);
   const activity = frozen?.activity ?? activityOf(step.state);
   const checks = checksOf(step, now);
+  // The card's own phase, so the card and its panel say it together.
+  const phase = phaseOf(whole, step, activity, drones);
   return {
     name: step.label,
     kind: "step",
     eyebrow: `Step ${placeOf(step)}`,
     state: { activity, said: frozen?.word ?? stateOf(step) },
+    ...(phase === undefined ? {} : { phase }),
     ...(wrote || works
       ? {
           plan: {

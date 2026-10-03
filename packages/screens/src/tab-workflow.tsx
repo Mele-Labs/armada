@@ -273,7 +273,7 @@ export function WorkflowTab({
   // never blank — there is no column now. The canvas has the tab's whole width
   // and this is a layer over it, so a reading nobody asked for would be a panel
   // covering the run it exists to explain.
-  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder, onOpenPlan });
+  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder, onOpenPlan, drones });
   const steering = steeringOf(job, whole);
   const label = `${job.title}, as its workflow's run`;
   // The board's corner: which workflow this is, and which step the Job is on.

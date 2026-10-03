@@ -5,6 +5,7 @@ import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/Ho
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
+import { StepPhaseMark, type StepPhase } from "../StepPhaseMark/StepPhaseMark";
 
 /**
  * One step or group of a Job's workflow, read whole — what it is doing, the
@@ -145,6 +146,11 @@ export type WorkflowInspectorProps = {
    * refusal he had agreed with said nothing about why).
    */
   stopped?: { why?: React.ReactNode; acts?: React.ReactNode };
+  /**
+   * Which part of the running step it is in, on the state pill beside its word
+   * — the step card's own mark, so the card and its panel say it together.
+   */
+  phase?: { phase: StepPhase; label: string };
   redirect?: WorkflowInspectorRedirect;
   /**
    * Every Drone that worked this step, running or not, each one a press away
@@ -247,6 +253,7 @@ export function WorkflowInspector({
   failure,
   asks,
   stopped,
+  phase,
   redirect,
   running,
   stop,
@@ -258,6 +265,7 @@ export function WorkflowInspector({
       <span className="armada-wf-inspector__state" data-activity={state.activity}>
         <StepActivityMark activity={state.activity} label={state.said} />
         <span>{state.said}</span>
+        {phase === undefined ? null : <StepPhaseMark phase={phase.phase} label={phase.label} />}
       </span>
     );
   const regions = (
