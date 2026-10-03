@@ -80,15 +80,10 @@ classifier are model calls. The scanner is the open case. See
 documentation, Voice, **Way I work**, **Expectations**, the workflow step
 and its criteria, the Evidence Scope policy, `acceptance_criteria[]`.
 
-**Told what the repository requires of every change**, where `armada.yml`'s
-`standing_rules` names a file: the same file, from the same read and under
-the same `standing-rules-cap` bound, that its Judge is told — the Judge
-paragraph below. It is its own headed block after the baseline and before
-the job brief, the Manifest's place in section 3's order, worded as what is
-asked of this work. A Manifest without the key gives every Drone brief
-exactly as before. Decided 1 Oct 2026: told only the Judge, a Drone plans
-without the rules and is refused, or carries them while the Judge was not
-sure they belonged. Wording in section 5, *What every change here carries*.
+**Not handed the file `armada.yml`'s `standing_rules` names.** Only its
+Judge is, in the Judge paragraph below. A Drone reads the repository itself,
+so a block quoting the file only repeated it: the block was added on 1 Oct
+2026 and removed on 2 Oct (owner, 2 Oct 2026).
 
 **Told its task, and that handing it in ends it**, on a step declaring
 `drone_per_task`: THE PLAN, then which one task is this Drone's, that the
@@ -167,7 +162,7 @@ criterion's question.
 checkout, never the Job's worktree, so a Drone cannot rewrite it, and
 `verification::Standing` carries it into every Judge brief: each criterion,
 drift, gaming and its second reading, convergence and widening. The Drone
-doing the work is told the same text — the Drone paragraph above. It sits after
+doing the work is not — the Drone paragraph above. It sits after
 the original task text, labelled as a standard rather than the work, and is
 cut at the `standing-rules-cap` setting with the cut said in the
 brief. It is read from the repository and says nothing about how the step
@@ -377,8 +372,9 @@ See `../concepts/drone.md`.
 | Layer | State |
 | --- | --- |
 | 1 Baseline | **Frozen at build.** Compiled in, unreachable from config |
-| 2 Kit, 3 Manifest, 4 WorkflowDef | **Frozen at Job creation.** Editing the Kit file mid-Job changes nothing for any Drone of that Job, including the ones it has not spawned yet |
-| 5 Task | **Frozen at Job creation** — `acceptance_criteria[]` especially, or the Judge grades against a list something invented later |
+| 2 Kit, 3 Manifest | **Frozen at Job creation.** Editing the Kit file mid-Job changes nothing for any Drone of that Job, including the ones it has not spawned yet |
+| 4 WorkflowDef | **Frozen at the approval press** (#1581). A person may pick another workflow and set each step's gate until then; no Drone exists before it, so none reads a version that moved |
+| 5 Task | **Frozen at the approval press** — `acceptance_criteria[]` especially, or the Judge grades against a list something invented later. A person corrects the list up to the press and not after; a criterion is appended only at an approved widening, so a citation to "criterion 4" still resolves |
 | 6 Step | Its content changes at each step boundary, because the step does. Its *sources* are frozen with the rest |
 | Allowlist, budget, freeze | **Live** — re-read at every gated checkpoint. Not prompt content; enforcement |
 
@@ -1468,34 +1464,6 @@ Drone's instinct on seeing a diff is to improve it.
 Everything above the step block is structurally identical between the two
 samples. Only the step text and the injected material differ, which is the
 layering doing its job.
-
-### What every change here carries — added 1 Oct 2026
-
-Where `armada.yml` names `standing_rules`, every sample above gains one
-block after the baseline and the note about a Drone's own files, and before
-the job brief, quoting the file as the
-Judge's brief quotes it. `verification::Standing::to_do` renders it, and its
-heading is the line a Drone reads.
-
-**Drafted wording. Not sanctioned.**
-
-```
-┌─ WHAT THIS REPOSITORY REQUIRES OF EVERY CHANGE ──
-│ What this repository requires of every change you
-│ make, in its own words. It applies to this work
-│ whatever the brief below asks, and the work is
-│ checked against it, so doing what it requires is
-│ part of the job rather than beyond it:
-│
-│   [the file, indented, cut on a whole line at
-│    standing-rules-cap with the cut said]
-└──────────────────────────────────────────────
-```
-
-**"Part of the job rather than beyond it"** is the Drone's side of the
-sentence the Judge is given, that work doing what the file requires is not
-scope expansion. A file that is named and cannot be read is said in one
-sentence under the same heading, as the Judge's brief says it.
 
 ### A task's Drone — added 2 Oct 2026
 

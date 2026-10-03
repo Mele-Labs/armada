@@ -31,6 +31,7 @@ import { planOf } from "./plan";
 import { declaredAgainstTouched, editsIn, filesByTask } from "./task-files";
 import { useDetailKeys } from "./detail-keys";
 import { DetailSheet, type OpenSheet, type SheetMove, type SheetReading } from "./Sheets";
+import type { JobCheckLog } from "./check-log-sheet";
 import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
@@ -118,6 +119,8 @@ export type OverviewTabProps = JobDetailProps & {
    * Plan's group boundary.
    */
   onOpenCheck: (at: CheckAt) => void;
+  /** Open a boundary Check's log in the log panel. **The screen's**, which holds the panel. */
+  onOpenCheckLog: (log: JobCheckLog) => void;
   /**
    * The Job header's own acts, drawn again as the lead's where the lead's act
    * is approving the dispatch. **The same element, not a second control**, so
@@ -490,7 +493,7 @@ export function OverviewTab(props: OverviewTabProps) {
       ...(props.onOpenDrone === undefined ? {} : { onOpenDrone: props.onOpenDrone }),
       ...(props.drones === undefined ? {} : { drones: props.drones }),
       now,
-      onOpenCheck: (name, stepAttempt) => props.onOpenCheck({ name, stepAttempt }),
+      onOpenCheckLog: props.onOpenCheckLog,
       ...(props.trail === undefined ? {} : { trail: props.trail }),
     },
   });

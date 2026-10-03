@@ -44,7 +44,8 @@ import type {
   WhenBlocked,
 } from "./commanding";
 import type { JudgeQuestion, WhenRefused } from "./asking";
-import type { WorkPlan } from "./work-plan";
+import type { TierModels, WorkPlan } from "./work-plan";
+import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving";
 
 /**
  * One Job, whole. The answer to `GET /jobs/:job_id`. `crates/ipc/src/detail.rs`.
@@ -248,6 +249,20 @@ export type JobDetail = {
   model_override?: string;
   /** The model a person chose for this Job's review step. Since 13.33, #903. Absent is no choice. */
   review_model_override?: string;
+  /**
+   * Which model each tier of this Job's tasks runs on. Since 23.6. **Absent
+   * where the map names no tier**, which is Armada picking for every tier.
+   * `set_tiers` moves it.
+   */
+  tiers?: TierModels;
+  /** How many Drones this Job may run at once. Since 23.8; enforced from slice 5. Absent is the machine's cap. */
+  drone_cap?: number;
+  /** How this Job lands, frozen at approval. Since 23.8. Absent lands as ever: from the base, into it, ready. */
+  landing?: LandingRule;
+  /** What the approval said in place of the repository's policies. Since 23.8. Absent is the repository deciding. */
+  policy_overrides?: PolicyOverrides;
+  /** When a person approved this Job. Since 23.8. */
+  approved_at?: string;
   /** The label of the step that writes Armada's review. Since 13.33, #903. Absent where the workflow has none. */
   review_step?: string;
   /**
@@ -646,11 +661,11 @@ export type JobDelivery = {
    * open, still shows what it carried before this attempt.
    */
   unpushed?: string;
-  /** The pull request's title, kept after it settles. Since 23.5. */
+  /** The pull request's title, kept after it settles. Since 23.6. */
   pull_request_title?: string;
   /**
    * Its comments as last counted while open, kept after it settles; line
-   * comments not counted. Since 23.5. **Absent is unknown, never 0.**
+   * comments not counted. Since 23.6. **Absent is unknown, never 0.**
    */
   pull_request_comments?: number;
 };
@@ -997,6 +1012,13 @@ export type Criterion = {
   criterion_id: string;
   text: string;
   source: string;
+  /** Where the words came from (#1642). Since 23.8; absent is nothing saying. */
+  origin?: CriterionOrigin;
+  /**
+   * When the issue these words came from was edited after Fleet read it.
+   * Since 23.8. Absent is the ordinary case; it never dates the freeze.
+   */
+  origin_moved_at?: string;
 };
 
 /** One DAG edge, sequencing peer Jobs. */

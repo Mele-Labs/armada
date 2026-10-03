@@ -239,7 +239,7 @@ pub(crate) async fn enrich(request: &str, links: &(dyn LinkLookup + Send + Sync)
 /// Fleet's own process, never a Drone's: it is unsandboxed and already has a
 /// network, which is the whole reason this call exists instead of asking a
 /// Drone to reach the same link from inside a sandbox that has neither.
-async fn resolved(call: &LookupCall) -> Result<String, String> {
+pub(crate) async fn resolved(call: &LookupCall) -> Result<String, String> {
     let mut spawning = Command::new(call.program());
     spawning
         .args(call.args())
@@ -267,13 +267,16 @@ async fn resolved(call: &LookupCall) -> Result<String, String> {
 
 /// Who settled a proposed Job's scope: the proposer, in its own words where it
 /// gave a reason.
-fn stated_by(job: &ProposedJob) -> StatedBy {
-    StatedBy::TheProposer(job.because.clone().unwrap_or_else(|| {
-        format!(
-            "the Job proposer read the request and chose `{}`; it gave no reason",
-            job.workflow_id.as_str()
-        )
-    }))
+fn stated_by(job: &ProposedJob, read_an_issue: bool) -> StatedBy {
+    StatedBy::TheProposer {
+        said: job.because.clone().unwrap_or_else(|| {
+            format!(
+                "the Job proposer read the request and chose `{}`; it gave no reason",
+                job.workflow_id.as_str()
+            )
+        }),
+        read_an_issue,
+    }
 }
 
 /// The origin a Job read from a typed request carries: **who sent it.** A
@@ -380,6 +383,19 @@ where
         if let Enriched::Failed(cause) = &outcome {
             self.noted_lookup_failed(head.id(), cause);
         }
+        // **Only an issue that was read**: one that would not resolve gave the
+        // proposer nothing of its, so no criterion is the issue's (#1642).
+        let issue = match &outcome {
+            Enriched::Resolved(_) => self.links().issue(request).map(|address| {
+                core_model::IssueSource::read(
+                    address.reference().to_string(),
+                    address.url().to_string(),
+                    self.now(),
+                )
+            }),
+            Enriched::AsGiven | Enriched::Failed(_) => None,
+        };
+        let read_an_issue = issue.is_some();
         let enriched = match &outcome {
             Enriched::AsGiven | Enriched::Failed(_) => request.to_string(),
             // Appended, never substituted: a person or a Judge reading `facts`
@@ -441,7 +457,7 @@ where
         let answered = self
             .drafted(
                 self.as_proposal(served, first, Vec::new(), Vec::new(), dispatched_as),
-                stated_by(first),
+                stated_by(first, read_an_issue),
                 &self.now(),
                 Some(minted_by.clone()),
                 head.number(),
@@ -474,7 +490,7 @@ where
             let minted = self
                 .proposed_split(
                     self.as_proposal(served, job, waits_on, Vec::new(), dispatched_as),
-                    stated_by(job),
+                    stated_by(job, read_an_issue),
                     minted_by.clone(),
                     actor,
                     made[0].id(),
@@ -484,6 +500,16 @@ where
                 self.noted_lookup_failed(minted.id(), cause);
             }
             made.push(minted);
+        }
+        // Every Job the request became read the same issue, and each is asked
+        // about it on the issue rotation (spike 022, answer 5).
+        if let Some(issue) = &issue {
+            let mut store = self.store().lock().await;
+            for job in &made {
+                store
+                    .record_issue_source(job.id(), issue)
+                    .map_err(Adrift::Writing)?;
+            }
         }
         Ok(made)
     }

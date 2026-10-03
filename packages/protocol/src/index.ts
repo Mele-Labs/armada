@@ -13,6 +13,7 @@
 
 export * from "./acts";
 export * from "./amending";
+export * from "./approving";
 export * from "./artifacts";
 export * from "./asking";
 export * from "./attempt";

@@ -107,9 +107,24 @@ pub trait Commands: Send + Sync + 'static {
     /// **What comes back is `queued`, not `running`.** The dispatch is a
     /// turn's, because one inside this request died whenever a client stopped
     /// waiting for it — `fleet::daemon::Fleet::approve` and `#428`.
+    ///
+    /// **`left` is the proposal as the person left it** (#1641, since 23.8):
+    /// its words, workflow, gates, criteria, tiers, Drone cap and landing,
+    /// kept whole or refused whole. `None` approves it as it stands.
     fn approve_dispatch(
         self: std::sync::Arc<Self>,
         job_id: JobId,
+        left: Option<ipc::ApproveDispatch>,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `edit_job` — a proposal's title, facts or criteria, saved without
+    /// releasing it (#1699's route). [`Refusal::IllegalMove`] on a Job past
+    /// `awaiting_approval`; [`Refusal::Unacceptable`] on a body changing
+    /// nothing, or naming a criterion the Job does not hold.
+    fn edit_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        edit: ipc::EditJob,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `kill_drone` — kills a Drone, captures learnings, holds the worktree.
@@ -723,6 +738,16 @@ pub trait Commands: Send + Sync + 'static {
         choice: ipc::SetModel,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `set_tiers` — which model each tier of this Job's tasks runs on, the
+    /// whole map replaced. Spike 022, slice 3. **Read by the next spawn.**
+    ///
+    /// [`Refusal::IllegalMove`] on a model this Fleet does not offer.
+    fn set_tiers(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        tiers: ipc::SetTiers,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `remove_allowed_command` — take back a command a person allowed for
     /// this Job. The next reach for it is answered by the Job's setting again;
     /// one already written into armada.yml stays there.
@@ -1034,5 +1059,15 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         move_plan: ipc::MovePlan,
+    ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
+
+    /// `edit_task` — a person changes a task's title, note, scope, expects or
+    /// model, and the plan it leaves comes back. `#1657`. Refused on a task
+    /// that is not open or failed, and on a model this Fleet does not offer.
+    fn edit_task(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        task: String,
+        edit: ipc::EditTask,
     ) -> impl Future<Output = Result<ipc::WorkPlan, Refusal>> + Send;
 }

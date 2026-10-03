@@ -151,10 +151,10 @@ export function StudiosSurface(props: StudiosSurfaceProps) {
           return answer;
         }}
         onRename={(studioId, name) => renameStudio(studioId, name)}
-        onAddNode={(node, position) => addStudioNode(openId ?? "", node, position)}
+        onAddNode={(node, position, within) => addStudioNode(openId ?? "", node, position, within ?? null)}
         pathOfFile={pathOfFile}
         onAddPicture={(bytes, position) => addStudioPicture(openId ?? "", bytes, position)}
-        onAddSketch={(drawing, position) => addStudioSketch(openId ?? "", drawing, position)}
+        onAddSketch={(drawing, position, within) => addStudioSketch(openId ?? "", drawing, position, within ?? null)}
         onSaveSketch={(nodeId, drawing) => saveStudioSketch(openId ?? "", nodeId, drawing)}
         onDispatchSketch={props.onDispatchSketch}
         onMoveNode={(nodeId, position, within) => moveStudioNode(openId ?? "", nodeId, position, within)}

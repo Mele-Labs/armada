@@ -94,7 +94,7 @@ pub use daemon::{
     PermissionAnswer, Queries, Redirector, Refusal, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
-pub use following::{Follow, Followed, LiveOutput};
+pub use following::{Follow, Followed, LandOutput, LiveOutput};
 pub use journal::{Journal, Reading, Window, FOLLOW};
 pub use mcp::{Caller, MCP_PATH};
 pub use observing::{Feed, Observed, Seen, Turns, Watch, WATCHING};

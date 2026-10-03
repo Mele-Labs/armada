@@ -1384,6 +1384,7 @@ N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)
 Z              add a zone           (open studio only)
+R              run                  (open studio only)
 ```
 
 **This is the map, not a pattern.** It was settled by drawing the Job
@@ -1437,14 +1438,16 @@ Three reversals against what stood before, each with a reason:
 **`x` for kill and every safety rule below are unchanged.** Neither was
 in play, and the destructive-key rule is what kept `x` off `k`.
 
-**A Studio's three are shifted, and `open studio` is a place rather than
+**A Studio's keys are shifted, and `open studio` is a place rather than
 an object.** Every other contextual scope names what the act acts on —
 the focused row, the open job, the dispatch card. These act on the board
 a person is looking at, and the node they make lands where they are
 looking rather than at the origin. They are shifted because the letters
 the design drew are all spoken for: `n` is dispatch and its scope is
-`anywhere`, `v` is observe and `s` is restart step, so an unshifted key
-would answer twice on one press. See [Studio](../concepts/studio.md).
+`anywhere`, `v` is observe, `s` is restart step and `r` is review and the
+run sheet, so an unshifted key would answer twice on one press. `R` opens
+the rail's Run menu rather than starting anything, as a press on Run does.
+See [Studio](../concepts/studio.md).
 
 **`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
 Doctor, Manifest, Cleanup, Kit, Settings, Guides — since Active Jobs, Reviews and the

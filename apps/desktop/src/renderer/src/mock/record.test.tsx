@@ -189,19 +189,20 @@ describe("the Record, as the owner asked for it", () => {
     },
   );
 
-  // The owner, 29 Sep 2026: *Should I be able to click on the check to open
-  // that record and see the check? Yes.*
+  // The owner, 2 Oct 2026: *click on the specific check to open a panel and
+  // see the live log of the check. This should work anywhere that little
+  // component is displayed.* It opened the Check's own Record row before.
   test(
-    "arc/group-failed: pressing screens_test on T5's group boundary opens that Check's own " +
-      "row, with its output",
+    "arc/group-failed: pressing screens_test on T5's group boundary opens that Check's log",
     async () => {
       await record("arc/group-failed");
       await page.getByRole("button", { name: /^T5 marked done/ }).click();
       await entered(page.getByRole("dialog", { name: /^T5 marked done/ }));
       await page.getByRole("button", { name: "screens_test, failed" }).click();
 
-      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
-      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+      const log = page.getByRole("dialog", { name: "Check log" });
+      await expect.element(log).toBeVisible();
+      await expect.element(log.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
     },
   );
 });
@@ -224,17 +225,17 @@ describe("the Record, and the destinations beside it", () => {
   );
 
   test(
-    "arc/group-failed: pressing a failed Check on the Plan's group boundary opens the Record " +
-      "on that Check's own row",
+    "arc/group-failed: pressing a failed Check on the Plan's group boundary opens its log " +
+      "where the plan is, rather than leaving for the Record",
     async () => {
       mount("arc/group-failed");
       await page.getByRole("tab", { name: /^Plan/ }).click();
       await page.getByRole("tab", { name: "List" }).click();
       await page.getByRole("button", { name: "screens_test, failed" }).first().click();
 
-      await expect.element(page.getByRole("tabpanel", { name: "Record" })).toBeVisible();
-      await expect.element(page.getByRole("heading", { name: "screens_test" })).toBeVisible();
-      await expect.element(page.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+      const log = page.getByRole("dialog", { name: "Check log" });
+      await expect.element(log.getByText("AssertionError: expected 'board' to be 'job'")).toBeVisible();
+      await expect.element(page.getByRole("tabpanel", { name: "Plan" })).toBeVisible();
     },
   );
 

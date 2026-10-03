@@ -28,24 +28,15 @@ export const PENDING_ROUTES: readonly PendingRoute[] = [
   // Served since 23.2. Deleted with the mock answering both, which a person
   // walks first: the Bridge half of #1763.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/restart", act: "restart_task", issue: 1656 },
+  // Served since 23.6, with `EditTask` moved to `work-plan.ts`. Deleted with
+  // the mock answering it, which a person walks first: the Bridge half of #1764.
   { method: "POST", path: "/jobs/{job_id}/tasks/{task_id}/edit", act: "edit_task", issue: 1657 },
   { method: "POST", path: "/jobs/{job_id}/plan/move", act: "move_plan", issue: 1685 },
   { method: "POST", path: "/jobs/{job_id}/approve_wave", act: "approve_wave", issue: 1694 },
+  // Served since 23.8 with the lock's body, `EditJob` in `approving.ts`.
+  // Deleted with Edit this Job sending it, which is #1699's rest (slice 6).
   { method: "POST", path: "/jobs/{job_id}/edit", act: "edit_job", issue: 1699 },
 ];
-
-/**
- * What Edit this task sends to `edit_task` (#1657). **Only the fields a person
- * changed.** Fleet has not agreed a body for the route yet, so this is what
- * Bridge sends and the debug info carries, not a wire type.
- */
-export type EditTask = {
-  title?: string;
-  note?: string;
-  scope?: string[];
-  expects?: string;
-  model?: string;
-};
 
 /**
  * What Approve the plan sends to `approve_wave` (#1694) at an Epic Job's plan
@@ -60,10 +51,14 @@ export type ApproveWave = {
 /**
  * What Edit this Job sends to `edit_job` (#1699), on a Job of an Epic's
  * proposed wave, still at `awaiting_approval`. **Only the fields a person
- * changed**; `expects` is the whole list, one line each. Fleet has not agreed
- * a body yet, so this is what Bridge sends and the debug info carries.
+ * changed**; `expects` is the whole list, one line each.
+ *
+ * **Not the body Fleet takes.** Since 23.8 the route takes `EditJob`
+ * (`approving.ts`) — `facts` and #1641's criteria, the spike's bodies table —
+ * and refuses this one by name rather than dropping `brief` and `expects`.
+ * The panel moves to it with #1699's rest, in slice 6.
  */
-export type EditJob = {
+export type EditJobAsSent = {
   title?: string;
   brief?: string;
   expects?: string[];

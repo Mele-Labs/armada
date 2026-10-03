@@ -139,22 +139,22 @@ impl Delivery for GitVcs {
         if let Some(url) = already_open(worktree) {
             return Ok(Opened::AlreadyOpen { url });
         }
-        let run = run(
-            worktree,
-            FORGE,
-            &[
-                "pr",
-                "create",
-                "--base",
-                base.name(),
-                "--head",
-                worktree.branch(),
-                "--title",
-                review.title(),
-                "--body",
-                review.body(),
-            ],
-        );
+        let mut args = vec![
+            "pr",
+            "create",
+            "--base",
+            base.name(),
+            "--head",
+            worktree.branch(),
+            "--title",
+            review.title(),
+            "--body",
+            review.body(),
+        ];
+        if review.draft() {
+            args.push("--draft");
+        }
+        let run = run(worktree, FORGE, &args);
         let run = match run {
             Ok(run) => run,
             Err(why) => {
@@ -179,7 +179,11 @@ impl Delivery for GitVcs {
         crate::under_review::read(in_repo, pull_request)
     }
 
-    fn inline_remarks(&self, in_repo: &str, pull_request: &str) -> Vec<adapter_traits::Remark> {
+    fn inline_remarks(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<Vec<adapter_traits::Remark>> {
         crate::inline_comments::read(in_repo, pull_request)
     }
 

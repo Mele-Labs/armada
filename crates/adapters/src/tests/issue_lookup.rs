@@ -63,3 +63,40 @@ fn a_non_numeric_issue_segment_resolves_to_nothing() {
         .resolve("https://github.com/NickMele/armada/issues/latest")
         .is_none());
 }
+
+/// The issue a request links, read as a person reads it and addressed as the
+/// forge does — never the link as typed, with its query. Spike 022, slice 4.
+#[test]
+fn a_linked_issue_is_named_and_addressed_without_what_trails_it() {
+    let issue = IssueLookup
+        .issue("see https://github.com/NickMele/armada/issues/1162?x=1#top")
+        .expect("an issue");
+    assert_eq!(issue.reference(), "armada#1162");
+    assert_eq!(
+        issue.url(),
+        "https://github.com/NickMele/armada/issues/1162"
+    );
+}
+
+/// When it was last edited is one bare instant on stdout, reduced by `gh`.
+#[test]
+fn when_an_issue_was_edited_is_asked_of_the_issue_it_names() {
+    let issue = IssueLookup
+        .issue("https://github.com/NickMele/armada/issues/1162")
+        .expect("an issue");
+    let call = IssueLookup.edited(&issue).expect("a call");
+    assert_eq!(
+        call.args(),
+        [
+            "issue",
+            "view",
+            "1162",
+            "--repo",
+            "NickMele/armada",
+            "--json",
+            "updatedAt",
+            "--jq",
+            ".updatedAt",
+        ]
+    );
+}

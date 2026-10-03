@@ -456,16 +456,64 @@ impl CriterionSource {
     }
 }
 
+/// Where a criterion's words came from. **Not [`CriterionSource`]**, which is
+/// how it is answered: one name with two meanings on one row is what spike 022
+/// kept `source` apart from (#1642).
+///
+/// `Issue` names no issue: a Job reads at most one, and which one is the Job's
+/// own [`IssueSource`](crate::IssueSource), so a criterion cannot name an issue
+/// its Job never read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CriterionOrigin {
+    /// Read out of the issue the request linked.
+    Issue,
+    /// Read out of the request a person typed.
+    Prompt,
+    /// Typed at the dispatch form, or added at the approval gate.
+    Person,
+    /// Nothing says: a Job no person dispatched, and every criterion kept
+    /// before 23.8, which recorded no origin.
+    Unsaid,
+}
+
+impl CriterionOrigin {
+    pub const ALL: &'static [CriterionOrigin] = &[
+        CriterionOrigin::Issue,
+        CriterionOrigin::Prompt,
+        CriterionOrigin::Person,
+        CriterionOrigin::Unsaid,
+    ];
+
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            CriterionOrigin::Issue => "issue",
+            CriterionOrigin::Prompt => "prompt",
+            CriterionOrigin::Person => "person",
+            CriterionOrigin::Unsaid => "unsaid",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<CriterionOrigin> {
+        CriterionOrigin::ALL
+            .iter()
+            .copied()
+            .find(|origin| origin.as_wire() == value)
+    }
+}
+
 /// What the Job must satisfy to be done, in the requester's words.
 ///
-/// Frozen at creation. [`Job`](crate::Job) offers no method that edits,
-/// reorders or removes one — Judge citations reference a criterion by its
-/// frozen position, which any of the three would break.
+/// **Frozen at approval** (#1581): until the press a person may reword, add
+/// and remove them, through `Job::proposal_edited` and nowhere else. After it
+/// [`Job`](crate::Job) offers no method that edits, reorders or removes one —
+/// Judge citations reference a criterion by its frozen position, which any of
+/// the three would break.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AcceptanceCriterion {
     pub criterion_id: CriterionId,
     pub text: String,
     pub source: CriterionSource,
+    pub origin: CriterionOrigin,
 }
 
 /// Which way a DAG edge points.

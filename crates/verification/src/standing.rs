@@ -1,20 +1,18 @@
 //! What a repository requires of every change, as it wrote it, for a Judge to
-//! read beside the work and for the Drone doing it to read first. Read from the
-//! repository and never from the Drone, so rule 2's blindness is unchanged.
-//! `docs/contracts/agent-prompt.md` section 2, *Judge* and *Drone*.
+//! read beside the work. Read from the repository and never from the Drone, so
+//! rule 2's blindness is unchanged. `docs/contracts/agent-prompt.md` section 2,
+//! *Judge*.
 //!
-//! **One value, two wordings.** The Drone is told what its Judge is told, from
-//! the same read and under the same bound, so the work is done to the standard
-//! it is measured against. Only the sentence that introduces it differs: a
-//! Judge is told it is a standard and not scope expansion, a Drone that it is
-//! asked of this work.
+//! **Only the Judge is handed it.** The Drone's opening brief carried the same
+//! file from 1 Oct 2026 and stopped on 2 Oct: a Drone reads the repository
+//! itself, so the block only repeated it (owner, 2 Oct 2026).
 //!
 //! **A Judge may look the rest up**, since 2 Oct 2026: [`Standing::readable`]
 //! tells it it can read the checkout. The named file stays the repository's
 //! explicit statement, and one naming none still gets a Judge that can read.
 
-/// The most of a repository's standing rules a brief carries, in bytes, a
-/// Judge's or a Drone's. `standing-rules-cap` in `crates/config/settings.toml`.
+/// The most of a repository's standing rules a Judge's brief carries, in
+/// bytes. `standing-rules-cap` in `crates/config/settings.toml`.
 pub const STANDING_RULES: usize = 4 * 1024;
 
 /// What a repository requires of every change, ready for a brief, and never
@@ -145,32 +143,6 @@ impl Standing {
                 told.push('\n');
                 told
             }
-        }
-    }
-
-    /// The block a Drone's opening brief carries, heading first, or `None`
-    /// where the repository names no file — and the brief is then the one it
-    /// was before the key existed. The same text as [`Standing::told`] under
-    /// the same bound; only the sentence introducing it is the doer's.
-    pub fn to_do(&self) -> Option<String> {
-        let heading = "WHAT THIS REPOSITORY REQUIRES OF EVERY CHANGE\n\n";
-        match &self.said {
-            None => None,
-            Some(Said::Unreadable { path }) => Some(format!(
-                "{heading}This repository names {path} as what it requires of every change, \
-                 and it could not be read, so what it requires is not shown here."
-            )),
-            Some(Said::Read {
-                path,
-                text,
-                cut_from,
-            }) => Some(format!(
-                "{heading}What this repository requires of every change you make, in its own \
-                 words. It applies to this work whatever the brief below asks, and the work \
-                 is checked against it, so doing what it requires is part of the job rather \
-                 than beyond it:\n\n{}",
-                quoted(path, text, *cut_from).trim_end()
-            )),
         }
     }
 }

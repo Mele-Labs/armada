@@ -72,6 +72,65 @@ pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
         .unwrap_or_default()
 }
 
+/// `observe_land_check`: one Check's log on a served root's line, or `None`
+/// where there is none to open — [`line::check_log`] says which names resolve.
+///
+/// **The root is held against the served list first**, so a root is never a
+/// path Fleet takes on trust either: an unserved one is asked nothing.
+pub async fn land_log<D: Queries>(
+    daemon: &D,
+    root: String,
+    branch: String,
+    check: String,
+) -> Option<api::LandOutput> {
+    if !roots(daemon).await.contains(&root) {
+        return None;
+    }
+    let found = {
+        let (root, branch, check) = (root.clone(), branch.clone(), check.clone());
+        tokio::task::spawn_blocking(move || {
+            let at = line::locate(Path::new(&root))?;
+            let log = line::check_log(&at, &branch, &check)?;
+            Some(LandFollow { at, branch, log })
+        })
+        .await
+        .ok()??
+    };
+    Some(api::LandOutput {
+        root,
+        branch,
+        name: check,
+        follow: Arc::new(found),
+    })
+}
+
+/// One merge line Check's log, and how to know the runner is still writing it.
+pub(crate) struct LandFollow {
+    pub(crate) at: Located,
+    pub(crate) branch: String,
+    pub(crate) log: line::CheckLog,
+}
+
+impl api::Follow for LandFollow {
+    /// `crate::following`'s reader, on a file found from the outcome. **A link
+    /// put where the log goes after it was found is unreadable**, not followed.
+    fn read(&self, from: u64, to_the_end: bool) -> api::Followed {
+        if line::is_link(&self.log.file) {
+            return api::Followed {
+                lines: Vec::new(),
+                from,
+                skipped: 0,
+                unreadable: true,
+            };
+        }
+        crate::following::read_from(&self.log.file, from, to_the_end)
+    }
+
+    fn writing(&self) -> bool {
+        line::check_writing(&self.at, &self.branch, &self.log)
+    }
+}
+
 /// Read every [`EVERY`] and publish `merge_lines.changed` when the lines moved.
 ///
 /// **What it costs the event stream is bounded by the files, not by Fleet**: at
@@ -127,6 +186,7 @@ where
 /// **The redaction is here**: a queue entry's head, tree, worktree and nonce,
 /// and an outcome's logs, cleanup commands, runner pid and base readings stay on
 /// disk. A Check crosses by name and state alone. What crosses is what `--status` prints and the panel draws.
+/// One Check's log is read on its own socket, by name, through [`land_log`].
 pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
     let order: Vec<&str> = read
         .waiting

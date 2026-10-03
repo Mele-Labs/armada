@@ -11,8 +11,10 @@
 //!
 //! **What is not assembled is missing rather than empty.** The contract names
 //! six layers and M1 has no Kit and no Manifest, which its own M1 rendering
-//! says, so what is assembled is baseline, job brief, where-you-are and step —
-//! and of the Manifest layer, only the file its `standing_rules` names.
+//! says, so what is assembled is baseline, job brief, where-you-are and step.
+//! The file the Manifest's `standing_rules` names is not among them: a Drone
+//! reads the repository itself, and only its Judge is handed that file (owner,
+//! 2 Oct 2026).
 //! The exemplar corpus and a review step's injected reference material each
 //! need a record M1 has no type for, and a block rendered empty reads to a
 //! Drone as a block that was answered. What the previous step produced was on
@@ -30,7 +32,7 @@ use core_model::{
     EscalationTrigger, FrozenWorkflow, GamingFlag, Job, JobId, Judgment, ResolvedStep, StepId,
     StepVerdict,
 };
-use verification::{Standing, TheBaseMoved};
+use verification::TheBaseMoved;
 
 use crate::crossing::{
     Crossed, Dismissed, Overtaken, Produced, Reconciling, Redirected, SentBack, ThePlan,
@@ -110,9 +112,6 @@ pub struct Opening {
     /// which is every brief assembled outside a spawn — an acceptance bench
     /// rendering one, and the two entry points a test calls directly.
     allowance: Option<Allowance>,
-    /// What the repository requires of every change, the same value its Judge
-    /// is handed. [`Standing::unstated`] renders nothing.
-    standing: Standing,
 }
 
 /// Whether the step being opened has been worked before.
@@ -182,7 +181,6 @@ impl Opening {
             attempted: Attempted::No,
             crossed: Crossed::nothing(),
             allowance: None,
-            standing: Standing::unstated(),
         }
     }
 
@@ -192,7 +190,6 @@ impl Opening {
             attempted: Attempted::Before(stopped),
             crossed: Crossed::nothing(),
             allowance: None,
-            standing: Standing::unstated(),
         }
     }
 
@@ -206,15 +203,6 @@ impl Opening {
             allowance: Some(allowance),
             ..self
         }
-    }
-
-    /// The same opening, carrying what the repository requires of every change.
-    ///
-    /// **Folded in at the spawn, for `allowing`'s reason**, and read by
-    /// [`crate::judging::standing`], the one reader a Judge's brief goes
-    /// through too, so a Drone is told what its Judge expects and nothing else.
-    pub(crate) fn under(self, standing: Standing) -> Opening {
-        Opening { standing, ..self }
     }
 
     /// The same opening, with what the boundary handed across.
@@ -320,23 +308,9 @@ impl Opening {
         moved: Option<&TheBaseMoved>,
     ) -> Result<Brief, SpawnConfigRefused> {
         let mut blocks = match &self.attempted {
-            Attempted::No => assemble(
-                job,
-                workflow,
-                at,
-                &self.crossed,
-                self.allowance,
-                &self.standing,
-            ),
+            Attempted::No => assemble(job, workflow, at, &self.crossed, self.allowance),
             Attempted::Before(stopped) => {
-                let mut blocks = assemble(
-                    job,
-                    workflow,
-                    at,
-                    &self.crossed,
-                    self.allowance,
-                    &self.standing,
-                );
+                let mut blocks = assemble(job, workflow, at, &self.crossed, self.allowance);
                 blocks.headed(&stopped.block(), ipc::BlockKind::AboutThisJob);
                 blocks
             }
@@ -474,7 +448,7 @@ pub fn first_turn(
     at: &StepId,
     crossed: &Crossed,
 ) -> Result<Brief, SpawnConfigRefused> {
-    assemble(job, workflow, at, crossed, None, &Standing::unstated()).brief()
+    assemble(job, workflow, at, crossed, None).brief()
 }
 
 /// Assemble the first turn for a Drone taking over a step that stopped.
@@ -493,7 +467,7 @@ pub fn resuming_turn(
     stopped: &Stopped,
     crossed: &Crossed,
 ) -> Result<Brief, SpawnConfigRefused> {
-    let mut blocks = assemble(job, workflow, at, crossed, None, &Standing::unstated());
+    let mut blocks = assemble(job, workflow, at, crossed, None);
     blocks.headed(&stopped.block(), ipc::BlockKind::AboutThisJob);
     blocks.brief()
 }
@@ -719,17 +693,10 @@ fn assemble(
     at: &StepId,
     crossed: &Crossed,
     allowance: Option<Allowance>,
-    standing: &Standing,
 ) -> Blocks {
     // The baseline is the one block with no heading of its own.
     let mut blocks = Blocks::opening(BASELINE);
     blocks.headed(&notekeeping(job.id()), ipc::BlockKind::Standing);
-    // **Before the job brief**, where the contract's layer order puts the
-    // Manifest: it is true of every Job here, and a Drone that reads the work
-    // first has planned it before reading what every change must carry.
-    if let Some(standing) = standing.to_do() {
-        blocks.headed(&standing, ipc::BlockKind::Standing);
-    }
     blocks.headed(&job_brief(job), ipc::BlockKind::AboutThisJob);
     // **Before the rail, and after what the Job is about.** THE PLAN is a
     // fact about the whole Job, like the brief above it, and the rail below

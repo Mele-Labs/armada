@@ -516,13 +516,26 @@ impl RepositoryStanding {
 pub struct Review {
     title: String,
     body: String,
+    draft: bool,
 }
 
 impl Review {
+    /// Offered for review, which is what every pull request was before a
+    /// person could choose a draft.
     pub fn assembled(title: impl Into<String>, body: impl Into<String>) -> Review {
         Review {
             title: title.into(),
             body: body.into(),
+            draft: false,
+        }
+    }
+
+    /// The same contents, opened as a draft. Spike 022, slice 4: a person
+    /// chose it at the Job's approval.
+    pub fn as_draft(self) -> Review {
+        Review {
+            draft: true,
+            ..self
         }
     }
 
@@ -532,6 +545,10 @@ impl Review {
 
     pub fn body(&self) -> &str {
         &self.body
+    }
+
+    pub fn draft(&self) -> bool {
+        self.draft
     }
 }
 
@@ -691,24 +708,20 @@ pub trait Delivery {
     /// [`landed`](Delivery::landed)'s reason.
     fn under_review(&self, in_repo: &str, pull_request: &str) -> UnderReview;
 
-    /// The comments left on individual lines of the diff — the ones
-    /// [`under_review`](Delivery::under_review) does not fetch, because they
-    /// are a second query per review and the sweep has one call to spend.
+    /// The comments left on individual lines of the diff, which
+    /// [`under_review`](Delivery::under_review) does not fetch. Asked by a
+    /// person opening a Job's comments, by a press taking some up, and by the
+    /// sweep's turn on an open pull request, to count them on the card — the
+    /// owner's 2 Oct 2026 call. A Job read asks the forge nothing.
     ///
-    /// **Asked on demand and never from the sweep.** The two callers are a
-    /// person opening a Job's comments and a press taking some of them up —
-    /// both already cost a process for [`under_review`](Delivery::under_review),
-    /// so this is the one place fetching inline comments is affordable.
-    ///
-    /// **Empty rather than a `Result`.** A forge that would not answer this
-    /// second question leaves a person with the comments
-    /// [`under_review`](Delivery::under_review) already found and none of
-    /// their code — worse than not asking would be refusing the whole read
-    /// over a query that is strictly additional to it.
+    /// **`None` where the forge did not answer**, one silence for
+    /// [`landed`](Delivery::landed)'s reason. Not an empty list, because the
+    /// sweep keeps its last count on a silence and would count an empty list
+    /// as zero. A person's read takes `None` as nothing more to add.
     ///
     /// `in_repo` is the repository every worktree was cut from, for
     /// [`landed`](Delivery::landed)'s reason.
-    fn inline_remarks(&self, in_repo: &str, pull_request: &str) -> Vec<Remark>;
+    fn inline_remarks(&self, in_repo: &str, pull_request: &str) -> Option<Vec<Remark>>;
 
     /// The diff of a pull request somebody else opened, for a Code Review Job whose review is
     /// checked against it. #903. **`None` is the forge's silence**, for

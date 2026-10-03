@@ -91,9 +91,15 @@ where
         by: api::Redirector,
     ) -> Result<ipc::ProposedPlan, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
+        // Refused before any Job exists, so a setting nothing could keep never
+        // leaves a proposal half set. `approving` has both halves.
+        if let Some(settings) = &request.settings {
+            self.settable(&served, settings)
+                .map_err(|why| self.refusal(why))?;
+        }
         let fleet = Arc::clone(&self);
         let proposing = tokio::spawn(async move {
-            fleet
+            let made = fleet
                 .propose_from_with_attachments(
                     &request.request,
                     request.client_ref,
@@ -103,7 +109,11 @@ where
                     // A composer dispatch is *Dispatched by you*, not Fleet's find.
                     crate::proposal::requested(by),
                 )
-                .await
+                .await?;
+            if let Some(settings) = &request.settings {
+                fleet.dispatched_as_set(&made, settings).await?;
+            }
+            Ok(made)
         });
         let made = proposing
             .await
@@ -130,10 +140,36 @@ where
         })
     }
 
-    async fn approve_dispatch(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+    /// Approve, as the person left the proposal where they sent one.
+    /// `approving` has it.
+    async fn approve_dispatch(
+        self: Arc<Self>,
+        job_id: JobId,
+        left: Option<ipc::ApproveDispatch>,
+    ) -> Result<JobSummary, Refusal> {
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { fleet.approve(&job_id.to_domain()).await }
+            async move {
+                match left {
+                    Some(left) => fleet.approve_as_left(&job_id.to_domain(), &left).await,
+                    None => fleet.approve(&job_id.to_domain()).await,
+                }
+            }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    /// Save a proposal's words without releasing it. `approving` has it.
+    async fn edit_job(
+        self: Arc<Self>,
+        job_id: JobId,
+        edit: ipc::EditJob,
+    ) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { fleet.edit_proposal(&job_id.to_domain(), &edit).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
@@ -994,6 +1030,15 @@ where
         self.summarised(&job).await
     }
 
+    /// Which model each tier of this Job's tasks runs on. `task_edits` has it.
+    async fn set_tiers(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::SetTiers,
+    ) -> Result<JobSummary, Refusal> {
+        Fleet::set_tiers_by_person(self, job, body).await
+    }
+
     /// A command a person allowed for this Job, taken back.
     async fn remove_allowed_command(
         self: Arc<Self>,
@@ -1044,5 +1089,15 @@ where
         body: ipc::MovePlan,
     ) -> Result<WorkPlan, Refusal> {
         Fleet::move_plan_by_person(self, job, body).await
+    }
+
+    /// Edit this task. `#1657`; `task_edits` has it.
+    async fn edit_task(
+        self: Arc<Self>,
+        job: JobId,
+        task: String,
+        body: ipc::EditTask,
+    ) -> Result<WorkPlan, Refusal> {
+        Fleet::edit_task_by_person(self, job, task, body).await
     }
 }

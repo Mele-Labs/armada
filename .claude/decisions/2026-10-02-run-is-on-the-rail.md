@@ -15,3 +15,5 @@ His annotation `20261002-042804-8gp7`, on the `Run` card at the whiteboard's top
 **Cost he took:** Run needs a new icon in the registry, and while the Studio is read-only it is drawn off with a tooltip instead of being hidden.
 
 **Where it landed:** `bridge/run-on-the-studio-rail`.
+
+**Then, the same day**, asked about the palette: *"Add it, with R as the original design drew it."* Run has a row in `crates/core-model/domain/actions.toml`, `start_studio_run`, bound to `R`, shifted for `add_note`'s reason. The key and the palette row open the rail's menu rather than starting anything, and both are off exactly when Run is drawn off: `R` is dead and the row is dimmed with Run's own reason.

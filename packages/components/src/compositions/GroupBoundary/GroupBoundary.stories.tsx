@@ -43,16 +43,36 @@ export const NotRun: Story = {
     await expect(canvasElement.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
     await userEvent.click(strip);
     await expect(canvas.getByText("screens_test")).toBeVisible();
-    // Nothing ran, so there is no Record row to open and no Check is a button.
+    // Nothing ran, so there is no log to open and no Check is a button.
     await expect(canvas.queryByRole("button", { name: "screens_test, not run" })).toBeNull();
   },
 };
 
-/** One in flight. The bar is the only thing on this surface that says so. */
+/**
+ * One in flight. The bar is the only thing on this surface that says so.
+ *
+ * **Each segment is its Check, and opens its log** (owner, 2 Oct 2026) where
+ * it has one: the three that ran and the one running. The three not started
+ * have none, so they stay marks.
+ */
 export const OneInFlight: Story = {
   args: {
-    checks: NAMES.map((name, at) => ({ name, reads: at < 3 ? "passed" : at === 3 ? "running" : "not run" })),
+    checks: NAMES.map((name, at): GroupBoundaryCheck => {
+      const reads = at < 3 ? "passed" : at === 3 ? "running" : "not run";
+      return reads === "not run" ? { name, reads } : { name, reads, onOpen: fn() };
+    }),
     verdictSays: "running now",
+  },
+  play: async ({ canvas, args }) => {
+    const checks = canvas.getByRole("region", { name: "Checks at this boundary" });
+    // Shut, so the press is on the segment and not on a row.
+    await expect(within(checks).getAllByRole("button")[0]).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(within(checks).getByRole("button", { name: "components_test, running" }));
+    const running = args.checks!.find((check) => check.name === "components_test")!;
+    await expect(running.onOpen).toHaveBeenCalledOnce();
+    await expect(within(checks).getByRole("button", { name: "typecheck, passed" })).toBeVisible();
+    await expect(within(checks).queryByRole("button", { name: "bridge_build, not run" })).toBeNull();
+    await expect(checks.querySelectorAll(".armada-step-bar__segment")).toHaveLength(7);
   },
 };
 
@@ -128,7 +148,7 @@ export const OneFailed: Story = {
     await expect(checks).not.toHaveTextContent("The run's whole output is kept");
     // The guide's `?` is beside the label and never leads the Checks.
     await expect(checks.querySelector(".armada-boundary__checks > li")).toHaveTextContent("screens_test");
-    // A Check is a button to its own Record row.
+    // A Check is a button to its log.
     const failed = within(checks).getByRole("button", { name: "screens_test, failed" });
     await userEvent.click(failed);
     const screens = args.checks!.find((check) => check.name === "screens_test")!;

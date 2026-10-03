@@ -52,6 +52,20 @@ impl Policies {
         }
     }
 
+    /// The same answer with one Job's approval laid over it, policy by policy.
+    ///
+    /// **After the fold, never inside it**, so an override wins however the
+    /// repository's rule moves (spike 022, answer 4): a person's explicit
+    /// choice about one Job is not a fourth Manifest a stricter file outvotes.
+    /// What the gate then records on the run is the overridden value — the
+    /// Record shows what each gate read (#1683).
+    pub fn overridden_by(self, overrides: &core_model::PolicyOverrides) -> Policies {
+        Policies {
+            auto_merge: overrides.auto_merge.unwrap_or(self.auto_merge),
+            review_gate: overrides.review_gate.unwrap_or(self.review_gate),
+        }
+    }
+
     /// A repository that has said nothing, which resolves to the cautious
     /// value of each. **`drone::Drone::unstated`'s name and its meaning**: it
     /// is exactly `gating([])`, spelled so a caller with no Manifest in hand
@@ -207,6 +221,25 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// Both policies for one Job: the repository's word, read fresh, then the
+    /// Job's own overrides over it. **Every gate and the merge sweep ask
+    /// this**, so no reader can resolve a Job's policy without its override.
+    /// A store that will not say is the repository deciding, which is what
+    /// every Job approved before 23.8 reads as.
+    pub(crate) async fn policies_for(
+        &self,
+        served: &crate::repositories::Served,
+        job_id: &JobId,
+    ) -> Policies {
+        let overrides = self
+            .store()
+            .lock()
+            .await
+            .policy_overrides(job_id)
+            .unwrap_or_default();
+        self.gating_policies(served).overridden_by(&overrides)
+    }
+
     /// Write down what both policies resolved to, on every run a gate reached,
     /// and whether the advance gate's rule decided. **Read off the ruling and
     /// never handed in**, so the value written is the one the gate held, and a

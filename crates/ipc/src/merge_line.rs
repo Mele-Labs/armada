@@ -117,3 +117,34 @@ pub enum LandState {
     Conflict,
     Stopped,
 }
+
+/// One message on a merge line Check's log socket, `observe_land_check`.
+///
+/// **`OutputMessage`'s three, with its own first message.** A turn's Check
+/// belongs to no Job, so the opening names the line instead: the repository,
+/// the branch and the Check. The lines and the end are `observe_check_output`'s
+/// own, so one reader draws both. Since 23.7.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "message", rename_all = "snake_case")]
+pub enum LandOutputMessage {
+    Opened(LandOutputOpened),
+    Lines(crate::OutputLines),
+    Closed(crate::OutputClosed),
+}
+
+/// The first message: whose log this is, and what the first read left out.
+///
+/// **No path.** The runner's logs sit in the clone's common directory, and
+/// `get_merge_lines` keeps every path in there off the wire; the three names
+/// the reader asked by are what it is told.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LandOutputOpened {
+    pub protocol_version: crate::ProtocolVersion,
+    /// The repository's root, as `list_repositories` names it.
+    pub root: String,
+    pub branch: String,
+    /// The Check, as `MergeLineCheck::name` spells it.
+    pub name: String,
+    /// Older lines the first read left out, because the window is bounded.
+    pub skipped: u64,
+}

@@ -8,8 +8,8 @@
 //! it**, so two changes cannot both be judged against the plan before either.
 
 use core_model::{
-    Approach, Attempt, GroupId, JobId, NewTask, PlanAuthor, PlanChange, PlanEntry, PlanRefused,
-    StepId, TaskId, TaskUpdate, Timestamp, WorkPlan,
+    Approach, Attempt, GroupId, JobId, ModelName, NewTask, PlanAuthor, PlanChange, PlanEntry,
+    PlanRefused, StepId, TaskEdit, TaskId, TaskTier, TaskUpdate, Timestamp, WorkPlan,
 };
 use rusqlite::{Connection, Row};
 
@@ -291,6 +291,11 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
     };
     let added_scope = match &entry.change {
         PlanChange::Added { task, .. } => Some(packed(task.scope())),
+        PlanChange::Edited { edit, .. } => edit.scope().map(packed),
+        _ => None,
+    };
+    let model = match &entry.change {
+        PlanChange::Edited { edit, .. } => edit.model().map(ModelName::as_str),
         _ => None,
     };
     let (group, after_group) = match &entry.change {
@@ -350,6 +355,18 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
                 None,
                 None,
             ),
+            PlanChange::Edited { task, edit } => (
+                "edited",
+                None,
+                Some(task.number()),
+                edit.title(),
+                edit.note(),
+                None,
+                None,
+                None,
+                edit.expects(),
+                None,
+            ),
             PlanChange::Updated { task, to, shown } => (
                 "updated",
                 None,
@@ -366,8 +383,9 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
     conn.execute(
         "INSERT INTO job_work_plan_changes (job_id, seq, change, by_step, by_attempt, at, \
          approach, task_id, title, detail, after_task, state, reason, scope, expects, shown, \
-         grp, after_grp) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+         grp, after_grp, model) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, \
+         ?19)",
         rusqlite::params![
             job_id.as_str(),
             seq,
@@ -387,6 +405,7 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
             shown,
             group,
             after_group,
+            model,
         ],
     )
     .map_err(fault("appending a plan change"))?;
@@ -394,7 +413,7 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
         for (ordinal, task) in tasks.iter().enumerate() {
             conn.execute(
                 "INSERT INTO job_work_plan_tasks (job_id, seq, ordinal, title, detail, \
-                 scope, expects, grp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 scope, expects, grp, tier) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 rusqlite::params![
                     job_id.as_str(),
                     seq,
@@ -404,6 +423,7 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
                     packed(task.scope()),
                     task.expects(),
                     task.group(),
+                    task.tier().map(|tier| tier.as_wire()),
                 ],
             )
             .map_err(fault("appending a recorded task"))?;
@@ -416,7 +436,7 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
     let reading = "reading a plan's recorded tasks";
     let mut asked = conn
         .prepare(
-            "SELECT seq, title, detail, scope, expects, grp FROM job_work_plan_tasks \
+            "SELECT seq, title, detail, scope, expects, grp, tier FROM job_work_plan_tasks \
              WHERE job_id = ?1 ORDER BY seq, ordinal",
         )
         .map_err(fault(reading))
@@ -431,20 +451,29 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
                 string(row, "scope"),
                 string(row, "expects"),
                 row.get::<_, Option<u32>>("grp"),
+                row.get::<_, Option<String>>("tier"),
             ))
         })
         .map_err(fault(reading))
         .map_err(RowError::Database)?
     {
-        let (seq, title, note, scope, expects, group) =
+        let (seq, title, note, scope, expects, group, tier) =
             row.map_err(fault(reading)).map_err(RowError::Database)?;
         let seq = seq.map_err(column("job_work_plan_tasks", "seq"))?;
         let scope = unpacked(&scope?);
         let scope: Vec<&str> = scope.iter().map(String::as_str).collect();
         let group = group.map_err(column("job_work_plan_tasks", "grp"))?;
+        let tier = match tier.map_err(column("job_work_plan_tasks", "tier"))? {
+            None => None,
+            Some(named) => Some(
+                TaskTier::from_wire(&named)
+                    .ok_or_else(|| malformed("tier", &format!("`{named}` is not a tier")))?,
+            ),
+        };
         let task = NewTask::new(&title?, &note?, &scope, &expects?)
             .ok_or_else(|| malformed("title", "a recorded task has no title"))?
-            .in_group(group.unwrap_or(0));
+            .in_group(group.unwrap_or(0))
+            .at_tier(tier);
         recorded.push((seq, task));
     }
 
@@ -524,6 +553,31 @@ fn entry_of(row: &Row<'_>, recorded: &[(i64, NewTask)]) -> Result<PlanEntry, Row
             group: group_id("grp")?.ok_or_else(|| malformed("grp", "a move names no group"))?,
             after: group_id("after_grp")?,
         },
+        "edited" => {
+            let scope = maybe(row, "scope")?.map(|packed| unpacked(&packed));
+            let scope: Option<Vec<&str>> = scope
+                .as_ref()
+                .map(|paths| paths.iter().map(String::as_str).collect());
+            let model = match maybe(row, "model")? {
+                None => None,
+                Some(named) => Some(
+                    ModelName::new(&named)
+                        .map_err(|_| malformed("model", "an edit's model is blank"))?,
+                ),
+            };
+            PlanChange::Edited {
+                task: task_id("task_id")?
+                    .ok_or_else(|| malformed("task_id", "an edit names no task"))?,
+                edit: TaskEdit::new(
+                    maybe(row, "title")?.as_deref(),
+                    maybe(row, "detail")?.as_deref(),
+                    scope.as_deref(),
+                    maybe(row, "expects")?.as_deref(),
+                    model,
+                )
+                .ok_or_else(|| malformed("change", "an edit changes nothing"))?,
+            }
+        }
         "updated" => PlanChange::Updated {
             task: task_id("task_id")?
                 .ok_or_else(|| malformed("task_id", "an update names no task"))?,

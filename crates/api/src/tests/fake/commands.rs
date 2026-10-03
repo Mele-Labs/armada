@@ -79,8 +79,16 @@ impl Commands for FakeDaemon {
     async fn approve_dispatch(
         self: std::sync::Arc<Self>,
         job_id: JobId,
+        _left: Option<ipc::ApproveDispatch>,
     ) -> Result<JobSummary, Refusal> {
         self.fake_approve_dispatch(job_id).await
+    }
+    async fn edit_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _edit: ipc::EditJob,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
     }
     async fn approve_review(
         self: std::sync::Arc<Self>,
@@ -535,6 +543,14 @@ impl Commands for FakeDaemon {
     ) -> Result<ipc::WorkPlan, Refusal> {
         self.fake_plan_change(job_id).await
     }
+    async fn edit_task(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _task: String,
+        _edit: ipc::EditTask,
+    ) -> Result<ipc::WorkPlan, Refusal> {
+        self.fake_plan_change(job_id).await
+    }
     async fn answer_question(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -583,6 +599,13 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _choice: ipc::SetModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
+    }
+    async fn set_tiers(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _tiers: ipc::SetTiers,
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
