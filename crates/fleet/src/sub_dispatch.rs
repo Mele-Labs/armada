@@ -1,13 +1,10 @@
 //! One Job asking for another to exist, and everything that has to be true
 //! first.
 //!
-//! **The one place `Job::create_proposed_member` is reached.** Since slice 6
-//! it enters a Job at `awaiting_approval`, stamped with the pass that made it:
-//! one Job of a wave a person reads, corrects or drops, and releases whole
-//! with `approve_wave` (`crate::waving`). Until then it entered `queued`,
-//! approved as part of its parent — the one exemption from
-//! `docs/concepts/fleet.md`'s rule that every Job-level dispatch is approved
-//! explicitly — and that exemption is gone.
+//! **The one place `Job::create_proposed_member` is reached.** Since slice 6 it
+//! enters a Job at `awaiting_approval`, stamped with its pass: one Job of a wave
+//! a person reads, corrects or drops, and releases whole (`crate::waving`). It
+//! used to enter `queued`, the one exemption from the approval gate.
 //!
 //! # Three things authorise the call, and none of them is a flag
 //!

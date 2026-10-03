@@ -7,7 +7,7 @@
 //! (`edit_job`) or drops (`kill_job`) each before anything runs. **One act
 //! releases them**: `approve_wave`, at the parent's plan gate, refused unless
 //! it names exactly the wave Fleet holds
-//! (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`).
+//! (the owner's decision of 30 Sep 2026: approving an Epic's plan releases its wave).
 //!
 //! The decisions are free functions over the board, so the milestone's
 //! acceptance test asks them the questions Fleet does; the methods below move
@@ -169,7 +169,7 @@ pub fn released(
 /// The members of `parent` whose pull request has not merged. **A member
 /// somebody dropped is not one** — `killed`, or `rejected` at its gate — and
 /// a member is landed by the merge, never by a successful status
-/// (`.claude/decisions/2026-09-21-a-parent-job-holds-members.md`).
+/// (the owner's decision of 21 Sep 2026: a parent Job holds members).
 pub fn unlanded(parent: &JobId, board: &[Job], landed: &BTreeMap<JobId, Landing>) -> Vec<JobId> {
     board
         .iter()

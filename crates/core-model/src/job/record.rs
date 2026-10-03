@@ -234,7 +234,7 @@ impl Job {
     /// One Job of an Epic's wave, proposed by a step of its parent. **Enters at
     /// `awaiting_approval`**: a person reads, corrects or drops it, and one
     /// press of the parent's plan releases the wave
-    /// (`.claude/decisions/2026-09-30-approving-an-epics-plan-releases-its-wave.md`).
+    /// (the owner's decision of 30 Sep 2026: approving an Epic's plan releases its wave).
     pub fn create_proposed_member(new: NewJob, by: DispatchOrigin, at: Timestamp) -> Job {
         Job::create(
             new,

@@ -451,9 +451,8 @@ fn agree<P: PartialEq + Copy>(
     }
 }
 
-/// The landing a person set. **Only what Fleet runs is kept**: one branch
-/// per Job, done when delivered or when every member has landed
-/// (`landing.ts`'s `COMPLETE_WHEN_SERVED`).
+/// The landing a person set. **Only what Fleet runs is kept** (`landing.ts`'s
+/// `COMPLETE_WHEN_SERVED`): one branch per Job, done delivered or landed.
 fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
     let Some(choice) = choice else {
         return Ok(Landing::as_ever());
@@ -472,7 +471,6 @@ fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
     };
     let complete_when = match choice.complete_when {
         ipc::CompleteWhen::Delivered => core_model::CompleteWhen::Delivered,
-        // Slice 6: a parent finishes when every member's pull request merged.
         ipc::CompleteWhen::AllMembersLanded => core_model::CompleteWhen::AllMembersLanded,
         ipc::CompleteWhen::PrMerged => return refused("pr_merged"),
         ipc::CompleteWhen::PrOpened => return refused("pr_opened"),
