@@ -1310,19 +1310,17 @@
   text-wrap: pretty;
 }
 
+/* Its marks sit on the line with its words, the way the approval panel's
+   origin line holds them. */
 .armada-plan-tab__criterion-origin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
-}
-
-/* The source has moved since the Job froze these words. --notice-caution is
-   the declared token for a condition a person should know about and act on at
-   their own pace, which is exactly an issue edited after approval. */
-.armada-plan-tab__criterion-moved {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--notice-caution);
 }
 
 .armada-plan-tab__acts {
@@ -1531,6 +1529,12 @@
    width for the same reason. */
 .armada-overview-board__cards > :nth-child(-n + 2) {
   grid-column: 1 / -1;
+}
+
+/* At the gate the request is the panel's and the Brief is not drawn, so the
+   Workflow alone spans and the two cards under it pair as they do below it. */
+.armada-overview-board__cards[data-brief="in-panel"] > :nth-child(2) {
+  grid-column: auto;
 }
 
 /* What the lead's Approve dispatch approves: what counts as done beside how

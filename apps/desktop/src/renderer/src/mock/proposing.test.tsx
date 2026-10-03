@@ -61,7 +61,7 @@ describe("a dispatched request is a row", () => {
     expect(badge?.querySelector("svg"), "the badge drew its verb with no glyph").not.toBeNull();
   });
 
-  test("the three columns it has nothing for are empty, heading and all", async () => {
+  test("the workflow still settling blinks, and the two it never settles are empty, heading and all", async () => {
     mount("arc/proposing-dispatched");
     await listed();
     const row = proposingRows()[0]!;
@@ -72,10 +72,19 @@ describe("a dispatched request is a row", () => {
     expect(cells(row), "the row lost a cell, which shifts every column behind it").toHaveLength(
       cells(running).length,
     );
-    // **And the three it has no fact for say nothing at all** — no value, and
+    // **The workflow is the proposer's to settle, and it has not**: a blinking
+    // caret under its heading, named on hover (the owner's `text-cursor`, 3 Oct
+    // 2026). A state is never text, so the cell prints no word for it.
+    const workflow = cell(row, "Workflow");
+    expect(workflow, "the Workflow column lost its heading over the caret").toBeDefined();
+    expect(
+      workflow?.querySelector('[role="img"][aria-label="Workflow, still being settled"]'),
+      "the Workflow column drew no settling caret",
+    ).not.toBeNull();
+    // **And the two it has no fact for say nothing at all** — no value, and
     // no heading standing over the blank. Read by position, since the label
     // that used to name each is exactly what is gone.
-    for (const at of [0, 1, 2]) {
+    for (const at of [1, 2]) {
       const under = cells(row)[at]!;
       const named = cells(running)[at]?.querySelector(".armada-job-row__field-label")?.textContent;
       expect(under.textContent?.trim(), `${named ?? at} said something about a fact this Job has none of`).toBe("");

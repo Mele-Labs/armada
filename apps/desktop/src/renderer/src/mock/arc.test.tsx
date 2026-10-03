@@ -344,12 +344,15 @@ describe("classifying", () => {
       await expect
         .element(held)
         .toHaveTextContent("The rail's Drones stat reads one running beside the machine's most");
-      await expect.element(held).not.toHaveTextContent("From issue armada/1162");
+      await expect.element(held).not.toHaveTextContent("armada/1162");
       await held.getByRole("button", { name: /What this Job is held to/, expanded: false }).click();
-      // The word `issue` is on the line: a bare `owner/number` is a
+      // The issue's mark leads the reference: a bare `owner/number` is a
       // repository, a path and a branch as readily as an issue (`u7y9`).
-      await expect.element(held).toHaveTextContent("From issue armada/1162");
-      await expect.element(held).toHaveTextContent(/The issue has been edited since/);
+      await expect.element(held.getByRole("img", { name: "From an issue" }).first()).toBeVisible();
+      await expect.element(held).toHaveTextContent("armada/1162");
+      await expect
+        .element(held.getByRole("img", { name: /^The issue has been edited since Fleet read it/ }).first())
+        .toBeVisible();
       // The press is remembered per viewer; the next claim starts shut.
       window.localStorage.removeItem("armada.bridge.plan-lead-open");
     },

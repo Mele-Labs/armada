@@ -148,6 +148,16 @@ export function approvalOf(
 /** The three tiers, in the map's own order. */
 const TIERS = ["difficult", "medium", "easy"] as const;
 
+/**
+ * The cap taken off again. **Absent, never zero** — a `drone_cap` of nothing
+ * is the machine's own cap holding, and `0` would read as a Job allowed no
+ * Drone at all. The proposal screen and the approval panel both take it off.
+ */
+export function withoutCap(proposal: ProposalView): ProposalView {
+  const { drone_cap: _dropped, ...rest } = proposal;
+  return rest;
+}
+
 /** A tier left out is Armada picking: the draft's `null` is the wire's absent key. */
 function wireTiersOf(tiers: TierModels): WireTiers {
   const wire: WireTiers = {};
@@ -426,12 +436,12 @@ export function criteriaRowsOf(criteria: readonly CriterionView[]): ProposalCrit
     const row: ProposalCriterion = {
       id: criterion.criterion_id ?? String(at),
       text: criterion.text,
-      ...(from === undefined ? {} : { origin: from.said }),
+      ...(from === undefined ? {} : { origin: from.kind }),
       ...(from?.issue === undefined ? {} : { issue: from.issue }),
       decidedBy: decidedSaidOf(criterion),
     };
-    // The instant is the issue's own edit and never the freeze — absent is the
-    // ordinary case, where nothing has moved since.
+    // The instant is the issue's own edit and never Fleet's read — absent is
+    // the ordinary case, where nothing has moved since.
     const moved =
       criterion.origin_moved_at === undefined
         ? null
