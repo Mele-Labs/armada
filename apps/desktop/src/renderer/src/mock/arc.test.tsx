@@ -659,17 +659,16 @@ function whoSaid(rows: Record<string, string>[], what: RegExp): string | undefin
 }
 
 describe("Pulse", () => {
-  test("arc/executing-sequential: Pulse names the one process the running Drone holds, the worktree it belongs to, and the instant every figure was read at", async () => {
+  test("arc/executing-sequential: Pulse names the one process the running Drone holds, the Drone it belongs to, its worktree, and the instant every figure was read at", async () => {
     mount("arc/executing-sequential");
     await onPulse();
 
     const processes = page.getByRole("region", { name: "Processes" });
     // Exact: the row's kill names the pid too, in its hidden description.
     await expect.element(processes.getByText("52118", { exact: true })).toBeVisible();
-    // The branch is on the process row and on the worktree row, which is the
-    // whole of "the worktree it belongs to": one occurrence is a table that
-    // lists what is running and does not say where.
-    expect(processes.getByText(ARC_BRANCH).all()).toHaveLength(1);
+    // Since 23.9 a process names its Drone (#1651): with several working one
+    // copy, the branch would say the same of every row.
+    await expect.element(processes.getByText("implement · T5")).toBeVisible();
     await expect
       .element(page.getByRole("region", { name: "Worktrees" }).getByText(ARC_BRANCH))
       .toBeVisible();

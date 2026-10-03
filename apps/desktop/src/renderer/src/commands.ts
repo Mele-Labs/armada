@@ -465,7 +465,7 @@ export function useCommands(sending: Sending) {
         act === "redispatch"
           ? await window.armada.redispatchJob(jobId)
           : act === "kill_drone"
-            ? await window.armada.killDrone(jobId, droneId)
+            ? await (droneId === undefined ? window.armada.killDrone(jobId) : window.armada.killDrone(jobId, droneId))
             : act === "restart_step"
               ? await window.armada.restartStep(jobId, note)
               : act === "reclaim_worktree"
@@ -536,7 +536,11 @@ export function useCommands(sending: Sending) {
    */
   async function redirect(jobId: string, instruction: string, droneId?: string): Promise<void> {
     return acted(jobId, "redirect", async () => {
-      heard(jobId, "redirect", await window.armada.redirectDrone(jobId, instruction, droneId));
+      const answer =
+        droneId === undefined
+          ? await window.armada.redirectDrone(jobId, instruction)
+          : await window.armada.redirectDrone(jobId, instruction, droneId);
+      heard(jobId, "redirect", answer);
     });
   }
 
