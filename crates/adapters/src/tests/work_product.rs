@@ -239,3 +239,25 @@ fn a_file_the_drone_never_staged_reaches_the_judge_with_its_contents() {
     let patch = GitVcs::new().patch(&worktree).expect("a reading");
     assert!(patch.as_str().contains("+42"), "{}", patch.as_str());
 }
+
+/// A Job's branch is cut from `origin/<base>` where there is one, so it is
+/// measured from there too. Measured from a stale local base, an upstream
+/// commit touching `armada.yml` failed a plan step whose Drone wrote nothing.
+#[test]
+fn upstream_commits_a_stale_local_base_lacks_are_not_this_job_s_work() {
+    let repo = TempRepo::with_a_commit();
+    repo.commit_one("armada.yml", "upstream: true\n", "upstream's commit");
+    repo.git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    repo.git(&["reset", "--hard", "HEAD~1"]);
+    let path = repo.root().with_extension("job");
+    let path = path.to_string_lossy();
+    repo.git(&["worktree", "add", "-b", "armada/job", &path, "origin/main"]);
+    let worktree = adapter_traits::Worktree::at(path.as_ref(), "armada/job").from_base("main");
+
+    let changed = GitVcs::new().changed_files(&worktree).expect("a reading");
+    assert!(
+        changed.is_empty(),
+        "the Job was credited with {:?}",
+        changed.paths()
+    );
+}
