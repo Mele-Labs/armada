@@ -145,7 +145,7 @@ export const APullRequestToMerge: Story = {
    * what is behind either caret, or that choosing from one sends the act.
    */
   play: async ({ args, canvas, userEvent }) => {
-    const merge = canvas.getByRole("button", { name: "Merge and take the work" });
+    const merge = canvas.getByRole("button", { name: "Merge pull request" });
     await userEvent.hover(merge);
     await waitFor(() =>
       expect(canvas.getByText("Merges the pull request on its code host", { exact: false })).toBeVisible(),
@@ -183,7 +183,7 @@ export const TheBranchConflicts: Story = {
     mergeBlockedReason: "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.",
   },
   play: async ({ args, canvas, canvasElement, userEvent }) => {
-    const merge = canvas.getByRole("button", { name: "Merge and take the work" });
+    const merge = canvas.getByRole("button", { name: "Merge pull request" });
     await expect(merge).toBeDisabled();
 
     // The reason sits under the row, not beside it, and Merge still names it.
@@ -254,14 +254,14 @@ export const WaitingOnFleet: Story = {
  * Approve was chosen behind Merge's caret and Fleet has not answered. **The
  * face says `Approving…`**, because once the menu has closed the face is the
  * only surface that control still has — `SplitButton`'s own `pendingLabel`.
- * A face still reading `Merge and take the work` would name the act that was
+ * A face still reading `Merge pull request` would name the act that was
  * not sent. #1117.
  */
 export const WaitingOnAnActChosenBehindTheCaret: Story = {
   args: { note: "", onMerge: () => {}, pending: "approve" },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Approving…" })).toHaveAttribute("aria-busy", "true");
-    await expect(canvas.queryByRole("button", { name: "Merge and take the work" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Merge pull request" })).toBeNull();
     await expect(canvas.getByRole("button", { name: "Request changes" })).toBeDisabled();
   },
 };
@@ -269,10 +269,10 @@ export const WaitingOnAnActChosenBehindTheCaret: Story = {
 /**
  * Fleet took the Approve that was chosen behind Merge's caret. **The face
  * still reads `Approve the work` while the answer is drawn**, and goes back to
- * `Merge and take the work` when it clears.
+ * `Merge pull request` when it clears.
  *
  * The line is drawn on that face. A line meaning accepted beside a face
- * reading `Merge and take the work` would name the act that did not go out, at
+ * reading `Merge pull request` would name the act that did not go out, at
  * the one moment a person is checking that the right one did — so the label
  * holds past the press, not only during it.
  */
@@ -280,7 +280,7 @@ export const AnsweredOnAnActChosenBehindTheCaret: Story = {
   args: { note: "", onMerge: () => {}, answered: { act: "approve", answer: "accepted" } },
   play: async ({ canvas }) => {
     const face = canvas.getByRole("button", { name: "Approve the work" });
-    await expect(canvas.queryByRole("button", { name: "Merge and take the work" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Merge pull request" })).toBeNull();
     // `data-answer` is read because no accessible property carries the line
     // along a control's edge — `Decide.answer.test.tsx`'s own reason. What
     // matters here is that it is on the face whose words name the act.

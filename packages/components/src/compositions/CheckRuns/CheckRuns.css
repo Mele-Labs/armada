@@ -16,6 +16,50 @@
   gap: var(--space-2);
 }
 
+/* A folded list's one row: the label, its outcome, its reading. The whole row
+   is the press, and the chevron turns as it opens. */
+.armada-check-runs__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-block: var(--space-1);
+  list-style: none;
+  cursor: pointer;
+}
+
+.armada-check-runs__summary::-webkit-details-marker {
+  display: none;
+}
+
+.armada-check-runs__summary:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-check-runs__chevron {
+  flex: none;
+  color: var(--fg-muted);
+  transition: rotate var(--duration-fast) var(--ease);
+}
+
+.armada-check-runs[open] .armada-check-runs__chevron {
+  rotate: 90deg;
+}
+
+.armada-check-runs__summary:hover .armada-check-runs__chevron {
+  color: var(--fg-default);
+}
+
+.armada-check-runs__reading {
+  min-width: 0;
+  margin-inline-start: auto;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-align: end;
+}
+
 .armada-check-runs__label {
   font-family: var(--font-sans);
   font-size: var(--text-2xs);

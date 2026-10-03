@@ -46,9 +46,38 @@ export function reviewAtAQuestion(): JobFixture {
 
 export const BROKEN = "settings::selectors::visible_manifests_memoises";
 
-/** `running`, with claimed breakages on its detail — #1001. */
-export function withBreakages(breakages: (jobId: string) => ClaimedBreakage[]): JobFixture {
-  const fixture = running();
+/** The Job fixing `BROKEN`, by its id and its title. */
+export const FIX_JOB = "01M1FIXJOB000000000000000000";
+export const FIX_TITLE = "Fix the selectors test broken on main";
+
+/**
+ * `BROKEN`, claimed by `fix`, as `whole.breakages` carries it at protocol
+ * 23.3: under `cargo_nextest`, which `retryingCheckFailure` fails, with the
+ * test's file held off every Job on the claim but the fix, and two Jobs
+ * parked on it.
+ */
+export function brokenOnMain(fix: string, reportedBy: string): ClaimedBreakage {
+  return {
+    check: "cargo_nextest",
+    test: BROKEN,
+    failure: "expected the same reference on repeat calls",
+    fix,
+    fix_title: FIX_TITLE,
+    reported_by: reportedBy,
+    reported_by_title: "Trim the brief to the files the step touched",
+    waiting: [
+      { job_id: "01M1WAITINGONE00000000000000", title: "Round the cost estimate to a cent" },
+      { job_id: "01M1WAITINGTWO00000000000000", title: "Memoise the manifest list" },
+    ],
+    held_off: ["packages/settings/src/selectors.ts"],
+  };
+}
+
+/** A fixture — `running` where none is given — with claimed breakages on its detail. #1001, #1673. */
+export function withBreakages(
+  breakages: (jobId: string) => ClaimedBreakage[],
+  fixture: JobFixture = running(),
+): JobFixture {
   if (fixture.watched.state !== "read") return fixture;
   const { detail } = fixture.watched;
   return {

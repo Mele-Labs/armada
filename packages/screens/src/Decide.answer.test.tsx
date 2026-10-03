@@ -54,7 +54,7 @@ function gate(answered: ActAnswer | undefined, decidingAct?: DecidingAct, put: t
 // **A control carries a pair now**, the owner's arrangement of 30 Sep 2026, so
 // the answer lands on the control the act belongs to and the face is where it
 // is drawn — a menu that has already closed has no surface to draw on.
-const MERGING = "Merge and take the work";
+const MERGING = "Merge pull request";
 const SENDING_BACK = "Request changes";
 
 test("a refused merge answers on merge alone", async () => {

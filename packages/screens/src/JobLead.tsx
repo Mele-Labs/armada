@@ -6,7 +6,7 @@
 // of the two was fixed.
 
 import { Prose, SkeletonText } from "@armada/components";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 export type JobLeadProps = {
   said: string;
@@ -17,6 +17,16 @@ export type JobLeadProps = {
    * one string: joined, Armada's tail would be parsed as markdown too.
    */
   asked?: string;
+  /**
+   * The Job already fixing what failed, leading the second line: its title,
+   * a press where the shell can open it, then `rest`. #1673.
+   */
+  fix?: { title: string; rest: string; onOpen?: () => void };
+  /**
+   * The Jobs waiting on this one's fix, under the line: each its title, a
+   * press where the shell can open it. #1673.
+   */
+  parked?: { job: string; title: string; onOpen?: () => void }[];
   /** Colours the edge — the thing outstanding is found before a word is read. */
   tone?: "awaiting-review" | "completed-failed";
   /** How long the thing under it has waited, already rendered. Top right. */
@@ -44,12 +54,15 @@ export function JobLead({
   said,
   because,
   asked,
+  fix,
+  parked,
   tone,
   elapsed,
   act,
   waiting,
   reading = false,
 }: JobLeadProps) {
+  const parkedLabel = useId();
   return (
     <div className="armada-lead" data-tone={tone}>
       <div className="armada-lead__head">
@@ -68,7 +81,42 @@ export function JobLead({
                   <Prose text={asked} />
                 </div>
               )}
-              {because === "" ? null : <p className="armada-lead__because">{because}</p>}
+              {because === "" && fix === undefined ? null : (
+                <p className="armada-lead__because">
+                  {fix === undefined ? null : (
+                    <>
+                      {fix.onOpen === undefined ? (
+                        fix.title
+                      ) : (
+                        <button type="button" className="armada-lead__opens" onClick={fix.onOpen}>
+                          {fix.title}
+                        </button>
+                      )}
+                      {fix.rest}
+                      {because === "" ? null : " · "}
+                    </>
+                  )}
+                  {because}
+                </p>
+              )}
+              {parked === undefined || parked.length === 0 ? null : (
+                <div className="armada-lead__parked">
+                  <span id={parkedLabel}>Waiting on this fix</span>
+                  <ul aria-labelledby={parkedLabel}>
+                    {parked.map((one) => (
+                      <li key={one.job}>
+                        {one.onOpen === undefined ? (
+                          one.title
+                        ) : (
+                          <button type="button" className="armada-lead__opens" onClick={one.onOpen}>
+                            {one.title}
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -199,7 +199,7 @@ export const MergeThePullRequest: Story = {
     open: true,
     tone: "neutral",
     title: "Merge this job's pull request?",
-    confirmLabel: "Merge and take the work",
+    confirmLabel: "Merge pull request",
     children:
       "The pull request merges on git.example, so the job's commits land on the base branch and " +
       "everybody working from it gets them on their next pull. Armada then runs the " +
