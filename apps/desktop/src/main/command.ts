@@ -364,7 +364,7 @@ export class JobCommands {
   async listBranches(manifestId: string): Promise<BranchesRead> {
     const port = this.board.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const answer = await ask(port, "GET", `/manifest/branches?manifest_id=${encodeURIComponent(manifestId)}`);
+    const answer = await ask(port, "GET", this.board.picked.manifestNamed("/manifest/branches", manifestId));
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, branches: answer.body as Branches };
   }

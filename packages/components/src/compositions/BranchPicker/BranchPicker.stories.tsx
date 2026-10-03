@@ -148,9 +148,9 @@ export const ANameThatIsNotThereYet: Story = {
  * The same name on the field the work starts from, where making one is not on
  * offer — you cannot begin on a branch that does not exist.
  *
- * **The typed name still stands.** The list is what Armada has met rather than
- * the repository's own, so a branch it has never seen is not a branch that is
- * not there, and the field says which of the two this is.
+ * **The typed name still stands.** In the composer the list is what Armada has
+ * met rather than the repository's own, so a branch it has never seen is not a
+ * branch that is not there; the field says nothing matches and keeps the name.
  *
  * **`Base branch` is what the composer calls it**, since 28 Sep 2026 — the word
  * `armada.yml` uses for the branch worktrees are cut from, and the word this
@@ -163,7 +163,7 @@ export const StartingFromSomethingUnlisted: Story = {
     await userEvent.click(field);
 
     await expect(canvas.queryByRole("option")).toBeNull();
-    await expect(canvas.getByText(/No branch in this repository matches/)).toBeVisible();
+    await expect(canvas.getByText(/No branch matches/)).toBeVisible();
     // Nothing takes the value away: the field is still what was typed.
     await expect(field).toHaveValue("release/16");
   },

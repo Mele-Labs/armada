@@ -8,10 +8,10 @@ import { Input } from "../../primitives/Input/Input";
  * A branch field that offers the repository's branches and still takes a name
  * typed by hand.
  *
- * **Typed as well as picked.** The list is the repository's own since 23.8
- * (`list_branches`, #1605), but where the work lands may be a branch nobody
- * has cut yet, and a list that could not be read is no reason to refuse a
- * name.
+ * **Typed as well as picked.** The list is the repository's own where
+ * `list_branches` is read (#1605, the approval) and a floor where it is not
+ * (the composer, `packages/screens/src/draft/branches.ts`); where the work
+ * lands may be a branch nobody has cut yet either way.
  *
  * **`offerNew` is the one difference between the two fields it draws.** Where
  * the work starts has to exist already; where it lands may not, and naming a
@@ -165,7 +165,7 @@ export function BranchPicker({
       {!open ? null : (
         <div className="armada-branch__list" id={listId} role="listbox" aria-label={label}>
           {rows === 0 ? (
-            <p className="armada-branch__empty">{`No branch in this repository matches “${value}”.`}</p>
+            <p className="armada-branch__empty">{`No branch matches “${value}”.`}</p>
           ) : (
             <>
               {matches.map((branch, index) => (

@@ -1083,14 +1083,9 @@ describe("the wave", () => {
 
   // The owner's, 30 Sep 2026: a proposed Job is edited in its own panel,
   // directly through Fleet, and never by opening it — the Job's own screen
-  // would offer approving it alone. Fleet has no route yet, so Save says so,
-  // naming #1699 and carrying the edit.
-  test("epic/plan-review: a proposed Job's panel edits it directly, which Fleet has not built", async () => {
-    const written: string[] = [];
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
-    });
+  // would offer approving it alone. `edit_job` is served since 23.8, and
+  // takes the criteria with their ids rather than lines (#1641).
+  test("epic/plan-review: a proposed Job's panel edits it directly, through edit_job", async () => {
     const app = mount("epic/plan-review");
     const editJob = vi.spyOn(app.api, "editJob");
     await page.getByRole("tab", { name: /^Plan/ }).click();
@@ -1101,22 +1096,21 @@ describe("the wave", () => {
     const save = form.getByRole("button", { name: "Save", exact: true });
     await expect.element(save).toBeDisabled();
     await form.getByLabelText("Title").fill("Say which half refused, in the toast");
+    await form.getByRole("textbox", { name: "Criterion 2" }).fill("The wording matches the error contract");
     await save.click();
 
     await expect.poll(() => editJob.mock.calls.length).toBe(1);
     const [, sent] = editJob.mock.calls[0]!;
-    expect(sent).toEqual({ title: "Say which half refused, in the toast" });
-    await expect.element(page.getByText("Not implemented", { exact: true })).toBeVisible();
-    // Nothing was done, so what was typed stays.
-    await expect.element(form.getByLabelText("Title")).toHaveValue("Say which half refused, in the toast");
-    // The failure pops up over the panel, so it is copied with the panel open.
-    await page.getByRole("button", { name: "Copy debug info" }).click();
-    await expect.poll(() => written).toHaveLength(1);
-    await expect.element(panel).toBeVisible();
-    expect(written[0]).toContain("bridge.not_implemented");
-    expect(written[0]).toContain(issueLink(1699));
-    expect(written[0]).toContain("POST /jobs/{job_id}/edit");
-    expect(written[0]).toContain("Say which half refused, in the toast");
+    expect(sent).toEqual({
+      title: "Say which half refused, in the toast",
+      criteria: [
+        { criterion_id: "c1", text: "A transport failure names the side that refused", source: "judge" },
+        { criterion_id: "c2", text: "The wording matches the error contract", source: "judge" },
+      ],
+    });
+    // Taken, so the form closes and the panel reads the Job as saved.
+    await expect.element(form).not.toBeInTheDocument();
+    await expect.element(panel.getByText("The wording matches the error contract")).toBeVisible();
   });
 
   test("epic/wave: Waits for opens the Job waited on, with a way back", async () => {
