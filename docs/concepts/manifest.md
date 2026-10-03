@@ -393,6 +393,7 @@ Rules that follow:
 - **A few failing tests run one by one, and past `ONE_BY_ONE` in that file none do**: only the whole Check runs alone. Each one-test run of a browser suite still starts the browser and collects every file, so past a handful the tests cost more than the run that decides; a regression usually names a few tests, and the contention named dozens.
 - **The whole run alone is what decides.** A test passing alone advances nothing by itself, so a wrong name, a no-match read as a pass, or a test that only fails beside its neighbours is caught by that run. A `runs_at: handoff` Check the red held back runs with it.
 - **Once per ruling**, which is once per attempt. Nothing here loops.
+- **The step's Check row reads running while it runs again**, with the live log of the run alone, never the red about to be overturned, and ends at what the run alone came to. A test run alone shows only that the Check is running; where one fails alone the row reads the gate's red again. Decided 3 Oct 2026, after "the checks are running but nothing showed that they were running."
 - **It is written down.** The Check's row is the run alone, and the Job's log says under the step that the red was run again alone, how many tests failed and whether the run alone passed. A retro reads that line as Fleet's friction, not the Drone's.
 
 ### Proving what merged

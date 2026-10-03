@@ -1,6 +1,10 @@
 //! Whether a gate's red is the work's or the machine's, asked before it is
 //! ruled against the step: each failing test alone by `one_test`, then the
 //! whole Check alone, which is what the step is ruled on.
+//!
+//! **Said on the step's own rows**, through the gate's own writer: while a red
+//! runs again its row reads running with its live log, and ends at what the
+//! run alone came to — the red again where the red stands.
 //! `docs/concepts/manifest.md`, Confirming a red, holds the rules and Job 3.
 
 use std::collections::BTreeMap;
@@ -42,6 +46,9 @@ pub(crate) struct Again<'a> {
     pub env: &'a [(String, String)],
     pub holding_handoff: bool,
     pub attempt: Attempt,
+    /// The gate's own writer: each run here is said on the step's own rows,
+    /// so a red being run again reads running rather than red.
+    pub announcing: &'a Announcing,
 }
 
 /// One red Check this can confirm, the tests it named, and its `one_test`.
@@ -62,15 +69,21 @@ pub(crate) async fn confirmed(
     let Some(reds) = confirmable(checks, observed, output) else {
         return;
     };
+    let mut told: Vec<Announcing> = Vec::new();
     for red in reds.iter().filter(|red| red.failing.len() <= ONE_BY_ONE) {
+        let telling = again.announcing.again_on(vec![red.at], false);
         for test in &red.failing {
             // A failure, a name that matched nothing, or no run: the red stands.
-            if one_alone(&checks[red.at], &red.template, test, &again).await
+            if one_alone(&checks[red.at], &red.template, test, &again, &telling).await
                 != Some(OneTestRan::Passed)
             {
+                for row in told.iter().chain([&telling]) {
+                    row.red_stands();
+                }
                 return;
             }
         }
+        told.push(telling);
     }
     // Handoff's Checks the red held back run too, or the step would pass unasked.
     let held_back = observed
@@ -92,7 +105,7 @@ pub(crate) async fn confirmed(
         again.worktree,
         again.budget,
         again.room,
-        &Announcing::nowhere(),
+        &again.announcing.again_on(rerun.clone(), true),
         again.ports,
         again.env,
         None,
@@ -169,6 +182,7 @@ async fn one_alone(
     template: &str,
     test: &str,
     again: &Again<'_>,
+    telling: &Announcing,
 ) -> Option<OneTestRan> {
     let ResolvedCheck::ManifestCheck {
         expect_exit_code, ..
@@ -185,7 +199,7 @@ async fn one_alone(
         again.worktree,
         again.budget,
         again.room,
-        &Announcing::nowhere(),
+        telling,
         again.ports,
         again.env,
         None,

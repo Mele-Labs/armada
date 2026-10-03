@@ -102,7 +102,20 @@ async fn ruled_once(
     check: &str,
     one: &str,
 ) -> (Arc<Fixture>, Job, crate::turning::Turned) {
+    let (fleet, job, turned, _) = heard_ruling_once(home, workflow, check, one).await;
+    (fleet, job, turned)
+}
+
+/// [`ruled_once`], and every event Fleet published from its start to the
+/// ruling's end.
+async fn heard_ruling_once(
+    home: &TempDir,
+    workflow: ResolvedWorkflow,
+    check: &str,
+    one: &str,
+) -> (Arc<Fixture>, Job, crate::turning::Turned, Vec<ipc::Event>) {
     let fleet = a_fleet(home, workflow);
+    let mut watching = fleet.events().subscribe();
     let job = fleet
         .propose(a_proposal("make the parser take it"))
         .await
@@ -116,7 +129,55 @@ async fn ruled_once(
         .await
         .expect("taken");
     let turned = fleet.turn().await.expect("a turn");
-    (fleet, job, turned)
+    let mut seen = Vec::new();
+    while let Ok(Some(api::Next::Send(delivered))) =
+        tokio::time::timeout(std::time::Duration::from_millis(200), watching.next()).await
+    {
+        seen.push(delivered.event);
+    }
+    (fleet, job, turned, seen)
+}
+
+/// What the step's live row for `suite` read in each `job.checking` that
+/// carried one, in order, with repeats run together.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Read {
+    Waiting,
+    /// Started and not finished, and whether it named a live log.
+    Running {
+        log: bool,
+    },
+    Ended(core_model::CheckOutcome),
+}
+
+fn suite_reads(seen: &[ipc::Event]) -> Vec<Read> {
+    let mut reads: Vec<Read> = seen
+        .iter()
+        .filter_map(|event| match event {
+            ipc::Event::JobChecking(one) => one.checking.as_ref(),
+            _ => None,
+        })
+        .filter_map(|checking| checking.checks.iter().find(|row| row.name == "suite"))
+        .map(|row| match (&row.ran, &row.started_at) {
+            (Some(ran), _) => Read::Ended(ran.outcome.domain()),
+            (None, Some(_)) => Read::Running {
+                log: row.output_path.is_some(),
+            },
+            (None, None) => Read::Waiting,
+        })
+        .collect();
+    reads.dedup();
+    reads
+}
+
+/// Everything the row read after the gate's first run came back red.
+fn after_the_red(seen: &[ipc::Event]) -> Vec<Read> {
+    let reads = suite_reads(seen);
+    let red = reads
+        .iter()
+        .position(|read| *read == Read::Ended(core_model::CheckOutcome::Failed))
+        .unwrap_or_else(|| panic!("the first run read red: {reads:?}"));
+    reads[red + 1..].to_vec()
 }
 
 /// Each line one of the worktree's tally files holds; none where it is absent.
@@ -229,6 +290,66 @@ async fn a_red_whose_test_fails_alone_is_handed_back_as_before() {
     assert!(!log_of(&home, &job)
         .iter()
         .any(|msg| msg == crate::retro::lines::A_RED_RUN_ALONE));
+}
+
+/// **The owner's call on 3 Oct 2026**: while a red is run again alone, its
+/// row reads running with its live log, never red, and ends at what the run
+/// alone came to.
+#[tokio::test]
+async fn a_red_run_again_alone_reads_running_until_the_run_alone_ends() {
+    let home = TempDir::new();
+    let (_fleet, _job, _turned, seen) = heard_ruling_once(
+        &home,
+        gated(true),
+        &red_once_naming(&["tests::slow_one", "tests::slow_two"]),
+        &one_test_exiting(0),
+    )
+    .await;
+
+    let after = after_the_red(&seen);
+    assert!(
+        after.contains(&Read::Running { log: true }),
+        "running again, with its live log: {after:?}"
+    );
+    assert_eq!(
+        after.last(),
+        Some(&Read::Ended(core_model::CheckOutcome::Passed)),
+        "{after:?}"
+    );
+    assert!(
+        after[..after.len() - 1]
+            .iter()
+            .all(|read| !matches!(read, Read::Ended(_))),
+        "nothing ended before the run alone did: {after:?}"
+    );
+}
+
+/// A test that fails alone stands the red: the row reads running while it
+/// runs, then red again, and nothing between.
+#[tokio::test]
+async fn a_red_whose_test_fails_alone_reads_running_then_red() {
+    let home = TempDir::new();
+    let (_fleet, _job, _turned, seen) = heard_ruling_once(
+        &home,
+        gated(true),
+        &red_once_naming(&["tests::broken"]),
+        &one_test_exiting(1),
+    )
+    .await;
+
+    let after = after_the_red(&seen);
+    assert!(after.contains(&Read::Running { log: true }), "{after:?}");
+    assert_eq!(
+        after.last(),
+        Some(&Read::Ended(core_model::CheckOutcome::Failed)),
+        "{after:?}"
+    );
+    assert!(
+        after[..after.len() - 1]
+            .iter()
+            .all(|read| !matches!(read, Read::Ended(_))),
+        "{after:?}"
+    );
 }
 
 /// A Check with no `one_test` cannot be confirmed, so nothing changes.
