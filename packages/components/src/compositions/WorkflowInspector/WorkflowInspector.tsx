@@ -137,6 +137,14 @@ export type WorkflowInspectorProps = {
    * said *Question for you* and the panel offered nothing to answer it with).
    */
   asks?: React.ReactNode;
+  /**
+   * A step that stopped: why, where a finding says so — a Judge's refused
+   * criterion — and what may be done about it, the caller's own controls.
+   * Drawn under `asks`, near the top, so the reason and the acts are one
+   * reading (owner, Job 3, 2 Oct 2026: the panel of a step stopped on a
+   * refusal he had agreed with said nothing about why).
+   */
+  stopped?: { why?: React.ReactNode; acts?: React.ReactNode };
   redirect?: WorkflowInspectorRedirect;
   /**
    * Every Drone that worked this step, running or not, each one a press away
@@ -176,6 +184,11 @@ function Region({ name, children }: { name: string; children: React.ReactNode })
       {children}
     </section>
   );
+}
+
+/** What may be done about a stopped step, in a row. Nothing where there is nothing. */
+function StoppedActs({ acts }: { acts: React.ReactNode }) {
+  return acts === undefined ? null : <div className="armada-wf-inspector__stopped-acts">{acts}</div>;
 }
 
 /** The plan's groups on one small card. A button where it opens Plan. */
@@ -233,6 +246,7 @@ export function WorkflowInspector({
   tests = [],
   failure,
   asks,
+  stopped,
   redirect,
   running,
   stop,
@@ -249,6 +263,15 @@ export function WorkflowInspector({
   const regions = (
     <>
       {asks === undefined ? null : <Region name="Question for you">{asks}</Region>}
+
+      {stopped === undefined ? null : stopped.why === undefined ? (
+        <StoppedActs acts={stopped.acts} />
+      ) : (
+        <Region name="Why it stopped">
+          {stopped.why}
+          <StoppedActs acts={stopped.acts} />
+        </Region>
+      )}
 
       {failure === undefined ? null : (
         <Region name="Why this boundary stopped">
