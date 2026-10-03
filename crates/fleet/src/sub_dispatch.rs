@@ -1,10 +1,13 @@
 //! One Job asking for another to exist, and everything that has to be true
 //! first.
 //!
-//! **The one place `Job::create_sub_dispatched` is reached.** It enters a Job
-//! at `queued` — *already approved as part of its parent* — the one exemption
-//! from `docs/concepts/fleet.md`'s rule that every Job-level dispatch is
-//! approved explicitly. Below keeps it exactly as wide as it was.
+//! **The one place `Job::create_proposed_member` is reached.** Since slice 6
+//! it enters a Job at `awaiting_approval`, stamped with the pass that made it:
+//! one Job of a wave a person reads, corrects or drops, and releases whole
+//! with `approve_wave` (`crate::waving`). Until then it entered `queued`,
+//! approved as part of its parent — the one exemption from
+//! `docs/concepts/fleet.md`'s rule that every Job-level dispatch is approved
+//! explicitly — and that exemption is gone.
 //!
 //! # Three things authorise the call, and none of them is a flag
 //!
@@ -24,10 +27,12 @@
 //! lock on a path already inside a Drone's request — `crate::slots`' order,
 //! backwards.
 
+use std::collections::BTreeSet;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, DispatchOrigin, Job, JobId, JobReference, JobStatus, Origin, ResolvedStep, StepId,
-    StepState, TopLevelOrigin,
+    Actor, CompleteWhen, DispatchOrigin, Job, JobId, JobReference, JobStatus, Origin, ResolvedStep,
+    StepId, StepState, TopLevelOrigin,
 };
 use ipc::mcp::DispatchJob;
 
@@ -75,12 +80,13 @@ impl<'a> Dispatching<'a> {
             })
     }
 
-    /// Where a child records that it came from here: the Job **and the step**,
-    /// which is what `DispatchOrigin` carries and what a later step reads back.
-    fn origin(&self) -> DispatchOrigin {
+    /// Where a child records that it came from here: the Job, the step **and
+    /// the pass over it**, which is the wave a person reads it in.
+    fn origin(&self, pass: u32) -> DispatchOrigin {
         DispatchOrigin {
             job_id: self.parent.id().clone(),
             step_id: Some(self.step.clone()),
+            pass: Some(pass),
         }
     }
 }
@@ -195,6 +201,9 @@ where
         let number = store
             .next_job_number(served.manifest().id())
             .map_err(Adrift::Reading)?;
+        let pass = store
+            .pass_over(caller, &dispatching.step)
+            .map_err(Adrift::Reading)?;
         let (new, _) = self.drafted(
             proposal(
                 ipc::ManifestId::from(served.manifest().id()),
@@ -212,16 +221,15 @@ where
             None,
             number,
         )?;
-        let child = Job::create_sub_dispatched(new, dispatching.origin(), at.clone());
+        let child = Job::create_proposed_member(new, dispatching.origin(pass), at.clone());
         store.insert_job(&child, &at).map_err(Adrift::Writing)?;
         self.learn_the_name(&child);
         self.manifest_snapshotted(&mut store, &child).await;
         drop(store);
         // After the write, for `Fleet::proposed_job`'s reason: a client told
         // about a row the store then refused would hold a Job that is not
-        // there. **The actor is Fleet** — a person approved the split, and the
-        // record already says so at the gate the plan went through; what
-        // happened here is Fleet acting on that.
+        // there. **The actor is Fleet**, acting on the Drone's call: the Job
+        // waits at its gate for the person who releases the wave.
         self.publish(ipc::Event::JobCreated(ipc::JobCreated {
             job: ipc::JobSummary::from(&child),
             actor: Actor::Fleet.into(),
@@ -316,28 +324,73 @@ where
     /// A parent that dispatched nothing has nothing outstanding, which is
     /// `true` and is the honest answer: a plan of no Jobs is a plan whose
     /// next step has nothing to wait for.
+    ///
+    /// **A parent that finishes on its members' merges** (`all_members_landed`,
+    /// slice 6) also waits for each finished member's pull request to settle:
+    /// what follows is the roll-up of what landed.
     pub(crate) async fn children_all_settled(&self, parent: &JobId) -> Result<bool, Adrift> {
+        let children = self.children_of(parent).await?;
+        if !children.iter().all(|child| child.status().is_terminal()) {
+            return Ok(false);
+        }
+        if self.landing_of(parent).await.complete_when != CompleteWhen::AllMembersLanded {
+            return Ok(true);
+        }
+        let owed = self.merges_owed().await?;
+        Ok(!children.iter().any(|child| merge_owed(child, &owed)))
+    }
+
+    /// Every Job whose pull request is open and unsettled: one query.
+    pub(crate) async fn merges_owed(&self) -> Result<BTreeSet<JobId>, Adrift> {
         Ok(self
-            .children_of(parent)
-            .await?
-            .iter()
-            .all(|child| child.status().is_terminal()))
+            .store()
+            .lock()
+            .await
+            .pull_requests_unsettled()
+            .map_err(Adrift::Reading)?
+            .into_iter()
+            .map(|unsettled| unsettled.job_id)
+            .collect())
+    }
+
+    /// Whether this Job, standing after a dispatch, finishes on its members'
+    /// merges — so [`waiting_on_children`] counts an unmerged member. A store
+    /// read only for a Job in that stance.
+    pub(crate) async fn waits_on_merges(&self, job: &Job) -> bool {
+        dispatched_and_stands_before_the_next(job)
+            && self.landing_of(job.id()).await.complete_when == CompleteWhen::AllMembersLanded
     }
 }
 
-/// Every sub-dispatched Job on the board, as the parent it names and where it
-/// got to.
+/// One sub-dispatched Job, reduced to what the wait needs.
+pub(crate) struct Standing {
+    parent: JobId,
+    status: JobStatus,
+    /// It finished, and its pull request has not settled.
+    merge_owed: bool,
+}
+
+/// Whether `child` finished and its pull request is still open.
+fn merge_owed(child: &Job, owed: &BTreeSet<JobId>) -> bool {
+    child.status() == JobStatus::CompletedSuccess && owed.contains(child.id())
+}
+
+/// Every sub-dispatched Job on the board, as the parent it names, where it
+/// got to, and whether a merge is still owed on it.
 ///
-/// **The board reduced to the two facts the wait needs**, so that a caller
+/// **The board reduced to the facts the wait needs**, so that a caller
 /// already holding the board pays nothing to ask about its children and
 /// [`waiting_on_children`] needs no read of its own.
-pub(crate) fn children_standing(board: &[Job]) -> Vec<(JobId, JobStatus)> {
+pub(crate) fn children_standing(board: &[Job], owed: &BTreeSet<JobId>) -> Vec<Standing> {
     board
         .iter()
         .filter(|job| job.origin() == Origin::SubDispatched)
         .filter_map(|job| {
-            job.dispatched_by()
-                .map(|by| (by.job_id.clone(), job.status()))
+            job.dispatched_by().map(|by| Standing {
+                parent: by.job_id.clone(),
+                status: job.status(),
+                merge_owed: merge_owed(job, owed),
+            })
         })
         .collect()
 }
@@ -354,14 +407,17 @@ pub(crate) fn children_standing(board: &[Job]) -> Vec<(JobId, JobStatus)> {
 ///
 /// **Terminal, not successful**, for [`Fleet::children_all_settled`]'s reason:
 /// what comes after a dispatch is work about what happened, and a child that
-/// failed is the thing that work is most needed for.
-pub(crate) fn waiting_on_children(job: &Job, children: &[(JobId, JobStatus)]) -> bool {
+/// failed is the thing that work is most needed for. **`on_merges`** is a
+/// parent that finishes on its members' merges, which waits for those too —
+/// [`Fleet::waits_on_merges`] answers it.
+pub(crate) fn waiting_on_children(job: &Job, children: &[Standing], on_merges: bool) -> bool {
     if !dispatched_and_stands_before_the_next(job) {
         return false;
     }
-    children
-        .iter()
-        .any(|(parent, status)| parent == job.id() && !status.is_terminal())
+    children.iter().any(|child| {
+        &child.parent == job.id()
+            && (!child.status.is_terminal() || (on_merges && child.merge_owed))
+    })
 }
 
 /// Whether this Job's current step created Jobs and has finished.

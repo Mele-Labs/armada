@@ -563,7 +563,7 @@ impl Splitting {
     /// every step of every workflow but one.
     pub fn at(workflow: &FrozenWorkflow, at: &StepId) -> Option<Splitting> {
         if workflow.step(at)?.may_dispatch_jobs() {
-            return Some(Splitting(String::from(CARRIES_IT_OUT)));
+            return Some(Splitting(String::from(PROPOSES_IT)));
         }
         workflow
             .after(at)
@@ -602,16 +602,27 @@ what another produced — that is a fact about the work, and it is carried when 
 the Jobs are created. Two pieces would write the same files — that is held \
 apart by this plan and by nothing else. Say which you mean.";
 
-/// The dispatching step: the plan is the authority, and this part is not where
-/// it is decided again.
-const CARRIES_IT_OUT: &str = "\
-WHAT THIS PART CREATES
+/// The dispatching step: what it proposes is real, waits for a person, and is
+/// carried out as written. Since slice 6 the step that creates Jobs is the one
+/// a person answers, so the decision and the creating are one part.
+const PROPOSES_IT: &str = "\
+WHAT THIS PART PROPOSES
 
-A plan was written and read before this part started, and this part carries it \
-out. Create one Job for each piece it names and nothing it does not name: what \
-to build was settled when the plan was read, and this is not where it is \
-settled again.
+Each piece you name becomes a Job when you call dispatch_job for it: its own \
+worktree, its own agent and its own spend, and none of them has read what you \
+read. They wait for a person, who reads every one of them before approving \
+them together, and nothing runs until then. Nobody rewrites what you write — \
+it is what each piece is told.
 
-If the plan cannot be carried out as it stands — a piece names a workflow this \
-repository does not have, or an order it draws cannot be expressed — say so in \
-what you submit rather than creating something in its place.";
+So say, for every piece: what it is called, what its agent is to be told, what \
+its work is held to, and which pieces must finish before it can start, by the \
+ids dispatch_job gave you back. Draw them in the plan as well, because what is \
+approved is a shape, and prose asks whoever reads it to redraw it first.
+
+Two things make a piece wait and they are not the same thing. One piece needs \
+what another produced — that is a fact about the work, and `after` carries it. \
+Two pieces would write the same files — that is held apart by this plan and by \
+nothing else. Say which you mean.
+
+If this part runs again, what it proposed before and nobody approved is \
+withdrawn, so propose the whole wave again.";

@@ -296,6 +296,9 @@ mod unattended;
 mod under_review;
 pub mod underway;
 pub mod watch;
+/// An Epic's wave: proposed, released by one press, and the members a parent
+/// that finishes on their merges waits for. Spike 022, slice 6.
+pub mod waving;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.

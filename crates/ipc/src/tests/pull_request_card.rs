@@ -15,6 +15,7 @@ fn fleets_answer_for_a_merged_job() -> JobDelivery {
         unpushed: None,
         pull_request_title: Some("Retire guides 8 and 20".to_string()),
         pull_request_comments: Some(5),
+        merged_at: None,
     }
 }
 
@@ -36,6 +37,7 @@ fn a_merged_jobs_title_and_comment_count_cross_byte_for_byte() {
 fn an_unread_count_carries_no_key_and_a_23_4_answer_still_reads() {
     let unread = JobDelivery {
         pull_request_comments: None,
+        merged_at: None,
         ..fleets_answer_for_a_merged_job()
     };
     let written = encode(&unread).expect("a delivery encodes");

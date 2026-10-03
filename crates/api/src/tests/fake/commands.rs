@@ -90,6 +90,13 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
+    async fn approve_wave(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _wave: ipc::ApproveWave,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
+    }
     async fn approve_review(
         self: std::sync::Arc<Self>,
         job_id: JobId,

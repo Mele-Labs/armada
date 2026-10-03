@@ -20,11 +20,11 @@
 //! | A spawn recording the model it ran, and `edit_task` refusing a model `list_models` does not offer | `crates/fleet/src/tests/model_per_task.rs` drives the fake harness and the store |
 
 // The bench is shared with every other milestone's test and none uses all of it.
-#[allow(dead_code)]
-mod bench;
 /// Slice 5's claim, in a module of its own for the line limit.
 #[path = "drone_per_task/at_once.rs"]
 mod at_once;
+#[allow(dead_code)]
+mod bench;
 /// Slice 6's claim, in a module of its own for the same reason.
 #[path = "drone_per_task/waves.rs"]
 mod waves;
@@ -1013,6 +1013,7 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
             target: core_model::branch_named(Some("release/2.0")),
             from_ref: core_model::branch_named(Some("reader/bound")),
             pr_mode: core_model::PrMode::Draft,
+            complete_when: core_model::CompleteWhen::Delivered,
         }
     );
 

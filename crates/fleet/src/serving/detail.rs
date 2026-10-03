@@ -175,6 +175,16 @@ where
                         .map_err(|why| self.refusal(Adrift::Reading(why)))?,
                     false => store::KeptPullRequest::default(),
                 };
+                // Only beside a merge: nothing else has an instant to say.
+                let merged_at = match came_to.landed {
+                    Some(adapter_traits::Landing::Merged { .. }) => self
+                        .store()
+                        .lock()
+                        .await
+                        .merged_at(job.id())
+                        .map_err(|why| self.refusal(Adrift::Reading(why)))?,
+                    _ => None,
+                };
                 Some(JobDelivery {
                     commit: came_to.commit,
                     pushed: came_to.pushed,
@@ -184,6 +194,7 @@ where
                     unpushed: came_to.unpushed,
                     pull_request_title: kept.title,
                     pull_request_comments: kept.comments,
+                    merged_at: merged_at.as_ref().map(ipc::Instant::from),
                 })
             }
         };

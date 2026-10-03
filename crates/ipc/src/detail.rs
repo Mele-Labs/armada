@@ -952,6 +952,10 @@ pub struct JobDelivery {
     /// pull request that settled before the rotation reached it open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request_comments: Option<u32>,
+    /// When the pull request merged, as the forge said. Since 23.11. **Absent
+    /// beside a `merged`** is a merge Fleet noticed before 23.11.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merged_at: Option<Instant>,
 }
 
 /// What Fleet's rotation last read live off an open pull request.

@@ -177,8 +177,10 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         assigned_drone: None,
         redispatched_from: None,
         dispatched_by: None,
+        dispatched_pass: None,
         asking: false,
         landed: None,
+        merged_at: None,
         reclaimed_at: None,
         tasks: None,
     }
