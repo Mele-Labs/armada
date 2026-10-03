@@ -9,11 +9,9 @@
 // **Yours to change until the press, since 23.8.** `approve_dispatch` takes
 // the proposal as the person left it (#1641), so each region takes its handler
 // and the press sends what moved — `approvalOf`. The proposal's own pieces, so
-// the words here and on `ProposalTab` are one spelling.
-//
-// **The request, the tiers and the cap too** (the owner, 2 Oct 2026). Only
-// `ProposalTab` offered them, and it draws only off a mock draft, so on a real
-// Job the panel was the one place to change them and did not.
+// the words here and on `ProposalTab` are one spelling. **The request, tiers
+// and cap too** (the owner, 2 Oct 2026): only `ProposalTab`, which draws only
+// off a mock draft, offered them.
 
 import {
   Input,
