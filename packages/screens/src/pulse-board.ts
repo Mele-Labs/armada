@@ -6,7 +6,7 @@
 
 import type { Figure, PulseLogRow, PulseReading, PulseWorktreeRow } from "@armada/components";
 import type { JobDetail as JobWhole, JobExamined, Recorded, StepDetail } from "@armada/protocol";
-import type { PulseLog, PulseView } from "./draft/pulse";
+import type { PulseLog, PulseProcess, PulseView } from "./draft/pulse";
 import { span } from "./duration";
 import { ordered, spent } from "./facts";
 import { cap } from "./RaiseCap";
@@ -40,7 +40,8 @@ export function pulseReadingOf(
     processes: view.processes.map((process) => ({
       pid: process.pid,
       command: process.command,
-      owner: process.owner,
+      // Whose it is: its Drone, where Fleet names one (23.10), else its checkout.
+      owner: (process.drone === null ? undefined : places.get(process.drone)) ?? process.owner,
       cpuPercent: process.cpu_percent,
       memoryBytes: process.memory_bytes,
       runningFor: process.running_for,
@@ -51,7 +52,7 @@ export function pulseReadingOf(
       path: worktree.path,
       ...(worktree.bytes === undefined ? {} : { bytes: worktree.bytes }),
       ...sizeAge(worktree.measured_at, now),
-      ...(one ? { ...standing(view.held, examined), open: "worktree" as const } : { state: ON_DISK }),
+      ...(one ? { ...standing(view.held, examined, view.processes), open: "worktree" as const } : { state: ON_DISK }),
     })),
     logs: logRowsOf(view.logs, whole ?? null, places),
   };
@@ -130,6 +131,7 @@ export type DronePlaces = ReadonlyMap<string, string>;
 export function dronePlacesOf(
   history: readonly Recorded[] | undefined,
   tasks: readonly { id: string; drone_id?: string }[] = [],
+  listed: readonly { drone: string; step: string; task?: string | undefined }[] = [],
 ): DronePlaces {
   const taskOf = new Map(
     tasks.flatMap((task) => (task.drone_id === undefined ? [] : [[task.drone_id, task.id] as const])),
@@ -153,6 +155,11 @@ export function dronePlacesOf(
     const several = (onStep.get(step) ?? 0) > 1;
     places.set(drone, task !== undefined ? `${step} · ${task}` : several ? `${step} · run ${run}` : step);
   }
+  // A Drone beside the Job's kept one is on no history row (23.10): the Drones
+  // listed name its step and task.
+  for (const one of listed) {
+    if (!places.has(one.drone) && one.task !== undefined) places.set(one.drone, `${one.step} · ${one.task}`);
+  }
   return places;
 }
 
@@ -170,11 +177,17 @@ const ON_DISK = "on disk";
  *
  * **One Drone per Job today**, so `held` answers for the checkout.
  */
-function standing(held: string, examined: JobExamined | null): Pick<PulseWorktreeRow, "state" | "wrong" | "working"> {
+function standing(
+  held: string,
+  examined: JobExamined | null,
+  processes: readonly PulseProcess[],
+): Pick<PulseWorktreeRow, "state" | "wrong" | "working"> {
   const look = examined?.looks.find((one) => one.asked === "worktree");
   if (look?.found === "not_working") return { state: "gone", wrong: true };
   if (look?.found === "cannot_tell") return { state: "could not be read" };
-  if (held === "running") return { state: "1 drone working", working: true };
+  // Every live Drone works the Job's one copy (23.10), each a recorded row.
+  const drones = Math.max(processes.filter((one) => one.recorded).length, 1);
+  if (held === "running") return { state: drones === 1 ? "1 drone working" : `${drones} drones working`, working: true };
   return { state: "no drone working" };
 }
 
@@ -235,7 +248,7 @@ const GAMING_CHECK = "gaming check";
 export function pulseFiguresOf(view: PulseView | null, whole: JobWhole | null, caps?: CapPresses): Figure[] {
   const steps = ordered(whole);
   const working: Figure[] = [];
-  if (view !== null) working.push(dronesFigure(view.held));
+  if (view !== null) working.push(dronesFigure(view.held, view.processes));
   working.push({ label: "Checks running", value: `${checksRunning(steps)}` });
   working.push({ label: "Judges running", value: `${judgesRunning(steps)}` });
   const taking: Figure[] = [];
@@ -269,18 +282,19 @@ const CHANGE_TURN_CAP = "Change the turn cap in Settings";
 /**
  * How many Drones are up, and whether that is a fault.
  *
- * **One Drone per Job today.** `held` is Fleet's reading of the one process it
- * recorded, so the count is nought or one; `gone` and `replaced` are Fleet
- * believing something is running that is not, which is loud at any status —
- * and both count nought, so the detail is the whole of what tells them apart.
+ * **Every live Drone's process is a recorded row** (23.10), so the count is
+ * those rows; `held` is Fleet's reading of the Job's kept Drone, and `gone`
+ * and `replaced` are Fleet believing it is running when it is not — loud at
+ * any status, and nought, so the detail is the whole of what tells them apart.
  */
-function dronesFigure(held: string): Figure {
+function dronesFigure(held: string, processes: readonly PulseProcess[]): Figure {
   if (held === "gone") return { label: DRONES, value: "0", detail: NOTHING_AT_THAT_PID, wrong: true };
   if (held === "replaced") return { label: DRONES, value: "0", detail: SOMEBODY_ELSE, wrong: true };
   // Words, and marked as such: `could not be read` in the figure's own mono is
   // a sentence dressed as a number.
   if (held === "unreadable") return { label: DRONES, value: "could not be read", words: true };
-  return { label: DRONES, value: held === "running" ? "1" : "0" };
+  const recorded = processes.filter((one) => one.recorded).length;
+  return { label: DRONES, value: held === "running" ? `${Math.max(recorded, 1)}` : `${recorded}` };
 }
 
 /** The band's word for the Drone count, spelled once for the four arms above. */

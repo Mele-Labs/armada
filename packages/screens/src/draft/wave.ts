@@ -12,7 +12,7 @@
 //
 // **No kind name.** A Job is a Job (#1530, 22 Sep).
 
-import type { JobDetail, JobSummary, Settled } from "@armada/protocol";
+import type { Criterion, JobDetail, JobSummary, Settled } from "@armada/protocol";
 
 /**
  * One Job of the wave.
@@ -40,12 +40,16 @@ export type WaveJobView = {
   /** Where its pull request settled, where it has. `Settled` on the wire. */
   landed?: Settled;
   /**
-   * What its Drone was handed, and what the split expects of it — the plan's
-   * own brief for this piece. `plan.md` records both and the Board carries
-   * neither, so today they are the mock's.
+   * What its Drone is handed, and what the split expects of it — the plan's
+   * own brief for this piece, as `JobDetail.facts` and `acceptance_criteria`
+   * carry them. The Board carries neither, so today they are the mock's.
+   *
+   * **Criteria and not lines**, because Edit this Job sends them back to
+   * `edit_job` (since 23.8): a line has no id, and a list of lines would mint
+   * new criteria at every save and drop each one's source and origin.
    */
-  brief?: string;
-  expects?: readonly string[];
+  facts?: string;
+  criteria?: readonly Criterion[];
   /** What it has cost so far, in millionths of a dollar. Absent until it has spent. */
   cost_micros?: number;
   /** How far through its own plan it is. Absent for a Job with no tasks yet. */

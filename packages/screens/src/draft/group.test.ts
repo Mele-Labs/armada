@@ -194,3 +194,25 @@ describe("retries, counted from the step's own runs", () => {
     expect(taskGroupsOf(withTasks(["T1"], step))[0]?.retry_count).toBe(1);
   });
 });
+
+describe("a group Fleet served, its tasks run at once (23.10)", () => {
+  it("is concurrent where a task names another beside it, and not otherwise", () => {
+    const detail = sampleDetail({
+      work_plan: samplePlan(
+        [
+          sampleTask({ id: "T1", group: "G1", concurrent_with: ["T2"] }),
+          sampleTask({ id: "T2", group: "G1", concurrent_with: ["T1"] }),
+          sampleTask({ id: "T3", group: "G2" }),
+        ],
+        {
+          groups: [
+            { id: "G1", tasks: ["T1", "T2"], state: "running" },
+            { id: "G2", tasks: ["T3"], state: "pending" },
+          ],
+        },
+      ),
+    });
+
+    expect(taskGroupsOf(detail).map((group) => group.concurrent)).toEqual([true, false]);
+  });
+});

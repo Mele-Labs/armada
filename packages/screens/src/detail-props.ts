@@ -25,7 +25,9 @@ import type { WorkflowView } from "./workflow-view";
 import type {
   CommandAnswer,
   CommandExplainedRead,
-  EditJobAsSent,
+  EditJob,
+  ApproveDispatch,
+  Branches,
   EditTask,
   MovePlan,
   Examination,
@@ -105,14 +107,14 @@ export type JobDetailProps = {
   /** What Fleet said to the last act on this Job, so the control that sent it answers. */
   answered?: ActAnswer | undefined;
   /** Ask for a confirmation. Nothing destructive is one press from here. */
-  onAct: (act: ConfirmableAct, jobId: string) => void;
+  onAct: (act: ConfirmableAct, jobId: string, droneId?: string) => void;
   /**
    * Kill, straight through. **The hold on the header's own kill was the
    * confirmation**, so this sends where `onAct` asks.
    */
-  onActHeld: (act: HeldAct, jobId: string) => void;
+  onActHeld: (act: HeldAct, jobId: string, droneId?: string) => void;
   /** Send a redirect straight through — its own dialog is the confirmation. */
-  onRedirect: (jobId: string, instruction: string) => void;
+  onRedirect: (jobId: string, instruction: string, droneId?: string) => void;
   /**
    * A failed plan task's Pilot or Restart, or Edit this task on an open or
    * failed one with what it changed, pressed on its panel. Each is ahead of
@@ -126,9 +128,9 @@ export type JobDetailProps = {
   onMovePlan?: (jobId: string, move: MovePlan) => Promise<Outcome>;
   /**
    * Edit this Job, on a Job of an Epic's proposed wave, with only what
-   * changed. Ahead of its route (#1699), so the answer is `Not implemented`.
+   * changed — `edit_job`, served since 23.8.
    */
-  onEditJob?: (jobId: string, edit: EditJobAsSent) => Promise<Outcome>;
+  onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *
@@ -295,8 +297,17 @@ export type JobDetailProps = {
   onNeedPulse: (jobId: string | null) => void;
   /** Say this job failed in error, with the record attached. */
   onReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
-  /** Let this Job run. Sent on the press, with no confirmation. */
-  onApprove: (jobId: string) => void;
+  /**
+   * Let this Job run, with the proposal as the person left it. Sent on the
+   * press, with no confirmation. **`approval` absent is the proposal as it
+   * stands** — nobody moved anything on it.
+   */
+  onApprove: (jobId: string, approval?: ApproveDispatch) => void;
+  /**
+   * A repository's branches, for a branch field to offer (`list_branches`,
+   * #1605). Absent is nothing to ask, and the field takes a typed name.
+   */
+  onListBranches?: (manifestId: string) => Promise<Branches | null>;
   /**
    * The four answers to a Job at `awaiting_review`. Four props, not one — each
    * does something different to the Job, and one prop taking which would read
