@@ -47,10 +47,13 @@ export type PlanBoardTask = {
   id: string;
   title: string;
   mark: TaskMarkState;
-  /** The model the planner's tier resolved to. */
-  model: string;
-  /** How hard the planner thought it was. Read in the inspector, not the row. */
-  tier: string;
+  /**
+   * The model it runs on: a person's pick, else the Job's map for its tier.
+   * **Absent is Armada picking**, and the slot stays empty.
+   */
+  model?: string;
+  /** How hard the planner thought it was. Read in the inspector, not the row. Absent is none. */
+  tier?: string;
   /** `its own agent` — how it is run. Absent before the plan says. */
   runBy?: string;
   /** `beside T5`, written by the caller. Absent where it runs alone. */
@@ -483,9 +486,13 @@ function TaskRow({
           dashes representing?*). The span stays so the columns keep their
           line; a bare figure names itself in a tooltip. `34 turns` already
           does, so it takes none. */}
-      <Tooltip asChild label="Model">
-        <span className="armada-plan-board__task-model">{task.model}</span>
-      </Tooltip>
+      {task.model === undefined ? (
+        <span className="armada-plan-board__task-model" />
+      ) : (
+        <Tooltip asChild label="Model">
+          <span className="armada-plan-board__task-model">{task.model}</span>
+        </Tooltip>
+      )}
       <span className="armada-plan-board__task-turns">{task.turnsSays}</span>
       {task.costSays === undefined ? (
         <span className="armada-plan-board__task-cost" />

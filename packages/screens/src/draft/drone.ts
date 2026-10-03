@@ -22,6 +22,8 @@ export type DroneView = {
   /** The step it ran under. */
   step: string;
   state: DroneState;
+  /** The model it was spawned as — `JobDrone.model`, since 23.6. Absent where Fleet kept none. */
+  model?: string;
   /** When it was spawned. Absent only on the Job's own Drone before the list has it. */
   since?: string;
   /** When it stopped. Absent while it runs. */
@@ -60,6 +62,7 @@ export function droneViewsOf(listed: JobDrones | undefined, whole?: JobDetail, t
     step: one.step_id,
     state: one.state,
     since: one.since,
+    ...(one.model === undefined ? {} : { model: one.model }),
     ...(one.ended_at === undefined ? {} : { ended_at: one.ended_at }),
     ...(one.turns === undefined ? {} : { turns: one.turns }),
     ...(one.cost_micros === undefined ? {} : { cost_micros: one.cost_micros }),

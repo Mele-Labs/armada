@@ -190,6 +190,7 @@ export function DronesTab({
           where: whereOf(drone),
           state: drone.state,
           stateSays: DRONE_SAYS[drone.state],
+          ...(drone.model === undefined ? {} : { model: drone.model }),
           spent: spentOf(drone).join(" · "),
           ...(drone.since === undefined
             ? {}

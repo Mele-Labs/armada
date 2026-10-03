@@ -242,3 +242,27 @@ export const ASkippedCheckSaysWhy: Story = {
     ],
   },
 };
+
+/**
+ * Folded to one row: the step, what it came to and the counts. The record's
+ * proof draws a row like this per step (owner, 3 Oct 2026), and the list opens
+ * from it, so nothing is lost.
+ */
+export const FoldedToOneRow: Story = {
+  args: {
+    rows: finished,
+    label: "Implement the change",
+    summary: {
+      outcome: { status: "completed-success", icon: ShieldCheck, label: "Advanced" },
+      reading: "3 Checks passed · Judge: 2 of 3 criteria refused",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const summary = canvasElement.querySelector("summary");
+    await expect(summary?.textContent).toContain("3 Checks passed");
+    // Folded: the rows wait behind the row until it is opened.
+    await expect(canvasElement.querySelector("details")?.open).toBe(false);
+    summary?.click();
+    await expect(canvasElement.querySelector("details")?.open).toBe(true);
+  },
+};

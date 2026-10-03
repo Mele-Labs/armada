@@ -73,6 +73,20 @@ export type JobLead = {
    * every other branch reachable with no read is proven by the Board's row.
    */
   quiet?: true;
+  /**
+   * The Job already fixing the test this Job's failed Check failed on, which
+   * `because` follows. **Its own field so the title can be a press** — the
+   * owner, 2 Oct 2026, #1673: the clause links to that Job. `rest` is the
+   * clause after the title.
+   */
+  fix?: { job: string; title: string; rest: string };
+  /**
+   * The Jobs parked on this one's fix, each by its id and, where the wire
+   * read it, its title. **The Jobs themselves and not a count** — the owner,
+   * 2 Oct 2026, on the count this replaced: *"This should show the jobs that
+   * are waiting on this job."* Drawn under the lead's line, never in it.
+   */
+  parkedOnIt?: { job: string; title?: string }[];
 };
 
 /** The step a person is being asked about, or the one a Drone is on. */
@@ -280,6 +294,43 @@ function gamingHold(whole: JobWhole | null) {
 }
 
 /**
+ * The Job already fixing the test `failed` failed on, where it is another Job.
+ *
+ * **Matched by the Check's name**, which is what `ClaimedBreakage.check`
+ * carries. The claim says nothing about which attempt, so any red run of that
+ * Check is the test the claim names.
+ *
+ * **Fleet keeping this Job off the test's files is said only where the wire
+ * says it**: `held_off` present and holding a file. Since protocol 23.3.
+ */
+function fixedElsewhere(job: JobSummary, whole: JobWhole | null, failed: CheckRun) {
+  const claim = whole?.breakages?.find((one) => one.check === failed.name && one.fix !== job.id);
+  if (claim === undefined) return undefined;
+  const held = (claim.held_off ?? []).length > 0;
+  return {
+    job: claim.fix,
+    title: claim.fix_title,
+    rest: ` is already fixing this${held ? ", and this Job is kept off the test's files" : ""}`,
+  };
+}
+
+/**
+ * The Jobs parked on this one's fix, or nothing where none are. A Job parked
+ * on two of this Job's claims is one Job. #1673.
+ */
+function parkedOn(job: JobSummary, whole: JobWhole | null): { parkedOnIt?: { job: string; title?: string }[] } {
+  const parked = new Map<string, string | undefined>();
+  for (const claim of whole?.breakages ?? []) {
+    if (claim.fix !== job.id) continue;
+    for (const one of claim.waiting ?? []) parked.set(one.job_id, parked.get(one.job_id) ?? one.title);
+  }
+  if (parked.size === 0) return {};
+  return {
+    parkedOnIt: [...parked].map(([id, title]) => (title === undefined ? { job: id } : { job: id, title })),
+  };
+}
+
+/**
  * Why Fleet stopped the Job, in the registry's own verb. **Generated from the
  * Rust registry**, so a trigger Fleet learns to raise reads correctly without
  * this file being touched.
@@ -463,15 +514,18 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     // Fleet does not serve the status, so there is nothing to build against.
     const spent = checkThatFailed(step);
     if (step?.state === "stopped" && spent !== undefined) {
+      const fix = fixedElsewhere(job, whole, spent);
       return {
         said: "Out of retries",
-        because: because(`${spent.name} failed`, spent.produced ?? ""),
+        because: because(`${spent.name} failed`, fix === undefined ? (spent.produced ?? "") : ""),
         tone: "completed-failed",
+        ...(fix === undefined ? {} : { fix }),
       };
     }
     return {
       said: "Waiting for your review",
       because: because(metSaid(whole), holdsUp(whole, step)),
+      ...parkedOn(job, whole),
       tone: "awaiting-review",
       act: "Review it",
     };
@@ -482,12 +536,17 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   // opening the step, so a Job at `running` said nothing was wrong.
   const failed = checkThatFailed(step);
   if (failed !== undefined) {
+    // **Another Job already fixing the test is what changes what a person
+    // does** (the owner, 2 Oct 2026, #1673), so it leads the second line and
+    // the output follows it. `Running again` gives way: two facts at most.
+    const fix = fixedElsewhere(job, whole, failed);
     return {
       said: `${failed.name} failed`,
       because: because(
         failed.produced ?? "",
-        step?.state === "running" || step?.state === "retrying" ? "Running again" : "",
+        fix === undefined && (step?.state === "running" || step?.state === "retrying") ? "Running again" : "",
       ),
+      ...(fix === undefined ? {} : { fix }),
       tone: "completed-failed",
       act: "Read what it produced",
       // That Check's own row, and the step it ran on with it: a Check at a
@@ -520,6 +579,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
         ? "Nothing needs you"
         : `${step.label}${on === undefined ? "" : ` · ${on} in`}`,
     because: because(tasksSaid(whole), nextGateSaid(whole, step)),
+    ...parkedOn(job, whole),
     ...(step === undefined ? { quiet: true as const } : {}),
   };
 }

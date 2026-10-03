@@ -658,6 +658,9 @@ export function OverviewTab(props: OverviewTabProps) {
   // off a draft no real Fleet serves, so on the owner's Job of 1 Oct 2026 the
   // lead said *Waiting for your approval* and offered nothing.
   const opens = lead.opens;
+  const fixJob = lead.fix?.job;
+  const openJob = props.onOpenJob;
+  const openFix = fixJob === undefined || openJob === undefined ? undefined : () => openJob(fixJob);
   const leadAct =
     lead.act === undefined || waiting !== undefined ? undefined : lead.approves === true ? (
       props.headerActs
@@ -690,7 +693,26 @@ export function OverviewTab(props: OverviewTabProps) {
     <OverviewBoard
       // The quiet line stands in while the read is out; any other lead is
       // the Board row's to say at once (owner, 1 Oct 2026).
-      lead={{ ...lead, act: leadAct, reading: lead.quiet === true && stillReading(watched, job.id) }}
+      lead={{
+        ...lead,
+        act: leadAct,
+        reading: lead.quiet === true && stillReading(watched, job.id),
+        // The fix's title opens that Job, where the shell can open one. #1673.
+        ...(lead.fix === undefined
+          ? {}
+          : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
+        // Each Job parked on this one's fix, by the wire's title or the
+        // Board's, and a press that opens it. #1673.
+        ...(lead.parkedOnIt === undefined
+          ? {}
+          : {
+              parked: lead.parkedOnIt.map((one) => ({
+                job: one.job,
+                title: one.title ?? props.board?.find((row) => row.id === one.job)?.title ?? one.job,
+                ...(openJob === undefined ? {} : { onOpen: () => openJob(one.job) }),
+              })),
+            }),
+      }}
       waiting={waiting}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as

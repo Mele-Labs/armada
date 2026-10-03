@@ -5,18 +5,22 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { reviewAtDelivery, queued, running } from "@armada/screens/src/fixtures/build/index";
+import { reviewAtDelivery, queued, retryingCheckFailure, running } from "@armada/screens/src/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import {
+  brokenOnMain,
+  FIX_JOB,
+  FIX_TITLE,
   heldByTheGamingCheck,
   reviewAtAQuestion,
+  withBreakages,
   withRow,
 } from "./job-detail-fixtures";
 import type { } from "./scenario";
-import { onJob } from "./scenario";
+import { onJob, scenarioNamed } from "./scenario";
 import { entered, mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -100,10 +104,37 @@ test("the header's one control opens the rest of what this Job can do", async ()
   await expect.element(page.getByRole("menuitem", { name: /record/i })).toBeVisible();
 });
 
-// **Breakages have no region since 29 Sep 2026.** The rows — a Check failing
-// on a test another Job is already fixing, and the count of Jobs waiting on
-// this one to be the fix — went with the arrangement that drew them. Two
-// claims stood here and neither has a screen to be made on.
+// **A Check failing on a test another Job is already fixing** — the lead
+// names the fix, and so does that Check's row on the Record. The owner's
+// decision of 2 Oct 2026, #1673; both claims stood here before #1671 took the
+// region that drew them.
+test("a Check failed on a test another Job is fixing: the row names the fix", async () => {
+  await opened(withBreakages((jobId) => [brokenOnMain(FIX_JOB, jobId)], retryingCheckFailure()));
+  await expect.element(page.getByRole("heading", { name: "cargo_nextest failed" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: FIX_TITLE, exact: true })).toBeVisible();
+  await expect.poll(text).toContain(`${FIX_TITLE} is already fixing this, and this Job is kept off the test's files`);
+  await page.getByRole("tab", { name: "Record" }).click();
+  await expect.element(page.getByText(`Failed — ${FIX_TITLE} is already fixing it`)).toBeVisible();
+});
+
+// **The Jobs themselves, and no count beside them** — the owner's note of
+// 2 Oct 2026 on the count this claim first held: *"This should show the jobs
+// that are waiting on this job."*
+for (const [title, handle] of [
+  ["Trim the brief to the files the step touched", "91-parked"],
+  ["Memoise the manifest list", "92-parked-too"],
+]) {
+  test(`this Job is the fix, and two Jobs wait on it: each is listed, and ${handle} opens`, async () => {
+    mount(scenarioNamed("breakage/fixed-elsewhere")!);
+    await page.getByRole("button", { name: FIX_TITLE, exact: true }).click();
+    const parked = page.getByRole("list", { name: "Waiting on this fix" });
+    await expect.element(parked).toBeVisible();
+    expect(parked.getByRole("button").elements()).toHaveLength(2);
+    expect(text()).not.toMatch(/Jobs? waits? on it/);
+    await parked.getByRole("button", { name: title, exact: true }).click();
+    await expect.element(page.getByRole("button", { name: handle, exact: true })).toBeVisible();
+  });
+}
 
 const text = () => document.body.textContent ?? "";
 
@@ -123,7 +154,7 @@ test("Merge confirmed while frozen is taken, waiting, and never drawn as a refus
   await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   const confirm = page.getByRole("dialog");
   await entered(confirm);
-  await confirm.getByRole("button", { name: "Merge and take the work" }).click();
+  await confirm.getByRole("button", { name: "Merge pull request" }).click();
   await expect.element(page.getByText("Merge taken")).toBeVisible();
   await expect.element(page.getByText(/merges when the freeze lifts/)).toBeVisible();
 });
