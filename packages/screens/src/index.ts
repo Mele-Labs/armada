@@ -32,6 +32,7 @@ export * from "./BridgeSettings";
 // A repository's Studios, and one open on its whiteboard. #1287.
 export * from "./Studios";
 export * from "./studio";
+export { askStudioRun, useStudioRunOff } from "./studio-run-ask";
 export * from "./studio-frames";
 export * from "./studio-clearing";
 export * from "./studio-promotion";

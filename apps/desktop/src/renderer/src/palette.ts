@@ -70,6 +70,11 @@ export function dormantIn(where: {
   failing: boolean;
   /** Whether Fleet is connected, which is what Refresh reads from. */
   live: boolean;
+  /**
+   * Why the open Studio's Run is off, `undefined` where it is on, `null` with
+   * no Studio's rail drawn — `@armada/screens`' `useStudioRunOff`.
+   */
+  studioRun?: string | null;
 }): Readonly<Record<string, string | undefined>> {
   const noJob = !where.reading && where.cursor === null ? NO_JOB : undefined;
   return {
@@ -114,6 +119,9 @@ export function dormantIn(where: {
     add_note: "the Studio's own + Node control",
     add_link: "the Studio's own + Node control",
     add_sketch: "the Studio's own + Node control",
+    // Run on the rail, which this row opens as `R` does — 2 Oct 2026. Off for
+    // the rail's own reason, so the two say one thing.
+    start_studio_run: where.studioRun === null ? "open a Studio first" : where.studioRun,
 
     // Global acts with no surface behind them. The rail carries the Job Board
     // and nothing else — four disabled rows would be a promise Armada does not
@@ -182,6 +190,8 @@ export type PaletteHands = {
   refresh: () => void;
   /** A row about every Job at once, by the id `PaletteBoardRow` was given. */
   board: (id: string) => void;
+  /** Open the open Studio's Run menu on its rail, as a press on Run does. */
+  studioRun: () => void;
 };
 
 /**
@@ -238,6 +248,9 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
       return;
     case "refresh":
       hands.refresh();
+      return;
+    case "start_studio_run":
+      hands.studioRun();
       return;
     case "restart_step":
     case "redispatch":

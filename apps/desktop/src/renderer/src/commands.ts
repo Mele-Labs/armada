@@ -79,13 +79,21 @@ export const watchStudio = (studioId: string | null): void => void window.armada
 export const createStudio = (manifestId: string) => window.armada.createStudio(manifestId);
 // Named, and added to, by a person — #1364. Neither goes through Helm.
 export const renameStudio = (studioId: string, name: string) => window.armada.renameStudio(studioId, name);
-export const addStudioNode = (studioId: string, node: StudioNodeByHand, position: { x: number; y: number }) =>
-  window.armada.addStudioNode(studioId, node, position);
+export const addStudioNode = (
+  studioId: string,
+  node: StudioNodeByHand,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.addStudioNode(studioId, node, position, within);
 export const pathOfFile = (file: File) => window.armada.pathOfFile(file);
 export const addStudioPicture = (studioId: string, bytes: Uint8Array, position: { x: number; y: number }) =>
   window.armada.addStudioPicture(studioId, bytes, position);
-export const addStudioSketch = (studioId: string, drawing: SketchToKeep, position: { x: number; y: number }) =>
-  window.armada.addStudioSketch(studioId, drawing, position);
+export const addStudioSketch = (
+  studioId: string,
+  drawing: SketchToKeep,
+  position: { x: number; y: number },
+  within: string | null,
+) => window.armada.addStudioSketch(studioId, drawing, position, within);
 export const saveStudioSketch = (studioId: string, nodeId: string, drawing: SketchToKeep) =>
   window.armada.saveStudioSketch(studioId, nodeId, drawing);
 export const moveStudioNode = (

@@ -55,3 +55,26 @@ export function useAddNodeKeys(editable: boolean, onAdding: (kind: StudioNodeByH
     return () => window.removeEventListener("keydown", pressed);
   }, [editable, onAdding]);
 }
+
+/** Run's binding, from the registry. */
+const RUN = ACTION.start_studio_run?.shortcut ?? "";
+
+/**
+ * `R` on an open Studio opens the rail's Run menu — the owner, 2 Oct 2026.
+ *
+ * **Bound only while Run is on**, so the key is dead exactly when the rail
+ * draws Run off: read-only, no connection, or nothing declared to run.
+ */
+export function useRunKey(on: boolean, onRun: () => void): void {
+  useEffect(() => {
+    if (!on) return;
+    function pressed(event: KeyboardEvent): void {
+      if (event.metaKey || event.ctrlKey || event.altKey || holdsText(event.target)) return;
+      if (event.key !== RUN) return;
+      event.preventDefault();
+      onRun();
+    }
+    window.addEventListener("keydown", pressed);
+    return () => window.removeEventListener("keydown", pressed);
+  }, [on, onRun]);
+}
