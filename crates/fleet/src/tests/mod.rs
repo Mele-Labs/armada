@@ -45,6 +45,7 @@ mod code_review;
 mod coming_to_rest;
 mod concurrency;
 mod confidence;
+mod confirming;
 mod conflict_resolution;
 mod converging;
 mod coupling;

@@ -61,6 +61,21 @@ fn vitests_own_every_test_skipped_is_not_a_pass() {
     );
 }
 
+/// The same words in the colour vitest prints them in with no terminal
+/// attached — the summary line's shape off Job 3's gate log, 3 Oct 2026.
+/// Read with the colour on, it matched nothing and a no-match read as a pass.
+#[test]
+fn vitests_own_coloured_every_test_skipped_is_not_a_pass() {
+    let output = printed(
+        "\u{1b}[2m      Tests \u{1b}[22m \u{1b}[33m1167 skipped\u{1b}[39m\u{1b}[90m (1167)\u{1b}[39m\n",
+        "",
+    );
+    assert_eq!(
+        one_test_ran(&Exit::Code(0), &output, 0),
+        OneTestRan::NoMatch
+    );
+}
+
 /// A real pass, isolated to one test: `pnpm --dir packages/components exec
 /// vitest run -t "The id and version, read-only"`.
 #[test]

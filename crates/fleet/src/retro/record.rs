@@ -210,6 +210,34 @@ fn failed_checks(from: &Sources<'_>) -> Vec<RecordCheck> {
             });
         }
     }
+    // The gate's own reds it ran again alone: Fleet's friction, not the Drone's.
+    for note in from
+        .log
+        .iter()
+        .filter(|note| note.msg == lines::A_RED_RUN_ALONE)
+    {
+        let failed = field(note, "failed").unwrap_or("?");
+        let alone = match field(note, "passed_alone") {
+            Some("true") => "passed",
+            _ => "failed",
+        };
+        let first = match field(note, "one_by_one") {
+            Some("true") => format!("{failed} tests failed, and each passed run alone"),
+            _ => format!("{failed} tests failed, too many to run one by one"),
+        };
+        out.push(RecordCheck {
+            cite: String::new(),
+            at: Some(note.at.clone()),
+            step: note.step.clone(),
+            attempt: field(note, "attempt").and_then(|n| n.parse().ok()),
+            name: field(note, "check").unwrap_or("?").to_string(),
+            run: CheckRunBy::Gate,
+            expected: Some(String::from("passes with other checks running beside it")),
+            produced: Some(format!(
+                "{first}; the whole check run again alone {alone}, and that run was ruled on"
+            )),
+        });
+    }
     for (n, row) in out.iter_mut().enumerate() {
         row.cite = cite("check", n);
     }

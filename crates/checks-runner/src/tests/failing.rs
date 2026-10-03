@@ -117,6 +117,27 @@ fn a_check_that_is_neither_runner_names_nothing() {
     assert!(failing_tests(&output).is_empty());
 }
 
+/// Two ` FAIL ` lines exactly as Job 3's gate captured `desktop_test` on
+/// 3 Oct 2026, colour and all, the second nested in a `describe`. vitest
+/// colours its report with no terminal attached, and these read as nothing
+/// until the escapes were taken off.
+const VITEST_COLOURED: &str = "\
+\u{1b}[41m\u{1b}[1m FAIL \u{1b}[22m\u{1b}[49m \u{1b}[30m\u{1b}[45m renderer (browser) (chromium) \u{1b}[49m\u{1b}[39m src/renderer/src/uncaught.test.tsx\u{1b}[2m > \u{1b}[22mthe whiteboard's nodes resizing raise the notice, and the surface stays quiet
+\u{1b}[31m\u{1b}[1mError\u{1b}[22m: Test timed out in 15000ms.
+\u{1b}[41m\u{1b}[1m FAIL \u{1b}[22m\u{1b}[49m \u{1b}[30m\u{1b}[45m renderer (browser) (chromium) \u{1b}[49m\u{1b}[39m src/renderer/src/mock/plan-task-live.test.tsx\u{1b}[2m > \u{1b}[22ma task with a Drone of its own\u{1b}[2m > \u{1b}[22ma running task's stop asks
+";
+
+#[test]
+fn vitests_own_coloured_report_names_every_failing_test() {
+    assert_eq!(
+        failing_tests(&printed(VITEST_COLOURED, "")),
+        vec![
+            "the whiteboard's nodes resizing raise the notice, and the surface stays quiet",
+            "a running task's stop asks",
+        ]
+    );
+}
+
 #[test]
 fn the_same_name_from_both_readers_is_not_duplicated() {
     let text = format!("{VITEST_TWO_FAILURES}\n{VITEST_TWO_FAILURES}");
