@@ -67,7 +67,7 @@ import { zoneProposing } from "./studio-zone-proposal";
 import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
-import { job2AtReview } from "./job-2-at-review";
+import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { fillingIn } from "./proposer-fleet";
 import { writingLogs } from "./check-logs-fleet";
 
@@ -531,6 +531,14 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
   // The same Job just before it landed, at its review gate: the record the gate draws (#1680).
   holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id }),
+  // The same, as a Fleet before 23.5 served it: no title and no comment count.
+  holding("real/job-2-at-review-before-23-5", job2AtReviewBefore235().name, [job2AtReviewBefore235()], {
+    opens: job2AtReviewBefore235().job.id,
+  }),
+  // The same, with no title kept but one the live read of the pull request holds.
+  holding("real/job-2-at-review-live-title", job2AtReviewLiveTitle().name, [job2AtReviewLiveTitle()], {
+    opens: job2AtReviewLiveTitle().job.id,
+  }),
   // A running Job and every Drone it has had, as `list_job_drones` serves them:
   // one killed, two finished with their cost, and the one running now.
   holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),

@@ -154,7 +154,7 @@ test("Merge confirmed while frozen is taken, waiting, and never drawn as a refus
   await page.getByRole("button", { name: /^Merge(?! line)/ }).first().click();
   const confirm = page.getByRole("dialog");
   await entered(confirm);
-  await confirm.getByRole("button", { name: "Merge and take the work" }).click();
+  await confirm.getByRole("button", { name: "Merge pull request" }).click();
   await expect.element(page.getByText("Merge taken")).toBeVisible();
   await expect.element(page.getByText(/merges when the freeze lifts/)).toBeVisible();
 });

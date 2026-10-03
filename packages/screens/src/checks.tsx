@@ -259,7 +259,7 @@ function asSentence(verb: string): string {
 }
 
 /** What the Judge's row is called. Not a Check's name, and never joined to one. */
-const JUDGE_ROW = "judge";
+export const JUDGE_ROW = "judge";
 
 /** What a declared Check with no run on this attempt says. */
 const NOTHING_HAS_RUN_IT = "Not run yet";

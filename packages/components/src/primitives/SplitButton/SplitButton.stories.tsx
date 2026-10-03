@@ -547,17 +547,17 @@ export const EveryActSaysWhatItDoes: Story = {
     <Row>
       <SplitButton
         variant="primary"
-        note="Merges the pull request on its code host, then takes the work."
+        note="Merges the pull request on its code host."
         items={[{ label: "Approve the work", note: "Takes the work as the drone left it." }]}
         menuLabel="The other way to take this work"
       >
-        Merge and take the work
+        Merge pull request
       </SplitButton>
     </Row>
   ),
   /** The face's hover names the face, and the entry's names the entry. */
   play: async ({ canvas, userEvent }) => {
-    const face = canvas.getByRole("button", { name: "Merge and take the work" });
+    const face = canvas.getByRole("button", { name: "Merge pull request" });
     await userEvent.hover(face);
     // `--tooltip-delay` holds the bubble hidden, so this waits rather than reads.
     await waitFor(() => expect(canvas.getByText(/^Merges the pull request/)).toBeVisible());
@@ -587,13 +587,13 @@ export const TheFaceIsOffAndTheCaretIsNot: Story = {
         items={[{ label: "Approve the work", onSelect: fn() }]}
         menuLabel="The other way to take this work"
       >
-        Merge and take the work
+        Merge pull request
       </SplitButton>
     </Row>
   ),
   /** A rendering cannot show that one segment of a dead-looking control still opens. */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Merge and take the work" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
     const caret = canvas.getByRole("button", { name: "The other way to take this work" });
     await expect(caret).toBeEnabled();
     await userEvent.click(caret);
@@ -610,12 +610,12 @@ export const TheFaceIsOffAndThereIsNoMenu: Story = {
   render: () => (
     <Row>
       <SplitButton variant="primary" faceDisabled items={[]} onAction={fn()}>
-        Merge and take the work
+        Merge pull request
       </SplitButton>
     </Row>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Merge and take the work" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "More actions" })).toBeDisabled();
   },
 };

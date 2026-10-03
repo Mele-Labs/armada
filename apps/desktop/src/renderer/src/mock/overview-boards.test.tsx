@@ -430,7 +430,7 @@ describe("the lead and what it is about are one panel", () => {
     // behind Merge's caret now and is not in the document until the caret is
     // opened. What this claim is about is where the decision sits, and the
     // face is the part of it a person sees without pressing anything.
-    const merge = await page.getByRole("button", { name: "Merge and take the work" }).element();
+    const merge = await page.getByRole("button", { name: "Merge pull request" }).element();
     expect(lead?.contains(merge)).toBe(true);
     // Open since the owner took the fold away, 2 Oct 2026 (#1680).
     const proves = await page.getByRole("region", { name: "What proves it" }).element();
