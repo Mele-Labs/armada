@@ -79,7 +79,7 @@ const CRITERIA = [
   {
     id: "a1",
     text: "The rail's Drones stat reads one running beside the machine's most",
-    origin: "From issue",
+    origin: "issue" as const,
     // The address is what makes the reference a link. Nothing on the wire
     // carries one, so the frozen story below draws the same reference as text.
     issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
@@ -88,7 +88,7 @@ const CRITERIA = [
   {
     id: "a2",
     text: "Pressing the stat lists the Drone's Job and step",
-    origin: "From issue",
+    origin: "issue" as const,
     issue: { ref: "armada/1162", url: ISSUE_ADDRESS },
     decidedBy: "The Judge will decide it",
   },

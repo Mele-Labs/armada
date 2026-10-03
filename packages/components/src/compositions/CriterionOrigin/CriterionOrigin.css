@@ -1,0 +1,26 @@
+/* A criterion's origin mark, and the issue having moved. 12px, on a line of
+   --text-2xs that aligns its words by baseline; a glyph has none worth
+   aligning, so it centres on the row instead. */
+.armada-criterion-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: center;
+}
+
+.armada-criterion-mark > svg {
+  flex: none;
+}
+
+/* The origin line's words are --fg-subtle, and a glyph never is (iconography
+   rule 6), so the mark carries --fg-muted rather than inheriting. */
+.armada-criterion-mark[data-origin] {
+  color: var(--fg-muted);
+}
+
+/* The issue moved: --notice-caution, the declared token for a condition a
+   person should know about and act on at their own pace. The hue is the
+   state's; the glyph only carries it. */
+.armada-criterion-mark[data-moved] {
+  color: var(--notice-caution);
+}

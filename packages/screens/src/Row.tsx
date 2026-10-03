@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, JobRowStacked, SplitButton, StepBar } from "@armada/components";
+import { Button, JobRowStacked, SettlingMark, SplitButton, StepBar } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { GitMerge, GitPullRequestClosed, ScrollText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -247,10 +247,11 @@ export function Row({
   const beingProposed = job.status === BEING_PROPOSED;
   // **The workflow is the one of the three that arrives before the Job does.**
   // A proposal fills in as the proposer writes it (30 Sep 2026), and the
-  // workflow is the first field to settle — so this cell is blank while nothing
-  // has chosen one and is an ordinary Workflow cell, heading and all, the moment
-  // something has. Progress and Run time stay blank for the whole status: the
-  // step machine is initialised on the way out, at `proposing ->
+  // workflow is the first field to settle — so this cell holds a blinking
+  // caret while nothing has chosen one (the owner's `text-cursor`, 3 Oct 2026)
+  // and is an ordinary Workflow cell the moment something has. Progress and
+  // Run time stay blank for the whole status: they are not the proposer's to
+  // settle — the step machine is initialised on the way out, at `proposing ->
   // awaiting_approval`, and nothing has run.
   const noWorkflowYet = beingProposed && job.workflow_id === "";
   const elapsedNow = elapsedOf(job, now);
@@ -288,7 +289,7 @@ export function Row({
   // the detail holds.
   const facts: JobRowField[] = [
     noWorkflowYet
-      ? { value: undefined }
+      ? { label: "Workflow", icon: ScrollText, value: <SettlingMark field="Workflow" /> }
       : {
           label: "Workflow",
           icon: ScrollText,

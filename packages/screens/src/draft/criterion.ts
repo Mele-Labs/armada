@@ -12,6 +12,7 @@
 // row. So the wire's field is renamed on the way in, and the new fact gets a
 // name of its own.
 
+import type { CriterionOriginKind } from "@armada/components";
 import type {
   Criterion,
   CriterionOrigin as WireOrigin,
@@ -142,56 +143,45 @@ function verifiedByOf(source: string): VerifiedBy {
 }
 
 /**
- * Where a criterion's words came from: the words, and the issue behind them
+ * Where a criterion's words came from: which origin, and the issue behind it
  * where there is one.
  *
  * **Two parts rather than one string, so the reference can be a link.** A
  * screen with an address draws `armada/1162` as the issue it opens; a screen
- * with none draws the same reference as text. Flattening them here would put
- * the reference inside a sentence nothing could reach into.
+ * with none draws the same reference as text.
  */
 export type OriginSaid = {
-  /** The lead words. Reads whole on its own where there is no issue. */
-  said: string;
+  /** Drawn as its mark, `CriterionOriginMark`, which names itself on hover. */
+  kind: CriterionOriginKind;
   /** The issue these words came from, where they came from one. */
   issue?: { ref: string; url?: string };
 };
 
 /**
- * Where a criterion's words came from, as a person reads it, or `undefined`
- * where nothing names it — the slot stays empty rather than holding a guess.
+ * Where a criterion's words came from, or `undefined` where nothing names it —
+ * the slot stays empty rather than holding a guess.
  *
- * **One sentence, written once.** Three surfaces say it — the classifying
- * screen while it is yours to change, the same screen frozen, and Plan — and a
- * second spelling of "from the issue" is how two of them end up saying
- * different things about the same line.
- *
- * **The word `issue` is on the line since 28 Sep 2026.** It read `from
- * armada/1162`, and the owner asked what that was (`u7y9`): a bare
- * `owner/number` is a repository, a path and a branch as readily as an issue.
+ * **A mark, not a sentence, since 3 Oct 2026** (the owner: a state is never
+ * text). It read *From issue*, *From your prompt* and *You wrote this*; those
+ * words are now each mark's name, written once in `CriterionOrigin`, so the
+ * three surfaces that draw it — the approval panel, the proposal screen and
+ * Plan — cannot say different things about the same line.
  */
 export function originSaidOf(criterion: CriterionView): OriginSaid | undefined {
   const origin = criterion.origin;
   switch (origin.origin) {
     case "issue":
       return {
-        said: "From issue",
+        kind: "issue",
         issue: origin.url === undefined ? { ref: origin.ref } : { ref: origin.ref, url: origin.url },
       };
     case "person":
-      return { said: "You wrote this" };
+      return { kind: "person" };
     case "unsaid":
       return undefined;
     default:
-      return { said: "From your prompt" };
+      return { kind: "prompt" };
   }
-}
-
-/** The same thing on one line, for a surface that draws text and no link. */
-export function originLineOf(criterion: CriterionView): string | undefined {
-  const from = originSaidOf(criterion);
-  if (from === undefined) return undefined;
-  return from.issue === undefined ? from.said : `${from.said} ${from.issue.ref}`;
 }
 
 /**
