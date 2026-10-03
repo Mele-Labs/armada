@@ -23,6 +23,11 @@ export type Confirming =
   | { act: "kill_process"; jobId: string; pid: number; command: string }
   | { act: "kill_processes"; jobId: string; count: number };
 
+/** A Job act to confirm, naming one Drone of several where one was named (23.9). */
+export function aJobAct(act: ConfirmableAct, jobId: string, droneId?: string): Confirming {
+  return { act, jobId, ...(droneId === undefined ? {} : { droneId }) };
+}
+
 export type ConfirmActProps = {
   /** Nothing to confirm draws nothing. */
   confirming: Confirming | null;

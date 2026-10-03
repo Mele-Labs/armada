@@ -40,7 +40,7 @@ import { BridgeSettings } from "@armada/screens";
 import { Kit } from "@armada/screens";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { ConfirmAct, type Confirming } from "./ConfirmAct";
+import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview";
@@ -802,14 +802,10 @@ export function App({ draft }: AppProps = {}) {
                     diff: state.diff,
                     remarks: state.remarks,
                   }}
-                  onAct={(what, jobId, droneId) =>
-                    setConfirming({ act: what, jobId, ...(droneId === undefined ? {} : { droneId }) })
-                  }
+                  onAct={(what, jobId, droneId) => setConfirming(aJobAct(what, jobId, droneId))}
                   // Held on the header, so already confirmed: it sends what the dialog's own confirm sends.
                   onActHeld={(what, jobId, droneId) => void commands.act(what, jobId, undefined, droneId)}
-                  onRedirect={(jobId, instruction, droneId) =>
-                    void commands.redirect(jobId, instruction, droneId)
-                  }
+                  onRedirect={(jobId, said, droneId) => void commands.redirect(jobId, said, droneId)}
                   onAnswer={(jobId, questionId, chose) =>
                     void commands.answer(jobId, questionId, chose)
                   }
