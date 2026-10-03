@@ -323,6 +323,25 @@ export type JobDetail = {
    * **The direct predecessor, never the root of a chain.**
    */
   replaces?: Replaces;
+  /**
+   * What each pass of this Job's plan split the work into, oldest first: the
+   * line an Epic's wave strip reads beside each wave. Since 23.14 (#1692).
+   * Absent is a Job whose plan proposes no Jobs, or none of whose passes has
+   * recorded a plan yet.
+   */
+  wave_rounds?: WaveRound[];
+};
+
+/**
+ * What one pass of a Job's plan split the work into: the plan's own
+ * `approach`, as that pass last recorded it. The whole paragraph; a strip with
+ * room for one line clips it.
+ */
+export type WaveRound = {
+  /** Which pass, counted from one: what a child's `dispatched_pass` carries. */
+  pass: number;
+  /** The approach that pass's plan opened with. Never blank. */
+  approach: string;
 };
 
 /**

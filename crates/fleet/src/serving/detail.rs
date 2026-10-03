@@ -347,6 +347,10 @@ where
             Some(plan) => Some(self.served_plan(job.id(), plan, &runs).await),
             None => None,
         };
+        detail.wave_rounds = self
+            .wave_rounds_of(&job)
+            .await
+            .map_err(|why| self.refusal(why))?;
         let reviewed = self
             .store()
             .lock()

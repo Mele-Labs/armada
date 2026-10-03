@@ -26,6 +26,7 @@
 
 mod confidence;
 mod step;
+mod wave;
 
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +45,7 @@ pub use confidence::{
     UntestedRow,
 };
 pub use step::{JudgeInFlight, StepDetail, StepFacts, StepPass, Verdict};
+pub use wave::WaveRound;
 
 /// One Job, whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -356,6 +358,12 @@ pub struct JobDetail {
     /// [`JobSummary::redispatched_from`]: crate::JobSummary::redispatched_from
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replaces: Option<Replaces>,
+    /// What each pass of this Job's plan split the work into, oldest first:
+    /// the line an Epic's wave strip reads beside each wave. Since 23.14
+    /// (#1692). **Empty is a Job whose plan proposes no Jobs**, or one no pass
+    /// of has recorded a plan yet. Filled after [`JobDetail::of`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wave_rounds: Vec<WaveRound>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -783,6 +791,7 @@ impl JobDetail {
             replaced_by: None,
             from_studio: None,
             replaces: None,
+            wave_rounds: Vec::new(),
         }
     }
 }

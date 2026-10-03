@@ -122,6 +122,13 @@ export type JobSummary = {
    */
   dispatched_pass?: number;
   /**
+   * The Jobs this one waits on, by id: its `depends_on` edges, which
+   * `JobDetail.dependencies` serves whole. Since 23.14 (#1692), so a wave read
+   * off the Board draws its order without a `get_job` per child. Absent is a
+   * Job that waits on nothing.
+   */
+  waits_on?: string[];
+  /**
    * Whether this job's drone is waiting on an answer from a person. Since
    * protocol 5.7.
    *
