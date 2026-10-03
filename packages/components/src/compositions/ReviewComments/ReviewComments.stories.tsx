@@ -138,17 +138,19 @@ export const OneAlreadySent: Story = {
 };
 
 /**
- * A pull request nobody has commented on.
- *
- * **Its own sentence, and never the one for a reading that failed.** Nobody has
- * said anything and nothing could be asked are different facts — the second is
- * the caller's to draw, because a person shown it as this one would conclude
- * their review had vanished.
+ * A pull request nobody has commented on. **Nothing is drawn** — no label over
+ * nothing and no sentence. A reading that failed is the caller's to draw, in
+ * its own words, because a person shown silence there would conclude their
+ * review had vanished.
  */
 export const NobodyHasCommented: Story = {
   args: {
     comments: [],
     onTakeUp: () => {},
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.queryByRole("region", { name: "Comments on the pull request" })).toBeNull();
+    await expect(canvasElement.textContent).toBe("");
   },
 };
 

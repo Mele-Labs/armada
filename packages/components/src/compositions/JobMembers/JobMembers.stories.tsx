@@ -153,9 +153,12 @@ export const AStateTheRegistryCannotDraw: Story = {
   },
 };
 
-/** No Job lands under this one, which is what an ordinary Job looks like here. */
+/** No Job lands under this one, which is what an ordinary Job looks like here: **nothing is drawn**. */
 export const NoMembers: Story = {
   args: { completeWhen: COMPLETE, members: [] },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };
 
 /**

@@ -190,11 +190,13 @@ export type PlanTaskDrone = Omit<DronePeekProps, "message">;
 /**
  * A failed task's own acts — the owner's decision of 29 Sep 2026, *a failed
  * task offers four acts*: these two, Edit this task, and the message box.
- * **Each is on screen ahead of its Fleet route** (#250, #1656), so a press
- * answers `Not implemented` naming the issue until the route ships.
+ * **Pilot is on screen ahead of its Fleet route** (#250), so a press answers
+ * `Not implemented` naming the issue until the route ships. Restart is served
+ * since 23.4 (#1656). **No `onPilot` draws Restart alone**: a done task in a
+ * group the Judge refused (owner, 2 Oct 2026).
  */
 export type PlanTaskActs = {
-  onPilot: () => void;
+  onPilot?: () => void;
   onRestart: () => void;
   /** Nothing is live to send it over. */
   disabled?: boolean;
@@ -441,7 +443,7 @@ export function PlanTaskSheet({
               <Evidence
                 said="The work showed"
                 of={shown}
-                absent={state === "done" ? "Nothing was recorded." : "Not yet."}
+                {...(state === "done" ? { absent: "Nothing was recorded." } : {})}
               />
             </dl>
           </TaskField>
@@ -523,9 +525,11 @@ function Acts({
       <div className="armada-task-sheet__acts">
         {acts === undefined ? null : (
           <>
-            <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
-              Pilot
-            </Button>
+            {acts.onPilot === undefined ? null : (
+              <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onPilot}>
+                Pilot
+              </Button>
+            )}
             <Button size="sm" ground="sunken" disabled={acts.disabled} onClick={acts.onRestart}>
               Restart this task
             </Button>
@@ -761,8 +765,10 @@ function FilePath({
   );
 }
 
-function Evidence({ said, of, absent }: { said: string; of?: string; absent: string }) {
+function Evidence({ said, of, absent }: { said: string; of?: string; absent?: string }) {
   const empty = of === undefined || of === "";
+  // Nothing shown and nothing to say of it: no label over nothing.
+  if (empty && absent === undefined) return null;
   return (
     <div className="armada-task-sheet__row">
       <dt>{said}</dt>

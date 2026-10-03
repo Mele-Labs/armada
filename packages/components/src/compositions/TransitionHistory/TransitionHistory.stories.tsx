@@ -183,7 +183,10 @@ export const TwoMovesInOneInstant: Story = {
   },
 };
 
-/** A Job created and never moved. Ordinary, and never an error. */
+/** A Job created and never moved. Ordinary, and never an error: **nothing is drawn**. */
 export const NothingRecordedYet: Story = {
-  args: { moves: [], emptyNote: NOTHING_YET },
+  args: { moves: [] },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.textContent).toBe("");
+  },
 };

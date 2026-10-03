@@ -123,7 +123,7 @@ export function HeldFlag({
             <p className="armada-held-flag__headline">{finding.headline}</p>
           )}
           {finding.hunk !== undefined ? (
-            <UnifiedDiff files={[finding.hunk]} emptyNote="" />
+            <UnifiedDiff files={[finding.hunk]} />
           ) : (
             <>
               {finding.cited === undefined || finding.cited === "" ? null : (

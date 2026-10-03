@@ -27,10 +27,8 @@ const BINDING = "c";
  */
 export type HelmRecordProps = {
   open: boolean;
-  /** The record, once Fleet has answered. Absent draws what is happening instead. */
+  /** The record, once Fleet has answered. Absent draws nothing until it does, or the failure. */
   record?: HelmDebugInfo;
-  /** Fleet was asked and has not answered yet. */
-  reading?: boolean;
   /** Fleet would not answer, in its own words. Drawn instead of the record. */
   failed?: string;
   /** Told after a clipboard write, either way, with the name of what was copied. */
@@ -38,7 +36,7 @@ export type HelmRecordProps = {
   onClose?: () => void;
 };
 
-export function HelmRecord({ open, record, reading = false, failed, onCopied, onClose }: HelmRecordProps) {
+export function HelmRecord({ open, record, failed, onCopied, onClose }: HelmRecordProps) {
   const copy = useCallback(() => {
     if (record === undefined) return;
     copyHelmRecord(record, onCopied);
@@ -83,9 +81,11 @@ export function HelmRecord({ open, record, reading = false, failed, onCopied, on
     >
       <div className="armada-helm-record">
         {text === null ? (
-          <p className="armada-helm-record__note" role="status">
-            {failed ?? (reading ? "Reading the session…" : "There is no session to report yet.")}
-          </p>
+          failed === undefined ? null : (
+            <p className="armada-helm-record__note" role="status">
+              {failed}
+            </p>
+          )
         ) : (
           <>
             <pre className="armada-helm-record__text">{text}</pre>

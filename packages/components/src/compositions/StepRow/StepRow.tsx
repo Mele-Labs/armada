@@ -148,7 +148,7 @@ export type StepRowProps = {
   lockedLabel?: string;
   /** The short facts the chevron opens. Empty is a step that produced none. */
   facts?: StepRowFact[];
-  /** What a step with no facts says instead of leaving a blank. */
+  /** What a step with no facts says. Absent draws nothing: an empty slot stays empty. */
   factsAbsent?: ReactNode;
   /**
    * The running mark, still working. One per screen, on the most specific mark
@@ -279,9 +279,7 @@ export function StepRow({
           that is not there is worse than no reference. */}
       <div className="armada-srow__facts" id={factsId} hidden={!open}>
         {facts.length === 0 ? (
-          <p className="armada-srow__absent">
-            {factsAbsent ?? "Nothing recorded"}
-          </p>
+          factsAbsent === undefined ? null : <p className="armada-srow__absent">{factsAbsent}</p>
         ) : (
           facts.map((fact, at) => <Fact fact={fact} key={at} />)
         )}

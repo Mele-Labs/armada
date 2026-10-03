@@ -29,22 +29,20 @@ const cost: HelmThreadRow = { ...replied, id: "3", message: "It needs an answer 
 /** A conversation with a reply already in, nothing in flight. */
 export const AtRest: Story = { args: { rows: [asked, cost] } };
 
-/** Nothing asked yet. */
-export const Empty: Story = { args: { rows: [] } };
+/** Nothing asked yet, or the thread just cleared: **nothing is drawn**, no sentence and no note. */
+export const Empty: Story = {
+  args: { rows: [] },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.queryByRole("note")).toBeNull();
+    await expect(canvasElement.textContent).toBe("");
+  },
+};
 
 /** A message just went out and Helm's own rows are still arriving. */
 export const MidReply: Story = {
   args: { rows: [asked], replying: true },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("status")).toHaveTextContent("Helm is replying…");
-  },
-};
-
-/** Start fresh answered and the old thread is gone; the new one has not opened yet. */
-export const Cleared: Story = {
-  args: { rows: [], emptyNote: "The conversation is cleared. Ask Helm something to start again." },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("note")).toHaveTextContent("cleared");
   },
 };
 

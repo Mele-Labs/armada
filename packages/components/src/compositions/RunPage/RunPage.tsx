@@ -339,11 +339,7 @@ export function RunPage({
           </div>
         )}
 
-        {!panel ? (
-          <p className="armada-run-page__nothing">
-            Nothing has run here yet. Output stays on this page until you dismiss it.
-          </p>
-        ) : (
+        {!panel ? null : (
           <div
             className={
               output === undefined
@@ -588,33 +584,31 @@ function RunPageAlwaysAllowedList({
   rows: RunPageAlwaysAllowedRow[];
   onRemove?: (run: string) => void;
 }) {
+  // None allowed: no label over nothing.
+  if (rows.length === 0) return null;
   return (
     <div className="armada-run-page__group">
       <span className="armada-run-page__group-label">Always allowed</span>
-      {rows.length === 0 ? (
-        <p className="armada-run-page__group-empty">Nothing always allowed yet.</p>
-      ) : (
-        <ul className="armada-run-page__entries">
-          {rows.map((row) => (
-            <li className="armada-run-page__entry" key={row.run}>
-              <span className="armada-run-page__allowed-run">{row.run}</span>
-              {onRemove === undefined ? null : (
-                <div className="armada-run-page__allowed-remove">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    ground="sunken"
-                    aria-label={`Remove ${row.run}`}
-                    onClick={() => onRemove(row.run)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="armada-run-page__entries">
+        {rows.map((row) => (
+          <li className="armada-run-page__entry" key={row.run}>
+            <span className="armada-run-page__allowed-run">{row.run}</span>
+            {onRemove === undefined ? null : (
+              <div className="armada-run-page__allowed-remove">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  ground="sunken"
+                  aria-label={`Remove ${row.run}`}
+                  onClick={() => onRemove(row.run)}
+                >
+                  Remove
+                </Button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

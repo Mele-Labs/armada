@@ -199,17 +199,9 @@ export function Worktrees({
       </div>
     );
   }
-  // `none` is the frame before the effect above has run. It says the same thing
-  // as `reading` rather than drawing an empty list, which here would claim
-  // fleet is holding nothing — the one answer on this page nobody should be
-  // given by accident.
+  // Before the read answers there is nothing yet to say, so only the way back is drawn.
   if (held.state !== "read") {
-    return (
-      <div className="armada-screen__pane">
-        {back}
-        <p className="text-fg-muted">Reading what fleet is holding.</p>
-      </div>
-    );
+    return <div className="armada-screen__pane">{back}</div>;
   }
 
   const groups = divided(held.held.worktrees);
@@ -286,8 +278,6 @@ export function Worktrees({
     setSending(false);
   }
 
-  const nothingHeld = groups.deciding.length === 0 && groups.waiting.length === 0;
-
   return (
     <div className="armada-screen__pane">
       {back}
@@ -297,9 +287,8 @@ export function Worktrees({
         </Alert>
       ))}
 
-      {nothingHeld ? (
-        <NothingToDecide automatic={groups.automatic.length} />
-      ) : (
+      {/* Nothing waiting on a person draws nothing: an empty slot stays empty. */}
+      {groups.deciding.length === 0 ? null : (
         <Card>
           <CardHeader>
             <CardTitle>Waiting on you</CardTitle>
@@ -548,32 +537,3 @@ function sittingSaid(title: string, at: string, now: number): string {
   return age === null ? title : `${title} — last moved ${age} ago`;
 }
 
-/**
- * Fleet is holding nothing that needs a person.
- *
- * **Not "no data".** An empty list here is the rule working: everything fleet
- * held could be proved safe and has been given back, which is a reading of the
- * machine and not a gap in this page.
- */
-function NothingToDecide({ automatic }: { automatic: number }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Nothing is waiting on you</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>
-          Fleet reclaims a worktree the moment it can prove nobody needs it — the job has
-          ended, the base already reaches its branch, nothing in it is uncommitted, nobody is
-          piloting it and nothing depends on it. None of what it is holding right now failed
-          one of those tests.
-        </p>
-        <p>
-          {automatic === 0
-            ? "It is holding no disk at all."
-            : "The ones below come back on the next sweep, without anybody deciding."}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}

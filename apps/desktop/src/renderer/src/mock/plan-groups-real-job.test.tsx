@@ -23,7 +23,7 @@ const ORDINALS = [1, 2, 3, 4];
 /** The graph's group card, which carries its state word in its name. */
 const node = (ordinal: number) => page.getByRole("button", { name: new RegExp(`^Group ${ordinal}, `) }).last();
 
-/** The list's group, whose head prints the same word. */
+/** The list's group, whose head draws the same state as a mark. */
 const row = (ordinal: number) =>
   page.getByRole("list", { name: "Groups, in the order they run" }).last().getByRole("listitem", { name: `Group ${ordinal}`, exact: true });
 
@@ -34,7 +34,7 @@ async function runningGroups(): Promise<{ graph: number[]; list: number[] }> {
   const graph = ORDINALS.filter((ordinal) => node(ordinal).element().getAttribute("aria-label")?.endsWith(", running"));
   await page.getByRole("tab", { name: "List" }).last().click();
   for (const ordinal of ORDINALS) await expect.element(row(ordinal)).toBeVisible();
-  const list = ORDINALS.filter((ordinal) => row(ordinal).getByText("running", { exact: true }).query() !== null);
+  const list = ORDINALS.filter((ordinal) => row(ordinal).getByRole("img", { name: "Running", exact: true }).query() !== null);
   return { graph, list };
 }
 

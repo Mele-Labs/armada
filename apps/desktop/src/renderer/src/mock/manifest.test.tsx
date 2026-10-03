@@ -181,7 +181,10 @@ test("a repository-wide always-allow is listed, and removed from here", async ()
   await manifest({ alwaysAllowed: [GH_ISSUE_VIEW] });
   await expect.element(page.getByText("gh issue view")).toBeVisible();
   await page.getByRole("button", { name: "Remove gh issue view" }).click();
-  await expect.element(page.getByText("Nothing always allowed yet.")).toBeVisible();
+  // The last one gone, the group goes with it: no label over nothing, and no sentence.
+  await expect.element(page.getByText("gh issue view")).not.toBeInTheDocument();
+  expect(page.getByText("Always allowed", { exact: true }).query()).toBeNull();
+  expect(page.getByText(/allowed yet/).query()).toBeNull();
 });
 
 test("the file sits behind a tab named by its path, and the head moves with the tab", async () => {

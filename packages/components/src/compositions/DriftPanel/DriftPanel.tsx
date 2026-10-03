@@ -30,7 +30,7 @@ export type DriftPanelRow = {
 export type DriftPanelProps = {
   /** One row per line the file declares, in the order it writes them. */
   rows?: DriftPanelRow[];
-  /** Said instead of the rows while there are none: reading, or why not. */
+  /** Said instead of the rows while there are none: why not. Absent draws nothing. */
   note?: ReactNode;
   /**
    * Whether the head says `Drift`. **`false` inside `DriftSheet`**, whose own
@@ -53,9 +53,11 @@ export function DriftPanel({ rows, note, titled = true }: DriftPanelProps) {
     <section className="armada-drift-panel" aria-label="Drift">
       <div className="armada-drift-panel__head">
         {titled ? <span className="armada-drift-panel__title">Drift</span> : null}
-        <p className="armada-drift-panel__says">
-          {rows === undefined ? note : summaryOf(gone.length, rows.length)}
-        </p>
+        {rows === undefined && note === undefined ? null : (
+          <p className="armada-drift-panel__says">
+            {rows === undefined ? note : summaryOf(gone.length, rows.length)}
+          </p>
+        )}
       </div>
 
       {gone.length === 0 ? null : (

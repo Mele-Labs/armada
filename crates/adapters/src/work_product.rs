@@ -220,8 +220,8 @@ fn base_of(worktree_repo: &Repository, worktree: &Worktree) -> Result<Base, Read
             cause,
         }
     })?;
-    // **The declared base first.** `refs/heads/<base>` in the shared repository
-    // is a fixed point: it is what the Manifest says a Job's work is measured
+    // **The declared base first.** `<base>` in the shared repository is a
+    // fixed point: it is what the Manifest says a Job's work is measured
     // against, and it does not move because somebody checked out a branch.
     if let Some(named) = worktree.base() {
         if let Some(found) = commit_of(&common, named) {
@@ -251,18 +251,18 @@ fn base_of(worktree_repo: &Repository, worktree: &Worktree) -> Result<Base, Read
 
 /// The commit a ref name points at, in the shared repository.
 ///
-/// A local branch first, then a remote-tracking one: a checkout that has never
-/// created `main` locally still has `origin/main`, and a Job branched from a
-/// fetched base is the ordinary case on a machine that only ever pulls.
+/// The remote-tracking branch first, then the local one: the order
+/// `leasing`'s `base_ref` cuts a Job's branch in. Local first, a local base
+/// behind its remote counted every upstream commit between them as the Job's.
 fn commit_of(repo: &Repository, name: &str) -> Option<Oid> {
-    let local = repo
-        .find_branch(name, git2::BranchType::Local)
+    let remote = repo
+        .find_branch(&format!("origin/{name}"), git2::BranchType::Remote)
         .ok()
         .and_then(|branch| branch.get().peel_to_commit().ok());
-    let found = match local {
+    let found = match remote {
         Some(commit) => Some(commit),
         None => repo
-            .find_branch(&format!("origin/{name}"), git2::BranchType::Remote)
+            .find_branch(name, git2::BranchType::Local)
             .ok()
             .and_then(|branch| branch.get().peel_to_commit().ok()),
     };
