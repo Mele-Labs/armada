@@ -40,6 +40,7 @@ fn a_note(said: &str, x: i64) -> AddStudioNode {
         .expect("not a picture"),
         position: StudioPosition { x, y: 0 },
         produced_by: None,
+        within: None,
     }
 }
 
@@ -223,6 +224,7 @@ async fn helm_adds_only_a_node_that_starts_proposed() {
             .expect("not a picture"),
         position: StudioPosition { x: 0, y: 0 },
         produced_by: None,
+        within: None,
     };
     let added = fleet
         .add_studio_node(studio.id.clone(), finding, Redirector::Helm, None)
@@ -269,6 +271,7 @@ async fn a_person_adds_only_what_a_person_makes() {
                         y: 0,
                     },
                     produced_by: None,
+                    within: None,
                 },
                 Redirector::Person,
                 None,
@@ -312,6 +315,7 @@ async fn a_person_adds_only_what_a_person_makes() {
                     content: content.try_into().expect("not a picture"),
                     position: StudioPosition { x: 0, y: 400 },
                     produced_by: None,
+                    within: None,
                 },
                 Redirector::Person,
                 None,
@@ -352,6 +356,7 @@ async fn every_write_is_published_and_a_produced_edge_is_not_decided() {
         .expect("not a picture"),
         position: StudioPosition { x: 0, y: 160 },
         produced_by: Some(note.nodes[0].id.clone()),
+        within: None,
     };
     let asked = fleet
         .add_studio_node(studio.id.clone(), asked, Redirector::Person, None)
@@ -651,6 +656,7 @@ async fn a_links_line_is_written_edited_and_cleared_and_its_address_never_moves(
                 .expect("not a picture"),
                 position: StudioPosition { x: 0, y: 0 },
                 produced_by: None,
+                within: None,
             },
             Redirector::Person,
             None,
@@ -743,6 +749,7 @@ fn a_file(path: &str) -> AddStudioNode {
         .expect("not a picture"),
         position: StudioPosition { x: 0, y: 0 },
         produced_by: None,
+        within: None,
     }
 }
 
