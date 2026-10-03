@@ -360,6 +360,7 @@ export * from "./compositions/JobProposal/ProposalDoneWhen";
 export * from "./compositions/JobProposal/ProposalFields";
 export * from "./compositions/JobProposal/ProposalGates";
 export * from "./compositions/JobProposal/ProposalLanding";
+export * from "./compositions/JobProposal/ProposalTiers";
 // The picture a person draws beside a prompt, on the one graph surface. #1547.
 export * from "./compositions/SketchPad/SketchPad";
 // A pad's drawing, read-only at the size it is given: a Studio Sketch on the board.

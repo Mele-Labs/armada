@@ -41,6 +41,7 @@ import {
   proposalOnWorkflow,
   repositorySaysOf,
   stepsDeclaredOf,
+  withoutCap,
   workflowChoicesOf,
 } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
@@ -183,14 +184,4 @@ export function ProposalTab({
       />
     </div>
   );
-}
-
-/**
- * The cap taken off again. **Absent, never zero** — a `drone_cap` of nothing
- * is the machine's own cap holding, and `0` would read as a Job allowed no
- * Drone at all.
- */
-function withoutCap(proposal: ProposalEdits["proposal"]): ProposalEdits["proposal"] {
-  const { drone_cap: _dropped, ...rest } = proposal;
-  return rest;
 }

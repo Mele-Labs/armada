@@ -3,7 +3,7 @@
 // **Only what no other destination draws.** The request is the brief's and
 // the criteria are Plan's lead, so what was left homeless when Overview
 // stopped holding the proposal is how it lands, the model each tier froze to,
-// and the gate on each step. The owner's call of 29 Sep 2026, against drawing
+// how many Drones it may run at once, and the gate on each step. The owner's call of 29 Sep 2026, against drawing
 // the whole proposal here: a second copy is how the board's own rule, one
 // destination one noun, gets broken.
 //
@@ -14,6 +14,7 @@
 
 import {
   AUTO,
+  CAP_UNSET,
   DestinationCard,
   ProposalField,
   ProposalFields,
@@ -101,6 +102,10 @@ export function FrozenAtApproval({
                 {tiers[tier] ?? AUTO}
               </ProposalField>
             ))}
+            {/* Set at the gate beside the tiers, so read back beside them. */}
+            <ProposalField label="Drones at once">
+              {proposal.drone_cap === undefined ? CAP_UNSET : String(proposal.drone_cap)}
+            </ProposalField>
           </ProposalFields>
         </div>
       </div>

@@ -1,5 +1,6 @@
 // What a Job at its dispatch gate is being approved for, read under Overview's
-// lead: its title, what counts as done, how each step gates, and where it lands.
+// lead: its title and request, what counts as done, how each step gates, which
+// model each tier runs on and how many Drones at once, and where it lands.
 //
 // **Under the lead, the owner's 1 Oct 2026 arrangement.** He approved Job 1
 // with the title and the workflow's name in front of him and nothing else, and
@@ -9,14 +10,21 @@
 // the proposal as the person left it (#1641), so each region takes its handler
 // and the press sends what moved — `approvalOf`. The proposal's own pieces, so
 // the words here and on `ProposalTab` are one spelling.
+//
+// **The request, the tiers and the cap too** (the owner, 2 Oct 2026). Only
+// `ProposalTab` offered them, and it draws only off a mock draft, so on a real
+// Job the panel was the one place to change them and did not.
 
 import {
   Input,
+  Prose,
   ProposalDoneWhen,
   ProposalField,
   ProposalFields,
   ProposalGates,
   ProposalLanding,
+  ProposalTiers,
+  Textarea,
 } from "@armada/components";
 import type { GateBox, ProposalLandingValue } from "@armada/components";
 import type {
@@ -27,6 +35,7 @@ import type {
 
 import { baseBranch } from "./draft/branches";
 import type { BranchView } from "./draft/branches";
+import type { ProposalView } from "./draft/proposal";
 import {
   completeChoices,
   criteriaAdded,
@@ -40,6 +49,7 @@ import {
   proposalOnWorkflow,
   repositorySaysOf,
   stepsDeclaredOf,
+  withoutCap,
   workflowChoicesOf,
 } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
@@ -56,6 +66,10 @@ export type ApprovingProps = {
   manifest?: ManifestSummary | undefined;
   /** The repository's branches (#1605). `null` is nothing having listed them. */
   branches: readonly BranchView[] | null;
+  /** The models a tier may name. Empty until the connection answers. */
+  models: readonly string[];
+  /** How many Drones the machine runs across every Job. `null` before Fleet said. */
+  machineCap: number | null;
 };
 
 /**
@@ -70,6 +84,8 @@ export function Approving({
   workflows,
   manifest,
   branches,
+  models,
+  machineCap,
 }: ApprovingProps) {
   const { proposal, landing, criteria } = edits;
   const moved =
@@ -107,6 +123,24 @@ export function Approving({
               />
             )}
           </ProposalField>
+          {/* The words every Drone is handed, and the gate is the last moment
+              anybody reads them before one does. `JobDetail.facts`, sent as
+              `facts` where it moved. Nothing drawn where read and empty. */}
+          {moved === undefined && (proposal.asked ?? "") === "" ? null : (
+            <ProposalField label="Request" bare={moved !== undefined}>
+              {moved === undefined ? (
+                <Prose text={proposal.asked ?? ""} />
+              ) : (
+                <Textarea
+                  aria-label="What was asked"
+                  value={proposal.asked ?? ""}
+                  onChange={(event) =>
+                    moved({ proposal: { ...proposal, asked: event.target.value } })
+                  }
+                />
+              )}
+            </ProposalField>
+          )}
         </ProposalFields>
         {criteria.length === 0 && moved === undefined ? null : (
           <ProposalDoneWhen
@@ -166,6 +200,19 @@ export function Approving({
                       gates: gatesWith(proposal.gates, stepId, { overridden }),
                     },
                   }),
+              })}
+        />
+        <ProposalTiers
+          tiers={proposal.tiers}
+          models={models}
+          {...(proposal.drone_cap === undefined ? {} : { droneCap: proposal.drone_cap })}
+          machineCap={machineCap}
+          {...(moved === undefined
+            ? {}
+            : {
+                onTiers: (tiers: ProposalView["tiers"]) => moved({ proposal: { ...proposal, tiers } }),
+                onDroneCap: (cap: number | undefined) =>
+                  moved({ proposal: cap === undefined ? withoutCap(proposal) : { ...proposal, drone_cap: cap } }),
               })}
         />
         <ProposalLanding

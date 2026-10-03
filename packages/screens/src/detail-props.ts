@@ -177,6 +177,11 @@ export type JobDetailProps = {
   onRemoveAllowedCommand: (jobId: string, run: string) => void;
   /** What `list_models` offers, for the Job settings panel. `null` until it is read. */
   models: ModelChoices | null;
+  /**
+   * How many Drones this machine runs across every Job — `LimitValues.
+   * concurrency` — for the approval panel's cap. Absent or `null` before Fleet said.
+   */
+  machineCap?: number | null;
   /** Overrule a Judge that refused the work, with the reason. */
   onOverrule: (jobId: string, reason: string) => void;
   /**
