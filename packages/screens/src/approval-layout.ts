@@ -12,23 +12,23 @@ import type { ApprovalNode, Lane } from "./approval-canvas";
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
 const CARD = { height: 112, width: 260, narrow: 196 };
 
-/** Spine to spine (`--space-8` and `--space-2`), and a gate off its node (`--space-4`). */
-const ROW_GAP = 40;
-const SIDE_GAP = 16;
+/** Spine to spine (`--space-12` and `--space-2`), and a gate off its node (`--space-8`). */
+const ROW_GAP = 56;
+const SIDE_GAP = 32;
 
 /** Across a fan, member to member (`--space-6`). */
 const ACROSS = 24;
 
-/** A lane's frame: its head, its padding, and the gutter between two lanes (`--space-12`). */
+/** A lane's frame: its head, its padding (`--space-6`), and the gutter between two lanes (`--space-12` twice). */
 const ZONE_HEAD = 40;
-const ZONE_PAD = 12;
-const LANE_GAP = 48;
+const ZONE_PAD = 24;
+const LANE_GAP = 96;
 
 /** The room under a lane's last card (`--space-8`), so an edge leaving it turns inside the lane. */
-const ZONE_FOOT = 32;
+const ZONE_FOOT = 56;
 
 /** The room above a lane's first card, so an edge crossing into it turns below the head. */
-const LANE_TOP = ZONE_HEAD + 32;
+const LANE_TOP = ZONE_HEAD + 24;
 
 /** A fan's frame: its head and padding, and the room an edge's own words take. */
 const CLUSTER_HEAD = 28;
@@ -54,7 +54,8 @@ export type Layout = {
 const LANE_NAME: Record<Lane, string> = { setup: "Setup", work: "Work", delivery: "Delivery" };
 
 /** Whether a node is drawn narrow: a gate beside its node, a plan group in a fan. */
-export const narrowOf = (node: ApprovalNode): boolean => node.side !== undefined || node.kind === "group";
+export const narrowOf = (node: ApprovalNode): boolean =>
+  node.side !== undefined || node.kind === "group" || node.lane === "setup";
 
 const widthOf = (node: ApprovalNode): number => (narrowOf(node) ? CARD.narrow : CARD.width);
 
@@ -93,16 +94,18 @@ export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly Workflo
     const hasSide = inLane.some((node) => node.side !== undefined);
     const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map(rowWidth)));
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
-    const left = Math.max(CARD.width / 2, fanHalf);
-    const right = Math.max(CARD.width / 2 + (hasSide ? SIDE_GAP + CARD.narrow : 0), fanHalf);
+    const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
+    const left = Math.max(half, fanHalf);
+    const right = Math.max(half + (hasSide ? SIDE_GAP + CARD.narrow : 0), fanHalf);
     const spine = x + ZONE_PAD + left;
+    const spineCard = lane === "setup" ? CARD.narrow : CARD.width;
     laneLeft.set(lane, x);
 
     let y = LANE_TOP;
     for (const node of inLane) {
       if (node.side !== undefined || node.from !== undefined) continue;
       if (labelled.has(node.id)) y += LABELLED;
-      places.set(node.id, { x: spine - CARD.width / 2, y });
+      places.set(node.id, { x: spine - spineCard / 2, y });
       y += CARD.height;
       const fan = fans.get(node.id);
       if (fan !== undefined) {
@@ -137,7 +140,7 @@ export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly Workflo
     for (const node of inLane) {
       if (node.side === undefined) continue;
       const on = places.get(node.side);
-      if (on !== undefined) places.set(node.id, { x: on.x + CARD.width + SIDE_GAP, y: on.y });
+      if (on !== undefined) places.set(node.id, { x: on.x + spineCard + SIDE_GAP, y: on.y });
     }
     // Room under the last card for an edge leaving the lane to turn inside it.
     deepest = Math.max(deepest, y - ROW_GAP + ZONE_FOOT);
@@ -164,9 +167,9 @@ export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly Workflo
     const from = laneOfId.get(edge.source);
     const into = laneOfId.get(edge.target);
     if (from === undefined || into === undefined || from === into) return edge;
-    // Across lanes: turn in the gutter left of the lane it enters.
+    // Across lanes: down out of the last, one bend in the gutter left of the lane it enters, into the first's side.
     const enters = laneLeft.get(into);
-    return enters === undefined ? edge : { ...edge, via: enters - LANE_GAP / 2 };
+    return enters === undefined ? edge : { ...edge, via: enters - LANE_GAP / 2, intoSide: true };
   });
   return { places, frames, edges: drawn };
 }

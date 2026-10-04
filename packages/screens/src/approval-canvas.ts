@@ -11,7 +11,7 @@
 // so its node goes and Land reads as a local merge; auto-merge says on the edge
 // into Land that it merges on its own. One field each, read here.
 
-import { AUTO, STEP_STATE } from "@armada/components";
+import { STEP_STATE } from "@armada/components";
 import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, WorkflowStep } from "@armada/protocol";
@@ -202,6 +202,9 @@ export const gateIsANode = (step: StepRead): boolean => step.checks.length > 0 |
 /** What each delivery is called on the pull request's face. */
 const PR_FACE = { draft: "Draft pull request", ready: "Pull request" } as const;
 
+/** The values moved off their defaults, and nothing else. */
+const movedOnly = (values: readonly RunNodeTrait[]): RunNodeTrait[] => values.filter((one) => one.tuned === true);
+
 /** A value that names itself — a gate's Checks, a pull request's auto-merge. */
 const plain = (value: string, tuned = false): RunNodeTrait => ({ key: value, value, ...(tuned ? { tuned } : {}) });
 
@@ -275,10 +278,11 @@ export function approvalNodesOf({
       name: "Pull request",
       face: PR_FACE[delivery === "draft" ? "draft" : "ready"],
       traits: [],
-      meta: [
-        { key: "Pull request", value: delivery === "draft" ? "draft" : "ready", tuned: delivery === "draft" },
-        { key: "Auto-merge", value: tuning.auto_merge ? "auto-merge" : "you merge", tuned: tuning.auto_merge },
-      ],
+      // Only what moved off the default: a draft, auto-merge. A ready pull request you merge says nothing.
+      meta: movedOnly([
+        { key: "Pull request", value: "draft", tuned: delivery === "draft" },
+        { key: "Auto-merge", value: "auto-merge", tuned: tuning.auto_merge },
+      ]),
     });
   };
   let delivering = false;
@@ -305,16 +309,17 @@ export function approvalNodesOf({
       name: step.label,
       bandId: step.id,
       ...(hangs === undefined ? {} : { side: hangs }),
+      // A Drone's settings left to Armada draw nothing (default to no text); what was tuned shows.
       traits: ownGate
         ? [plain(YOU)]
-        : [
-            { key: "Model", value: tuned?.model ?? AUTO, tuned: tuned?.model != null },
-            { key: "Effort", value: tuned?.effort ?? AUTO, tuned: tuned?.effort != null },
-            { key: "Harness", value: tuned?.harness ?? AUTO, tuned: tuned?.harness != null },
-          ],
-      meta: perTask(step)
-        ? [{ key: "Drones at once", value: `drones ${droneCap ?? AUTO}`, tuned: droneCap !== undefined }]
-        : [],
+        : movedOnly([
+            { key: "Model", value: tuned?.model ?? "", tuned: tuned?.model != null },
+            { key: "Effort", value: tuned?.effort ?? "", tuned: tuned?.effort != null },
+            { key: "Harness", value: tuned?.harness ?? "", tuned: tuned?.harness != null },
+          ]),
+      meta: movedOnly(
+        perTask(step) ? [{ key: "Drones at once", value: `${droneCap ?? ""} drones`, tuned: droneCap !== undefined }] : [],
+      ),
     });
     // The plan's groups, worked by this step: a placeholder until Plan has
     // recorded them, and each group once it has.
@@ -383,7 +388,7 @@ export function approvalNodesOf({
       .filter((one) => one !== "")
       .join(" · ");
     const meta: RunNodeTrait[] = [];
-    if (gate?.judge === true) meta.push({ key: "Judges", value: `judges ${judges}`, tuned: judges !== declared });
+    if (gate?.judge === true && judges !== declared) meta.push({ key: "Judges", value: `${judges} judges`, tuned: true });
     const off = tuned?.checks_off.length ?? 0;
     if (off > 0) meta.push({ key: "Checks this Job does not run", value: `${off} off`, tuned: true });
     put({
@@ -409,13 +414,10 @@ export function approvalNodesOf({
     name: "Land",
     ...(target === "" ? {} : { face: target, faceMono: true }),
     traits: [],
-    meta: [
-      {
-        key: "Merge",
-        value: delivery === "local" ? "local merge" : tuning.auto_merge ? "merges on its own" : "you merge",
-        tuned: delivery === "local" || tuning.auto_merge,
-      },
-    ],
+    meta: movedOnly([
+      { key: "Merge", value: "local merge", tuned: delivery === "local" },
+      { key: "Merge", value: "merges on its own", tuned: delivery !== "local" && tuning.auto_merge },
+    ]),
   });
 
   const edges: WorkflowCanvasEdge[] = [];

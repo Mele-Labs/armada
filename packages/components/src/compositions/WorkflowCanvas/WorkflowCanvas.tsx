@@ -80,6 +80,8 @@ export type WorkflowCanvasEdge = {
   across?: boolean;
   /** Where the edge turns, in canvas x — a gutter between two lanes, so it never runs through one. */
   via?: number;
+  /** Enters the target's leading side rather than its top: one bend into a lane beside, not a loop over it. */
+  intoSide?: boolean;
 };
 
 export type WorkflowCanvasProps = {
@@ -227,6 +229,9 @@ const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${P
 
 /** A forward edge on a canvas that only runs down: out of the bottom, into the top. */
 const DOWN_THE_SPINE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` };
+
+/** Into a lane beside: out of the bottom, into the leading side. */
+const INTO_THE_SIDE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Left}` };
 
 /** A gate hung beside its step: out of the step's trailing side, into the gate's leading one. */
 const ACROSS_THE_ROW = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Left}` };
@@ -459,6 +464,8 @@ export function WorkflowCanvas({
             : OVER_THE_SPINE
           : edge.across === true
             ? ACROSS_THE_ROW
+            : edge.intoSide === true
+              ? INTO_THE_SIDE
             : downOnly
               ? DOWN_THE_SPINE
               : facingSides(placed.get(edge.source), placed.get(edge.target));
