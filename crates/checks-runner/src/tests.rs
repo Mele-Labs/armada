@@ -381,6 +381,24 @@ mod narrowing {
         );
     }
 
+    /// A path `outside` declares is one `run` reads on its own, so a Drone
+    /// asking about it gets `run` rather than a skip — the gate's reading.
+    #[test]
+    fn a_change_only_outside_runs_the_narrowed_command_alone() {
+        let narrowing = by_package().with_outside(covers(&["apps/**"]));
+        assert_eq!(
+            narrowed(Some(&narrowing), &paths(&["apps/x.ts", "docs/OPEN.md"])),
+            Narrowed::To("cargo nextest run".to_string())
+        );
+        assert_eq!(
+            narrowed(
+                Some(&narrowing),
+                &paths(&["apps/x.ts", "crates/fleet/src/lib.rs"])
+            ),
+            Narrowed::To("cargo nextest run -p fleet".to_string())
+        );
+    }
+
     /// The directory itself, with nothing under it, names no child.
     #[test]
     fn the_declared_directory_on_its_own_names_nothing() {

@@ -421,6 +421,39 @@ fn a_check_may_say_how_it_is_run_against_a_subset() {
     // The exclusion the whole run makes, restated: `--exclude` goes with
     // `--workspace`, and the narrowed command has neither.
     assert_eq!(narrow.except(), ["acceptance"]);
+    // **Absent is none, and that is every Manifest before the key.** No path
+    // outside `under` narrows, as before.
+    assert!(narrow.outside().is_none(), "a narrowing that declares none");
+}
+
+#[test]
+fn a_narrowing_may_name_the_paths_its_own_run_reads() {
+    let manifest = parse(
+        "version: 1\nid: a\nchecks:\n  test:\n    run: x\n    narrow:\n      run: y -p xtask\n      each: \"-p {}\"\n      under: crates\n      outside: [\"apps/**\", \"packages/**\"]\n",
+    )
+    .expect("a narrowing reading outside");
+    let narrow = manifest
+        .check("test")
+        .expect("test")
+        .narrow()
+        .expect("a narrowing");
+    assert_eq!(
+        narrow.outside().expect("two patterns").written(),
+        "apps/**, packages/**"
+    );
+}
+
+#[test]
+fn an_outside_that_is_not_a_pattern_is_refused() {
+    let refused = refusals(parse(
+        "version: 1\nid: a\nchecks:\n  test:\n    run: x\n    narrow:\n      run: y\n      each: \"-p {}\"\n      outside: [\"apps/\"]\n",
+    ));
+    assert!(
+        refused
+            .iter()
+            .any(|refusal| refusal.key.starts_with("checks.test.narrow.outside")),
+        "{refused:?}"
+    );
 }
 
 #[test]

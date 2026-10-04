@@ -57,13 +57,18 @@ fn the_frozen_workflow_comes_back_with_every_check_its_steps_declared() {
                     "fmt".to_string(),
                     "cargo fmt --all".to_string(),
                 )],
-                narrow: Some(Narrowing::declared(
-                    "cargo build".to_string(),
-                    "-p {}".to_string(),
-                    Covers::of(vec![PathPattern::parse("crates/**").expect("a pattern")]),
-                    Some("crates".to_string()),
-                    vec!["acceptance".to_string()],
-                )),
+                narrow: Some(
+                    Narrowing::declared(
+                        "cargo build".to_string(),
+                        "-p {}".to_string(),
+                        Covers::of(vec![PathPattern::parse("crates/**").expect("a pattern")]),
+                        Some("crates".to_string()),
+                        vec!["acceptance".to_string()],
+                    )
+                    .with_outside(Covers::of(vec![
+                        PathPattern::parse("apps/**").expect("a pattern")
+                    ]))
+                ),
                 one_test: Some("cargo nextest run -E test(={})".to_string()),
                 runs_at: core_model::RunsAt::Handoff,
                 places: std::num::NonZeroU32::MIN,
