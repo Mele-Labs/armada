@@ -33,7 +33,7 @@ pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 /// `storybook` serves and answers; `falls_over` exits on its first line while
 /// its `ready` never passes; `never_built`'s `run` fails, so its `serve` never
 /// starts. `fmt` is a Command, and never a server.
-const MANIFEST: &str = r#"version: 1
+pub(super) const MANIFEST: &str = r#"version: 1
 id: 01FIXTUREMANIFEST
 ports:
   storybook: {}
@@ -204,7 +204,7 @@ pub(super) async fn a_running_job(fleet: &Fixture, home: &TempDir) -> Job {
     dispatched(fleet, job.id()).await.expect("dispatch runs")
 }
 
-async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
+pub(super) async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
     *fleet
         .port_map(job)
         .await

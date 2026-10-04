@@ -94,6 +94,19 @@ where
         name: &str,
         by: StartedBy,
     ) -> Result<(ServerState, bool), Unservable> {
+        self.hold_server_for(place, name, by, false).await
+    }
+
+    /// [`hold_server`](Self::hold_server), saying whether Fleet started it for
+    /// a person's review — `crate::walking`. **One already up is handed back
+    /// as it stands**, so a server a person started first keeps saying so.
+    pub(crate) async fn hold_server_for(
+        self: Arc<Self>,
+        place: Place,
+        name: &str,
+        by: StartedBy,
+        for_review: bool,
+    ) -> Result<(ServerState, bool), Unservable> {
         let served = match &place {
             Place::Job(job) => self.served_by(job).map_err(|why| Unservable::NotKept {
                 why: why.to_string(),
@@ -209,6 +222,7 @@ where
                 })
                 .collect(),
             started_by: by,
+            for_review,
             started_at: ipc::Instant::from(&self.now()),
             serving_since: None,
             ended_at: None,

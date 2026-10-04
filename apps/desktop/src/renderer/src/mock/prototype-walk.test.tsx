@@ -93,3 +93,47 @@ test("the link itself still goes to the system browser", async () => {
   await expect.poll(() => openServerLink.mock.calls.length).toBe(1);
   expect(openServerLink).toHaveBeenCalledWith(SERVING.id, SERVING.links[0]!.url);
 });
+
+/** The Job opened with these servers already held, and what main is asked to open. */
+async function openedWith(servers: ServerState[]) {
+  const scenario = onJob(fixture);
+  const openCaptureWindow = vi.fn(async () => ({ ok: true as const }));
+  let held: FleetHandle | undefined;
+  mount({
+    ...scenario,
+    state: { ...scenario.state, servers: { servers } },
+    behaves: (fleet) => {
+      held = fleet;
+      return { openCaptureWindow };
+    },
+  });
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
+  return { fleet: held!, openCaptureWindow };
+}
+
+test("opening a Job its walk server is up for opens it in Bridge, with nothing pressed", async () => {
+  const { openCaptureWindow } = await openedWith([{ ...SERVING, for_review: true }]);
+
+  await expect.poll(() => openCaptureWindow.mock.calls.length).toBe(1);
+  expect(openCaptureWindow).toHaveBeenCalledWith(SERVING.id, SERVING.links[0]!.url);
+});
+
+test("a server somebody else started is theirs to open, and opens nothing by itself", async () => {
+  const { openCaptureWindow } = await openedWith([SERVING]);
+
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
+  expect(openCaptureWindow).not.toHaveBeenCalled();
+});
+
+test("one that comes up while the Job is open opens then, and once", async () => {
+  const starting: ServerState = { ...SERVING, for_review: true, phase: "starting" };
+  const { fleet, openCaptureWindow } = await openedWith([starting]);
+  expect(openCaptureWindow).not.toHaveBeenCalled();
+
+  fleet.publish({ servers: { servers: [{ ...starting, phase: "serving" }] } });
+  await expect.poll(() => openCaptureWindow.mock.calls.length).toBe(1);
+  // A later reading of the same server is the same server, already open.
+  fleet.publish({ servers: { servers: [{ ...starting, phase: "serving", serving_since: "2026-09-22T10:22:00Z" }] } });
+  await new Promise((settled) => setTimeout(settled, 50));
+  expect(openCaptureWindow).toHaveBeenCalledTimes(1);
+});

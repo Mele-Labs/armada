@@ -28,6 +28,11 @@
 #
 # `build` is `human_always`, so a prototype stops for the person who asked for
 # it before the write-up is drafted.
+#
+# **`build` is walked**: at that stop Fleet starts the repository's `walk`
+# server in the Job's worktree, and Bridge opens it when the Job is opened —
+# the prototype is looked at by using it. A repository naming no `walk` stops
+# exactly as before.
 {
   "version": 1,
   "workflow_id": "prototype",
@@ -55,7 +60,8 @@
       "label": "Build",
       "follows_plan": true,
       "evidence": {
-        "submitted": { "type": "diff" }
+        "submitted": { "type": "diff" },
+        "walked": true
       },
       "delivers": false,
       "advance_gate": "human_always"

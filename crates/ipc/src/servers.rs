@@ -108,6 +108,12 @@ pub struct ServerState {
     pub ports: Vec<ServerPort>,
     pub links: Vec<ServerLink>,
     pub started_by: StartedBy,
+    /// Fleet started it because a step asking to be walked stopped for a
+    /// person, on the Manifest's `walk` server. Bridge opens it in its own
+    /// window when that Job is opened. Absent: started by anything else.
+    /// **Since 23.15.**
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub for_review: bool,
     pub started_at: Instant,
     /// When `ready` passed, or `serve` started where there is no `ready`.
     /// Uptime is counted from here; nothing ticks on the wire.

@@ -299,6 +299,7 @@ mod unattended;
 /// sweep `noticing` already runs.
 mod under_review;
 pub mod underway;
+mod walking;
 pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.

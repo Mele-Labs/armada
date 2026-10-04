@@ -115,6 +115,7 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             // advances and the Commands a Drone may run: how this repository
             // demonstrates that a change did what was asked.
             "evidence",
+            "walk",
             "setup",
             "drone",
             "after_merge",
