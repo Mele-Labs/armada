@@ -3,6 +3,8 @@
 
 use std::path::Path;
 
+use checks_runner::{reached, Reach};
+
 use super::armada_cli::{check, covers};
 use super::batch::{tell, Built};
 use super::caches::{base_foundations, checks_on_the_base};
@@ -12,7 +14,6 @@ use super::gate::{foundations_delta, not_installed, FoundationsComparison};
 use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
-use super::reach::{reached, Reach};
 use super::shell::spoken;
 use super::stop::Stopped;
 

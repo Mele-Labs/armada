@@ -81,6 +81,9 @@ pub struct CheckOutput {
     pub output: Output,
     /// Where this Check's red was run again alone, and `output` is that run's.
     pub alone: Option<crate::confirming::Confirmed>,
+    /// The command the gate narrowed this Check to, or `None` where it ran
+    /// whole. `crate::checking::Reading::StepGate`.
+    pub narrowed_to: Option<String>,
 }
 
 /// Where `diff_nonempty` measures this step's change from.
@@ -248,21 +251,37 @@ where
             Began::Unseen => false,
             Began::AsRecorded(moved) => moved,
         };
-    // **Several at a time, started fastest first, reported in declaration
-    // order, each with its own budget, and never stopped at a failure.**
-    // `crate::checking` owns all three properties; what matters here is that
+    // **One at a time, started fastest first, reported in declaration order,
+    // each with its own budget, and never stopped at a failure.**
+    // `crate::checking` owns all of it; what matters here is that
     // what comes back is one entry per declared Check, skips included, so the
     // invariant `Ran::of` enforces is carried by the shape of the answer rather
     // than by this loop being careful.
     let mut observed = Vec::with_capacity(step.checks().len());
     let mut output = Vec::new();
-    // **`false`, and it is the whole of why a narrowed dry run is safe.** The
-    // gate reads the whole of every Check whatever a Drone asked for mid-step.
+    // **The merge line's reading, over the step's own change**, whatever a
+    // Drone asked for mid-step: `test` and `build` narrow to every crate the
+    // change reaches and every crate depending on one, and run whole on any
+    // covered path that cannot be named. `cargo tree` is asked only where a
+    // Check could narrow. The owner's decision of 4 Oct 2026, after Job 3.
+    let reach = match checking::narrows_at_the_gate(step.checks(), &touched) {
+        false => checks_runner::Reach::Whole("no Check here narrows by directory".into()),
+        true => {
+            let (worktree, changed) = (at.worktree().path().to_string(), touched.clone());
+            tokio::task::spawn_blocking(move || {
+                checks_runner::reached(Path::new(&worktree), &changed)
+            })
+            .await
+            .unwrap_or_else(|stopped| {
+                checks_runner::Reach::Whole(format!("reading the workspace stopped: {stopped}"))
+            })
+        }
+    };
     for done in checking::ran(
         step.checks(),
         &touched,
         moved,
-        false,
+        checking::Reading::StepGate(&reach),
         Path::new(at.worktree().path()),
         budget.duration(),
         room,
@@ -283,6 +302,7 @@ where
                 check,
                 output: printed,
                 alone: None,
+                narrowed_to: done.narrowed_to,
             });
         }
     }
@@ -301,6 +321,7 @@ where
             env: port_env,
             holding_handoff: at.holds_handoff(),
             attempt: at.attempt(),
+            reach: &reach,
             announcing,
         },
     )

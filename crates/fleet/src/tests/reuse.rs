@@ -248,7 +248,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
         &declared,
         &[],
         false,
-        false,
+        crate::checking::Reading::Whole,
         std::path::Path::new("/"),
         Duration::from_secs(5),
         &crate::places::Room::ignoring_the_machine(crate::places::ChecksAtOnce::of(4)),

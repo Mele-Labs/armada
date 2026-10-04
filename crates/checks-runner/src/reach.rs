@@ -1,18 +1,20 @@
-//! What a turn's changes reach in a Cargo workspace: the members they touch,
-//! and every member that depends on one. `armada check --changed` narrows a
-//! Check to those, through the Manifest's own `narrow`.
+//! What a change reaches in a Cargo workspace: the members it touches, and
+//! every member that depends on one. The merge line's `armada check --changed`
+//! and Fleet's step gate both narrow a Check over these, through the
+//! Manifest's own `narrow` read by [`narrowed_over`](crate::narrowed_over).
 //! `docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
 //!
-//! The only Cargo fact the line holds, and it is asked of `cargo tree` rather
-//! than read from a manifest here.
+//! **The only Cargo fact either gate holds**, asked of `cargo tree` rather than
+//! read from a manifest, and kept out of [`narrow`](crate::narrowed) for the
+//! reason that file gives. Here rather than in `armada` since 4 Oct 2026, so
+//! Fleet's step gate asks the same question the merge line does.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-
-use super::shell::run;
+use std::process::{Command, Stdio};
 
 /// What [`reached`] found.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reach {
     /// The changed paths, with the directory of every member depending on one
     /// they touch.
@@ -32,7 +34,7 @@ const WHOLE_WORKSPACE: &[&str] = &[
 ];
 
 /// `changed`, widened to the members depending on what it touches, or the
-/// reason a Check runs whole.
+/// reason a Check runs whole. **Blocking**: it runs `cargo tree` twice.
 pub fn reached(worktree: &Path, changed: &[String]) -> Reach {
     if let Some(path) = changed.iter().find(|path| reaches_everything(path)) {
         return Reach::Whole(format!("{path} reaches the whole workspace"));
@@ -95,17 +97,21 @@ fn within(path: &str, dir: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
-/// `cargo tree`, offline and on the lockfile as it stands: a turn that changed
-/// either has already run whole.
+/// `cargo tree`, offline and on the lockfile as it stands: a change to either
+/// has already run whole.
 fn tree(worktree: &Path, args: &[&str]) -> Result<String, String> {
-    let mut argv = vec!["cargo", "tree", "--offline", "--locked", "--prefix", "none"];
-    argv.extend(args);
-    let ran = run(&argv, worktree, None, None).map_err(|stopped| stopped.detail)?;
-    match ran.success() {
-        true => Ok(ran.stdout()),
+    let ran = Command::new("cargo")
+        .args(["tree", "--offline", "--locked", "--prefix", "none"])
+        .args(args)
+        .current_dir(worktree)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|why| format!("`cargo tree` could not be run: {why}"))?;
+    match ran.status.success() {
+        true => Ok(String::from_utf8_lossy(&ran.stdout).into_owned()),
         false => Err(format!(
             "`cargo tree` could not say what depends on what: {}",
-            ran.stderr().trim()
+            String::from_utf8_lossy(&ran.stderr).trim()
         )),
     }
 }
@@ -132,11 +138,44 @@ fn members(listed: &str, root: &Path) -> BTreeSet<(String, String)> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::process::Command;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::{members, reached, Reach};
-    use crate::tests::TempDir;
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    /// A directory for one test, removed on drop.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> TempDir {
+            let path = std::env::temp_dir().join(format!(
+                "armada-reach-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&path).expect("a temporary directory");
+            TempDir(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+
+        fn write(&self, relative: &str, contents: &str) {
+            let at = self.0.join(relative);
+            std::fs::create_dir_all(at.parent().expect("a parent")).expect("the parent");
+            std::fs::write(at, contents).expect("the file");
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
 
     fn paths(of: &[&str]) -> Vec<String> {
         of.iter().map(|path| path.to_string()).collect()
