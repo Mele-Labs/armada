@@ -1,5 +1,5 @@
 //! A step's tuning at the approval press, read against the step it names
-//! (23.18). **Pure**, for `crate::approving`'s reason: refused or answered
+//! (23.20). **Pure**, for `crate::approving`'s reason: refused or answered
 //! before anything is kept.
 
 use std::collections::BTreeMap;

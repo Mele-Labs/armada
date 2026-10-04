@@ -26,14 +26,14 @@ export type ApproveDispatch = {
   /** Kept from 23.8, enforced from slice 5. */
   drone_cap?: number;
   landing?: LandingChoice;
-  /** One per step a person tuned, `gates`' shape; a step left out runs as declared. Since 23.18. */
+  /** One per step a person tuned, `gates`' shape; a step left out runs as declared. Since 23.20. */
   tuning?: StepTuning[];
 };
 
 /**
  * What a person tuned on one step at the press, frozen with the Job and read
  * where the step runs. **A field left out is the step as declared.** An
- * unknown field is refused, so a `harness` is not silently dropped. Since 23.18.
+ * unknown field is refused, so a `harness` is not silently dropped. Since 23.20.
  */
 export type StepTuning = {
   step_id: string;
@@ -49,7 +49,7 @@ export type StepTuning = {
   checks_off?: string[];
 };
 
-/** How hard a step's Drone thinks. Since 23.18. */
+/** How hard a step's Drone thinks. Since 23.20. */
 export type Effort = "low" | "medium" | "high";
 
 /** `edit_job`'s body (#1699's route): the fields a person changed, saved without releasing. */
@@ -89,7 +89,7 @@ export type LandingChoice = {
   /**
    * A branch the repository holds, where Fleet makes `from_ref` when the
    * repository holds no `from_ref` yet. Read only then; `target` may name the
-   * new branch too. Since 23.19.
+   * new branch too. Since 23.21.
    */
   start_point?: string;
   /** `job` or `group`; only `job` is run, and `group` is refused. */
@@ -103,7 +103,7 @@ export type LandingChoice = {
 /**
  * `set_landing_target`'s body, `POST /jobs/{job_id}/set_landing_target`: the
  * branch an approved Job landing in the base lands in instead, once, before its
- * work goes out. Since 23.20.
+ * work goes out. Since 23.22.
  */
 export type SetLandingTarget = {
   target: string;

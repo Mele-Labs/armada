@@ -819,6 +819,7 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
         }),
         warm: reading.warm,
         behind: reading.behind,
+        closed: reading.closed,
     }
 }
 

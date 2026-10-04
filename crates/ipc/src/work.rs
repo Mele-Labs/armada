@@ -273,7 +273,15 @@ pub struct ChangesRequested {
     /// string on this route Fleet does not assemble** — the reviewer read the
     /// diff and the evidence, and what they want changed is not derivable from
     /// either.
+    ///
+    /// **Blank is taken where `with_walk_notes` has something to carry**: the
+    /// notes are then the whole of what the Drone is told.
     pub note: String,
+    /// Append every walk note on the Job not yet sent to the note delivered,
+    /// and mark them sent in the same act. **Since 23.18.** Absent is false,
+    /// which is every request before it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub with_walk_notes: bool,
 }
 
 /// What a person says when they overrule a gate that refused the work.

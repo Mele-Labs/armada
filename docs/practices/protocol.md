@@ -2639,7 +2639,52 @@ Bridge lists it under All alone.
 
 **Store V102** adds the nullable `lands_in` column to `job_retro_items`.
 
-## Protocol 23.17: a step's phase, and the grants a canvas draws
+## Protocol 23.17: a person reshapes the slot pool
+
+The owner, 4 Oct 2026: from Cleanup's bay grid, add a slot, remove one, or close one for a while.
+`../concepts/fleet.md`, *Worktree slots*, is the concept.
+
+**One field and one command, both additive.** `WorktreeSlot` gains `closed`. `change_slot_pool`
+is `POST /worktrees/slots?manifest_id=` with `ChangeSlotPool` (`act`, and `slot` for all but
+`add`), answered by `SlotPoolChanged`.
+
+| Field | On | Absent |
+| --- | --- | --- |
+| `closed` | `WorktreeSlot` | A Fleet before 23.17, which closes nothing: read as open |
+
+**Each refusal has its own code**, so Bridge says on the slot why it cannot go:
+`fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`,
+`fleet.slot_dirty` and `fleet.slot_last` are 409s, and `fleet.no_such_slot` a 422.
+
+**No store change.** The pool's shape is written beside its slots at `.armada/slots/pool`, which
+the CLI reads too.
+
+## Protocol 23.18: walk notes, kept on the Job, and a server started for review
+
+What a person points at while walking a Prototype's served mock in a Bridge window, kept by Fleet
+on the Job so it outlives the throwaway worktree, and handed to the next Drone when the Job is sent
+back.
+
+**Additive only.** Two new routes, four new DTOs and three optional fields; a 23.17 Bridge sends no
+`with_walk_notes` and reads no `walk_notes`, and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+|---|---|---|---|
+| `capture_walk_note` | `POST /jobs/:job_id/walk_notes` | `CaptureWalkNote { said, capture, frame? }` in, `WalkNotes { notes }` out | — |
+| `remove_walk_note` | `POST /jobs/:job_id/walk_notes/remove` | `RemoveWalkNote { id }` in, `WalkNotes { notes }` out | — |
+| `walk_notes` | `JobDetail` | `WalkNote { id, said, at, element, selector, location, served?, frame?, sent }` per note, oldest first, sent ones included | A Job with no walk notes |
+| `for_review` | `ServerState` | Fleet started it because a step with `evidence.walked` stopped for a person, on the Manifest's `walk` server; Bridge opens it when that Job is opened | Started by anything else |
+| `with_walk_notes` | `ChangesRequested` | Append every unsent walk note to the note delivered, and mark them sent | False |
+
+**The frame is a path under the machine directory**, `<machine>/walks/<job_id>/<note_id>.png`,
+never the worktree. **A blank `note` is taken with `with_walk_notes`** where at least one unsent
+note exists, because the notes are then what the Drone is told; otherwise blank is refused as it
+was. The notes are marked sent only once the send lands, so a refused one leaves them unsent.
+
+**Store V103**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
+trigger refuses any update but `sent_at` moving once from null.
+
+## Protocol 23.19: a step's phase, and the grants a canvas draws
 
 The owner, 4 Oct 2026: the approval canvas lays its lanes by phase. #1768 waits on it too.
 
@@ -2658,7 +2703,7 @@ false.
 the frozen workflow column carries `phase` beside `model`, null where the step declared none, and
 a row frozen before it reads as none. The event stream is untouched.
 
-## Protocol 23.18: a step tuned at the press
+## Protocol 23.20: a step tuned at the press
 
 The owner, 4 Oct 2026: the approval canvas tunes each step, and lands only once Fleet takes what
 it draws.
@@ -2666,7 +2711,7 @@ it draws.
 **One optional field, one DTO and one enum, all additive.** `ApproveDispatch` gains `tuning`, a
 `StepTuning` per step a person tuned, `gates`' shape: `step_id`, and `model?`, `effort?`
 (`Effort`: `low`, `medium`, `high`), `context?`, `judges?` and `checks_off?`. A field left out is
-the step as declared, so a 23.17 Bridge approves as before.
+the step as declared, so a 23.19 Bridge approves as before.
 
 **Frozen into the step, after its gate**, as `gates` is, so the Job keeps it for its life and each
 reader finds it where it already reads the step. `model` is the step's model in
@@ -2686,7 +2731,7 @@ dropped: one harness runs, and a per-step one is not built.
 `model`. `get_job` reads `checks` and `judge_checks` off the frozen step as before; the effort and
 the words are not served back. The event stream is untouched.
 
-## Protocol 23.19: a branch that does not exist yet
+## Protocol 23.21: a branch that does not exist yet
 
 The owner, 4 Oct 2026: a Job may start from a branch a person names on the canvas before it exists.
 
@@ -2694,7 +2739,7 @@ The owner, 4 Oct 2026: a Job may start from a branch a person names on the canva
 holds. Where `from_ref` names a branch the repository does not hold, Fleet makes it at
 `start_point`'s commit at the press, a local branch, and the worktree is cut from it as from any
 `from_ref`. `target` may name the same new branch. **Read only then**: beside a `from_ref` the
-repository holds, or none, it is not used. A 23.18 Bridge sends none and is refused an unknown
+repository holds, or none, it is not used. A 23.20 Bridge sends none and is refused an unknown
 `from_ref` as before.
 
 **Refused before anything is kept**: a `from_ref` the repository lacks with no `start_point`, and
@@ -2706,7 +2751,7 @@ an approval refused after it, by the machine, leaves the branch at its start poi
 landing row keeps `from_ref` as before, and `start_point` is not kept. The event stream is
 untouched.
 
-## Protocol 23.20: where an approved Job lands, set once
+## Protocol 23.22: where an approved Job lands, set once
 
 The owner, 4 Oct 2026: a Job approved landing in the base may be aimed at another branch after
 the press.
@@ -2714,7 +2759,7 @@ the press.
 **A route and a body, additive.** `POST /jobs/:job_id/set_landing_target`, `set_landing_target`,
 takes `SetLandingTarget { target }` and answers the Job's `JobSummary`. `JobDetail.landing.target`
 reads it back, and the delivering step opens its pull request against it, as against a target the
-approval set. A 23.19 Fleet has no such route, so a 23.20 Bridge behind it is refused, which is the
+approval set. A 23.21 Fleet has no such route, so a 23.22 Bridge behind it is refused, which is the
 skew rule's own direction.
 
 | Refused | Code |

@@ -47,14 +47,14 @@ pub struct ApproveDispatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landing: Option<LandingChoice>,
     /// One per step a person tuned, `gates`' shape. A step left out runs as
-    /// its workflow declares it. Since 23.18.
+    /// its workflow declares it. Since 23.20.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tuning: Option<Vec<StepTuning>>,
 }
 
 /// What a person tuned on one step at the approval press, frozen with the Job
 /// and read where the step runs. **Each field left out is the step as its
-/// workflow declares it.** Since 23.18.
+/// workflow declares it.** Since 23.20.
 ///
 /// **An unknown field is refused, not dropped**, `EditJob`'s rule: a harness
 /// picked on the canvas and silently lost would read as running.
@@ -80,7 +80,7 @@ pub struct StepTuning {
     pub checks_off: Vec<String>,
 }
 
-/// How hard a step's Drone thinks. Since 23.18.
+/// How hard a step's Drone thinks. Since 23.20.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Effort {
@@ -183,7 +183,7 @@ pub struct LandingChoice {
     pub from_ref: Option<String>,
     /// A branch the repository holds, that Fleet makes `from_ref` at when the
     /// repository holds no `from_ref` yet. **Read only then.** `target` may
-    /// name the new branch too. Since 23.19.
+    /// name the new branch too. Since 23.21.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_point: Option<String>,
     /// Refused at `group`: one branch per Job is all Fleet runs.
@@ -233,7 +233,7 @@ impl From<core_model::CompleteWhen> for CompleteWhen {
     }
 }
 
-/// `set_landing_target`'s body (23.20): the branch an approved Job that lands
+/// `set_landing_target`'s body (23.22): the branch an approved Job that lands
 /// in the Manifest's base is to land in instead. Refused unless the repository
 /// holds it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

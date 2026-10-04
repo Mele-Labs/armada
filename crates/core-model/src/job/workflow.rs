@@ -361,6 +361,11 @@ pub struct ResolvedStep {
     /// is what the Drone hands in and the gate measures. One value holding both
     /// is what stopped a step doing both. `#777`.
     captured: bool,
+    /// Whether Fleet serves the repository's `walk:` server for the Job when
+    /// this step stops for a person. **It names no server**, for `captured`'s
+    /// reason: the workflow ships with the app, and which server shows the
+    /// work is the repository's to say. It gates nothing.
+    walked: bool,
     /// Whether the definition said `every_manifest_check` rather than naming
     /// Checks one at a time.
     ///
@@ -512,6 +517,7 @@ impl ResolvedStep {
             may_dispatch_jobs: false,
             delivers: false,
             captured: false,
+            walked: false,
             gates_on_every_check: false,
             iteration_cap: 0,
             verdict_routing: BTreeMap::new(),
@@ -616,6 +622,12 @@ impl ResolvedStep {
     /// asks, and every other would be restating a `false`.
     pub fn capturing(mut self, captured: bool) -> ResolvedStep {
         self.captured = captured;
+        self
+    }
+
+    /// Whether Fleet serves this step's work to walk, for `capturing`'s reason.
+    pub fn walking(mut self, walked: bool) -> ResolvedStep {
+        self.walked = walked;
         self
     }
 
@@ -789,6 +801,12 @@ impl ResolvedStep {
     /// what came back. See [the field](ResolvedStep::captured).
     pub fn captured(&self) -> bool {
         self.captured
+    }
+
+    /// Whether Fleet serves the work when this step stops for a person. See
+    /// [the field](ResolvedStep::walked).
+    pub fn walked(&self) -> bool {
+        self.walked
     }
 
     /// All entries must pass. Empty on the common case of an ungated step.

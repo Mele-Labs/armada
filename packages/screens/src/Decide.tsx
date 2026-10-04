@@ -55,9 +55,9 @@ import {
   type UnifiedDiffProps,
 } from "@armada/components";
 import { answerTo, isDecision, type ActAnswer, type DecidingAct } from "./pending";
-import { noteWithChanges } from "./changes";
+import { isWalked, noteWithChanges, walkedChange, walkedId } from "./changes";
 
-import type { Diff, Evidence, Remarks } from "@armada/protocol";
+import type { Diff, Evidence, Remarks, WalkNote } from "@armada/protocol";
 import type { JobSummary } from "@armada/protocol";
 import type { Work } from "@armada/protocol";
 import {
@@ -129,7 +129,7 @@ export type DecideProps = {
    */
   conflicted?: boolean;
   onApprove: (jobId: string) => void;
-  onRequestChanges: (jobId: string, note: string) => void;
+  onRequestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => void;
   onReject: (jobId: string) => void;
   /** What people wrote on the pull request, where this surface asked for it. */
   remarks: Remarks;
@@ -144,6 +144,13 @@ export type DecideProps = {
   /** What should change, listed by the review and View. Sent with the note. #907. */
   changes?: DecisionChange[];
   onRemoveChange?: (id: string) => void;
+  /**
+   * What the person pointed at walking this Job's work. The ones not yet sent
+   * join What should change, and Request changes hands them to Fleet, which
+   * delivers them with the note — they are not written into it here.
+   */
+  walkNotes?: readonly WalkNote[];
+  onRemoveWalkNote?: (jobId: string, noteId: string) => void;
 };
 
 /**
@@ -182,7 +189,11 @@ export function Decide({
   onOpenRemarkLink,
   changes = [],
   onRemoveChange,
+  walkNotes = [],
+  onRemoveWalkNote,
 }: DecideProps) {
+  const walked = walkNotes.filter((one) => one.sent !== true);
+  const listed = [...changes, ...walked.map(walkedChange)];
   // The reviewer's own words, held here: it is a draft until it is sent, and
   // nothing outside this region knows or cares that one is being written.
   const [note, setNote] = useState("");
@@ -260,11 +271,20 @@ export function Decide({
                   }
                 : {}),
             })}
-        changes={changes}
-        {...(onRemoveChange === undefined ? {} : { onRemoveChange })}
+        changes={listed}
+        {...(onRemoveChange === undefined && onRemoveWalkNote === undefined
+          ? {}
+          : {
+              onRemoveChange: (id: string) =>
+                isWalked(id) ? onRemoveWalkNote?.(job.id, walkedId(id)) : onRemoveChange?.(id),
+            })}
         // A listed change approving would drop is asked about first. #907.
-        onApprove={() => (changes.length > 0 ? setAsking("approve") : onApprove(job.id))}
-        onRequestChanges={() => onRequestChanges(job.id, noteWithChanges(changes, note))}
+        onApprove={() => (listed.length > 0 ? setAsking("approve") : onApprove(job.id))}
+        onRequestChanges={() =>
+          walked.length > 0
+            ? onRequestChanges(job.id, noteWithChanges(changes, note), true)
+            : onRequestChanges(job.id, noteWithChanges(changes, note))
+        }
         onReject={() => setAsking("reject")}
         {...(waiting === undefined
           ? { disabled: off, ...(why === undefined ? {} : { disabledNote: why }) }
@@ -284,7 +304,7 @@ export function Decide({
           onApprove(job.id);
         }}
       >
-        {`${changes.length === 1 ? "1 change is" : `${changes.length} changes are`} listed under What ` +
+        {`${listed.length === 1 ? "1 change is" : `${listed.length} changes are`} listed under What ` +
           "should change, and approving does not send them. Keep them, and press Request changes " +
           "to send them to the drone."}
       </Dialog>

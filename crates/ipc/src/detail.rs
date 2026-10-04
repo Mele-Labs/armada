@@ -37,6 +37,7 @@ use crate::ids::{CriterionId, Instant, JobId, StepId, StudioId, StudioNodeId};
 use crate::job::{JobSummary, Subject};
 use crate::overlap::ScopeOverlap;
 use crate::waiting::{QuestionInFlight, RedirectInFlight, RedirectWaiting};
+use crate::walk_notes::WalkNote;
 use crate::work::JobFootprint;
 
 pub use confidence::{
@@ -364,6 +365,11 @@ pub struct JobDetail {
     /// of has recorded a plan yet. Filled after [`JobDetail::of`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub wave_rounds: Vec<WaveRound>,
+    /// What a person pointed at while walking this Job's mock, oldest first,
+    /// sent ones included. **Since 23.16.** Empty is a Job nobody walked, or
+    /// one whose notes were all removed. Filled after [`JobDetail::of`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub walk_notes: Vec<WalkNote>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -792,6 +798,7 @@ impl JobDetail {
             from_studio: None,
             replaces: None,
             wave_rounds: Vec::new(),
+            walk_notes: Vec::new(),
         }
     }
 }

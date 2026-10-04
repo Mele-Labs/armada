@@ -1,5 +1,5 @@
 //! A step tuned at the approval press: frozen with the Job, and read where the
-//! step runs. Since 23.18.
+//! step runs. Since 23.20.
 
 use std::path::Path;
 use std::sync::Arc;

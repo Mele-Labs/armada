@@ -17,6 +17,7 @@ import "../styles/index.css";
 import { mountPicker } from "./Picker";
 import { mountApp } from "./mount";
 import { SCENARIOS } from "./scenario";
+import { EVERY_WALK } from "./walks";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -100,11 +101,11 @@ test("typing part of a name narrows to it", async () => {
   await said().click();
   await expect.element(field()).toBeVisible();
 
-  // Every scenario is listed before a word is typed — the list is the roster.
-  expect(rows().length).toBe(SCENARIOS.length);
+  // Every scenario and every walk is listed before a word is typed — the list is the roster.
+  expect(rows().length).toBe(SCENARIOS.length + EVERY_WALK.size);
 
   await find("fleetnot");
-  expect(names().length).toBeLessThan(SCENARIOS.length);
+  expect(names().length).toBeLessThan(SCENARIOS.length + EVERY_WALK.size);
   expect(names()[0]).toBe("fleet-not-running");
 });
 
@@ -151,6 +152,21 @@ test("choosing one mounts it — the reload `?scenario=` is read on", async () =
   await expect.element(page.getByText("Fleet is not running").first()).toBeVisible();
   app.unmount();
   host2.remove();
+});
+
+test("a walk is a row too, and choosing one plays it — the reload `?walk=` is read on", async () => {
+  await show();
+  const went = intercept();
+
+  await said().click();
+  await find("backFromADrone");
+  await page.getByRole("link", { name: "backFromADrone" }).click();
+
+  expect(went).toHaveLength(1);
+  const asked = new URL(went[0]!).searchParams;
+  expect(asked.get("walk")).toBe("backFromADrone");
+  // `?walk` wins over `?scenario` already; the stale one is not left to say otherwise.
+  expect(asked.has("scenario")).toBe(false);
 });
 
 test("Enter takes the top row, so a narrowed query is two keys", async () => {

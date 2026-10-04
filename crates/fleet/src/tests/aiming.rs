@@ -1,4 +1,4 @@
-//! Where an approved Job lands, set once after its approval. Since 23.20.
+//! Where an approved Job lands, set once after its approval. Since 23.22.
 
 use std::sync::Arc;
 

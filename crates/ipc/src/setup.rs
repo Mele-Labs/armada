@@ -110,20 +110,20 @@ pub struct WorkflowStep {
     pub iteration_cap: Option<u32>,
     /// Which phase of the run the step is in: its own declaration, or
     /// delivery where it delivers and the work otherwise. **Resolved by
-    /// Fleet**, so the fallback is spelled once. Since 23.17.
+    /// Fleet**, so the fallback is spelled once. Since 23.19.
     pub phase: StepPhase,
-    /// Whether this step's Drone may create Jobs. Absent is false. Since 23.17.
+    /// Whether this step's Drone may create Jobs. Absent is false. Since 23.19.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub may_dispatch_jobs: bool,
     /// Whether this step works the plan's tasks a Drone each.
     /// [`StepDetail`](crate::StepDetail)'s own field, before a dispatch.
-    /// Absent is false. Since 23.17.
+    /// Absent is false. Since 23.19.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub drone_per_task: bool,
 }
 
 /// Which part of a Job's run a step belongs to, in the order a Job meets them.
-/// **Read as opaque** by Bridge, which lays a lane per value. Since 23.17.
+/// **Read as opaque** by Bridge, which lays a lane per value. Since 23.19.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StepPhase {

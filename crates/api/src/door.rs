@@ -119,6 +119,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "get_events_since",
     "list_drones",
     "list_worktrees",
+    "change_slot_pool",
     "list_servers",
     "propose_from_request",
     "list_jobs",

@@ -35,6 +35,7 @@ fn serving() -> ServerState {
             name: Some("Storybook".to_string()),
         }],
         started_by: StartedBy::Person,
+        for_review: false,
         started_at: at("2026-09-11T10:00:00.000Z"),
         serving_since: Some(at("2026-09-11T10:00:04.000Z")),
         ended_at: None,

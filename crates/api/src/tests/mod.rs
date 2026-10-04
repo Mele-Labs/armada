@@ -30,6 +30,7 @@ mod served;
 mod shapes;
 mod stream;
 mod studios;
+mod walk_notes;
 mod watching_run;
 
 use axum::Router;

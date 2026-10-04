@@ -176,6 +176,9 @@ mod usage;
 mod version;
 /// What is outstanding on a live Drone, and what a person sends it back.
 mod waiting;
+/// What a person said while walking a Prototype's mock, kept on the Job.
+/// Since 23.18.
+mod walk_notes;
 /// The material a reviewing person reads, and what their note carries.
 mod work;
 /// A Job's plan and its tasks. **Not `work`'s `DeclaredPlan`**, which is where a
@@ -254,7 +257,10 @@ pub use helm_call::{
 };
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
-pub use holding::{HeldReason, SlotHolding, WorktreeHeld, WorktreeSlot, WorktreesHeld};
+pub use holding::{
+    ChangeSlotPool, HeldReason, SlotAct, SlotHolding, SlotPoolChanged, WorktreeHeld, WorktreeSlot,
+    WorktreesHeld,
+};
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
@@ -366,6 +372,7 @@ pub use underway::{
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
 pub use version::{ProtocolVersion, Skew, PROTOCOL_VERSION};
 pub use waiting::{AskedOption, ChosenAnswer, QuestionInFlight, RedirectInFlight, RedirectWaiting};
+pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

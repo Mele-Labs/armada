@@ -190,10 +190,10 @@ pub struct StepDetail {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub drone_per_task: bool,
     /// [`WorkflowStep::phase`](crate::WorkflowStep::phase), off the frozen
-    /// workflow. Absent where Fleet cannot say, as `delivers` is. Since 23.17.
+    /// workflow. Absent where Fleet cannot say, as `delivers` is. Since 23.19.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase: Option<crate::StepPhase>,
-    /// Whether this step's Drone may create Jobs. Absent is false. Since 23.17.
+    /// Whether this step's Drone may create Jobs. Absent is false. Since 23.19.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub may_dispatch_jobs: bool,
     /// Which pass this step is on, where it closes a loop. Since protocol 13.20.

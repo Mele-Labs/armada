@@ -129,8 +129,8 @@ notes = "Attached to every step that triggers a Judge or a human gate, so whoeve
 type = "object"
 concern = "Verification"
 parent = "steps[]"
-sub_items = ["submitted", "captured"]
-purpose = "What the step hands in, and whether Fleet captures it. Two questions, two keys."
+sub_items = ["submitted", "captured", "walked"]
+purpose = "What the step hands in, and whether Fleet captures it or serves it to walk. One question a key."
 notes = """
 **One key could not answer both, and that is why this is an object.** `evidence_type` held a single value, so a step asking to be captured stopped claiming the diff its Judge reads and its `diff_nonempty` check measures — the Feature workflow's `implement` step is the case. A list was rejected: it would put an instruction and a requirement in one array. `#777`.
 
@@ -174,6 +174,17 @@ notes = """
 Fleet runs the harness against the spec `shown_by` names, on the settling turn, before the gate. **It gates nothing**: a capture that fails has established nothing about the work, so what a failed run costs is the thing a reviewer was going to look at, and that goes in the Job's log rather than into a verdict.
 
 It is the one key here a Manifest can refuse. A workflow asking to be captured, resolved against a repository that declares no harness, is refused at load before anything is dispatched — so it reaches a person as a sentence rather than as a Job that cut a worktree and captured nothing.
+"""
+
+[fields.walked]
+type = "bool"
+concern = "Verification"
+parent = "evidence"
+purpose = "Whether Fleet starts the repository's `walk` server in the Job's worktree when this step stops for a person, so the work is looked at by using it. Optional, and absent means no."
+notes = """
+**It names no server, for `captured`'s reason.** These workflows ship with the app and run against any repository, so which server shows a repository's work is that repository's `walk` key. A repository naming none stops for its person exactly as before — unlike `captured`, nothing here is refused, because there is nothing to fall back on but the stop itself.
+
+Started when the step holds for a person, after the ruling, and marked as started for review, which is what Bridge opens in its own window when that Job is opened. **It gates nothing**: a server that will not start is said in the Job's log, and the person can still start it from the run sheet. Prototype's `build` is the step that asks.
 """
 
 [fields.exclude_paths]

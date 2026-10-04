@@ -68,6 +68,7 @@ setup:
 - **Absent means eight.**
 - **Zero, a negative number and anything that is not a whole number are refused at load.**
 - **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
+- **A machine's own pool overrides it.** Once a person adds or removes a slot, from Cleanup or `armada worktree add|remove`, that machine's list of slots stands in for this number, and a change here no longer moves it — [Fleet](fleet.md), *Worktree slots*.
 - **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
 
 ### Cross-Workspace Jobs
@@ -490,6 +491,23 @@ Fleet runs `run` once, against the Job's own worktree, and reads `frames` after 
 Every other evidence type is checkable by something other than the Drone. A screenshot of the wrong state looks exactly like one of the right state.
 
 **The spec is what makes it checkable.** The Drone names a spec and never hands over a file; Fleet runs it and owns the frames. The spec is code, it lands in the diff next to the change, and a wrong frame comes from a wrong spec somebody can read. Weaker than a test, much stronger than an image with no provenance — and it is why a frame carries no caption. A sentence saying what a frame shows would be the attestation put back in a field nothing can check.
+
+### A server to walk the work on
+
+**`walk:` names one server, and a workflow step decides when it starts.** A
+step declaring `evidence.walked` — Prototype's Build — stops for a person with
+that server already starting in the Job's own worktree, and Bridge opens it in
+its own window when the Job is opened. The person looks at the work by using it.
+
+```yaml
+walk: mock
+```
+
+The name must be a Command with `serve`, refused at load otherwise. **Optional,
+and a repository that names none loses nothing**: the step stops exactly as it
+did before, and anything it declares can still be started from the run sheet.
+A desktop app, a CLI or a library has nothing to walk in a window, and leaves it
+out.
 
 ## Ports
 

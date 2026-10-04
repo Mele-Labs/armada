@@ -2,6 +2,11 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
+
+// Dimmed behind a walk window that has focus — `styles/index.css`, `data-walking`.
+window.armada.onWalkFocus((focused) => {
+  document.documentElement.toggleAttribute("data-walking", focused);
+});
 import type { BridgeIdentity } from "@armada/protocol";
 import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";

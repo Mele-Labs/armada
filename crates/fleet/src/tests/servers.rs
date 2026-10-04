@@ -33,7 +33,7 @@ pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 /// `storybook` serves and answers; `falls_over` exits on its first line while
 /// its `ready` never passes; `never_built`'s `run` fails, so its `serve` never
 /// starts. `fmt` is a Command, and never a server.
-const MANIFEST: &str = r#"version: 1
+pub(super) const MANIFEST: &str = r#"version: 1
 id: 01FIXTUREMANIFEST
 ports:
   storybook: {}
@@ -204,7 +204,7 @@ pub(super) async fn a_running_job(fleet: &Fixture, home: &TempDir) -> Job {
     dispatched(fleet, job.id()).await.expect("dispatch runs")
 }
 
-async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
+pub(super) async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
     *fleet
         .port_map(job)
         .await
@@ -266,7 +266,12 @@ async fn a_person_starts_storybook_for_a_job_and_gets_its_link_once_ready_passes
     let mut watching = events.subscribe();
 
     let (started, fresh) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     assert!(fresh, "nothing was up before");
@@ -330,7 +335,12 @@ async fn a_drone_on_the_next_step_asks_and_gets_the_same_address() {
     let port = storybook_port(&fleet, &job).await;
     let mut watching = events.subscribe();
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     let up = serving(&mut watching, &started.id).await;
@@ -392,7 +402,12 @@ async fn it_stops_when_the_job_ends_before_its_span_goes_and_its_port_is_free() 
     let port = storybook_port(&fleet, &job).await;
     let mut watching = events.subscribe();
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     serving(&mut watching, &started.id).await;
@@ -448,7 +463,12 @@ async fn a_server_that_falls_over_shows_as_stopped_on_its_own_with_its_log() {
     let mut watching = events.subscribe();
 
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "falls_over", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "falls_over",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     let ended = exited(&mut watching, &started.id).await;
@@ -503,7 +523,12 @@ async fn a_run_that_fails_never_starts_serve() {
     let mut watching = events.subscribe();
 
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "never_built", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "never_built",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     let ended = exited(&mut watching, &started.id).await;
@@ -543,6 +568,7 @@ async fn a_server_with_no_job_uses_the_main_checkouts_span_and_stops_on_stop() {
             Place::Checkout(Checkout::main(fleet.first())),
             "storybook",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("it starts");
@@ -573,7 +599,7 @@ async fn a_command_or_an_undeclared_name_is_not_a_server() {
         let job = job.clone();
         async move {
             fleet
-                .hold_server(Place::Job(job), name, StartedBy::Person)
+                .hold_server(Place::Job(job), name, StartedBy::Person, false)
                 .await
                 .expect_err("refused")
         }
@@ -623,7 +649,7 @@ async fn a_jobs_servers_are_the_ones_it_froze() {
     assert!(froze.server("late").is_none());
 
     let person = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "late", StartedBy::Person)
+        .hold_server(Place::Job(job.clone()), "late", StartedBy::Person, false)
         .await;
     assert!(
         matches!(person, Err(Unservable::NotAServer { .. })),
@@ -646,6 +672,7 @@ async fn a_jobs_servers_are_the_ones_it_froze() {
             Place::Checkout(Checkout::main(fleet.first())),
             "late",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("the file Fleet holds declares it");
@@ -674,7 +701,12 @@ async fn a_ports_edit_after_the_job_froze_does_not_move_its_port() {
     assert_eq!(ports.get("storybook"), Some(&claim.base), "{ports:?}");
     assert_eq!(ports.get("api"), None, "not a port the Job froze");
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     assert_eq!(started.ports.first().map(|one| one.port), Some(claim.base));
@@ -705,7 +737,7 @@ async fn a_job_with_no_readable_snapshot_finds_its_servers_in_the_live_file() {
         .iter()
         .any(|entry| entry.name == "late"));
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "late", StartedBy::Person)
+        .hold_server(Place::Job(job.clone()), "late", StartedBy::Person, false)
         .await
         .expect("offered from the live file");
     fleet.stopped_server(&started.id).await.expect("it stops");

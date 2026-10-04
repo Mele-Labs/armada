@@ -8,7 +8,7 @@ import tokens from "@armada/tokens/tokens.json";
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened } from "@armada/protocol";
 import { isPinned, pinned } from "./address";
-import { CaptureWindow, type CaptureBoard } from "./window";
+import { CaptureWindow, type CaptureBoard, type LandsOn } from "./window";
 
 /**
  * How tall the bar is drawn. **The title row's own composition**, which
@@ -44,7 +44,13 @@ export class CaptureWindows {
     url: string,
     studio: { id: string; name: string | null } | null,
   ): CaptureOpened {
-    if (studio === null) return { ok: false, why: "no_studio" };
+    // A Job's server opens with no Studio, to be walked, and what is pointed at
+    // there lands on the Job. Any other server still needs its Studio.
+    const server = state.servers.servers.find((one) => one.id === serverId);
+    const job = state.jobs.find((one) => one.id === server?.job_id);
+    const landsOn: LandsOn | null =
+      studio !== null ? { studio } : job === undefined ? null : { job: { id: job.id, handle: job.handle } };
+    if (landsOn === null) return { ok: false, why: "no_studio" };
     const standing = this.open.get(serverId);
     if (standing !== undefined && standing.open) {
       standing.raise();
@@ -52,7 +58,7 @@ export class CaptureWindows {
     }
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
-    this.open.set(serverId, new CaptureWindow(pin, studio, this.board, barHeight()));
+    this.open.set(serverId, new CaptureWindow(pin, landsOn, this.board, barHeight()));
     return { ok: true };
   }
 

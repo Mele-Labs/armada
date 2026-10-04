@@ -9,10 +9,12 @@
 //! slot recorded and keeps the path its handle derives.
 
 use adapter_traits::{
-    AgentHarness, Delivery, SlotHeld, SlotKept, SlotPool, SlotReading, SlotStanding, Vcs,
-    WorkProduct, WorktreeSpec, WorktreeSpecRefused,
+    AgentHarness, Delivery, SlotChange, SlotHeld, SlotKept, SlotPool, SlotReading, SlotRefused,
+    SlotStanding, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
 };
+use api::Refusal;
 use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
+use ipc::{ChangeSlotPool, ManifestId, SlotAct, SlotPoolChanged, WireError};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -21,6 +23,23 @@ use crate::repositories::Served;
 /// The base a Manifest that names none is leased from, as `armada worktree`
 /// leases it.
 const BASE_UNSTATED: &str = "main";
+
+/// A slot the pool does not have, or none named. A 422.
+const NO_SUCH_SLOT: &str = "fleet.no_such_slot";
+/// A slot removed while something holds it. A 409, as are the five after.
+const SLOT_HELD: &str = "fleet.slot_held";
+/// A slot removed whose holder is gone and left work in it.
+const SLOT_STRANDED: &str = "fleet.slot_stranded";
+/// A slot removed while a lease or a release is under way on it.
+const SLOT_BUSY: &str = "fleet.slot_busy";
+/// A slot removed that is a directory and not a checkout: a person's to clear.
+const SLOT_NOT_A_CHECKOUT: &str = "fleet.slot_not_a_checkout";
+/// A slot removed whose checkout holds uncommitted files.
+const SLOT_DIRTY: &str = "fleet.slot_dirty";
+/// The pool's one slot, removed.
+const SLOT_LAST: &str = "fleet.slot_last";
+/// git refused, and this is what it said. A 500.
+const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
 
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
@@ -184,6 +203,67 @@ where
             }
         }
         Ok(slots)
+    }
+
+    /// A person's change to a repository's pool, from Cleanup's bay grid. The
+    /// pool writes it beside the slots, so `armada worktree lease` honours it
+    /// too and it outlives Fleet.
+    pub(crate) fn change_slot_pool(
+        &self,
+        asked: ChangeSlotPool,
+        manifest_id: Option<&ManifestId>,
+    ) -> Result<SlotPoolChanged, Refusal> {
+        let served = self.served_named(manifest_id)?;
+        let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
+        let change = match (asked.act, asked.slot) {
+            (SlotAct::Add, _) => SlotChange::Add,
+            (SlotAct::Remove, Some(n)) => SlotChange::Remove(n),
+            (SlotAct::Close, Some(n)) => SlotChange::Close(n),
+            (SlotAct::Open, Some(n)) => SlotChange::Open(n),
+            (_, None) => {
+                return Err(Refusal::Unacceptable(raised(
+                    NO_SUCH_SLOT,
+                    String::from("no slot named"),
+                )))
+            }
+        };
+        let slot = self
+            .vcs()
+            .change_slot_pool(&pool_of(&served), change)
+            .map_err(|why| match why {
+                SlotRefused::NoSuchSlot(n) => {
+                    Refusal::Unacceptable(raised(NO_SUCH_SLOT, format!("no slot-{n}")))
+                }
+                SlotRefused::Held(by) => {
+                    Refusal::IllegalMove(raised(SLOT_HELD, format!("held by {by}")))
+                }
+                SlotRefused::Stranded(what) => {
+                    Refusal::IllegalMove(raised(SLOT_STRANDED, format!("stranded, holding {what}")))
+                }
+                SlotRefused::Busy => {
+                    Refusal::IllegalMove(raised(SLOT_BUSY, String::from("a lease is under way")))
+                }
+                SlotRefused::NotACheckout => Refusal::IllegalMove(raised(
+                    SLOT_NOT_A_CHECKOUT,
+                    String::from("not a checkout"),
+                )),
+                SlotRefused::Dirty(files) => Refusal::IllegalMove(raised(
+                    SLOT_DIRTY,
+                    format!(
+                        "{} uncommitted, first {}",
+                        files.len(),
+                        files.first().map(String::as_str).unwrap_or_default()
+                    ),
+                )),
+                SlotRefused::LastSlot => {
+                    Refusal::IllegalMove(raised(SLOT_LAST, String::from("the last slot")))
+                }
+                SlotRefused::Vcs(said) => Refusal::Fault(raised(SLOT_UNCHANGED, said)),
+            })?;
+        Ok(SlotPoolChanged {
+            manifest_id: ManifestId::from(served.manifest().id()),
+            slot,
+        })
     }
 
     /// Whether a Job that has never had a worktree would find no slot free in

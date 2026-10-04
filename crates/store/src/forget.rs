@@ -130,6 +130,9 @@ pub struct Forgotten {
     /// The Job's retro and its items, its Drones' notes on what got in their
     /// way, and the door each of its moves came through. `docs/concepts/retro.md`.
     pub retros: usize,
+    /// What a person said while walking the Job's served mock, one row each.
+    /// The kept frames are files under the machine directory, not rows.
+    pub walk_notes: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -198,6 +201,7 @@ impl Forgotten {
             "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
                 &mut self.retros
             }
+            "job_walk_notes" => &mut self.walk_notes,
             _ => return None,
         })
     }

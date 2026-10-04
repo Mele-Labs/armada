@@ -14,7 +14,7 @@ import type { StepActivity, StepPhase, StepPhasePart } from "@armada/components"
 import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import { isWorking, type DroneView } from "./draft/drone";
-import { checksOf, isRunning, isWaiting } from "./gates";
+import { checksAgain, checksOf, isRunning, isWaiting } from "./gates";
 
 export type TrackPart = StepPhasePart;
 
@@ -22,8 +22,8 @@ export type TrackPart = StepPhasePart;
 const NAME: Record<StepPhase, string> = { drone: "Drones", checks: "Checks", judge: "Judge", waiting: "You" };
 
 /**
- * The track of `step`, or `undefined` on a step neither running nor waiting on
- * a person.
+ * The track of `step`, or `undefined` on a step neither running, waiting on a
+ * person, nor stopped with its Checks running again.
  *
  * **Only the parts the step declares**: Drones always, Checks where it declares
  * any, a Judge where it declares one. A person's part is drawn only while one
@@ -41,7 +41,10 @@ export function trackOf(
   activity: StepActivity,
   drones: readonly DroneView[],
 ): TrackPart[] | undefined {
-  if (activity !== "running" && activity !== "awaiting_human") return undefined;
+  // A stopped step whose Checks are running again draws too: its Drones are
+  // gone and the gate is the part now (the owner's Job 3, 4 Oct 2026).
+  const again = activity === "stopped" && checksAgain(step);
+  if (activity !== "running" && activity !== "awaiting_human" && !again) return undefined;
   const parts: StepPhase[] = [
     "drone",
     ...((step.checks ?? []).length > 0 ? (["checks"] as const) : []),
@@ -71,8 +74,9 @@ export function trackOf(
           ? { phase: "drone", label: dronesSaid(working) }
           : undefined;
   const at = nowIs === undefined ? -1 : parts.indexOf(nowIs.phase);
-  // Nothing live: the Drones are done where one is resting, and the rest is to come.
-  const doneTo = at !== -1 ? at : onStep.some((one) => one.at_rest_since !== undefined) ? 1 : 0;
+  // Nothing live: the Drones are done where one is resting or the step is being
+  // checked again, and the rest is to come.
+  const doneTo = at !== -1 ? at : again || onStep.some((one) => one.at_rest_since !== undefined) ? 1 : 0;
   return parts.map((phase, index) =>
     index === at ? part(phase, "now", nowIs!.label) : part(phase, index < doneTo ? "done" : "next"),
   );

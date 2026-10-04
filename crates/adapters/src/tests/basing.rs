@@ -186,7 +186,7 @@ fn the_branches_are_listed_with_the_base_first_and_marked() {
 }
 
 /// A branch made where a named branch is, for a Job approved to start from a
-/// branch that did not exist yet (23.19). **One already there is refused**, so
+/// branch that did not exist yet (23.21). **One already there is refused**, so
 /// nothing a person made is moved.
 #[test]
 fn a_branch_is_made_at_its_start_point_and_never_over_one_already_there() {

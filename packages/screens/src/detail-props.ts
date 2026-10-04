@@ -341,7 +341,9 @@ export type JobDetailProps = {
    * Ahead of its route (#1694), so the answer is `Not implemented`.
    */
   onApproveWave?: (jobId: string, jobs: readonly string[]) => void;
-  onRequestChanges: (jobId: string, note: string) => void;
+  onRequestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => void;
+  /** Take back a note made walking the Job's work, before it is sent. */
+  onRemoveWalkNote?: (jobId: string, noteId: string) => void;
   onReject: (jobId: string) => void;
   /**
    * The fifth answer at the same gate: the comments a person picked off the

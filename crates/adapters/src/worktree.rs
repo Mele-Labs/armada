@@ -178,6 +178,14 @@ impl Vcs for GitVcs {
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
         crate::leasing::jobs::readings(pool)
     }
+
+    fn change_slot_pool(
+        &self,
+        pool: &SlotPool,
+        change: adapter_traits::SlotChange,
+    ) -> Result<u32, adapter_traits::SlotRefused> {
+        crate::leasing::jobs::change(pool, change)
+    }
 }
 
 /// **The pre-flight v1 learned to write.**

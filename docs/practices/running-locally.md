@@ -263,7 +263,8 @@ where the column is at its rail, with the scenario in its tooltip. Pressing it
 opens the list over the content, and only then: type to narrow it, which is a
 fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
 what is left, Enter takes the top row and Esc gives up. Every row is a link to
-this page on `?scenario=`, which is the reload that puts the window on it.
+this page on `?scenario=`, which is the reload that puts the window on it. Every
+walk follows the scenarios, under *Walks*, as a link on `?walk=`.
 
 | Scenario | What the window holds |
 |---|---|
@@ -388,9 +389,10 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 
 | | |
 |---|---|
-| **The link** | `?walk=<name>` on a running mock, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
+| **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
 | **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **Inside Bridge** | A Prototype held at Build serves its own worktree's mock, and opening the Job opens it in Bridge's window; **Walk in Bridge** on the Job's lead opens it again. The picker chooses a walk, and ⌥⌘A there leaves a note on the Job that goes to its Drone with Request changes. The `prototype-walked` scenario plays it in a browser |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
 
 **A walk stops on the step whose target never came.** After five seconds its
@@ -608,6 +610,10 @@ already a file read away.
 armada worktree lease <branch>      # a warm slot on a new branch; prints its path
 armada worktree release [<path>]    # give it back; the slot you stand in by default
 armada worktree --status            # every slot, who holds it, and for how long
+armada worktree add                 # one more slot on this machine; the next lease makes it
+armada worktree remove <n>          # slot n gone, if it is free or not made
+armada worktree close <n>           # no lease takes slot n until it is opened
+armada worktree open <n>            # lease it again
 ```
 
 **What it does:** takes one of the repository's permanent worktrees under
@@ -637,6 +643,8 @@ and cuts from what was last fetched.
 | A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
 | `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, release it by path, or `armada clean --force` |
+| `slot-3 closed` in `--status` | A person closed it. No lease takes it until `armada worktree open 3`, or Reopen on its bay in Cleanup |
+| `waiting for a worktree slot: 2 of 8 closed, the rest held` | Every open slot is held. Open one, add one, or wait |
 | `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path or with `armada clean --force` |
 
 **The lease is held for the process that ran your shell** — the agent session,

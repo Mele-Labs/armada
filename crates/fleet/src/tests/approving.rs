@@ -382,7 +382,7 @@ async fn the_dispatch_settings_reach_the_proposal_and_leave_it_at_its_gate() {
     );
 }
 
-/// **A `from_ref` the repository lacks is made at its start point** (23.19),
+/// **A `from_ref` the repository lacks is made at its start point** (23.21),
 /// and the Job lands in it where `target` names it too. A start point the
 /// repository lacks is refused by name, and makes nothing.
 #[tokio::test]

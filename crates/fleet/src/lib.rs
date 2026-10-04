@@ -28,7 +28,7 @@ pub mod adopting;
 pub mod adrift;
 /// What a person changes on a proposal, and the Job it leaves at the press.
 /// Spike 022, slice 4.
-/// Where an approved Job lands, set once after its approval. 23.20.
+/// Where an approved Job lands, set once after its approval. 23.22.
 pub mod aiming;
 pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
@@ -294,7 +294,7 @@ pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;
-/// A step's tuning at the approval press. 23.18.
+/// A step's tuning at the approval press. 23.20.
 pub mod tuned;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
@@ -303,6 +303,10 @@ mod unattended;
 /// sweep `noticing` already runs.
 mod under_review;
 pub mod underway;
+/// What a person pointed at while walking a Job's served mock, kept on the
+/// Job and carried to the next Drone. Protocol 23.16.
+mod walk_notes;
+mod walking;
 pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.

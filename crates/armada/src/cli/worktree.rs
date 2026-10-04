@@ -1,5 +1,6 @@
-//! `armada worktree`'s three forms: `lease <branch>`, `release [<path>]` and
-//! `--status`, the merge line's flag for the same question.
+//! `armada worktree`'s forms: `lease <branch>`, `release [<path>]`, the four
+//! that change the pool on this machine — `add`, `remove`, `close` and `open`
+//! — and `--status`, the merge line's flag for the same question.
 
 use std::fmt;
 use std::path::PathBuf;
@@ -15,9 +16,17 @@ pub enum WorktreeAct {
     Release { path: Option<PathBuf> },
     /// `--status`: every slot, and who holds it since when.
     Status,
+    /// `add`: one more slot on this machine, made by the next lease.
+    Add,
+    /// `remove <n>`: the slot gone, refused unless it is free or not made.
+    Remove { slot: usize },
+    /// `close <n>`: no lease takes it until it is reopened.
+    Close { slot: usize },
+    /// `open <n>`.
+    Open { slot: usize },
 }
 
-/// The three forms, as `armada help` prints them.
+/// The forms, as `armada help` prints them.
 pub(super) fn usage(out: &mut fmt::Formatter<'_>) -> fmt::Result {
     for (shape, what) in [
         (
@@ -25,6 +34,16 @@ pub(super) fn usage(out: &mut fmt::Formatter<'_>) -> fmt::Result {
             "a warm slot on a new branch; prints its path",
         ),
         ("release [<path>]", "give it back, once clean and landed"),
+        (
+            "add             ",
+            "one more slot on this machine; the next lease makes it",
+        ),
+        ("remove <n>      ", "slot n gone, if it is free or not made"),
+        (
+            "close <n>       ",
+            "no lease takes slot n until it is opened",
+        ),
+        ("open <n>        ", "lease slot n again"),
         (
             "--status        ",
             "every slot, who holds it, and since when",
@@ -69,6 +88,24 @@ pub(super) fn read(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
         Some("release") => WorktreeAct::Release {
             path: positional.get(1).map(PathBuf::from),
         },
+        Some("add") => WorktreeAct::Add,
+        Some(form @ ("remove" | "close" | "open")) => {
+            let Some(slot) = positional
+                .get(1)
+                .map(|n| n.trim_start_matches("slot-"))
+                .and_then(|n| n.parse().ok())
+            else {
+                faults.push(Fault::NoSlot {
+                    form: form.to_string(),
+                });
+                return None;
+            };
+            match form {
+                "remove" => WorktreeAct::Remove { slot },
+                "close" => WorktreeAct::Close { slot },
+                _ => WorktreeAct::Open { slot },
+            }
+        }
         other => {
             faults.push(Fault::WorktreeActUnknown {
                 given: other.unwrap_or("").to_string(),
@@ -76,7 +113,8 @@ pub(super) fn read(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
             return None;
         }
     };
-    if let Some(extra) = positional.get(2..).filter(|extra| !extra.is_empty()) {
+    let takes = if act == WorktreeAct::Add { 1 } else { 2 };
+    if let Some(extra) = positional.get(takes..).filter(|extra| !extra.is_empty()) {
         faults.push(Fault::TooMany {
             verb: format!("{WORKTREE} {}", positional[0]),
             extra: extra.to_vec(),

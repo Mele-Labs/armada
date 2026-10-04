@@ -96,7 +96,7 @@ section 5, *A task's Drone*.
 **Told what the person who approved the Job left for its part**, where they
 left anything at the press: FOR THIS PART, right after the step block,
 quoting the words as `redirect_drone`'s block does. A step nobody tuned has
-no such block. Since protocol 23.18.
+no such block. Since protocol 23.20.
 
 **Asked, in one line, what got in its way**, by the `in_the_way` field of the
 evidence tool and its description alone: the prompt says nothing more about

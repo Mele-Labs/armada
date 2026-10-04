@@ -30,7 +30,12 @@ async fn a_jobs_server_says_which_worktree_and_branch_it_serves() {
     let job = crate::tests::servers::a_running_job(&fleet, &home).await;
 
     let (started, _) = Arc::clone(&fleet)
-        .hold_server(Place::Job(job.clone()), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Job(job.clone()),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("it starts");
     assert!(
@@ -64,6 +69,7 @@ async fn a_main_checkout_server_starts_level_with_the_checkout_it_serves() {
             Place::Checkout(Checkout::main(fleet.first())),
             "storybook",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("it starts");
@@ -100,6 +106,7 @@ async fn work_landing_tells_the_server_held_on_the_main_checkout() {
             Place::Checkout(Checkout::main(fleet.first())),
             "idle",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("it starts");
@@ -204,6 +211,7 @@ async fn work_landing_as_the_server_comes_up_is_still_counted() {
             Place::Checkout(Checkout::main(fleet.first())),
             "idle",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("it starts");
@@ -253,6 +261,7 @@ async fn a_name_fleet_does_not_know_says_when_fleet_last_read_the_file() {
             Place::Checkout(Checkout::main(served.clone())),
             "mock",
             StartedBy::Person,
+            false,
         )
         .await
         .expect_err("Fleet holds no `mock`");
@@ -274,6 +283,7 @@ async fn a_name_fleet_does_not_know_says_when_fleet_last_read_the_file() {
             Place::Checkout(Checkout::main(served)),
             "mock",
             StartedBy::Person,
+            false,
         )
         .await
         .expect_err("Fleet still holds no `mock`");
@@ -391,11 +401,17 @@ async fn two_checkouts_of_one_repository_serve_at_once_on_their_own_spans() {
             Place::Checkout(Checkout::main(fleet.first())),
             "storybook",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("the main checkout's starts");
     let (there, _) = Arc::clone(&fleet)
-        .hold_server(Place::Checkout(checkout), "storybook", StartedBy::Person)
+        .hold_server(
+            Place::Checkout(checkout),
+            "storybook",
+            StartedBy::Person,
+            false,
+        )
         .await
         .expect("the worktree's starts");
 

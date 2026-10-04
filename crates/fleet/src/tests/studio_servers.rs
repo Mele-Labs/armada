@@ -196,7 +196,8 @@ async fn a_command_is_not_a_server_and_a_server_is_not_a_run() {
                         fleet.first()
                     )),
                     "fmt",
-                    ipc::StartedBy::Person
+                    ipc::StartedBy::Person,
+                    false
                 )
                 .await,
             Err(Unservable::IsACommand { .. })

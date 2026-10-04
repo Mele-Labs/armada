@@ -1,5 +1,5 @@
 //! Where a Job lands, set after its approval for a Job that named nowhere.
-//! Since 23.20. **Only once, and only before the work goes out**: a pull request opens against the target, so a target moved after it
+//! Since 23.22. **Only once, and only before the work goes out**: a pull request opens against the target, so a target moved after it
 //! would be a record the forge disagrees with.
 
 use std::fmt;

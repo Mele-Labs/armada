@@ -2,7 +2,7 @@
 //!
 //! **Its own file for size**, beside `tests.rs` and for that file's reason:
 //! `vcs.rs` fakes three traits and was near the 900 lines the gate refuses at.
-//! A branch cut for a Job is here too, for the same reason.
+//! A branch cut for a Job, and a ref moved, are here too, for the same reason.
 
 use adapter_traits::{CommitTime, Committed, Worktree};
 
@@ -95,6 +95,16 @@ impl FakeVcs {
                 })
             }
         }
+    }
+}
+
+impl FakeVcs {
+    /// Move a ref after the Fleet holding this fake exists.
+    pub fn move_ref_to(&self, r#ref: impl Into<String>, commit: impl Into<String>) {
+        self.refs
+            .lock()
+            .expect("not poisoned")
+            .insert(r#ref.into(), commit.into());
     }
 }
 

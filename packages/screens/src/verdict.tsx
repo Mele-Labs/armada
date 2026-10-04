@@ -570,7 +570,8 @@ export type VerdictSlotAtGateArgs = {
   /** Open the issue a finding became. #906. */
   onOpenFindingIssue?: (jobId: string, finding: string) => void;
   onApproveReview: (jobId: string) => void;
-  onRequestChanges: (jobId: string, note: string) => void;
+  onRequestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => void;
+  onRemoveWalkNote?: (jobId: string, noteId: string) => void;
   onReject: (jobId: string) => void;
   onTakeUpRemarks: (jobId: string, remarks: string[]) => void;
   onOpenRemarkLink: (jobId: string, remarkId: string) => void;
@@ -622,6 +623,7 @@ export function verdictSlotAtGate({
   onOpenFindingIssue,
   onApproveReview,
   onRequestChanges,
+  onRemoveWalkNote,
   onReject,
   onTakeUpRemarks,
   onOpenRemarkLink,
@@ -718,6 +720,8 @@ export function verdictSlotAtGate({
           onMerge={onMergePullRequest}
           onApprove={onApproveReview}
           onRequestChanges={onRequestChanges}
+          walkNotes={whole?.walk_notes ?? []}
+          {...(onRemoveWalkNote === undefined ? {} : { onRemoveWalkNote })}
           onReject={onReject}
           onTakeUpRemarks={onTakeUpRemarks}
           onOpenRemarkLink={onOpenRemarkLink}

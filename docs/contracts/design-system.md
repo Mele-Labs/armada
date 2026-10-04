@@ -364,13 +364,17 @@ new one. The mapping is declared, so it is read rather than inferred.
 --slot-stranded-bg var(--status-awaiting-review-bg)
 --slot-warm        var(--status-escalated)
 --slot-cold        var(--status-not-started)
+--slot-closed      var(--status-rejected)
+--slot-closed-bg   var(--status-rejected-bg)
 ```
 
 **A worktree slot's bay takes its slot's hue.** On Cleanup a held bay is a
 filled card under a `--slot-held` band, a free one an open dashed outline in
 `--slot-free`, a stranded one hatched from `--slot-stranded-bg`, and the build
 mark `--slot-warm` or `--slot-cold`. A slot not made, or not a checkout, takes
-none. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
+none. A slot a person closed is shuttered in `--slot-closed`, rejected's
+violet, because closing is a person declining to lease it; a held one closed
+keeps its band and holder and takes the closed mark beside its state. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
 say which slots were available. Like a verdict, it never sums onto a Job.
 
 **Step activity answers where the work is.** `retrying` and
@@ -699,7 +703,10 @@ as a machine's, so a step waiting on him is as easy to spot; the sweep does not 
 a bar along the top would say *still working* a second time about the same
 card. The step panel's header draws the same track. The owner chose it on
 3 Oct 2026, over a mark on the state pill that was too easy to miss.
-`StepPhaseTrack`.
+`StepPhaseTrack`. A stopped step whose Checks a person sent to run again
+draws it too, Checks the part now, for as long as the gate's live set
+stands — its state still says stopped, and nothing else on the card would
+say the Checks are running.
 
 **A control waiting on Fleet sweeps a bar along its bottom edge**, from
 the press until Fleet answers or refuses. Its label says what it is

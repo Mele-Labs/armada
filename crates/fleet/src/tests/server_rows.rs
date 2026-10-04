@@ -41,6 +41,7 @@ async fn work_landing_as_the_server_ends_is_still_counted() {
             Place::Checkout(Checkout::main(fleet.first())),
             "idle",
             StartedBy::Person,
+            false,
         )
         .await
         .expect("it starts");

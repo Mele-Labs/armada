@@ -263,7 +263,7 @@ where
     /// worktree cannot be cut from a branch that is not there, and a pull
     /// request cannot open against one. **A `from_ref` it lacks is answered
     /// with the branch to make**, where `start_point` names one it holds, and
-    /// `target` may name that branch too. Since 23.19.
+    /// `target` may name that branch too. Since 23.21.
     fn branches_held<'a>(
         &self,
         served: &crate::repositories::Served,

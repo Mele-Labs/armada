@@ -1,5 +1,5 @@
 //! A step's phase, and the two grants a canvas draws beside it, as Fleet
-//! serves them before a dispatch and once a Job holds them. Since 23.17.
+//! serves them before a dispatch and once a Job holds them. Since 23.19.
 
 use api::Queries;
 use testkit::FakeWorkProduct;

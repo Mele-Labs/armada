@@ -147,6 +147,36 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.fake_dismiss_finding(job_id, dismissed).await
     }
+    /// Keeps nothing: answers with the one note just captured, so a route test
+    /// can read the shape back. A real Fleet's keeping is `fleet`'s to test.
+    async fn capture_walk_note(
+        &self,
+        job_id: JobId,
+        capture: ipc::CaptureWalkNote,
+    ) -> Result<ipc::WalkNotes, Refusal> {
+        self.unmoved(&job_id)?;
+        Ok(ipc::WalkNotes {
+            notes: vec![ipc::WalkNote {
+                id: "01WALKNOTE".to_string(),
+                said: capture.said,
+                at: ipc::Instant::carried("2026-10-04T10:00:00.000Z"),
+                element: capture.capture.element.tag,
+                selector: capture.capture.selector,
+                location: capture.capture.location,
+                served: capture.capture.served,
+                frame: None,
+                sent: false,
+            }],
+        })
+    }
+    async fn remove_walk_note(
+        &self,
+        job_id: JobId,
+        _remove: ipc::RemoveWalkNote,
+    ) -> Result<ipc::WalkNotes, Refusal> {
+        self.unmoved(&job_id)?;
+        Ok(ipc::WalkNotes { notes: Vec::new() })
+    }
     async fn reject_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_reject_job(job_id).await
     }
@@ -521,6 +551,17 @@ impl Commands for FakeDaemon {
         job_id: JobId,
     ) -> Result<WorktreeReclaimed, Refusal> {
         self.fake_reclaim_worktree(job_id).await
+    }
+    async fn change_slot_pool(
+        &self,
+        _change: ipc::ChangeSlotPool,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::SlotPoolChanged, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fleet.no_such_slot",
+            String::from("the fake daemon serves no pool"),
+            crate::tests::shapes::run_id(),
+        )))
     }
     async fn delete_branch(
         self: std::sync::Arc<Self>,
