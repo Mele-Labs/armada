@@ -137,3 +137,20 @@ test("one that comes up while the Job is open opens then, and once", async () =>
   await new Promise((settled) => setTimeout(settled, 50));
   expect(openCaptureWindow).toHaveBeenCalledTimes(1);
 });
+
+test("closed, it opens again from the Job's lead, as often as wanted", async () => {
+  const { openCaptureWindow } = await openedWith([{ ...SERVING, for_review: true }]);
+  await expect.poll(() => openCaptureWindow.mock.calls.length).toBe(1);
+
+  await page.getByRole("button", { name: "Walk in Bridge" }).click();
+  await page.getByRole("button", { name: "Walk in Bridge" }).click();
+
+  await expect.poll(() => openCaptureWindow.mock.calls.length).toBe(3);
+  expect(openCaptureWindow).toHaveBeenLastCalledWith(SERVING.id, SERVING.links[0]!.url);
+});
+
+test("the lead offers nothing to walk where no server is up for review", async () => {
+  await openedWith([SERVING]);
+  await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Walk in Bridge" })).not.toBeInTheDocument();
+});

@@ -37,6 +37,7 @@ import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
 import { OverviewBoard } from "./OverviewBoard";
+import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
 import type { CheckAt } from "./tab-record";
 
@@ -722,6 +723,8 @@ export function OverviewTab(props: OverviewTabProps) {
   const canvas = whole === null || whole.steps.length === 0 ? undefined : workflowRunOf({ whole, groups });
   const tasks = (whole?.work_plan?.tasks ?? []).filter((task) => task.state !== "dropped");
 
+  // Reopens Bridge's window on this Job's review server, as often as wanted.
+  const walking = walkAct(job.id, rehearsal.servers, rehearsal.onWalkInBridge, onSaid);
   const inside = (
     <OverviewBoard
       // The quiet line stands in while the read is out; any other lead is
@@ -729,11 +732,12 @@ export function OverviewTab(props: OverviewTabProps) {
       lead={{
         ...lead,
         act:
-          stepActs === undefined ? (
+          stepActs === undefined && walking === null ? (
             leadAct
           ) : (
             <>
               {stepActs}
+              {walking}
               {leadAct}
             </>
           ),
