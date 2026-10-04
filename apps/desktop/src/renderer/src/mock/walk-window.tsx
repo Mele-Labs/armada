@@ -6,7 +6,7 @@
 // resized from its corner, and nothing under it is blocked — the real one is
 // a window of its own, and the owner moves between Jobs with it open.
 //
-// **Capture lands on the Job**, as main's window does since protocol 23.16:
+// **Capture lands on the Job**, as main's window does since protocol 23.18:
 // Capture or ⌥⌘A arms it, a press inside the page picks what is under it, and
 // the note is handed to `onNote`. The page is this mock on the same origin, so
 // the frame's document is reachable — main asks its page through a script.
@@ -136,7 +136,8 @@ function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string;
     const ring = (on: HTMLElement | null) => {
       if (ringed !== null) ringed.style.outline = "";
       ringed = on;
-      if (on !== null) on.style.outline = "2px solid #4aa8ff";
+      // The framed page is this mock, so its own tokens draw the ring.
+      if (on !== null) on.style.outline = "var(--focus-ring)";
     };
     const over = (event: MouseEvent) => ring(event.target as HTMLElement);
     const press = (event: MouseEvent) => {
