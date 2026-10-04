@@ -1,5 +1,6 @@
-//! Running one step's Checks, several at a time, bounded — and, before them,
-//! what their `requires` names. [`beforehand`] owns that half.
+//! Running one step's Checks — several at a time and bounded, or one at a
+//! time at the step gate — and, before them, what their `requires` names.
+//! [`beforehand`] owns that half; [`Reading`] says which run this is.
 //!
 //! # One observation per declared Check, in the step's order
 //!
@@ -34,6 +35,9 @@
 //! most take one, a Check may declare more — in one line with every other
 //! Job's. `crate::places`. #1063, #1102.
 //!
+//! **The step gate runs one Check at a time, narrowed the merge line's way.**
+//! [`Reading`]; why is `docs/concepts/manifest.md`'s, from Job 3. 4 Oct 2026.
+//!
 //! **Over 500 lines.** `ports` and `env` thread through both halves already
 //! here, for `docs/concepts/manifest.md`'s Ports section: it reaches every
 //! Command, and splitting by function would separate a Check from the
@@ -45,7 +49,7 @@ use std::time::Duration;
 
 use adapter_traits::Footprint;
 use checks_runner::{
-    resolve_width, Attempt as RunAttempt, CheckWidth, Narrowed, Output, Writing, WIDTH_ENV,
+    resolve_width, Attempt as RunAttempt, CheckWidth, Narrowed, Output, Reach, Writing, WIDTH_ENV,
 };
 use core_model::{Attempt, Prerequisite, ResolvedCheck, RunsAt, TaskCounts};
 use tokio::task::JoinSet;
@@ -124,6 +128,29 @@ impl Stop {
     }
 }
 
+/// Which run a batch is, and so how it reads the change and how many of its
+/// Checks run at once. **One value rather than two flags**, so a run that
+/// narrows the gate's way and runs several at once cannot be asked for.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Reading<'a> {
+    /// Every Check whole, several at a time within the room: a proof after a
+    /// merge, a merge round, a fix draft, a Drone's run that asked for all of
+    /// it, and a test run alone.
+    Whole,
+    /// A Drone's own run over what it changed, several at a time: [`narrowed`].
+    DronesOwn,
+    /// The step gate: one Check at a time, each narrowed over what the step's
+    /// own change reaches — [`at_the_gate`]. A red run again alone takes this
+    /// reading too, so it reruns what was ruled on. 4 Oct 2026, after Job 3.
+    StepGate(&'a Reach),
+}
+
+impl Reading<'_> {
+    fn one_at_a_time(self) -> bool {
+        matches!(self, Reading::StepGate(_))
+    }
+}
+
 /// Whether the gate declines to run this Check, and what it writes down when it
 /// does.
 ///
@@ -158,9 +185,8 @@ fn not_covered(check: &ResolvedCheck, touched: &[String]) -> Option<Observed> {
 /// spawned and nothing is ordered by it.
 ///
 /// **Three answers and each is a different sentence.** The Check runs whole,
-/// which is what a Check with no `narrow` does and what every gate run does;
-/// it runs a narrower command; or it is not run at all, because nothing the
-/// change touched feeds it. The third is a skip and not a pass — a Drone told
+/// which is what a Check with no `narrow` does; it runs a narrower command; or
+/// it is not run at all, because nothing the change touched feeds it. The third is a skip and not a pass — a Drone told
 /// `test` passed on a change that touched no crate would have been told
 /// something false about its own work.
 pub(crate) fn narrowed(
@@ -213,6 +239,50 @@ pub(crate) fn narrowed(
     }
 }
 
+/// What a Check runs at the step gate: the merge line's reading, over what the
+/// step's own change reaches — `checks_runner::narrowed_over`.
+///
+/// **Stricter than [`narrowed`], because this one rules.** Only `under`
+/// narrows, any covered path it cannot name runs the Check whole, a verbatim
+/// `narrow` never narrows, and no runner's description is asked: the merge line
+/// asks none either. A change reaching only what the Check excludes is a skip,
+/// as [`narrowed`]'s is.
+pub(crate) fn at_the_gate(check: &ResolvedCheck, name: &str, run: &str, reach: &Reach) -> Planned {
+    let command = |narrowed_to| Planned::Command {
+        name: name.to_string(),
+        run: run.to_string(),
+        narrowed_to,
+    };
+    let Reach::Paths(reached) = reach else {
+        return command(None);
+    };
+    match checks_runner::narrowed_over(check.narrowing(), reached, |path| {
+        check.covers(std::slice::from_ref(path))
+    }) {
+        Narrowed::Whole => command(None),
+        Narrowed::To(narrowed_to) => command(Some(narrowed_to)),
+        Narrowed::Nothing => Planned::Already(Observed::Skipped {
+            covers: check
+                .narrowing()
+                .and_then(core_model::Narrowing::under)
+                .unwrap_or_default()
+                .to_string(),
+        }),
+    }
+}
+
+/// Whether the step gate has a Check it could narrow over this change, which
+/// is the only reason to ask `cargo tree` what the change reaches.
+pub(crate) fn narrows_at_the_gate(checks: &[ResolvedCheck], touched: &[String]) -> bool {
+    checks.iter().any(|check| {
+        check
+            .narrowing()
+            .and_then(core_model::Narrowing::under)
+            .is_some()
+            && check.covers(touched)
+    })
+}
+
 /// The command this Check's runner narrows it to for these paths, where it has
 /// one.
 ///
@@ -234,8 +304,9 @@ pub(crate) fn by_its_runner(check: &ResolvedCheck, touched: &[String]) -> Option
 pub(crate) struct Completed {
     pub observed: Observed,
     /// The command this Check was narrowed to, where it was narrowed at all.
-    /// **`None` on every gate run**, which never narrows, and on a narrowed run
-    /// of a Check the Manifest gave no narrower way to run.
+    /// `None` on a whole run, and on a narrowed one of a Check the Manifest gave
+    /// no narrower way to run. **A step gate's run sets it too** since 4 Oct
+    /// 2026, wherever [`at_the_gate`] narrowed.
     pub narrowed_to: Option<String>,
     /// The Check's name and its output, for a Check that ran a command. `None`
     /// for a skip and for `diff_nonempty`, neither of which prints anything.
@@ -436,6 +507,8 @@ fn looked_for(worktree: &Path, target: &str) -> Artifact {
 /// `plan` is the Job's plan counts off the store, handed in for `ports`' reason;
 /// `None` is a Job no plan was recorded for.
 /// `room` is where each command waits for a place on the machine — [`Room`].
+/// `reading` is which run this is, and so what each Check reads and how many
+/// run at once — [`Reading`].
 ///
 /// `dry_run`, `attempt` and `footprint_now` are what a gate hands in to reuse a
 /// Check instead of asking it again; a dry run itself, and `crate::proving`'s
@@ -453,7 +526,7 @@ pub(crate) async fn ran(
     checks: &[ResolvedCheck],
     touched: &[String],
     moved: bool,
-    narrow: bool,
+    reading: Reading<'_>,
     worktree: &Path,
     budget: Duration,
     room: &Room,
@@ -472,6 +545,8 @@ pub(crate) async fn ran(
     let width = room.width();
     let env = &room.handing_down(env);
     let trusted = reuse::trusted(dry_run, attempt, footprint_now);
+    // **A reused row is a whole pass**, since `KeptDryRun::of` keeps no other,
+    // so it stands in for a narrowed gate run as well: it measured more.
     let mut planned: Vec<Planned> = checks
         .iter()
         .map(
@@ -480,9 +555,11 @@ pub(crate) async fn ran(
                 None => match not_covered(check, touched) {
                     Some(skipped) => Planned::Already(skipped),
                     None => match check {
-                        ResolvedCheck::ManifestCheck { name, run, .. } => {
-                            narrowed(check, name, run, touched, narrow)
-                        }
+                        ResolvedCheck::ManifestCheck { name, run, .. } => match reading {
+                            Reading::Whole => narrowed(check, name, run, touched, false),
+                            Reading::DronesOwn => narrowed(check, name, run, touched, true),
+                            Reading::StepGate(reach) => at_the_gate(check, name, run, reach),
+                        },
                         ResolvedCheck::DiffNonempty => Planned::Already(Observed::Diff { moved }),
                         ResolvedCheck::ArtifactExists { target } => {
                             Planned::Already(Observed::Artifact(looked_for(worktree, target)))
@@ -643,7 +720,11 @@ pub(crate) async fn ran(
                 }
             }
         }
-        let wants_a_turn = halting.is_some() && !queued.is_empty();
+        // **The step gate's next Check waits for its last to end**, whatever
+        // room the machine has: its Checks never run beside each other.
+        let wants_a_turn = halting.is_some()
+            && !queued.is_empty()
+            && !(reading.one_at_a_time() && !running.is_empty());
         if !wants_a_turn {
             ask = None;
             if running.is_empty() {

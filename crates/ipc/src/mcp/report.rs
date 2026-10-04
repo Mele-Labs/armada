@@ -183,8 +183,8 @@ const NOT_A_VERDICT: &str = "This is not a verdict and nothing has advanced. You
 const NARROWED: &str = "These checks were narrowed to what you changed, so a pass here says \
                         those parts hold and not that the repository does. This is not a \
                         verdict and nothing has advanced. Your work is checked again when \
-                        you submit, against the whole of every Check, and only that run \
-                        decides anything.";
+                        you submit, against every Check over everything your change \
+                        reaches, and only that run decides anything.";
 
 impl fmt::Display for CheckReport {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {

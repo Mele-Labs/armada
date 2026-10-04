@@ -33,7 +33,6 @@ mod merge_in;
 mod onto_main;
 mod preflight;
 mod prepare;
-mod reach;
 mod repo;
 pub mod runner;
 mod runner_loop;

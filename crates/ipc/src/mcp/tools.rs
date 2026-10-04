@@ -716,7 +716,7 @@ fn checks_tool() -> Value {
              than minutes, and asking that way costs you nothing — only a run of \
              every check counts against the limit your brief states. Call it \
              whenever you want to know whether the work holds up. It is not a \
-             verdict and it advances nothing — the checks are run again whole \
+             verdict and it advances nothing — the checks are run again \
              when you submit, and only that run decides anything. Submitting \
              while they run stops them, and no report comes. A second call while \
              one is still running is refused, and a part whose brief names no \

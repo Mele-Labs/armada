@@ -46,6 +46,9 @@ pub(crate) struct Again<'a> {
     pub env: &'a [(String, String)],
     pub holding_handoff: bool,
     pub attempt: Attempt,
+    /// What the gate's change reached, so the whole run alone narrows exactly
+    /// as the gate's did: it reruns what was ruled on. 4 Oct 2026.
+    pub reach: &'a checks_runner::Reach,
     /// The gate's own writer: each run here is said on the step's own rows,
     /// so a red being run again reads running rather than red.
     pub announcing: &'a Announcing,
@@ -101,7 +104,7 @@ pub(crate) async fn confirmed(
         &alone,
         again.touched,
         false,
-        false,
+        checking::Reading::StepGate(again.reach),
         again.worktree,
         again.budget,
         again.room,
@@ -128,6 +131,7 @@ pub(crate) async fn confirmed(
             check,
             output: printed,
             alone,
+            narrowed_to: done.narrowed_to,
         };
         match output.iter_mut().find(|had| had.check == kept.check) {
             Some(had) => *had = kept,
@@ -195,7 +199,7 @@ async fn one_alone(
         std::slice::from_ref(&one),
         &[],
         false,
-        false,
+        checking::Reading::Whole,
         again.worktree,
         again.budget,
         again.room,
@@ -225,6 +229,10 @@ async fn one_alone(
 /// The Check as it runs alone, asking for every place — `crate::places`
 /// clamps that to the limit in force. `run` replaces its command for one test.
 /// No `requires`: the gate's own run met them in this worktree already.
+///
+/// **The whole run keeps its `when` and `narrow`**, so the gate's reading
+/// narrows it to the command the gate ruled on; one test keeps neither, since
+/// its command is its own.
 pub(crate) fn holding_every_place(
     check: &ResolvedCheck,
     run: Option<String>,
@@ -233,6 +241,8 @@ pub(crate) fn holding_every_place(
         name,
         run: whole,
         expect_exit_code,
+        when,
+        narrow,
         one_test,
         runs_at,
         width,
@@ -246,9 +256,9 @@ pub(crate) fn holding_every_place(
         name: name.clone(),
         run: run.unwrap_or_else(|| whole.clone()),
         expect_exit_code: *expect_exit_code,
-        when: None,
+        when: if one { None } else { when.clone() },
         requires: Vec::new(),
-        narrow: None,
+        narrow: if one { None } else { narrow.clone() },
         one_test: if one { None } else { one_test.clone() },
         runs_at: if one { RunsAt::Everywhere } else { *runs_at },
         places: NonZeroU32::MAX,

@@ -112,6 +112,23 @@ pub fn narrowed_at_the_gate(narrowing: Option<&Narrowing>, covered: &[String]) -
     spelled(narrowing, values)
 }
 
+/// [`narrowed_at_the_gate`] over what a change reaches — [`crate::reached`] —
+/// reading only the paths the Check `covers`: a changed document is no reason
+/// to run a Rust suite whole. The one reading both gates take, the merge line's
+/// `armada check --changed` and Fleet's step gate.
+pub fn narrowed_over(
+    narrowing: Option<&Narrowing>,
+    reached: &[String],
+    covers: impl Fn(&String) -> bool,
+) -> Narrowed {
+    let covered: Vec<String> = reached
+        .iter()
+        .filter(|path| covers(path))
+        .cloned()
+        .collect();
+    narrowed_at_the_gate(narrowing, &covered)
+}
+
 /// `run` with each value spelled through `each`, sorted and deduplicated, or
 /// [`Narrowed::Nothing`] where there are none.
 fn spelled(narrowing: &Narrowing, mut values: Vec<&str>) -> Narrowed {
