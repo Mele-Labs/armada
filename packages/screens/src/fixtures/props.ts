@@ -76,6 +76,8 @@ export function propsFor(fixture: JobFixture): JobDetailProps {
     onExplainCommand: async () => ({ ok: false, outcome: NOT_CONNECTED }),
     onReadCheckOutput: async (_jobId, kept) => fixture.checkOutputs[kept] ?? NOT_ANSWERED_OUTPUT,
     onReadBrief: async (_jobId, name) => fixture.briefs?.[name] ?? NOT_ANSWERED_BRIEF,
+    // A Job with no retro written: what Fleet says of any Job not ended.
+    onReadRetro: async (jobId) => ({ ok: true, retro: { job_id: jobId, state: "pending", record: {} } }),
     onReadFrame: async (_jobId, kept) => fixture.frames[kept] ?? NOT_ANSWERED_FRAME,
     // A recording's address, spelled as the app spells it. **It resolves to
     // nothing here**, for the reason every read above answers a refusal: a

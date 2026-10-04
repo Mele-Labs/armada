@@ -403,3 +403,8 @@ export * from "./compositions/PullRequestCard/PullRequestCard";
 export * from "./compositions/CriterionOrigin/CriterionOrigin";
 // A field a proposing Job's proposer has not written yet.
 export * from "./compositions/SettlingMark/SettlingMark";
+// A Job's retro, and the Lessons page that lists every retro's items. 23.12.
+export * from "./compositions/WhoMark/WhoMark";
+export * from "./compositions/LandsMark/LandsMark";
+export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/RetroSheet/RetroSheet";

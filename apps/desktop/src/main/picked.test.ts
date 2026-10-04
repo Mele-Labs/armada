@@ -52,6 +52,14 @@ describe("the pick", () => {
     expect(picked.manifest("/manifest/files?q=src")).toBe("/manifest/files?q=src&manifest_id=armada");
   });
 
+  it("narrows a Fleet-wide read, the retro lessons, to the pick's Manifest, reads every repository on All, and none with no Manifest", () => {
+    const all = new Picked();
+    all.hold([FIRST, SET_UP, NOT_SET_UP]);
+    expect(all.narrowed("/lessons")).toBe("/lessons");
+    expect(pickedAt(SET_UP.root).narrowed("/lessons")).toBe("/lessons?manifest_id=store-01");
+    expect(pickedAt(NOT_SET_UP.root).narrowed("/lessons")).toBeNull();
+  });
+
   it("ignores a root Fleet does not list, and keeps a pick still served when the list is read again", () => {
     const picked = pickedAt(SET_UP.root);
     expect(picked.pick("/somewhere/else")).toBe(false);
