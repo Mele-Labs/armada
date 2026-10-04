@@ -49,8 +49,19 @@ import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import type { Opens } from "./phases";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
+import { pulseViewOf } from "./draft/pulse";
+import { holdingOf, lookOf } from "./mine";
+import { pulseCard } from "./tab-overview";
+import type { Examination, Holds } from "@armada/protocol";
 
 export type WorkflowTabProps = {
+  /**
+   * What Pulse reads, so the panel of the step at work draws its figures —
+   * the Overview's Pulse card's, folded there (the owner, 4 Oct 2026). The
+   * panel asks for the read while it is open on that step, as Pulse does.
+   * Absent draws none.
+   */
+  pulse?: { resources: Holds; examination: Examination; onNeedPulse: (jobId: string | null) => void };
   job: JobSummary;
   /** The Job whole. `null` while the read is in flight, or where it failed. */
   whole: JobWhole | null;
@@ -170,6 +181,7 @@ export function WorkflowTab({
   onOpenDrone,
   trail,
   opensStep,
+  pulse,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
   // moves under them as the Job advances, and a panel that changed subject
@@ -201,6 +213,21 @@ export function WorkflowTab({
   // mounted and lets it go when it is not, and the citation alone is what the
   // panel drew in its place.
   const flagHeld = heldByAFlag(whole, openedStep);
+  // The step at work, open: its panel draws Pulse's figures, and asks for them
+  // while it is open, as the Pulse tab does — and lets the read go after.
+  const atWork =
+    openedStep !== undefined && openedStep.state === "running" && openedStep.step_id === whole?.job.current_step_id;
+  useEffect(() => {
+    if (!atWork || pulse === undefined) return;
+    pulse.onNeedPulse(job.id);
+    return () => pulse.onNeedPulse(null);
+  }, [atWork, job.id]);
+  const holding = pulse === undefined ? null : holdingOf(pulse.resources, job.id);
+  const looked = pulse === undefined ? undefined : lookOf(pulse.examination, job.id);
+  const figures =
+    !atWork || pulse === undefined
+      ? undefined
+      : pulseCard(holding === null ? null : pulseViewOf(holding), looked?.state === "found" ? looked.examined : null, whole);
   useEffect(() => {
     if (!flagHeld) return;
     onReadDiff(job.id);
@@ -314,6 +341,7 @@ export function WorkflowTab({
     reading === undefined ? null : (
       <WorkflowInspector
         {...reading}
+        {...(figures === undefined ? {} : { pulse: figures })}
         {...(!stoppedHere
           ? {}
           : {

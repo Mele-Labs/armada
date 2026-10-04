@@ -77,7 +77,11 @@ describe("approvalNodesOf", () => {
     const tuning = { ...tuningOf([]), local: true };
     const { nodes } = nodesOf(tuning);
     expect(nodes.some((node) => node.kind === "pr")).toBe(false);
-    expect(nodes.at(-1)?.meta).toEqual([{ key: "Merge", value: "local merge", tuned: true }]);
+    // Local only holds the work on its branch: no merge, so none is said.
+    expect(nodes.at(-1)?.meta).toEqual([
+      { key: "No pull request, no merge, no push: the work stays on its branch", value: "local only", tuned: true },
+    ]);
+    expect(nodes.at(-1)?.face).toBeUndefined();
   });
 
   it("says on the edge into Land that it merges on its own", () => {
@@ -154,5 +158,45 @@ describe("the Studio node", () => {
     expect(from[0]).toMatchObject({ id: "studio", lane: "setup", face: "Error contract", opensStudio: true });
     expect(from[1]?.id).toBe("brief");
     expect(approvalNodesOf(base).nodes.some((node) => node.kind === "studio")).toBe(false);
+  });
+});
+
+describe("a setting moved since the approval", () => {
+  const life = {
+    nodes: { plan: { activity: "advanced" as const, said: "advanced" } },
+    changed: { model: "opus", whenRefused: { now: "Always stop the step", was: "Ask me" } },
+  };
+  const { nodes } = approvalNodesOf({
+    title: "T", from: "main", steps: STEPS, gates: GATES, tuning: tuningOf([]), prMode: "ready", target: "main", life,
+  });
+  const node = (id: string) => nodes.find((one) => one.id === id)!;
+
+  it("is drawn on the steps still to run, in accent, with what it was in the tooltip", () => {
+    expect(node("implement").traits).toEqual([{ key: "Model, was Auto", value: "opus", tuned: true }]);
+    // Plan has run, so a model chosen since does not reach it.
+    expect(node("plan").traits).toEqual([]);
+  });
+
+  it("puts what a refusing Judge does on the Judge's gates still to run, and nowhere else", () => {
+    const judged = GATES.map((gate) => (gate.step_id === "implement" ? { ...gate, judge: true } : gate));
+    const read = approvalNodesOf({
+      title: "T", from: "main", steps: STEPS, gates: judged, tuning: tuningOf([]), prMode: "ready", target: "main", life,
+    }).nodes;
+    const gate = (id: string) => read.find((one) => one.id === id)!;
+    expect(gate("implement:checks").meta).toEqual([
+      { key: "When the Judge refuses, was Ask me", value: "Always stop the step", tuned: true },
+    ]);
+    // Plan's gate has passed, so the change does not reach it.
+    expect(gate("plan:checks").meta).toEqual([]);
+  });
+});
+
+describe("Land, local only", () => {
+  it("names the branch the work stays on, where the Job has one", () => {
+    const { nodes } = approvalNodesOf({
+      title: "T", from: "main", steps: STEPS, gates: GATES, tuning: { ...tuningOf([]), local: true },
+      prMode: "ready", target: "main", branch: "armada/1-retire-guide-8",
+    });
+    expect(nodes.at(-1)).toMatchObject({ id: "land", face: "armada/1-retire-guide-8" });
   });
 });

@@ -11,7 +11,9 @@ import { GROUP_STATE, JOB_STATUS, STEP_STATE } from "@armada/components";
 import type { StepActivity } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
-import type { LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
+import type { ChangedSince, LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
+import { WHEN_BLOCKED_LABEL, WHEN_REFUSED_LABEL } from "./copy";
+import { REFUSED_STARTS_AT, STARTS_AT } from "./settings";
 import { taskGroupsOf } from "./draft/group";
 import type { GroupState } from "./draft/group";
 import type { WaveView } from "./draft/wave";
@@ -87,6 +89,24 @@ function membersOf(wave: WaveView | undefined): MemberRead[] {
     });
 }
 
+/** What a person moved since the approval: the Settings tab's own count, read field by field. */
+function changedOf(whole: JobWhole): ChangedSince | undefined {
+  const changed: ChangedSince = {
+    ...(whole.model_override === undefined ? {} : { model: whole.model_override }),
+    ...(whole.review_model_override === undefined ? {} : { reviewModel: whole.review_model_override }),
+    ...(whole.when_blocked === undefined || whole.when_blocked === STARTS_AT
+      ? {}
+      : { whenBlocked: { now: WHEN_BLOCKED_LABEL[whole.when_blocked], was: WHEN_BLOCKED_LABEL[STARTS_AT] } }),
+    ...(whole.when_refused === undefined || whole.when_refused === REFUSED_STARTS_AT
+      ? {}
+      : { whenRefused: { now: WHEN_REFUSED_LABEL[whole.when_refused], was: WHEN_REFUSED_LABEL[REFUSED_STARTS_AT] } }),
+    ...((whole.allowed_commands?.length ?? 0) === 0
+      ? {}
+      : { allowed: (whole.allowed_commands ?? []).map((one) => one.run) }),
+  };
+  return Object.keys(changed).length === 0 ? undefined : changed;
+}
+
 export function lifeOf(
   whole: JobWhole,
   wave?: WaveView,
@@ -117,8 +137,10 @@ export function lifeOf(
     };
   });
   const jobs = membersOf(wave);
+  const changed = changedOf(whole);
   return {
     nodes,
+    ...(changed === undefined ? {} : { changed }),
     ...(lines === undefined ? {} : { lines }),
     ...(groups.length === 0 ? {} : { groups }),
     ...(jobs.length === 0 ? {} : { jobs }),

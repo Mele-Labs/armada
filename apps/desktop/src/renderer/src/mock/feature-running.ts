@@ -57,7 +57,15 @@ export function featureRunning(): JobFixture {
     // Approved before it ran, as Fleet stamps it since 23.8.
     watched: {
       ...base.watched,
-      detail: { ...whole, job, steps, work_plan: { ...plan, tasks, groups }, approved_at: "2026-10-02T13:58:00.000Z" },
+      // Approved, then a person moved the model on since: the later steps run on opus.
+      detail: {
+        ...whole,
+        job,
+        steps,
+        work_plan: { ...plan, tasks, groups },
+        approved_at: "2026-10-02T13:58:00.000Z",
+        model_override: "opus",
+      },
     },
   };
 }

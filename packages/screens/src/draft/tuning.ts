@@ -17,16 +17,17 @@ export type Effort = "low" | "medium" | "high";
 
 export const EFFORTS: readonly Effort[] = ["low", "medium", "high"];
 
-/** The agent harness a step's Drone runs under, in its own name. Fixture list. */
-export const HARNESSES: readonly string[] = ["Claude Code", "Codex"];
+/**
+ * The agent harness every Drone runs under, in its own name. **One, so it is
+ * shown and not chosen** (the owner, 4 Oct 2026): a picker of one offers nothing.
+ */
+export const HARNESS = "Claude Code";
 
 /** One workflow step, tuned for this Job. */
 export type StepTuning = {
   /** The model the step's Drone runs. `null` is the Job's own, or the tier's. */
   model: string | null;
   effort: Effort | null;
-  /** `null` is the repository's harness. */
-  harness: string | null;
   /** Words handed to the Drone that picks the step up, beside the brief. Empty is none. */
   context: string;
   /** How many Judges answer each criterion. Read off `panel_size`, absent at one. */
@@ -38,8 +39,8 @@ export type StepTuning = {
 /**
  * How the work leaves the worktree, as the canvas's one control offers it.
  * `draft` and `ready` are `LandingRule.pr_mode`, on the wire; `local` is
- * `ApprovalTuning.local`, the draft's — no pull request at all, the branch
- * merged into where it lands on this machine. **Read, never held**:
+ * `ApprovalTuning.local`, the draft's — no pull request, no merge and no push:
+ * the work is held on its own branch (the owner, 4 Oct 2026). **Read, never held**:
  * `deliveryOf` derives it, so the two fields cannot disagree with a third.
  */
 export type Delivery = "local" | "draft" | "ready";
@@ -52,7 +53,7 @@ export type ApprovalTuning = {
   steps: Readonly<Record<string, StepTuning>>;
   /** Whether the pull request merges once it is approved, with no further press. */
   auto_merge: boolean;
-  /** No pull request: merged locally into where it lands. `pr_mode` is ignored while it holds. */
+  /** No pull request, no merge, no push: the work stays on its branch. `pr_mode` is ignored while it holds. */
   local: boolean;
   /** Notes sent back to the proposer, oldest first. */
   to_proposer: readonly string[];
@@ -66,7 +67,6 @@ export function stepTuningOf(judges: readonly DeclaredJudge[]): StepTuning {
   return {
     model: null,
     effort: null,
-    harness: null,
     context: "",
     judges: judges[0]?.panel_size ?? 1,
     checks_off: [],

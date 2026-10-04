@@ -63,7 +63,7 @@ import type { TaskView } from "./draft/task";
 import { taskCard } from "./plan-canvas";
 import { baseBranch } from "./draft/branches";
 import type { ProposalView } from "./draft/proposal";
-import { EFFORTS, HARNESSES, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
+import { EFFORTS, HARNESS, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
 import type { ApprovalTuning, Delivery, Effort, StepTuning } from "./draft/tuning";
 import {
   completeChoices,
@@ -225,6 +225,7 @@ export function ApprovalCanvas({
     tuning,
     prMode: landing.pr_mode,
     target: value.target,
+    ...(whole.job.branch === undefined ? {} : { branch: whole.job.branch }),
     ...(life === undefined ? {} : { life }),
     ...(dispatchesFrom === undefined ? {} : { dispatchesFrom }),
   });
@@ -604,7 +605,7 @@ function WorkflowPicker({
   return forRequests === undefined ? select : <Tooltip label={forRequests}>{select}</Tooltip>;
 }
 
-/** A Drone's settings for one step: model, effort, harness, context — and on the step worked per task, the tiers and the cap. */
+/** A Drone's settings for one step: model, effort, context, and the harness shown — and on the step worked per task, the tiers and the cap. */
 function StepCard({ step, edits, tuning, tuned, moved, models, machineCap, ...rest }: NodeCardProps & { step: StepRead }) {
   const mine = tuning.steps[step.id];
   const set = (change: Partial<StepTuning>) => tuned?.(tunedStep(tuning, step.id, change));
@@ -649,24 +650,8 @@ function StepCard({ step, edits, tuning, tuned, moved, models, machineCap, ...re
             </Select>
           )}
         </ProposalField>
-        <ProposalField label="Harness" bare={open}>
-          {!open ? (
-            (mine?.harness ?? AUTO)
-          ) : (
-            <Select
-              aria-label={`Harness on ${step.label}`}
-              value={mine?.harness ?? ""}
-              onChange={(event) => set({ harness: event.target.value === "" ? null : event.target.value })}
-            >
-              <option value="">{AUTO}</option>
-              {HARNESSES.map((harness) => (
-                <option key={harness} value={harness}>
-                  {harness}
-                </option>
-              ))}
-            </Select>
-          )}
-        </ProposalField>
+        {/* The one harness, shown: a choice of one is not a choice. */}
+        <ProposalField label="Harness">{HARNESS}</ProposalField>
         <ProposalField label="Context" bare={open}>
           {!open ? (
             (mine?.context ?? "")
@@ -863,7 +848,8 @@ function LandCard({ value, landed, landsLate, branches, edits, tuning, tuned, mo
             : { onLanding: landed })}
         completeChoices={completeChoices()}
         branches={branches}
-        fields={["target", "branching", "completeWhen"]}
+        // Local only keeps the work on its branch: nothing lands, so nothing names where.
+        fields={delivery === "local" ? ["branching", "completeWhen"] : ["target", "branching", "completeWhen"]}
       />
       <DeliveryFields delivery={delivery} edits={edits} tuning={tuning} tuned={tuned} moved={moved} />
     </>

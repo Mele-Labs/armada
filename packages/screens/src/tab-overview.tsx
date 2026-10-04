@@ -186,7 +186,7 @@ function settingsSaid(landing: LandingRule | undefined, changed: number): string
  * `processesTotal` is `null` while nothing is running and `worktreesTotal` is
  * `""` where any worktree went unmeasured; neither draws a row.
  */
-function pulseCard(view: PulseView | null, examined: JobExamined | null, whole: JobWhole | null): Figure[] {
+export function pulseCard(view: PulseView | null, examined: JobExamined | null, whole: JobWhole | null): Figure[] {
   const band = pulseFiguresOf(view, whole);
   const cost = band.findIndex((figure) => figure.apart === true);
   const alive = cost === -1 ? band : band.slice(0, cost);

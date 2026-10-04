@@ -456,6 +456,7 @@ function OneJob(props: JobDetailProps) {
         </div>
       ) : tab === "workflow" ? (
         <WorkflowTab
+          pulse={{ resources: props.resources, examination: props.examination, onNeedPulse: props.onNeedPulse }}
           job={job}
           whole={whole}
           {...(absent === undefined ? {} : { absent })}

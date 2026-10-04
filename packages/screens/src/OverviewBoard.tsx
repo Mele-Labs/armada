@@ -154,9 +154,10 @@ export function OverviewBoard({
           beside it read the words as they arrived while the field moved. After
           approval the panel is gone and the Brief reads the approved words. */}
       {/* **The canvas is the whole Overview** (the owner, 4 Oct 2026): where it
-          draws, the Brief, Workflow, Plan and Pulse cards fold into it — the
-          Brief and its Studio onto their nodes, the run onto the lanes, the
-          plan onto the groups, and the live step's line onto its node. */}
+          draws, every card folds into it — the Brief and its Studio onto their
+          nodes, the run onto the lanes, the plan onto the groups, the live
+          step's line onto its node, and a setting moved since the approval
+          onto the nodes it governs, in accent. */}
       <div className="armada-overview-board__cards" data-brief={approving === undefined && run === undefined ? undefined : "in-panel"}>
         {approving !== undefined || run !== undefined ? null : (
         <>
@@ -303,12 +304,11 @@ export function OverviewBoard({
           )}
         </DestinationCard>
 
-        </>
-        )}
-
         <DestinationCard label="Settings" onOpen={() => onOpenTab("settings")}>
           <p className="armada-overview-board__brief">{settings}</p>
         </DestinationCard>
+        </>
+        )}
       </div>
     </div>
   );

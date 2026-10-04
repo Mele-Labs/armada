@@ -8,10 +8,11 @@
 // neither, so a step a person alone reads is one node and not two.
 //
 // **What lands reshapes the end.** Local delivery has no pull request to open,
-// so its node goes and Land reads as a local merge; auto-merge says on the edge
-// into Land that it merges on its own. One field each, read here.
+// so its node goes and Land names the branch the work stays on — local only
+// is no pull request, no merge and no push (the owner, 4 Oct 2026); auto-merge
+// says on the edge into Land that it merges on its own. One field each, read here.
 
-import { STEP_STATE } from "@armada/components";
+import { AUTO, STEP_STATE } from "@armada/components";
 import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, WorkflowStep } from "@armada/protocol";
@@ -74,6 +75,27 @@ export type LifeRead = {
    * `285h 45m · 1 Drone`. Drawn on the node the Job is at.
    */
   lines?: Readonly<Record<string, string>>;
+  /** The settings a person moved since the approval, each drawn on the nodes it governs. */
+  changed?: ChangedSince;
+};
+
+/**
+ * What differs on a running Job from how it was approved — the Settings
+ * tab's own reading (`changedOf`), each with what it was. **What it was is
+ * named, never drawn**: the node shows the value now, in accent, and its
+ * tooltip says the earlier one (the owner, 4 Oct 2026).
+ */
+export type ChangedSince = {
+  /** The model every later Drone is spawned on. */
+  model?: string;
+  /** The model the review step runs. */
+  reviewModel?: string;
+  /** How a Drone meets a command it was not given, in the Settings tab's words, and what it was. */
+  whenBlocked?: { now: string; was: string };
+  /** What a refusing Judge does, likewise. */
+  whenRefused?: { now: string; was: string };
+  /** The commands allowed on this Job, whole. */
+  allowed?: readonly string[];
 };
 
 /** One step of the chosen workflow, as the canvas reads it. */
@@ -115,7 +137,7 @@ export type ApprovalNode = {
   bandId?: string;
   /** The body's second line, in words — the brief's request. */
   line?: string;
-  /** The body's second line as values: a step's model, effort and harness. */
+  /** The body's second line as values: a step's model and effort. */
   traits: RunNodeTrait[];
   /** The body's third line: Drones, Judges, how it merges. */
   meta: RunNodeTrait[];
@@ -142,6 +164,9 @@ export type ApprovalNode = {
 
 /** The step-state word every node reads as before the press. */
 export const NOT_STARTED = STEP_STATE["not_started"]?.verb ?? "not started";
+
+/** A setting left to Armada, in the word the tier map uses for it. */
+const AUTO_WORD = AUTO;
 
 /** What a gate node and a step's own gate say a person does. */
 const YOU = "You";
@@ -233,6 +258,7 @@ export function approvalNodesOf({
   tuning,
   prMode,
   target,
+  branch,
   life,
   droneCap,
   dispatchesFrom,
@@ -250,6 +276,8 @@ export function approvalNodesOf({
   tuning: ApprovalTuning;
   prMode: "ready" | "draft";
   target: string;
+  /** The Job's own branch, once it has one: where local-only work stays. */
+  branch?: string;
   life?: LifeRead;
   /** How many Drones the Job may run at once. Absent is the machine's. */
   droneCap?: number;
@@ -323,6 +351,9 @@ export function approvalNodesOf({
     // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
     // Where the step the Job is at has got to: the Workflow card's own line.
     const lineNow = life?.nodes[step.id]?.current === true ? life.lines?.[step.id] : undefined;
+    // A setting moved since the approval governs what has not run yet, and a Drone step only.
+    const ahead = life !== undefined && life.nodes[step.id]?.activity !== "advanced";
+    const since = ahead && !ownGate ? life.changed : undefined;
     put({
       id: step.id,
       kind: "step",
@@ -335,13 +366,23 @@ export function approvalNodesOf({
       traits: ownGate
         ? [plain(YOU)]
         : movedOnly([
-            { key: "Model", value: tuned?.model ?? "", tuned: tuned?.model != null },
+            since?.model !== undefined
+              ? { key: `Model, was ${tuned?.model ?? AUTO_WORD}`, value: since.model, tuned: true }
+              : { key: "Model", value: tuned?.model ?? "", tuned: tuned?.model != null },
             { key: "Effort", value: tuned?.effort ?? "", tuned: tuned?.effort != null },
-            { key: "Harness", value: tuned?.harness ?? "", tuned: tuned?.harness != null },
           ]),
-      meta: movedOnly(
-        perTask(step) ? [{ key: "Drones at once", value: `${droneCap ?? ""} drones`, tuned: droneCap !== undefined }] : [],
-      ),
+      meta: movedOnly([
+        ...(perTask(step) ? [{ key: "Drones at once", value: `${droneCap ?? ""} drones`, tuned: droneCap !== undefined }] : []),
+        ...(since?.whenBlocked === undefined
+          ? []
+          : [{ key: `When blocked, was ${since.whenBlocked.was}`, value: since.whenBlocked.now, tuned: true }]),
+        ...(since?.allowed === undefined || since.allowed.length === 0
+          ? []
+          : [{ key: `Allowed since approval: ${since.allowed.join(", ")}. Was none`, value: `${since.allowed.length} allowed`, tuned: true }]),
+        ...(step.delivers && since?.reviewModel !== undefined
+          ? [{ key: `Review model, was ${AUTO_WORD}`, value: since.reviewModel, tuned: true }]
+          : []),
+      ]),
     });
     // The plan's groups, worked by this step: a placeholder until Plan has
     // recorded them, and each group once it has.
@@ -411,6 +452,10 @@ export function approvalNodesOf({
       .join(" · ");
     const meta: RunNodeTrait[] = [];
     if (gate?.judge === true && judges !== declared) meta.push({ key: "Judges", value: `${judges} judges`, tuned: true });
+    const refused = life !== undefined && life.nodes[step.id]?.activity !== "advanced" ? life.changed?.whenRefused : undefined;
+    if (gate?.judge === true && refused !== undefined) {
+      meta.push({ key: `When the Judge refuses, was ${refused.was}`, value: refused.now, tuned: true });
+    }
     const off = tuned?.checks_off.length ?? 0;
     if (off > 0) meta.push({ key: "Checks this Job does not run", value: `${off} off`, tuned: true });
     put({
@@ -434,10 +479,17 @@ export function approvalNodesOf({
     id: "land",
     kind: "land",
     name: "Land",
-    ...(target === "" ? {} : { face: target, faceMono: true }),
+    // Local only: the branch the work stays on, where the Job has one yet. Else where it lands.
+    ...(delivery === "local"
+      ? branch === undefined
+        ? {}
+        : { face: branch, faceMono: true }
+      : target === ""
+        ? {}
+        : { face: target, faceMono: true }),
     traits: [],
     meta: movedOnly([
-      { key: "Merge", value: "local merge", tuned: delivery === "local" },
+      { key: "No pull request, no merge, no push: the work stays on its branch", value: "local only", tuned: delivery === "local" },
       { key: "Merge", value: "merges on its own", tuned: delivery !== "local" && tuning.auto_merge },
     ]),
   });

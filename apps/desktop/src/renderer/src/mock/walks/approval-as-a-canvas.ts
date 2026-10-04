@@ -35,7 +35,7 @@ export const approvalAsACanvas = walk("proto/feature-at-approval", [
   { press: role("switch", "Auto-merge"), say: "that merges once approved" },
   { press: card("Land"), say: "Where it lands, and that it merges on its own" },
   { type: "local", into: inside(role("dialog", "Land"), role("combobox", "Delivery")), say: "Local only" },
-  { look: inside(card("Land"), text("Local merge")), say: "No pull request: Land is a local merge" },
+  { look: inside(card("Land"), text("local only")), say: "No pull request, no merge, no push: the work stays on its branch" },
   { type: "ready", into: inside(role("dialog", "Land"), role("combobox", "Delivery")), say: "Back to a pull request" },
   { look: card("Pull request"), say: "The pull request is back before the review" },
   { press: card("Brief"), say: "What was asked" },
