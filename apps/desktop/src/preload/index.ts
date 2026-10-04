@@ -85,6 +85,13 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.changed, handler);
     };
   },
+  onWalkFocus: (onFocus: (focused: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, focused: unknown): void => onFocus(focused === true);
+    ipcRenderer.on(CHANNELS.walkFocused, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.walkFocused, handler);
+    };
+  },
 
 
   // Describing the work, which is the only way a Job is made from this window

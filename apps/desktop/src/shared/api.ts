@@ -83,6 +83,8 @@ export type BridgeApi = {
   protocolVersion: () => ProtocolVersion;
   state: () => Promise<BridgeState>;
   subscribe: (onState: (state: BridgeState) => void) => () => void;
+  /** Whether a walk window has focus, as it changes — Bridge dims behind it. */
+  onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
   /**
    * Describe the work and let the Job proposer decide what it is: which
    * workflow, what to call it, and whether it is one Job or several.

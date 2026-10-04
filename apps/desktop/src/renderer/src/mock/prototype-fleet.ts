@@ -11,9 +11,9 @@ import { openWalkWindow } from "./walk-window";
 /** The mock itself on another scenario: the one address a browser page can serve as a Job's mock. */
 function itself(): string {
   // The roster is also read in node, by `scenario.test.ts`, where there is no page.
-  if (typeof window === "undefined") return "http://localhost:41311/?scenario=every-state&frame";
+  if (typeof window === "undefined") return "http://localhost:41311/?scenario=every-state&walked";
   const url = new URL(window.location.href);
-  url.search = "?scenario=every-state&frame";
+  url.search = "?scenario=every-state&walked";
   return url.toString();
 }
 

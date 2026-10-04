@@ -73,3 +73,27 @@ body,
   max-height: calc(100% - var(--space-6) - var(--space-3));
   overflow-y: auto;
 }
+
+/* Bridge behind a walk window that has focus: dimmed, so the window is what
+   reads. The owner, 4 Oct 2026: "It all runs together right now." Nothing is
+   blocked — a press on Bridge takes focus back, and the dim lifts with it. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--scrim);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease);
+}
+
+:root[data-walking] body::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    transition: none;
+  }
+}

@@ -28,6 +28,7 @@ let held: { root: Root; host: HTMLElement } | null = null;
 
 /** Close what is open. */
 export function closeWalkWindow(): void {
+  document.documentElement.removeAttribute("data-walking");
   held?.root.unmount();
   held?.host.remove();
   held = null;
@@ -58,6 +59,26 @@ export function openWalkWindow(run: string, url: string, options: WalkWindowOpti
 const isChord = (event: KeyboardEvent): boolean =>
   (event.code === "KeyA" || event.code === "KeyC") && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
 
+/**
+ * The chord, claimed while a stand-in is open. **Listened for at import**, so
+ * it runs ahead of the dev annotation layer `main.tsx` mounts after the app:
+ * a real walk window is a window of its own and Bridge's layer never sees its
+ * keys, but here both share one page and the layer would arm as well.
+ */
+let claimChord: (() => void) | null = null;
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (claimChord === null || !isChord(event)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      claimChord();
+    },
+    true,
+  );
+}
+
 function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
@@ -66,21 +87,41 @@ function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string;
   const [said, setSaid] = useState("");
   const [kept, setKept] = useState(0);
 
-  // The chord, from this page and from the page inside the frame.
+  // **Bridge dims behind the window while it has focus**, as main dims its own
+  // windows behind a focused walk window: a press here or in its page takes
+  // focus, and a press anywhere on the app behind gives it back.
   useEffect(() => {
+    const dim = (on: boolean) => document.documentElement.toggleAttribute("data-walking", on);
+    const pressed = (event: PointerEvent) => dim(host.contains(event.target as Node));
+    // The page inside the frame takes focus without a press reaching this document.
+    const left = () => queueMicrotask(() => dim(document.activeElement === frame.current));
+    dim(true);
+    document.addEventListener("pointerdown", pressed, true);
+    window.addEventListener("blur", left);
+    return () => {
+      dim(false);
+      document.removeEventListener("pointerdown", pressed, true);
+      window.removeEventListener("blur", left);
+    };
+  }, [host]);
+
+  // The chord, from this page and from the page inside the frame — whose own
+  // annotation layer it reaches first, being the frame's earliest listener
+  // only after load, so it claims it there too.
+  useEffect(() => {
+    claimChord = () => setArmed((was) => !was);
     const toggle = (event: KeyboardEvent) => {
       if (!isChord(event)) return;
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       setArmed((was) => !was);
     };
-    window.addEventListener("keydown", toggle, true);
     const inner = frame.current;
     const watchInner = () => inner?.contentWindow?.addEventListener("keydown", toggle, true);
     watchInner();
     inner?.addEventListener("load", watchInner);
     return () => {
-      window.removeEventListener("keydown", toggle, true);
+      claimChord = null;
       inner?.contentWindow?.removeEventListener("keydown", toggle, true);
       inner?.removeEventListener("load", watchInner);
     };

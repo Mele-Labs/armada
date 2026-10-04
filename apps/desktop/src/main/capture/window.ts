@@ -34,6 +34,8 @@ export type CaptureBoard = {
   /** A note kept on the Job whose server this window walks — protocol 23.16. */
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
+  /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
+  focused: (serverId: string, on: boolean) => void;
 };
 
 /** `⌥⌘C`, as the action registry spells it. The renderer's own reader is `capture/Layer.tsx`. */
@@ -143,6 +145,9 @@ export class CaptureWindow {
     this.window.contentView.addChildView(this.page);
     this.window.contentView.addChildView(this.bar);
     this.window.on("resize", () => this.layout());
+    this.window.on("focus", () => this.board.focused(pin.run, true));
+    this.window.on("blur", () => this.board.focused(pin.run, false));
+    this.window.on("closed", () => this.board.focused(pin.run, false));
     this.layout();
 
     this.holdThePage();

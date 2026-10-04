@@ -140,6 +140,8 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
  * Bridge's own bar above it; the Studio a Note lands on is read off the Studio
  * main is holding, never off a name a renderer sent.
  */
+/** The walk windows with focus right now: Bridge's own windows dim while any does. */
+const walkFocused = new Set<string>();
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
@@ -147,6 +149,13 @@ const captureWindows = new CaptureWindows({
     (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
     UNSENT,
   stage: stagePng,
+  focused: (serverId, on) => {
+    if (on) walkFocused.add(serverId);
+    else walkFocused.delete(serverId);
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
+    }
+  },
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
