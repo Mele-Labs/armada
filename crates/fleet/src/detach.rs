@@ -40,6 +40,10 @@ use tokio::process::{Child, Command};
 /// hatch, for the same reason `DroneSpawnConfig` has none.
 pub struct Detached {
     command: Command,
+    /// Where a test's child runs, so the test's own directory can end it.
+    /// `crate::tests::tmp` holds the reason; a build that ships has no field.
+    #[cfg(test)]
+    directory: Option<std::path::PathBuf>,
 }
 
 impl Detached {
@@ -55,7 +59,11 @@ impl Detached {
         // unless a caller remembers to close it. v1's Drone got the same, and
         // it is the one part of v1's Drone spawn that needed no change.
         command.stdin(Stdio::null());
-        Detached { command }
+        Detached {
+            command,
+            #[cfg(test)]
+            directory: None,
+        }
     }
 
     /// Everything a harness rendered, in one call.
@@ -88,6 +96,10 @@ impl Detached {
 
     /// The worktree the child runs in.
     pub fn in_directory(mut self, directory: impl AsRef<Path>) -> Detached {
+        #[cfg(test)]
+        {
+            self.directory = Some(directory.as_ref().to_path_buf());
+        }
         self.command.current_dir(directory);
         self
     }
@@ -129,8 +141,21 @@ impl Detached {
 
     /// Start it. The child is a session leader before its program is running,
     /// so nothing signalled at Fleet's process group reaches it.
+    ///
+    /// **Under test, the child is also handed to the directory it runs in**, so
+    /// a test cannot leave one behind: `crate::tests::tmp::TempDir` ends every
+    /// group spawned inside it when it drops. A detached Drone outliving its
+    /// Fleet is the point in a build that ships and a leak in a test.
     pub fn spawn(mut self) -> io::Result<Child> {
-        self.command.spawn()
+        let child = self.command.spawn()?;
+        #[cfg(test)]
+        if let (Some(pid), Some(directory)) = (
+            child.id().and_then(std::num::NonZeroU32::new),
+            self.directory.as_deref(),
+        ) {
+            crate::tests::tmp::spawned_in(pid, directory);
+        }
+        Ok(child)
     }
 }
 
