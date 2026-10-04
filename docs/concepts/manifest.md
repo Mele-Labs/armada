@@ -68,6 +68,7 @@ setup:
 - **Absent means eight.**
 - **Zero, a negative number and anything that is not a whole number are refused at load.**
 - **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
+- **A machine's own pool overrides it.** Once a person adds or removes a slot, from Cleanup or `armada worktree add|remove`, that machine's list of slots stands in for this number, and a change here no longer moves it — [Fleet](fleet.md), *Worktree slots*.
 - **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
 
 ### Cross-Workspace Jobs

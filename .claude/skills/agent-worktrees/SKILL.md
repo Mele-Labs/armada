@@ -27,6 +27,11 @@ armada worktree --status                 # who holds each, and since when
 armada worktree release <path>           # after the branch lands
 ```
 
+**The owner sizes the pool, not the dispatcher.** He adds, removes and closes
+slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
+closed slot reads `closed` in `--status` and is never leased; a lease that
+waits on closed slots is waiting on him, so say so rather than opening one.
+
 **The dispatcher leases, and the path goes in the brief.** Dispatch without
 `isolation: "worktree"`, and tell the agent to work only at that path, with
 absolute paths and `git -C <path>` — the rest of this skill still applies to it.
