@@ -380,6 +380,7 @@
 @import "./compositions/LandsMark/LandsMark.css";
 @import "./compositions/LessonList/LessonList.css";
 @import "./compositions/RetroSheet/RetroSheet.css";
+@import "./compositions/PoolSlots/PoolSlots.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

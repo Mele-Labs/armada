@@ -49,6 +49,7 @@ import {
   CardTitle,
   Dialog,
   HeldWorktree,
+  PoolSlots,
 } from "@armada/components";
 import { patternFor, useHaptics } from "@armada/components";
 import type { ButtonAnswer, RowChoice } from "@armada/components";
@@ -134,6 +135,8 @@ export type WorktreesProps = {
   onCopied: (value: string) => void;
   /** Drawn in the head, across from the way out: the caller's bulk sweeps. */
   actions?: ReactNode;
+  /** Open the Job holding a worktree slot. */
+  onOpenJob: (jobId: string) => void;
 };
 
 /**
@@ -156,6 +159,7 @@ export function Worktrees({
   onClose,
   onCopied,
   actions,
+  onOpenJob,
 }: WorktreesProps) {
   useEffect(() => {
     onWant(true);
@@ -205,6 +209,7 @@ export function Worktrees({
   }
 
   const groups = divided(held.held.worktrees);
+  const slots = held.held.slots ?? [];
   const picked = chosenRows(groups.deciding, choices);
   const plan = planned(picked, choices);
 
@@ -286,6 +291,23 @@ export function Worktrees({
           {refusedSaid(one.outcome)}
         </Alert>
       ))}
+
+      {slots.length === 0 ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Worktree slots</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PoolSlots
+              rows={slots.map((slot) => {
+                const heldFor = slot.since === undefined ? null : sitting(slot.since, now);
+                return heldFor === null ? { slot } : { slot, heldFor };
+              })}
+              onOpenJob={onOpenJob}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Nothing waiting on a person draws nothing: an empty slot stays empty. */}
       {groups.deciding.length === 0 ? null : (

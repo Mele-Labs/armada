@@ -430,7 +430,10 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
     frameStreamUrl: (jobId, kept) => `armada-frame://frame/${jobId}/${kept}`,
     readReports: async (want) => publish({ reports: want ? unread("/reports") : nothing }),
-    readHeld: async (want) => publish({ held: want ? unread("/worktrees/held") : nothing }),
+    readHeld: async (want) =>
+      publish({
+        held: !want ? nothing : scenario.held === undefined ? unread("/worktrees/held") : { state: "read", held: scenario.held },
+      }),
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
     ...studios,

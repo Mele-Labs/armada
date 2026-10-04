@@ -1,0 +1,26 @@
+/* The worktree pool, one row per slot. Heights, rules and cell padding are
+   `Table`'s. A mark is --fg-muted: the slot's state is not a Job's. */
+
+.armada-pool-slots__mark {
+  color: var(--fg-muted);
+}
+
+.armada-pool-slots__mark span {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* A take or a release under way, the one state that is in motion. */
+.armada-pool-slots__mark [data-spins] > svg {
+  animation: armada-pool-slots-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-pool-slots-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-pool-slots__mark [data-spins] > svg {
+    animation: none;
+  }
+}
