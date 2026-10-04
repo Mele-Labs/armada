@@ -14,8 +14,10 @@
 import { AUTO, STEP_STATE } from "@armada/components";
 import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
-import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, WorkflowStep } from "@armada/protocol";
+import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, WorkflowStep } from "@armada/protocol";
 
+import { phaseOf } from "./draft/phase";
+import type { PhasedStep, StepPhase } from "./draft/phase";
 import type { GateView } from "./draft/proposal";
 import type { TaskView } from "./draft/task";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
@@ -75,6 +77,10 @@ export type StepRead = {
   checks: readonly DeclaredCheck[];
   judges: readonly DeclaredJudge[];
   delivers: boolean;
+  /** Which lane it is drawn in. Draft — `draft/phase.ts`. */
+  phase: StepPhase;
+  /** Whether a Drone works each of the plan's tasks on it: `StepDetail.drone_per_task`, or a stand-in at the gate. */
+  perTask: boolean;
 };
 
 /** The three phases the run is laid out in, left to right (the owner, 4 Oct 2026). */
@@ -144,23 +150,24 @@ export function stepsReadOf(
 ): StepRead[] {
   return gates.map((gate) => {
     const frozen = whole?.steps.find((one) => one.step_id === gate.step_id);
-    const step = declared.get(gate.step_id) ?? frozen;
+    const step: ((WorkflowStep | StepDetail) & PhasedStep) | undefined = declared.get(gate.step_id) ?? frozen;
     return {
       id: gate.step_id,
       label: step?.label ?? gate.step_id,
       checks: step?.checks ?? [],
       judges: step?.judge_checks ?? [],
       delivers: step?.delivers ?? false,
+      phase: phaseOf(step ?? {}),
+      // Fleet serves it on the Job's own steps (23.1). A workflow only picked
+      // at the gate has none frozen, and `WorkflowSummary` carries no such
+      // field, so there the stand-in reads it.
+      perTask: frozen?.drone_per_task ?? gate.step_id === "implement",
     };
   });
 }
 
-/**
- * Whether the step runs a Drone per task. **A stand-in**: `WorkflowSummary`
- * carries no `drone_per_task`, so the step the plan's tasks are worked on is
- * read by its id. Owed with the rest of `draft/tuning.ts`.
- */
-export const perTask = (step: StepRead): boolean => step.id === "implement";
+/** Whether a Drone works each of the plan's tasks on the step. */
+export const perTask = (step: StepRead): boolean => step.perTask;
 
 /**
  * The step the wave's Jobs are dispatched from. **A stand-in**:
@@ -280,11 +287,13 @@ export function approvalNodesOf({
     const tuned = tuning.steps[step.id];
     // What counts as done, then the pull request, before the step that sends
     // the work out — which is where a person reviews it.
-    if (step.delivers && !delivering) {
+    if (step.phase === "delivery" && !delivering) {
       done();
       if (delivery !== "local") pr();
       delivering = true;
     }
+    // Its own lane, by its phase. Once the work is delivering, what follows delivers too.
+    lane = delivering ? "delivery" : step.phase === "setup" ? "setup" : "work";
     const ownGate = !gateIsANode(step) && gate?.you === true;
     // In delivery a step a person alone reads is a gate, hung beside what it reviews.
     const hangs = spineEnd()?.lane === "delivery" && ownGate ? spineEnd()?.id : undefined;

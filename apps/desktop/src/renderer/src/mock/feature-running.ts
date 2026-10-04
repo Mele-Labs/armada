@@ -30,6 +30,8 @@ export function featureRunning(): JobFixture {
     const { last_verdict: _verdict, ...rest } = step;
     return {
       ...rest,
+      // `feature.json` declares a Drone per task here, as Fleet serves it since 23.1.
+      drone_per_task: true,
       state: "running",
       attempts: step.attempts.slice(0, 1).map(({ why: _w, ended_at: _e, ...one }) => ({ ...one, outcome: "running" })),
       check_runs: (step.check_runs ?? []).filter((run) => run.group !== "G3"),

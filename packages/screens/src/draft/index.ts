@@ -37,6 +37,7 @@ export * from "./ledger";
 export * from "./members";
 export * from "./peers";
 export * from "./proposal";
+export * from "./phase";
 export * from "./pulse";
 export * from "./revision";
 export * from "./sketch";

@@ -12,6 +12,8 @@
 
 import type { DeclaredCheck, WorkflowSummary } from "@armada/protocol";
 import { MANIFEST_ID } from "./base";
+import { phased } from "../../draft/phase";
+import type { StepPhase } from "../../draft/phase";
 
 type Step = WorkflowSummary["steps"][number];
 
@@ -20,8 +22,10 @@ function step(
   label: string,
   advance_gate: string,
   over: Partial<Step> = {},
+  /** Its lane on the approval canvas. Draft — `draft/phase.ts`. Absent reads by `delivers`. */
+  phase?: StepPhase,
 ): Step {
-  return {
+  const declared: Step = {
     step_id,
     label,
     checks: [],
@@ -30,6 +34,7 @@ function step(
     delivers: false,
     ...over,
   };
+  return phase === undefined ? declared : phased(declared, phase);
 }
 
 function summary(id: string, name: string, steps: Step[]): WorkflowSummary {
@@ -40,12 +45,12 @@ export function bugWorkflow(checks: DeclaredCheck[]): WorkflowSummary {
   return summary("bug", "bug", [
     step("plan", "Plan the change", "auto_if_judge_passes", {
       judge_checks: [{ criteria: 2, gaming_check: false }],
-    }),
+    }, "work"),
     step("implement", "Implement", "auto_if_judge_passes", {
       checks,
       judge_checks: [{ criteria: 4, gaming_check: true }],
-    }),
-    step("handoff", "Review the change", "human_always", { delivers: true }),
+    }, "work"),
+    step("handoff", "Review the change", "human_always", { delivers: true }, "delivery"),
   ]);
 }
 
@@ -53,12 +58,12 @@ export function refactorWorkflow(checks: DeclaredCheck[]): WorkflowSummary {
   return summary("refactor", "refactor", [
     step("plan", "Scope the refactor", "auto_if_judge_passes", {
       judge_checks: [{ criteria: 1, gaming_check: false }],
-    }),
+    }, "work"),
     step("implement", "Restructure", "auto_if_judge_passes", {
       checks,
       judge_checks: [{ criteria: 4, gaming_check: true }],
-    }),
-    step("handoff", "Review the change", "human_always", { delivers: true }),
+    }, "work"),
+    step("handoff", "Review the change", "human_always", { delivers: true }, "delivery"),
   ]);
 }
 
@@ -99,7 +104,8 @@ export function epicWorkflow(): WorkflowSummary {
   return summary("epic", "epic", [
     step("plan", "Plan the wave", "human_always", {
       judge_checks: [{ criteria: 2, gaming_check: false }],
-    }),
-    step("roll_up", "Roll up the wave", "human_always"),
+    }, "work"),
+    // The roll-up delivers no change, and is what the wave delivers.
+    step("roll_up", "Roll up the wave", "human_always", {}, "delivery"),
   ]);
 }

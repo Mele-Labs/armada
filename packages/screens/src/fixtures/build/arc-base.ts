@@ -48,6 +48,7 @@ import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
+import { phased } from "../../draft/phase";
 
 /** The Job every arc moment is a moment of. */
 export const ARC_JOB_ID = "01M2D4YQK80011620DRONEST";
@@ -171,38 +172,50 @@ export function featureWorkflow(): WorkflowSummary {
     version: 1,
     manifest_id: MANIFEST_ID,
     steps: [
-      {
-        step_id: "plan",
-        label: "Plan the change",
-        checks: [],
-        judge_checks: [{ criteria: 2, gaming_check: false }],
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "implement",
-        label: "Implement",
-        checks: [...RUST_CHECKS, ...BRIDGE_CHECKS],
-        judge_checks: [{ criteria: 4, gaming_check: false }],
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "tests",
-        label: "Write tests",
-        checks: BRIDGE_CHECKS,
-        judge_checks: [{ criteria: 1, gaming_check: true }],
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "handoff",
-        label: "Review the change",
-        checks: [],
-        judge_checks: [],
-        advance_gate: "human_always",
-        delivers: true,
-      },
+      phased(
+        {
+          step_id: "plan",
+          label: "Plan the change",
+          checks: [],
+          judge_checks: [{ criteria: 2, gaming_check: false }],
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "implement",
+          label: "Implement",
+          checks: [...RUST_CHECKS, ...BRIDGE_CHECKS],
+          judge_checks: [{ criteria: 4, gaming_check: false }],
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "tests",
+          label: "Write tests",
+          checks: BRIDGE_CHECKS,
+          judge_checks: [{ criteria: 1, gaming_check: true }],
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "handoff",
+          label: "Review the change",
+          checks: [],
+          judge_checks: [],
+          advance_gate: "human_always",
+          delivers: true,
+        },
+        "delivery",
+      ),
     ],
   };
 }
@@ -227,64 +240,85 @@ export function bugWorkflow(): WorkflowSummary {
     version: 2,
     manifest_id: MANIFEST_ID,
     steps: [
-      {
-        step_id: "repro",
-        label: "repro",
-        checks: [{ kind: "test_run", expect_exit_code: 1 }],
-        judge_checks: judge,
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "root_cause",
-        label: "root_cause",
-        checks: [{ kind: "artifact_exists", name: "root_cause_note" }],
-        judge_checks: judge,
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "fix",
-        label: "fix",
-        checks: [{ kind: "diff_nonempty" }],
-        // A panel of three, and the sample's own gaming check.
-        judge_checks: [{ criteria: 1, gaming_check: true, panel_size: 3 }],
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "regression_verify",
-        label: "regression_verify",
-        checks: [{ kind: "manifest_check", name: "test", expect_exit_code: 0 }],
-        judge_checks: judge,
-        advance_gate: "auto_if_judge_passes",
-        delivers: false,
-      },
-      {
-        step_id: "review",
-        // Advisory: it summarises for a person and does not gate.
-        label: "review",
-        checks: [],
-        judge_checks: judge,
-        advance_gate: "manifest_rule:review_gate",
-        delivers: false,
-      },
-      {
-        step_id: "merge",
-        label: "merge",
-        checks: [],
-        judge_checks: [],
-        advance_gate: "manifest_rule:auto_merge",
-        delivers: true,
-      },
-      {
-        step_id: "close",
-        label: "close",
-        checks: [{ kind: "pr_merged" }],
-        judge_checks: [],
-        advance_gate: "auto",
-        delivers: false,
-      },
+      phased(
+        {
+          step_id: "repro",
+          label: "repro",
+          checks: [{ kind: "test_run", expect_exit_code: 1 }],
+          judge_checks: judge,
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "root_cause",
+          label: "root_cause",
+          checks: [{ kind: "artifact_exists", name: "root_cause_note" }],
+          judge_checks: judge,
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "fix",
+          label: "fix",
+          checks: [{ kind: "diff_nonempty" }],
+          // A panel of three, and the sample's own gaming check.
+          judge_checks: [{ criteria: 1, gaming_check: true, panel_size: 3 }],
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "regression_verify",
+          label: "regression_verify",
+          checks: [{ kind: "manifest_check", name: "test", expect_exit_code: 0 }],
+          judge_checks: judge,
+          advance_gate: "auto_if_judge_passes",
+          delivers: false,
+        },
+        "work",
+      ),
+      phased(
+        {
+          step_id: "review",
+          // Advisory: it summarises for a person and does not gate.
+          label: "review",
+          checks: [],
+          judge_checks: judge,
+          advance_gate: "manifest_rule:review_gate",
+          delivers: false,
+        },
+        "delivery",
+      ),
+      phased(
+        {
+          step_id: "merge",
+          label: "merge",
+          checks: [],
+          judge_checks: [],
+          advance_gate: "manifest_rule:auto_merge",
+          delivers: true,
+        },
+        "delivery",
+      ),
+      phased(
+        {
+          step_id: "close",
+          label: "close",
+          checks: [{ kind: "pr_merged" }],
+          judge_checks: [],
+          advance_gate: "auto",
+          delivers: false,
+        },
+        "delivery",
+      ),
     ],
   };
 }

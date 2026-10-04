@@ -8,9 +8,9 @@ import type { StepRead } from "./approval-canvas";
 import { tuningOf } from "./draft/tuning";
 
 const STEPS: StepRead[] = [
-  { id: "plan", label: "Plan the change", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false },
-  { id: "implement", label: "Implement", checks: [{ kind: "diff_nonempty" }], judges: [], delivers: false },
-  { id: "handoff", label: "Review the change", checks: [], judges: [], delivers: true },
+  { id: "plan", label: "Plan the change", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false, phase: "work" as const, perTask: false },
+  { id: "implement", label: "Implement", checks: [{ kind: "diff_nonempty" }], judges: [], delivers: false, phase: "work" as const, perTask: true },
+  { id: "handoff", label: "Review the change", checks: [], judges: [], delivers: true, phase: "delivery" as const, perTask: false },
 ];
 
 const GATES = [
@@ -88,8 +88,8 @@ describe("approvalNodesOf", () => {
 
 describe("a wave's Jobs", () => {
   const EPIC: StepRead[] = [
-    { id: "plan", label: "Plan the wave", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false },
-    { id: "roll_up", label: "Roll up the wave", checks: [], judges: [], delivers: false },
+    { id: "plan", label: "Plan the wave", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false, phase: "work" as const, perTask: false },
+    { id: "roll_up", label: "Roll up the wave", checks: [], judges: [], delivers: false, phase: "work" as const, perTask: false },
   ];
   const gates = [
     { step_id: "plan", checks: false, judge: true, you: true },
@@ -125,5 +125,23 @@ describe("a wave's Jobs", () => {
     expect(pairs).toContain("job:B>roll_up");
     expect(pairs).toContain("job:C>roll_up");
     expect(pairs).not.toContain("job:A>roll_up");
+  });
+});
+
+describe("a step's lane", () => {
+  it("is its declared phase: an Epic's roll-up, which delivers nothing, is delivery", () => {
+    const steps: StepRead[] = [
+      { id: "plan", label: "Plan the wave", checks: [], judges: [], delivers: false, phase: "work", perTask: false },
+      { id: "roll_up", label: "Roll up the wave", checks: [], judges: [], delivers: false, phase: "delivery", perTask: false },
+    ];
+    const gates = [
+      { step_id: "plan", checks: false, judge: false, you: true },
+      { step_id: "roll_up", checks: false, judge: false, you: true },
+    ];
+    const { nodes } = approvalNodesOf({
+      title: "T", from: "main", workflowName: "epic", steps, gates, tuning: tuningOf([]), prMode: "ready", target: "main",
+    });
+    expect(nodes.find((node) => node.id === "roll_up")?.lane).toBe("delivery");
+    expect(nodes.find((node) => node.id === "plan")?.lane).toBe("work");
   });
 });
