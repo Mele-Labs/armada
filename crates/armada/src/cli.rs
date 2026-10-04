@@ -370,12 +370,17 @@ pub enum Fault {
     ChangedRunsTheWholeCheck {
         test: String,
     },
-    /// `worktree`'s forms are `lease`, `release` and `--status`.
+    /// `worktree`'s forms are `lease`, `release`, `add`, `remove`, `close`,
+    /// `open` and `--status`.
     WorktreeActUnknown {
         given: String,
     },
     /// `worktree lease` with no branch after it.
     NoBranch,
+    /// `worktree remove`, `close` or `open` without a slot's number.
+    NoSlot {
+        form: String,
+    },
 }
 
 impl fmt::Display for Misread {
@@ -447,11 +452,16 @@ impl fmt::Display for Fault {
             Fault::WorktreeActUnknown { given } => write!(
                 out,
                 "`armada {WORKTREE} {given}` is not a form this verb takes — they are \
-                 `{WORKTREE} lease <branch>`, `{WORKTREE} release [<path>]`, `{WORKTREE} --status`"
+                 `{WORKTREE} lease <branch>`, `{WORKTREE} release [<path>]`, `{WORKTREE} add`, \
+                 `{WORKTREE} remove|close|open <n>`, `{WORKTREE} --status`"
             ),
             Fault::NoBranch => write!(
                 out,
                 "`armada {WORKTREE} lease` needs the branch to cut, and it is cut from the base"
+            ),
+            Fault::NoSlot { form } => write!(
+                out,
+                "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
             ),
         }
     }

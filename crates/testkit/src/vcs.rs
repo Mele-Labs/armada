@@ -1185,6 +1185,14 @@ impl Vcs for FakeVcs {
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
         self.slots.readings(pool)
     }
+
+    fn change_slot_pool(
+        &self,
+        pool: &SlotPool,
+        change: adapter_traits::SlotChange,
+    ) -> Result<u32, adapter_traits::SlotRefused> {
+        self.slots.change(pool, change)
+    }
 }
 
 #[cfg(test)]

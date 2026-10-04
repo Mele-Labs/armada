@@ -4,7 +4,9 @@
    Contrast, worked from the tokens: --fg-inverse on the running band 8.10:1,
    on the review band 8.88:1; --fg-default on the hatch's stripe 11.29:1 and
    --fg-muted 5.23:1; --accent on a held body 5.42:1; --fg-subtle on a ghost
-   5.42:1. Every one clears 4.5:1. */
+   5.42:1. Every one clears 4.5:1. A closed bay is shuttered: slats of
+   --slot-closed-bg under --slot-closed words, which a person closing a slot
+   reads apart from stranded's diagonal hatch. */
 
 .armada-pool-slots {
   display: grid;
@@ -153,7 +155,9 @@
 
 /* Free and not made: open bays. The name sits in the corner, the state in the middle. */
 .armada-bay[data-bay="free"],
-.armada-bay[data-bay="ghost"] {
+.armada-bay[data-bay="ghost"],
+.armada-bay[data-bay="closed"],
+.armada-bay[data-bay="add"] {
   padding: var(--space-2) var(--space-3);
   border-style: dashed;
   background: transparent;
@@ -174,6 +178,122 @@
   color: var(--fg-subtle);
 }
 
+/* Closed, an open bay is shuttered: solid, slatted, and locked. */
+.armada-bay[data-bay="closed"] {
+  border-style: solid;
+  border-color: var(--slot-closed);
+  color: var(--slot-closed);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--slot-closed-bg) 0 var(--space-1),
+      transparent var(--space-1) var(--space-2)
+    ),
+    var(--bg-raised);
+}
+
+.armada-bay[data-bay="closed"] .armada-bay__name {
+  color: var(--fg-muted);
+}
+
+/* A held, busy or stranded bay that is closed keeps its card and holder, and
+   carries the shutter along its foot. */
+.armada-bay[data-closed]::after {
+  content: "";
+  flex: none;
+  height: var(--space-2);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--slot-closed) 0 var(--space-1),
+    transparent var(--space-1) var(--space-2)
+  );
+}
+
+.armada-bay__closed {
+  display: inline-flex;
+  align-items: center;
+}
+
+.armada-bay__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-bay__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* An act on a bay: a bare glyph in the bay's own colour, named on hover. */
+.armada-bay__act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.armada-bay__act:hover {
+  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
+}
+
+.armada-bay__act:focus-visible,
+.armada-bay__add:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-bay__act[aria-disabled],
+.armada-bay__add[aria-disabled] {
+  cursor: progress;
+}
+
+.armada-bay[data-bay="ghost"] .armada-bay__act,
+.armada-bay[data-bay="free"] .armada-bay__act {
+  color: var(--fg-muted);
+}
+
+/* What Fleet said when it would not change the slot, on the slot. */
+.armada-bay__refused {
+  margin: 0;
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--border-default);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-default);
+  text-align: start;
+}
+
+/* The ghost after the last bay: one more slot. */
+.armada-bay[data-bay="add"] {
+  border-color: var(--border-default);
+  gap: var(--space-1);
+}
+
+.armada-bay__add {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-bay__add:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
 .armada-bay__open {
   display: flex;
   flex: 1 1 auto;
@@ -189,7 +309,8 @@
   gap: var(--space-2);
 }
 
-.armada-bay[data-bay="free"] .armada-bay__word {
+.armada-bay[data-bay="free"] .armada-bay__word,
+.armada-bay[data-bay="closed"] .armada-bay__word {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);

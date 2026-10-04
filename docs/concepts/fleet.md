@@ -344,7 +344,7 @@ to agents and to Fleet's Jobs alike, so a build starts from the last one's
 `target/` instead of from nothing. Each slot is a checkout at
 `.armada/slots/slot-<n>`, beside `.armada/worktrees/` and never inside it, and
 the Manifest's `setup.worktrees` says how many there are — [Manifest](manifest.md), *How many
-worktrees a repository leases*.
+worktrees a repository leases* — until a person changes the pool on this machine.
 
 > **Rule.** The pool is the cap. With every slot held, a lease waits and says
 > so; it never cuts another tree.
@@ -357,6 +357,9 @@ worktrees a repository leases*.
 | Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
 | Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one row per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
+| Add | One more slot, numbered lowest-unused and not made until a lease makes it |
+| Remove | The slot named, and only a free or unmade one, never the last. A made one's checkout goes by `git worktree remove`, which refuses one holding anything uncommitted; held, stranded and busy slots are refused by name. The other slots keep their numbers |
+| Close, open | A closed slot is never leased until it is opened. A holder keeps one closed under it until its lease ends, and it stays closed after |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
@@ -373,6 +376,13 @@ run from — an agent's session, or the terminal a person typed in.
 > neither the remote nor the base.
 > Why: a lease cuts its branch fresh from the base, and resetting one that
 > holds work would orphan it.
+
+**A person's changes to the pool are this machine's, and outlive Fleet.** Add,
+remove, close and open write `.armada/slots/pool` beside the slots' own
+records, which is never committed; `armada worktree lease` and Fleet both read
+it. Once a slot is added or removed, that list stands in for `setup.worktrees`,
+which stays the size a fresh machine starts at. Bridge's Cleanup offers each act
+on the slot's bay, and `change_slot_pool` is the act on the wire.
 
 `armada worktree` and its forms are in `../practices/running-locally.md`,
 *Leasing a worktree*.

@@ -51,7 +51,25 @@ export type WorktreeSlot = {
   warm: boolean;
   /** Commits on the base its checkout does not have. Absent where git could not count them. */
   behind?: number;
+  /**
+   * A person closed it: no lease takes it until it is reopened, and a holder
+   * keeps it until its lease ends. Since 23.17; absent from an older Fleet,
+   * which closes nothing.
+   */
+  closed?: boolean;
 };
+
+/** What a person does to the pool from Cleanup's bay grid. Since 23.17. */
+export type SlotAct = "add" | "remove" | "close" | "open";
+
+/**
+ * `change_slot_pool`'s body, `POST /worktrees/slots?manifest_id=`. `slot` names
+ * the slot for all but `add`, which picks its own. On this machine only.
+ */
+export type ChangeSlotPool = { act: SlotAct; slot?: number };
+
+/** The slot `change_slot_pool` changed: the new one, for `add`. */
+export type SlotPoolChanged = { manifest_id: string; slot: number };
 
 /**
  * Who holds a slot, or why nothing can. Discriminated on `state`, and matched

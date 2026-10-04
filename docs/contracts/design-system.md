@@ -364,13 +364,17 @@ new one. The mapping is declared, so it is read rather than inferred.
 --slot-stranded-bg var(--status-awaiting-review-bg)
 --slot-warm        var(--status-escalated)
 --slot-cold        var(--status-not-started)
+--slot-closed      var(--status-rejected)
+--slot-closed-bg   var(--status-rejected-bg)
 ```
 
 **A worktree slot's bay takes its slot's hue.** On Cleanup a held bay is a
 filled card under a `--slot-held` band, a free one an open dashed outline in
 `--slot-free`, a stranded one hatched from `--slot-stranded-bg`, and the build
 mark `--slot-warm` or `--slot-cold`. A slot not made, or not a checkout, takes
-none. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
+none. A slot a person closed is shuttered in `--slot-closed`, rejected's
+violet, because closing is a person declining to lease it; a held one closed
+keeps its band and holder and takes the closed mark beside its state. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
 say which slots were available. Like a verdict, it never sums onto a Job.
 
 **Step activity answers where the work is.** `retrying` and

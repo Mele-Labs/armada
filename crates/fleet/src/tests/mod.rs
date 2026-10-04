@@ -196,6 +196,7 @@ mod settling;
 mod showing;
 mod showing_again;
 mod silence;
+mod slot_pool;
 mod snapshotting;
 mod standing_rules;
 mod starting;

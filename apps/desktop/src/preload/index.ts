@@ -7,7 +7,7 @@ import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened } from "@armada/protocol";
-import type { SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { Pattern } from "../shared/haptics";
 import type {
@@ -171,6 +171,8 @@ const api: BridgeApi = {
   // because clearing a board is a set.
   reclaimWorktree: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.reclaimWorktree, jobId),
+  changeSlotPool: (manifestId: string, change: ChangeSlotPool): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeSlotPool, manifestId, change),
 
   // A force, unlike the reclaim above — Fleet's 409 is the safety net a
   // stale confirmation needs.
