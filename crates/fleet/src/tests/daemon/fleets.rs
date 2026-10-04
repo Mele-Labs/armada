@@ -116,6 +116,7 @@ pub fn fitted_over<V>(
                 .to_string_lossy()
                 .to_string(),
             studio_frames_dir: home.path().join("studios").to_string_lossy().to_string(),
+            walk_frames_dir: home.path().join("walks").to_string_lossy().to_string(),
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),

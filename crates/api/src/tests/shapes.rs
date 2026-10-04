@@ -374,6 +374,8 @@ pub fn detail(job: JobSummary) -> JobDetail {
         replaces: None,
         // The fake records no plan, so no pass has a line.
         wave_rounds: Vec::new(),
+        // The fake keeps no walk notes.
+        walk_notes: Vec::new(),
     }
 }
 

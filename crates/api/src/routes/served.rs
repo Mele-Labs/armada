@@ -536,6 +536,19 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/dismiss_finding",
     },
+    // What a person pointed at while walking the Job's mock, and taking one
+    // back. Two routes for the reason `dismiss_finding` is not a sixth answer:
+    // neither moves the Job. Since 23.16.
+    Route {
+        operation: "capture_walk_note",
+        method: "POST",
+        path: "/jobs/:job_id/walk_notes",
+    },
+    Route {
+        operation: "remove_walk_note",
+        method: "POST",
+        path: "/jobs/:job_id/walk_notes/remove",
+    },
     // What a For context finding becomes: a Job queued behind this one, or an issue. #906.
     Route {
         operation: "queue_after_finding",

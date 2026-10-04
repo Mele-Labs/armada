@@ -16,9 +16,10 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Commands, Refusal};
 use ipc::{
-    AddTask, CapRaise, ChangesRequested, DropTask, FindingDismissed, FindingQueued, IssueFiled,
-    JobExamined, JobForgotten, JobId, JobSummary, Overruled, Preferences, ProposeJob, Redirection,
-    Redispatched, RemarksTakenUp, SavePreference, TurnRaise, WorkPlan, WorktreeReclaimed,
+    AddTask, CapRaise, CaptureWalkNote, ChangesRequested, DropTask, FindingDismissed,
+    FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, Overruled,
+    Preferences, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
+    SavePreference, TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
 };
 
 use crate::adrift::Adrift;
@@ -249,14 +250,21 @@ where
         job_id: JobId,
         note: ChangesRequested,
     ) -> Result<JobSummary, Refusal> {
-        let said =
-            Instruction::saying(&note.note).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
+        // Walk notes are read before the blank check, so a blank note carrying
+        // them is taken and one carrying none is refused as it always was.
+        let id = job_id.to_domain();
+        let walked = self.with_walk_notes(&id, &note).await;
+        let (text, carried) = walked.map_err(|why| self.refusal(why))?;
+        let said = Instruction::saying(&text).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move { Fleet::request_changes(&fleet, &job_id.to_domain(), &said).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        // Only once the note has landed, so a refused send leaves them unsent.
+        let sent = self.walk_notes_sent(&id, &carried).await;
+        sent.map_err(|why| self.refusal(why))?;
         self.summarised(&job).await
     }
 
@@ -280,6 +288,14 @@ where
 
     async fn dismiss_finding(&self, id: JobId, d: FindingDismissed) -> Result<JobSummary, Refusal> {
         self.dismissing(id, d).await
+    }
+
+    async fn capture_walk_note(&self, id: JobId, c: CaptureWalkNote) -> Result<WalkNotes, Refusal> {
+        self.capturing_walk_note(id, c).await
+    }
+
+    async fn remove_walk_note(&self, id: JobId, r: RemoveWalkNote) -> Result<WalkNotes, Refusal> {
+        self.removing_walk_note(id, r).await
     }
 
     async fn queue_after_finding(

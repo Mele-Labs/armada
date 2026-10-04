@@ -729,6 +729,11 @@ fn assemble(
     let studio_frames_dir = machine.join("studios");
     std::fs::create_dir_all(&studio_frames_dir)?;
 
+    // A walk note's frame, one directory per Job, outside every worktree so it
+    // outlives the checkout it was taken of. Protocol 23.16.
+    let walk_frames_dir = machine.join("walks");
+    std::fs::create_dir_all(&walk_frames_dir)?;
+
     // The Evidence server alone, for a spawn that cannot name the Manifest it
     // is serving — `fleet::spawning` writes this file's Manifest-resolved
     // sibling for every spawn that can. The path is `api`'s own constant rather
@@ -766,6 +771,7 @@ fn assemble(
             mcp_config: mcp_config.to_string_lossy().to_string(),
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
+            walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.
             agent_binary: judge_binary.clone(),

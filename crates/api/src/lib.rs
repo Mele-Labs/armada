@@ -88,6 +88,8 @@ mod sockets;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
 mod studios;
+/// A Job's walk notes, captured and taken back. Since 23.16.
+mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.
 mod watching_run;
 

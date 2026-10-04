@@ -228,6 +228,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/take_up_remarks", post(take_up_remarks::<D>))
         .route("/jobs/:job_id/dismiss_finding", post(dismiss_finding::<D>))
         .route(
+            "/jobs/:job_id/walk_notes",
+            post(crate::walking::capture_walk_note::<D>),
+        )
+        .route(
+            "/jobs/:job_id/walk_notes/remove",
+            post(crate::walking::remove_walk_note::<D>),
+        )
+        .route(
             "/jobs/:job_id/queue_after_finding",
             post(queue_after_finding::<D>),
         )
