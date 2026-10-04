@@ -1004,7 +1004,7 @@
     means = "The Job holding a worktree slot, leading its title on Cleanup"
     group = "Worktree slot"
     size = "12px"
-    status = "Proposed"
+    status = "Specified"
     notes = "Added 4 Oct 2026 on the owner's walk of the slot pool: the holder cell needed to read as a Job and as a press. The same drawing of the Job itself the Record uses, never its status. --accent, with the title, as a link."
 
 [icons.scale]
@@ -1104,28 +1104,29 @@
 
 
 # Worktree slot: a bay of the worktree pool on Cleanup, one mark for the slot's
-# state and one for its build. Proposed 4 Oct 2026, shown in the walk
-# `aPoolOfWorktreeSlots` before it lands. 12px, --fg-muted, tooltip naming it.
+# state and one for its build. The owner accepted them on the walk
+# `aPoolOfWorktreeSlots`, 4 Oct 2026. 12px, in the slot hue of their bay
+# (`--slot-*`, packages/tokens/src/status.css), tooltip naming it.
 
 [icons.key-round]
   means = "A key with a round bow - a slot leased out"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A worktree slot someone holds, a Job or a session. Never a secret, a credential or a permission."
 
 [icons.door-open]
   means = "An open door - a slot nothing holds"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A free worktree slot only."
 
 [icons.ghost]
   means = "A ghost - a slot whose holder is gone and that still holds work"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A stranded worktree slot only. Never a Job's state."
   notes = "The tooltip carries what it still holds, as armada worktree --status words it."
 
@@ -1133,28 +1134,28 @@
   means = "A square outline broken into dashes - a slot not made yet"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A worktree slot the next lease makes. Never a step or a task not started, which is circle-dashed."
 
 [icons.folder-x]
   means = "A folder with a cross - a slot directory that is not a checkout"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A worktree slot nothing leases until a person removes it."
 
 [icons.loader-circle]
   means = "An open ring, spinning - a take or a release under way"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A worktree slot being taken or given back. The one animated mark in the group; held still under reduced motion."
 
 [icons.flame]
   means = "A flame - a slot with its build on disk"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A warm worktree slot: every setup.seed.paths entry is on disk in it. Never spend, urgency or a hot path."
   paired_with = "snowflake"
 
@@ -1162,6 +1163,6 @@
   means = "A snowflake - a slot without its build"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A cold worktree slot only."
   paired_with = "flame"

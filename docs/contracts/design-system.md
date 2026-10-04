@@ -358,7 +358,20 @@ new one. The mapping is declared, so it is read rather than inferred.
 --phase-live-edge  --status-running 45% into --border-default
 --phase-live-bg    --status-running 6% into transparent
 --phase-live-rule  --status-running 25% into --border-subtle
+--slot-held        var(--status-running)
+--slot-free        var(--status-completed-success)
+--slot-stranded    var(--status-awaiting-review)
+--slot-stranded-bg var(--status-awaiting-review-bg)
+--slot-warm        var(--status-escalated)
+--slot-cold        var(--status-not-started)
 ```
+
+**A worktree slot's bay takes its slot's hue.** On Cleanup a held bay is a
+filled card under a `--slot-held` band, a free one an open dashed outline in
+`--slot-free`, a stranded one hatched from `--slot-stranded-bg`, and the build
+mark `--slot-warm` or `--slot-cold`. A slot not made, or not a checkout, takes
+none. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
+say which slots were available. Like a verdict, it never sums onto a Job.
 
 **Step activity answers where the work is.** `retrying` and
 `not_started` take no hue — `--fg-muted` and `--fg-subtle`. A **killed**
@@ -2563,11 +2576,13 @@ read plausibly under a different job has failed.
 
 ### Prose rules
 
-- **Sentence case everywhere.** No title case, and ALL CAPS in two places
-  only: table headers, and an eyebrow — the small label that heads a
-  section or card, like a transcript card's DRONE — both at `--text-2xs`
+- **Sentence case everywhere.** No title case, and ALL CAPS in three places
+  only: table headers, an eyebrow — the small label that heads a
+  section or card, like a transcript card's DRONE — and a worktree slot
+  bay's state word (HELD, BUSY, STRANDED, FREE), all at `--text-2xs`
   with `0.04em` tracking. The owner allowed the eyebrow on 29 Sep 2026,
-  from a sketch that drew one. Lexicon proper nouns keep their capitals
+  from a sketch that drew one, and the bay's word on 4 Oct 2026, from a
+  preview he picked. Lexicon proper nouns keep their capitals
   inside sentence case.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same

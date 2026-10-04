@@ -32,22 +32,22 @@
 /* Held, and a take or release under way: a solid card under a filled band. */
 .armada-bay[data-bay="held"],
 .armada-bay[data-bay="busy"] {
-  --bay-hue: var(--status-running);
-  background: color-mix(in srgb, var(--status-running) var(--row-tint), var(--bg-raised));
-  border-color: var(--status-running);
+  --bay-hue: var(--slot-held);
+  background: color-mix(in srgb, var(--slot-held) var(--row-tint), var(--bg-raised));
+  border-color: var(--slot-held);
 }
 
 /* Stranded: the warning hue, hatched, so it reads as needing a person. */
 .armada-bay[data-bay="stranded"] {
-  --bay-hue: var(--status-awaiting-review);
+  --bay-hue: var(--slot-stranded);
   background:
     repeating-linear-gradient(
       135deg,
-      var(--status-awaiting-review-bg) 0 var(--space-2),
+      var(--slot-stranded-bg) 0 var(--space-2),
       transparent var(--space-2) var(--space-4)
     ),
     var(--bg-raised);
-  border-color: var(--status-awaiting-review);
+  border-color: var(--slot-stranded);
 }
 
 .armada-bay__band {
@@ -160,8 +160,8 @@
 }
 
 .armada-bay[data-bay="free"] {
-  border-color: var(--status-completed-success);
-  color: var(--status-completed-success);
+  border-color: var(--slot-free);
+  color: var(--slot-free);
 }
 
 .armada-bay[data-bay="ghost"] {
@@ -201,11 +201,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--status-not-started);
+  color: var(--slot-cold);
 }
 
 .armada-bay__warmth[data-warm] {
-  color: var(--status-escalated);
+  color: var(--slot-warm);
 }
 
 /* A take or a release under way, the one state that is in motion. */
