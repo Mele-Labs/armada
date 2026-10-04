@@ -149,8 +149,9 @@ the turn's paths (every member's, + what landed on main)
   -> a file under a member that is not .rs ?                                -- yes -> whole
   -> + the directory of every member depending on one touched (cargo tree -i, normal, build and dev edges)
   -> armada check <name> --changed, those paths on stdin
-       each path the Check's `when` covers must derive a value under `under` -- no  -> whole
-       values in `except` dropped; none left                               -- nothing to run, passes
+       each path the Check's `when` covers must derive a value under `under`,
+         or match `outside`                                                -- neither -> whole
+       values in `except` dropped; none left and no `outside` path         -- nothing to run, passes
        otherwise                                                           -- narrow.run + each value
 ```
 
@@ -158,6 +159,7 @@ the turn's paths (every member's, + what landed on main)
 - **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` (`format`'s) never narrows at all, since a file list leaves out what the command reads beside it, such as `rustfmt.toml`.
 - **A file that is not Rust source runs it whole**, because the dependency graph says nothing about who reads it: `ipc`'s tests read `testkit`'s fixtures without depending on `testkit`.
 - **`xtask` is in every narrowed `test`**, written into the Manifest's `narrow.run`: its tests read the whole tree, so no change under `crates/` is outside their reach.
+- **`apps/` and `packages/` run `test` as xtask alone.** The Manifest declares them `outside`: paths `narrow.run` already reads, since xtask's tests are the only ones reading either tree. A change touching only them runs `narrow.run` with nothing appended; beside a crate, they add nothing to its `-p` values. Any other covered path `under` cannot name still runs it whole. Decided by the owner 4 Oct 2026, after Job 3's Bridge-only change ran every Rust test.
 - **It is said.** The status line and the outcome carry `test narrowed to -p …`, and the turn's `reach.log` holds the paths or the reason it ran whole.
 - **`main`'s rerun of a red Check is whole and cached by commit, as before.** It answers whether `main` itself is red, and a whole red is the stronger answer.
 
