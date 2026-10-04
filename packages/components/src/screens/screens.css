@@ -2250,3 +2250,9 @@
   list-style: none;
 }
 
+
+/* A lane's Zone or a fan's Cluster behind the approval canvas's nodes: the
+   frame fills the box the layout gives it. */
+.armada-approval-canvas__frame {
+  box-sizing: border-box;
+}

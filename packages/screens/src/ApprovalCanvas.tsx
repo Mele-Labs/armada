@@ -33,15 +33,14 @@ import {
   Textarea,
   Tooltip,
   RUN_NODE_HEIGHT,
-  RUN_NODE_WIDTH,
   RunNode,
+  StudioFrame,
   WorkflowCanvas,
   WorkflowStepCard,
 } from "@armada/components";
 import type {
   GateBox,
   ProposalLandingValue,
-  WorkflowCanvasEdge,
   RunNodeKind,
   RunNodeState,
   WorkflowCanvasNode,
@@ -49,6 +48,7 @@ import type {
 
 import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
+import { layoutOf, narrowOf } from "./approval-layout";
 import type { ApprovingProps } from "./approving";
 import type { TaskView } from "./draft/task";
 import { taskCard } from "./plan-canvas";
@@ -90,25 +90,6 @@ function runKindOf(node: ApprovalNode): RunNodeKind {
   }
 }
 
-/** Three gaps make the rhythm: a step's own work held tight, units apart, phases further (`--space-4`, `-8`, `-12` plus `-2`). */
-const TIGHT = 16;
-const APART = 32;
-const PHASE = 56;
-
-/** The room an edge's own words take in the gap: `merges on its own` at --text-2xs. */
-const LABELLED = 24;
-
-/** How far apart two Jobs of one band of the wave sit: a card's width and `--space-8`. */
-const ACROSS = 260 + 32;
-
-
-/** Which gap stands above a node. */
-function gapAbove(node: ApprovalNode, before: ApprovalNode): number {
-  if (node.kind === "checks" || node.kind === "group" || node.kind === "groups") return TIGHT;
-  if (before.kind === "start" || node.kind === "done") return PHASE;
-  return APART;
-}
-
 /** What a node's card is called: its own name, and a gate's step beside it. */
 function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
   const step = steps.find((one) => one.id === node.stepId);
@@ -116,48 +97,24 @@ function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
 }
 
 /**
- * What a run too long to read whole opens on, at full size: the first node
- * at work or waiting on you, with one before it — a step, a group, a wave's Job — or the top of the run at the gate.
+ * What a run too long to read whole opens on, across all three lanes: the band
+ * of rows round the first node at work or waiting on you, or the top of the
+ * lanes at the gate. Lanes side by side read together, so it is a band of rows
+ * rather than a run of nodes.
  */
-function opensOnOf(nodes: readonly ApprovalNode[]): string[] {
-  // The first node neither done nor untouched: at work, or waiting on a person.
-  const live = nodes.findIndex(
+function opensOnOf(nodes: readonly ApprovalNode[], places: ReadonlyMap<string, { x: number; y: number }>): string[] {
+  const live = nodes.find(
     (node) =>
       node.life?.current === true ||
       (node.life !== undefined && node.life.activity !== "advanced" && node.life.activity !== "not_started"),
   );
-  const at = Math.max(0, live - 1);
-  return nodes.slice(at, at + 4).map((node) => node.id);
-}
-
-
-/**
- * Where each node sits, top to bottom (the owner, 4 Oct 2026): **every card
- * centred on one spine**, whatever its width, one under the last by what it
- * draws. A wave's Jobs of one depth share a row, side by side about the spine,
- * so what may run at once reads as at once.
- */
-function placesOf(
-  nodes: readonly ApprovalNode[],
-  edges: readonly WorkflowCanvasEdge[],
-): { x: number; y: number }[] {
-  const spine = RUN_NODE_WIDTH / 2;
-  const places: { x: number; y: number }[] = [];
-  let y = 0;
-  for (const [at, node] of nodes.entries()) {
-    const half = RUN_NODE_WIDTH / 2;
-    const band = node.band;
-    if (band !== undefined && band.index > 0) {
-      const first = places[at - band.index]!;
-      places.push({ x: spine - half + (band.index - (band.of - 1) / 2) * ACROSS, y: first.y });
-      continue;
-    }
-    if (at > 0) y += gapAbove(node, nodes[at - 1]!);
-    if (edges.some((edge) => edge.target === node.id && edge.label !== undefined)) y += LABELLED;
-    places.push({ x: spine - half + (band === undefined ? 0 : (-(band.of - 1) / 2) * ACROSS), y });
-    y += RUN_NODE_HEIGHT;
-  }
-  return places;
+  const from = live === undefined ? 0 : Math.max(0, (places.get(live.id)?.y ?? 0) - RUN_NODE_HEIGHT);
+  return nodes
+    .filter((node) => {
+      const y = places.get(node.id)?.y ?? 0;
+      return y >= from && y <= from + RUN_NODE_HEIGHT * 3;
+    })
+    .map((node) => node.id);
 }
 
 /** Where the Job is on a node: nothing dimmed at the gate; past it, live, done, or not reached. */
@@ -244,12 +201,28 @@ export function ApprovalCanvas({
   // A node a workflow change took away closes its card with it.
   const opened = nodes.find((node) => node.id === open);
 
-  const places = placesOf(nodes, edges);
-  const drawnEdges = edges.map((edge) => {
+  const layout = layoutOf(nodes, edges);
+  const drawnEdges = layout.edges.map((edge) => {
     const into = nodes.find((node) => node.id === edge.target);
     return into?.life?.current === true ? { ...edge, flowing: true } : edge;
   });
-  const placed: WorkflowCanvasNode[] = nodes.map((node, at) => {
+  // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
+  const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
+    id: frame.id,
+    position: { x: frame.x, y: frame.y },
+    backdrop: true,
+    card: { kind: "step", name: frame.name ?? frame.title ?? frame.kind, activity: "not_started", said: NOT_STARTED },
+    drawn: (
+      <div className="armada-approval-canvas__frame" style={{ width: frame.width, height: frame.height }}>
+        <StudioFrame
+          kind={frame.kind}
+          {...(frame.name === undefined ? {} : { name: frame.name })}
+          {...(frame.title === undefined ? {} : { title: frame.title })}
+        />
+      </div>
+    ),
+  }));
+  const placed: WorkflowCanvasNode[] = nodes.map((node) => {
     const onOpen =
       node.opensJob !== undefined
         ? onOpenJob === undefined
@@ -261,7 +234,7 @@ export function ApprovalCanvas({
     const said = node.life?.said ?? NOT_STARTED;
     return {
       id: node.id,
-      position: places[at]!,
+      position: layout.places.get(node.id) ?? { x: 0, y: 0 },
       // Named for the edges and the fit; `drawn` is what is seen.
       card: { kind: "step", name: node.name, activity: node.life?.activity ?? "not_started", said },
       drawn: (
@@ -280,6 +253,7 @@ export function ApprovalCanvas({
           said={said}
           {...(node.life?.mark === undefined ? {} : { mark: node.life.mark })}
           state={stateOf(node, life !== undefined)}
+          narrow={narrowOf(node)}
           selected={node.id === open}
           {...(onOpen === undefined ? {} : { onOpen })}
         />
@@ -333,13 +307,13 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={placed}
+        nodes={[...backdrops, ...placed]}
         edges={drawnEdges}
         label="Run"
         runsDown
         downOnly
         centred
-        opensOn={[opensOnOf(nodes)]}
+        opensOn={[opensOnOf(nodes, layout.places)]}
         {...(card === undefined ? {} : { opened: card })}
       />
     </section>

@@ -77,9 +77,19 @@ export type StepRead = {
   delivers: boolean;
 };
 
+/** The three phases the run is laid out in, left to right (the owner, 4 Oct 2026). */
+export type Lane = "setup" | "work" | "delivery";
+
+export const LANES: readonly Lane[] = ["setup", "work", "delivery"];
+
 export type ApprovalNode = {
   id: string;
   kind: ApprovalNodeKind;
+  lane: Lane;
+  /** A gate hung beside the node it gates, on its row, by that node's id. Off the spine. */
+  side?: string;
+  /** A fanned group or Job, under the node it falls from, by that node's id. Off the spine. */
+  from?: string;
   /** The step it belongs to, on a step or its gate. */
   stepId?: string;
   name: string;
@@ -222,10 +232,15 @@ export function approvalNodesOf({
   dispatchesFrom?: string;
 }): { nodes: ApprovalNode[]; edges: WorkflowCanvasEdge[] } {
   const nodes: ApprovalNode[] = [];
-  const put = (node: Omit<ApprovalNode, "ordinal">) => {
+  // Which lane the next node goes in: setup, then the work, then from Done when on, delivery.
+  let lane: Lane = "setup";
+  const put = (node: Omit<ApprovalNode, "ordinal" | "lane">) => {
     const at = life?.nodes[node.id];
-    nodes.push({ ...node, ...(at === undefined ? {} : { life: at }), ordinal: nodes.length + 1 });
+    nodes.push({ ...node, lane, ...(at === undefined ? {} : { life: at }), ordinal: nodes.length + 1 });
   };
+  /** The last node on the spine so far: what a gate hung beside the next one hangs from. */
+  const spineEnd = (): ApprovalNode | undefined =>
+    [...nodes].reverse().find((one) => one.side === undefined && one.from === undefined);
   const delivery = deliveryOf(tuning.local, prMode);
 
   put({ id: "brief", kind: "brief", name: "Brief", face: title, ...(asked === "" ? {} : { line: asked }), traits: [], meta: [] });
@@ -238,13 +253,15 @@ export function approvalNodesOf({
     meta: [],
   });
   put({ id: "start", kind: "start", name: `Start ${workflowName}`, face: workflowName, traits: [], meta: [] });
+  lane = "work";
 
   // What counts as the work being done, read just before it leaves (the
   // owner, 4 Oct 2026). The same criteria Brief's card edits.
-  const done = () =>
+  const done = () => {
+    lane = "delivery";
     put({ id: "done", kind: "done", name: "Done when", ...(criteria.length === 0 ? {} : { items: criteria }), traits: [], meta: [] });
+  };
   const pr = () => {
-    done();
     put({
       id: "pr",
       kind: "pr",
@@ -257,17 +274,20 @@ export function approvalNodesOf({
       ],
     });
   };
-  let opened = false;
+  let delivering = false;
   for (const step of steps) {
     const gate = gates.find((one) => one.step_id === step.id);
     const tuned = tuning.steps[step.id];
-    // The pull request opens before the step that sends the work out, which
-    // is where a person reviews it.
-    if (step.delivers && delivery !== "local" && !opened) {
-      pr();
-      opened = true;
+    // What counts as done, then the pull request, before the step that sends
+    // the work out — which is where a person reviews it.
+    if (step.delivers && !delivering) {
+      done();
+      if (delivery !== "local") pr();
+      delivering = true;
     }
     const ownGate = !gateIsANode(step) && gate?.you === true;
+    // In delivery a step a person alone reads is a gate, hung beside what it reviews.
+    const hangs = spineEnd()?.lane === "delivery" && ownGate ? spineEnd()?.id : undefined;
     // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
     put({
       id: step.id,
@@ -275,6 +295,7 @@ export function approvalNodesOf({
       stepId: step.id,
       name: step.label,
       bandId: step.id,
+      ...(hangs === undefined ? {} : { side: hangs }),
       traits: ownGate
         ? [plain(YOU)]
         : [
@@ -292,10 +313,14 @@ export function approvalNodesOf({
       if (life?.groups === undefined || life.groups.length === 0) {
         put({ id: "groups", kind: "groups", name: "Groups", traits: [], meta: [], inert: true });
       } else {
-        for (const group of life.groups) {
+        for (const [at, group] of life.groups.entries()) {
           nodes.push({
             id: `group:${group.id}`,
             kind: "group",
+            lane,
+            from: step.id,
+            band: { depth: 0, index: at, of: life.groups.length },
+            waits_on: [],
             stepId: step.id,
             name: group.name,
             bandId: group.id,
@@ -325,6 +350,8 @@ export function approvalNodesOf({
           nodes.push({
             id: `job:${job.id}`,
             kind: "job",
+            lane,
+            from: step.id,
             name: job.name,
             traits: [],
             meta: [],
@@ -354,6 +381,7 @@ export function approvalNodesOf({
       id: `${step.id}:checks`,
       kind: "checks",
       stepId: step.id,
+      side: step.id,
       name: "Checks",
       ...(who === "" ? {} : { face: who }),
       bandId: step.id,
@@ -361,9 +389,11 @@ export function approvalNodesOf({
       meta,
     });
   }
-  // A workflow with no step that delivers still opens its pull request last.
-  if (delivery !== "local" && !opened) pr();
-  if (delivery === "local") done();
+  // A workflow with no step that delivers still says what counts as done, and opens its pull request, last.
+  if (!delivering) {
+    done();
+    if (delivery !== "local") pr();
+  }
   put({
     id: "land",
     kind: "land",
@@ -380,42 +410,51 @@ export function approvalNodesOf({
   });
 
   const edges: WorkflowCanvasEdge[] = [];
-  const lead = (source: ApprovalNode, target: ApprovalNode) => {
+  const lead = (source: ApprovalNode, target: ApprovalNode, across = false) => {
     const own = target.kind === "land" && delivery !== "local" && tuning.auto_merge;
     edges.push({
       id: `${source.id}->${target.id}`,
       source: source.id,
       target: target.id,
       kind: "leads",
+      ...(across ? { across: true } : {}),
       ...(own ? { label: "merges on its own" } : {}),
     });
   };
-  // One after another, except the wave's Jobs: the node before them leads to
-  // each that waits on nothing, each leads to the ones waiting on it, and each
-  // nobody waits on leads to the node after them.
-  for (const [at, node] of nodes.entries()) {
-    if (at === 0) continue;
-    const before = nodes[at - 1]!;
-    if (node.kind === "job") {
+  // The spine runs node to node within a lane, and across a lane once, from
+  // the bottom of one lane's last to the top of the next one's first. A gate
+  // hangs beside its node. A fan leads from the node it falls from to each of
+  // its members that waits on nothing, member to member where one waits, and
+  // from each nobody waits on to the next node on the spine.
+  const byId = new Map(nodes.map((one) => [one.id, one]));
+  const spine = nodes.filter((one) => one.side === undefined && one.from === undefined);
+  for (const node of nodes) {
+    if (node.side !== undefined) {
+      const on = byId.get(node.side);
+      if (on !== undefined) lead(on, node, true);
+    } else if (node.from !== undefined) {
       const waits = node.waits_on ?? [];
       if (waits.length === 0) {
-        const head = nodes.slice(0, at).reverse().find((one) => one.kind !== "job");
+        const head = byId.get(node.from);
         if (head !== undefined) lead(head, node);
       }
       for (const id of waits) {
-        const on = nodes.find((one) => one.id === id);
+        const on = byId.get(id);
         if (on !== undefined) lead(on, node);
       }
+    }
+  }
+  for (const [at, node] of spine.entries()) {
+    if (at === 0) continue;
+    const before = spine[at - 1]!;
+    const fan = nodes.filter((one) => one.from === before.id);
+    if (fan.length === 0) {
+      lead(before, node);
       continue;
     }
-    if (before.kind === "job") {
-      const wave = nodes.filter((one) => one.kind === "job");
-      for (const job of wave) {
-        if (!wave.some((other) => other.waits_on?.includes(job.id) === true)) lead(job, node);
-      }
-      continue;
+    for (const member of fan) {
+      if (!fan.some((other) => other.waits_on?.includes(member.id) === true)) lead(member, node);
     }
-    lead(before, node);
   }
   return { nodes, edges };
 }

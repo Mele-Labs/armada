@@ -40,9 +40,19 @@ describe("approvalNodesOf", () => {
     ]);
   });
 
-  it("puts Done when before Land where nothing opens a pull request", () => {
-    const ids = nodesOf({ ...tuningOf([]), local: true }).nodes.map((node) => node.id);
-    expect(ids.slice(-2)).toEqual(["done", "land"]);
+  it("puts Done when before Land on the spine where nothing opens a pull request, Review beside it", () => {
+    const { nodes } = nodesOf({ ...tuningOf([]), local: true });
+    const spine = nodes.filter((node) => node.side === undefined && node.from === undefined).map((node) => node.id);
+    expect(spine.slice(-2)).toEqual(["done", "land"]);
+    expect(nodes.find((node) => node.id === "handoff")?.side).toBe("done");
+  });
+
+  it("lays the run in three lanes, each gate beside its step", () => {
+    const { nodes } = nodesOf();
+    const lane = (id: string) => nodes.find((node) => node.id === id)?.lane;
+    expect([lane("start"), lane("plan"), lane("done"), lane("land")]).toEqual(["setup", "work", "delivery", "delivery"]);
+    expect(nodes.find((node) => node.id === "plan:checks")?.side).toBe("plan");
+    expect(nodes.find((node) => node.id === "handoff")?.side).toBe("pr");
   });
 
   it("draws the plan's groups in the placeholder's place, each in its own state", () => {
@@ -98,6 +108,8 @@ describe("a wave's Jobs", () => {
     });
 
   it("stands as Jobs after the step that dispatches them, until the wave exists", () => {
+    const placeholder = read().nodes.find((node) => node.id === "jobs");
+    expect(placeholder?.lane).toBe("work");
     expect(read().nodes.map((node) => node.id).slice(3, 6)).toEqual(["plan", "plan:checks", "jobs"]);
   });
 
@@ -105,8 +117,10 @@ describe("a wave's Jobs", () => {
     const { nodes, edges } = read([job("A"), job("B", ["A"]), job("C")]);
     expect(nodes.find((node) => node.id === "job:B")?.band).toEqual({ depth: 1, index: 0, of: 1 });
     const pairs = edges.map((edge) => `${edge.source}>${edge.target}`);
-    expect(pairs).toContain("plan:checks>job:A");
-    expect(pairs).toContain("plan:checks>job:C");
+    // The gate hangs beside Plan, so the wave falls from Plan itself.
+    expect(pairs).toContain("plan>plan:checks");
+    expect(pairs).toContain("plan>job:A");
+    expect(pairs).toContain("plan>job:C");
     expect(pairs).toContain("job:A>job:B");
     expect(pairs).toContain("job:B>roll_up");
     expect(pairs).toContain("job:C>roll_up");

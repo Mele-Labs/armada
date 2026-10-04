@@ -20,6 +20,8 @@ export type StudioFrameProps = {
   kind: StudioFrameKind;
   /** A Cluster's title. A Zone has none, and draws none. */
   title?: string;
+  /** The head's word in the kind's place, where the kind alone says nothing — a canvas lane. Absent is the kind. */
+  name?: string;
   selected?: boolean;
 };
 
@@ -28,11 +30,11 @@ export function studioFrameLabel({ kind, title }: Pick<StudioFrameProps, "kind" 
   return title === undefined || title === "" ? STUDIO_NODE_KIND[kind] : `${STUDIO_NODE_KIND[kind]}: ${title}`;
 }
 
-export function StudioFrame({ kind, title, selected = false }: StudioFrameProps) {
+export function StudioFrame({ kind, title, name, selected = false }: StudioFrameProps) {
   return (
     <div className="armada-studio-frame" data-kind={kind} data-selected={selected || undefined}>
       <div className="armada-studio-frame__head">
-        <span className="armada-studio-frame__kind">{STUDIO_NODE_KIND[kind]}</span>
+        <span className="armada-studio-frame__kind">{name ?? STUDIO_NODE_KIND[kind]}</span>
         {title === undefined || title === "" ? null : (
           <span className="armada-studio-frame__title" title={title}>
             {title}

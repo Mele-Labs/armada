@@ -44,6 +44,8 @@ export type WorkflowCanvasNode = {
   card: WorkflowStepCardProps;
   /** Drawn in the card's place — the approval canvas's own nodes. `card` still names it. */
   drawn?: ReactNode;
+  /** Drawn behind the rest and never pressed: a lane or a cluster's frame. Presses pass to the canvas. */
+  backdrop?: boolean;
 };
 
 /**
@@ -74,6 +76,10 @@ export type WorkflowCanvasEdge = {
   label?: string;
   /** The way into the node the Job is at: drawn moving along it, the one edge that does. */
   flowing?: boolean;
+  /** Leaves the source's trailing side and enters the target's leading side: a gate hung beside its step. */
+  across?: boolean;
+  /** Where the edge turns, in canvas x — a gutter between two lanes, so it never runs through one. */
+  via?: number;
 };
 
 export type WorkflowCanvasProps = {
@@ -140,7 +146,7 @@ export type WorkflowCanvasProps = {
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -176,10 +182,12 @@ const CLEARS_THE_CARD = 20;
  * is painted differently.
  */
 function EdgeView(props: EdgeProps<CanvasEdge>) {
+  const via = props.data?.via;
   const [path, labelX, labelY] = getSmoothStepPath({
     ...props,
     borderRadius: CLEARS_THE_CARD,
     offset: CLEARS_THE_CARD,
+    ...(via === undefined ? {} : { centerX: via }),
   });
   const label = props.data?.label;
   return (
@@ -219,6 +227,9 @@ const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${P
 
 /** A forward edge on a canvas that only runs down: out of the bottom, into the top. */
 const DOWN_THE_SPINE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` };
+
+/** A gate hung beside its step: out of the step's trailing side, into the gate's leading one. */
+const ACROSS_THE_ROW = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Left}` };
 
 /** The same, on a spine that runs down: out of the right edge and back into it. */
 const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
@@ -426,8 +437,9 @@ export function WorkflowCanvas({
         // or focus, and the pane behind it then swallows every press on the
         // card. Nothing is drawn for a selected node — the card's own
         // `aria-current` is what says which one is open.
-        selectable: true,
+        selectable: entry.backdrop !== true,
         focusable: false,
+        ...(entry.backdrop === true ? { zIndex: -1 } : {}),
         data: { card: entry.card, ...(entry.drawn === undefined ? {} : { drawn: entry.drawn }) },
       })),
     [given],
@@ -445,9 +457,11 @@ export function WorkflowCanvas({
           ? runsDown
             ? BESIDE_THE_SPINE
             : OVER_THE_SPINE
-          : downOnly
-            ? DOWN_THE_SPINE
-            : facingSides(placed.get(edge.source), placed.get(edge.target));
+          : edge.across === true
+            ? ACROSS_THE_ROW
+            : downOnly
+              ? DOWN_THE_SPINE
+              : facingSides(placed.get(edge.source), placed.get(edge.target));
       return {
         id: edge.id,
         source: edge.source,
@@ -459,6 +473,7 @@ export function WorkflowCanvas({
         data: {
           returning,
           flowing: edge.flowing === true,
+          ...(edge.via === undefined ? {} : { via: edge.via }),
           ...(edge.label === undefined ? {} : { label: edge.label }),
         },
       };

@@ -52,6 +52,8 @@ export type RunNodeProps = {
   /** A registry row's own glyph and token, in place of the step mark. */
   mark?: { icon: LucideIcon; token: string };
   state: RunNodeState;
+  /** Drawn at `--w-workflow-task-node`: a gate or a group beside or under the step it belongs to. */
+  narrow?: boolean;
   selected?: boolean;
   /** Absent draws a node that is not a control. */
   onOpen?: () => void;
@@ -60,6 +62,7 @@ export type RunNodeProps = {
 /** Every node is one card, one size: `RunNode.css` declares it off the tokens. A number because React Flow places by number. */
 export const RUN_NODE_HEIGHT = 112;
 export const RUN_NODE_WIDTH = 260;
+export const RUN_NODE_NARROW = 196;
 
 /** The band's word for each kind. A kind, never a state: the state is the band's hue and glyph. */
 const KIND: Record<RunNodeKind, string> = {
@@ -125,6 +128,7 @@ export function RunNode({
   said,
   mark,
   state,
+  narrow = false,
   selected = false,
   onOpen,
 }: RunNodeProps) {
@@ -135,6 +139,7 @@ export function RunNode({
     className: "armada-run-node",
     "data-kind": kind,
     "data-tone": ghost ? "ghost" : toneOf(state, activity),
+    "data-narrow": narrow || undefined,
   };
   const glyph =
     mark === undefined ? (

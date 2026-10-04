@@ -25,6 +25,10 @@
   text-align: start;
 }
 
+.armada-run-node[data-narrow] {
+  width: var(--w-workflow-task-node);
+}
+
 button.armada-run-node {
   cursor: pointer;
 }
