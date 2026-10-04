@@ -60,6 +60,7 @@ mod step_machine;
 mod stuck;
 mod tiers;
 mod transition;
+mod tuning;
 mod verdict;
 mod work_plan;
 mod workflow;
@@ -124,6 +125,7 @@ pub use tiers::{TaskEdit, TaskTier, TierModels};
 pub use transition::{
     CriteriaOwed, Edge, IllegalTransition, PilotReason, Target, TransitionReason, EDGES,
 };
+pub use tuning::{Effort, StepTuning};
 pub use verdict::GateVerdict;
 pub use work_plan::{
     Approach, DropReason, FailReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry,

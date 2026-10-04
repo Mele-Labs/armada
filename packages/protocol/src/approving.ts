@@ -26,7 +26,31 @@ export type ApproveDispatch = {
   /** Kept from 23.8, enforced from slice 5. */
   drone_cap?: number;
   landing?: LandingChoice;
+  /** One per step a person tuned, `gates`' shape; a step left out runs as declared. Since 23.18. */
+  tuning?: StepTuning[];
 };
+
+/**
+ * What a person tuned on one step at the press, frozen with the Job and read
+ * where the step runs. **A field left out is the step as declared.** An
+ * unknown field is refused, so a `harness` is not silently dropped. Since 23.18.
+ */
+export type StepTuning = {
+  step_id: string;
+  /** Refused unless `list_models` offers it. */
+  model?: string;
+  /** Left out is Armada picking. */
+  effort?: Effort;
+  /** Words handed to the step's Drone beside its brief. Blank is none. */
+  context?: string;
+  /** Every judge check's `panel_size`. Refused at zero and on a step with no Judge. */
+  judges?: number;
+  /** Manifest Checks the step declares that this Job does not run, by name. */
+  checks_off?: string[];
+};
+
+/** How hard a step's Drone thinks. Since 23.18. */
+export type Effort = "low" | "medium" | "high";
 
 /** `edit_job`'s body (#1699's route): the fields a person changed, saved without releasing. */
 export type EditJob = {

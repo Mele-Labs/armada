@@ -157,6 +157,13 @@ impl JudgeCheck {
         self.panel_size
     }
 
+    /// The same check with a panel a person sized at the approval press,
+    /// raised to one for [`declared`](Self::declared)'s reason.
+    pub fn with_panel(mut self, panel_size: u32) -> JudgeCheck {
+        self.panel_size = panel_size.max(1);
+        self
+    }
+
     pub fn criteria(&self) -> &[JudgeCriterion] {
         &self.criteria
     }

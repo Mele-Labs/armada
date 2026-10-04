@@ -555,3 +555,25 @@ fn a_steps_declared_phase_and_its_absence_both_survive_the_column() {
     );
     assert!(crate::columns::read_workflow(&misspelt).is_err());
 }
+
+/// **What a person tuned on a step survives the column**: the effort and the
+/// words for its Drone, and their absence on a step nobody tuned.
+#[test]
+fn a_steps_tuned_effort_and_words_survive_the_column() {
+    let tuning = core_model::StepTuning {
+        effort: Some(core_model::Effort::Low),
+        context: Some("Keep the public shape.".to_string()),
+        ..core_model::StepTuning::default()
+    };
+    let tuned = crate::tests::workflow().regated(|step| match step.id().as_str() {
+        "fix" => step.tuned_by_person(&tuning),
+        _ => step,
+    });
+    let workflow = crate::columns::read_workflow(&crate::columns::write_workflow(&tuned))
+        .expect("a workflow that was just written");
+    let fix = workflow.step(&StepId::new("fix")).expect("the step");
+    assert_eq!(fix.effort(), Some(core_model::Effort::Low));
+    assert_eq!(fix.context(), Some("Keep the public shape."));
+    let reproduce = workflow.step(&StepId::new("reproduce")).expect("the step");
+    assert_eq!((reproduce.effort(), reproduce.context()), (None, None));
+}

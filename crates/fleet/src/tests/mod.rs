@@ -218,6 +218,7 @@ mod work_plan;
 pub(crate) mod tmp;
 mod tools;
 mod transcript;
+mod tuning;
 mod unattended;
 mod under_review;
 mod underway;

@@ -173,6 +173,15 @@ where
                     .map_err(|why| why.about(job_id))?;
             }
         }
+        for model in body
+            .tuning
+            .iter()
+            .flatten()
+            .filter_map(|step| step.model.as_deref())
+        {
+            self.offered(model.trim())
+                .map_err(|why| why.about(job_id))?;
+        }
         self.branches_held(&served, &decided.landing, job_id)?;
         let job = self.proposal_kept(&job, decided.edit.clone()).await?;
         {

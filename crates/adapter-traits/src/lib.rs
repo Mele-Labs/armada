@@ -62,8 +62,8 @@ pub use delivery::{
 };
 pub use event::{CallDetail, DroneEvent, Speaker};
 pub use harness::{
-    AmbientServers, DroneHandle, DroneSpawnConfig, Environment, Grant, Launch, McpConfig, Model,
-    Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
+    AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
+    Model, Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};

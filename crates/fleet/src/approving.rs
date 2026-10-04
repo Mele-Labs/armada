@@ -11,6 +11,9 @@
 //! anything, so the whole proposal is kept or none of it is, and the
 //! acceptance test reads what `approve_dispatch` calls. `crate::approved`
 //! asks the machine and applies.
+//!
+//! **Over 500 lines by [`Refused`]**, one list because one press refuses for
+//! any of them. A step's tuning reads in `crate::tuned`, its own refusals with it.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -86,6 +89,8 @@ pub enum Refused {
     /// A Drone cap of zero.
     NoCap,
     BlankModel,
+    /// A step's tuning nothing could honour.
+    Untuned(crate::tuned::Untunable),
 }
 
 impl fmt::Display for Refused {
@@ -153,6 +158,7 @@ impl fmt::Display for Refused {
             ),
             Refused::NoCap => write!(out, "a drone cap of zero lets the job run nothing"),
             Refused::BlankModel => write!(out, "a tier names a blank model"),
+            Refused::Untuned(why) => write!(out, "{why}"),
         }
     }
 }
@@ -194,6 +200,8 @@ pub fn decided(
         _ => job.workflow().clone(),
     };
     let (workflow, overrides) = gated(base, body.gates.as_deref().unwrap_or_default())?;
+    let workflow = crate::tuned::tuned(workflow, body.tuning.as_deref().unwrap_or_default())
+        .map_err(Refused::Untuned)?;
     let tiers = match &body.tiers {
         Some(map) => Some(tiers_named(map)?),
         None => None,
