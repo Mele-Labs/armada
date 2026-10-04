@@ -794,6 +794,13 @@
   size = "12 and 16px"
   status = "Specified"
   reserved = "A person taking off something they put there \u2014 a Studio node deleted, a sketch box removed, an attachment dropped from a request. Never a Job ending, never a record cleaned up, and never a machine discarding anything: every use is somebody's own act on their own thing."
+
+  [[icons.trash-2.usage]]
+    means = "Removing a free or unmade worktree slot from the pool, the act on its bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the pool's controls. A person taking off a slot of this machine's pool, which is their own act on their own thing, as the row requires. Offered only where the pool would let it go. Tooltip `Remove`."
   notes = "Minted 2026-09-28, and it is the mint the node bar's open question said would pay for itself: one decision serving the Studio's Delete, the sketch pad's Remove and `AttachmentChip`'s dismiss rather than three. `trash-2` rather than `trash`, whose lid sits on the bin and loses its gap at 12px. Refused, and refused before the mint opened: `x`, reserved to system failure and banned by its own row from carrying a human decision; `minus`, reserved to a record nothing checked and a dropped plan task; `ban`, which is `rejected`'s and means a person declined a whole Job; the `circle-*` and `shield-*` families, which are verdicts; `eraser`, which says a mark rubbed out and collides with `pencil` on the one surface that draws both."
 
 [icons.triangle-alert]
@@ -1121,6 +1128,31 @@
   size = "12px"
   status = "Specified"
   reserved = "A free worktree slot only."
+  paired_with = "door-closed-locked"
+
+  [[icons.door-open.usage]]
+    means = "Reopening a closed worktree slot, the act on its bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the pool's controls. The act lands the bay on the state the glyph already marks: reopened, the slot is open again. Tooltip `Reopen`."
+
+[icons.door-closed-locked]
+  means = "A shut door with a lock on it - a slot a person closed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot no lease takes until a person reopens it, and the act that closes one. Never a permission, a secret or a step that cannot be skipped, which is lock."
+  paired_with = "door-open"
+  notes = "Proposed 4 Oct 2026 for the pool's controls, on the walk `aPoolOfWorktreeSlots`. The free bay is door-open, so the closed one is the same door shut and locked: one outline family for whether a lease may enter. Refused: `lock`, reserved to a step that cannot be skipped and never a locked thing; `ban`, a person declining a whole Job; `door-closed` alone, which at 12px reads as door-open's neighbour without saying it stays shut."
+
+[icons.folder-plus]
+  means = "A folder with a cross beside it - one more slot"
+  group = "Worktree slot"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Adding a slot to the worktree pool, the ghost tile at the end of Cleanup's bay grid. Never composing a Job, which is plus, and never a node on a canvas, which is square-plus."
+  notes = "Proposed 4 Oct 2026 with the pool's controls. A slot is a directory, and folder-x already marks one that is not a checkout, so the add sits in the same family. Refused: `plus`, reserved to the Dispatch segment; `square-plus`, reserved to a canvas; `square-dashed`, which is the slot not made yet that the add produces."
 
 [icons.ghost]
   means = "A ghost - a slot whose holder is gone and that still holds work"
