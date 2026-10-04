@@ -268,6 +268,16 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<WorktreeReclaimed, Refusal>> + Send;
 
+    /// `change_slot_pool` — add a slot to the repository's pool, remove one,
+    /// or close or reopen one, on this machine only: `armada worktree lease`
+    /// honours it as Fleet does. [`Refusal::IllegalMove`] naming why a slot
+    /// cannot go: held, stranded, busy, not a checkout, dirty, or the last.
+    fn change_slot_pool(
+        &self,
+        change: ipc::ChangeSlotPool,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::SlotPoolChanged, Refusal>> + Send;
+
     /// `delete_branch` — deletes a terminal Job's branch, unmerged or not, once
     /// its checkout is gone and only while it stands at the `tip` a person was
     /// shown. [`Refusal::IllegalMove`] otherwise, naming which.

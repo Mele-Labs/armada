@@ -10,14 +10,17 @@
 //! full pool, a slot somebody else took or that is gone, and a release the pool
 //! refused — and about the path, which is `adapter_traits::slot_path`. The
 //! pool's git rules are tested against a real repository in `adapters`.
+//!
+//! **A slot closed or removed is held in memory alone**: the real pool's
+//! record of it is `adapters`', and a case about a restart does not ask.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    slot_path, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, Worktree,
-    WorktreeSpec,
+    slot_path, SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused,
+    SlotStanding, Worktree, WorktreeSpec,
 };
 
 use super::{FakeVcs, FakeVcsError};
@@ -27,9 +30,16 @@ use super::{FakeVcs, FakeVcsError};
 struct Slot {
     made: bool,
     held_by: Option<String>,
+    closed: bool,
+    removed: bool,
 }
 
 impl Slot {
+    /// Free, open and one of the pool's.
+    fn leasable(&self) -> bool {
+        self.held_by.is_none() && !self.closed && !self.removed
+    }
+
     /// As the disk has it.
     fn read(root: &str, slot: u32) -> Slot {
         let path = slot_path(root, slot);
@@ -43,6 +53,7 @@ impl Slot {
         Slot {
             made: Path::new(&path).is_dir(),
             held_by,
+            ..Slot::default()
         }
     }
 
@@ -102,15 +113,12 @@ impl FakeSlots {
             let mine = slots
                 .iter()
                 .position(|slot| slot.held_by.as_deref() == Some(job));
-            let Some(at) = mine.or_else(|| slots.iter().position(|slot| slot.held_by.is_none()))
-            else {
+            let Some(at) = mine.or_else(|| slots.iter().position(Slot::leasable)) else {
                 return SlotLeased::Full;
             };
             let reused = slots[at].made;
-            slots[at] = Slot {
-                made: true,
-                held_by: Some(job.to_string()),
-            };
+            slots[at].made = true;
+            slots[at].held_by = Some(job.to_string());
             let slot = at as u32 + 1;
             let path = spec.clone().in_slot(slot).worktree_path();
             // The one directory this fake makes: a Drone needs a working
@@ -128,7 +136,7 @@ impl FakeSlots {
         self.with(pool, |slots| {
             slots
                 .iter()
-                .any(|slot| slot.held_by.is_none() || slot.held_by.as_deref() == Some(job))
+                .any(|slot| slot.leasable() || slot.held_by.as_deref() == Some(job))
         })
     }
 
@@ -177,6 +185,7 @@ impl FakeSlots {
             slots
                 .iter()
                 .enumerate()
+                .filter(|(_, slot)| !slot.removed)
                 .map(|(at, slot)| {
                     let number = at as u32 + 1;
                     SlotReading {
@@ -191,6 +200,7 @@ impl FakeSlots {
                         since: None,
                         warm: false,
                         behind: None,
+                        closed: slot.closed,
                     }
                 })
                 .collect()
@@ -215,8 +225,54 @@ impl FakeSlots {
             slots[slot as usize - 1] = Slot {
                 made,
                 held_by: by.map(str::to_string),
+                ..Slot::default()
             };
         });
+    }
+
+    /// The real pool's rules, on the fake's slots: add takes the lowest
+    /// number unused, and only a free or unmade slot goes.
+    pub(super) fn change(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused> {
+        self.with(pool, |slots| {
+            let number = match change {
+                SlotChange::Add => {
+                    return Ok(match slots.iter().position(|slot| slot.removed) {
+                        Some(at) => {
+                            slots[at] = Slot::default();
+                            at as u32 + 1
+                        }
+                        None => {
+                            slots.push(Slot::default());
+                            slots.len() as u32
+                        }
+                    });
+                }
+                SlotChange::Remove(n) | SlotChange::Close(n) | SlotChange::Open(n) => n,
+            };
+            let left = slots.iter().filter(|slot| !slot.removed).count();
+            let Some(slot) = (number as usize)
+                .checked_sub(1)
+                .and_then(|at| slots.get_mut(at))
+                .filter(|slot| !slot.removed)
+            else {
+                return Err(SlotRefused::NoSuchSlot(number));
+            };
+            match change {
+                SlotChange::Close(_) => slot.closed = true,
+                SlotChange::Open(_) => slot.closed = false,
+                _ if left == 1 => return Err(SlotRefused::LastSlot),
+                _ => match &slot.held_by {
+                    Some(by) => return Err(SlotRefused::Held(format!("job {by}"))),
+                    None => {
+                        *slot = Slot {
+                            removed: true,
+                            ..Slot::default()
+                        }
+                    }
+                },
+            }
+            Ok(number)
+        })
     }
 
     pub(super) fn keep_every(&self, why: &str) {

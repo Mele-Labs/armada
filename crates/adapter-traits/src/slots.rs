@@ -96,6 +96,9 @@ pub struct SlotReading {
     /// Commits on the base its checkout does not have. `None` where git could
     /// not count them, or the slot is not a checkout.
     pub behind: Option<u32>,
+    /// A person closed it: never leased until reopened. A holder keeps it
+    /// until its lease ends.
+    pub closed: bool,
 }
 
 /// Who holds a slot, or why nothing can.
@@ -120,3 +123,36 @@ pub enum SlotHeld {
 /// Why a Job's slot was not given back, in a sentence. The slot stays held.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotKept(pub String);
+
+/// A person's change to the pool's shape on this machine. Kept beside the
+/// slots and never committed, so `setup.worktrees` stays the default for a
+/// fresh machine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotChange {
+    /// One more slot, not made until a lease makes it.
+    Add,
+    /// This slot, gone: refused unless it is free or not made.
+    Remove(u32),
+    /// Never leased until reopened.
+    Close(u32),
+    Open(u32),
+}
+
+/// Why a change to the pool's shape changed nothing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotRefused {
+    NoSuchSlot(u32),
+    /// Its holder, named for a person.
+    Held(String),
+    /// Its holder is gone and it holds work, said in a phrase.
+    Stranded(String),
+    /// A take or a release is under way on it.
+    Busy,
+    /// A directory that is not a checkout, which a person removes by hand.
+    NotACheckout,
+    /// Files git would lose, first ones first.
+    Dirty(Vec<String>),
+    /// The pool keeps one slot.
+    LastSlot,
+    Vcs(String),
+}

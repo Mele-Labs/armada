@@ -9,7 +9,8 @@
 //! **A piloted worktree is not among `worktrees`**, so there is no variant
 //! below to render by mistake. `#367`, and Fleet drops it through
 //! `Holding::offerable` rather than trusting a client with a flag. Its pool
-//! slot is still in `slots`, as held by its Job: a slot row offers no act.
+//! slot is still in `slots`, as held by its Job: a held slot offers no reclaim,
+//! only `change_slot_pool`'s close, which leaves its holder be.
 
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +54,39 @@ pub struct WorktreeSlot {
     /// not count them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub behind: Option<u32>,
+    /// A person closed it: no lease takes it until it is reopened, and a
+    /// holder keeps it until its lease ends. Since 23.17.
+    #[serde(default)]
+    pub closed: bool,
+}
+
+/// `change_slot_pool`'s body: one change to a repository's pool, on this
+/// machine only. Since 23.17.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeSlotPool {
+    pub act: SlotAct,
+    /// The slot acted on. Absent for `add`, which picks its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<u32>,
+}
+
+/// What a person does to the pool from Cleanup's bay grid.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotAct {
+    /// One more slot, not made until a lease makes it.
+    Add,
+    /// Refused unless the slot is free or not made.
+    Remove,
+    Close,
+    Open,
+}
+
+/// The slot `change_slot_pool` changed: the new one, for `add`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotPoolChanged {
+    pub manifest_id: ManifestId,
+    pub slot: u32,
 }
 
 /// Who holds a slot, or why nothing can. Tagged on `state`; widening it is a

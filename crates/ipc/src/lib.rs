@@ -254,7 +254,10 @@ pub use helm_call::{
 };
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
-pub use holding::{HeldReason, SlotHolding, WorktreeHeld, WorktreeSlot, WorktreesHeld};
+pub use holding::{
+    ChangeSlotPool, HeldReason, SlotAct, SlotHolding, SlotPoolChanged, WorktreeHeld, WorktreeSlot,
+    WorktreesHeld,
+};
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,

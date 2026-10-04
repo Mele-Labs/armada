@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use adapters::leasing::{Full, Holder, Lease, LeaseRefused, Pool, Slot, SlotState};
+use adapters::leasing::{Full, Holder, Lease, LeaseRefused, Pool, Slot, SlotState, Unshaped};
 use config::Manifest;
 use fleet::{CopyOnWrite, NotCloned, TheVolume};
 
@@ -93,6 +93,22 @@ pub fn release(within: &Path, path: Option<PathBuf>) -> u8 {
     }
 }
 
+/// `armada worktree add`, `remove`, `close` or `open`: the pool changed on
+/// this machine, beside the slots, which Fleet reads as this does.
+pub fn reshape(within: &Path, change: impl FnOnce(&Pool) -> Result<String, Unshaped>) -> u8 {
+    let pool = match pool_of(within) {
+        Ok(pool) => pool,
+        Err(why) => return refused(&why),
+    };
+    match change(&pool) {
+        Ok(said) => {
+            eprintln!("{said}");
+            0
+        }
+        Err(why) => refused(&why.said()),
+    }
+}
+
 /// `armada worktree --status`: one line per slot.
 pub fn status(within: &Path) -> u8 {
     let pool = match pool_of(within) {
@@ -107,7 +123,10 @@ pub fn status(within: &Path) -> u8 {
 }
 
 pub(crate) fn line(slot: &Slot, now: u64) -> String {
-    let name = format!("slot-{}", slot.number);
+    let name = match slot.closed {
+        true => format!("slot-{} closed", slot.number),
+        false => format!("slot-{}", slot.number),
+    };
     let path = slot.path.display();
     match &slot.state {
         SlotState::Unmade => format!("{name}  not made yet; the next lease makes it"),
@@ -161,7 +180,11 @@ pub(crate) fn line(slot: &Slot, now: u64) -> String {
 
 /// Said once, when a lease first finds every slot unavailable.
 fn waiting(full: &Full, count: usize) {
-    eprintln!("waiting for a worktree slot: {count} of {count} held");
+    let closed = full.slots.iter().filter(|slot| slot.closed).count();
+    match closed {
+        0 => eprintln!("waiting for a worktree slot: {count} of {count} held"),
+        _ => eprintln!("waiting for a worktree slot: {closed} of {count} closed, the rest held"),
+    }
     for slot in &full.slots {
         if let SlotState::Stranded { .. } | SlotState::NotACheckout = slot.state {
             eprintln!("  {}", line(slot, now()));

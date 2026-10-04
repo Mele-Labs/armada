@@ -43,6 +43,7 @@ impl Pool {
         };
         let branch = branch.filter(|name| !name.is_empty());
         SlotReading {
+            closed: slot.closed,
             slot: slot.number as u32,
             warm: made && self.warm(&slot.path),
             behind: made.then(|| self.behind(&slot.path)).flatten(),
