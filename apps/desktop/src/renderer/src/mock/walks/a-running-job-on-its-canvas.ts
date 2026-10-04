@@ -5,14 +5,16 @@
 import { card, dialog, inside, region, role, text, walk } from "../walk";
 
 const RUN = region("This Job's run");
-const GROUP_3 = role("group", /^Group 3, /);
+const GROUP_3 = role("button", /^Group 3, /);
 
 export const aRunningJobOnItsCanvas = walk("proto/feature-running", [
   { look: RUN, say: "The same canvas, now the Job's run" },
   { look: role("button", /^Plan the change, advanced/), say: "Plan is done" },
   { hover: inside(card("Implement"), text("running")), say: "Implement is where the Job is" },
-  { look: role("group", /^Group 1, passed/), say: "Groups holds the plan's own: two passed" },
+  { look: role("button", /^Group 1, passed/), say: "Groups holds the plan's own: two passed" },
   { hover: inside(GROUP_3, text("running")), say: "and the third at work" },
+  { press: role("button", /^Group 3, /), say: "A group opens on its tasks" },
+  { look: inside(dialog("Group 3"), text("Answer restart and move in the mock")), say: "T4, being worked" },
   { press: card("Plan the change"), say: "A card past the gate" },
   { look: inside(dialog("Plan the change"), text("Auto")), say: "reads what it ran on" },
   { press: card("Land"), say: "Where it lands" },

@@ -1,12 +1,12 @@
 // An Epic Job on the approval canvas past its gate (prototype, 4 Oct 2026):
 // the Jobs its plan dispatched stand where it dispatched them, one row per
-// depth of the wave, each marked with its own status, and the run goes on to
-// the roll-up once the last has landed.
+// depth of the wave, each marked with its own status and opening that Job,
+// and the run goes on to the roll-up. The wave graph is not drawn beside it.
 
 import { card, inside, region, role, text, walk } from "../walk";
 
 const job = (title: string, status?: string) =>
-  role("group", new RegExp(`^${title}, ${status ?? ""}`));
+  role("button", new RegExp(`^${title}, ${status ?? ""}`));
 
 export const anEpicJobOnItsCanvas = walk("proto/epic-running", [
   { look: region("This Job's run"), say: "An Epic Job's run, top to bottom" },
@@ -17,4 +17,6 @@ export const anEpicJobOnItsCanvas = walk("proto/epic-running", [
   { hover: inside(job("Say which half refused"), text("needs you")), say: "one escalated" },
   { look: job("Drop the second error shape", "running"), say: "the last, waiting on both, running" },
   { look: card("Roll up the wave"), say: "then the roll-up" },
+  { press: job("Say which half refused"), say: "A Job opens itself" },
+  { look: role("heading", "Say which half refused"), say: "Say which half refused" },
 ]);

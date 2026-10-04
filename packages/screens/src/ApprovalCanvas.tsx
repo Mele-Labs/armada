@@ -33,12 +33,15 @@ import {
   Textarea,
   Tooltip,
   WorkflowCanvas,
+  WorkflowStepCard,
 } from "@armada/components";
 import type { GateBox, ProposalLandingValue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 
 import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import type { ApprovingProps } from "./approving";
+import type { TaskView } from "./draft/task";
+import { taskCard } from "./plan-canvas";
 import { baseBranch } from "./draft/branches";
 import type { ProposalView } from "./draft/proposal";
 import { EFFORTS, HARNESSES, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
@@ -138,10 +141,13 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * Absent is the gate itself. Drawn with no `onEdits`, so every card reads.
    */
   life?: LifeRead;
+  /** Open a Job the wave dispatched, as the wave graph did. */
+  onOpenJob?: (jobId: string) => void;
 };
 
 export function ApprovalCanvas({
   life,
+  onOpenJob,
   whole,
   edits,
   onEdits,
@@ -208,7 +214,13 @@ export function ApprovalCanvas({
       ...(node.line === undefined ? {} : { line: node.line }),
       ...(node.gate === undefined ? {} : { gate: node.gate }),
       selected: node.id === open,
-      ...(node.inert === true ? {} : { onOpen: () => setOpen(node.id === open ? null : node.id) }),
+      ...(node.opensJob !== undefined
+        ? onOpenJob === undefined
+          ? {}
+          : { onOpen: () => onOpenJob(node.opensJob!) }
+        : node.inert === true
+          ? {}
+          : { onOpen: () => setOpen(node.id === open ? null : node.id) }),
     },
   }));
 
@@ -307,8 +319,9 @@ function NodeCard(props: NodeCardProps) {
       return props.step === undefined ? null : <GateCard {...props} step={props.step} />;
     case "done":
       return <DoneWhen {...props} />;
-    case "groups":
     case "group":
+      return <GroupCard tasks={node.tasks ?? []} />;
+    case "groups":
     case "jobs":
     case "job":
       return null;
@@ -376,6 +389,19 @@ function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
         </section>
       )}
     </>
+  );
+}
+
+/** A plan group's tasks, each the Plan graph's own task card. */
+function GroupCard({ tasks }: { tasks: readonly TaskView[] }) {
+  return (
+    <ul className="armada-approval-canvas__tasks" aria-label="Tasks">
+      {tasks.map((task) => (
+        <li key={task.id}>
+          <WorkflowStepCard {...taskCard(task, undefined)} />
+        </li>
+      ))}
+    </ul>
   );
 }
 

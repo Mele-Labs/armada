@@ -2238,3 +2238,14 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* A plan group's card: its tasks, the Plan graph's own task cards, one under
+   another. */
+.armada-approval-canvas__tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

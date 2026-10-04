@@ -50,8 +50,8 @@ describe("approvalNodesOf", () => {
     const life = {
       nodes: { plan: { activity: "advanced" as const, said: "advanced" } },
       groups: [
-        { id: "G1", name: "Group 1", life: { activity: "advanced" as const, said: "landed" } },
-        { id: "G2", name: "Group 2", life: { activity: "running" as const, said: "running", current: true } },
+        { id: "G1", name: "Group 1", tasks: [], life: { activity: "advanced" as const, said: "landed" } },
+        { id: "G2", name: "Group 2", tasks: [], life: { activity: "running" as const, said: "running", current: true } },
       ],
     };
     const { nodes } = approvalNodesOf({

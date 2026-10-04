@@ -11,7 +11,7 @@ import { GROUP_STATE, JOB_STATUS, STEP_STATE } from "@armada/components";
 import type { StepActivity } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
-import type { GroupRead, LifeRead, MemberRead, NodeLife } from "./approval-canvas";
+import type { LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
 import { taskGroupsOf } from "./draft/group";
 import type { GroupState } from "./draft/group";
 import type { WaveView } from "./draft/wave";
@@ -96,12 +96,13 @@ export function lifeOf(whole: JobWhole, wave?: WaveView): LifeRead {
     if (step.state === "advanced") nodes[`${step.step_id}:checks`] = PAST;
   }
   const served = whole.work_plan === undefined ? [] : taskGroupsOf(whole);
-  const groups: GroupRead[] = served.map((group) => {
+  const groups: PlanGroupRead[] = served.map((group) => {
     const row = GROUP_STATE[group.state];
     const activity = GROUP_ACTIVITY[group.state];
     return {
       id: group.id,
       name: `Group ${group.ordinal}`,
+      tasks: group.tasks,
       life: {
         activity,
         said: row?.verb ?? group.state,

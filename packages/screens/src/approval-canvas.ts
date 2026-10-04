@@ -17,6 +17,7 @@ import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, WorkflowStep } from "@armada/protocol";
 
 import type { GateView } from "./draft/proposal";
+import type { TaskView } from "./draft/task";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 
@@ -51,6 +52,9 @@ export type NodeLife = {
 /** One of the plan's groups, as the canvas draws it in the Groups node's place. */
 export type GroupRead = { id: string; name: string; life: NodeLife };
 
+/** A plan group, with the tasks its card lists. */
+export type PlanGroupRead = GroupRead & { tasks: readonly TaskView[] };
+
 /** One Job the wave dispatched, and the ones it waits on, by id. */
 export type MemberRead = GroupRead & { waits_on: readonly string[] };
 
@@ -59,7 +63,7 @@ export type LifeRead = {
   /** By node id: `brief`, a step's id, `plan:checks`, `land`. */
   nodes: Readonly<Record<string, NodeLife>>;
   /** The plan's groups, once a plan is recorded. Absent draws the placeholder. */
-  groups?: readonly GroupRead[];
+  groups?: readonly PlanGroupRead[];
   /** The Jobs the wave dispatched, on its live pass. Absent draws the placeholder. */
   jobs?: readonly MemberRead[];
 };
@@ -89,6 +93,10 @@ export type ApprovalNode = {
   life?: NodeLife;
   /** Whether a press opens a card. Absent is yes. */
   inert?: true;
+  /** A dispatched Job: a press opens that Job rather than a card. */
+  opensJob?: string;
+  /** A plan group's tasks, which its card lists. */
+  tasks?: readonly TaskView[];
   /**
    * A dispatched Job's place in the wave: its depth — how many Jobs stand
    * before it — and where it sits among the Jobs of that depth.
@@ -250,7 +258,7 @@ export function approvalNodesOf({
             name: group.name,
             facts: [],
             life: group.life,
-            inert: true,
+            tasks: group.tasks,
             ordinal: nodes.length + 1,
           });
         }
@@ -275,7 +283,7 @@ export function approvalNodesOf({
             name: job.name,
             facts: [],
             life: job.life,
-            inert: true,
+            opensJob: job.id,
             band: { depth, index: peers.indexOf(job), of: peers.length },
             waits_on: job.waits_on.filter((one) => life.jobs!.some((other) => other.id === one)).map((one) => `job:${one}`),
             ordinal: nodes.length + 1,

@@ -353,7 +353,11 @@ function OneJob(props: JobDetailProps) {
             the product of an Epic Job, and the run is how it got there. A Job
             that dispatched nothing draws nothing. #1544. A Job pressed opens
             its panel, with what it asks of you at the top — Plan's own. */}
-        <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
+        {/* Not where the run's canvas draws the wave's Jobs itself (prototype,
+            a mock draft's `life_canvas`): one wave, drawn once. */}
+        {props.draft?.life_canvas === true && !held.atGate ? null : (
+          <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
+        )}
         <OverviewTab
           {...props}
           job={job}
@@ -402,6 +406,7 @@ function OneJob(props: JobDetailProps) {
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []))}
+                      onOpenJob={openJob}
                       workflows={props.workflows}
                       manifest={manifest}
                       branches={held.branches}
