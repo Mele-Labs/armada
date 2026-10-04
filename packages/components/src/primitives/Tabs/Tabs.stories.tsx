@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { Tabs } from "./Tabs";
 
 const meta: Meta<typeof Tabs> = {
@@ -54,5 +54,45 @@ export const LastActive: Story = {
       { id: "evidence", label: "Evidence" },
       { id: "log", label: "Log" },
     ],
+  },
+};
+
+/**
+ * **A tab whose label is the short form of something longer.** An Epic's wave
+ * strip names each wave by the first sentence of its plan's approach; hovering
+ * the tab reads the whole paragraph. A tab with no hint draws no tooltip, and
+ * the hint never becomes part of the tab's name — it is its description.
+ */
+export const WithAHint: Story = {
+  args: {
+    defaultValue: "2",
+    items: [
+      {
+        id: "1",
+        label: "Wave 1 · The seam as one Job",
+        hint: "The seam as one Job. Every refusal is read in one place before any surface draws it, so the surfaces have one shape to follow.",
+      },
+      {
+        id: "2",
+        label: "Wave 2 · The seam first, then every surface that reads it",
+        hint: "The seam first, then every surface that reads it. The roll-up sent the first pass back as too large to review, so the seam lands alone and each surface follows it.",
+      },
+      { id: "3", label: "Wave 3" },
+    ],
+  },
+  play: async ({ canvas, userEvent }) => {
+    const first = canvas.getByRole("tab", { name: "Wave 1 · The seam as one Job" });
+    await expect(first).toHaveAccessibleDescription(/Every refusal is read in one place/);
+    await expect(canvas.getByRole("tab", { name: "Wave 3" })).not.toHaveAttribute("aria-describedby");
+
+    await userEvent.hover(first);
+    await waitFor(() => expect(canvas.getByText(/Every refusal is read in one place/)).toBeVisible());
+
+    // Still a tab strip: the arrows move the selection through a hinted tab.
+    await userEvent.click(first);
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(canvas.getByRole("tab", { selected: true })).toHaveAccessibleName(
+      "Wave 2 · The seam first, then every surface that reads it",
+    );
   },
 };

@@ -367,12 +367,19 @@ export function WaveRegion({
               items={wave.rounds.map((one) => ({
                 id: String(one.round),
                 label: roundSaid(one),
+                ...(one.approach === undefined ? {} : { hint: one.approach }),
               }))}
               value={String(round)}
               onChange={(id) => setPicked(Number(id) === live ? null : Number(id))}
             />
-          ) : wave.rounds[0] === undefined ? null : (
+          ) : wave.rounds[0] === undefined ? null : wave.rounds[0].approach === undefined ? (
             <Eyebrow>{roundSaid(wave.rounds[0])}</Eyebrow>
+          ) : (
+            // One wave is named rather than tabbed, and its whole approach is
+            // read the same way: on hover.
+            <Tooltip label={wave.rounds[0].approach}>
+              <Eyebrow>{roundSaid(wave.rounds[0])}</Eyebrow>
+            </Tooltip>
           )}
           {loop === undefined ? null : <p className="armada-wave__loop">{loop}</p>}
         </div>
