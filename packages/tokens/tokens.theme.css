@@ -124,6 +124,10 @@
   --color-tool-look: var(--tool-look);
   --color-tool-change: var(--tool-change);
   --color-tool-run: var(--tool-run);
+  --color-kind-setup: var(--kind-setup);
+  --color-kind-step: var(--kind-step);
+  --color-kind-gate: var(--kind-gate);
+  --color-kind-delivery: var(--kind-delivery);
   --font-weight-body: var(--weight-body);
   --font-weight-medium: var(--weight-medium);
   --font-weight-heading: var(--weight-heading);

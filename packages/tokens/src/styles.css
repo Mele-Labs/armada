@@ -2,6 +2,7 @@
 @import "tokens/colors.css";
 @import "tokens/status.css";
 @import "tokens/tools.css";
+@import "tokens/kinds.css";
 @import "tokens/typography.css";
 @import "tokens/spacing.css";
 @import "tokens/motion.css";

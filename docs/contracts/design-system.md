@@ -94,11 +94,14 @@ is allowed only as that light, and never where a person reads a state.
    declared rather than inferred. Read the file rather than a list; this
    rule used to enumerate the cases and went stale twice. Anything the
    file does not declare stays neutral. See Below Job level under Tokens.
-   **Outside status and accent, two hue families exist.** `--helm` marks
+   **Outside status and accent, three hue families exist.** `--helm` marks
    Helm's own chrome and nothing else. The three **tool families** in
    `tokens/tools.css` say what a Drone's call does, and they are a
    separate file because they alias no status and must never carry one —
-   see Tool families under Tokens. Depth's light and glass never take a
+   see Tool families under Tokens. The four **node kinds** in
+   `tokens/kinds.css` say what a node on the approval canvas is, on that
+   canvas alone, for the same reason in a file of their own — see Node
+   kinds under Tokens. Depth's light and glass never take a
    status hue.
 4. **Dark is primary.** Design dark first. Light exists but is secondary.
 5. **Icons: lucide-react only**, used sparingly. A dashboard dense with
@@ -493,6 +496,36 @@ never appear in the same slot.
 **A tool the roster does not name takes no colour.** Hue is scarce and an
 unclassified tool is not a fourth family — the name draws in the line's
 own foreground. Adding one is a decision about what a family means.
+
+### Node kinds
+
+What a node on the approval canvas *is*, in four hues, declared in
+`tokens/kinds.css`. The owner's call of 4 Oct 2026, scoped to that
+canvas's nodes and nothing else.
+
+```
+             dark      light
+--kind-setup     #7DB8AE   #3E7F76   the brief, its base branch, the workflow starting
+--kind-step      #8B95E8   #4C57B8   a Drone step, and the groups or Jobs it fans into
+--kind-gate      #D2A6C8   #965A89   a gate the work passes: Checks, a Judge, a person
+--kind-delivery  #A8C07F   #6A7F3F   Done when, the pull request, Land
+```
+
+**A kind is a tint or an edge, never a solid band; a status is always the
+solid band.** So the two never share a slot, the rule Tool families keeps
+for the same risk. A node carries its kind as a `--space-1` leading edge,
+always. At the gate, where nothing has a status yet, its band is the
+kind's tint, 22% into `--bg-raised`, under `--fg-default`. On a running
+Job the step machine's status takes the band, solid, and the edge keeps
+the kind.
+
+**Soft, and told apart from status by treatment as much as hue.** Each
+sits near a status — setup near `completed_success`, the gate near
+`rejected` — and a tint or a 4px edge is never read as a status, which is
+a mark, a badge or a solid band.
+
+**One theme in the token set.** `packages/tokens` declares dark only, so
+the light column above is this contract's until a light theme lands.
 
 ---
 
