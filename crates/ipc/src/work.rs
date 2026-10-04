@@ -278,7 +278,7 @@ pub struct ChangesRequested {
     /// notes are then the whole of what the Drone is told.
     pub note: String,
     /// Append every walk note on the Job not yet sent to the note delivered,
-    /// and mark them sent in the same act. **Since 23.16.** Absent is false,
+    /// and mark them sent in the same act. **Since 23.18.** Absent is false,
     /// which is every request before it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub with_walk_notes: bool,

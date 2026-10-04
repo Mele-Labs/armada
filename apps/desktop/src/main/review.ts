@@ -262,7 +262,7 @@ export function decide(
   return ask(port, "POST", path, withWalkNotes ? { note, with_walk_notes: true } : { note });
 }
 
-/** Keep what a person pointed at walking a Job's work, on the Job. Since protocol 23.16. */
+/** Keep what a person pointed at walking a Job's work, on the Job. Since protocol 23.18. */
 export function captureWalkNote(port: number, jobId: string, body: CaptureWalkNote): Promise<Answer> {
   return ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/walk_notes`, body);
 }

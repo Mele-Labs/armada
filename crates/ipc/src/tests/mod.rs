@@ -65,7 +65,7 @@ mod studio_zones;
 mod summaries;
 mod turns;
 mod version;
-/// Walk notes: absent where empty, so a 23.15 peer sees nothing new.
+/// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod walk_notes;
 /// An Epic's wave: each pass's line, and each member's waits-on edges.
 mod waves;

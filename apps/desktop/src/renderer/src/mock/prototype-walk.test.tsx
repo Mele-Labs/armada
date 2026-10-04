@@ -156,7 +156,7 @@ test("the lead offers nothing to walk where no server is up for review", async (
   await expect.element(page.getByRole("button", { name: "Walk in Bridge" })).not.toBeInTheDocument();
 });
 
-/** The Prototype holding one note from a walk, as Fleet answers `get_job` since 23.16. */
+/** The Prototype holding one note from a walk, as Fleet answers `get_job` since 23.18. */
 function withAWalkNote() {
   const watched = fixture.watched;
   if (watched.state !== "read") throw new Error("the fixture is read");

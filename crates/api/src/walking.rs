@@ -1,5 +1,5 @@
 //! The two acts on a Job's walk notes: what a person pointed at while walking
-//! its served mock, and taking one back. Since 23.16.
+//! its served mock, and taking one back. Since 23.18.
 //!
 //! **Beside `commands` rather than in it**, which is at the size the gate asks
 //! about. Both answer with every note on the Job, so Bridge redraws the list

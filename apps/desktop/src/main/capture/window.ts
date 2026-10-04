@@ -31,7 +31,7 @@ import { askSource } from "./layer";
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
-  /** A note kept on the Job whose server this window walks — protocol 23.16. */
+  /** A note kept on the Job whose server this window walks — protocol 23.18. */
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */

@@ -177,7 +177,7 @@ mod version;
 /// What is outstanding on a live Drone, and what a person sends it back.
 mod waiting;
 /// What a person said while walking a Prototype's mock, kept on the Job.
-/// Since 23.16.
+/// Since 23.18.
 mod walk_notes;
 /// The material a reviewing person reads, and what their note carries.
 mod work;

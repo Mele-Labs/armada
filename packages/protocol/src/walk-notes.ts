@@ -1,7 +1,7 @@
 // What a person pointed at while walking a Job's work in Bridge's own window,
 // kept on the Job by Fleet so it outlives the worktree, and handed to the Drone
 // when the Job is sent back. Hand-mirrored from `crates/ipc/src/walk_notes.rs`.
-// Since protocol 23.16.
+// Since protocol 23.18.
 
 import type { CaptureServed, StagedFrame, StudioCapture } from "./studio";
 

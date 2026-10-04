@@ -62,7 +62,7 @@ import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving"
 export type JobDetail = {
   /** The board row, unchanged. A field added to the row reaches here for free. */
   job: JobSummary;
-  /** What a person pointed at walking this Job's work, oldest first, sent ones too. Since 23.16. */
+  /** What a person pointed at walking this Job's work, oldest first, sent ones too. Since 23.18. */
   walk_notes?: WalkNote[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;

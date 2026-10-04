@@ -129,7 +129,7 @@ export type ChangesRequested = {
   note: string;
   /**
    * Every walk note not yet sent goes with the note, and is marked sent. A
-   * blank note is taken where at least one is waiting. Since 23.16.
+   * blank note is taken where at least one is waiting. Since 23.18.
    */
   with_walk_notes?: boolean;
 };

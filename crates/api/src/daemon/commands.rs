@@ -485,7 +485,7 @@ pub trait Commands: Send + Sync + 'static {
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `capture_walk_note` — what a person pointed at while walking the Job's
-    /// served mock, kept on the Job with its frame. Since 23.16.
+    /// served mock, kept on the Job with its frame. Since 23.18.
     ///
     /// **It moves nothing.** Refused on a blank `said`, on a terminal Job, and
     /// on a frame over 4 MiB or one Fleet cannot read.

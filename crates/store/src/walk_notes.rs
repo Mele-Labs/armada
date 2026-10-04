@@ -17,12 +17,12 @@ use rusqlite::{OptionalExtension, Row};
 use crate::error::{fault, LoadJobError, WriteError};
 use crate::open::Store;
 
-/// Version 102 — a Job's walk notes.
+/// Version 103 — a Job's walk notes.
 ///
 /// **`REFERENCES jobs(job_id)`**, so `forget_job`'s sweep takes them with the
 /// Job and nothing registers them anywhere else. **Nothing to backfill**:
 /// nothing could keep a walk note before this.
-pub(crate) const V102: &str = r#"
+pub(crate) const V103: &str = r#"
 CREATE TABLE job_walk_notes (
     note_id        TEXT PRIMARY KEY,
     job_id         TEXT NOT NULL REFERENCES jobs(job_id),

@@ -1,4 +1,4 @@
-//! Walk notes on the wire (23.16): absent where empty and false, so a 23.15
+//! Walk notes on the wire (23.18): absent where empty and false, so a 23.17
 //! peer reads and sends exactly what it did.
 
 use crate::tests::{detail_of, job};

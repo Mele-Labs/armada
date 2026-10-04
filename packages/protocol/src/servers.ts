@@ -65,7 +65,7 @@ export type ServerState = {
   /**
    * Fleet started it because a step asking to be walked stopped for a person,
    * on the Manifest's `walk` server. Bridge opens it in its own window when
-   * that Job is opened. Absent: started by anything else. Since protocol 23.15.
+   * that Job is opened. Absent: started by anything else. Since protocol 23.18.
    */
   for_review?: boolean;
   started_at: string;

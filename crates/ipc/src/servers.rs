@@ -111,7 +111,7 @@ pub struct ServerState {
     /// Fleet started it because a step asking to be walked stopped for a
     /// person, on the Manifest's `walk` server. Bridge opens it in its own
     /// window when that Job is opened. Absent: started by anything else.
-    /// **Since 23.15.**
+    /// **Since 23.18.**
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub for_review: bool,
     pub started_at: Instant,

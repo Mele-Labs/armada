@@ -730,7 +730,7 @@ fn assemble(
     std::fs::create_dir_all(&studio_frames_dir)?;
 
     // A walk note's frame, one directory per Job, outside every worktree so it
-    // outlives the checkout it was taken of. Protocol 23.16.
+    // outlives the checkout it was taken of. Protocol 23.18.
     let walk_frames_dir = machine.join("walks");
     std::fs::create_dir_all(&walk_frames_dir)?;
 
