@@ -4,9 +4,12 @@
    group within a region. */
 .armada-studio-frame {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: 0;
+  overflow: hidden;
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--surface-well);
@@ -23,28 +26,45 @@
   border-color: var(--edge-focus);
 }
 
+/* The head: the frame's kind in mono capitals, as a node's band names its own
+   (the worktree-slot card's language, the owner, 4 Oct 2026). Its padding is
+   what the frame's own used to be, so it holds the same height and nothing
+   the whiteboard places inside moves. */
 .armada-studio-frame__head {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
   min-height: var(--h-badge);
+  padding: var(--space-2) var(--space-3) 0;
+}
+
+/* A Zone's head is a strip across its top, so the region reads as walled and
+   named before anything in it is read. */
+.armada-studio-frame[data-kind="zone"] .armada-studio-frame__head {
+  padding-block-end: var(--space-1);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
 }
 
 .armada-studio-frame__kind {
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   color: var(--fg-muted);
   white-space: nowrap;
 }
 
-/* A Cluster's title, on one line: the frame's width is its Notes', and a
-   title longer than them is whole in the tooltip. */
+/* A Cluster's title, in the foreground, beside its kind. A title longer than
+   the box is whole in the tooltip. */
 .armada-studio-frame__title {
   overflow: hidden;
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
   color: var(--fg-default);
   text-overflow: ellipsis;
   white-space: nowrap;

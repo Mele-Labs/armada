@@ -126,7 +126,7 @@ export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly Workflo
         frames.push({
           id: `cluster:${node.id}`,
           kind: "cluster",
-          title: fan[0]?.kind === "job" ? "Jobs" : "Groups",
+          name: fan[0]?.kind === "job" ? "Jobs" : "Groups",
           x: spine - across / 2 - CLUSTER_PAD,
           y: top,
           width: across + CLUSTER_PAD * 2,
