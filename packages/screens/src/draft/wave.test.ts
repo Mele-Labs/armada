@@ -64,14 +64,38 @@ describe("the wave a Job proposed", () => {
     expect(wave?.jobs[0]).toMatchObject({ status: "completed_success", landed: "merged" });
   });
 
-  // The order is on each child's own detail, which no row carries, and an
-  // invented one would be a graph saying something Fleet never said.
-  it("leaves the waiting order empty, because the rows carry none", () => {
+  // Since 23.14 each row carries what it waits on, so the graph has its order
+  // off the Board alone.
+  it("reads each Job's waiting order off its own row", () => {
+    const wave = waveOf(parent(), [proposed("a", 1), proposed("b", 1, { waits_on: ["a"] })]);
+    expect(wave?.jobs.map((one) => one.waits_on)).toEqual([[], ["a"]]);
+  });
+
+  // A Fleet before 23.14 sends none, and an invented order would be a graph
+  // saying something Fleet never said.
+  it("leaves the waiting order empty where the rows carry none", () => {
     const wave = waveOf(parent(), [proposed("a", 1), proposed("b", 1)]);
     expect(wave?.jobs.every((one) => one.waits_on.length === 0)).toBe(true);
   });
 
-  // Fleet stamps no per-pass line yet, so the strip names each wave alone.
+  // Each pass's line is the first sentence of the approach its plan recorded;
+  // a pass with none is named alone rather than given a sentence standing in.
+  it("names each pass with its plan's approach, and leaves one with none bare", () => {
+    const wave = waveOf(
+      {
+        ...parent(),
+        wave_rounds: [
+          { pass: 2, approach: "Every surface that reads a refusal. The seam landed, so each can follow it." },
+        ],
+      },
+      [proposed("a", 1), proposed("b", 2)],
+    );
+    expect(wave?.rounds).toEqual([
+      { round: 1, live: false },
+      { round: 2, says: "Every surface that reads a refusal", live: true },
+    ]);
+  });
+
   it("reads one pass for each the rows were proposed on, the latest live", () => {
     const wave = waveOf(parent(), [proposed("a", 1), proposed("b", 2), proposed("c", 2)]);
     expect(wave?.rounds).toEqual([

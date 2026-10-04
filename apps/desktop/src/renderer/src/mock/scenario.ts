@@ -47,6 +47,7 @@ import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
+import { waveOffTheWire } from "@armada/screens/src/fixtures/build/wave-off-the-wire";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
@@ -519,6 +520,8 @@ export const SCENARIOS: readonly Scenario[] = [
   moment("members", membersMerged()),
   moment("epic", epicWave()),
   moment("epic", epicPlanReview()),
+  // The same wave with no draft: each pass's line and each Job's edges as Fleet serves them (23.14).
+  moment("epic", waveOffTheWire()),
   // What agents write, in markdown, at every surface that draws it.
   moment("markdown", agentText()),
   // One Job per workflow kind, on one Board and then one at a time.

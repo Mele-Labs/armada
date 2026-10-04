@@ -239,7 +239,7 @@ export function membersMerged(): ArcMoment {
   };
 }
 
-const WAVE_ID = "01M2D8B2YL001ERRORCONTRACT";
+export const WAVE_ID = "01M2D8B2YL001ERRORCONTRACT";
 
 /**
  * The step that recorded the split, with the Judge `epic.json` puts on it —
@@ -293,10 +293,29 @@ export function waveParent(): JobFixture {
       says: "queued — waiting on the second pass of its wave, three Jobs waiting on you",
       created_at: "2026-09-22T05:10:00Z",
       started_at: "2026-09-22T05:12:00Z",
+      detail: { wave_rounds: WAVE_ROUNDS },
     },
     ARC_NOW,
   );
 }
+
+/**
+ * What each pass of the parent's plan recorded as its approach, as
+ * `JobDetail.wave_rounds` serves it since 23.14 (#1692): the whole paragraph,
+ * of which the strip reads the first sentence.
+ */
+export const WAVE_ROUNDS = [
+  {
+    pass: 1,
+    approach:
+      "The seam as one Job. Every refusal is read in one place before any surface draws it, so the surfaces have one shape to follow.",
+  },
+  {
+    pass: 2,
+    approach:
+      "The seam first, then every surface that reads it. The roll-up sent the first pass back as too large to review, so the seam lands alone and each surface follows it.",
+  },
+];
 
 const WAVE_IDS = {
   a: "01M2D8B2YL001WAVE00000A",
@@ -499,7 +518,7 @@ const WAVE_CHILDREN: WaveChild[] = [
  * Each child as a Board fixture, dispatched by the wave's parent. **A child at
  * `awaiting_approval` has not run**: no step entered, no start, no branch.
  */
-function waveChildren(
+export function waveChildren(
   children: readonly WaveChild[] = WAVE_CHILDREN,
 ): { child: WaveChild; fixture: JobFixture }[] {
   return children.map((child, at) => {
@@ -536,6 +555,8 @@ function waveChildren(
             // The pass that proposed it, which is what says it is a wave's
             // (23.11), and when its pull request merged, where it did.
             dispatched_pass: round,
+            // What it waits on, on its own row since 23.14 (#1692).
+            ...(child.waits.length === 0 ? {} : { waits_on: child.waits }),
             ...(child.landed === "merged" ? { merged_at: ended } : {}),
             ...(child.landed === undefined ? {} : { landed: child.landed }),
             // The flag that lifts a row into Needs you, and what tells a running
@@ -559,7 +580,7 @@ function waveChildren(
 }
 
 /** The three questions the wave is holding open, as main gathers them. */
-function waveQuestions(): Outstanding[] {
+export function waveQuestions(): Outstanding[] {
   return [
     { kind: "judge", job_id: WAVE_IDS.c, question: GATE_REFUSAL },
     { kind: "judge", job_id: WAVE_IDS.d, question: BLOCKED_REFUSAL },
@@ -631,6 +652,7 @@ function waveParentAtItsGate(): JobFixture {
       says: "awaiting_review — the second pass's split is waiting on you",
       created_at: "2026-09-22T05:10:00Z",
       started_at: "2026-09-22T05:12:00Z",
+      detail: { wave_rounds: WAVE_ROUNDS },
     },
     ARC_NOW,
   );
