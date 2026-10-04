@@ -80,7 +80,8 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Start `name` at `place`, **or answer with the instance already up** —
-    /// `true` beside the state where this call started it.
+    /// `true` beside the state where this call started it. `for_review` is
+    /// Fleet's own start at a walked stop, `crate::walking`.
     ///
     /// **A Job's servers are what it froze** — `crate::snapshotting`, falling
     /// back to the live file for a Job whose snapshot is absent or will not
@@ -89,18 +90,6 @@ where
     /// in every field from the span the server runs under, and the claim's
     /// variables ride in its environment.
     pub(crate) async fn hold_server(
-        self: Arc<Self>,
-        place: Place,
-        name: &str,
-        by: StartedBy,
-    ) -> Result<(ServerState, bool), Unservable> {
-        self.hold_server_for(place, name, by, false).await
-    }
-
-    /// [`hold_server`](Self::hold_server), saying whether Fleet started it for
-    /// a person's review — `crate::walking`. **One already up is handed back
-    /// as it stands**, so a server a person started first keeps saying so.
-    pub(crate) async fn hold_server_for(
         self: Arc<Self>,
         place: Place,
         name: &str,
@@ -286,7 +275,7 @@ where
     ) -> Result<ServerReport, Unservable> {
         let holder = Holder::Job(job.id().clone());
         let (mut state, fresh) = Arc::clone(&self)
-            .hold_server(Place::Job(job), name, StartedBy::Drone)
+            .hold_server(Place::Job(job), name, StartedBy::Drone, false)
             .await?;
         if state.phase == ServerPhase::Starting {
             match self.servers().running(&holder, name) {

@@ -47,7 +47,7 @@ where
         let manifest = self.effective_manifest_in(&served, &job).await.0;
         let name = manifest.walk()?.to_string();
         Some(
-            self.hold_server_for(Place::Job(job), &name, StartedBy::Person, true)
+            self.hold_server(Place::Job(job), &name, StartedBy::Person, true)
                 .await
                 .map(|(state, _)| state),
         )

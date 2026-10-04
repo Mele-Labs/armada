@@ -511,7 +511,7 @@ where
             }
         };
         let refusing = std::sync::Arc::clone(&self);
-        Fleet::hold_server(self, place, &asked.name, ipc::StartedBy::Person)
+        Fleet::hold_server(self, place, &asked.name, ipc::StartedBy::Person, false)
             .await
             .map(|(state, _)| state)
             .map_err(|why| refusing.server_refusal(why, asked.job_id.as_ref()))
