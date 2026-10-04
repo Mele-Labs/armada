@@ -156,7 +156,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // that much lower in this document.
   const lowered = (box: CaptureBox): CaptureBox => ({ ...box, y: box.y + strip() });
   const studio = state.studio === null ? null : (state.studio.name ?? UNTITLED_STUDIO);
-  const aim = state.serving ? `Onto ${studio ?? ""}` : "The run ended — nothing more is captured";
+  const aim = state.serving ? `Onto ${studio ?? state.job?.handle ?? ""}` : "The run ended — nothing more is captured";
 
   return (
     <>
@@ -165,6 +165,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           run={state.served.name}
           address={state.served.address}
           studio={studio}
+          {...(state.job === undefined ? {} : { job: state.job.handle })}
           serving={state.serving}
           armed={armed}
           framesRefused={state.framesRefused}

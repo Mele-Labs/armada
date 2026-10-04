@@ -628,6 +628,7 @@ export const CHANNELS = {
   fileFindingIssue: "bridge:file-finding-issue",
   openFindingIssue: "bridge:open-finding-issue",
   requestChanges: "bridge:request-changes",
+  removeWalkNote: "bridge:remove-walk-note",
   rejectWork: "bridge:reject-work",
   takeUpRemarks: "bridge:take-up-remarks",
   dismissFinding: "bridge:dismiss-finding",

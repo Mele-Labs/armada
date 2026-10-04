@@ -460,6 +460,7 @@ export function OverviewTab(props: OverviewTabProps) {
     onOpenFindingIssue: props.onOpenFindingIssue,
     onApproveReview: props.onApproveReview,
     onRequestChanges: props.onRequestChanges,
+    ...(props.onRemoveWalkNote === undefined ? {} : { onRemoveWalkNote: props.onRemoveWalkNote }),
     onReject: props.onReject,
     onTakeUpRemarks: props.onTakeUpRemarks,
     onOpenRemarkLink: props.onOpenRemarkLink,
@@ -724,7 +725,8 @@ export function OverviewTab(props: OverviewTabProps) {
   const tasks = (whole?.work_plan?.tasks ?? []).filter((task) => task.state !== "dropped");
 
   // Reopens Bridge's window on this Job's review server, as often as wanted.
-  const walking = walkAct(job.id, rehearsal.servers, rehearsal.onWalkInBridge, onSaid);
+  const unsent = (whole?.walk_notes ?? []).filter((one) => one.sent !== true).length;
+  const walking = walkAct(job.id, rehearsal.servers, rehearsal.onWalkInBridge, onSaid, unsent);
   const inside = (
     <OverviewBoard
       // The quiet line stands in while the read is out; any other lead is

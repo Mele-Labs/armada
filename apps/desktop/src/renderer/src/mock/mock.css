@@ -235,3 +235,35 @@
   border-radius: var(--radius-sm);
   background: var(--bg-base);
 }
+
+/* The note on what was picked, between the bar and the page. */
+.armada-mock-walk-window__note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-mock-walk-window__note textarea {
+  min-height: 4rem;
+  padding: var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-default);
+  font: inherit;
+}
+
+.armada-mock-walk-window__note > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.armada-mock-walk-window__frame iframe[data-armed] {
+  cursor: crosshair;
+}

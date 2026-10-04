@@ -143,6 +143,9 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
+  walkNote: async (jobId, said, capture, frame) =>
+    (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
+    UNSENT,
   stage: stagePng,
 });
 
@@ -843,8 +846,13 @@ void app.whenReady().then(() => {
     (_event, jobId: string, finding: string, title: string, body: string) =>
       connection?.commands.fileFindingIssue(jobId, finding, title, body),
   );
-  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string) =>
-    connection?.commands.requestChanges(jobId, note),
+  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string, walk: unknown) =>
+    connection?.commands.requestChanges(jobId, note, walk === true),
+  );
+  ipcMain.handle(CHANNELS.removeWalkNote, (_event, jobId: unknown, noteId: unknown) =>
+    typeof jobId === "string" && typeof noteId === "string"
+      ? connection?.commands.removeWalkNote(jobId, noteId)
+      : undefined,
   );
   ipcMain.handle(CHANNELS.rejectWork, (_event, jobId: string) =>
     connection?.commands.rejectWork(jobId),

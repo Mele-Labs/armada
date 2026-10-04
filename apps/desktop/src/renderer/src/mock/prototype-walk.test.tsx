@@ -10,6 +10,7 @@ import { prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
 
 import type { BridgeState } from "../../../shared/bridge";
 import type { FleetHandle } from "./scenario";
+import { evidenceRead } from "./prototype-fleet";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 
@@ -153,4 +154,44 @@ test("the lead offers nothing to walk where no server is up for review", async (
   await openedWith([SERVING]);
   await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Walk in Bridge" })).not.toBeInTheDocument();
+});
+
+/** The Prototype holding one note from a walk, as Fleet answers `get_job` since 23.16. */
+function withAWalkNote() {
+  const watched = fixture.watched;
+  if (watched.state !== "read") throw new Error("the fixture is read");
+  return {
+    ...fixture,
+    watched: {
+      ...watched,
+      detail: {
+        ...watched.detail,
+        walk_notes: [
+          {
+            id: "01WALKNOTE0000000000000001",
+            said: "The count reads too quietly.",
+            at: "2026-09-22T10:30:00Z",
+            element: "span “Running”",
+            selector: "div.armada-stat > span",
+            location: "/",
+          },
+        ],
+      },
+    },
+  };
+}
+
+test("a note from the walk shows on the Job, and Request changes sends it", async () => {
+  const noted = evidenceRead(withAWalkNote());
+  const requestChanges = vi.fn(async () => ({ ok: true as const }));
+  const scenario = onJob(noted);
+  mount({ ...scenario, behaves: () => ({ requestChanges }) });
+  await expect.element(page.getByText("1 note from your walk, sent when you request changes")).toBeVisible();
+
+  // The decision is under the lead once the claims are read, as at every gate.
+  await expect.element(page.getByText("span “Running”: The count reads too quietly.")).toBeVisible();
+  await page.getByRole("button", { name: "Request changes" }).click();
+
+  await expect.poll(() => requestChanges.mock.calls.length).toBe(1);
+  expect(requestChanges).toHaveBeenCalledWith(noted.job.id, "", true);
 });

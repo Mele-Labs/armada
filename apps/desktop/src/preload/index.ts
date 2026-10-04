@@ -627,8 +627,10 @@ const api: BridgeApi = {
   openFindingIssue: (jobId: string, finding: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openFindingIssue, jobId, finding),
 
-  requestChanges: (jobId: string, note: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note),
+  requestChanges: (jobId: string, note: string, withWalkNotes?: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note, withWalkNotes === true),
+  removeWalkNote: (jobId: string, noteId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.removeWalkNote, jobId, noteId),
 
   rejectWork: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.rejectWork, jobId),

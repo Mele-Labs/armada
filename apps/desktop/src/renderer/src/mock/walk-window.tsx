@@ -5,10 +5,24 @@
 // **A window, so the app beside it stays usable**: dragged by its strip and
 // resized from its corner, and nothing under it is blocked — the real one is
 // a window of its own, and the owner moves between Jobs with it open.
+//
+// **Capture lands on the Job**, as main's window does since protocol 23.16:
+// Capture or ⌥⌘A arms it, a press inside the page picks what is under it, and
+// the note is handed to `onNote`. The page is this mock on the same origin, so
+// the frame's document is reachable — main asks its page through a script.
 
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Button, CaptureBar } from "@armada/components";
+
+/** What a press inside the page picked, as a walk note describes it. */
+export type Picked = { element: string; selector: string; location: string };
+
+export type WalkWindowOptions = {
+  /** The Job a note goes to, as the bar names it. */
+  job: string;
+  onNote: (said: string, picked: Picked) => void;
+};
 
 let held: { root: Root; host: HTMLElement } | null = null;
 
@@ -26,42 +40,164 @@ export function closeWalkWindow(): void {
  * **No page under test.** A frame of the tester's own page would start the
  * suite again inside itself, so a test sees the bar and an empty frame.
  */
-export function openWalkWindow(run: string, url: string): void {
+export function openWalkWindow(run: string, url: string, options: WalkWindowOptions): void {
   closeWalkWindow();
   const host = document.createElement("div");
   host.className = "armada-mock-walk-window";
   document.body.append(host);
   const root = createRoot(host);
-  const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   root.render(
     <StrictMode>
-      <div role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame">
-        <div className="armada-mock-walk-window__strip" onPointerDown={dragging(host)}>
-          <span>{run} — drag to move, corner to resize</span>
-          <Button variant="secondary" size="sm" onClick={closeWalkWindow}>
-            Close window
-          </Button>
-        </div>
-        <CaptureBar
-          run={run}
-          address={new URL(url).origin}
-          studio={null}
-          serving
-          armed={false}
-          framesRefused={0}
-          onArm={() => {}}
-          onReload={() => {
-            const frame = host.querySelector("iframe");
-            if (frame !== null && !testing) frame.src = url;
-          }}
-          onFollowRefused={() => {}}
-          binding={[]}
-        />
-        <iframe title={`${run}, served`} src={testing ? "about:blank" : url} />
-      </div>
+      <WalkWindow run={run} url={url} host={host} {...options} />
     </StrictMode>,
   );
   held = { root, host };
+}
+
+/** ⌥⌘A or ⌥⌘C, the two chords main's window takes before its page does. */
+const isChord = (event: KeyboardEvent): boolean =>
+  (event.code === "KeyA" || event.code === "KeyC") && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+
+function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+  const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [armed, setArmed] = useState(false);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const [said, setSaid] = useState("");
+  const [kept, setKept] = useState(0);
+
+  // The chord, from this page and from the page inside the frame.
+  useEffect(() => {
+    const toggle = (event: KeyboardEvent) => {
+      if (!isChord(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setArmed((was) => !was);
+    };
+    window.addEventListener("keydown", toggle, true);
+    const inner = frame.current;
+    const watchInner = () => inner?.contentWindow?.addEventListener("keydown", toggle, true);
+    watchInner();
+    inner?.addEventListener("load", watchInner);
+    return () => {
+      window.removeEventListener("keydown", toggle, true);
+      inner?.contentWindow?.removeEventListener("keydown", toggle, true);
+      inner?.removeEventListener("load", watchInner);
+    };
+  }, []);
+
+  // Armed: the page is held still, the element under the pointer is ringed,
+  // and a press picks it rather than acting on it.
+  useEffect(() => {
+    const page = frame.current?.contentDocument;
+    if (!armed || page == null) return;
+    let ringed: HTMLElement | null = null;
+    const ring = (on: HTMLElement | null) => {
+      if (ringed !== null) ringed.style.outline = "";
+      ringed = on;
+      if (on !== null) on.style.outline = "2px solid #4aa8ff";
+    };
+    const over = (event: MouseEvent) => ring(event.target as HTMLElement);
+    const press = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const target = event.target as HTMLElement;
+      setPicked({ element: described(target), selector: selectorOf(target), location: page.location.pathname + page.location.search });
+      setArmed(false);
+    };
+    page.addEventListener("mouseover", over, true);
+    page.addEventListener("click", press, true);
+    return () => {
+      ring(null);
+      page.removeEventListener("mouseover", over, true);
+      page.removeEventListener("click", press, true);
+    };
+  }, [armed]);
+
+  function save(): void {
+    if (picked === null || said.trim() === "") return;
+    onNote(said.trim(), picked);
+    setKept((was) => was + 1);
+    setPicked(null);
+    setSaid("");
+  }
+
+  return (
+    <div role="dialog" aria-label={`Bridge's window on ${run}`} className="armada-mock-walk-window__frame">
+      <div className="armada-mock-walk-window__strip" onPointerDown={dragging(host)}>
+        <span>
+          {run} — drag to move, corner to resize
+          {kept === 0 ? "" : ` · ${kept} ${kept === 1 ? "note" : "notes"} sent to the Job`}
+        </span>
+        <Button variant="secondary" size="sm" onClick={closeWalkWindow}>
+          Close window
+        </Button>
+      </div>
+      <CaptureBar
+        run={run}
+        address={new URL(url).origin}
+        studio={null}
+        job={job}
+        serving
+        armed={armed}
+        framesRefused={0}
+        onArm={setArmed}
+        onReload={() => {
+          if (frame.current !== null && !testing) frame.current.src = url;
+        }}
+        onFollowRefused={() => {}}
+        binding={["⌥", "⌘", "A"]}
+      />
+      {picked === null ? null : (
+        <form
+          className="armada-mock-walk-window__note"
+          aria-label="Note on what you picked"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
+        >
+          <span>On {picked.element}</span>
+          <textarea
+            aria-label="What is wrong here"
+            value={said}
+            autoFocus
+            onChange={(event) => setSaid(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && event.metaKey) save();
+              if (event.key === "Escape") setPicked(null);
+            }}
+          />
+          <div>
+            <Button variant="ghost" size="sm" type="button" onClick={() => setPicked(null)}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" disabled={said.trim() === ""}>
+              Send to the Job
+            </Button>
+          </div>
+        </form>
+      )}
+      <iframe ref={frame} title={`${run}, served`} src={testing ? "about:blank" : url} data-armed={armed || undefined} />
+    </div>
+  );
+}
+
+/** What was picked, the way a person names it: its role or tag and its words. */
+function described(element: HTMLElement): string {
+  const role = element.getAttribute("role") ?? element.tagName.toLowerCase();
+  const words = (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().replace(/\s+/g, " ");
+  return words === "" ? role : `${role} “${words.length > 48 ? `${words.slice(0, 47)}…` : words}”`;
+}
+
+/** A path of tags and classes down to it, short enough to read. */
+function selectorOf(element: HTMLElement): string {
+  const parts: string[] = [];
+  for (let at: HTMLElement | null = element; at !== null && parts.length < 4; at = at.parentElement) {
+    const first = [...at.classList][0];
+    parts.unshift(first === undefined ? at.tagName.toLowerCase() : `${at.tagName.toLowerCase()}.${first}`);
+  }
+  return parts.join(" > ");
 }
 
 /** Move the window by its strip. The frame is under the pointer too, so it is told to let go of it. */

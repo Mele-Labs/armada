@@ -799,6 +799,7 @@ export function useCommands(sending: Sending) {
     jobId: string,
     what: "approve" | "changes" | "reject" | "merge",
     note = "",
+    withWalkNotes = false,
   ): Promise<void> {
     return decided(jobId, what, async () => {
       const answer =
@@ -807,7 +808,7 @@ export function useCommands(sending: Sending) {
           : what === "approve"
             ? await window.armada.approveReview(jobId)
             : what === "changes"
-              ? await window.armada.requestChanges(jobId, note)
+              ? await window.armada.requestChanges(jobId, note, withWalkNotes)
               : await window.armada.rejectWork(jobId);
       heard(jobId, what, answer);
       if (what === "merge" || what === "approve") took(jobId, what, answer);

@@ -40,6 +40,8 @@ export type CaptureWindowState = {
    * captured** — nothing is armed, because there is nowhere for a Note to land.
    */
   studio: { id: string; name: string | null } | null;
+  /** The Job a note lands on where there is no Studio: the one whose server this walks. */
+  job?: { id: string; handle: string };
   /**
    * Whether the Run is still serving. **Capture is refused from the moment it
    * is not**, and the window loads nothing further.

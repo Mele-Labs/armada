@@ -50,6 +50,18 @@ export const Walking: Story = {
   },
 };
 
+/**
+ * A Job's server, walked: notes go to the Job, and wait there until it is sent
+ * back. ⌥⌘A arms it as well as the registry's binding.
+ */
+export const WalkingAJob: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Notes go to 44-try-a-stacked-run-beside-the-canvas")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Capture" })).toBeEnabled();
+  },
+};
+
 /** Armed: a press on the page points rather than acts. */
 export const Capturing: Story = {
   args: { armed: true },

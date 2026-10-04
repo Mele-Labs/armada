@@ -434,6 +434,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     fileFindingIssue: async () => OK,
     openFindingIssue: async () => ({ ok: false, why: "no_address" }),
     requestChanges: async () => OK,
+    removeWalkNote: async () => OK,
     rejectWork: async (jobId) => (move(jobId, { status: "rejected" }), OK),
     readRemarks: async (jobId) =>
       publish({

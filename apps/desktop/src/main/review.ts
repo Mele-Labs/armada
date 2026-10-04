@@ -29,7 +29,7 @@
 // under it — and `diff` below takes the reading rather than answering out of
 // what was read when the Job was opened. Still no event on this side.
 
-import type { Diff, Evidence, Remarks } from "@armada/protocol";
+import type { CaptureWalkNote, Diff, Evidence, Remarks, RemoveWalkNote } from "@armada/protocol";
 import type { JobDiff, JobEvidence, JobRemarks, Submitted, Work } from "@armada/protocol";
 import { JobReader } from "./reader";
 import { ask, type Answer } from "./request";
@@ -255,11 +255,22 @@ export function decide(
   jobId: string,
   decision: Decision,
   note?: string,
+  withWalkNotes = false,
 ): Promise<Answer> {
   const path = `/jobs/${encodeURIComponent(jobId)}/${decision}`;
-  return note === undefined
-    ? ask(port, "POST", path)
-    : ask(port, "POST", path, { note });
+  if (note === undefined) return ask(port, "POST", path);
+  return ask(port, "POST", path, withWalkNotes ? { note, with_walk_notes: true } : { note });
+}
+
+/** Keep what a person pointed at walking a Job's work, on the Job. Since protocol 23.16. */
+export function captureWalkNote(port: number, jobId: string, body: CaptureWalkNote): Promise<Answer> {
+  return ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/walk_notes`, body);
+}
+
+/** Take back a walk note not yet sent. */
+export function removeWalkNote(port: number, jobId: string, id: string): Promise<Answer> {
+  const body: RemoveWalkNote = { id };
+  return ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/walk_notes/remove`, body);
 }
 
 /** Dismiss a finding the review raised, with the reason. It moves nothing. #907. */

@@ -34,6 +34,12 @@ export type CaptureBarProps = {
    * nowhere to land.
    */
   studio: string | null;
+  /**
+   * The Job a note goes to where there is no Studio — the one whose server
+   * this window walks. Capture is offered for it, and the note waits on the
+   * Job until it is sent back.
+   */
+  job?: string;
   /** Whether the Run is still serving. Capture ends with it. */
   serving: boolean;
   /** Whether capture is armed. */
@@ -55,7 +61,8 @@ export function hasASecondRow(props: Pick<CaptureBarProps, "serving" | "refused"
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, serving, armed, framesRefused, refused, binding } = props;
+  const { run, address, studio, job, serving, armed, framesRefused, refused, binding } = props;
+  const landsOn = studio !== null ? `Notes land on ${studio}` : job !== undefined ? `Notes go to ${job}` : null;
   return (
     <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
       <div className="armada-capture-bar__row">
@@ -64,12 +71,12 @@ export function CaptureBar(props: CaptureBarProps) {
         </span>
         <span className="armada-capture-bar__address">{address}</span>
         <span className="armada-capture-bar__aim">
-          {!serving ? "The run ended" : studio === null ? "Walking a Job's server" : `Notes land on ${studio}`}
+          {!serving ? "The run ended" : (landsOn ?? "Walking a Job's server")}
         </span>
         <Button variant="ghost" size="sm" disabled={!serving} onClick={props.onReload}>
           Reload
         </Button>
-        {studio === null ? null : (
+        {landsOn === null ? null : (
           <>
             <Button
               variant={armed ? "primary" : "ghost"}
@@ -88,7 +95,7 @@ export function CaptureBar(props: CaptureBarProps) {
           {serving ? null : (
             <span className="armada-capture-bar__ended">
               This run is no longer serving. What is on screen stays and nothing further loads
-              {studio === null ? "." : ", and capture is closed."}
+              {landsOn === null ? "." : ", and capture is closed."}
             </span>
           )}
           {refused === undefined ? null : (

@@ -31,19 +31,33 @@ function walkIn(server: ServerState, open: OpenCaptureWindow, onSaid: (sentence:
   });
 }
 
-/** **Walk in Bridge**, for the lead, while this Job's review server serves. */
+/**
+ * **Walk in Bridge**, for the lead, while this Job's review server serves —
+ * and how many notes from the walk wait to be sent, whether or not it still
+ * serves, so a person sees they are on the Job before opening its review.
+ */
 export function walkAct(
   jobId: string,
   servers: ServerList,
   open: OpenCaptureWindow | undefined,
   onSaid: (sentence: string) => void,
+  waiting = 0,
 ): ReactNode {
-  const server = walkable(jobId, servers);
-  if (server === undefined || open === undefined) return null;
+  const server = open === undefined ? undefined : walkable(jobId, servers);
+  if (server === undefined && waiting === 0) return null;
   return (
-    <Button variant="secondary" onClick={() => walkIn(server, open, onSaid)}>
-      Walk in Bridge
-    </Button>
+    <>
+      {waiting === 0 ? null : (
+        <span className="text-fg-muted">
+          {waiting === 1 ? "1 note from your walk" : `${waiting} notes from your walk`}, sent when you request changes
+        </span>
+      )}
+      {server === undefined || open === undefined ? null : (
+        <Button variant="secondary" onClick={() => walkIn(server, open, onSaid)}>
+          Walk in Bridge
+        </Button>
+      )}
+    </>
   );
 }
 

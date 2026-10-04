@@ -72,7 +72,7 @@ import { featureAfterAgreeing } from "./job-detail-refusal";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
-import { walkedPrototype } from "./prototype-fleet";
+import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
 
@@ -507,7 +507,7 @@ export const SCENARIOS: readonly Scenario[] = [
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
   // A Prototype held at Build, its mock up for review and opened in Bridge's window on the Job.
-  walkedPrototype(onJob(prototypeKind())),
+  walkedPrototype(onJob(evidenceRead(prototypeKind()))),
   // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
   // the merge line's turn, each writing a log as it runs. Not an arc moment, so named here.
   lined({

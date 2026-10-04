@@ -21,6 +21,7 @@
 // The header rules there hold here: these are hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
 import type { JobFootprint } from "./footprint";
 import type { Flagged, Judged, KeptDeliverable } from "./judged";
@@ -61,6 +62,8 @@ import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving"
 export type JobDetail = {
   /** The board row, unchanged. A field added to the row reaches here for free. */
   job: JobSummary;
+  /** What a person pointed at walking this Job's work, oldest first, sent ones too. Since 23.16. */
+  walk_notes?: WalkNote[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */

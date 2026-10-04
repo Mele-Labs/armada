@@ -17,6 +17,7 @@
 import type { CommandExplainedRead } from "../shared/api";
 import type { BridgeState } from "../shared/bridge";
 import type {
+  CaptureWalkNote,
   ClearOutcome,
   FilesFound,
   Outcome,
@@ -50,7 +51,16 @@ import { Limits } from "./limits";
 import { Preferring } from "./preferences";
 import { Reporting } from "./reporting";
 import { proposeFromRequest as propose } from "./proposing";
-import { decide, dismiss, fileIssue, queueAfter, takeUp, type Decision } from "./review";
+import {
+  captureWalkNote,
+  decide,
+  dismiss,
+  fileIssue,
+  queueAfter,
+  removeWalkNote,
+  takeUp,
+  type Decision,
+} from "./review";
 
 /**
  * What an act needs of the connection, and nothing more.
@@ -983,10 +993,29 @@ export class JobCommands {
     return this.settleWork(jobId, "investigate_failed_checks");
   }
 
-  /** Send it back. **`running` again**, same step, same Drone. Blank refused. */
-  async requestChanges(jobId: string, note: string): Promise<Outcome> {
-    if (note.trim() === "") return { ok: false, why: "empty_note" };
-    return this.settleWork(jobId, "request_changes", note);
+  /**
+   * Send it back. **`running` again**, same step, same Drone. Blank refused,
+   * except beside walk notes, which are a note of their own — Fleet refuses a
+   * blank one where none is waiting.
+   */
+  async requestChanges(jobId: string, note: string, withWalkNotes = false): Promise<Outcome> {
+    if (note.trim() === "" && !withWalkNotes) return { ok: false, why: "empty_note" };
+    return this.act(jobId, this.deciding, "already_deciding", (port) =>
+      decide(port, jobId, "request_changes", note, withWalkNotes),
+    );
+  }
+
+  /**
+   * What a person pointed at walking this Job's work, kept on the Job. **Under
+   * `deciding`**: a note landing while the send-back is out would miss it.
+   */
+  async captureWalkNote(jobId: string, body: CaptureWalkNote): Promise<Outcome> {
+    if (body.said.trim() === "") return { ok: false, why: "empty_note" };
+    return this.act(jobId, this.deciding, "already_deciding", (port) => captureWalkNote(port, jobId, body));
+  }
+
+  async removeWalkNote(jobId: string, id: string): Promise<Outcome> {
+    return this.act(jobId, this.deciding, "already_deciding", (port) => removeWalkNote(port, jobId, id));
   }
 
   /** A verdict on the work. **Terminal, and it ends the Drone.** */

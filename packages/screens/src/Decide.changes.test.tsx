@@ -4,7 +4,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { JobSummary } from "@armada/protocol";
+import type { JobSummary, WalkNote } from "@armada/protocol";
 import { Decide } from "./Decide";
 import { mount, unmount } from "./mounted";
 
@@ -96,4 +96,70 @@ test("approving and dropping the listed changes takes the work once", async () =
   );
 
   expect(sent.approved).toEqual([JOB.id]);
+});
+
+const WALKED: WalkNote[] = [
+  {
+    id: "01WALKNOTE0000000000000001",
+    said: "This button is too small to hit.",
+    at: "2026-10-04T09:00:00Z",
+    element: "button “Save”",
+    selector: "form > button",
+    location: "/settings",
+  },
+  {
+    id: "01WALKNOTE0000000000000002",
+    said: "Already sent once.",
+    at: "2026-10-04T08:00:00Z",
+    element: "heading “Settings”",
+    selector: "h1",
+    location: "/settings",
+    sent: true,
+  },
+];
+
+/** The gate with walk notes on the Job and nothing else listed. */
+function walked(): { notes: [string, boolean | undefined][]; removed: string[] } {
+  const sent = { notes: [] as [string, boolean | undefined][], removed: [] as string[] };
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={{ state: "none" }}
+      remarks={{ state: "none" }}
+      stale={false}
+      deciding={false}
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={(_, note, withWalkNotes) => sent.notes.push([note, withWalkNotes])}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+      walkNotes={WALKED}
+      onRemoveWalkNote={(_, id) => sent.removed.push(id)}
+    />,
+  );
+  return sent;
+}
+
+test("a note made walking the work is listed, and a sent one is not", async () => {
+  walked();
+  await expect.element(page.getByText("button “Save”: This button is too small to hit.")).toBeVisible();
+  expect(page.getByText("Already sent once.").elements()).toHaveLength(0);
+});
+
+test("request changes hands the walk notes to Fleet rather than writing them into the note", async () => {
+  const sent = walked();
+
+  // Nothing typed: the walk notes are a note of their own.
+  await userEvent.click(page.getByRole("button", { name: "Request changes" }));
+
+  expect(sent.notes).toEqual([["", true]]);
+});
+
+test("taking a walk note off the list takes it off the Job", async () => {
+  const sent = walked();
+  await userEvent.click(page.getByRole("button", { name: /Remove/ }).first());
+  expect(sent.removed).toEqual(["01WALKNOTE0000000000000001"]);
 });
