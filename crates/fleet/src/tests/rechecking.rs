@@ -377,3 +377,88 @@ async fn the_route_takes_no_body_and_answers_the_job() {
     let (status, _) = call(&app, "POST", &path, "").await;
     assert_eq!(status, 409, "a Job no longer held for repair");
 }
+
+// ------------------------------------------------- the scope, across a retry
+
+/// **The scope a Drone declared once still stands when its Checks run again.**
+/// Job 3, 4 Oct 2026: the Drone declared on its first run of the step, a red
+/// was handed back and it worked a second run without declaring again, as the
+/// slot it held still carried the plan. Every Check then passed on a press, and
+/// `evidence_scope` failed saying none was declared, because the re-run looked
+/// for a declaration on the current run only.
+#[tokio::test]
+async fn a_scope_declared_on_an_earlier_run_still_stands_when_the_checks_run_again() {
+    let home = TempDir::new();
+    let check = the_check(&home);
+    let fleet = Arc::new(a_fleet_holding(
+        &home,
+        FakeWorkProduct::changed(&["src/routes.rs"]),
+        testkit::retried(
+            &[Sketch {
+                id: "implement",
+                label: "Implement",
+                evidence_type: Some("diff"),
+                gates: &[Gate::Check {
+                    name: "suite",
+                    run: &check,
+                    expect_exit_code: 0,
+                    when: &[],
+                }],
+                judged_on: &[],
+                scope: Some(testkit::Scoped {
+                    diff_check: true,
+                    at_step_start: true,
+                    exclude: &[],
+                    references: &[],
+                }),
+                gaming: None,
+            }],
+            1,
+        ),
+        1,
+    ));
+    let job = fleet
+        .propose(a_proposal("register the route"))
+        .await
+        .expect("a Job at the approval gate");
+    worktree_directory(&home, &job);
+    dispatched(&fleet, job.id()).await.expect("released to run");
+    crate::tests::tools::declared_by_the_one(
+        &fleet,
+        &ipc::mcp::DeclareScope {
+            context_paths: vec!["src".to_string()],
+        },
+    )
+    .await
+    .expect("the Drone declares once");
+    for run in ["first", "second"] {
+        submitted_by_the_one(&fleet, diff_evidence())
+            .await
+            .unwrap_or_else(|_| panic!("the Drone reports its {run} run"));
+        fleet.turn().await.expect("the gate ran");
+    }
+    assert_eq!(
+        fleet.load(job.id()).await.expect("reads").status(),
+        JobStatus::AwaitingRepair,
+        "the retry is spent and the Job is held"
+    );
+    assert_eq!(
+        counts(&fleet, job.id()).await.0.number(),
+        2,
+        "the second run is the one held"
+    );
+    std::fs::write(home.path().join("pass"), "").expect("the cause lifts");
+
+    let held = Arc::clone(&fleet)
+        .rerun_checks(job.id())
+        .await
+        .expect("the Checks run again");
+
+    let row = held.step(&implement()).expect("the row");
+    assert_eq!(
+        row.state(),
+        StepState::Advanced,
+        "the scope declared on the first run carried it: {:?}",
+        fleet.store().lock().await.step_checks(job.id())
+    );
+}

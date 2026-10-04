@@ -233,9 +233,10 @@ where
     /// spawned.
     ///
     /// **Everything is read as the stopped run left it**, since the slot went
-    /// with the Drone: the attempt, the spend and the declared scope are that
-    /// run's, and `diff_nonempty` is its recorded outcome — passed says the step
-    /// moved, anything else or no row says it did not.
+    /// with the Drone: the attempt and the spend are that run's, the declared
+    /// scope is the one it worked under, and `diff_nonempty` is its recorded
+    /// outcome — passed says the step moved, anything else or no row says it
+    /// did not.
     async fn checks_run_again(
         &self,
         job_id: &JobId,
@@ -320,7 +321,11 @@ where
             .step_plans(job_id)
             .map_err(Adrift::Reading)?
             .into_iter()
-            .find(|declared| declared.step_id == *step && declared.attempt == attempt)
+            // The newest at or before this run, as the slot would still hold
+            // it: a Drone handed a red works the next run on the plan it
+            // declared, and Job 3's re-run failed scope on an exact match.
+            .filter(|declared| declared.step_id == *step && declared.attempt <= attempt)
+            .max_by_key(|declared| declared.attempt)
             .map(|declared| declared.paths);
         let moved = self
             .store()
