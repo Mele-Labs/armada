@@ -13,6 +13,8 @@ import type { Pattern } from "../shared/haptics";
 import type {
   CheckOutputRead,
   BriefRead,
+  LessonsRead,
+  RetroRead,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -501,6 +503,12 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
+  // A Job's retro and the Lessons listing, read when a surface opens and on focus. Read-only:
+  // nothing here files, proposes or writes a retro, and nothing anywhere does.
+  readRetro: (jobId: string): Promise<RetroRead> =>
+    ipcRenderer.invoke(CHANNELS.readRetro, jobId),
+  readLessons: (): Promise<LessonsRead> =>
+    ipcRenderer.invoke(CHANNELS.readLessons),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for

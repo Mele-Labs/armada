@@ -13,6 +13,8 @@ import {
 } from "react";
 import { Button, KbdChord, Textarea } from "@armada/components";
 
+import { openJobIn } from "@armada/screens/src/open-job";
+
 import { byCreation, type Annotation, type Box } from "../../../shared/annotations";
 import { capture, locate } from "./capture";
 import { componentsOf, fiberOf } from "./fiber";
@@ -180,7 +182,16 @@ export function Layer({ sink }: { sink: Sink }) {
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;
     savingRef.current = true;
-    const note = { ...draft.note, text: draft.text.trim(), updatedAt: new Date().toISOString() };
+    // The Job whose detail is open as the note is saved, not as it was begun: the save is the act
+    // that says what it is about. Left out where none is, and never kept from an earlier save.
+    const { openJobId: _was, ...begun } = draft.note;
+    const openJobId = openJobIn(document);
+    const note: Annotation = {
+      ...begun,
+      text: draft.text.trim(),
+      ...(openJobId === undefined ? {} : { openJobId }),
+      updatedAt: new Date().toISOString(),
+    };
     try {
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));

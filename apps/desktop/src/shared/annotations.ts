@@ -88,6 +88,12 @@ export type Annotation = {
   location: string;
   /** `?scenario=` in the mock (#1223), or null. */
   scenario: string | null;
+  /**
+   * The ULID of the Job whose detail was open when the note was saved. **Absent, never null,
+   * where none was**: Fleet links a note to a Job's retro by this field alone, and never guesses
+   * one from the time a note was left (`docs/concepts/retro.md`, *The owner's annotations*).
+   */
+  openJobId?: string;
   /** The element's box in the window, in CSS pixels. */
   box: Box;
   window: { width: number; height: number };
@@ -166,6 +172,7 @@ export function isAnnotation(value: unknown): value is Annotation {
     isNullableString(value["layer"]) &&
     isString(value["location"]) &&
     isNullableString(value["scenario"]) &&
+    (value["openJobId"] === undefined || isString(value["openJobId"])) &&
     isBox(value["box"]) &&
     isRecord(window) &&
     isNumber(window["width"]) &&
@@ -195,6 +202,7 @@ export function serializeAnnotation(note: Annotation): string {
     layer: note.layer,
     location: note.location,
     scenario: note.scenario,
+    ...(note.openJobId === undefined ? {} : { openJobId: note.openJobId }),
     box: note.box,
     window: note.window,
     createdAt: note.createdAt,

@@ -131,6 +131,9 @@ export const watchPulse = (jobId: string | null): void => void window.armada.wat
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
+/** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
+export const readRetro = (jobId: string) => window.armada.readRetro(jobId);
+export const readLessons = () => window.armada.readLessons();
 /** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
 export const listBranches = async (manifestId: string) => {
   const read = await window.armada.listBranches(manifestId);

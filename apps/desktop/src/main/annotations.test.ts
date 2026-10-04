@@ -61,6 +61,15 @@ describe("the note", () => {
     expect(JSON.parse(serializeAnnotation(note()))).toEqual(note());
     expect(text.endsWith("}\n")).toBe(true);
   });
+
+  it("carries the open Job's id as openJobId, which links it to that Job's retro, and leaves the key out where none was open", () => {
+    const linked = note({ openJobId: "01M22TYSAE0023MADDP5ZQEYGW" });
+    expect(isAnnotation(linked)).toBe(true);
+    expect(isAnnotation({ ...note(), openJobId: 3 })).toBe(false);
+    expect(JSON.parse(serializeAnnotation(linked))).toEqual(linked);
+    expect(JSON.parse(serializeAnnotation(linked)).openJobId).toBe("01M22TYSAE0023MADDP5ZQEYGW");
+    expect(Object.keys(JSON.parse(serializeAnnotation(note())))).not.toContain("openJobId");
+  });
 });
 
 describe("the files", () => {

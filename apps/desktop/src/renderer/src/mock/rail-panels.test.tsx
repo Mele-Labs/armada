@@ -41,7 +41,7 @@ test("Work holds the jobs-and-studios rows, Overview first", async () => {
   await onScreen();
 
   // Exactly the owner's list. The Job Board row went with the page.
-  expect(rowsOf("Work")).toEqual(["Overview", "Studios", "Cleanup"]);
+  expect(rowsOf("Work")).toEqual(["Overview", "Studios", "Cleanup", "Lessons"]);
 });
 
 test("Manifest has left the rail, and the control beside the picker still opens it", async () => {
