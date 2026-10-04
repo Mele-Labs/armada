@@ -47,6 +47,7 @@ pub fn narrowed(narrowing: Option<&Narrowing>, changed: &[String]) -> Narrowed {
         return Narrowed::Whole;
     };
     let mut values: Vec<&str> = Vec::new();
+    let mut alone = false;
     for path in changed {
         if !narrowing
             .from()
@@ -55,6 +56,9 @@ pub fn narrowed(narrowing: Option<&Narrowing>, changed: &[String]) -> Narrowed {
             continue;
         }
         let Some(value) = value(narrowing, path) else {
+            // Not a skip where `run` reads it on its own: the gate would run
+            // `run` over this path, and a Drone asking is told the same.
+            alone |= is_outside(narrowing, path);
             continue;
         };
         // **After the derivation, because it names values and not paths.** A
@@ -73,7 +77,7 @@ pub fn narrowed(narrowing: Option<&Narrowing>, changed: &[String]) -> Narrowed {
         }
         values.push(value);
     }
-    spelled(narrowing, values)
+    spelled(narrowing, values, alone)
 }
 
 /// [`narrowed`], read the way the merge line needs it: `covered` is every
@@ -86,6 +90,11 @@ pub fn narrowed(narrowing: Option<&Narrowing>, changed: &[String]) -> Narrowed {
 /// a narrowed one would not, and a verbatim list never narrows here at all — it
 /// names what changed and nothing the command reads beside it, such as
 /// `rustfmt.toml`. Which packages a change reaches is the caller's to add.
+///
+/// **The one exception is a path the Manifest declares `outside`**: one that
+/// `run` already reads on its own. It adds no value and does not run the Check
+/// whole, and a change made only of such paths runs `run` alone rather than
+/// nothing. Owner, 4 Oct 2026, after Job 3.
 pub fn narrowed_at_the_gate(narrowing: Option<&Narrowing>, covered: &[String]) -> Narrowed {
     let Some(narrowing) = narrowing.filter(|narrowing| narrowing.under().is_some()) else {
         return Narrowed::Whole;
@@ -94,11 +103,16 @@ pub fn narrowed_at_the_gate(narrowing: Option<&Narrowing>, covered: &[String]) -
         return Narrowed::Whole;
     }
     let mut values: Vec<&str> = Vec::new();
+    let mut alone = false;
     for path in covered {
         let read = narrowing
             .from()
             .is_none_or(|from| from.matches_any(std::slice::from_ref(path)));
         let Some(value) = value(narrowing, path).filter(|_| read) else {
+            if is_outside(narrowing, path) {
+                alone = true;
+                continue;
+            }
             return Narrowed::Whole;
         };
         if narrowing.except().iter().any(|dropped| dropped == value) {
@@ -109,7 +123,7 @@ pub fn narrowed_at_the_gate(narrowing: Option<&Narrowing>, covered: &[String]) -
         }
         values.push(value);
     }
-    spelled(narrowing, values)
+    spelled(narrowing, values, alone)
 }
 
 /// [`narrowed_at_the_gate`] over what a change reaches — [`crate::reached`] —
@@ -130,11 +144,12 @@ pub fn narrowed_over(
 }
 
 /// `run` with each value spelled through `each`, sorted and deduplicated, or
-/// [`Narrowed::Nothing`] where there are none.
-fn spelled(narrowing: &Narrowing, mut values: Vec<&str>) -> Narrowed {
+/// [`Narrowed::Nothing`] where there are none — unless a path `run` reads on
+/// its own changed (`alone`), which is `run` with nothing appended.
+fn spelled(narrowing: &Narrowing, mut values: Vec<&str>, alone: bool) -> Narrowed {
     values.sort_unstable();
     values.dedup();
-    if values.is_empty() {
+    if values.is_empty() && !alone {
         return Narrowed::Nothing;
     }
     let mut command = String::from(narrowing.run());
@@ -143,6 +158,16 @@ fn spelled(narrowing: &Narrowing, mut values: Vec<&str>) -> Narrowed {
         command.push_str(&narrowing.each().replace("{}", &quoted(value)));
     }
     Narrowed::To(command)
+}
+
+/// Whether `run` reads this path on its own, as the Manifest's `outside` says.
+fn is_outside(narrowing: &Narrowing, path: &str) -> bool {
+    narrowing.outside().is_some_and(|outside| {
+        outside
+            .patterns()
+            .iter()
+            .any(|pattern| pattern.matches(path))
+    })
 }
 
 /// What one changed path contributes, or [`None`] where it contributes nothing.

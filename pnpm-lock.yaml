@@ -37,6 +37,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.8(react@19.2.8)
+      undici:
+        specifier: 7.29.0
+        version: 7.29.0
       ws:
         specifier: ^8.21.0
         version: 8.21.3
@@ -6812,8 +6815,7 @@ snapshots:
 
   undici@6.28.1: {}
 
-  undici@7.29.0:
-    optional: true
+  undici@7.29.0: {}
 
   unified@11.0.5:
     dependencies:

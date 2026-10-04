@@ -119,3 +119,71 @@ fn no_path_at_all_runs_it_whole() {
         Narrowed::Whole
     );
 }
+
+/// This repository's `test`: `run` carries `-p xtask`, whose tests are the only
+/// ones reading `apps/` and `packages/`. Owner, 4 Oct 2026, after Job 3.
+fn reading_outside() -> Narrowing {
+    Narrowing::declared(
+        "cargo nextest run -p xtask".to_string(),
+        "-p {}".to_string(),
+        None,
+        Some("crates".to_string()),
+        vec!["acceptance".to_string()],
+    )
+    .with_outside(Covers::of(vec![
+        PathPattern::parse("apps/**").expect("a pattern"),
+        PathPattern::parse("packages/**").expect("a pattern"),
+    ]))
+}
+
+/// Job 3's case: a Bridge-only change ran every Rust test after a cold compile,
+/// when the only tests reading what it touched were `xtask`'s.
+#[test]
+fn a_change_only_outside_runs_the_narrowed_command_alone() {
+    for changed in [
+        paths(&["apps/x.ts"]),
+        paths(&["apps/x.ts", "packages/screens/src/a.ts"]),
+        // An excluded package adds nothing either, and the outside path still
+        // asks for `run` — not the skip it would be on its own.
+        paths(&["apps/x.ts", "crates/acceptance/tests/a.rs"]),
+    ] {
+        assert_eq!(
+            narrowed_at_the_gate(Some(&reading_outside()), &changed),
+            Narrowed::To("cargo nextest run -p xtask".to_string()),
+            "{changed:?}"
+        );
+    }
+}
+
+/// `reached` has already widened `crates/fleet` to its dependents, so `api`
+/// arrives here as a path of its own.
+#[test]
+fn a_path_outside_beside_a_crate_adds_nothing_to_its_packages() {
+    assert_eq!(
+        narrowed_at_the_gate(
+            Some(&reading_outside()),
+            &paths(&["apps/x.ts", "crates/fleet/src/lib.rs", "crates/api"])
+        ),
+        Narrowed::To("cargo nextest run -p xtask -p api -p fleet".to_string())
+    );
+}
+
+/// `outside` names what `run` reads; everything else the strict reading
+/// cannot name still runs whole.
+#[test]
+fn a_covered_path_neither_under_nor_outside_still_runs_it_whole() {
+    for neither in [
+        "xtask/src/main.rs",
+        "docs/spikes/a.md",
+        ".config/nextest.toml",
+    ] {
+        assert_eq!(
+            narrowed_at_the_gate(
+                Some(&reading_outside()),
+                &paths(&["apps/x.ts", "crates/fleet/src/lib.rs", neither])
+            ),
+            Narrowed::Whole,
+            "{neither}"
+        );
+    }
+}

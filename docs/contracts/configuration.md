@@ -210,6 +210,7 @@ The block, and every key in it:
 | `from` | no | Which changed paths feed it, in the one glob dialect. Absent means all of them |
 | `under` | no | The directory whose child names the value. Absent means the value is the changed path itself |
 | `except` | no | Values the narrowing never produces, whatever the change derived to |
+| `outside` | no | Paths outside `under` that `run` already reads on its own, in the one glob dialect. One adds no value and does not run the Check whole |
 
 ```yaml
 checks:
@@ -274,6 +275,19 @@ Rules that follow:
   Check whole until then, and this bullet called the merge line the one
   exception. Job 3's implement gate ran all 4211 Rust tests after a
   7.5-minute compile for a change under `crates/` it could have named.
+- **A path matching `outside` is one `run` measures with nothing appended.**
+  It adds no value, and at either gate it does not run the Check whole; a
+  change made only of such paths runs `run` alone rather than nothing, and a
+  Drone asking about one is told the same. Any other path `under` cannot name
+  still runs whole. Declare a path here only where nothing but `run`'s own
+  arguments reads it — a path another package's tests read would run without
+  them.
+
+  *4 Oct 2026, the owner's decision after Job 3.* That change touched only
+  `apps/` and `packages/`, which this repository's `test` covers because
+  `xtask`'s tests read them, and it ran every Rust test whole. Its `narrow.run`
+  carries `-p xtask`, and no other member reads either tree, so it declares
+  both `outside`.
 - **A Check that narrows to nothing is not run, and is not passed.** A change
   touching nothing under `crates` gives `-p` nothing to name, and a Check with
   nothing to say records a skip rather than a pass — the same third answer a

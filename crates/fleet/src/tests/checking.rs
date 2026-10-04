@@ -10,7 +10,7 @@
 //! that something stayed exactly as it was.
 
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use adapter_traits::{Footprint, Worktree};
 use core_model::CheckOutcome;
