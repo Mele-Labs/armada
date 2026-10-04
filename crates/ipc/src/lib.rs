@@ -228,9 +228,9 @@ pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, Job
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
-    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, ManifestReach, Origin,
-    PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side, StepState,
-    StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
+    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, ManifestReach,
+    Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side,
+    StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
     StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency, Via, Whose,
 };
 pub use error::{RunId, WireError, WireValue};

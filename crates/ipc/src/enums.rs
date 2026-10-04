@@ -350,3 +350,8 @@ wire_enum! {
     /// `fleet`. Since 23.12.
     Whose, core_model::Whose, "whom a retro item got in the way of"
 }
+wire_enum! {
+    /// Where the fix for one retro item lands: `armada`, `kit` or `manifest`.
+    /// Since 23.15. `docs/concepts/retro.md`.
+    LandsIn, core_model::LandsIn, "a place a retro item's fix lands"
+}

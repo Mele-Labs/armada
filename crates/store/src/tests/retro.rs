@@ -2,7 +2,7 @@
 //! said got in the way, and the retro itself once one is written.
 //! `docs/concepts/retro.md`.
 
-use core_model::{Actor, Job, StepId, Target, Via, Whose};
+use core_model::{Actor, Job, LandsIn, StepId, Target, Via, Whose};
 use rusqlite::Connection;
 
 use crate::migrations::{MIGRATIONS, SCHEMA_VERSION_KEY};
@@ -28,6 +28,7 @@ fn line(whose: Whose, said: &str, evidence: &[&str]) -> RetroLine {
         whose,
         said: said.to_string(),
         evidence: evidence.iter().map(|one| one.to_string()).collect(),
+        lands_in: Some(LandsIn::Armada),
     }
 }
 
@@ -141,7 +142,7 @@ fn an_ended_job_is_owed_a_retro_until_one_is_kept() {
         }
     );
     let newest: Vec<(String, &str)> = store
-        .lessons(10)
+        .lessons(10, None)
         .expect("read")
         .iter()
         .map(|lesson| {
@@ -180,7 +181,7 @@ fn a_retro_that_could_not_be_written_is_not_owed_again() {
         .expect("kept");
 
     assert!(store.retros_owed().expect("read").is_empty());
-    assert!(store.lessons(10).expect("read").is_empty());
+    assert!(store.lessons(10, None).expect("read").is_empty());
 }
 
 /// **A Job that ended before retros existed is owed none.** Without this, the
@@ -253,4 +254,97 @@ fn forgetting_a_job_takes_its_retro() {
 
     assert_eq!(forgotten.retros, 3, "the note, the retro and its one item");
     assert_eq!(forgotten.other, 0);
+}
+
+/// **Where a fix lands narrows the Lessons**, and is kept with the item.
+#[test]
+fn the_lessons_narrow_to_where_a_fix_lands() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = ended(&mut store, "01RETROLANDS", "2026-08-26T10:00:00.000Z");
+    let kit = RetroLine {
+        lands_in: Some(LandsIn::Kit),
+        ..line(Whose::Drone, "grep was refused", &["refusal:1"])
+    };
+    let manifest = RetroLine {
+        lands_in: Some(LandsIn::Manifest),
+        ..line(Whose::Fleet, "a docs edit ran every test", &["check:1"])
+    };
+    store
+        .record_retro(
+            job.id(),
+            &Reflected::Written {
+                model: "m".to_string(),
+                items: vec![kit.clone(), manifest.clone()],
+            },
+            &at("2026-08-26T10:01:00.000Z"),
+        )
+        .expect("kept");
+
+    let narrowed: Vec<RetroLine> = store
+        .lessons(10, Some(LandsIn::Kit))
+        .expect("read")
+        .into_iter()
+        .map(|lesson| lesson.line)
+        .collect();
+    assert_eq!(narrowed, vec![kit.clone()]);
+    assert_eq!(store.lessons(10, None).expect("read").len(), 2);
+}
+
+/// **An item kept before V102 reads with `lands_in` absent**, never guessed,
+/// and is listed only where nothing narrows the Lessons.
+#[test]
+fn an_item_kept_before_lands_in_reads_with_it_absent() {
+    let dir = TempDir::new();
+    let conn = Connection::open(dir.db()).expect("a file");
+    for migration in &MIGRATIONS[..101] {
+        conn.execute_batch(migration).expect("a migration");
+    }
+    conn.execute_batch(&format!(
+        "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '101');
+         INSERT INTO jobs (
+             job_id, title, status, workflow_id, owner_manifest_id, origin, urgency,
+             atomic, model, acceptance_criteria, dependencies, facts, scope_revisions,
+             write_targets_known, created_at
+         ) VALUES ('01RETROOLD', 'a job V101 reflected on', 'killed', '01WORKFLOW',
+                   '01OWNERMANIFEST', 'manual', 'normal', 0, 'a-model-name', '[]', '[]',
+                   '', '[]', 0, '2026-08-26T09:00:00.000Z');
+         INSERT INTO job_retros (job_id, state, model, at)
+             VALUES ('01RETROOLD', 'written', 'm', '2026-08-26T10:01:00.000Z');
+         INSERT INTO job_retro_items (job_id, ordinal, whose, said, evidence)
+             VALUES ('01RETROOLD', 0, 'drone', 'grep was refused', 'refusal:1');"
+    ))
+    .expect("a retro as V101 kept it");
+    drop(conn);
+
+    let store = Store::open(&dir.db()).expect("migrated");
+
+    let old = RetroLine {
+        lands_in: None,
+        ..line(Whose::Drone, "grep was refused", &["refusal:1"])
+    };
+    let kept = store
+        .retro_for(&job_id("01RETROOLD"))
+        .expect("read")
+        .expect("kept");
+    assert_eq!(
+        kept.reflected,
+        Reflected::Written {
+            model: "m".to_string(),
+            items: vec![old.clone()],
+        }
+    );
+    let all: Vec<RetroLine> = store
+        .lessons(10, None)
+        .expect("read")
+        .into_iter()
+        .map(|lesson| lesson.line)
+        .collect();
+    assert_eq!(all, vec![old]);
+    for place in LandsIn::ALL {
+        assert!(
+            store.lessons(10, Some(*place)).expect("read").is_empty(),
+            "an old item is under no place: {place:?}"
+        );
+    }
 }

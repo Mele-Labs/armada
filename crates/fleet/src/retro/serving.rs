@@ -2,7 +2,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Retros};
-use ipc::{JobId, JobRetro, Lesson, Lessons, ManifestId, RetroItem, RetroState};
+use ipc::{JobId, JobRetro, LandsIn, Lesson, Lessons, ManifestId, RetroItem, RetroState};
 use store::{KeptRetro, Reflected, RetroLine};
 
 use crate::adrift::Adrift;
@@ -13,6 +13,7 @@ fn item(line: RetroLine) -> RetroItem {
         who: line.whose.into(),
         statement: line.said,
         evidence: line.evidence,
+        lands_in: line.lands_in.map(LandsIn::from),
     }
 }
 
@@ -65,18 +66,25 @@ where
     }
 
     /// Every written retro's items, newest first, narrowed to one repository's
-    /// Jobs where one is named. **A Manifest Fleet does not serve is refused**,
-    /// as every narrowed list is.
+    /// Jobs where one is named and to where each fix lands where that is.
+    /// **A Manifest Fleet does not serve is refused**, as every narrowed list
+    /// is.
     async fn list_lessons(
         &self,
         manifest_id: Option<ManifestId>,
+        lands_in: Option<LandsIn>,
         most: u32,
     ) -> Result<Lessons, Refusal> {
         let within = manifest_id;
         let owned = self.owned_by(within.as_ref())?;
-        let kept = self.store().lock().await.lessons(most).map_err(|cause| {
-            self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause)))
-        })?;
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .lessons(most, lands_in.map(|lands| lands.domain()))
+            .map_err(|cause| {
+                self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause)))
+            })?;
         let mut lessons = Vec::new();
         for lesson in kept {
             // **A Job that will not load keeps its items**, named by its id: a
@@ -94,6 +102,7 @@ where
                 who: line.who,
                 statement: line.statement,
                 evidence: line.evidence,
+                lands_in: line.lands_in,
             });
         }
         Ok(Lessons { lessons })

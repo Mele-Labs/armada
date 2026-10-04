@@ -778,9 +778,11 @@ Its own route rather than a field on `get_job`, for `get_job_events`' reason: th
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, one sentence and the record rows that show it"
+description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, where its fix lands, one sentence and the record rows that show it"
 notes = """
 Since 23.12. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
+
+**`?lands_in=` narrows it to where each fix lands**, since 23.15: `armada`, `kit` or `manifest`, and absent is all three. Any other value is a 400. An item kept before 23.15 carries no `lands_in` and is listed only where nothing narrows.
 
 **Nothing here is filed, proposed or put into a brief.** It is read, and a person decides what each item is worth. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves.
 """
