@@ -657,7 +657,12 @@ where
             &checks,
             &read.touched,
             read.moved,
-            read.narrow,
+            // Never the gate's reading: a Drone's run keeps running several at
+            // once, and narrows the lenient way it asked for.
+            match read.narrow {
+                true => crate::checking::Reading::DronesOwn,
+                false => crate::checking::Reading::Whole,
+            },
             Path::new(plan.worktree.path()),
             self.budget().duration(),
             &room,

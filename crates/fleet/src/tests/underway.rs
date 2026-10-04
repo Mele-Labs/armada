@@ -57,7 +57,7 @@ fn named(name: &str, run: &str) -> ResolvedCheck {
 ///
 /// **The reading the bound is asserted through**, named once so the case that
 /// proves it catches a breach reads the same function. #1467.
-fn most_places_at_once(said: &[ipc::JobChecking]) -> u32 {
+pub(super) fn most_places_at_once(said: &[ipc::JobChecking]) -> u32 {
     said.iter()
         .filter_map(|one| one.checking.as_ref())
         .map(|state| {
@@ -100,7 +100,7 @@ async fn heard_over(
         checks,
         &[],
         false,
-        false,
+        crate::checking::Reading::Whole,
         repo.path(),
         Duration::from_secs(30),
         &Room::ignoring_the_machine(ChecksAtOnce::of(at_once)),
@@ -287,7 +287,7 @@ async fn saying_each_check_changes_nothing_the_gate_rules_on() {
             &checks,
             &[],
             false,
-            false,
+            crate::checking::Reading::Whole,
             repo.path(),
             Duration::from_secs(30),
             &Room::ignoring_the_machine(ChecksAtOnce::of(AT_ONCE)),
@@ -306,7 +306,7 @@ async fn saying_each_check_changes_nothing_the_gate_rules_on() {
         &checks,
         &[],
         false,
-        false,
+        crate::checking::Reading::Whole,
         repo.path(),
         Duration::from_secs(30),
         &Room::ignoring_the_machine(ChecksAtOnce::of(AT_ONCE)),
@@ -360,7 +360,7 @@ async fn a_drones_run_is_shown_apart_from_the_gate_and_stops_at_its_first_failur
         &checks,
         &[],
         false,
-        false,
+        crate::checking::Reading::Whole,
         repo.path(),
         Duration::from_secs(30),
         &Room::ignoring_the_machine(ChecksAtOnce::of(AT_ONCE)),
@@ -463,7 +463,7 @@ async fn checks_waiting_for_room_other_work_holds_say_how_much() {
         &checks,
         &touched,
         false,
-        false,
+        crate::checking::Reading::Whole,
         repo.path(),
         Duration::from_secs(30),
         &room,

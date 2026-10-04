@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type HTMLAttributes } from "react";
+import { Tooltip } from "../Tooltip/Tooltip";
 import { useSelectedFill } from "./selected-fill";
 
 /**
@@ -18,6 +19,12 @@ export type TabsItem = {
   id: string;
   /** Sentence case. */
   label: string;
+  /**
+   * What a hover on the tab reads, where the label is a short form of
+   * something longer — a wave's line, whose plan said a paragraph. Drawn by
+   * `Tooltip`, so it is also the tab's description. Absent draws none.
+   */
+  hint?: string;
 };
 
 export type TabsProps = {
@@ -58,21 +65,30 @@ export function Tabs({ items, value, defaultValue, onChange }: TabsProps) {
 
   return (
     <div ref={strip} className="armada-tabs" role="tablist" onKeyDown={onKey}>
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role="tab"
-          aria-selected={item.id === active}
-          tabIndex={item.id === active ? 0 : -1}
-          className={
-            item.id === active ? "armada-tabs__tab armada-tabs__tab--active" : "armada-tabs__tab"
-          }
-          onClick={() => select(item.id)}
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map((item) => {
+        const tab = (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={item.id === active}
+            tabIndex={item.id === active ? 0 : -1}
+            className={
+              item.id === active ? "armada-tabs__tab armada-tabs__tab--active" : "armada-tabs__tab"
+            }
+            onClick={() => select(item.id)}
+          >
+            {item.label}
+          </button>
+        );
+        return item.hint === undefined ? (
+          tab
+        ) : (
+          <Tooltip key={item.id} label={item.hint} asChild>
+            {tab}
+          </Tooltip>
+        );
+      })}
       <span ref={fill} className="armada-tabs__fill" aria-hidden="true" hidden />
     </div>
   );

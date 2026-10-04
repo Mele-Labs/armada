@@ -286,7 +286,8 @@ async fn a_narrowed_run_of_an_unchanged_worktree_is_refused_before_anything_runs
 /// **The sharpest form of "a narrowed run is not a verdict".** Every row of the
 /// narrowed report passed, the Drone submitted on the strength of it, and the
 /// gate ran the whole of the same Check and failed the step — because the gate
-/// reads the whole of every Check whatever the Drone asked for mid-work.
+/// takes its own reading whatever the Drone asked for mid-work, and never
+/// narrows a verbatim `narrow` such as this one.
 ///
 /// Nothing changed in the worktree between the two. The difference is entirely
 /// the command each run made, which is what makes this the case a narrowed pass

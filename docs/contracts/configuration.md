@@ -257,16 +257,23 @@ Rules that follow:
   choosing the scope it is measured over, which is the same refusal
   `crates/ipc/src/mcp/tools.rs` already makes about a Check name. Which paths a
   narrowed run reads is Fleet's reading of the worktree's own diff.
-- **A narrowed run is never a verdict and never gates a step.** The gate reads the
-  whole of every Check whatever a Drone asked for mid-step, and the report a
-  Drone reads back carries its own closing sentence saying a pass under it means
-  the parts that changed hold and not that the repository does. `after_merge`
-  drops `narrow` for the same reason it drops `when`: what merged is the whole
-  tree.
-- **The merge line is the one exception, and reads `narrow` more strictly.**
-  It narrows only through `under`, over every crate a turn reaches, and runs
-  whole on any covered path it cannot name. [Merge
-  line](../capabilities/merge-line.md), *What a narrowed Check runs*.
+- **A Drone's narrowed run is never a verdict and never gates a step.** The
+  gate takes its own reading below, whatever a Drone asked for mid-step, and the
+  report a Drone reads back carries its own closing sentence saying a pass under
+  it means the parts that changed hold and not that the repository does.
+  `after_merge` drops `narrow` for the same reason it drops `when`: what merged
+  is the whole tree.
+- **The step gate and the merge line read `narrow` the same strict way.** Each
+  narrows only through `under`, over every crate the change reaches and every
+  crate depending on one, and runs whole on any covered path it cannot name. A
+  verbatim `narrow` never narrows there. The step gate's change is the step's
+  own against its base. [Merge line](../capabilities/merge-line.md), *What a
+  narrowed Check runs*.
+
+  *4 Oct 2026, the owner's decision after Job 3.* The step gate read every
+  Check whole until then, and this bullet called the merge line the one
+  exception. Job 3's implement gate ran all 4211 Rust tests after a
+  7.5-minute compile for a change under `crates/` it could have named.
 - **A Check that narrows to nothing is not run, and is not passed.** A change
   touching nothing under `crates` gives `-p` nothing to name, and a Check with
   nothing to say records a skip rather than a pass — the same third answer a

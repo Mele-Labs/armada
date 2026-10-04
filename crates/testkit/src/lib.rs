@@ -39,6 +39,7 @@ pub use link_lookup::FakeLinkLookup;
 pub use vcs::{CommitScope, Delivered, Delivering, FakeCommit, FakeVcs, FakeVcsError, Merging};
 pub use work_product::{FakeDiffRefused, FakeWorkProduct, Holding, Written};
 pub use workflow::{
-    delivering, frozen, handing_off, modelled, narrowing, patient, requiring, resolved, retried,
-    retried_and_testing_one, testing_one, Gaming, Gate, Narrows, OneTest, Patience, Scoped, Sketch,
+    delivering, frozen, handing_off, modelled, narrowing, narrowing_and_testing_one, patient,
+    requiring, resolved, retried, retried_and_testing_one, testing_one, Gaming, Gate, Narrows,
+    OneTest, Patience, Scoped, Sketch,
 };
