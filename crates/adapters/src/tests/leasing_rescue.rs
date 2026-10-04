@@ -35,11 +35,20 @@ fn git(at: &Path, args: &[&str]) -> String {
     let run = std::process::Command::new("git")
         .arg("-C")
         .arg(at)
-        .args(["-c", "user.name=armada", "-c", "user.email=armada@example.invalid"])
+        .args([
+            "-c",
+            "user.name=armada",
+            "-c",
+            "user.email=armada@example.invalid",
+        ])
         .args(args)
         .output()
         .expect("git on PATH");
-    assert!(run.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&run.stderr));
+    assert!(
+        run.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&run.stderr)
+    );
     String::from_utf8_lossy(&run.stdout).trim().to_string()
 }
 
@@ -61,7 +70,10 @@ fn a_stranded_slot(repo: &TempRepo) -> (Pool, PathBuf) {
 
 /// Whether the slot can be leased again, which is what freed means.
 fn is_free(pool: &Pool) -> bool {
-    matches!(pool.try_lease("next", &here(), 0, &no_seed), Ok(Leased::Took(_)))
+    matches!(
+        pool.try_lease("next", &here(), 0, &no_seed),
+        Ok(Leased::Took(_))
+    )
 }
 
 #[test]
@@ -72,7 +84,10 @@ fn a_stranded_slot_says_what_it_holds_and_its_change_against_the_base() {
     let work = pool.stranded_work(1).expect("stranded");
     assert_eq!(work.branch.as_deref(), Some("half-done"));
     assert_eq!(work.commit, git(&slot, &["rev-parse", "HEAD"]));
-    assert!(work.uncommitted.iter().any(|path| path.ends_with("kept.rs")));
+    assert!(work
+        .uncommitted
+        .iter()
+        .any(|path| path.ends_with("kept.rs")));
     assert!(work.uncommitted.iter().any(|path| path.ends_with("new.rs")));
     assert_eq!(work.commits.len(), 1);
     assert_eq!(work.commits[0].subject, "Keep one");
@@ -90,12 +105,18 @@ fn a_slot_that_is_not_stranded_is_neither_read_nor_acted_on() {
         Ok(Leased::Took(_)) => {}
         other => panic!("{other:?}"),
     }
-    assert!(matches!(pool.stranded_work(1), Err(RescueRefused::NotStranded(_))));
+    assert!(matches!(
+        pool.stranded_work(1),
+        Err(RescueRefused::NotStranded(_))
+    ));
     assert!(matches!(
         pool.rescue(1, SlotRescue::Scrap),
         Err(RescueRefused::NotStranded(_))
     ));
-    assert!(matches!(pool.stranded_work(9), Err(RescueRefused::NoSuchSlot(9))));
+    assert!(matches!(
+        pool.stranded_work(9),
+        Err(RescueRefused::NoSuchSlot(9))
+    ));
 }
 
 /// **A scrap throws the uncommitted files away and frees the slot, and keeps
@@ -139,16 +160,30 @@ fn a_stash_commits_and_pushes_the_branch_and_frees_the_slot() {
     let (pool, _slot) = a_stranded_slot(&repo);
 
     let done = pool
-        .rescue(1, SlotRescue::Stash { message: String::from("Work left in slot-1, kept") })
+        .rescue(
+            1,
+            SlotRescue::Stash {
+                message: String::from("Work left in slot-1, kept"),
+            },
+        )
         .expect("stashed");
     assert!(done.committed.is_some());
     assert!(done.branch_kept);
-    let pushed = git(repo.root(), &["ls-remote", "--heads", "origin", "half-done"]);
+    let pushed = git(
+        repo.root(),
+        &["ls-remote", "--heads", "origin", "half-done"],
+    );
     assert!(!pushed.is_empty(), "the branch is on the remote");
     let tip = git(repo.root(), &["rev-parse", "half-done"]);
     assert!(pushed.starts_with(&tip), "the remote has the stash commit");
-    let files = git(repo.root(), &["show", "--name-only", "--format=", "half-done"]);
-    assert!(files.contains("new.rs") && files.contains("kept.rs"), "{files}");
+    let files = git(
+        repo.root(),
+        &["show", "--name-only", "--format=", "half-done"],
+    );
+    assert!(
+        files.contains("new.rs") && files.contains("kept.rs"),
+        "{files}"
+    );
     assert!(is_free(&pool));
 }
 
@@ -157,7 +192,12 @@ fn a_stash_with_no_remote_changes_nothing() {
     let repo = TempRepo::with_a_commit();
     let (pool, slot) = a_stranded_slot(&repo);
     assert!(matches!(
-        pool.rescue(1, SlotRescue::Stash { message: String::from("kept") }),
+        pool.rescue(
+            1,
+            SlotRescue::Stash {
+                message: String::from("kept")
+            }
+        ),
         Err(RescueRefused::NoRemote)
     ));
     assert!(slot.join("new.rs").exists());

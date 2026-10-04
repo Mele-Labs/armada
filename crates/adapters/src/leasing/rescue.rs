@@ -24,11 +24,8 @@ impl Pool {
         let uncommitted = dirty(&path).map_err(RescueRefused::Vcs)?;
         let range = format!("{}..HEAD", self.base_ref());
         let listed = COMMITS_LISTED.to_string();
-        let log = git(
-            &path,
-            &["log", "--format=%H%x1f%s", "-n", &listed, &range],
-        )
-        .unwrap_or_default();
+        let log =
+            git(&path, &["log", "--format=%H%x1f%s", "-n", &listed, &range]).unwrap_or_default();
         let commits = log
             .lines()
             .filter_map(|line| line.split_once('\u{1f}'))

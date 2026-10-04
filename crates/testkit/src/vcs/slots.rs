@@ -328,7 +328,11 @@ impl FakeSlots {
         self.stranded_in(pool, slot).map(|(work, _)| work)
     }
 
-    pub(super) fn stranded_diff(&self, pool: &SlotPool, slot: u32) -> Result<String, RescueRefused> {
+    pub(super) fn stranded_diff(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<String, RescueRefused> {
         self.stranded_in(pool, slot).map(|(_, diff)| diff)
     }
 

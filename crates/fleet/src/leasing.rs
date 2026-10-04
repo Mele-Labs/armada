@@ -208,7 +208,9 @@ where
                 let at = kept.iter().position(|one| {
                     one.manifest_id == manifest
                         && one.slot == reading.slot
-                        && stranded.as_ref().is_some_and(|work| work.commit == one.commit)
+                        && stranded
+                            .as_ref()
+                            .is_some_and(|work| work.commit == one.commit)
                 });
                 let rescue = at.map(|at| kept.swap_remove(at));
                 slots.push(PoolSlot {

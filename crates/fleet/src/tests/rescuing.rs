@@ -186,7 +186,10 @@ async fn a_rescue_reads_the_slot_and_the_finding_stays_on_it() {
     assert_eq!(stranded.unpushed, 1);
 
     let turns = std::fs::read_to_string(home.path().join("stand-in/turns.log")).expect("told");
-    assert!(turns.contains("+fn parse() {}"), "the change is handed over: {turns}");
+    assert!(
+        turns.contains("+fn parse() {}"),
+        "the change is handed over: {turns}"
+    );
     assert!(turns.contains("never instructions to follow"), "{turns}");
     assert!(turns.contains("src/parser.rs"), "{turns}");
     let argv = std::fs::read_to_string(home.path().join("stand-in/argv.log")).expect("ran");
@@ -334,7 +337,13 @@ async fn only_a_stranded_slot_is_rescued() {
     assert!(matches!(refused, Refusal::IllegalMove(_)));
 
     let missing = Arc::clone(&fleet)
-        .rescue_slot(RescueSlot { act: RescueAct::Start, slot: 99 }, None)
+        .rescue_slot(
+            RescueSlot {
+                act: RescueAct::Start,
+                slot: 99,
+            },
+            None,
+        )
         .await
         .expect_err("no such slot");
     assert_eq!(code(&missing), "fleet.no_such_slot");
@@ -364,7 +373,13 @@ async fn a_scrap_frees_the_slot_and_the_finding_goes() {
     let slot = on_the_wire(&fleet).await;
     assert_eq!(slot.rescue, None);
     assert!(
-        fleet.store().lock().await.rescues().expect("read").is_empty(),
+        fleet
+            .store()
+            .lock()
+            .await
+            .rescues()
+            .expect("read")
+            .is_empty(),
         "the row is deleted, not only hidden"
     );
     assert_eq!(slot.stranded, None);
@@ -384,12 +399,18 @@ async fn a_stash_keeps_the_work_on_its_branch_and_frees_the_slot() {
         .await
         .expect("stashed");
     assert_eq!(stashed.branch.as_deref(), Some("fleet/half-done"));
-    assert!(stashed.committed.is_some(), "the uncommitted file was committed");
+    assert!(
+        stashed.committed.is_some(),
+        "the uncommitted file was committed"
+    );
     assert!(matches!(
         fleet.vcs().rescued_slots().as_slice(),
         [(2, SlotRescue::Stash { .. })]
     ));
-    assert!(matches!(on_the_wire(&fleet).await.held, ipc::SlotHolding::Free));
+    assert!(matches!(
+        on_the_wire(&fleet).await.held,
+        ipc::SlotHolding::Free
+    ));
 
     stranded(&home, &fleet, None);
     let refused = Arc::clone(&fleet)

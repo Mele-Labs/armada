@@ -133,6 +133,8 @@ mod showing;
 mod shown_again;
 /// Which pool slot a Job's worktree is.
 mod slot;
+/// The Finding a rescue Scout brought back from a stranded slot. Since V104.
+mod slot_rescues;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
@@ -141,8 +143,6 @@ mod studio;
 mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
-/// The Finding a rescue Scout brought back from a stranded slot. Since V104.
-mod slot_rescues;
 /// What a person said while walking a Job's served mock. Since V102.
 mod walk_notes;
 /// An Epic's waves: the pass on a member, when its pull request merged, and
@@ -187,9 +187,9 @@ pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
+pub use slot_rescues::{KeptRescue, RescueState};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};
-pub use slot_rescues::{KeptRescue, RescueState};
 pub use walk_notes::{KeptWalkNote, WalkNoteRemoved, WalkServed};
 pub use work_plan::{PlanHand, PlanNotKept};

@@ -8,9 +8,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{
-    AgentHarness, Delivery, RescueRefused, SlotRescue, Vcs, WorkProduct,
-};
+use adapter_traits::{AgentHarness, Delivery, RescueRefused, SlotRescue, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{ScoutEnded, ScoutLook, ScoutOutcome};
 use ipc::{ManifestId, RescueAct, RescueSlot, WireError};
@@ -34,7 +32,8 @@ const RESCUE_ON_THE_BASE: &str = "fleet.rescue_on_the_base";
 const RESCUE_NO_REMOTE: &str = "fleet.rescue_no_remote";
 
 /// Why a Finding left reading across a restart, in its own words.
-pub(crate) const LOST: &str = "Fleet stopped while the scout was reading, so nothing read it to its end";
+pub(crate) const LOST: &str =
+    "Fleet stopped while the scout was reading, so nothing read it to its end";
 
 /// The key a scout reading a slot is listed under.
 fn listed_as(manifest: &str, slot: u32) -> String {

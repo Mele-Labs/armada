@@ -231,6 +231,7 @@ pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
 mod rerunning;
+mod rescuing;
 /// What one Job holds on this machine — its processes, what they are burning,
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;
@@ -253,7 +254,6 @@ pub mod scope;
 mod scoping;
 /// The read-only agent a person starts from a Studio. `#1292`.
 pub mod scout;
-mod rescuing;
 mod scouting;
 pub mod seeding;
 mod servers;

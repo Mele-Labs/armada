@@ -379,7 +379,11 @@ pub trait Vcs {
     /// The stranded slot's change against where its branch left the base,
     /// uncommitted changes to tracked files included. What a rescue Scout is
     /// handed, since it cannot run git.
-    fn stranded_diff(&self, pool: &SlotPool, slot: u32) -> Result<alloc::string::String, RescueRefused>;
+    fn stranded_diff(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<alloc::string::String, RescueRefused>;
 
     /// Scrap or stash a stranded slot's work, and free the slot. Only a person
     /// asks for either.

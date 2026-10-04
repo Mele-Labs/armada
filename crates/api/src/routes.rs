@@ -30,12 +30,13 @@ use crate::amending::edit_manifest;
 use crate::attention::{get_activity_feed, list_alerts, list_job_board, list_reviews};
 use crate::commands::{
     add_task, answer_command, answer_judge, answer_question, approve_dispatch, approve_review,
-    ask_person_to_approve, change_slot_pool, rescue_slot, delete_branch, dismiss_finding, drop_task,
+    ask_person_to_approve, change_slot_pool, delete_branch, dismiss_finding, drop_task,
     examine_job, file_finding_issue, file_report, forget_job, kill_drone, kill_job,
     merge_pull_request, move_plan, override_verdict, propose_from_request, propose_job,
     queue_after_finding, raise_cost_cap, raise_turn_cap, reclaim_worktree, redirect_drone,
-    redispatch_job, reject_job, request_changes, rerun_checks, rerun_gate, restart_step,
-    restart_task, set_when_blocked, set_when_refused, show_again, stop_proposal, take_up_remarks,
+    redispatch_job, reject_job, request_changes, rerun_checks, rerun_gate, rescue_slot,
+    restart_step, restart_task, set_when_blocked, set_when_refused, show_again, stop_proposal,
+    take_up_remarks,
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
