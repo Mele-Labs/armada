@@ -25,7 +25,70 @@
  * person who came looking for a worktree that is not on it could not tell
  * "already given back" from "held and not said".
  */
-export type WorktreesHeld = { worktrees: WorktreeHeld[] };
+export type WorktreesHeld = {
+  worktrees: WorktreeHeld[];
+  /**
+   * Every slot of each served repository's worktree pool, as `armada worktree
+   * --status` reads it. Absent where Fleet serves no repository. Since 23.16.
+   */
+  slots?: WorktreeSlot[];
+};
+
+/** One slot of a repository's worktree pool. */
+export type WorktreeSlot = {
+  /** The Manifest whose repository the pool belongs to. */
+  manifest_id: string;
+  slot: number;
+  path: string;
+  held: SlotHolding;
+  /** The branch `behind` is counted against. */
+  base: string;
+  /** The branch it is on. Absent for a free slot, which sits detached. */
+  branch?: string;
+  /** When its holder took it, where that was recorded. */
+  since?: string;
+  /** Every `setup.seed.paths` entry is a directory in the slot. */
+  warm: boolean;
+  /** Commits on the base its checkout does not have. Absent where git could not count them. */
+  behind?: number;
+  /**
+   * A person closed it: no lease takes it until it is reopened, and a holder
+   * keeps it until its lease ends. Since 23.17; absent from an older Fleet,
+   * which closes nothing.
+   */
+  closed?: boolean;
+};
+
+/** What a person does to the pool from Cleanup's bay grid. Since 23.17. */
+export type SlotAct = "add" | "remove" | "close" | "open";
+
+/**
+ * `change_slot_pool`'s body, `POST /worktrees/slots?manifest_id=`. `slot` names
+ * the slot for all but `add`, which picks its own. On this machine only.
+ */
+export type ChangeSlotPool = { act: SlotAct; slot?: number };
+
+/** The slot `change_slot_pool` changed: the new one, for `add`. */
+export type SlotPoolChanged = { manifest_id: string; slot: number };
+
+/**
+ * Who holds a slot, or why nothing can. Discriminated on `state`, and matched
+ * rather than rendered, so widening it is a major bump.
+ */
+export type SlotHolding =
+  /** Never made. The next lease makes it. */
+  | { state: "unmade" }
+  /** A directory that is not a checkout. Nothing leases it until a person removes it. */
+  | { state: "not_a_checkout" }
+  /** A take or a release is under way. */
+  | { state: "busy" }
+  | { state: "free" }
+  /** One of Fleet's jobs. The title is absent where the store no longer has the job. */
+  | { state: "job"; job_id: string; job_title?: string }
+  /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
+  | { state: "session"; holder: string }
+  /** Its holder is gone and it still holds work. */
+  | { state: "stranded"; why: string };
 
 /** One job's worktree, and every test it failed. */
 export type WorktreeHeld = {

@@ -104,7 +104,7 @@ const CHECK_KEYS: &[&str] = &[
 /// spells them. #849.
 const RUNS_AT_LEGAL: &[&str] = &["everywhere", "gate", "handoff"];
 /// The keys M1 reads inside `checks.<name>.narrow`.
-const NARROW_KEYS: &[&str] = &["run", "each", "from", "under", "except"];
+const NARROW_KEYS: &[&str] = &["run", "each", "from", "under", "except", "outside"];
 /// The keys read inside `checks.<name>.one_test`. #999.
 const ONE_TEST_KEYS: &[&str] = &["run"];
 /// The keys M1 reads inside `commands.<name>`.
@@ -747,8 +747,15 @@ fn narrowing(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<Narrowin
         .into_iter()
         .map(|(_, value)| value)
         .collect();
+    // Paths `run` reads on its own, so one of them neither adds a value nor
+    // runs the Check whole. A pattern that does not parse refuses the file,
+    // for `from`'s reason. Owner, 4 Oct 2026, after Job 3.
+    let outside = match table.optional("outside") {
+        None => Ok(None),
+        Some(value) => covers(&table.at("outside"), value, out),
+    };
     table.close(NARROW_KEYS, out);
-    Some(Narrowing::declared(run?, each?, from.ok()?, under, except))
+    Some(Narrowing::declared(run?, each?, from.ok()?, under, except).with_outside(outside.ok()?))
 }
 
 fn check_entry(

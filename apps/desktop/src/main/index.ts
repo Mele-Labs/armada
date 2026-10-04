@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { Outcome } from "@armada/protocol";
+import type { ChangeSlotPool, Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -566,6 +566,13 @@ void app.whenReady().then(() => {
     await connection?.rereadHeld();
     return outcome;
   });
+  // The pool reshaped from Cleanup's bay grid, and read again after for the
+  // reclaim's reason: whether a slot went is Fleet's reading.
+  ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
+    const outcome = await connection?.commands.changeSlotPool(manifestId, change);
+    await connection?.rereadHeld();
+    return outcome;
+  });
   // A force, unlike the reclaim above. The re-read afterwards is the same
   // reason: whether the branch still stands is Fleet's reading, and a delete
   // that refused has to stay on the list exactly as it was.
@@ -812,6 +819,11 @@ void app.whenReady().then(() => {
     connection?.readCheckOutput(jobId, kept),
   );
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
+  // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
+  ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
+  ipcMain.handle(CHANNELS.readLessons, (event) =>
+    connection?.readLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>
     connection?.readComposing(repository, connection.repositories.pickedByWindow.of(windowIdOf(event))),

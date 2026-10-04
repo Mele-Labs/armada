@@ -99,6 +99,13 @@
   reserved = "The Kit surface only. Never a Job, a workspace, a package or an export, and never a generic settings or configuration glyph — that is `settings`, and a Manifest is `file-cog`."
   notes = "Added 2026-09-18 with Kit's rail row (#1275), after the owner settled that Settings keeps the cog, and confirmed by him the same day. Kit is the tool set a person brings from machine to machine — skills, MCP servers, plugins, agent files, commands — and a case with a handle is that object rather than a second way of drawing configuration. The only Navigation glyph with a handle standing above its body: clipboard-list is an upright board with a clip on it, presentation a board on legs, layout-dashboard a grid of panes, hard-drive a horizontal vessel, and bell, stethoscope, file-cog and settings are each an outline with something drawn on or inside it. Nothing else here breaks its own top edge, which is what tells it apart at 16px and would at 12. Refused before it was proposed: `package` and `archive` are both lidded boxes and `archive`'s own row claims that outline as unique in the badge set; `backpack` carries straps and pockets, which is the interior detail rule 3 refuses; `puzzle` reads as one extension rather than a set, and would be the wrong promise on a surface that is to hold skills and commands too; `wrench` is reserved to job_status.awaiting_repair by its own row, which names settings as the collision that reservation exists to refuse."
 
+  [[icons.briefcase.usage]]
+    means = "A retro item whose fix lands in the Kit"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in`, `docs/concepts/retro.md`), the owner's three places. Kit is the tool set a person brings — Skills, MCP, sub-agents, the allowlist, models — and this is Kit's own glyph, so the mark says the fix lands on that surface's subject rather than borrowing it for a second meaning. 12px, --fg-muted, beside the who mark. Tooltip: Lands in Kit."
+
 [icons.check]
   means = "A bare checkmark"
   group = "Job state"
@@ -244,6 +251,13 @@
     means = "Manifest"
     group = "Git and config"
     size = "12px"
+
+  [[icons.file-cog.usage]]
+    means = "A retro item whose fix lands in the Manifest"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in = manifest`): the repository the Job worked on, its armada.yml Checks, its tests and its code, which the owner named Manifest. The Manifest's own glyph, so the tab and the mark say one word. `folder-git-2`, the repository, was the first candidate and is refused only because its component name carries a vendor literal the gate refuses outside adapters. 12px, --fg-muted. Tooltip: Lands in the Manifest."
 
 [icons.file]
   means = "A log — the plain page outline"
@@ -780,6 +794,13 @@
   size = "12 and 16px"
   status = "Specified"
   reserved = "A person taking off something they put there \u2014 a Studio node deleted, a sketch box removed, an attachment dropped from a request. Never a Job ending, never a record cleaned up, and never a machine discarding anything: every use is somebody's own act on their own thing."
+
+  [[icons.trash-2.usage]]
+    means = "Removing a free or unmade worktree slot from the pool, the act on its bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 4 Oct 2026 with the pool's controls. A person taking off a slot of this machine's pool, which is their own act on their own thing, as the row requires. Offered only where the pool would let it go. Tooltip `Remove`."
   notes = "Minted 2026-09-28, and it is the mint the node bar's open question said would pay for itself: one decision serving the Studio's Delete, the sketch pad's Remove and `AttachmentChip`'s dismiss rather than three. `trash-2` rather than `trash`, whose lid sits on the bin and loses its gap at 12px. Refused, and refused before the mint opened: `x`, reserved to system failure and banned by its own row from carrying a human decision; `minus`, reserved to a record nothing checked and a dropped plan task; `ban`, which is `rejected`'s and means a person declined a whole Job; the `circle-*` and `shield-*` families, which are verdicts; `eraser`, which says a mark rubbed out and collides with `pencil` on the one surface that draws both."
 
 [icons.triangle-alert]
@@ -827,6 +848,13 @@
   status = "Specified"
   reserved = "Human required, or actor=human."
   notes = "The only human figure in the badge set, and a human being required is exactly the semantics."
+
+  [[icons.user-check.usage]]
+    means = "A retro item that got in the owner's way"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). Whose way an item got in is a mark with its word on hover, the owner's standing rule; the person's is this glyph because its own reservation is actor=human, which is what `who = owner` says. --fg-muted, never a status hue: the mark says who, not how bad. Tooltip: You."
 
 [icons.user-pen]
   means = "A head and shoulders, with a pen across the lower right"
@@ -979,6 +1007,13 @@
   reserved = "A Record row about the Job itself: created, started, moved, ended. Never a Job's status, which the Job state group owns; never a package, an export or storage; never Kit, which is `briefcase`."
   notes = "Minted 2026-09-29 when the owner asked for the six Record marks that were owed ([record-kind-marks]). The Job is the one thing every other row happens inside, and a closed solid is that thing rather than any state of it. Against the grey set it sits beside, `archive` is a lidded box drawn face-on, a rectangle with a band; this is a hexagon whose outline is cut by its two top faces, and the difference is silhouette rather than interior detail. Refused: `briefcase`, reserved to Kit and by its own row never a Job; `package`, this cube with a band across it, which `briefcase`'s row already refused as a lidded box; `clipboard-list`, the Job Board's; `scroll-text`, the workflow a Job runs; `activity`, free again, but its own row says the outline does not survive 12px."
 
+  [[icons.box.usage]]
+    means = "The Job holding a worktree slot, leading its title on Cleanup"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 4 Oct 2026 on the owner's walk of the slot pool: the holder cell needed to read as a Job and as a press. The same drawing of the Job itself the Record uses, never its status. --accent, with the title, as a link."
+
 [icons.scale]
   means = "A balance \u2014 a beam on a post, a pan hanging from each end"
   group = "Record kind"
@@ -1002,6 +1037,13 @@
   status = "Specified"
   reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer, and never Helm, which is `message-square`."
   notes = "Minted 2026-09-29 for [record-kind-marks]. A Drone is an agent process, and this is the literal drawing lucide has of one. The antenna and the side stubs break the outline, which is what separates it at 12px from `file` and `archive`, the rectangles already in the grey set. The contract's *Where the answer is no icon* keeps the Who column in words, and this does not reach it: the Who cell still says Drone, and this mark names the row's family under All alone. Refused: `cpu`, a queued reason's; `terminal`, Pilot's alone; `user-check`, the human figure."
+
+  [[icons.bot.usage]]
+    means = "A retro item that got in a Drone's way"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). The same drawing of a Drone the Record's kind column uses, for the same reason: it is the literal agent. It names whose way an item got in, never a Drone's state, so the reservation above holds. --fg-muted; tooltip: Drone."
 
 [icons.list-todo]
   means = "Three lines, the top one led by an empty box and the bottom one by a tick"
@@ -1027,6 +1069,30 @@
   reserved = "A Check's row in the Record's kind column, under All, and nowhere else. Never a Check result \u2014 shield-check, shield-x, shield-minus and shield-off say those \u2014 never security or permissions, and never a gate drawn anywhere a result shield could draw."
   notes = "Added 2026-09-29, the owner's answer to [record-kind-marks]: the Check's row takes the bare shield, with a written exception. At 12px in --fg-muted this outline is shield-minus and shield-off with their one stroke gone, and both of those draw grey, so rule 4 would refuse it; the owner waived rule 4 for this one mark because it draws only in the Record's kind column, beside the word Check in Who and Passed or Failed in Outcome, and never where a result shield draws. The waiver is this mark's alone and is written in docs/contracts/iconography.md, *The Record's kind marks*. Refused before the owner answered: a glyph from outside the shield family, which would give one source two silhouettes."
 
+[icons.server]
+  means = "Two stacked units, each with a light — a machine that serves"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "A retro item that got in Fleet's way, and nowhere else. Never a server a Studio's Run holds, never a host, a port or a process, and never a Job or Cleanup's held disk, which is `hard-drive`."
+  notes = "Minted 3 Oct 2026 with the Lessons page (`docs/concepts/retro.md`), for `who = fleet`: Armada itself cost the Job something. Fleet is the daemon that serves every Job, and two racked units is the drawing of one. **The objection to expect is `hard-drive`**, Cleanup's rail glyph, a single horizontal vessel with a light; this is two stacked, drawn at 12px in a list rather than at 16px in the rail, so rule 4's collision is across groups and sizes. Refused: `armada-mark`, whose reservation is absolute and keeps it out of a row; `cpu`, the queued reason's, whose row prizes it as unique at 12px; `settings` and `cog`, configuration; `box`, the Job in the Record's kind column. Tooltip: Fleet."
+
+[icons.graduation-cap]
+  means = "A mortarboard — a flat square cap on a band, a tassel off one corner"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Lessons surface only. Never a guide, a tutorial or help, which is `book-open`, and never a proposal or a suggestion: nothing on Lessons proposes."
+  notes = "Minted 3 Oct 2026 with the Lessons rail row (`docs/concepts/retro.md`), the eleventh in rail order, under Work. What a person reads there is what got in the way across Jobs, and learning from it is theirs to do. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine; a flat diamond over a band is none of them. Refused: `lightbulb`, which reads as an idea offered, and the page offers none; `book-open`, Guides'; `scroll-text`, a workflow; `history`, a clock face, which the set holds one of by decision."
+
+[icons.app-window]
+  means = "A window with its title bar — an application"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "A retro item whose fix lands in Armada itself, Fleet or Bridge, and nowhere else. Never a window, a sheet or a surface of Bridge's, and never Fleet as whose way an item got in, which is `server`."
+  notes = "Minted 3 Oct 2026 with where a retro item's fix lands (`lands_in = armada`), the owner's three places. Armada is the product, and an application window is the plainest drawing of one. **The objection to expect is that Fleet has no window**: the place is Fleet or Bridge, and a mark for the product had to cover both. Refused: `armada-mark`, whose reservation is absolute and keeps it out of rows; `server`, already whose way for Fleet, which would draw one glyph twice on a row saying two things; `wrench`, reserved to awaiting_repair; `settings`, configuration. Tooltip: Lands in Armada."
+
 [conventions.record_kind_mark]
   glyphs = ["box", "file-check", "file-diff", "shield", "scale", "bot", "list-todo", "flask-conical"]
   means = "The kind of a Record row, as a mark leading it"
@@ -1043,3 +1109,92 @@
   status = "Specified"
   notes = "A step may carry the Job glyph that means the same thing one level down. A step and a Job answer the same question at different scales, so a second silhouette for one meaning is the collision this page exists to prevent — a rail row and the badge above it showing the same claim must show the same mark. What a step may not do is take a badge glyph in a sense the badge does not carry. The rail's activity values take their glyphs this way, and `glyphs` above is the roster. It named Iconography's step-activity table as the roster instead until 2026-09-04, and that table had drifted to `waiting (clock)` — a glyph this list does not lend, and each authority pointing at the other is why the disagreement stood with nobody able to say which half was stale (#347). Iconography carries the reasoning and not the lookup; the per-value assignment is `verbs.step_state` in crates/core-model/domain/enum-verbs.toml, where a waiting rail row takes `eye`. `clock` is refused rather than merely missing: it is `queued`'s badge, where nobody is acting and the row reads grey, and a step at `awaiting_human` is the opposite claim — a person is waited on, `--step-waiting` aliases `--status-awaiting-review`, and `eye` is that badge's own glyph, reserved to review, which is this step's claim one level down. Three values are not borrowings and carry their own rows: `flag` for stopped, `circle-dashed` for not_started, and `lock` for a hard prerequisite. `power` joined the roster 2026-09-04 for a killed step, which `StepActivityMark` has drawn since the value landed: it is `job_status.killed`'s own glyph one level down, the same act freezing the step where it stood, so the convention already sanctioned it and only this list was short. One borrowing differs in treatment rather than glyph — `x` at step level is hued in --step-failed on a --step-failed-bg row, where the Job badge's `x` takes the badge's own colour. That sits inside `x`'s reservation rather than widening it: a failed Check is a system failure, not a human decision."
 
+
+# Worktree slot: a bay of the worktree pool on Cleanup, one mark for the slot's
+# state and one for its build. The owner accepted them on the walk
+# `aPoolOfWorktreeSlots`, 4 Oct 2026. 12px, in the slot hue of their bay
+# (`--slot-*`, packages/tokens/src/status.css), tooltip naming it.
+
+[icons.key-round]
+  means = "A key with a round bow - a slot leased out"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot someone holds, a Job or a session. Never a secret, a credential or a permission."
+
+[icons.door-open]
+  means = "An open door - a slot nothing holds"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A free worktree slot only."
+  paired_with = "door-closed-locked"
+
+  [[icons.door-open.usage]]
+    means = "Reopening a closed worktree slot, the act on its bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 4 Oct 2026 with the pool's controls. The act lands the bay on the state the glyph already marks: reopened, the slot is open again. Tooltip `Reopen`."
+
+[icons.door-closed-locked]
+  means = "A shut door with a lock on it - a slot a person closed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot no lease takes until a person reopens it, and the act that closes one. Never a permission, a secret or a step that cannot be skipped, which is lock."
+  paired_with = "door-open"
+  notes = "Proposed 4 Oct 2026 for the pool's controls, on the walk `aPoolOfWorktreeSlots`. The free bay is door-open, so the closed one is the same door shut and locked: one outline family for whether a lease may enter. Refused: `lock`, reserved to a step that cannot be skipped and never a locked thing; `ban`, a person declining a whole Job; `door-closed` alone, which at 12px reads as door-open's neighbour without saying it stays shut."
+
+[icons.folder-plus]
+  means = "A folder with a cross beside it - one more slot"
+  group = "Worktree slot"
+  size = "16px"
+  status = "Specified"
+  reserved = "Adding a slot to the worktree pool, the ghost tile at the end of Cleanup's bay grid. Never composing a Job, which is plus, and never a node on a canvas, which is square-plus."
+  notes = "Proposed 4 Oct 2026 with the pool's controls. A slot is a directory, and folder-x already marks one that is not a checkout, so the add sits in the same family. Refused: `plus`, reserved to the Dispatch segment; `square-plus`, reserved to a canvas; `square-dashed`, which is the slot not made yet that the add produces."
+
+[icons.ghost]
+  means = "A ghost - a slot whose holder is gone and that still holds work"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A stranded worktree slot only. Never a Job's state."
+  notes = "The tooltip carries what it still holds, as armada worktree --status words it."
+
+[icons.square-dashed]
+  means = "A square outline broken into dashes - a slot not made yet"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot the next lease makes. Never a step or a task not started, which is circle-dashed."
+
+[icons.folder-x]
+  means = "A folder with a cross - a slot directory that is not a checkout"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot nothing leases until a person removes it."
+
+[icons.loader-circle]
+  means = "An open ring, spinning - a take or a release under way"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot being taken or given back. The one animated mark in the group; held still under reduced motion."
+
+[icons.flame]
+  means = "A flame - a slot with its build on disk"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A warm worktree slot: every setup.seed.paths entry is on disk in it. Never spend, urgency or a hot path."
+  paired_with = "snowflake"
+
+[icons.snowflake]
+  means = "A snowflake - a slot without its build"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A cold worktree slot only."
+  paired_with = "flame"

@@ -210,6 +210,7 @@ The block, and every key in it:
 | `from` | no | Which changed paths feed it, in the one glob dialect. Absent means all of them |
 | `under` | no | The directory whose child names the value. Absent means the value is the changed path itself |
 | `except` | no | Values the narrowing never produces, whatever the change derived to |
+| `outside` | no | Paths outside `under` that `run` already reads on its own, in the one glob dialect. One adds no value and does not run the Check whole |
 
 ```yaml
 checks:
@@ -257,16 +258,36 @@ Rules that follow:
   choosing the scope it is measured over, which is the same refusal
   `crates/ipc/src/mcp/tools.rs` already makes about a Check name. Which paths a
   narrowed run reads is Fleet's reading of the worktree's own diff.
-- **A narrowed run is never a verdict and never gates a step.** The gate reads the
-  whole of every Check whatever a Drone asked for mid-step, and the report a
-  Drone reads back carries its own closing sentence saying a pass under it means
-  the parts that changed hold and not that the repository does. `after_merge`
-  drops `narrow` for the same reason it drops `when`: what merged is the whole
-  tree.
-- **The merge line is the one exception, and reads `narrow` more strictly.**
-  It narrows only through `under`, over every crate a turn reaches, and runs
-  whole on any covered path it cannot name. [Merge
-  line](../capabilities/merge-line.md), *What a narrowed Check runs*.
+- **A Drone's narrowed run is never a verdict and never gates a step.** The
+  gate takes its own reading below, whatever a Drone asked for mid-step, and the
+  report a Drone reads back carries its own closing sentence saying a pass under
+  it means the parts that changed hold and not that the repository does.
+  `after_merge` drops `narrow` for the same reason it drops `when`: what merged
+  is the whole tree.
+- **The step gate and the merge line read `narrow` the same strict way.** Each
+  narrows only through `under`, over every crate the change reaches and every
+  crate depending on one, and runs whole on any covered path it cannot name. A
+  verbatim `narrow` never narrows there. The step gate's change is the step's
+  own against its base. [Merge line](../capabilities/merge-line.md), *What a
+  narrowed Check runs*.
+
+  *4 Oct 2026, the owner's decision after Job 3.* The step gate read every
+  Check whole until then, and this bullet called the merge line the one
+  exception. Job 3's implement gate ran all 4211 Rust tests after a
+  7.5-minute compile for a change under `crates/` it could have named.
+- **A path matching `outside` is one `run` measures with nothing appended.**
+  It adds no value, and at either gate it does not run the Check whole; a
+  change made only of such paths runs `run` alone rather than nothing, and a
+  Drone asking about one is told the same. Any other path `under` cannot name
+  still runs whole. Declare a path here only where nothing but `run`'s own
+  arguments reads it — a path another package's tests read would run without
+  them.
+
+  *4 Oct 2026, the owner's decision after Job 3.* That change touched only
+  `apps/` and `packages/`, which this repository's `test` covers because
+  `xtask`'s tests read them, and it ran every Rust test whole. Its `narrow.run`
+  carries `-p xtask`, and no other member reads either tree, so it declares
+  both `outside`.
 - **A Check that narrows to nothing is not run, and is not passed.** A change
   touching nothing under `crates` gives `-p` nothing to name, and a Check with
   nothing to say records a skip rather than a pass — the same third answer a

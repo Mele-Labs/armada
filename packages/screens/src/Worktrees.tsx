@@ -53,8 +53,16 @@ import {
 import { patternFor, useHaptics } from "@armada/components";
 import type { ButtonAnswer, RowChoice } from "@armada/components";
 
-import type { BranchDeleted, HeldWorktrees, JobSummary, Outcome, WorktreeReclaimed } from "@armada/protocol";
+import type {
+  BranchDeleted,
+  ChangeSlotPool,
+  HeldWorktrees,
+  JobSummary,
+  Outcome,
+  WorktreeReclaimed,
+} from "@armada/protocol";
 import { said } from "./copy";
+import { SlotPools } from "./SlotPools";
 import {
   choiceOf,
   chosenRows,
@@ -134,6 +142,10 @@ export type WorktreesProps = {
   onCopied: (value: string) => void;
   /** Drawn in the head, across from the way out: the caller's bulk sweeps. */
   actions?: ReactNode;
+  /** Open the Job holding a worktree slot. */
+  onOpenJob: (jobId: string) => void;
+  /** Add, remove, close or reopen one slot of a repository's pool. Absent draws no acts. */
+  onChangeSlotPool?: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
 };
 
 /**
@@ -156,6 +168,8 @@ export function Worktrees({
   onClose,
   onCopied,
   actions,
+  onOpenJob,
+  onChangeSlotPool,
 }: WorktreesProps) {
   useEffect(() => {
     onWant(true);
@@ -205,6 +219,7 @@ export function Worktrees({
   }
 
   const groups = divided(held.held.worktrees);
+  const slots = held.held.slots ?? [];
   const picked = chosenRows(groups.deciding, choices);
   const plan = planned(picked, choices);
 
@@ -286,6 +301,13 @@ export function Worktrees({
           {refusedSaid(one.outcome)}
         </Alert>
       ))}
+
+      <SlotPools
+        slots={slots}
+        now={now}
+        onOpenJob={onOpenJob}
+        {...(onChangeSlotPool === undefined ? {} : { onChange: onChangeSlotPool })}
+      />
 
       {/* Nothing waiting on a person draws nothing: an empty slot stays empty. */}
       {groups.deciding.length === 0 ? null : (

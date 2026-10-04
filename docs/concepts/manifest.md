@@ -68,6 +68,7 @@ setup:
 - **Absent means eight.**
 - **Zero, a negative number and anything that is not a whole number are refused at load.**
 - **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
+- **A machine's own pool overrides it.** Once a person adds or removes a slot, from Cleanup or `armada worktree add|remove`, that machine's list of slots stands in for this number, and a change here no longer moves it — [Fleet](fleet.md), *Worktree slots*.
 - **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
 
 ### Cross-Workspace Jobs
@@ -249,7 +250,8 @@ Rules that follow:
 
 - **Absent means whole.** A Check with nothing narrower to run declares nothing, and runs exactly as it did before the key existed. That is most Checks and always will be.
 - **The derivation from a path to an argument is the Manifest's.** `under: crates` is this repository saying where its packages live. Nothing in Fleet or the runner knows it, which is what keeps the same key right for a repository that keeps its packages somewhere else.
-- **A narrowed run gates nothing.** The Drone asks for it mid-step, the gate reads the whole of every Check regardless, and the report says in its own words that a narrowed pass is the smaller claim. `after_merge` drops `narrow` for the reason it drops `when`.
+- **A Drone's narrowed run gates nothing.** The Drone asks for it mid-step, the gate takes its own reading regardless, and the report says in its own words that a narrowed pass is the smaller claim. `after_merge` drops `narrow` for the reason it drops `when`.
+- **The step gate narrows the merge line's way.** Only through `under`, over every crate the step's own change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026, after Job 3); a verbatim `narrow` never narrows there. The ruling carries the command it narrowed to, and a red run again alone runs that command. Decided 4 Oct 2026 after Job 3, whose gate ran every Check whole until then. [Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
 - **A Check that narrows to nothing the change touched is skipped, not passed.** The third answer, the same one a `when` skip records.
 - **`except` restates an exclusion the whole run already makes.** Dropping `--workspace` so `-p` means something drops `--exclude` with it, and a narrowed `test` that pulled `acceptance` back in would show a Drone a bar the gate deliberately does not apply — the one case where a narrowed run is misleading rather than merely smaller.
 - **It is frozen with the workflow**, beside the Check's command.
@@ -332,6 +334,7 @@ Rules that follow:
 - **The merge line's Checks ask first.** The line sets `ARMADA_CHECK_AHEAD` on every `armada check` it starts, which holds `ahead` in the slot directory while it waits; any other ask that finds it held waits too, and says `waiting for a Check slot: the merge line asked first`. It jumps the wait and never a holder: a running Check keeps its slots. Decided 2 Oct 2026, because a turn holds every branch queued behind it. Priority on the CPU is the next section's.
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
+- **A step's gate runs its own Checks one at a time**, fastest first, each still asking for its places. A Drone's own run is not the gate and keeps running several at once. Decided 4 Oct 2026 after Job 3, whose `desktop_test` ran beside its own step's `components_test` and whole Rust `test` and failed on timeouts three times; the merge line has run a turn's Checks one at a time since 2 Oct.
 
 ### At what priority a Check runs
 
@@ -383,7 +386,7 @@ Rules that follow:
 
 **Before a red Check at the gate is ruled against the step, Fleet asks whether it is the work's or the machine's.** Each failing test runs alone by `one_test`, one at a time; where every one passes, the whole Check runs again alone and the step is ruled on that run. `crates/fleet/src/confirming.rs`.
 
-Decided 3 Oct 2026, from Job 3 (`3-make-branch-inputs-searchable-comboboxes-w`). Its `implement` step failed `desktop_test` on all three attempts with 41 to 45 failing tests each, every one a timeout, a different set each time, in files its diff never touched, and the Job stopped out of retries over work that was fine. The gate runs a step's Checks up to `checks-at-once` at a time, and that `desktop_test` ran beside the step's own `components_test` and full Rust `test`: 376 s against the merge line's 59 s in the same minutes. Its failing tests passed alone, and plain `main` failed the same way under the same load. Nothing told a red the gate's own contention made from a regression, so each was handed to the Drone as its own.
+Decided 3 Oct 2026, from Job 3 (`3-make-branch-inputs-searchable-comboboxes-w`). Its `implement` step failed `desktop_test` on all three attempts with 41 to 45 failing tests each, every one a timeout, a different set each time, in files its diff never touched, and the Job stopped out of retries over work that was fine. The gate then ran a step's Checks up to `checks-at-once` at a time (one at a time since 4 Oct, under *How many Checks run at once*), and that `desktop_test` ran beside the step's own `components_test` and full Rust `test`: 376 s against the merge line's 59 s in the same minutes. Its failing tests passed alone, and plain `main` failed the same way under the same load. Nothing told a red the gate's own contention made from a regression, so each was handed to the Drone as its own.
 
 Rules that follow:
 
@@ -392,6 +395,7 @@ Rules that follow:
 - **A test that fails alone, matches nothing or never runs is the work's**, and the red is handed back exactly as it was, against the retry budget.
 - **A few failing tests run one by one, and past `ONE_BY_ONE` in that file none do**: only the whole Check runs alone. Each one-test run of a browser suite still starts the browser and collects every file, so past a handful the tests cost more than the run that decides; a regression usually names a few tests, and the contention named dozens.
 - **The whole run alone is what decides.** A test passing alone advances nothing by itself, so a wrong name, a no-match read as a pass, or a test that only fails beside its neighbours is caught by that run. A `runs_at: handoff` Check the red held back runs with it.
+- **The whole run alone runs what the gate ruled on**: narrowed where the gate narrowed, over the same reading of the same change. Decided 4 Oct 2026, with the gate's narrowing.
 - **Once per ruling**, which is once per attempt. Nothing here loops.
 - **The step's Check row reads running while it runs again**, with the live log of the run alone, never the red about to be overturned, and ends at what the run alone came to. A test run alone shows only that the Check is running; where one fails alone the row reads the gate's red again. Decided 3 Oct 2026, after "the checks are running but nothing showed that they were running."
 - **It is written down.** The Check's row is the run alone, and the Job's log says under the step that the red was run again alone, how many tests failed and whether the run alone passed. A retro reads that line as Fleet's friction, not the Drone's.

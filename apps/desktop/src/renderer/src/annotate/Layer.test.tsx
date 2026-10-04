@@ -268,6 +268,33 @@ test("putting the layer away puts the done notes away with it, and looking wrote
 // reporting the second save's failure though the note was written. The draft
 // stays up until the save answers, so a second press of Save — or ⌘↩ held long
 // enough to repeat — saved it again.
+test("a note saved with a Job's detail open carries that Job's id for its retro, and one saved without names none", async () => {
+  const saved: Annotation[] = [];
+  const keeping: Sink = { ...sinkOf(), save: async (one) => void saved.push(one) };
+  await annotating(keeping);
+  const detail = document.createElement("div");
+  detail.setAttribute("data-noted", "");
+  detail.setAttribute("data-armada-open-job", "01M22TYSAE0023MADDP5ZQEYGW");
+  document.body.append(detail);
+
+  async function saveOn(text: string, top: number): Promise<void> {
+    document.querySelector<HTMLElement>(noted(`target-${top}`, top))?.click();
+    const card = page.getByRole("dialog", { name: "New note" });
+    await card.getByRole("textbox", { name: "Note" }).fill(text);
+    await card.getByRole("button", { name: "Save note" }).click();
+    await expect.element(card).not.toBeInTheDocument();
+  }
+
+  await saveOn("With the Job open", 20);
+  detail.remove();
+  await saveOn("With nothing open", 50);
+  expect(saved.map((one) => [one.text, one.openJobId])).toEqual([
+    ["With the Job open", "01M22TYSAE0023MADDP5ZQEYGW"],
+    ["With nothing open", undefined],
+  ]);
+  expect("openJobId" in (saved[1] ?? {})).toBe(false);
+});
+
 test("a note pressed to save twice while its save is out is saved once", async () => {
   const saved: Annotation[] = [];
   let answer = (): void => {};

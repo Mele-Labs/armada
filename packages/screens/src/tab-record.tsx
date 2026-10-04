@@ -11,7 +11,7 @@
 // row's reading is `record-read.tsx`, and the modules it names.
 
 import { useEffect, useMemo, useState } from "react";
-import { DropdownMenu, JobLedger, SkeletonText } from "@armada/components";
+import { Button, DropdownMenu, JobLedger, SkeletonText } from "@armada/components";
 import type { Diff, JobDetail as JobWhole } from "@armada/protocol";
 
 import { TAB_LABEL } from "./detail-tabs";
@@ -74,6 +74,8 @@ export type RecordTabProps = {
   opensCheck?: CheckAt;
   /** The row to open with the tab, by its id — where the way back returns to. Read once. */
   opensRow?: string;
+  /** Open this Job's retro over the Record. **The screen's**, which holds the sheet. */
+  onOpenRetro?: () => void;
   /**
    * The way back, where a press in another destination's panel landed here,
    * and where this one's open panel is reported — `trail.ts`.
@@ -134,6 +136,7 @@ export function RecordTab({
   onOpenCheckLog,
   opensCheck,
   opensRow,
+  onOpenRetro,
   trail,
 }: RecordTabProps) {
   const [filter, setFilter] = useState<RecordFilter>("all");
@@ -183,6 +186,28 @@ export function RecordTab({
   const steps = (detail?.steps ?? []).filter((one) =>
     rows.some((row) => row.coord?.step === one.step_id),
   );
+  // A menu like the filter's beside it, so the head is one row of one kind of
+  // control.
+  const stepMenu =
+    steps.length < 2 ? null : (
+      <DropdownMenu
+        align="start"
+        triggerLabel={steps.find((one) => one.step_id === step)?.label ?? ANY_STEP}
+        entries={[
+          { kind: "item", id: "", label: ANY_STEP, selected: step === null },
+          ...steps.map((one) => ({
+            kind: "item" as const,
+            id: one.step_id,
+            label: one.label,
+            selected: one.step_id === step,
+          })),
+        ]}
+        onSelect={(id) => {
+          setStep(id === "" ? null : id);
+          setOpenRow(null);
+        }}
+      />
+    );
 
   return (
     <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.record}>
@@ -206,26 +231,17 @@ export function RecordTab({
             setOpenRow(null);
           }}
           controls={
-            steps.length < 2 ? undefined : (
-              // A menu like the filter's beside it, so the head is one row of
-              // one kind of control.
-              <DropdownMenu
-                align="start"
-                triggerLabel={steps.find((one) => one.step_id === step)?.label ?? ANY_STEP}
-                entries={[
-                  { kind: "item", id: "", label: ANY_STEP, selected: step === null },
-                  ...steps.map((one) => ({
-                    kind: "item" as const,
-                    id: one.step_id,
-                    label: one.label,
-                    selected: one.step_id === step,
-                  })),
-                ]}
-                onSelect={(id) => {
-                  setStep(id === "" ? null : id);
-                  setOpenRow(null);
-                }}
-              />
+            stepMenu === null && onOpenRetro === undefined ? undefined : (
+              <>
+                {stepMenu}
+                {/* What got in the way while this Job ran, read off the same
+                    record — so it opens from the Record's own head. */}
+                {onOpenRetro === undefined ? null : (
+                  <Button variant="ghost" size="sm" onClick={onOpenRetro}>
+                    Retro
+                  </Button>
+                )}
+              </>
             )
           }
           openRow={openRow}

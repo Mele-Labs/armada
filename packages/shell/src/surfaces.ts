@@ -21,6 +21,7 @@ import {
   BookOpen,
   Briefcase,
   FileCog,
+  GraduationCap,
   HardDrive,
   LayoutDashboard,
   Merge,
@@ -65,6 +66,8 @@ const RAIL = [
   "guides",
   // The tenth: joined at the end, so no digit moves and it takes none.
   "merge-line",
+  // The eleventh, on the tenth's terms: no digit moves and it takes none.
+  "lessons",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -79,6 +82,7 @@ export const SURFACE = {
   studios: "studios",
   guides: "guides",
   mergeLine: "merge-line",
+  lessons: "lessons",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -178,6 +182,15 @@ export const SURFACES: readonly PaletteSurface[] = [
     aliases: ["land"],
     icon: Merge,
   },
+  {
+    id: SURFACE.lessons,
+    label: "Lessons",
+    // Past the ninth, so no key; reached by the rail and by name.
+    shortcut: digitOf(SURFACE.lessons),
+    // What each item is, in `docs/concepts/retro.md`'s word.
+    aliases: ["retro", "retros"],
+    icon: GraduationCap,
+  },
 ];
 
 /**
@@ -197,7 +210,7 @@ export const RAIL_PANELS = [
   {
     id: "work",
     label: "Work",
-    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine],
+    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons],
   },
   { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];

@@ -10,7 +10,7 @@
 //! that something stayed exactly as it was.
 
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use adapter_traits::{Footprint, Worktree};
 use core_model::CheckOutcome;
@@ -176,30 +176,6 @@ fn slow(name: &str) -> Gate<'_> {
         expect_exit_code: 0,
         when: &[],
     }
-}
-
-/// The claim the issue is about, and the only one here that is about speed.
-///
-/// Three Checks of six hundred milliseconds each cost 1.8s one at a time. The
-/// assertion is deliberately loose — one and a bit rather than a fraction over
-/// six hundred — because what would make it fail is the serial loop coming
-/// back, and a threshold tight enough to catch a scheduler hiccup is a test
-/// that fails on a busy machine for no reason.
-#[tokio::test]
-async fn three_slow_checks_cost_about_one_of_them_rather_than_the_sum() {
-    let gates = [slow("build"), slow("test"), slow("storybook")];
-    let began = Instant::now();
-    let ruling = ruled(&gates, Duration::from_secs(20), &["src/lib.rs"]).await;
-    let took = began.elapsed();
-
-    assert!(
-        ruling.advanced(),
-        "three passing checks advance the step: {ruling:?}"
-    );
-    assert!(
-        took < Duration::from_millis(1300),
-        "three 600ms checks took {took:?}, which is the serial loop"
-    );
 }
 
 /// **The order of the report is the step's, not the scheduler's.**

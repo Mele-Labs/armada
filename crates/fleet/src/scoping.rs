@@ -70,6 +70,11 @@ where
         let within = self.scoped(within)?;
         held.worktrees
             .retain(|one| self.owns(within.as_ref(), &one.job_id));
+        held.slots.retain(|one| {
+            within
+                .as_ref()
+                .is_none_or(|named| *named == one.manifest_id)
+        });
         Ok(held)
     }
 

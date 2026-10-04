@@ -6,7 +6,7 @@
 
 use std::future::Future;
 
-use ipc::{JobId, JobRetro, Lessons, ManifestId};
+use ipc::{JobId, JobRetro, LandsIn, Lessons, ManifestId};
 
 use crate::daemon::Refusal;
 
@@ -19,10 +19,12 @@ pub trait Retros: Send + Sync + 'static {
     ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
 
     /// `list_lessons` — up to `most` items, newest retro first. `manifest_id`
-    /// absent is every repository served.
+    /// absent is every repository served, and `lands_in` absent is every place
+    /// a fix lands, an item kept before 23.15 included.
     fn list_lessons(
         &self,
         manifest_id: Option<ManifestId>,
+        lands_in: Option<LandsIn>,
         most: u32,
     ) -> impl Future<Output = Result<Lessons, Refusal>> + Send;
 }

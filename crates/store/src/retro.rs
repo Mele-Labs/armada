@@ -7,7 +7,7 @@
 //! and files that exist for their own reasons; Fleet reads them when it writes
 //! a retro and keeps no second copy.
 
-use core_model::{JobId, JobStatus, StepId, Timestamp, Via, Whose};
+use core_model::{JobId, JobStatus, LandsIn, StepId, Timestamp, Via, Whose};
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
@@ -57,6 +57,14 @@ FROM jobs
 WHERE status IN ('completed_success', 'completed_failed', 'killed', 'rejected', 'superseded');
 "#;
 
+/// Version 102 — where each retro item's fix lands. **Nothing is backfilled**:
+/// a null is an item written before the model was asked, and guessing one
+/// after the fact would put it under a place nobody chose.
+pub(crate) const V102: &str = r#"
+ALTER TABLE job_retro_items ADD COLUMN lands_in TEXT
+    CHECK (lands_in IS NULL OR lands_in IN ('armada', 'kit', 'manifest'));
+"#;
+
 /// One item of a retro: what got in the way, whose way, and the record rows
 /// that show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,6 +75,9 @@ pub struct RetroLine {
     /// **Never empty on a written item**: Fleet drops an item that cites
     /// nothing before it is kept.
     pub evidence: Vec<String>,
+    /// Where its fix lands. **`None` only on an item kept before V102**: Fleet
+    /// drops a written item that names none.
+    pub lands_in: Option<LandsIn>,
 }
 
 /// What became of a Job's retro.
@@ -242,14 +253,15 @@ impl Store {
         .map_err(WriteError::Database)?;
         for (ordinal, item) in items.iter().enumerate() {
             tx.execute(
-                "INSERT INTO job_retro_items (job_id, ordinal, whose, said, evidence) \
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO job_retro_items (job_id, ordinal, whose, said, evidence, lands_in) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 (
                     job_id.as_str(),
                     ordinal as i64,
                     item.whose.as_wire(),
                     item.said.as_str(),
                     item.evidence.join("\n"),
+                    item.lands_in.map(|lands| lands.as_wire()),
                 ),
             )
             .map_err(fault("keeping a retro's item"))
@@ -299,39 +311,49 @@ impl Store {
     }
 
     /// Up to `most` items across every written retro, newest retro first and
-    /// each retro's items in the order they were written.
-    pub fn lessons(&self, most: u32) -> Result<Vec<KeptLesson>, RowError> {
+    /// each retro's items in the order they were written. `lands_in` narrows
+    /// to the items whose fix lands there, and **an item kept before V102
+    /// matches none**: it is listed only where nothing narrows.
+    pub fn lessons(
+        &self,
+        most: u32,
+        lands_in: Option<LandsIn>,
+    ) -> Result<Vec<KeptLesson>, RowError> {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT i.job_id, r.at, i.whose, i.said, i.evidence \
+                "SELECT i.job_id, r.at, i.whose, i.said, i.evidence, i.lands_in \
                  FROM job_retro_items AS i JOIN job_retros AS r ON r.job_id = i.job_id \
-                 WHERE r.state = 'written' \
+                 WHERE r.state = 'written' AND (?2 IS NULL OR i.lands_in = ?2) \
                  ORDER BY r.at DESC, i.job_id, i.ordinal LIMIT ?1",
             )
             .map_err(fault("preparing the lessons"))
             .map_err(RowError::Database)?;
         let rows = statement
-            .query_map((i64::from(most),), |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            })
+            .query_map(
+                (i64::from(most), lands_in.map(|lands| lands.as_wire())),
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                    ))
+                },
+            )
             .map_err(fault("reading the lessons"))
             .map_err(RowError::Database)?;
         let mut lessons = Vec::new();
         for row in rows {
-            let (job_id, at, whose, said, evidence) = row
+            let (job_id, at, whose, said, evidence, lands_in) = row
                 .map_err(fault("reading a lesson"))
                 .map_err(RowError::Database)?;
             lessons.push(KeptLesson {
                 job_id: JobId::carried(core_model::Ulid::carried(job_id)),
                 at: Timestamp::from_rfc3339(at),
-                line: line_of(&whose, said, &evidence)?,
+                line: line_of(&whose, said, &evidence, lands_in.as_deref())?,
             });
         }
         Ok(lessons)
@@ -339,13 +361,22 @@ impl Store {
 
     fn retro_lines(&self, job_id: &JobId) -> Result<Vec<RetroLine>, RowError> {
         self.rows(
-            "SELECT whose, said, evidence FROM job_retro_items WHERE job_id = ?1 ORDER BY ordinal",
+            "SELECT whose, said, evidence, lands_in FROM job_retro_items WHERE job_id = ?1 \
+             ORDER BY ordinal",
             job_id,
             |row| {
                 let text = |name: &'static str| -> Result<String, RowError> {
                     row.get(name).map_err(column("job_retro_items", name))
                 };
-                line_of(&text("whose")?, text("said")?, &text("evidence")?)
+                let lands_in: Option<String> = row
+                    .get("lands_in")
+                    .map_err(column("job_retro_items", "lands_in"))?;
+                line_of(
+                    &text("whose")?,
+                    text("said")?,
+                    &text("evidence")?,
+                    lands_in.as_deref(),
+                )
             },
         )
     }
@@ -378,9 +409,17 @@ impl Store {
     }
 }
 
-fn line_of(whose: &str, said: String, evidence: &str) -> Result<RetroLine, RowError> {
+fn line_of(
+    whose: &str,
+    said: String,
+    evidence: &str,
+    lands_in: Option<&str>,
+) -> Result<RetroLine, RowError> {
     Ok(RetroLine {
         whose: enum_value(Whose::from_wire, "job_retro_items", "whose", whose)?,
+        lands_in: lands_in
+            .map(|lands| enum_value(LandsIn::from_wire, "job_retro_items", "lands_in", lands))
+            .transpose()?,
         said,
         evidence: evidence
             .lines()

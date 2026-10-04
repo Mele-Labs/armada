@@ -50,7 +50,7 @@ const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
 const QUERIES: &[(&str, &[&str])] = &[
     ("search_files", &["q"]),
     ("get_events_since", &["since"]),
-    ("list_lessons", &["most"]),
+    ("list_lessons", &["lands_in", "most"]),
 ];
 
 /// Every tool this door offers: the inventory's `agent_access` column, joined
@@ -119,6 +119,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "get_events_since",
     "list_drones",
     "list_worktrees",
+    "change_slot_pool",
     "list_servers",
     "propose_from_request",
     "list_jobs",

@@ -51,6 +51,8 @@ read_by = "fleet"
 notes = """
 **Enforced, for the whole machine.** How many Checks run at once across every Job and every repository this Fleet serves — `fleet::places::Places`, one line that a gate, a Drone's own run, a fix draft and a proof after a merge each wait in before a command starts. A Drone's own run takes the next free place ahead of a gate, and nothing waiting is passed over more than `fleet::places::OVERTAKEN_AT_MOST` times. It reads the machine against the memory and disk rows here, so a short machine makes the next Check wait for a running one to finish. The first on the machine always starts: a short machine slows Checks and never stops them.
 
+**A step's gate runs its own Checks one at a time**, so this bounds how many Jobs' gates and Drones' runs share the machine, never one gate's Checks beside each other. The owner's decision of 4 Oct 2026, after Job 3's gate ran its own `desktop_test` beside its own `components_test` and Rust `test`. `docs/concepts/manifest.md`, *How many Checks run at once*.
+
 **Machine, not Manifest.** How many Checks a repository declares is the Manifest's; how many one machine can host is not. Shipped at half the cores, from one to eight — `armada::serve::provisional_checks_at_once` says why.
 """
 

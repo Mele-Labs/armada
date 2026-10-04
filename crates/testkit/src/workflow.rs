@@ -288,6 +288,27 @@ pub fn retried_and_testing_one(
     )
 }
 
+/// [`narrowing`] and [`testing_one`] together — a red the gate narrowed,
+/// confirmed alone before it is ruled on.
+pub fn narrowing_and_testing_one(
+    steps: &[Sketch<'_>],
+    narrows: &[Narrows<'_>],
+    one_tests: &[OneTest<'_>],
+) -> ResolvedWorkflow {
+    assembled_with(
+        steps,
+        0,
+        &[],
+        &[],
+        &[],
+        &[],
+        narrows,
+        Sends::TheLastStep,
+        Held::NoStep,
+        one_tests,
+    )
+}
+
 fn built(steps: &[Sketch<'_>], retry_limit: u32, models: &[(&str, &str)]) -> ResolvedWorkflow {
     assembled(
         steps,

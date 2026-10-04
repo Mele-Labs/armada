@@ -7,12 +7,14 @@ import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened } from "@armada/protocol";
-import type { SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { Pattern } from "../shared/haptics";
 import type {
   CheckOutputRead,
   BriefRead,
+  LessonsRead,
+  RetroRead,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -176,6 +178,8 @@ const api: BridgeApi = {
   // because clearing a board is a set.
   reclaimWorktree: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.reclaimWorktree, jobId),
+  changeSlotPool: (manifestId: string, change: ChangeSlotPool): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeSlotPool, manifestId, change),
 
   // A force, unlike the reclaim above — Fleet's 409 is the safety net a
   // stale confirmation needs.
@@ -508,6 +512,12 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
+  // A Job's retro and the Lessons listing, read when a surface opens and on focus. Read-only:
+  // nothing here files, proposes or writes a retro, and nothing anywhere does.
+  readRetro: (jobId: string): Promise<RetroRead> =>
+    ipcRenderer.invoke(CHANNELS.readRetro, jobId),
+  readLessons: (): Promise<LessonsRead> =>
+    ipcRenderer.invoke(CHANNELS.readLessons),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for

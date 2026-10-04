@@ -2618,13 +2618,54 @@ fact read from the other Job, whose own row carries it.
 **No store change.** The lines are read off the plan's history and the step moves already kept, and
 only for a Job whose frozen workflow has a step that proposes Jobs.
 
-## Protocol 23.16: walk notes, kept on the Job
+## Protocol 23.15: where a retro item's fix lands
+
+The owner, 3 Oct 2026: every retro item says where its fix lands, apart from whose way it got in.
+`../concepts/retro.md`, *Where the fix lands*, is the concept.
+
+**One optional field, one query parameter, one enum, all additive.** `RetroItem` and `Lesson`
+gain `lands_in`, exactly one of `armada`, `kit` or `manifest`. `GET /lessons` takes
+`?lands_in=` to narrow to one, and absent is all three; any other value is a 400.
+
+| Field | On | Absent |
+| --- | --- | --- |
+| `lands_in` | `RetroItem`, `Lesson` | An item kept before 23.15, which no `?lands_in=` matches |
+
+**Never defaulted.** The retro call is told the three places and must name one per item; an item
+naming none, or one that is not one of the three, is dropped the way an item citing nothing the
+record holds already was. A fix that spans two places is two items. **An old item is not
+migrated**: a place chosen after the fact would be a guess, so it reads with the field absent and
+Bridge lists it under All alone.
+
+**Store V102** adds the nullable `lands_in` column to `job_retro_items`.
+
+## Protocol 23.17: a person reshapes the slot pool
+
+The owner, 4 Oct 2026: from Cleanup's bay grid, add a slot, remove one, or close one for a while.
+`../concepts/fleet.md`, *Worktree slots*, is the concept.
+
+**One field and one command, both additive.** `WorktreeSlot` gains `closed`. `change_slot_pool`
+is `POST /worktrees/slots?manifest_id=` with `ChangeSlotPool` (`act`, and `slot` for all but
+`add`), answered by `SlotPoolChanged`.
+
+| Field | On | Absent |
+| --- | --- | --- |
+| `closed` | `WorktreeSlot` | A Fleet before 23.17, which closes nothing: read as open |
+
+**Each refusal has its own code**, so Bridge says on the slot why it cannot go:
+`fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`,
+`fleet.slot_dirty` and `fleet.slot_last` are 409s, and `fleet.no_such_slot` a 422.
+
+**No store change.** The pool's shape is written beside its slots at `.armada/slots/pool`, which
+the CLI reads too.
+
+## Protocol 23.18: walk notes, kept on the Job, and a server started for review
 
 What a person points at while walking a Prototype's served mock in a Bridge window, kept by Fleet
 on the Job so it outlives the throwaway worktree, and handed to the next Drone when the Job is sent
 back.
 
-**Additive only.** Two new routes, four new DTOs and two optional fields; a 23.15 Bridge sends no
+**Additive only.** Two new routes, four new DTOs and three optional fields; a 23.17 Bridge sends no
 `with_walk_notes` and reads no `walk_notes`, and sees exactly what it did.
 
 | Change | Where | Carries | Absent |
@@ -2632,6 +2673,7 @@ back.
 | `capture_walk_note` | `POST /jobs/:job_id/walk_notes` | `CaptureWalkNote { said, capture, frame? }` in, `WalkNotes { notes }` out | — |
 | `remove_walk_note` | `POST /jobs/:job_id/walk_notes/remove` | `RemoveWalkNote { id }` in, `WalkNotes { notes }` out | — |
 | `walk_notes` | `JobDetail` | `WalkNote { id, said, at, element, selector, location, served?, frame?, sent }` per note, oldest first, sent ones included | A Job with no walk notes |
+| `for_review` | `ServerState` | Fleet started it because a step with `evidence.walked` stopped for a person, on the Manifest's `walk` server; Bridge opens it when that Job is opened | Started by anything else |
 | `with_walk_notes` | `ChangesRequested` | Append every unsent walk note to the note delivered, and mark them sent | False |
 
 **The frame is a path under the machine directory**, `<machine>/walks/<job_id>/<note_id>.png`,
@@ -2639,7 +2681,7 @@ never the worktree. **A blank `note` is taken with `with_walk_notes`** where at 
 note exists, because the notes are then what the Drone is told; otherwise blank is refused as it
 was. The notes are marked sent only once the send lands, so a refused one leaves them unsent.
 
-**Store V102**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
+**Store V103**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
 trigger refuses any update but `sent_at` moving once from null.
 
 ## Open questions

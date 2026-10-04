@@ -102,6 +102,7 @@ import {
   explainCommand,
   readCheckOutput,
   readBrief,
+  readRetro,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -115,6 +116,7 @@ import {
   readHeld,
   readReports,
   reclaimOne,
+  changeSlotPool,
   showAgain,
   startRun,
   startCheckoutRun,
@@ -132,6 +134,8 @@ import {
 } from "./commands";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
+import { LessonsSurface } from "./lessons";
+import { showingOf } from "./showing";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
@@ -217,6 +221,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
+  const [learning, setLearning] = useState(false); // Lessons, every Job's retro items. `lessons.tsx`.
   const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
@@ -501,6 +506,7 @@ export function App({ draft }: AppProps = {}) {
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
+    setLearning(surfaceId === SURFACE.lessons);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -677,25 +683,10 @@ export function App({ draft }: AppProps = {}) {
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}
-          // Which row the rail marks. Overview is where a window with nothing
-          // else open is, so everything else — a Job, the composer, the reports
-          // — is Overview with something over it. That sentence was the Board's
-          // until the owner deleted that page.
-          showing={
-            clearing
-              ? SURFACE.worktrees
-              : manifesting
-                ? SURFACE.manifest
-                : settingsShowing
-                  ? SURFACE.settings
-                  : kitting
-                    ? SURFACE.kit
-                    : guiding
-                      ? SURFACE.guides
-                      : studying
-                        ? SURFACE.studios
-                        : lining ? SURFACE.mergeLine : SURFACE.overview
-          }
+          // Which row the rail marks — `showing.ts`.
+          showing={showingOf({
+            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning,
+          })}
           onSurface={goTo}
         >
           {/* Real CSS, not utilities: nothing Tailwind spells emits a rule in
@@ -751,6 +742,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenStudio={openStudioFrom}
                   onReadCheckOutput={readCheckOutput}
                   onReadBrief={readBrief}
+                  onReadRetro={readRetro}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}
@@ -896,7 +888,9 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : clearing ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : learning ? (
+              <LessonsSurface repository={state.repository} {...guarded} />
+            ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and
@@ -918,6 +912,9 @@ export function App({ draft }: AppProps = {}) {
                   now={now}
                   onClose={() => setClearing(false)}
                   onCopied={setCopied}
+                  // A slot's Job opens over Cleanup, and Escape comes back here.
+                  onOpenJob={setOpenJob}
+                  onChangeSlotPool={changeSlotPool}
                   actions={
                     <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
                   }

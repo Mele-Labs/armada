@@ -165,13 +165,22 @@ pub fn workflow() -> FrozenWorkflow {
                         // rather than every changed crate, and one that came
                         // back without its `except` would run a Check the whole
                         // run excludes — neither visible anywhere on the row.
-                        narrow: Some(Narrowing::declared(
-                            "cargo build".to_string(),
-                            "-p {}".to_string(),
-                            Covers::of(vec![PathPattern::parse("crates/**").expect("a pattern")]),
-                            Some("crates".to_string()),
-                            vec!["acceptance".to_string()],
-                        )),
+                        // One that lost its `outside` would run a Bridge-only
+                        // change whole again.
+                        narrow: Some(
+                            Narrowing::declared(
+                                "cargo build".to_string(),
+                                "-p {}".to_string(),
+                                Covers::of(vec![
+                                    PathPattern::parse("crates/**").expect("a pattern")
+                                ]),
+                                Some("crates".to_string()),
+                                vec!["acceptance".to_string()],
+                            )
+                            .with_outside(Covers::of(vec![
+                                PathPattern::parse("apps/**").expect("a pattern"),
+                            ])),
+                        ),
                         // Carried so every round trip here walks a Check that runs one test by name. #999.
                         one_test: Some("cargo nextest run -E test(={})".to_string()),
                         // Not the default, so the round trip carries a word. #849.

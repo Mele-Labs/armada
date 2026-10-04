@@ -17,7 +17,9 @@
 mod answers;
 mod git;
 pub(crate) mod jobs;
+mod reading;
 mod record;
+mod shape;
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
@@ -29,6 +31,7 @@ pub use answers::{Full, Lease, LeaseRefused, Leased, ReleaseRefused, Released, S
 use git::{count, git, git_ok};
 pub use record::Holder;
 use record::Record;
+pub use shape::Unshaped;
 
 /// Kept across every lease: what a build or an index writes and the next
 /// build reads. `setup.seed.paths` joins these.
@@ -61,7 +64,7 @@ pub struct Pool {
 
 impl Pool {
     /// `count` slots under `root`, the repository's own checkout, leased from
-    /// `base`. `seeds` is `setup.seed.paths`: cloned into a new slot, and kept
+    /// `base`, unless a person changed the pool on this machine: `shape`. `seeds` is `setup.seed.paths`: cloned into a new slot, and kept
     /// across leases with the rest of [`WARM`].
     pub fn at(root: &Path, count: usize, base: &str, seeds: Vec<String>) -> Pool {
         let mut keep: Vec<String> = WARM.iter().map(|path| (*path).to_string()).collect();
@@ -91,8 +94,9 @@ impl Pool {
             .ok_or_else(|| format!("{common} has no parent, so it is no checkout's git directory"))
     }
 
+    /// How many slots the pool has on this machine.
     pub fn count(&self) -> usize {
-        self.count
+        self.bays().len()
     }
 
     pub fn path_of(&self, slot: usize) -> PathBuf {
@@ -153,28 +157,34 @@ impl Pool {
             }
         }
 
-        let mut slots = Vec::with_capacity(self.count);
+        let bays = self.bays();
+        let mut slots = Vec::with_capacity(bays.len());
         let mut unmade = None;
-        for number in 1..=self.count {
+        for number in bays {
             let path = self.path_of(number);
             let Some(lock) = self.locked(number).map_err(LeaseRefused::Vcs)? else {
                 slots.push(Slot {
                     number,
                     path,
                     state: SlotState::Busy,
+                    closed: self.closed(number),
                 });
                 continue;
             };
             let state = self.state_of(number);
+            // Asked under the lock: a person may have closed or removed it
+            // since `bays` was read.
+            let leasable = self.leasable(number);
             let reclaimed_from = match &state {
-                SlotState::Free => None,
-                SlotState::Abandoned { branch, .. } => Some(branch.clone()),
-                SlotState::Unmade if unmade.is_none() => {
+                SlotState::Free if leasable => None,
+                SlotState::Abandoned { branch, .. } if leasable => Some(branch.clone()),
+                SlotState::Unmade if leasable && unmade.is_none() => {
                     unmade = Some(number);
                     slots.push(Slot {
                         number,
                         path,
                         state,
+                        closed: false,
                     });
                     continue;
                 }
@@ -183,6 +193,7 @@ impl Pool {
                         number,
                         path,
                         state,
+                        closed: !leasable,
                     });
                     continue;
                 }
@@ -201,7 +212,7 @@ impl Pool {
         };
         // Looked at again under its lock: another lease may have made it.
         let lock = self.locked(number).map_err(LeaseRefused::Vcs)?;
-        if lock.is_none() || self.state_of(number) != SlotState::Unmade {
+        if lock.is_none() || !self.leasable(number) || self.state_of(number) != SlotState::Unmade {
             return Ok(Leased::Full(Full { slots }));
         }
         let path = self.path_of(number);
@@ -231,7 +242,7 @@ impl Pool {
     /// the base, and otherwise detached so its branch is free to land.
     pub fn release(&self, path: &Path) -> Result<Released, ReleaseRefused> {
         let wanted = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-        let Some(number) = (1..=self.count).find(|n| {
+        let Some(number) = self.bays().into_iter().find(|n| {
             let slot = self.path_of(*n);
             wanted == slot.canonicalize().unwrap_or(slot)
         }) else {
@@ -313,21 +324,22 @@ impl Pool {
 
     /// The slot `holder` holds, if it holds one.
     pub fn held_by(&self, holder: &Holder) -> Option<usize> {
-        (1..=self.count).find(|number| {
+        self.bays().into_iter().find(|number| {
             Record::read(&self.record_path(*number)).is_some_and(|record| &record.holder == holder)
         })
     }
 
     /// Whether a lease for `holder` would take a slot now: one it holds, or
-    /// one free, abandoned or not yet made. Read without the locks, as
-    /// [`status`](Pool::status) is.
+    /// one open and free, abandoned or not yet made. Read without the locks,
+    /// as [`status`](Pool::status) is.
     pub fn open_for(&self, holder: &Holder) -> bool {
         self.held_by(holder).is_some()
-            || (1..=self.count).any(|number| {
-                matches!(
-                    self.state_of(number),
-                    SlotState::Free | SlotState::Abandoned { .. } | SlotState::Unmade
-                )
+            || self.bays().into_iter().any(|number| {
+                self.leasable(number)
+                    && matches!(
+                        self.state_of(number),
+                        SlotState::Free | SlotState::Abandoned { .. } | SlotState::Unmade
+                    )
             })
     }
 
@@ -339,11 +351,14 @@ impl Pool {
     /// Every slot and what holds it. Read without the locks, so a take under
     /// way reads as whatever it had reached.
     pub fn status(&self) -> Vec<Slot> {
-        (1..=self.count)
+        let shape = self.shape();
+        self.bays()
+            .into_iter()
             .map(|number| Slot {
                 number,
                 path: self.path_of(number),
                 state: self.state_of(number),
+                closed: shape.closed.contains(&number),
             })
             .collect()
     }

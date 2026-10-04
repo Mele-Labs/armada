@@ -316,7 +316,7 @@ where
             &checks,
             touched,
             false,
-            false,
+            checking::Reading::Whole,
             std::path::Path::new(worktree.path()),
             self.budget().duration(),
             &self.checks_room_for(job, crate::places::Asking::Gate).await,

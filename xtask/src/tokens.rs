@@ -200,6 +200,8 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--tool-", Slot::NsFull("color")),
     ("--verdict-", Slot::NsFull("color")),
     ("--run-", Slot::NsFull("color")),
+    // A worktree slot's bay, aliased in status.css below Job level.
+    ("--slot-", Slot::NsFull("color")),
     ("--surface-", Slot::NsFull("color")),
     // Exact before prefix, and this pair is why the table says so: --edge-active
     // is a width, and `--edge-` below would claim it first and emit

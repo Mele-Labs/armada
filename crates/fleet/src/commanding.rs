@@ -814,6 +814,15 @@ where
         Fleet::reclaim_answered(self, job_id).await
     }
 
+    /// The pool reshaped on this machine — `crate::leasing`.
+    async fn change_slot_pool(
+        &self,
+        change: ipc::ChangeSlotPool,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::SlotPoolChanged, Refusal> {
+        Fleet::change_slot_pool(self, change, manifest_id.as_ref())
+    }
+
     async fn delete_branch(
         self: Arc<Self>,
         job_id: JobId,

@@ -16,11 +16,13 @@ import type {
 } from "@armada/protocol";
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
+import type { JobRetro, Lessons, LessonsRead, RetroRead } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
 import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
 import { pendingAt, refusedWith, sentOf } from "@armada/protocol";
 import { Socket } from "node:net";
+import { Agent, fetch, type Dispatcher } from "undici";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { Picked } from "./picked";
 import { HOST } from "./runtime-file";
@@ -57,6 +59,19 @@ function typeOfServiceStaysAdvisory(): void {
 }
 
 typeOfServiceStaysAdvisory();
+
+/**
+ * What every request to Fleet goes through, so **Bridge's own wait is the only
+ * bound on it**: `waitMs`, or nothing at `NO_WAIT`. With no dispatcher, undici
+ * cuts any answer whose headers take over 300 000 ms as `fetch failed`, signal
+ * or not — on 4 Oct 2026 a `rerun_checks` Fleet passed after five and a half
+ * minutes showed as `bridge.command.unreachable`. Zero turns both bounds off.
+ *
+ * undici's own `fetch` rather than the global one: a dispatcher must be the
+ * same undici as the fetch using it, and the global is the runtime's — 7.24 in
+ * Electron 40, another major in the Node the tests run on.
+ */
+const FLEET: Dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
 /**
  * How long an ordinary command waits before it is a transport failure.
@@ -98,7 +113,7 @@ export const MODEL_CALL_MS = 150_000;
  * top, `COMMAND_MS`'s margin at this route's scale, so a Job stuck past its
  * own ceiling answers with Fleet's own coded refusal rather than Bridge's
  * abort — `MODEL_CALL_MS`'s reason. Nothing generates this from the Rust
- * constant; the two are coupled by this comment.
+ * constant; the two are coupled by this comment. Past 300 s only through `FLEET`.
  */
 export const CHECKS_MS = 1_800_000;
 
@@ -170,6 +185,8 @@ export async function ask(
   path: string,
   body?: unknown,
   waitMs: number = COMMAND_MS,
+  // `FLEET` everywhere but a test, which hands in undici's bounds at its own scale.
+  through: Dispatcher = FLEET,
 ): Promise<Answer> {
   // A pending route's body rides on the fault, so `Not implemented` says
   // what the act carried — `sentOf`.
@@ -186,6 +203,7 @@ export async function ask(
       // Zero is no signal at all rather than an immediate abort — see
       // `NO_WAIT`. `AbortSignal.timeout(0)` would fire on the next tick.
       ...(waitMs === NO_WAIT ? {} : { signal: AbortSignal.timeout(waitMs) }),
+      dispatcher: through,
     });
     const text = await answer.text();
     if (!answer.ok) {
@@ -424,6 +442,29 @@ export async function briefOf(port: number, jobId: string, name: string): Promis
 }
 
 /**
+ * One Job's retro, read into the app: `briefOf`'s shape, on `GET /jobs/:job_id/retro`
+ * (protocol 23.12). Asked when a surface opens it and again on focus, since nothing on `/events`
+ * says a retro was written.
+ */
+export async function retroOf(port: number, jobId: string): Promise<RetroRead> {
+  const answer = await ask(port, "GET", route(jobId, "retro"));
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, retro: answer.body as JobRetro };
+}
+
+/**
+ * The Lessons listing, `GET /lessons` (23.12): every repository on All and the pick's alone on a
+ * pick — `Picked.narrowed`. A repository with no Manifest has no Jobs, so nothing is asked.
+ */
+export async function lessonsOf(port: number, picked: Picked): Promise<LessonsRead> {
+  const path = picked.narrowed("/lessons");
+  if (path === null) return { ok: true, lessons: [] };
+  const answer = await ask(port, "GET", path);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, lessons: (answer.body as Lessons).lessons };
+}
+
+/**
  * One frame a step's harness produced, read into the app as the file it is.
  *
  * **The one read here that does not parse JSON**, and the reason is upstream:
@@ -475,6 +516,7 @@ async function fileAt(port: number, path: string): Promise<FrameRead> {
       method: "GET",
       headers: CALLER,
       signal: AbortSignal.timeout(FRAME_MS),
+      dispatcher: FLEET,
     });
     if (!answer.ok) {
       // The refusal is JSON even though the success is not, so it is read as

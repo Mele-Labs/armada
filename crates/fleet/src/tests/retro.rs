@@ -189,9 +189,11 @@ async fn an_ended_job_gets_one_retro_and_its_items_are_listed() {
     let home = TempDir::new();
     let judge = Arc::new(FakeJudge::saying(
         "Here it is:\n```json\n{\"items\":[\
-         {\"who\":\"owner\",\"statement\":\"The Job waited on its approval.\",\
+         {\"who\":\"owner\",\"lands_in\":\"armada\",\
+          \"statement\":\"The Job waited on its approval.\",\
           \"evidence\":[\"act:1\",\"act:99\"]},\
-         {\"who\":\"drone\",\"statement\":\"Invented.\",\"evidence\":[\"refusal:7\"]}]}\n```",
+         {\"who\":\"drone\",\"lands_in\":\"kit\",\"statement\":\"Invented.\",\
+          \"evidence\":[\"refusal:7\"]}]}\n```",
     ));
     let (fleet, app, id) = running(&home, Arc::clone(&judge)).await;
     killed(&app, &id, From::Anyone).await;
@@ -276,4 +278,63 @@ async fn a_job_no_drone_ran_on_is_skipped_without_a_call() {
     let retro = retro_of(&app, proposed.id.as_str()).await;
     assert_eq!(retro.state, RetroState::Skipped);
     assert!(judge.asked().is_empty());
+}
+
+/// **Every item says where its fix lands, or is dropped**: one naming no place,
+/// or a place that is not one of the three, is left out the way one citing
+/// nothing is, and the items beside it are kept. `?lands_in=` narrows the
+/// Lessons to one place.
+#[tokio::test]
+async fn an_item_that_names_no_place_its_fix_lands_is_dropped_and_lessons_narrow_by_it() {
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::saying(
+        "{\"items\":[\
+         {\"who\":\"owner\",\"lands_in\":\"armada\",\"statement\":\"Shown running.\",\
+          \"evidence\":[\"act:1\"]},\
+         {\"who\":\"drone\",\"lands_in\":\"kit\",\"statement\":\"Refused grep.\",\
+          \"evidence\":[\"act:1\"]},\
+         {\"who\":\"owner\",\"statement\":\"Named no place.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"bridge\",\"statement\":\"Named a wrong one.\",\
+          \"evidence\":[\"act:1\"]}]}",
+    ));
+    let (fleet, app, id) = running(&home, judge).await;
+    killed(&app, &id, From::Anyone).await;
+    fleet.reflect_next().await.expect("written");
+
+    let retro = retro_of(&app, &id).await;
+    assert_eq!(retro.state, RetroState::Written);
+    let kept: Vec<(&str, Option<&str>)> = retro
+        .items
+        .iter()
+        .map(|item| {
+            (
+                item.statement.as_str(),
+                item.lands_in.map(|lands| lands.as_wire()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kept,
+        vec![
+            ("Shown running.", Some("armada")),
+            ("Refused grep.", Some("kit")),
+        ]
+    );
+
+    let (status, body) = sent(&app, "GET", "/lessons?lands_in=kit", "", From::Bridge).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let lessons: Lessons = ipc::decode("the lessons", &body).expect("Lessons");
+    let narrowed: Vec<&str> = lessons
+        .lessons
+        .iter()
+        .map(|lesson| lesson.statement.as_str())
+        .collect();
+    assert_eq!(narrowed, vec!["Refused grep."]);
+
+    let (_, body) = sent(&app, "GET", "/lessons", "", From::Bridge).await;
+    let lessons: Lessons = ipc::decode("the lessons", &body).expect("Lessons");
+    assert_eq!(lessons.lessons.len(), 2, "absent is all three");
+
+    let (status, _) = sent(&app, "GET", "/lessons?lands_in=bridge", "", From::Bridge).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a place that is not one");
 }

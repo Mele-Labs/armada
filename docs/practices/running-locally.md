@@ -610,6 +610,10 @@ already a file read away.
 armada worktree lease <branch>      # a warm slot on a new branch; prints its path
 armada worktree release [<path>]    # give it back; the slot you stand in by default
 armada worktree --status            # every slot, who holds it, and for how long
+armada worktree add                 # one more slot on this machine; the next lease makes it
+armada worktree remove <n>          # slot n gone, if it is free or not made
+armada worktree close <n>           # no lease takes slot n until it is opened
+armada worktree open <n>            # lease it again
 ```
 
 **What it does:** takes one of the repository's permanent worktrees under
@@ -639,6 +643,8 @@ and cuts from what was last fetched.
 | A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
 | `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, release it by path, or `armada clean --force` |
+| `slot-3 closed` in `--status` | A person closed it. No lease takes it until `armada worktree open 3`, or Reopen on its bay in Cleanup |
+| `waiting for a worktree slot: 2 of 8 closed, the rest held` | Every open slot is held. Open one, add one, or wait |
 | `kept` in `--status` | A Job ended and the pool would not take its slot back, for the reason shown. Land or push its branch; the sweep then releases it, or release it by path or with `armada clean --force` |
 
 **The lease is held for the process that ran your shell** — the agent session,

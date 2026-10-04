@@ -93,6 +93,20 @@ fn worktree_verb(act: WorktreeAct) -> ExitCode {
         WorktreeAct::Lease { branch } => leasing::lease(&cwd, &branch),
         WorktreeAct::Release { path } => leasing::release(&cwd, path),
         WorktreeAct::Status => leasing::status(&cwd),
+        WorktreeAct::Add => leasing::reshape(&cwd, |pool| {
+            pool.add()
+                .map(|n| format!("slot-{n} added; the next lease makes it"))
+        }),
+        WorktreeAct::Remove { slot } => leasing::reshape(&cwd, |pool| {
+            pool.remove(slot).map(|()| format!("slot-{slot} removed"))
+        }),
+        WorktreeAct::Close { slot } => leasing::reshape(&cwd, |pool| {
+            pool.close(slot)
+                .map(|()| format!("slot-{slot} closed; no lease takes it until it is opened"))
+        }),
+        WorktreeAct::Open { slot } => leasing::reshape(&cwd, |pool| {
+            pool.open(slot).map(|()| format!("slot-{slot} open"))
+        }),
     })
 }
 

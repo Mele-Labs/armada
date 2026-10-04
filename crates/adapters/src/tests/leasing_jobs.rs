@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{SlotLeased, SlotPool, SlotStanding, Vcs, WorktreeSpec};
+use adapter_traits::{SlotHeld, SlotLeased, SlotPool, SlotStanding, Vcs, WorktreeSpec};
 
 use crate::leasing::{Holder, Leased, Pool, SlotState};
 use crate::tests::repo::TempRepo;
@@ -198,4 +198,33 @@ fn a_completed_job_s_slot_says_so_until_it_is_released() {
         .release_slot(&pool, slot, "01JOB")
         .expect("clean, with nothing on it");
     assert_eq!(status()[0].state, SlotState::Free);
+}
+
+/// What Bridge's Cleanup draws: the Job's slot on its branch, warm once its
+/// seed path is there, and behind once the base moves past it.
+#[test]
+fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
+    let repo = a_repository();
+    let root = repo.root().to_string_lossy().to_string();
+    let pool = SlotPool::of(&root, 2, "main", vec![String::from("target")]);
+    let (_, path) = leased(&repo, &pool, "1-a-job", "01JOB");
+
+    let cold = GitVcs.slot_pool(&pool);
+    assert_eq!(cold.len(), 2);
+    assert_eq!(cold[0].held, SlotHeld::Job(String::from("01JOB")));
+    assert_eq!(cold[0].branch.as_deref(), Some("armada/1-a-job"));
+    assert!(cold[0].since.is_some(), "the lease records when");
+    assert!(!cold[0].warm, "no build yet");
+    assert_eq!(cold[0].behind, Some(0));
+    assert_eq!(cold[1].held, SlotHeld::Unmade);
+    assert_eq!((cold[1].warm, cold[1].behind), (false, None));
+
+    std::fs::create_dir_all(path.join("target/debug")).expect("a build directory");
+    repo.commit_one("one.txt", "one\n", "the base moves");
+    repo.commit_one("two.txt", "two\n", "and again");
+    repo.git(&["push", "-q", "origin", "main"]);
+
+    let warm = GitVcs.slot_pool(&pool);
+    assert!(warm[0].warm);
+    assert_eq!(warm[0].behind, Some(2));
 }

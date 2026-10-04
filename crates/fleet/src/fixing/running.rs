@@ -51,7 +51,7 @@ where
             std::slice::from_ref(&request.run),
             &[],
             false,
-            false,
+            crate::checking::Reading::Whole,
             Path::new(checkout.path()),
             self.budget().duration(),
             &self.room(crate::places::Asking::FixDraft),

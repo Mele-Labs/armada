@@ -3,9 +3,12 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use adapter_traits::{SlotKept, SlotLeased, SlotPool, SlotStanding, Worktree, WorktreeSpec};
+use adapter_traits::{
+    SlotChange, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused, SlotStanding, Worktree,
+    WorktreeSpec,
+};
 
-use super::{Holder, LeaseRefused, Leased, Pool, SlotState};
+use super::{Holder, LeaseRefused, Leased, Pool, SlotState, Unshaped};
 
 fn pool(slots: &SlotPool) -> Pool {
     Pool::at(
@@ -69,4 +72,28 @@ pub(crate) fn release(slots: &SlotPool, slot: u32, job: &str) -> Result<(), Slot
 
 pub(crate) fn completed(slots: &SlotPool, slot: u32, job: &str) {
     let _ = pool(slots).mark_completed(slot as usize, &Holder::job(job));
+}
+
+pub(crate) fn readings(slots: &SlotPool) -> Vec<SlotReading> {
+    pool(slots).readings()
+}
+
+pub(crate) fn change(slots: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused> {
+    let pool = pool(slots);
+    let changed = match change {
+        SlotChange::Add => pool.add(),
+        SlotChange::Remove(n) => pool.remove(n as usize).map(|()| n as usize),
+        SlotChange::Close(n) => pool.close(n as usize).map(|()| n as usize),
+        SlotChange::Open(n) => pool.open(n as usize).map(|()| n as usize),
+    };
+    changed.map(|n| n as u32).map_err(|why| match why {
+        Unshaped::NoSuchSlot(n) => SlotRefused::NoSuchSlot(n as u32),
+        Unshaped::Held(holder) => SlotRefused::Held(holder),
+        Unshaped::Stranded(why) => SlotRefused::Stranded(why),
+        Unshaped::Busy => SlotRefused::Busy,
+        Unshaped::NotACheckout => SlotRefused::NotACheckout,
+        Unshaped::Dirty(files) => SlotRefused::Dirty(files),
+        Unshaped::LastSlot => SlotRefused::LastSlot,
+        Unshaped::Vcs(why) => SlotRefused::Vcs(why),
+    })
 }

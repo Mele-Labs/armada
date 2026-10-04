@@ -33,8 +33,8 @@ use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
     CommitTime, Committed, Delivery, KeptCurrent, Landable, Landing, Mergeable, Merged, NotCloned,
     NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark, RepositoryStanding, Review,
-    SlotKept, SlotLeased, SlotPool, SlotStanding, Standing, UncheckedHead, UnderReview, Vcs,
-    WhatBecameOfIt, Worktree, WorktreeSpec,
+    SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, Standing, UncheckedHead,
+    UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
@@ -1180,6 +1180,18 @@ impl Vcs for FakeVcs {
 
     fn mark_slot_completed(&self, _pool: &SlotPool, slot: u32, job_id: &str) {
         self.slots.completed(slot, job_id)
+    }
+
+    fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
+        self.slots.readings(pool)
+    }
+
+    fn change_slot_pool(
+        &self,
+        pool: &SlotPool,
+        change: adapter_traits::SlotChange,
+    ) -> Result<u32, adapter_traits::SlotRefused> {
+        self.slots.change(pool, change)
     }
 }
 

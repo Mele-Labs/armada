@@ -16,6 +16,7 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
+import { reshaped } from "./slots-fleet";
 import { approvedAs, edited, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
@@ -65,6 +66,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
   const summoners = new Set<(to: Summons) => void>();
   let summoned = false;
   let draft = scenario.draft;
+  /** The pool as acts on it left it, read again after each as main does. */
+  let held = scenario.held;
   const drafters = new Set<() => void>();
 
   /** Publish a change — on a microtask, because main's reach a window over IPC, never inside the call. */
@@ -257,6 +260,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     },
     forgetTerminalJobs: async (jobIds) => (forget(jobIds), { cleared: [...jobIds], failed: [] }),
     reclaimWorktree: async (jobId) => (move(jobId, { reclaimed_at: new Date().toISOString() }), OK),
+    changeSlotPool: async (manifestId, change) => {
+      if (held === undefined) return unanswered(`/worktrees/slots?manifest_id=${manifestId}`);
+      const after = reshaped(held, manifestId, change);
+      held = after.held;
+      if (state.held.state === "read") publish({ held: { state: "read", held } });
+      return after.outcome;
+    },
     deleteBranch: async () => OK,
     forgetJob: async (jobId) => (forget([jobId]), OK),
     redirectDrone: async () => OK,
@@ -419,12 +429,23 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     readCheckOutput: async (jobId, kept) =>
       readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
     readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
+    readRetro: async (jobId) => {
+      const retro = scenario.retros?.[jobId];
+      if (retro !== undefined) return { ok: true, retro };
+      return readsOf(jobId) === undefined
+        ? refused(path(jobId, "/retro"))
+        : { ok: true, retro: { job_id: jobId, state: "pending", record: {} } };
+    },
+    readLessons: async () => ({ ok: true, lessons: scenario.lessons ?? [] }),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
     readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
     frameStreamUrl: (jobId, kept) => `armada-frame://frame/${jobId}/${kept}`,
     readReports: async (want) => publish({ reports: want ? unread("/reports") : nothing }),
-    readHeld: async (want) => publish({ held: want ? unread("/worktrees/held") : nothing }),
+    readHeld: async (want) =>
+      publish({
+        held: !want ? nothing : held === undefined ? unread("/worktrees/held") : { state: "read", held },
+      }),
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
     ...studios,

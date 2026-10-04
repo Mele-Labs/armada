@@ -6,11 +6,11 @@
 // lookup — `port` arrives as a function so this file never learns how a port
 // is found, only that one might not be.
 
-import type { BriefRead, CheckOutputRead, FrameRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead, LessonsRead, RetroRead } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
-import { briefOf, checkOutputOf, composingOf, frameOf } from "./request";
+import { briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -83,6 +83,23 @@ export class JobReads {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     return await briefOf(port, jobId, name);
+  }
+
+  /** One Job's retro, `readBrief`'s shape — answered to the surface that asked and held nowhere. */
+  async readRetro(jobId: string): Promise<RetroRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await retroOf(port, jobId);
+  }
+
+  /**
+   * The Lessons listing, narrowed to the calling window's pick. `readComposing`'s reason for
+   * taking the pick as an argument: each window keeps its own.
+   */
+  async readLessons(picked: Picked): Promise<LessonsRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await lessonsOf(port, picked);
   }
 
   /**
