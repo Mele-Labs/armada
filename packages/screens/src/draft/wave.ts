@@ -6,10 +6,12 @@
 // proposed it (23.11, #1692). **The pass is what says a row is a wave's**: a
 // member of a landing order carries none.
 //
-// **The order is on each child's `JobDetail.dependencies`**, which the Board
-// row does not carry, so a wave read off the rows alone draws one column.
-// Every other fact a wave draws is served — each Job's status, its delivery,
-// its held command and its Judge question.
+// **The order is on each row's `waits_on`** (23.14, #1692): a member's
+// `depends_on` edges, carried on the Board row so the graph is drawn without a
+// `get_job` per child. **Each pass's line is the parent's `wave_rounds`**, the
+// approach its plan recorded in that pass. Every other fact a wave draws is
+// served too — each Job's status, its delivery, its held command and its Judge
+// question.
 //
 // **No kind name.** A Job is a Job (#1530, 22 Sep).
 
@@ -61,9 +63,12 @@ export type WaveJobView = {
 export type WaveRoundView = {
   round: number;
   /**
-   * What this pass split the work into, a few words — the strip's label.
-   * **Absent off the wire**: Fleet stamps no per-pass line yet, and the strip
-   * then names the wave alone rather than a sentence standing in for one.
+   * What this pass split the work into — the strip's label. Off the wire it is
+   * the first sentence of the plan's own approach for that pass
+   * (`JobDetail.wave_rounds`, 23.14), since a tab does not truncate and the
+   * approach is a paragraph. **Absent where the pass recorded no plan**, and
+   * the strip then names the wave alone rather than a sentence standing in for
+   * one.
    */
   says?: string;
   /**
@@ -98,9 +103,9 @@ export type WaveView = {
  * never an empty graph, which reads as Jobs that failed to load. A row with
  * no pass is a landing order's member, which is the members band's.
  *
- * **`waits_on` comes back empty and that is honest.** The order is on each
- * child's `JobDetail.dependencies`, which no row carries, so every Job reads
- * as one that may start at once and the graph draws one column.
+ * **`waits_on` is each row's own** (23.14), and a row from a Fleet before it
+ * carries none, so every Job reads as one that may start at once and the
+ * graph draws one column — honest, rather than an order guessed.
  */
 export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveView | undefined {
   const jobs = board.flatMap((row): WaveJobView[] =>
@@ -113,7 +118,7 @@ export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveVie
             status: row.status,
             handle: row.handle,
             round: row.dispatched_pass,
-            waits_on: [],
+            waits_on: row.waits_on ?? [],
             ...(row.landed === undefined ? {} : { landed: row.landed }),
           },
         ],
@@ -124,7 +129,21 @@ export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveVie
   return {
     job: detail.job.id,
     title: detail.job.title,
-    rounds: passes.map((round) => ({ round, live: round === latest })),
+    rounds: passes.map((round) => {
+      const approach = detail.wave_rounds?.find((one) => one.pass === round)?.approach;
+      const says = approach === undefined ? undefined : lineOf(approach);
+      return { round, ...(says === undefined ? {} : { says }), live: round === latest };
+    }),
     jobs,
   };
+}
+
+/**
+ * The line a strip reads off an approach: its first sentence, without the
+ * stop. A paragraph's first sentence is where a plan says what it does; the
+ * rest is why, which the plan itself still carries.
+ */
+export function lineOf(approach: string): string {
+  const first = approach.trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+  return first.replace(/\.$/, "");
 }
