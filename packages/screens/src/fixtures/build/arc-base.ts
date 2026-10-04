@@ -120,6 +120,8 @@ export type ArcDraft = {
   wave?: WaveView;
   /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
   mergeLine?: MergeLineView;
+  /** A running Job's Overview drawn as its canvas. Prototype — `JobDraft.life_canvas`. */
+  life_canvas?: true;
 };
 
 /**

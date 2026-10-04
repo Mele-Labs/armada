@@ -134,6 +134,12 @@ export type OverviewTabProps = JobDetailProps & {
    */
   approval?: ReactNode;
   /**
+   * The Job's run drawn as its canvas past the gate, in the approval's place —
+   * the Overview for its whole life (prototype, 4 Oct 2026). Absent is the
+   * Overview as it was.
+   */
+  run?: ReactNode;
+  /**
    * What a plan at the review gate takes that only the screen holds: a Drone
    * opened from a task's peek, the task to land on, and the way back —
    * `PlanTab`'s own three. Absent, the peek draws no Open.
@@ -759,7 +765,9 @@ export function OverviewTab(props: OverviewTabProps) {
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.
       {...(lead.approves !== true || waiting !== undefined || props.approval === undefined
-        ? {}
+        ? props.run === undefined
+          ? {}
+          : { approving: props.run }
         : { approving: props.approval })}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }

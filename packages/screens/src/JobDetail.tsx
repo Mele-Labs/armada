@@ -40,6 +40,8 @@ import { FrozenAtApproval } from "./frozen-at-approval";
 import { useApproval } from "./approval-held";
 import { baseBranch } from "./draft/branches";
 import { ApprovalCanvas } from "./ApprovalCanvas";
+import { lifeOf } from "./approval-life";
+import { proposalEditsOfWhole } from "./tab-proposal-read";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
@@ -375,9 +377,8 @@ function OneJob(props: JobDetailProps) {
           onOpenCheckLog={setCheckLog}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
-          {...(!held.atGate || held.edits === undefined || whole === null
-            ? {}
-            : {
+          {...(held.atGate && held.edits !== undefined && whole !== null
+            ? {
                 approval: (
                   <ApprovalCanvas
                     whole={whole}
@@ -390,7 +391,26 @@ function OneJob(props: JobDetailProps) {
                     machineCap={props.machineCap ?? null}
                   />
                 ),
-              })}
+              }
+            : // Past the gate, the same canvas read, marked with where the Job
+              // is (prototype, a mock draft's `life_canvas`). No `onEdits`:
+              // nothing on it can change any more.
+              props.draft?.life_canvas === true && whole !== null && !held.atGate
+              ? {
+                  run: (
+                    <ApprovalCanvas
+                      whole={whole}
+                      edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
+                      life={lifeOf(whole)}
+                      workflows={props.workflows}
+                      manifest={manifest}
+                      branches={held.branches}
+                      models={props.models?.models ?? []}
+                      machineCap={props.machineCap ?? null}
+                    />
+                  ),
+                }
+              : {})}
           {...(opensTask === undefined ? {} : { opensTask })}
           onOpenDrone={(droneId) => {
             trail.push("overview");

@@ -60,6 +60,7 @@ import { brokenOnMain, FIX_TITLE, heldByTheGamingCheck, withBreakages } from "./
 import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { featureAtApproval } from "./feature-at-approval";
+import { featureRunning } from "./feature-running";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -568,6 +569,12 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("proto/feature-at-approval", featureAtApproval().name, [featureAtApproval()], {
     opens: featureAtApproval().job.id,
   }),
+  // The same canvas past the gate, on a Job mid-Implement (prototype). The
+  // draft's flag is what draws it; no Fleet serves one.
+  {
+    ...holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),
+    draft: { life_canvas: true as const },
+  },
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
   // A Judge refusal he agreed with: the step stopped and the Job escalated,
