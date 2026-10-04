@@ -92,7 +92,12 @@ describe("the wave a Job proposed", () => {
     );
     expect(wave?.rounds).toEqual([
       { round: 1, live: false },
-      { round: 2, says: "Every surface that reads a refusal", live: true },
+      {
+        round: 2,
+        says: "Every surface that reads a refusal",
+        approach: "Every surface that reads a refusal. The seam landed, so each can follow it.",
+        live: true,
+      },
     ]);
   });
 
