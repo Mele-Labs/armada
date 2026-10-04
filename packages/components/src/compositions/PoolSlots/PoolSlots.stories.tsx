@@ -195,3 +195,251 @@ export const Refused: Story = {
     await expect(args.onAct).not.toHaveBeenCalled();
   },
 };
+
+const STRANDED: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {
+  held: { state: "stranded", why: "2 uncommitted, first src/lib.rs" },
+  branch: "fleet/old-try",
+  behind: 12,
+  stranded: {
+    uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
+    commits: [
+      { sha: "9d41e07b2c", subject: "Retry a short read once" },
+      { sha: "3b7a1c9e55", subject: "Split the reader from the parser" },
+    ],
+    unpushed: 1,
+  },
+};
+
+const FOUND = {
+  commit: "9d41e07b2c",
+  uncommitted: true,
+  read: ["src/reader/mod.rs", "src/reader/retry.rs"],
+  searched: ["retry_short_read in src/"],
+};
+
+const bay = (canvas: { getByRole: (role: "listitem", options: { name: string }) => HTMLElement }, n: number) =>
+  within(canvas.getByRole("listitem", { name: `slot-${n}` }));
+
+/**
+ * A stranded bay with no rescue offers Rescue, and only a stranded one does: a
+ * held, a free and a ghost bay have nothing to rescue. The act sends the slot.
+ */
+export const RescueOffered: Story = {
+  name: "Rescue offered",
+  args: {
+    rows: [
+      { slot: slot(1, { held: { state: "free" } }) },
+      { slot: slot(4, STRANDED), heldFor: "3 days" },
+      { slot: slot(6, { held: { state: "unmade" } }) },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("button", { name: "Rescue" })).toHaveLength(1);
+    await expect(bay(canvas, 4).queryByRole("region", { name: "Finding" })).toBeNull();
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Rescue" }));
+    await expect(args.onRescue).toHaveBeenCalledWith("start", 4);
+    // The pool's own acts stay beside it.
+    await expect(bay(canvas, 4).getByRole("button", { name: "Close" })).toBeInTheDocument();
+  },
+};
+
+/**
+ * A Scout reading: the live state is a pulsing mark and the files so far, with
+ * Stop where Rescue was. **Scrap and Stash wait for the Finding**, so neither
+ * is on the bay while it reads.
+ */
+export const Reading: Story = {
+  name: "Reading",
+  args: {
+    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "reading", searched: [] } }) }],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const finding = within(bay(canvas, 4).getByRole("region", { name: "Finding" }));
+    await expect(finding.getByRole("img", { name: "Reading" })).toBeInTheDocument();
+    await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
+    await expect(finding.queryByRole("list", { name: "Searched" })).toBeNull();
+    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Scrap|Stash/ })).toBeNull();
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stop" }));
+    await expect(args.onRescue).toHaveBeenCalledWith("stop", 4);
+  },
+};
+
+/**
+ * The Finding, on the bay: the summary, what it read and searched, the slot's
+ * commits, the commit it read and that uncommitted changes sat on it, and what
+ * was cut. **Stash acts at once**; Scrap waits on its confirm.
+ */
+export const FindingAnswered: Story = {
+  name: "Finding answered",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          rescue: {
+            ...FOUND,
+            state: "answered",
+            cut: 1200,
+            summary: "A retry for a short read, finished in the commit and half-moved in the working files.",
+          },
+        }),
+      },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const finding = within(bay(canvas, 4).getByRole("region", { name: "Finding" }));
+    await expect(finding.getByText(/A retry for a short read/)).toBeInTheDocument();
+    await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/mod.rs");
+    await expect(finding.getByRole("list", { name: "Searched" })).toHaveTextContent("retry_short_read in src/");
+    await expect(finding.getByRole("list", { name: "Commits" })).toHaveTextContent("9d41e07 Retry a short read once");
+    await expect(finding.getByLabelText("Commit it read: 9d41e07")).toBeInTheDocument();
+    await expect(finding.getByRole("img", { name: "Uncommitted changes on top" })).toBeInTheDocument();
+    await expect(finding.getByLabelText(/cut before it read them: 1200/)).toHaveTextContent("1200 cut");
+    await expect(finding.queryByRole("img", { name: "Reading" })).toBeNull();
+    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop/ })).toBeNull();
+
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stash" }));
+    await expect(args.onRescue).toHaveBeenCalledTimes(1);
+    await expect(args.onRescue).toHaveBeenCalledWith("stash", 4);
+  },
+};
+
+/**
+ * A Scout that ended without an answer. A failed one shows why it failed, a
+ * stopped one is marked stopped, both keep what they read, and **both still
+ * offer Scrap and Stash**. Nothing is cut and nothing was left uncommitted, so
+ * neither mark is drawn.
+ */
+export const FindingFailed: Story = {
+  name: "Finding failed",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          rescue: { ...FOUND, uncommitted: false, state: "failed", why: "The Scout ended before it answered" },
+        }),
+      },
+      { slot: slot(5, { ...STRANDED, rescue: { ...FOUND, uncommitted: false, state: "stopped" } }) },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(bay(canvas, 4).getByText("The Scout ended before it answered")).toBeInTheDocument();
+    await expect(bay(canvas, 4).queryByRole("img", { name: "Stopped" })).toBeNull();
+    await expect(bay(canvas, 5).getByRole("img", { name: "Stopped" })).toBeInTheDocument();
+    for (const n of [4, 5]) {
+      await expect(bay(canvas, n).getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
+      await expect(bay(canvas, n).getByRole("button", { name: "Scrap" })).toBeInTheDocument();
+      await expect(bay(canvas, n).getByRole("button", { name: "Stash" })).toBeInTheDocument();
+      await expect(bay(canvas, n).queryByRole("img", { name: "Uncommitted changes on top" })).toBeNull();
+      await expect(bay(canvas, n).queryByLabelText(/cut before/)).toBeNull();
+    }
+  },
+};
+
+/**
+ * Scrap asks first, and the confirm names what goes: every uncommitted file,
+ * and the commits not pushed anywhere. **A pushed commit is not named**, and
+ * nothing is sent until the confirm's own Scrap.
+ */
+export const ScrapConfirm: Story = {
+  name: "Scrap confirm",
+  args: {
+    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }) }],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    await expect(args.onRescue).not.toHaveBeenCalled();
+
+    const confirm = within(canvas.getByRole("group", { name: "Scrap slot-4" }));
+    await expect(confirm.getByRole("list", { name: "Uncommitted" })).toHaveTextContent("src/lib.rs");
+    await expect(confirm.getByRole("list", { name: "Uncommitted" })).toHaveTextContent("src/reader/retry.rs");
+    await expect(confirm.getByRole("list", { name: "Unpushed" })).toHaveTextContent("Retry a short read once");
+    await expect(confirm.getByRole("list", { name: "Unpushed" })).not.toHaveTextContent("Split the reader");
+    // The bay's own Scrap gives way to the confirm's, so there is one to press.
+    await expect(canvas.getAllByRole("button", { name: "Scrap" })).toHaveLength(1);
+
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
+    await expect(canvas.queryByRole("group", { name: "Scrap slot-4" })).toBeNull();
+    await expect(args.onRescue).not.toHaveBeenCalled();
+
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    await userEvent.click(within(canvas.getByRole("group", { name: "Scrap slot-4" })).getByRole("button", { name: "Scrap" }));
+    await expect(args.onRescue).toHaveBeenCalledTimes(1);
+    await expect(args.onRescue).toHaveBeenCalledWith("scrap", 4);
+    await expect(canvas.queryByRole("group", { name: "Scrap slot-4" })).toBeNull();
+  },
+};
+
+/**
+ * A slot with nothing unpushed and nothing uncommitted still confirms, and its
+ * confirm names nothing: an empty list stays empty.
+ */
+export const ScrapConfirmNothingToName: Story = {
+  name: "Scrap confirm, nothing to name",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          stranded: { uncommitted: [], commits: [], unpushed: 0 },
+          rescue: { ...FOUND, state: "answered" },
+        }),
+      },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    const confirm = within(canvas.getByRole("group", { name: "Scrap slot-4" }));
+    await expect(confirm.queryByRole("list")).toBeNull();
+    await expect(confirm.getByRole("button", { name: "Scrap" })).toBeInTheDocument();
+  },
+};
+
+/**
+ * Fleet's refusal of a rescue act, **on the bay it was about**, by the same
+ * path as the pool's acts; and what a Scrap or Stash did, said as a bare fact
+ * on the slot it freed.
+ */
+export const RescueRefusedAndReceipt: Story = {
+  name: "Rescue refused, and receipt",
+  args: {
+    rows: [
+      {
+        slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }),
+        refused: "Not stashed: a Scout is reading it",
+      },
+      { slot: slot(5, { held: { state: "free" } }), said: "fleet/old-try kept" },
+      { slot: slot(6, { held: { state: "free" } }), said: "c0ffee1 on fleet/old-try" },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(bay(canvas, 4).getByRole("alert")).toHaveTextContent("Not stashed: a Scout is reading it");
+    await expect(bay(canvas, 5).getByRole("status")).toHaveTextContent("fleet/old-try kept");
+    await expect(bay(canvas, 6).getByRole("status")).toHaveTextContent("c0ffee1 on fleet/old-try");
+    await expect(bay(canvas, 4).queryByRole("status")).toBeNull();
+  },
+};
+
+/** A pool drawn with no rescue wiring offers none of its acts, even on a stranded bay. */
+export const RescueNotWired: Story = {
+  name: "Rescue not wired",
+  args: { rows: [{ slot: slot(4, STRANDED) }], onAct: fn() },
+  play: async ({ canvas }) => {
+    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop|Scrap|Stash/ })).toBeNull();
+  },
+};

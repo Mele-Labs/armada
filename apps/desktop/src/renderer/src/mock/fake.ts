@@ -16,7 +16,8 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
-import { reshaped } from "./slots-fleet";
+import { reshaped, rescued, scoutRead } from "./slots-fleet";
+import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import { approvedAs, edited, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
@@ -267,6 +268,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       if (state.held.state === "read") publish({ held: { state: "read", held } });
       return after.outcome;
     },
+    rescueSlot: async (manifestId, rescue) => {
+      if (held === undefined) return unanswered(`/worktrees/slots/rescue?manifest_id=${manifestId}`) as RescueOutcome;
+      const after = rescued(held, manifestId, rescue);
+      held = after.held;
+      if (state.held.state === "read") publish({ held: { state: "read", held } });
+      return after.outcome;
+    },
     deleteBranch: async () => OK,
     forgetJob: async (jobId) => (forget([jobId]), OK),
     redirectDrone: async () => OK,
@@ -442,10 +450,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
     frameStreamUrl: (jobId, kept) => `armada-frame://frame/${jobId}/${kept}`,
     readReports: async (want) => publish({ reports: want ? unread("/reports") : nothing }),
-    readHeld: async (want) =>
+    readHeld: async (want) => {
+      // A Scout reads between two reads, as Fleet's does: each one finds it a file further on.
+      if (want && held !== undefined) held = scoutRead(held);
       publish({
         held: !want ? nothing : held === undefined ? unread("/worktrees/held") : { state: "read", held },
-      }),
+      });
+    },
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
     ...studios,

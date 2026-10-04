@@ -7,15 +7,20 @@ import {
   FolderX,
   Ghost,
   KeyRound,
+  LifeBuoy,
   LoaderCircle,
+  Package,
+  Power,
   Snowflake,
   SquareDashed,
   Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { SlotAct, WorktreeSlot } from "@armada/protocol";
+import { useState } from "react";
+import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ScrapConfirm, SlotFinding } from "./SlotFinding";
 
 /**
  * A repository's worktree pool as a grid of bays, one per slot, styled by
@@ -25,6 +30,9 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * closed hue; a held one closed keeps its holder and takes the closed mark.
  * `armada worktree --status` is the same reading. Marks are group `Worktree
  * slot` in `packages/icons/icons.toml`.
+ *
+ * A stranded bay can be rescued: a Scout reads it, and the bay opens across the
+ * grid to its Finding, where the owner Scraps or Stashes it. Pick up is not here.
  */
 export type PoolSlotsProps = {
   rows: readonly PoolSlotRow[];
@@ -35,6 +43,11 @@ export type PoolSlotsProps = {
    * Absent draws no acts and no add tile.
    */
   onAct?: (act: SlotAct, slot?: number) => void;
+  /**
+   * Rescue a stranded slot: start or stop its Scout, or Scrap or Stash what it
+   * holds. A Scrap is sent only from its confirm. Absent draws none of the acts.
+   */
+  onRescue?: (act: RescueAct, slot: number) => void;
   /** Why the last add was refused, drawn on the add tile. */
   addRefused?: string;
   /** An add is out, so the tile waits. */
@@ -47,6 +60,8 @@ export type PoolSlotRow = {
   heldFor?: string;
   /** Why the last act on this slot was refused, said on the bay. */
   refused?: string;
+  /** What the last rescue act did, as a bare fact on the bay: the branch a Scrap kept, the commit a Stash made. */
+  said?: string;
   /** An act on this slot is out, so its acts wait. */
   acting?: boolean;
 };
@@ -147,20 +162,64 @@ function Act({
   );
 }
 
+/** What a stranded bay offers by where its rescue is: Rescue, Stop, or Scrap and Stash. */
+function RescueActs({
+  slot,
+  waiting,
+  onRescue,
+  onScrap,
+}: {
+  slot: WorktreeSlot;
+  waiting: boolean;
+  onRescue: (act: RescueAct, slot: number) => void;
+  /** Open the Scrap's confirm. Absent while it is open, so its own Scrap is the only one. */
+  onScrap: (() => void) | undefined;
+}) {
+  const rescue = slot.rescue;
+  if (rescue === undefined) {
+    return <Act said="Rescue" Glyph={LifeBuoy} waiting={waiting} onPress={() => onRescue("start", slot.slot)} />;
+  }
+  if (rescue.state === "reading") {
+    return <Act said="Stop" Glyph={Power} waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />;
+  }
+  if (onScrap === undefined) return null;
+  return (
+    <>
+      <Act said="Scrap" Glyph={Trash2} waiting={waiting} onPress={onScrap} />
+      <Act said="Stash" Glyph={Package} waiting={waiting} onPress={() => onRescue("stash", slot.slot)} />
+    </>
+  );
+}
+
 /** Close or reopen on every bay, and remove where the pool would let it go. */
-function Acts({ row, state, onAct }: { row: PoolSlotRow; state: State; onAct: PoolSlotsProps["onAct"] }) {
-  if (onAct === undefined) return null;
+function Acts({
+  row,
+  state,
+  onAct,
+  onRescue,
+  onScrap,
+}: {
+  row: PoolSlotRow;
+  state: State;
+  onAct: PoolSlotsProps["onAct"];
+  onRescue: PoolSlotsProps["onRescue"];
+  onScrap: (() => void) | undefined;
+}) {
+  if (onAct === undefined && onRescue === undefined) return null;
   const { slot } = row;
   const waiting = row.acting === true;
   const removable = slot.held.state === "free" || slot.held.state === "unmade";
   return (
     <span className="armada-bay__acts">
-      {slot.closed === true ? (
+      {onRescue === undefined || slot.held.state !== "stranded" ? null : (
+        <RescueActs slot={slot} waiting={waiting} onRescue={onRescue} onScrap={onScrap} />
+      )}
+      {onAct === undefined ? null : slot.closed === true ? (
         <Act said="Reopen" Glyph={DoorOpen} waiting={waiting} onPress={() => onAct("open", slot.slot)} />
       ) : (
         <Act said="Close" Glyph={DoorClosedLocked} waiting={waiting} onPress={() => onAct("close", slot.slot)} />
       )}
-      {removable && state.bay !== "busy" ? (
+      {onAct !== undefined && removable && state.bay !== "busy" ? (
         <Act said="Remove" Glyph={Trash2} waiting={waiting} onPress={() => onAct("remove", slot.slot)} />
       ) : null}
     </span>
@@ -186,16 +245,39 @@ function Refused({ said }: { said: string | undefined }) {
   );
 }
 
+function Said({ said }: { said: string | undefined }) {
+  return said === undefined ? null : (
+    <p className="armada-bay__said" role="status">
+      {said}
+    </p>
+  );
+}
+
 function BayTile({
   row,
   onOpenJob,
   onAct,
+  onRescue,
 }: {
   row: PoolSlotRow;
   onOpenJob: (jobId: string) => void;
   onAct: PoolSlotsProps["onAct"];
+  onRescue: PoolSlotsProps["onRescue"];
 }) {
   const { slot, heldFor } = row;
+  /** The Scrap's confirm is open on this bay. */
+  const [scrapping, setScrapping] = useState(false);
+  const rescue = slot.held.state === "stranded" ? slot.rescue : undefined;
+  const scrappable = rescue !== undefined && rescue.state !== "reading";
+  const acts = (state: State) => (
+    <Acts
+      row={row}
+      state={state}
+      onAct={onAct}
+      onRescue={onRescue}
+      onScrap={scrappable && !scrapping ? () => setScrapping(true) : undefined}
+    />
+  );
   const state = stateOf(slot);
   const closed = slot.closed === true;
   const name = `slot-${slot.slot}`;
@@ -217,7 +299,7 @@ function BayTile({
       <li className="armada-bay" data-bay={closed ? "closed" : state.bay} aria-label={name} aria-busy={row.acting || undefined}>
         <div className="armada-bay__top">
           {named}
-          <Acts row={row} state={state} onAct={onAct} />
+          {acts(state)}
         </div>
         <div className="armada-bay__open">
           {closed ? (
@@ -238,6 +320,7 @@ function BayTile({
           {state.bay === "free" && !closed ? <Warmth warm={slot.warm} worded /> : null}
         </div>
         <Refused said={row.refused} />
+        <Said said={row.said} />
       </li>
     );
   }
@@ -247,6 +330,7 @@ function BayTile({
       className="armada-bay"
       data-bay={state.bay}
       data-closed={closed ? "" : undefined}
+      data-open={rescue === undefined ? undefined : ""}
       aria-label={name}
       aria-busy={row.acting || undefined}
     >
@@ -257,7 +341,7 @@ function BayTile({
           {state.word}
         </span>
         {named}
-        <Acts row={row} state={state} onAct={onAct} />
+        {acts(state)}
       </div>
       <div className="armada-bay__body">
         <Holder slot={slot} onOpenJob={onOpenJob} />
@@ -266,7 +350,19 @@ function BayTile({
             <span className="armada-bay__branch">{slot.branch}</span>
           </Tooltip>
         )}
+        <SlotFinding slot={slot} />
+        {scrapping && scrappable && onRescue !== undefined ? (
+          <ScrapConfirm
+            slot={slot}
+            onScrap={() => {
+              setScrapping(false);
+              onRescue("scrap", slot.slot);
+            }}
+            onCancel={() => setScrapping(false)}
+          />
+        ) : null}
         <Refused said={row.refused} />
+        <Said said={row.said} />
         <div className="armada-bay__foot">
           {heldFor === undefined ? null : <Figure shown={heldFor} value={heldFor} named="Held for" />}
           {slot.behind === undefined ? null : (
@@ -303,11 +399,17 @@ function AddTile({ onAct, refused, adding }: { onAct: NonNullable<PoolSlotsProps
   );
 }
 
-export function PoolSlots({ rows, onOpenJob, onAct, addRefused, adding }: PoolSlotsProps) {
+export function PoolSlots({ rows, onOpenJob, onAct, onRescue, addRefused, adding }: PoolSlotsProps) {
   return (
     <ul className="armada-pool-slots" aria-label="Worktree slots">
       {rows.map((row) => (
-        <BayTile key={`${row.slot.manifest_id}/${row.slot.slot}`} row={row} onOpenJob={onOpenJob} onAct={onAct} />
+        <BayTile
+          key={`${row.slot.manifest_id}/${row.slot.slot}`}
+          row={row}
+          onOpenJob={onOpenJob}
+          onAct={onAct}
+          onRescue={onRescue}
+        />
       ))}
       {onAct === undefined ? null : <AddTile onAct={onAct} refused={addRefused} adding={adding} />}
     </ul>

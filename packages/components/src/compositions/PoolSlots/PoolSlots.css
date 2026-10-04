@@ -11,7 +11,7 @@
 .armada-pool-slots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 5), 1fr));
-  grid-auto-rows: 1fr;
+  grid-auto-rows: auto;
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -342,4 +342,125 @@
   .armada-bay[data-bay="busy"] .armada-bay__state > svg {
     animation: none;
   }
+}
+
+/* A stranded bay with a rescue opens across the grid, to the Scout's read and
+   then its Finding. Rows size to their content, so a bay opened wide does not
+   stretch every other row to match it. */
+.armada-bay[data-open] {
+  grid-column: 1 / -1;
+}
+
+/* What a rescue Scout read, on a raised ground so the hatch does not run
+   under the words. */
+.armada-finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.armada-finding--confirm {
+  border-color: var(--slot-stranded);
+}
+
+.armada-finding__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.armada-finding__commit,
+.armada-finding__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-finding__summary,
+.armada-finding__failed {
+  margin: 0;
+}
+
+.armada-finding__lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 4), 1fr));
+  gap: var(--space-3);
+}
+
+.armada-finding__summary {
+  max-width: calc(var(--space-12) * 14);
+}
+
+.armada-finding__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-finding__label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-finding__names {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(var(--h-row) * 4);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.armada-finding__names[data-mono] {
+  font-family: var(--font-mono);
+}
+
+.armada-finding__names > li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-finding__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A Scout reading, the live state: a loop that says still working. */
+.armada-finding__reading {
+  animation: armada-finding-reading var(--duration-pulse) ease-in-out infinite;
+}
+
+@keyframes armada-finding-reading {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-finding__reading {
+    animation: none;
+  }
+}
+
+/* What a rescue act did, a bare fact on the bay it was about. */
+.armada-bay__said {
+  margin: 0;
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  text-align: start;
 }

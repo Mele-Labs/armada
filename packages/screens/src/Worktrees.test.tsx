@@ -417,6 +417,91 @@ test("the pool draws a bay per slot, and a slot's Job opens from it", async () =
   expect(opens).toEqual(["01JOB"]);
 });
 
+const stranded = (rescue?: WorktreeSlot["rescue"]): WorktreeSlot => ({
+  manifest_id: "armada",
+  slot: 4,
+  path: "/r/.armada/slots/slot-4",
+  base: "main",
+  warm: false,
+  held: { state: "stranded", why: "2 uncommitted, first src/lib.rs" },
+  branch: "fleet/an-old-try",
+  stranded: {
+    uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
+    commits: [{ sha: "9d41e07b2c", subject: "Retry a short read once" }],
+    unpushed: 1,
+  },
+  ...(rescue === undefined ? {} : { rescue }),
+});
+
+const FINDING = { commit: "9d41e07b2c", uncommitted: true, read: ["src/lib.rs"], searched: [] };
+
+/** Mount the surface over one slot, with the rescue's answer and a count of every ask to read. */
+function rescuing(slot: WorktreeSlot, onRescueSlot: NonNullable<Parameters<typeof Worktrees>[0]["onRescueSlot"]>) {
+  const wants: boolean[] = [];
+  mount(
+    <Worktrees
+      onWant={(want) => wants.push(want)}
+      held={{ state: "read", held: { worktrees: [], slots: [slot] } }}
+      onReclaim={() => Promise.resolve({ ok: true })}
+      onDeleteBranch={() => Promise.resolve({ ok: true })}
+      onForget={() => Promise.resolve({ ok: true })}
+      now={NOW}
+      onClose={() => {}}
+      onCopied={() => {}}
+      onOpenJob={() => {}}
+      onRescueSlot={onRescueSlot}
+    />,
+  );
+  return wants;
+}
+
+const RECEIPT = { manifest_id: "armada", slot: 4 };
+
+/**
+ * Fleet sends nothing when a Scout reads one more file, so the surface asks for
+ * the pool again while one reads. **Only then**: a pool nobody is reading into
+ * is not polled.
+ */
+test("the pool is read again while a Scout reads, and not after it answers", async () => {
+  const reading = rescuing(stranded({ ...FINDING, state: "reading" }), () => Promise.resolve({ ok: true, rescued: RECEIPT }));
+  await new Promise((done) => setTimeout(done, 2_300));
+  expect(reading.filter(Boolean).length).toBeGreaterThanOrEqual(3);
+  unmount();
+
+  const answered = rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), () =>
+    Promise.resolve({ ok: true, rescued: RECEIPT }),
+  );
+  await new Promise((done) => setTimeout(done, 1_500));
+  expect(answered).toEqual([true]);
+});
+
+/** A rescue act Fleet refuses is said on the bay it was about, as the pool's acts are. */
+test("a refused rescue is said on its bay", async () => {
+  rescuing(stranded(), () =>
+    Promise.resolve({
+      ok: false,
+      why: "refused",
+      error: { code: "fleet.slot_busy", message: "a lease is under way", run_id: "r", fields: {}, chain: [] },
+    }),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Rescue" }));
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Not started: a lease is under way");
+});
+
+/** A Scrap that kept the branch says so on the slot it freed, once its confirm is answered. */
+test("a scrap that kept its branch says so, after its confirm", async () => {
+  const sent: string[] = [];
+  rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), (_manifest, rescue) => {
+    sent.push(rescue.act);
+    return Promise.resolve({ ok: true, rescued: { ...RECEIPT, branch: "fleet/an-old-try", branch_kept: true } });
+  });
+  await userEvent.click(page.getByRole("button", { name: "Scrap" }));
+  expect(sent).toEqual([]);
+  await userEvent.click(page.getByRole("group", { name: "Scrap slot-4" }).getByRole("button", { name: "Scrap" }));
+  expect(sent).toEqual(["scrap"]);
+  await expect.element(page.getByRole("status")).toHaveTextContent("fleet/an-old-try kept");
+});
+
 // Only referenced for their types, so the answer functions above stay honest
 // about what they hand back.
 void (null as unknown as BranchDeleted);

@@ -117,6 +117,7 @@ import {
   readReports,
   reclaimOne,
   changeSlotPool,
+  rescueSlot,
   showAgain,
   startRun,
   startCheckoutRun,
@@ -915,6 +916,7 @@ export function App({ draft }: AppProps = {}) {
                   // A slot's Job opens over Cleanup, and Escape comes back here.
                   onOpenJob={setOpenJob}
                   onChangeSlotPool={changeSlotPool}
+                  onRescueSlot={rescueSlot}
                   actions={
                     <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
                   }

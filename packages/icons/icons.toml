@@ -338,6 +338,13 @@
   size = "12px"
   status = "Specified"
 
+  [[icons.git-commit-horizontal.usage]]
+    means = "The commit a rescue Scout read a stranded slot at, on its Finding"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot. The one existing glyph for a commit, before its short hash in mono. Tooltip `Commit it read`."
+
 [icons.git-pull-request]
   means = "pull request"
   group = "Git and config"
@@ -546,6 +553,13 @@
     group = "Action"
     size = "16px"
     notes = "Added 2026-09-29 with Pulse's Processes card (#1647): a kill on each row and one in the card's head, icon-only with `Hold to kill` as the tooltip. Kill's own glyph, for the reason the server stop above borrows it — a process ended on purpose. 16px, the button size, as is the head's `rotate-cw` Refresh beside it."
+
+  [[icons.power.usage]]
+    means = "Stop the Scout reading a stranded worktree slot, and the mark on a Finding it was stopped on"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person ending a read on purpose, which is what the silhouette is for. Tooltip `Stop`, and `Stopped` on the Finding. Refused: `octagon-alert` and `x`, both reserved elsewhere and neither about a process."
 
 [icons.presentation]
   means = "Studios — a whiteboard on its stand, which is what a Studio is drawn as"
@@ -801,6 +815,13 @@
     size = "12px"
     status = "Specified"
     notes = "Proposed 4 Oct 2026 with the pool's controls. A person taking off a slot of this machine's pool, which is their own act on their own thing, as the row requires. Offered only where the pool would let it go. Tooltip `Remove`."
+
+  [[icons.trash-2.usage]]
+    means = "Scrapping a stranded worktree slot: its checkout goes, and what it holds with it"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person throwing away their own unfinished work, which the row requires. The press opens a confirm that names the uncommitted files and unpushed commits; it does not scrap. Tooltip `Scrap`."
   notes = "Minted 2026-09-28, and it is the mint the node bar's open question said would pay for itself: one decision serving the Studio's Delete, the sketch pad's Remove and `AttachmentChip`'s dismiss rather than three. `trash-2` rather than `trash`, whose lid sits on the bin and loses its gap at 12px. Refused, and refused before the mint opened: `x`, reserved to system failure and banned by its own row from carrying a human decision; `minus`, reserved to a record nothing checked and a dropped plan task; `ban`, which is `rejected`'s and means a person declined a whole Job; the `circle-*` and `shield-*` families, which are verdicts; `eraser`, which says a mark rubbed out and collides with `pencil` on the one surface that draws both."
 
 [icons.triangle-alert]
@@ -1198,3 +1219,35 @@
   status = "Specified"
   reserved = "A cold worktree slot only."
   paired_with = "flame"
+
+[icons.life-buoy]
+  means = "A life ring - a stranded slot a person can rescue"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Rescuing a stranded worktree slot, the act on its bay. Never help, support or a Job's recovery."
+  notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. The stranded bay is a ghost left holding work; a ring thrown to it is the one drawing that says the work can be got back, and no glyph in the set claims it. Refused: `undo-2`, which is a reversal of a change; `rotate-cw`, which is Refresh; `ghost`, the state itself. Tooltip `Rescue`."
+
+[icons.scan-search]
+  means = "Corner brackets round a magnifier - a Scout reading a stranded slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
+  notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."
+
+[icons.package]
+  means = "A parcel - a stranded slot's work put aside"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Stashing a stranded worktree slot's work as a commit on its branch, the act on its bay. Never a release, a dependency or a Job's artifact."
+  notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. A taped parcel is work kept and set down. Refused: `archive`, which is `superseded` on the Board and says the record no longer describes the work; `inbox` and `download`, which say something arrived. Tooltip `Stash`."
+
+[icons.file-pen-line]
+  means = "A page with a pen writing a line - changes on top of the commit that nobody committed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
+  notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."

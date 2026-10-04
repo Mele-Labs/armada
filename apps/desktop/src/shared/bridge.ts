@@ -514,6 +514,7 @@ export const CHANNELS = {
   forgetTerminalJobs: "bridge:forget-terminal-jobs",
   reclaimWorktree: "bridge:reclaim-worktree",
   changeSlotPool: "bridge:change-slot-pool",
+  rescueSlot: "bridge:rescue-slot",
   deleteBranch: "bridge:delete-branch",
   forgetJob: "bridge:forget-job",
   redirectDrone: "bridge:redirect-drone",
