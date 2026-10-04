@@ -463,6 +463,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/worktrees",
     },
+    // The pool beside them, reshaped on this machine: a slot added, removed,
+    // closed or reopened.
+    Route {
+        operation: "change_slot_pool",
+        method: "POST",
+        path: "/worktrees/slots",
+    },
     Route {
         operation: "propose_job",
         method: "POST",

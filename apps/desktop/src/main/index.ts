@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { Outcome } from "@armada/protocol";
+import type { ChangeSlotPool, Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -551,6 +551,13 @@ void app.whenReady().then(() => {
   // Folding the receipt in instead would be Bridge deciding a worktree is gone.
   ipcMain.handle(CHANNELS.reclaimWorktree, async (_event, jobId: string) => {
     const outcome = await connection?.commands.reclaimWorktree(jobId);
+    await connection?.rereadHeld();
+    return outcome;
+  });
+  // The pool reshaped from Cleanup's bay grid, and read again after for the
+  // reclaim's reason: whether a slot went is Fleet's reading.
+  ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
+    const outcome = await connection?.commands.changeSlotPool(manifestId, change);
     await connection?.rereadHeld();
     return outcome;
   });

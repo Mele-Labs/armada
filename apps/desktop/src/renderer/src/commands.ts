@@ -27,7 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -122,6 +122,8 @@ export const startStudioServer = (studioId: string, name: string, position: Stud
 export const openStudioNode = (studioId: string, nodeId: string) =>
   window.armada.openStudioNode(studioId, nodeId);
 export const reclaimOne = (jobId: string) => window.armada.reclaimWorktree(jobId);
+export const changeSlotPool = (manifestId: string, change: ChangeSlotPool) =>
+  window.armada.changeSlotPool(manifestId, change);
 export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
 export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);

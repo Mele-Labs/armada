@@ -211,6 +211,26 @@ fn worktree_leases_releases_and_lists() {
 }
 
 #[test]
+fn worktree_adds_removes_closes_and_opens_a_slot_by_number() {
+    use crate::cli::WorktreeAct;
+    assert_eq!(asked("worktree add"), Ok(Verb::Worktree(WorktreeAct::Add)));
+    assert_eq!(
+        asked("worktree remove 3"),
+        Ok(Verb::Worktree(WorktreeAct::Remove { slot: 3 }))
+    );
+    assert_eq!(
+        asked("worktree close slot-2"),
+        Ok(Verb::Worktree(WorktreeAct::Close { slot: 2 }))
+    );
+    assert_eq!(
+        asked("worktree open 2"),
+        Ok(Verb::Worktree(WorktreeAct::Open { slot: 2 }))
+    );
+    assert!(said("worktree close").contains("needs a slot's number"));
+    assert!(said("worktree add 3").contains("3"));
+}
+
+#[test]
 fn a_lease_with_no_branch_says_one_is_needed() {
     assert!(said("worktree lease").contains("needs the branch"));
     assert!(said("worktree borrow x").contains("`worktree lease <branch>`"));

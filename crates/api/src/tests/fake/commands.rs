@@ -522,6 +522,17 @@ impl Commands for FakeDaemon {
     ) -> Result<WorktreeReclaimed, Refusal> {
         self.fake_reclaim_worktree(job_id).await
     }
+    async fn change_slot_pool(
+        &self,
+        _change: ipc::ChangeSlotPool,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::SlotPoolChanged, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fleet.no_such_slot",
+            String::from("the fake daemon serves no pool"),
+            crate::tests::shapes::run_id(),
+        )))
+    }
     async fn delete_branch(
         self: std::sync::Arc<Self>,
         job_id: JobId,

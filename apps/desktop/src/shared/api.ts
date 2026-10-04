@@ -45,7 +45,7 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
-import type { LandCheckAt } from "@armada/protocol";
+import type { ChangeSlotPool, LandCheckAt } from "@armada/protocol";
 import type { BridgeState, Summons } from "./bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "./capture-window";
 import type { Pattern } from "./haptics";
@@ -237,6 +237,11 @@ export type BridgeApi = {
    * both to one flag.
    */
   reclaimWorktree: (jobId: string) => Promise<Outcome>;
+  /**
+   * Add, remove, close or reopen one slot of a repository's worktree pool, on
+   * this machine. Cleanup is read again after, whatever came back.
+   */
+  changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   /**
    * Delete one terminal Job's branch, sending the tip a person confirmed. **A
    * force** — Fleet refuses with 409 where the Job is not terminal, the

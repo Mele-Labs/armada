@@ -25,7 +25,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -549,6 +549,18 @@ export class JobCommands {
    */
   reclaimWorktree(jobId: string): Promise<Outcome> {
     return this.clearing.reclaim(jobId);
+  }
+
+  /**
+   * Add a slot to one repository's pool, remove one, or close or reopen one,
+   * on this machine only. A refusal comes back coded — `fleet.slot_held` and
+   * its siblings — so Cleanup says on the slot why it would not go.
+   */
+  async changeSlotPool(manifestId: string, change: ChangeSlotPool): Promise<Outcome> {
+    const port = this.board.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots", manifestId), change);
+    return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
   /**

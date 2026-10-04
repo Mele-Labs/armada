@@ -49,13 +49,20 @@ import {
   CardTitle,
   Dialog,
   HeldWorktree,
-  PoolSlots,
 } from "@armada/components";
 import { patternFor, useHaptics } from "@armada/components";
 import type { ButtonAnswer, RowChoice } from "@armada/components";
 
-import type { BranchDeleted, HeldWorktrees, JobSummary, Outcome, WorktreeReclaimed } from "@armada/protocol";
+import type {
+  BranchDeleted,
+  ChangeSlotPool,
+  HeldWorktrees,
+  JobSummary,
+  Outcome,
+  WorktreeReclaimed,
+} from "@armada/protocol";
 import { said } from "./copy";
+import { SlotPools } from "./SlotPools";
 import {
   choiceOf,
   chosenRows,
@@ -137,6 +144,8 @@ export type WorktreesProps = {
   actions?: ReactNode;
   /** Open the Job holding a worktree slot. */
   onOpenJob: (jobId: string) => void;
+  /** Add, remove, close or reopen one slot of a repository's pool. Absent draws no acts. */
+  onChangeSlotPool?: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
 };
 
 /**
@@ -160,6 +169,7 @@ export function Worktrees({
   onCopied,
   actions,
   onOpenJob,
+  onChangeSlotPool,
 }: WorktreesProps) {
   useEffect(() => {
     onWant(true);
@@ -292,22 +302,12 @@ export function Worktrees({
         </Alert>
       ))}
 
-      {slots.length === 0 ? null : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Worktree slots</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PoolSlots
-              rows={slots.map((slot) => {
-                const heldFor = slot.since === undefined ? null : sitting(slot.since, now);
-                return heldFor === null ? { slot } : { slot, heldFor };
-              })}
-              onOpenJob={onOpenJob}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <SlotPools
+        slots={slots}
+        now={now}
+        onOpenJob={onOpenJob}
+        {...(onChangeSlotPool === undefined ? {} : { onChange: onChangeSlotPool })}
+      />
 
       {/* Nothing waiting on a person draws nothing: an empty slot stays empty. */}
       {groups.deciding.length === 0 ? null : (

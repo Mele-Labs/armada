@@ -359,7 +359,8 @@
    Held is a lease in flight, so running; free is ready, so success; stranded
    needs a person, so review's amber, hatched from its -bg. Warm and cold are
    the build's: escalated's orange and not-started's grey. A slot not made
-   takes none. */
+   takes none. Closed is a person declining to lease it, so rejected's
+   violet, shuttered from its -bg; added 4 Oct 2026 with the pool's controls. */
 :root {
   --slot-held: var(--status-running);
   --slot-free: var(--status-completed-success);
@@ -367,6 +368,8 @@
   --slot-stranded-bg: var(--status-awaiting-review-bg);
   --slot-warm: var(--status-escalated);
   --slot-cold: var(--status-not-started);
+  --slot-closed: var(--status-rejected);
+  --slot-closed-bg: var(--status-rejected-bg);
 }
 
 /* The error treatment: one red, told apart from a Job status by shape.

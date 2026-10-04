@@ -28,6 +28,7 @@ mod keeping_current;
 mod landing;
 mod leasing;
 mod leasing_jobs;
+mod leasing_shape;
 mod mcp;
 mod merging_by_push;
 mod reading_in;
