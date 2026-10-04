@@ -863,6 +863,11 @@ const ROUTES: &[Route] = &[
         path: "/jobs/:job_id/set_tiers",
     },
     Route {
+        operation: "set_landing_target",
+        method: "POST",
+        path: "/jobs/:job_id/set_landing_target",
+    },
+    Route {
         operation: "remove_allowed_command",
         method: "POST",
         path: "/jobs/:job_id/remove_allowed_command",

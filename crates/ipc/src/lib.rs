@@ -195,7 +195,7 @@ pub use approval_ask::AskedApproval;
 pub use approving::{
     moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
     CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
-    LandingUnit, LandsWhen, PolicyOverrides, StepTuning,
+    LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning,
 };
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};

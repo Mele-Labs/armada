@@ -778,6 +778,18 @@ pub trait Commands: Send + Sync + 'static {
         tiers: ipc::SetTiers,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `set_landing_target` — where an approved Job that lands in the base is
+    /// to land instead, before its work goes out. 23.20.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job is at its gate, ended, already
+    /// lands somewhere a person chose, or its work went out;
+    /// [`Refusal::Unacceptable`] on a blank or unheld branch.
+    fn set_landing_target(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        target: ipc::SetLandingTarget,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `remove_allowed_command` — take back a command a person allowed for
     /// this Job. The next reach for it is answered by the Job's setting again;
     /// one already written into armada.yml stays there.

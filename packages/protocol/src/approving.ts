@@ -100,6 +100,15 @@ export type LandingChoice = {
   complete_when?: string;
 };
 
+/**
+ * `set_landing_target`'s body, `POST /jobs/{job_id}/set_landing_target`: the
+ * branch an approved Job landing in the base lands in instead, once, before its
+ * work goes out. Since 23.20.
+ */
+export type SetLandingTarget = {
+  target: string;
+};
+
 /** How one Job lands, frozen at approval, on `JobDetail.landing`. */
 export type LandingRule = {
   /** Absent is the Manifest's base, which is not a branch name to print. */

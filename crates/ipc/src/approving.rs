@@ -233,6 +233,14 @@ impl From<core_model::CompleteWhen> for CompleteWhen {
     }
 }
 
+/// `set_landing_target`'s body (23.20): the branch an approved Job that lands
+/// in the Manifest's base is to land in instead. Refused unless the repository
+/// holds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetLandingTarget {
+    pub target: String,
+}
+
 /// What Approve the plan sends at an Epic's plan gate (#1694): **every Job of
 /// the wave it releases**, by id. Refused unless it names exactly the wave
 /// Fleet holds — each Job its plan proposed that is still at

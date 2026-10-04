@@ -1417,6 +1417,19 @@ Refused with a 409, and nothing kept, where any model in the map is one `list_mo
 `agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
+[operations.set_landing_target]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose the branch an approved Job lands in, where it lands in the base and its work has not gone out"
+notes = """
+`POST /jobs/:job_id/set_landing_target`, protocol 23.20, for the approval canvas: a Job approved landing in the Manifest's base may be aimed at another branch once. The body is `SetLandingTarget`: `target`, a branch the repository holds. The answer is the Job's summary; `JobDetail.landing.target` reads it back, and the delivering step opens its pull request against it.
+
+**Only once, and only before the work goes out**, since the pull request opens against it. 409 `fleet.landing_target_settled` on a Job still at `awaiting_approval`, where the approval sets it, on one ended, on one already landing somewhere a person chose, and on one whose work was committed or opened for review. 422 `fleet.landing_target_blank` on a blank branch and `fleet.no_such_branch` on one the repository does not hold. The worktree keeps what it was cut from.
+
+`agent_access` is `Helm only`, `set_model`'s reason.
+"""
+
 [operations.set_model]
 kind = "command"
 transport = "HTTP"
