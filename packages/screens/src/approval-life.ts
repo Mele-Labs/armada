@@ -4,16 +4,17 @@
 // 4 Oct 2026, prototype).
 //
 // **Every word and glyph is a registry's.** A step reads `STEP_STATE`, a group
-// `GROUP_STATE`, through the card's own mark and its tooltip; nothing here
-// writes a status phrase.
+// `GROUP_STATE` and a dispatched Job `JOB_STATUS`, through the card's own mark
+// and its tooltip; nothing here writes a status phrase.
 
-import { GROUP_STATE, STEP_STATE } from "@armada/components";
+import { GROUP_STATE, JOB_STATUS, STEP_STATE } from "@armada/components";
 import type { StepActivity } from "@armada/components";
 import type { JobDetail as JobWhole } from "@armada/protocol";
 
-import type { GroupRead, LifeRead, NodeLife } from "./approval-canvas";
+import type { GroupRead, LifeRead, MemberRead, NodeLife } from "./approval-canvas";
 import { taskGroupsOf } from "./draft/group";
 import type { GroupState } from "./draft/group";
+import type { WaveView } from "./draft/wave";
 
 /** The step machine's states the card's mark draws as they are. */
 const STEP_ACTIVITY: ReadonlySet<string> = new Set([
@@ -37,6 +38,23 @@ const GROUP_ACTIVITY: Readonly<Record<GroupState, StepActivity>> = {
   retrying: "retrying",
 };
 
+/**
+ * A dispatched Job's status on the card's mark — its sweep, and whether it is
+ * done. The glyph, hue and word are `JOB_STATUS`'s row.
+ */
+const JOB_ACTIVITY: Readonly<Record<string, StepActivity>> = {
+  running: "running",
+  proposing: "running",
+  completed_success: "advanced",
+  completed_failed: "failed",
+  killed: "killed",
+  awaiting_review: "awaiting_human",
+  awaiting_approval: "awaiting_human",
+  awaiting_repair: "awaiting_human",
+  awaiting_attestation: "awaiting_human",
+  escalated: "awaiting_human",
+};
+
 /** The step states a Job is *at*, rather than past or short of. */
 const AT: ReadonlySet<string> = new Set(["running", "awaiting_human", "retrying", "stopped"]);
 
@@ -49,7 +67,27 @@ const stepLife = (state: string, current: boolean): NodeLife => ({
 /** Done, in the step machine's word: what Brief, the base and the start read once the Job is past them. */
 const PAST = stepLife("advanced", false);
 
-export function lifeOf(whole: JobWhole): LifeRead {
+/** The wave's Jobs on its live pass — an earlier pass is history a loop return replaced. */
+function membersOf(wave: WaveView | undefined): MemberRead[] {
+  const live = wave?.rounds.find((round) => round.live)?.round;
+  return (wave?.jobs ?? [])
+    .filter((job) => live === undefined || job.round === live)
+    .map((job) => {
+      const row = JOB_STATUS[job.status];
+      return {
+        id: job.job,
+        name: job.title,
+        waits_on: job.waits_on,
+        life: {
+          activity: JOB_ACTIVITY[job.status] ?? "not_started",
+          said: row?.verb ?? job.status,
+          ...(row?.icon && row.statusToken ? { mark: { icon: row.icon, token: row.statusToken } } : {}),
+        },
+      };
+    });
+}
+
+export function lifeOf(whole: JobWhole, wave?: WaveView): LifeRead {
   const nodes: Record<string, NodeLife> = { brief: PAST, base: PAST, start: PAST };
   for (const step of whole.steps) {
     const current = step.step_id === whole.job.current_step_id && AT.has(step.state);
@@ -72,5 +110,10 @@ export function lifeOf(whole: JobWhole): LifeRead {
       },
     };
   });
-  return groups.length === 0 ? { nodes } : { nodes, groups };
+  const jobs = membersOf(wave);
+  return {
+    nodes,
+    ...(groups.length === 0 ? {} : { groups }),
+    ...(jobs.length === 0 ? {} : { jobs }),
+  };
 }

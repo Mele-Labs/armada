@@ -575,6 +575,14 @@ export const SCENARIOS: readonly Scenario[] = [
     ...holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),
     draft: { life_canvas: true as const },
   },
+  // An Epic Job's run on the same canvas: the wave's Jobs in the place its
+  // plan dispatched them, side by side where they may run at once (prototype).
+  {
+    ...moment("epic", epicWave()),
+    name: "proto/epic-running",
+    says: "An Epic Job's run, its wave's Jobs on the canvas",
+    draft: { ...epicWave().draft, life_canvas: true as const },
+  },
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
   // A Judge refusal he agreed with: the step stopped and the Job escalated,

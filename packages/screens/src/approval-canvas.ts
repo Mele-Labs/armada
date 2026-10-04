@@ -28,6 +28,8 @@ export type ApprovalNodeKind =
   | "checks"
   | "groups"
   | "group"
+  | "jobs"
+  | "job"
   | "done"
   | "pr"
   | "land";
@@ -49,12 +51,17 @@ export type NodeLife = {
 /** One of the plan's groups, as the canvas draws it in the Groups node's place. */
 export type GroupRead = { id: string; name: string; life: NodeLife };
 
+/** One Job the wave dispatched, and the ones it waits on, by id. */
+export type MemberRead = GroupRead & { waits_on: readonly string[] };
+
 /** What the running Job says about each node. Absent is the gate. */
 export type LifeRead = {
   /** By node id: `brief`, a step's id, `plan:checks`, `land`. */
   nodes: Readonly<Record<string, NodeLife>>;
   /** The plan's groups, once a plan is recorded. Absent draws the placeholder. */
   groups?: readonly GroupRead[];
+  /** The Jobs the wave dispatched, on its live pass. Absent draws the placeholder. */
+  jobs?: readonly MemberRead[];
 };
 
 /** One step of the chosen workflow, as the canvas reads it. */
@@ -82,6 +89,13 @@ export type ApprovalNode = {
   life?: NodeLife;
   /** Whether a press opens a card. Absent is yes. */
   inert?: true;
+  /**
+   * A dispatched Job's place in the wave: its depth — how many Jobs stand
+   * before it — and where it sits among the Jobs of that depth.
+   */
+  band?: { depth: number; index: number; of: number };
+  /** The Jobs this one waits on, by node id. */
+  waits_on?: readonly string[];
 };
 
 /** The step-state word every node reads as before the press. */
@@ -120,6 +134,33 @@ export function stepsReadOf(
  */
 export const perTask = (step: StepRead): boolean => step.id === "implement";
 
+/**
+ * The step the wave's Jobs are dispatched from. **A stand-in**:
+ * `WorkflowSummary` carries no `may_dispatch_jobs`, so it is Epic's first
+ * step, which is the one `epic.json` declares it on. Owed beside
+ * `drone_per_task`.
+ */
+export function dispatchesFromOf(workflowId: string, steps: readonly StepRead[]): string | undefined {
+  return workflowId === "epic" ? steps[0]?.id : undefined;
+}
+
+/** How many Jobs stand before each one, by `waits_on` — the wave canvas's own reading. */
+function depthsOf(jobs: readonly MemberRead[]): Map<string, number> {
+  const byId = new Map(jobs.map((job) => [job.id, job]));
+  const depth = new Map<string, number>();
+  const of = (id: string, reaching: ReadonlySet<string>): number => {
+    const held = depth.get(id);
+    if (held !== undefined) return held;
+    if (reaching.has(id)) return 0;
+    const waits = (byId.get(id)?.waits_on ?? []).filter((one) => byId.has(one));
+    const mine = waits.length === 0 ? 0 : Math.max(...waits.map((one) => of(one, new Set([...reaching, id])))) + 1;
+    depth.set(id, mine);
+    return mine;
+  };
+  for (const job of jobs) of(job.id, new Set());
+  return depth;
+}
+
 /** Whether a step's gate is a node of its own. */
 export const gateIsANode = (step: StepRead): boolean => step.checks.length > 0 || step.judges.length > 0;
 
@@ -133,6 +174,7 @@ export function approvalNodesOf({
   prMode,
   target,
   life,
+  dispatchesFrom,
 }: {
   title: string;
   from: string;
@@ -143,6 +185,8 @@ export function approvalNodesOf({
   prMode: "ready" | "draft";
   target: string;
   life?: LifeRead;
+  /** The step the wave's Jobs are dispatched from, where the workflow dispatches any. */
+  dispatchesFrom?: string;
 }): { nodes: ApprovalNode[]; edges: WorkflowCanvasEdge[] } {
   const nodes: ApprovalNode[] = [];
   const put = (node: Omit<ApprovalNode, "ordinal">) => {
@@ -213,19 +257,47 @@ export function approvalNodesOf({
       }
     }
     if (gateIsANode(step)) {
-      const judges = tuned?.judges ?? 1;
-      const said: WorkflowStepFact[] = [];
-      if (gate?.checks === true) said.push({ value: "Checks" });
-      if (gate?.judge === true) said.push({ value: judges === 1 ? "Judge" : `${judges} Judges` });
-      put({
-        id: `${step.id}:checks`,
-        kind: "checks",
-        stepId: step.id,
-        name: "Checks",
-        facts: said,
-        ...(gate?.you === true ? { gate: YOU } : {}),
-      });
+      putGate(step, gate, tuned);
     }
+    // The wave's Jobs, after the step that dispatches them and its gate.
+    if (step.id === dispatchesFrom) {
+      if (life?.jobs === undefined || life.jobs.length === 0) {
+        put({ id: "jobs", kind: "jobs", name: "Jobs", facts: [], inert: true });
+      } else {
+        const depths = depthsOf(life.jobs);
+        const ordered = [...life.jobs].sort((a, b) => depths.get(a.id)! - depths.get(b.id)!);
+        for (const job of ordered) {
+          const depth = depths.get(job.id)!;
+          const peers = ordered.filter((one) => depths.get(one.id) === depth);
+          nodes.push({
+            id: `job:${job.id}`,
+            kind: "job",
+            name: job.name,
+            facts: [],
+            life: job.life,
+            inert: true,
+            band: { depth, index: peers.indexOf(job), of: peers.length },
+            waits_on: job.waits_on.filter((one) => life.jobs!.some((other) => other.id === one)).map((one) => `job:${one}`),
+            ordinal: nodes.length + 1,
+          });
+        }
+      }
+    }
+  }
+  /** A step's gate, as a node of its own. */
+  function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined) {
+    const judges = tuned?.judges ?? 1;
+    const said: WorkflowStepFact[] = [];
+    if (gate?.checks === true) said.push({ value: "Checks" });
+    if (gate?.judge === true) said.push({ value: judges === 1 ? "Judge" : `${judges} Judges` });
+    put({
+      id: `${step.id}:checks`,
+      kind: "checks",
+      stepId: step.id,
+      name: "Checks",
+      facts: said,
+      ...(gate?.you === true ? { gate: YOU } : {}),
+    });
   }
   // A workflow with no step that delivers still opens its pull request last.
   if (delivery !== "local" && !opened) pr();
@@ -239,17 +311,44 @@ export function approvalNodesOf({
     ...(delivery !== "local" && !tuning.auto_merge ? { gate: YOU } : {}),
   });
 
-  const edges: WorkflowCanvasEdge[] = nodes.slice(1).map((node, at) => {
-    const from = nodes[at]!;
-    const own = node.kind === "land" && delivery !== "local" && tuning.auto_merge;
-    return {
-      id: `${from.id}->${node.id}`,
-      source: from.id,
-      target: node.id,
+  const edges: WorkflowCanvasEdge[] = [];
+  const lead = (source: ApprovalNode, target: ApprovalNode) => {
+    const own = target.kind === "land" && delivery !== "local" && tuning.auto_merge;
+    edges.push({
+      id: `${source.id}->${target.id}`,
+      source: source.id,
+      target: target.id,
       kind: "leads",
       ...(own ? { label: "merges on its own" } : {}),
-    };
-  });
+    });
+  };
+  // One after another, except the wave's Jobs: the node before them leads to
+  // each that waits on nothing, each leads to the ones waiting on it, and each
+  // nobody waits on leads to the node after them.
+  for (const [at, node] of nodes.entries()) {
+    if (at === 0) continue;
+    const before = nodes[at - 1]!;
+    if (node.kind === "job") {
+      const waits = node.waits_on ?? [];
+      if (waits.length === 0) {
+        const head = nodes.slice(0, at).reverse().find((one) => one.kind !== "job");
+        if (head !== undefined) lead(head, node);
+      }
+      for (const id of waits) {
+        const on = nodes.find((one) => one.id === id);
+        if (on !== undefined) lead(on, node);
+      }
+      continue;
+    }
+    if (before.kind === "job") {
+      const wave = nodes.filter((one) => one.kind === "job");
+      for (const job of wave) {
+        if (!wave.some((other) => other.waits_on?.includes(job.id) === true)) lead(job, node);
+      }
+      continue;
+    }
+    lead(before, node);
+  }
   return { nodes, edges };
 }
 

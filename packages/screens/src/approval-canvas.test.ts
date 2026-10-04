@@ -75,3 +75,41 @@ describe("approvalNodesOf", () => {
     expect(edges.at(-1)?.label).toBe("merges on its own");
   });
 });
+
+describe("a wave's Jobs", () => {
+  const EPIC: StepRead[] = [
+    { id: "plan", label: "Plan the wave", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false },
+    { id: "roll_up", label: "Roll up the wave", checks: [], judges: [], delivers: false },
+  ];
+  const gates = [
+    { step_id: "plan", checks: false, judge: true, you: true },
+    { step_id: "roll_up", checks: false, judge: false, you: true },
+  ];
+  const job = (id: string, waits_on: string[] = []) => ({
+    id,
+    name: id,
+    waits_on,
+    life: { activity: "running" as const, said: "running" },
+  });
+  const read = (jobs?: ReturnType<typeof job>[]) =>
+    approvalNodesOf({
+      title: "T", from: "main", workflowName: "epic", steps: EPIC, gates, tuning: tuningOf([]), prMode: "ready",
+      target: "main", dispatchesFrom: "plan", ...(jobs === undefined ? {} : { life: { nodes: {}, jobs } }),
+    });
+
+  it("stands as Jobs after the step that dispatches them, until the wave exists", () => {
+    expect(read().nodes.map((node) => node.id).slice(3, 6)).toEqual(["plan", "plan:checks", "jobs"]);
+  });
+
+  it("leads from the gate to each Job that waits on nothing, and on from each nobody waits on", () => {
+    const { nodes, edges } = read([job("A"), job("B", ["A"]), job("C")]);
+    expect(nodes.find((node) => node.id === "job:B")?.band).toEqual({ depth: 1, index: 0, of: 1 });
+    const pairs = edges.map((edge) => `${edge.source}>${edge.target}`);
+    expect(pairs).toContain("plan:checks>job:A");
+    expect(pairs).toContain("plan:checks>job:C");
+    expect(pairs).toContain("job:A>job:B");
+    expect(pairs).toContain("job:B>roll_up");
+    expect(pairs).toContain("job:C>roll_up");
+    expect(pairs).not.toContain("job:A>roll_up");
+  });
+});

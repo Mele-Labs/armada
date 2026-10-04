@@ -56,7 +56,7 @@ const NOT_FOLLOWING: FollowedLog = { state: "none" };
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
-import { type WaveRegionProps } from "./tab-wave";
+import { type WaveRegionProps, waveReadingOf } from "./tab-wave";
 import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
@@ -401,7 +401,7 @@ function OneJob(props: JobDetailProps) {
                     <ApprovalCanvas
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
-                      life={lifeOf(whole)}
+                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []))}
                       workflows={props.workflows}
                       manifest={manifest}
                       branches={held.branches}

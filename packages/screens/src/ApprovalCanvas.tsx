@@ -36,7 +36,7 @@ import {
 } from "@armada/components";
 import type { GateBox, ProposalLandingValue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 
-import { NOT_STARTED, approvalNodesOf, checksOf, perTask, stepsReadOf } from "./approval-canvas";
+import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import type { ApprovingProps } from "./approving";
 import { baseBranch } from "./draft/branches";
@@ -93,16 +93,35 @@ function opensOnOf(nodes: readonly ApprovalNode[]): string[] {
   return nodes.slice(at, at + 6).map((node) => node.id);
 }
 
-/** Where each node sits, top to bottom (the owner, 4 Oct 2026): one under the last, by what each draws. */
-function placesOf(nodes: readonly ApprovalNode[], edges: readonly WorkflowCanvasEdge[]): number[] {
-  const ys: number[] = [];
+/** How far apart two Jobs of one band of the wave sit: a card's width and `--space-8`. */
+const ACROSS = 196 + 32;
+
+/**
+ * Where each node sits, top to bottom (the owner, 4 Oct 2026): one under the
+ * last, by what each draws. **A wave's Jobs of one depth share a row**, side by
+ * side about the run's own line, so what may run at once reads as at once.
+ */
+function placesOf(
+  nodes: readonly ApprovalNode[],
+  edges: readonly WorkflowCanvasEdge[],
+): { x: number; y: number }[] {
+  const places: { x: number; y: number }[] = [];
   let y = 0;
-  for (const node of nodes) {
+  for (const [at, node] of nodes.entries()) {
+    const band = node.band;
+    if (band !== undefined && band.index > 0) {
+      // Beside the first of its band, on that one's row.
+      const first = places[at - band.index]!;
+      places.push({ x: (band.index - (band.of - 1) / 2) * ACROSS, y: first.y });
+      continue;
+    }
     if (edges.some((edge) => edge.target === node.id && edge.label !== undefined)) y += LABELLED;
-    ys.push(y);
-    y += CARD + rowsOf(node) * ROW + GAP;
+    places.push({ x: band === undefined ? 0 : (-(band.of - 1) / 2) * ACROSS, y });
+    const tallest =
+      band === undefined ? rowsOf(node) : Math.max(...nodes.slice(at, at + band.of).map(rowsOf));
+    y += CARD + tallest * ROW + GAP;
   }
-  return ys;
+  return places;
 }
 
 /** What each answer to the delivery control is called. */
@@ -150,6 +169,7 @@ export function ApprovalCanvas({
   const tuned = (next: ApprovalTuning) => moved?.({ tuning: next });
   const landed = (next: ProposalLandingValue) => moved?.({ landing: landingWith(landing, next, base) });
 
+  const dispatchesFrom = dispatchesFromOf(proposal.workflow_id, steps);
   const { nodes, edges } = approvalNodesOf({
     title: proposal.title,
     from: value.from,
@@ -160,14 +180,15 @@ export function ApprovalCanvas({
     prMode: landing.pr_mode,
     target: value.target,
     ...(life === undefined ? {} : { life }),
+    ...(dispatchesFrom === undefined ? {} : { dispatchesFrom }),
   });
   // A node a workflow change took away closes its card with it.
   const opened = nodes.find((node) => node.id === open);
 
-  const ys = placesOf(nodes, edges);
+  const places = placesOf(nodes, edges);
   const placed: WorkflowCanvasNode[] = nodes.map((node, at) => ({
     id: node.id,
-    position: { x: 0, y: ys[at]! },
+    position: places[at]!,
     card: {
       kind: "task",
       name: node.name,
@@ -278,6 +299,8 @@ function NodeCard(props: NodeCardProps) {
       return <DoneWhen {...props} />;
     case "groups":
     case "group":
+    case "jobs":
+    case "job":
       return null;
     case "pr":
       return <PullRequestCard {...props} />;
