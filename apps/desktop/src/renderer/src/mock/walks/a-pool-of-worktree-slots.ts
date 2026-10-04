@@ -1,24 +1,22 @@
-// The worktree pool on Cleanup: one row per slot under a header naming each
-// column, its state and build as marks in their hue, and leased, free and
-// stranded rows tinted. A Job holding a slot is a link that opens it.
+// The worktree pool on Cleanup as a grid of bays, one per slot, styled by
+// availability: held is a filled card under a band, free an open dashed
+// outline, stranded hatched, not made a ghost. A Job holding a bay opens it.
 
 import { button, inside, role, text, walk } from "../walk";
 
-const SLOT = (n: number) => role("row", new RegExp(`slot-${n}\\b`));
+const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 
 export const aPoolOfWorktreeSlots = walk("cleanup/slots", [
   { press: button("Cleanup", { exact: true }), say: "Cleanup, from the rail" },
-  { look: text("Worktree slots"), say: "The pool, one row per slot" },
-  { look: role("columnheader", "Behind main"), say: "Each column named: commits behind main" },
-  { look: role("columnheader", "Held for"), say: "And how long it has been held" },
-  { look: SLOT(1), say: "Leased: the row and its mark in the in-flight hue" },
-  { hover: inside(SLOT(1), role("img", "Warm")), say: "Warm: its build is on disk" },
-  { hover: inside(SLOT(1), role("button")), say: "The Job holding it: a Job mark and a link" },
-  { look: inside(SLOT(2), text("zsh (pid 4120)")), say: "Held by a session, named by its process" },
-  { look: inside(SLOT(2), role("cell", "7")), say: "Seven commits behind main" },
-  { hover: inside(SLOT(3), role("img", "Free")), say: "Free: the row and its mark in the ready hue" },
-  { hover: inside(SLOT(4), role("img", /Stranded/)), say: "Stranded: its holder is gone and it holds work" },
-  { hover: inside(SLOT(5), role("img", "Cold")), say: "Free and cold: no build yet" },
-  { hover: inside(SLOT(6), role("img", "Not made yet")), say: "Not made yet: neutral, the next lease makes it" },
-  { press: inside(SLOT(1), role("button")), say: "The Job opens from its row" },
+  { look: role("list", "Worktree slots"), say: "The pool, a bay per slot" },
+  { look: BAY(1), say: "Held by a Job: a filled card under the leased band" },
+  { hover: inside(BAY(1), role("button")), say: "The Job: its mark, and a link that opens it" },
+  { hover: inside(BAY(1), role("img", "Warm")), say: "Warm: its build is on disk" },
+  { hover: inside(BAY(2), text("7 behind")), say: "Seven commits behind main, named on hover" },
+  { look: inside(BAY(2), text("zsh (pid 4120)")), say: "Held by a session, named by its process" },
+  { look: BAY(3), say: "Free: an open bay, warm" },
+  { look: BAY(4), say: "Stranded: hatched, and why" },
+  { look: BAY(5), say: "Free and cold" },
+  { look: BAY(6), say: "Not made yet: a ghost" },
+  { press: inside(BAY(1), role("button")), say: "The Job opens from its bay" },
 ]);

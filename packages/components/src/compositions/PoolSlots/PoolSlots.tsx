@@ -2,22 +2,14 @@ import { Box, DoorOpen, Flame, FolderX, Ghost, KeyRound, LoaderCircle, Snowflake
 import type { LucideIcon } from "lucide-react";
 import type { WorktreeSlot } from "@armada/protocol";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from "../../primitives/Table/Table";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * A repository's worktree pool, one row per slot: who holds it, whether its
- * build is warm, and how far behind the base it is. `armada worktree --status`
- * is the same reading. Marks are group `Worktree slot` in
- * `packages/icons/icons.toml`, in a status hue: leased is in flight, free is
- * ready, stranded needs a person, and a slot not made is neutral.
+ * A repository's worktree pool as a grid of bays, one per slot, styled by
+ * availability: a held bay is a filled card under a band in the leased hue, a
+ * free one an open dashed outline, a stranded one hatched in the warning hue,
+ * and a slot not made a faint ghost. `armada worktree --status` is the same
+ * reading. Marks are group `Worktree slot` in `packages/icons/icons.toml`.
  */
 export type PoolSlotsProps = {
   rows: readonly PoolSlotRow[];
@@ -31,45 +23,57 @@ export type PoolSlotRow = {
   heldFor?: string;
 };
 
-/** Which status hue a mark, and its row, takes. `none` stays neutral. */
-type Tone = "leased" | "free" | "stranded" | "warm" | "cold" | "none";
+/** How a bay is drawn. */
+type Bay = "held" | "busy" | "stranded" | "free" | "ghost";
 
-type Mark = { Glyph: LucideIcon; said: string; tone: Tone; spins?: boolean };
+type State = { bay: Bay; Glyph: LucideIcon; word: string; said: string };
 
-function stateMark(slot: WorktreeSlot): Mark {
+function stateOf(slot: WorktreeSlot): State {
   const held = slot.held;
   switch (held.state) {
-    case "unmade":
-      return { Glyph: SquareDashed, said: "Not made yet", tone: "none" };
-    case "not_a_checkout":
-      return { Glyph: FolderX, said: "Not a checkout", tone: "none" };
-    case "busy":
-      return { Glyph: LoaderCircle, said: "Being taken or given back", tone: "leased", spins: true };
-    case "free":
-      return { Glyph: DoorOpen, said: "Free", tone: "free" };
     case "job":
     case "session":
-      return { Glyph: KeyRound, said: "Held", tone: "leased" };
+      return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
+    case "busy":
+      return { bay: "busy", Glyph: LoaderCircle, word: "Busy", said: "Being taken or given back" };
     case "stranded":
-      return { Glyph: Ghost, said: `Stranded: ${held.why}`, tone: "stranded" };
+      return { bay: "stranded", Glyph: Ghost, word: "Stranded", said: `Stranded: ${held.why}` };
+    case "free":
+      return { bay: "free", Glyph: DoorOpen, word: "Free", said: "Free" };
+    case "unmade":
+      return { bay: "ghost", Glyph: SquareDashed, word: "Not made yet", said: "Not made yet" };
+    case "not_a_checkout":
+      return { bay: "ghost", Glyph: FolderX, word: "Not a checkout", said: "Not a checkout" };
   }
 }
 
-function MarkCell({ mark }: { mark: Mark | null }) {
-  if (mark === null) return <TableCell />;
+/** Warm or cold, with its word where `worded`, and named on hover. */
+function Warmth({ warm, worded }: { warm: boolean; worded: boolean }) {
+  const Glyph = warm ? Flame : Snowflake;
+  const said = warm ? "Warm" : "Cold";
   return (
-    <TableCell className="armada-pool-slots__mark">
-      <Tooltip label={mark.said}>
-        <span
-          role="img"
-          aria-label={mark.said}
-          data-tone={mark.tone}
-          data-spins={mark.spins === true ? "" : undefined}
-        >
-          <mark.Glyph size={12} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-    </TableCell>
+    <Tooltip label={said}>
+      <span
+        className="armada-bay__warmth"
+        data-warm={warm ? "" : undefined}
+        role="img"
+        aria-label={said}
+      >
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+        {worded ? <span aria-hidden>{said.toLowerCase()}</span> : null}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A bare figure, named by its tooltip and its accessible name. */
+function Figure({ shown, value, named }: { shown: string; value: string; named: string }) {
+  return (
+    <Tooltip label={named}>
+      <span className="armada-bay__figure" aria-label={`${named}: ${value}`}>
+        {shown}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -77,58 +81,84 @@ function Holder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob: (jobId: st
   const held = slot.held;
   if (held.state === "job") {
     return (
-      <button type="button" className="armada-pool-slots__job" onClick={() => onOpenJob(held.job_id)}>
+      <button type="button" className="armada-bay__job" onClick={() => onOpenJob(held.job_id)}>
         <Box size={12} strokeWidth={2} aria-hidden />
         <span>{held.job_title ?? held.job_id}</span>
       </button>
     );
   }
-  if (held.state === "session") return <>{held.holder}</>;
+  if (held.state === "session") return <span className="armada-bay__session">{held.holder}</span>;
+  if (held.state === "stranded") return <span className="armada-bay__why">{held.why}</span>;
   return null;
+}
+
+function BayTile({ row, onOpenJob }: { row: PoolSlotRow; onOpenJob: (jobId: string) => void }) {
+  const { slot, heldFor } = row;
+  const state = stateOf(slot);
+  const name = `slot-${slot.slot}`;
+  const mark = (
+    <span className="armada-bay__state" role="img" aria-label={state.said}>
+      <state.Glyph size={12} strokeWidth={2} aria-hidden />
+    </span>
+  );
+
+  if (state.bay === "free" || state.bay === "ghost") {
+    return (
+      <li className="armada-bay" data-bay={state.bay} aria-label={name}>
+        <Tooltip label={slot.path}>
+          <span className="armada-bay__name">{name}</span>
+        </Tooltip>
+        <div className="armada-bay__open">
+          <span className="armada-bay__word">
+            {mark}
+            <span aria-hidden>{state.word}</span>
+          </span>
+          {state.bay === "free" ? <Warmth warm={slot.warm} worded /> : null}
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="armada-bay" data-bay={state.bay} aria-label={name}>
+      <div className="armada-bay__band">
+        <Tooltip label={state.said}>{mark}</Tooltip>
+        <span className="armada-bay__eyebrow" aria-hidden>
+          {state.word}
+        </span>
+        <Tooltip label={slot.path}>
+          <span className="armada-bay__name">{name}</span>
+        </Tooltip>
+      </div>
+      <div className="armada-bay__body">
+        <Holder slot={slot} onOpenJob={onOpenJob} />
+        {slot.branch === undefined ? null : (
+          <Tooltip label={slot.branch}>
+            <span className="armada-bay__branch">{slot.branch}</span>
+          </Tooltip>
+        )}
+        <div className="armada-bay__foot">
+          {heldFor === undefined ? null : <Figure shown={heldFor} value={heldFor} named="Held for" />}
+          {slot.behind === undefined ? null : (
+            <Figure
+              shown={`${slot.behind} behind`}
+              value={String(slot.behind)}
+              named={`Commits behind ${slot.base}`}
+            />
+          )}
+          <Warmth warm={slot.warm} worded={false} />
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export function PoolSlots({ rows, onOpenJob }: PoolSlotsProps) {
   return (
-    <Table className="armada-pool-slots">
-      <TableHead>
-        <TableRow>
-          <TableHeaderCell>Slot</TableHeaderCell>
-          <TableHeaderCell>State</TableHeaderCell>
-          <TableHeaderCell>Build</TableHeaderCell>
-          <TableHeaderCell>Branch</TableHeaderCell>
-          <TableHeaderCell>Held by</TableHeaderCell>
-          <TableHeaderCell>Held for</TableHeaderCell>
-          <TableHeaderCell>{`Behind ${rows[0]?.slot.base ?? "base"}`}</TableHeaderCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map(({ slot, heldFor }) => {
-          const made = slot.held.state !== "unmade" && slot.held.state !== "not_a_checkout";
-          const warmth: Mark | null = !made
-            ? null
-            : slot.warm
-              ? { Glyph: Flame, said: "Warm", tone: "warm" }
-              : { Glyph: Snowflake, said: "Cold", tone: "cold" };
-          const state = stateMark(slot);
-          return (
-            <TableRow key={`${slot.manifest_id}/${slot.slot}`} data-tone={state.tone}>
-              <TableCell variant="mono">
-                <Tooltip label={slot.path}>
-                  <span>{`slot-${slot.slot}`}</span>
-                </Tooltip>
-              </TableCell>
-              <MarkCell mark={state} />
-              <MarkCell mark={warmth} />
-              <TableCell variant="mono">{slot.branch}</TableCell>
-              <TableCell>
-                <Holder slot={slot} onOpenJob={onOpenJob} />
-              </TableCell>
-              <TableCell variant="mono">{heldFor}</TableCell>
-              <TableCell variant="mono">{slot.behind}</TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <ul className="armada-pool-slots" aria-label="Worktree slots">
+      {rows.map((row) => (
+        <BayTile key={`${row.slot.manifest_id}/${row.slot.slot}`} row={row} onOpenJob={onOpenJob} />
+      ))}
+    </ul>
   );
 }

@@ -4,7 +4,7 @@ import type { WorktreeSlot } from "@armada/protocol";
 
 import { PoolSlots, type PoolSlotRow } from "./PoolSlots";
 
-/** A repository's worktree pool, as Cleanup draws it: one row per slot. */
+/** A repository's worktree pool, as Cleanup draws it: a bay per slot, styled by availability. */
 const meta: Meta<typeof PoolSlots> = {
   title: "Compositions/Pool slots",
   component: PoolSlots,
@@ -54,40 +54,44 @@ const ROWS: PoolSlotRow[] = [
 ];
 
 /**
- * Every state a slot can be in, under a header naming each column. **A Job
- * holder is a link that opens its Job**; a session holder is named and not
- * pressable; a slot not made has no warmth mark. Leased, free and stranded rows
- * take their hue; a slot not made stays neutral.
+ * Every state a slot can be in, a bay each. **A held bay is a filled card and
+ * its Job a link that opens it**; a free bay is an open dashed outline holding
+ * only its name, its state and its warmth; a stranded bay is hatched and says
+ * why; a slot not made is a ghost with no warmth. A bare figure is named.
  */
 export const EveryState: Story = {
   name: "Every state",
   args: { rows: ROWS },
   play: async ({ args, canvas, userEvent }) => {
-    for (const heading of ["Slot", "State", "Build", "Branch", "Held by", "Held for", "Behind main"]) {
-      await expect(canvas.getByRole("columnheader", { name: heading })).toBeInTheDocument();
-    }
-    const rows = canvas.getAllByRole("row").slice(1);
-    await expect(rows).toHaveLength(ROWS.length);
-    await expect(within(rows[3]!).getByRole("cell", { name: "12" })).toBeInTheDocument();
+    const bays = within(canvas.getByRole("list", { name: "Worktree slots" })).getAllByRole("listitem");
+    await expect(bays).toHaveLength(ROWS.length);
+    const bay = (n: number) => canvas.getByRole("listitem", { name: `slot-${n}` });
 
-    await expect(canvas.queryByRole("button", { name: /zsh/ })).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Fix the reader" }));
+    const held = within(bay(1));
+    await expect(held.getByRole("img", { name: "Held" })).toBeInTheDocument();
+    await expect(held.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
+    await expect(held.getByLabelText("Commits behind main: 0")).toBeInTheDocument();
+    await userEvent.click(held.getByRole("button", { name: "Fix the reader" }));
     await expect(args.onOpenJob).toHaveBeenCalledWith("01JOB");
 
-    const unmade = rows[5]!;
-    await expect(within(unmade).getAllByRole("img", { name: "Not made yet" })).toHaveLength(1);
-    await expect(within(unmade).queryByRole("img", { name: /Warm|Cold/ })).toBeNull();
+    await expect(within(bay(2)).getByText("zsh (pid 4120)")).toBeInTheDocument();
+    await expect(within(bay(2)).queryByRole("button")).toBeNull();
 
-    // A hue, not a value: the leased and free rows and marks differ from the neutral one.
-    const look = (row: HTMLElement, mark: string | RegExp) => ({
-      row: getComputedStyle(row).backgroundColor,
-      mark: getComputedStyle(within(row).getByRole("img", { name: mark })).color,
-    });
-    const neutral = look(unmade, "Not made yet");
-    for (const [row, mark] of [[rows[0]!, "Held"], [rows[2]!, "Free"], [rows[3]!, /Stranded/]] as const) {
-      const toned = look(row, mark);
-      await expect(toned.row).not.toBe(neutral.row);
-      await expect(toned.mark).not.toBe(neutral.mark);
-    }
+    const free = within(bay(3));
+    await expect(free.getByRole("img", { name: "Free" })).toBeInTheDocument();
+    await expect(free.getByRole("img", { name: "Cold" })).toBeInTheDocument();
+    await expect(free.queryByLabelText(/Held for|Commits behind/)).toBeNull();
+
+    await expect(within(bay(4)).getByText("2 uncommitted, first src/lib.rs")).toBeInTheDocument();
+    await expect(within(bay(6)).getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
+    await expect(within(bay(6)).queryByRole("img", { name: /Warm|Cold/ })).toBeNull();
+
+    // Availability is the bay's own shape: filled and solid, open and dashed, hatched.
+    const style = (n: number) => getComputedStyle(bay(n));
+    await expect(style(1).borderTopStyle).toBe("solid");
+    await expect(style(3).borderTopStyle).toBe("dashed");
+    await expect(style(6).borderTopStyle).toBe("dashed");
+    await expect(style(4).backgroundImage).toContain("repeating-linear-gradient");
+    await expect(style(1).backgroundColor).not.toBe(style(3).backgroundColor);
   },
 };

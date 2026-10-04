@@ -362,10 +362,10 @@ test("the confirmation says how long the work it is about to destroy has sat", a
 });
 
 /**
- * The worktree pool, one row per slot under a header naming each column.
- * **A Job holding one opens that Job.**
+ * The worktree pool, a bay per slot, each figure named by its label. **A Job
+ * holding one opens that Job.**
  */
-test("the pool draws a row per slot, and a slot's Job opens from it", async () => {
+test("the pool draws a bay per slot, and a slot's Job opens from it", async () => {
   const opens: string[] = [];
   const slot = (n: number, over: Partial<WorktreeSlot> & Pick<WorktreeSlot, "held">): WorktreeSlot => ({
     manifest_id: "armada",
@@ -404,13 +404,13 @@ test("the pool draws a row per slot, and a slot's Job opens from it", async () =
     />,
   );
 
+  await expect.element(page.getByRole("list", { name: "Worktree slots" })).toBeInTheDocument();
+  await expect.element(page.getByRole("listitem", { name: "slot-1" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Held" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Warm" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
-  await expect.element(page.getByRole("columnheader", { name: "Behind main" })).toBeInTheDocument();
-  await expect.element(page.getByRole("columnheader", { name: "Held for" })).toBeInTheDocument();
-  await expect.element(page.getByRole("cell", { name: "4", exact: true })).toBeInTheDocument();
-  await expect.element(page.getByRole("cell", { name: "2 hours" })).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Commits behind main: 4")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
   expect(page.getByText(/slots? free/).elements()).toHaveLength(0);
 
   await userEvent.click(page.getByRole("button", { name: "Fix the reader" }));
