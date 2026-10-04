@@ -4,8 +4,8 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    SlotChange, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused, SlotStanding, Worktree,
-    WorktreeSpec,
+    RescueRefused, SlotChange, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused,
+    SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree, WorktreeSpec,
 };
 
 use super::{Holder, LeaseRefused, Leased, Pool, SlotState, Unshaped};
@@ -96,4 +96,20 @@ pub(crate) fn change(slots: &SlotPool, change: SlotChange) -> Result<u32, SlotRe
         Unshaped::LastSlot => SlotRefused::LastSlot,
         Unshaped::Vcs(why) => SlotRefused::Vcs(why),
     })
+}
+
+pub(crate) fn stranded_work(slots: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
+    pool(slots).stranded_work(slot as usize)
+}
+
+pub(crate) fn stranded_diff(slots: &SlotPool, slot: u32) -> Result<String, RescueRefused> {
+    pool(slots).stranded_diff(slot as usize)
+}
+
+pub(crate) fn rescue(
+    slots: &SlotPool,
+    slot: u32,
+    rescue: SlotRescue,
+) -> Result<SlotRescued, RescueRefused> {
+    pool(slots).rescue(slot as usize, rescue)
 }

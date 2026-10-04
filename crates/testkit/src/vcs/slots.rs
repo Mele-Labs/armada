@@ -19,8 +19,8 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    slot_path, SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused,
-    SlotStanding, Worktree, WorktreeSpec,
+    slot_path, RescueRefused, SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading,
+    SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree, WorktreeSpec,
 };
 
 use super::{FakeVcs, FakeVcsError};
@@ -32,12 +32,14 @@ struct Slot {
     held_by: Option<String>,
     closed: bool,
     removed: bool,
+    /// Its holder is gone and it holds this, and the diff a Scout is handed.
+    stranded: Option<(StrandedWork, String)>,
 }
 
 impl Slot {
     /// Free, open and one of the pool's.
     fn leasable(&self) -> bool {
-        self.held_by.is_none() && !self.closed && !self.removed
+        self.held_by.is_none() && !self.closed && !self.removed && self.stranded.is_none()
     }
 
     /// As the disk has it.
@@ -85,6 +87,7 @@ pub(super) struct FakeSlots {
     keep_every: Mutex<Option<String>>,
     released: Mutex<Vec<(u32, String)>>,
     completed: Mutex<Vec<(u32, String)>>,
+    rescued: Mutex<Vec<(u32, SlotRescue)>>,
 }
 
 impl FakeSlots {
@@ -191,12 +194,19 @@ impl FakeSlots {
                     SlotReading {
                         slot: number,
                         path: slot_path(&root, number),
-                        held: match (&slot.held_by, slot.made) {
-                            (Some(job), _) => SlotHeld::Job(job.clone()),
-                            (None, true) => SlotHeld::Free,
-                            (None, false) => SlotHeld::Unmade,
+                        held: match (&slot.held_by, slot.made, &slot.stranded) {
+                            (Some(job), _, _) => SlotHeld::Job(job.clone()),
+                            (None, true, Some((work, _))) => SlotHeld::Stranded(format!(
+                                "{} uncommitted",
+                                work.uncommitted.len()
+                            )),
+                            (None, true, None) => SlotHeld::Free,
+                            (None, false, _) => SlotHeld::Unmade,
                         },
-                        branch: None,
+                        branch: slot
+                            .stranded
+                            .as_ref()
+                            .and_then(|(work, _)| work.branch.clone()),
                         since: None,
                         warm: false,
                         behind: None,
@@ -275,6 +285,87 @@ impl FakeSlots {
         })
     }
 
+    /// Leave slot `slot` at `root` stranded, holding `work`.
+    pub(super) fn strand(&self, root: &str, slot: u32, work: StrandedWork, diff: &str) {
+        let _ = std::fs::create_dir_all(slot_path(root, slot));
+        self.at(root, slot, |slots| {
+            slots[slot as usize - 1] = Slot {
+                made: true,
+                stranded: Some((work, diff.to_string())),
+                ..Slot::default()
+            };
+        });
+    }
+
+    fn stranded_in(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<(StrandedWork, String), RescueRefused> {
+        self.with(pool, |slots| {
+            let Some(at) = (slot as usize)
+                .checked_sub(1)
+                .and_then(|at| slots.get(at))
+                .filter(|at| !at.removed)
+            else {
+                return Err(RescueRefused::NoSuchSlot(slot));
+            };
+            at.stranded.clone().ok_or_else(|| {
+                RescueRefused::NotStranded(String::from(match (&at.held_by, at.made) {
+                    (Some(_), _) => "held",
+                    (None, true) => "free",
+                    (None, false) => "not made",
+                }))
+            })
+        })
+    }
+
+    pub(super) fn stranded_work(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<StrandedWork, RescueRefused> {
+        self.stranded_in(pool, slot).map(|(work, _)| work)
+    }
+
+    pub(super) fn stranded_diff(&self, pool: &SlotPool, slot: u32) -> Result<String, RescueRefused> {
+        self.stranded_in(pool, slot).map(|(_, diff)| diff)
+    }
+
+    /// The real pool's refusals that Fleet answers: a slot not stranded, and a
+    /// stash with no branch to keep the work on. Either act frees the slot.
+    pub(super) fn rescue(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        rescue: SlotRescue,
+    ) -> Result<SlotRescued, RescueRefused> {
+        let (work, _) = self.stranded_in(pool, slot)?;
+        let rescued = match &rescue {
+            SlotRescue::Scrap => SlotRescued {
+                branch: work.branch.clone(),
+                branch_kept: work.unpushed > 0,
+                committed: None,
+            },
+            SlotRescue::Stash { .. } => {
+                if work.branch.is_none() {
+                    return Err(RescueRefused::OnNoBranch);
+                }
+                SlotRescued {
+                    branch: work.branch.clone(),
+                    branch_kept: true,
+                    committed: (!work.uncommitted.is_empty()).then(|| String::from("stashed")),
+                }
+            }
+        };
+        self.with(pool, |slots| slots[slot as usize - 1].stranded = None);
+        self.rescued
+            .lock()
+            .expect("not poisoned")
+            .push((slot, rescue));
+        Ok(rescued)
+    }
+
     pub(super) fn keep_every(&self, why: &str) {
         *self.keep_every.lock().expect("not poisoned") = Some(why.to_string());
     }
@@ -331,6 +422,17 @@ impl FakeVcs {
     /// Every slot given back, and by which Job, in order.
     pub fn released_slots(&self) -> Vec<(u32, String)> {
         self.slots.released()
+    }
+
+    /// Leave slot `slot` at `root` stranded, holding `work`, with `diff` as
+    /// its change against the base.
+    pub fn strand_slot(&self, root: &str, slot: u32, work: StrandedWork, diff: &str) {
+        self.slots.strand(root, slot, work, diff);
+    }
+
+    /// Every stranded slot rescued, and how, in order.
+    pub fn rescued_slots(&self) -> Vec<(u32, SlotRescue)> {
+        self.slots.rescued.lock().expect("not poisoned").clone()
     }
 
     /// Every slot marked as held by a Job that completed, in order.

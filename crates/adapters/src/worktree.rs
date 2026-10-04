@@ -177,6 +177,31 @@ impl Vcs for GitVcs {
     ) -> Result<u32, adapter_traits::SlotRefused> {
         crate::leasing::jobs::change(pool, change)
     }
+
+    fn stranded_work(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<adapter_traits::StrandedWork, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::stranded_work(pool, slot)
+    }
+
+    fn stranded_diff(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<String, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::stranded_diff(pool, slot)
+    }
+
+    fn rescue_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        rescue: adapter_traits::SlotRescue,
+    ) -> Result<adapter_traits::SlotRescued, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::rescue(pool, slot, rescue)
+    }
 }
 
 /// **The pre-flight v1 learned to write.**

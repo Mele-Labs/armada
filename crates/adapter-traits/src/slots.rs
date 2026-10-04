@@ -156,3 +156,66 @@ pub enum SlotRefused {
     LastSlot,
     Vcs(String),
 }
+
+/// What a stranded slot holds: what a Scrap would lose, and what a rescue
+/// Scout is handed. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StrandedWork {
+    /// The branch it is on. `None` for a checkout left detached.
+    pub branch: Option<String>,
+    /// The commit checked out.
+    pub commit: String,
+    /// Every path `git status` reports, untracked included.
+    pub uncommitted: Vec<String>,
+    /// Commits the base does not have, newest first.
+    pub commits: Vec<SlotCommit>,
+    /// Of those, how many are on neither the remote nor the base.
+    pub unpushed: u32,
+}
+
+/// One commit on a stranded slot's branch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotCommit {
+    pub sha: String,
+    pub subject: String,
+}
+
+/// What a person chose to do with a stranded slot's work. Each frees the slot.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotRescue {
+    /// Discard the uncommitted files and put the slot back at the base. The
+    /// branch is deleted only where the base or the remote has every commit
+    /// on it.
+    Scrap,
+    /// Commit the uncommitted files to the branch with `message`, and push the
+    /// branch to the remote under its own name.
+    Stash { message: String },
+}
+
+/// What a rescue did.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotRescued {
+    /// The branch the slot was on.
+    pub branch: Option<String>,
+    /// A Scrap kept the branch, because it holds commits nothing else has.
+    pub branch_kept: bool,
+    /// The uncommitted files were committed: the commit, where a Stash made one.
+    pub committed: Option<String>,
+}
+
+/// Why a rescue changed nothing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RescueRefused {
+    NoSuchSlot(u32),
+    /// The slot is not stranded, and what it is instead, in a word or two.
+    NotStranded(String),
+    /// A take or a release is under way on it.
+    Busy,
+    /// Stash names a branch, and the checkout is on none.
+    OnNoBranch,
+    /// The slot is on the base itself, which a Stash never pushes to.
+    OnTheBase(String),
+    /// Stash pushes, and the repository has no `origin`.
+    NoRemote,
+    Vcs(String),
+}
