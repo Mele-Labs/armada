@@ -16,6 +16,7 @@ import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/com
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, WorkflowStep } from "@armada/protocol";
 
+import { stepThatWorksTheGroups } from "./draft/group";
 import { phaseOf } from "./draft/phase";
 import type { PhasedStep, StepPhase } from "./draft/phase";
 import type { GateView } from "./draft/proposal";
@@ -24,6 +25,7 @@ import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 
 export type ApprovalNodeKind =
+  | "studio"
   | "brief"
   | "base"
   | "step"
@@ -67,6 +69,11 @@ export type LifeRead = {
   groups?: readonly PlanGroupRead[];
   /** The Jobs the wave dispatched, on its live pass. Absent draws the placeholder. */
   jobs?: readonly MemberRead[];
+  /**
+   * Where each step has got to, by its id, in the Workflow card's own words —
+   * `285h 45m · 1 Drone`. Drawn on the node the Job is at.
+   */
+  lines?: Readonly<Record<string, string>>;
 };
 
 /** One step of the chosen workflow, as the canvas reads it. */
@@ -120,6 +127,8 @@ export type ApprovalNode = {
   inert?: true;
   /** A dispatched Job: a press opens that Job rather than a card. */
   opensJob?: string;
+  /** The Studio the Job came from: a press opens it there, its node picked (#1674). */
+  opensStudio?: true;
   /** A plan group's tasks, which its card lists. */
   tasks?: readonly TaskView[];
   /**
@@ -147,6 +156,9 @@ export function stepsReadOf(
   whole: JobWhole | null,
   declared: ReadonlyMap<string, WorkflowStep>,
 ): StepRead[] {
+  // Which step works the plan's tasks, as Workflow and Plan read it: the one
+  // that declares `drone_per_task`, else the one after the plan was recorded.
+  const worksTheGroups = whole === null ? undefined : stepThatWorksTheGroups(whole);
   return gates.map((gate) => {
     const frozen = whole?.steps.find((one) => one.step_id === gate.step_id);
     const step: ((WorkflowStep | StepDetail) & PhasedStep) | undefined = declared.get(gate.step_id) ?? frozen;
@@ -157,10 +169,13 @@ export function stepsReadOf(
       judges: step?.judge_checks ?? [],
       delivers: step?.delivers ?? false,
       phase: phaseOf(step ?? {}),
-      // Fleet serves it on the Job's own steps (23.1). A workflow only picked
-      // at the gate has none frozen, and `WorkflowSummary` carries no such
-      // field, so there the stand-in reads it.
-      perTask: frozen?.drone_per_task ?? gate.step_id === "implement",
+      // Fleet serves it on the Job's own steps (23.1), and once a plan is
+      // recorded the screen's own reading says which step works it. A
+      // workflow only picked at the gate has neither, and `WorkflowSummary`
+      // carries no such field, so there the stand-in reads it.
+      perTask:
+        frozen?.drone_per_task ??
+        (worksTheGroups !== undefined ? worksTheGroups === gate.step_id : gate.step_id === "implement"),
     };
   });
 }
@@ -208,6 +223,7 @@ const movedOnly = (values: readonly RunNodeTrait[]): RunNodeTrait[] => values.fi
 const plain = (value: string, tuned = false): RunNodeTrait => ({ key: value, value, ...(tuned ? { tuned } : {}) });
 
 export function approvalNodesOf({
+  studio,
   title,
   asked = "",
   criteria = [],
@@ -221,6 +237,8 @@ export function approvalNodesOf({
   droneCap,
   dispatchesFrom,
 }: {
+  /** The Studio the Job was dispatched from, by its name. Absent draws no node. */
+  studio?: string;
   title: string;
   /** The request, the brief's second line. */
   asked?: string;
@@ -250,6 +268,10 @@ export function approvalNodesOf({
     [...nodes].reverse().find((one) => one.side === undefined && one.from === undefined);
   const delivery = deliveryOf(tuning.local, prMode);
 
+  // Where the work came from, first, and only where it came from a Studio.
+  if (studio !== undefined) {
+    put({ id: "studio", kind: "studio", name: "Studio", face: studio, opensStudio: true, traits: [], meta: [] });
+  }
   put({ id: "brief", kind: "brief", name: "Brief", face: title, ...(asked === "" ? {} : { line: asked }), traits: [], meta: [] });
   put({
     id: "base",
@@ -299,12 +321,15 @@ export function approvalNodesOf({
     // In delivery a step a person alone reads is a gate, hung beside what it reviews.
     const hangs = spineEnd()?.lane === "delivery" && ownGate ? spineEnd()?.id : undefined;
     // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
+    // Where the step the Job is at has got to: the Workflow card's own line.
+    const lineNow = life?.nodes[step.id]?.current === true ? life.lines?.[step.id] : undefined;
     put({
       id: step.id,
       kind: "step",
       stepId: step.id,
       name: step.label,
       bandId: step.id,
+      ...(lineNow === undefined ? {} : { line: lineNow }),
       ...(hangs === undefined ? {} : { side: hangs }),
       // A Drone's settings left to Armada draw nothing (default to no text); what was tuned shows.
       traits: ownGate

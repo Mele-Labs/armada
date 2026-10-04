@@ -153,8 +153,13 @@ export function OverviewBoard({
           2026). The panel's field is the request, editable; a second copy
           beside it read the words as they arrived while the field moved. After
           approval the panel is gone and the Brief reads the approved words. */}
-      <div className="armada-overview-board__cards" data-brief={approving === undefined ? undefined : "in-panel"}>
-        {approving !== undefined ? null : (
+      {/* **The canvas is the whole Overview** (the owner, 4 Oct 2026): where it
+          draws, the Brief, Workflow, Plan and Pulse cards fold into it — the
+          Brief and its Studio onto their nodes, the run onto the lanes, the
+          plan onto the groups, and the live step's line onto its node. */}
+      <div className="armada-overview-board__cards" data-brief={approving === undefined && run === undefined ? undefined : "in-panel"}>
+        {approving !== undefined || run !== undefined ? null : (
+        <>
         /* **What the Job is for, before what it is doing.** It took the
             figures strip's place at the owner's word, 29 Sep 2026: *"maybe
             the brief should replace where the figures list is right now."*
@@ -195,7 +200,6 @@ export function OverviewBoard({
             </div>
           )}
         </DestinationCard>
-        )}
 
         <DestinationCard label="Workflow" guide={GUIDE_WORKFLOW} onOpen={() => onOpenTab("workflow")}>
           {/* **The Workflow destination's own canvas, opened small** — the
@@ -298,6 +302,9 @@ export function OverviewBoard({
             <FigureList figures={pulse} column="fit" />
           )}
         </DestinationCard>
+
+        </>
+        )}
 
         <DestinationCard label="Settings" onOpen={() => onOpenTab("settings")}>
           <p className="armada-overview-board__brief">{settings}</p>

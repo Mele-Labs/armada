@@ -2263,3 +2263,13 @@
   pointer-events: auto;
   min-width: var(--w-workflow-task-node);
 }
+
+/* A lane's or a fan's head on the approval canvas: its word, or its picker,
+   and the guide the Overview card it replaced carried. A frame takes no
+   press, so the head takes its own back. */
+.armada-approval-canvas__head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: auto;
+}

@@ -145,3 +145,14 @@ describe("a step's lane", () => {
     expect(nodes.find((node) => node.id === "plan")?.lane).toBe("work");
   });
 });
+
+describe("the Studio node", () => {
+  it("comes first, in setup, only where the Job came from a Studio", () => {
+    const tuning = tuningOf([]);
+    const base = { title: "T", from: "main", steps: STEPS, gates: GATES, tuning, prMode: "ready" as const, target: "main" };
+    const from = approvalNodesOf({ ...base, studio: "Error contract" }).nodes;
+    expect(from[0]).toMatchObject({ id: "studio", lane: "setup", face: "Error contract", opensStudio: true });
+    expect(from[1]?.id).toBe("brief");
+    expect(approvalNodesOf(base).nodes.some((node) => node.kind === "studio")).toBe(false);
+  });
+});

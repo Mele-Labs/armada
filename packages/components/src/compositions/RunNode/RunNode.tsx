@@ -9,9 +9,9 @@ import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepAct
 // 4 Oct 2026). Prototype: no story until he has walked it.
 
 export type RunNodeKind =
+  | "studio"
   | "brief"
   | "base"
-  | "start"
   | "step"
   | "gate"
   | "stack"
@@ -66,9 +66,9 @@ export const RUN_NODE_NARROW = 196;
 
 /** The band's word for each kind. A kind, never a state: the state is the band's hue and glyph. */
 const KIND: Record<RunNodeKind, string> = {
+  studio: "Studio",
   brief: "Brief",
   base: "Base",
-  start: "Start",
   step: "Step",
   gate: "Checks",
   stack: "Groups",

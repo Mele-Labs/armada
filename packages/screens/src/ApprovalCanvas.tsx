@@ -14,6 +14,7 @@
 // fields, `ProposalTiers` the tiers and cap, `ProposalDoneWhen` the criteria.
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
 import {
@@ -28,6 +29,10 @@ import {
   ProposalGates,
   ProposalLanding,
   ProposalTiers,
+  GUIDE_PLAN,
+  GUIDE_WORKFLOW,
+  GuideMark,
+  Prose,
   Select,
   Switch,
   Textarea,
@@ -40,6 +45,7 @@ import {
 } from "@armada/components";
 import type {
   GateBox,
+  Guide,
   ProposalLandingValue,
   RunNodeKind,
   RunNodeState,
@@ -51,6 +57,8 @@ import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
 import type { ApprovingProps } from "./approving";
+import { studioName } from "./studio";
+import type { OpenStudioFrom } from "./work";
 import type { TaskView } from "./draft/task";
 import { taskCard } from "./plan-canvas";
 import { baseBranch } from "./draft/branches";
@@ -156,6 +164,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenStep?: (stepId: string) => void;
   /** Past the gate, a plan group's panel — the one Plan opens, its tasks reached from it. */
   onOpenGroup?: (groupId: string) => void;
+  /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
+  onOpenStudio?: OpenStudioFrom;
 };
 
 export function ApprovalCanvas({
@@ -163,6 +173,7 @@ export function ApprovalCanvas({
   onOpenJob,
   onOpenStep,
   onOpenGroup,
+  onOpenStudio,
   whole,
   edits,
   onEdits,
@@ -198,9 +209,14 @@ export function ApprovalCanvas({
   const landed = (next: ProposalLandingValue) => moved?.({ landing: landingWith(landing, next, base) });
 
   const dispatchesFrom = dispatchesFromOf(proposal.workflow_id, steps);
+  const from = onOpenStudio === undefined ? undefined : whole.from_studio;
+  // Past the gate the request is the words Fleet holds as approved, which the
+  // Brief card read — never a draft's copy of them.
+  const asked = life !== undefined ? (whole.facts ?? proposal.asked) : proposal.asked;
   const { nodes, edges } = approvalNodesOf({
+    ...(from === undefined ? {} : { studio: studioName(from) }),
     title: proposal.title,
-    ...(proposal.asked === undefined ? {} : { asked: proposal.asked }),
+    ...(asked === undefined ? {} : { asked }),
     criteria: edits.criteria.map((one) => one.text).filter((text) => text.trim() !== ""),
     ...(proposal.drone_cap === undefined ? {} : { droneCap: proposal.drone_cap }),
     from: value.from,
@@ -231,15 +247,34 @@ export function ApprovalCanvas({
           });
         };
   const choices = workflowChoicesOf(workflows, whole.job.owner_manifest_id);
-  const workHead =
-    pick === undefined || choices.length === 0 ? undefined : (
+  // The guides the Overview's Workflow and Plan cards carried ride on the
+  // heads that now draw what they drew: the workflow on the Work lane, the
+  // plan on its Groups.
+  const headWith = (said: ReactNode, guide: Guide) => (
+    <span className="armada-approval-canvas__head nodrag nopan">
+      {said}
+      <GuideMark guide={guide} />
+    </span>
+  );
+  const workHead = headWith(
+    pick === undefined || choices.length === 0 ? (
+      <span className="armada-studio-frame__kind">{workflowName}</span>
+    ) : (
       <WorkflowPicker
         value={proposal.workflow_id}
         choices={choices}
         onPick={pick}
         {...(workflow?.for_requests === undefined ? {} : { forRequests: workflow.for_requests })}
       />
-    );
+    ),
+    GUIDE_WORKFLOW,
+  );
+  const headOf = (frame: { id: string; name?: string }): ReactNode | undefined =>
+    frame.id === "zone:work"
+      ? workHead
+      : frame.name === "Groups"
+        ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
+        : undefined;
   const drawnEdges = layout.edges.map((edge) => {
     const into = nodes.find((node) => node.id === edge.target);
     return into?.life?.current === true ? { ...edge, flowing: true } : edge;
@@ -254,7 +289,7 @@ export function ApprovalCanvas({
       <div className="armada-approval-canvas__frame" style={{ width: frame.width, height: frame.height }}>
         <StudioFrame
           kind={frame.kind}
-          {...(frame.id === "zone:work" && workHead !== undefined ? { head: workHead } : {})}
+          {...(headOf(frame) === undefined ? {} : { head: headOf(frame) })}
           {...(frame.name === undefined ? {} : { name: frame.name })}
           {...(frame.title === undefined ? {} : { title: frame.title })}
         />
@@ -272,7 +307,9 @@ export function ApprovalCanvas({
           ? () => onOpenGroup(node.id.replace(/^group:/, ""))
           : undefined;
     const onOpen =
-      node.opensJob !== undefined
+      node.opensStudio === true && from !== undefined && onOpenStudio !== undefined
+        ? () => onOpenStudio(from.studio_id, from.node_id)
+        : node.opensJob !== undefined
         ? onOpenJob === undefined
           ? undefined
           : () => onOpenJob(node.opensJob!)
@@ -293,7 +330,7 @@ export function ApprovalCanvas({
           name={node.name}
           {...(node.face === undefined ? {} : { face: node.face })}
           {...(node.faceMono === true ? { faceMono: true } : {})}
-          {...(node.opensJob !== undefined && onOpenJob !== undefined ? { links: true } : {})}
+          {...((node.opensJob !== undefined && onOpenJob !== undefined) || node.opensStudio === true ? { links: true } : {})}
           {...(node.bandId === undefined ? {} : { id: node.bandId })}
           {...(node.line === undefined || node.line === "" ? {} : { line: node.line })}
           traits={node.traits}
@@ -417,7 +454,7 @@ function NodeCard(props: NodeCardProps) {
   }
 }
 
-function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
+function BriefCard({ edits, moved, tuning, tuned, whole }: NodeCardProps) {
   const { proposal } = edits;
   const [note, setNote] = useState("");
   return (
@@ -436,7 +473,8 @@ function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
         </ProposalField>
         <ProposalField label="Request" bare={moved !== undefined}>
           {moved === undefined ? (
-            (proposal.asked ?? "")
+            // The words as approved — Fleet's, as the Brief card read them — through `Prose`.
+            <Prose text={whole.facts ?? proposal.asked ?? ""} />
           ) : (
             <Textarea
               aria-label="What was asked"

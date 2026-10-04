@@ -73,7 +73,8 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
 });
 
 // The owner, 3 Oct 2026: the panel holds the request, editable, so the Brief
-// is not drawn beside it; after the press the Brief reads the approved words.
+// is not drawn beside it; after the press the Brief reads the approved words —
+// on the canvas's Brief node, since the canvas became the whole Overview.
 test("the Brief is not drawn at the gate, and reads the request as approved after the press", async () => {
   mount(onJob(proposalFromAnIssue()));
   const asked = (await openNode("Brief")).getByRole("textbox", { name: "What was asked" });
@@ -83,9 +84,11 @@ test("the Brief is not drawn at the gate, and reads the request as approved afte
   await asked.fill("Retire guide 8 and refuse a guide with no drawn pieces");
   await page.getByRole("button", { name: "Approve dispatch" }).last().click();
 
-  const brief = page.getByRole("region", { name: "Brief", exact: true });
-  await expect.element(brief).toHaveTextContent("Retire guide 8 and refuse a guide with no drawn pieces");
+  // Past the press the canvas reads the run, and its Brief node carries the approved words.
+  await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
   expect(approving().all()).toHaveLength(0);
+  const brief = await openNode("Brief");
+  await expect.element(brief).toHaveTextContent("Retire guide 8 and refuse a guide with no drawn pieces");
 });
 
 test("once the Job is running nothing draws: the approval is behind it", async () => {
@@ -98,7 +101,8 @@ test("once the Job is running nothing draws: the approval is behind it", async (
       }),
     ),
   );
-  await expect.element(page.getByRole("region", { name: "Brief" })).toBeVisible();
+  // The canvas reads the run, read-only: the approval is behind it.
+  await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
   expect(approving().all()).toHaveLength(0);
 });
 

@@ -87,8 +87,13 @@ function membersOf(wave: WaveView | undefined): MemberRead[] {
     });
 }
 
-export function lifeOf(whole: JobWhole, wave?: WaveView): LifeRead {
-  const nodes: Record<string, NodeLife> = { brief: PAST, base: PAST };
+export function lifeOf(
+  whole: JobWhole,
+  wave?: WaveView,
+  /** Each step's line as the Workflow card draws it, by step id. */
+  lines?: Readonly<Record<string, string>>,
+): LifeRead {
+  const nodes: Record<string, NodeLife> = { studio: PAST, brief: PAST, base: PAST };
   for (const step of whole.steps) {
     const current = step.step_id === whole.job.current_step_id && AT.has(step.state);
     nodes[step.step_id] = stepLife(step.state, current);
@@ -114,6 +119,7 @@ export function lifeOf(whole: JobWhole, wave?: WaveView): LifeRead {
   const jobs = membersOf(wave);
   return {
     nodes,
+    ...(lines === undefined ? {} : { lines }),
     ...(groups.length === 0 ? {} : { groups }),
     ...(jobs.length === 0 ? {} : { jobs }),
   };

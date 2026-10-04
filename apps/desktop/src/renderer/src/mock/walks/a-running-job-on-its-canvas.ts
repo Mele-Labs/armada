@@ -12,6 +12,7 @@ export const aRunningJobOnItsCanvas = walk("proto/feature-running", [
   { look: RUN, say: "The same lanes, now the Job's run: setup done, the work under way, delivery ahead" },
   { look: role("button", /^Plan the change, advanced/), say: "Plan is done" },
   { hover: inside(card("Implement"), text("running")), say: "Implement is where the Job is" },
+  { look: inside(card("Implement"), text(/\d+[hms]/)), say: "and says how long it has run, as Workflow's card does" },
   { look: role("button", /^Group 1, passed/), say: "The plan's groups fan out under Implement: two passed" },
   { hover: inside(GROUP_3, text("running")), say: "and the third at work" },
   { press: card("Implement"), say: "A step opens its panel, Workflow's own" },

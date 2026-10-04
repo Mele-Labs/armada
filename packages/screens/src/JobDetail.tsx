@@ -42,6 +42,9 @@ import { baseBranch } from "./draft/branches";
 import { ApprovalCanvas } from "./ApprovalCanvas";
 import { lifeOf } from "./approval-life";
 import { proposalEditsOfWhole } from "./tab-proposal-read";
+import { stepNodeId, workflowRunOf } from "./workflow-canvas";
+import type { DroneView } from "./draft/drone";
+import { taskGroupsOf } from "./draft/group";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
@@ -402,6 +405,7 @@ function OneJob(props: JobDetailProps) {
                     branches={held.branches}
                     models={props.models?.models ?? []}
                     machineCap={props.machineCap ?? null}
+                    {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                   />
                 ),
               }
@@ -414,7 +418,8 @@ function OneJob(props: JobDetailProps) {
                     <ApprovalCanvas
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
-                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []))}
+                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
+                      {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       onOpenJob={openJob}
                       // A step, a group or a task opens the panel its own tab
                       // opens, by the jump Record and Drones already make — with
@@ -761,4 +766,19 @@ function pulseOf(
         if (because !== null) props.onSaid(because);
       }),
   };
+}
+
+/**
+ * Each step's line as the Workflow tab's own card draws it — how long, and how
+ * many Drones on the one at work — so the canvas's live node says it in the
+ * same words. **The same builder**, never a second wording of it.
+ */
+function stepLinesOf(whole: JobWhole, drones: readonly DroneView[]): Record<string, string> {
+  const run = workflowRunOf({ whole, groups: taskGroupsOf(whole), drones });
+  const lines: Record<string, string> = {};
+  for (const step of whole.steps) {
+    const line = run.nodes.find((node) => node.id === stepNodeId(step.step_id))?.card.line;
+    if (line !== undefined) lines[step.step_id] = line;
+  }
+  return lines;
 }

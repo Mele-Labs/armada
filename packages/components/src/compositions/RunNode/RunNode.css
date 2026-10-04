@@ -142,7 +142,7 @@ button.armada-run-node {
    is a 4px leading edge on every node, and at the gate, where nothing has a
    status yet, the band's tint. On a running Job the status takes the band
    and the edge keeps the kind. */
-.armada-run-node:is([data-kind="brief"], [data-kind="base"], [data-kind="start"]) {
+.armada-run-node:is([data-kind="studio"], [data-kind="brief"], [data-kind="base"]) {
   --armada-run-node-kind: var(--kind-setup);
 }
 

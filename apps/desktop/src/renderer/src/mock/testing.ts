@@ -137,9 +137,11 @@ export async function openNode(name: string, at = 0): Promise<ReturnType<typeof 
   for (const close of page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).elements()) {
     (close as HTMLElement).click();
   }
-  await page
-    .getByRole("button", { name: new RegExp(`^${escaped}, `) })
-    .nth(at)
-    .click();
+  // Pressed as the walk engine presses, at the node itself: past the gate the
+  // run opens on where the Job is, at full size, and a node above it is
+  // outside the pane, where a pointer cannot reach without panning first.
+  const node = page.getByRole("button", { name: new RegExp(`^${escaped}, `) }).nth(at);
+  await expect.element(node).toBeInTheDocument();
+  (node.element() as HTMLElement).click();
   return page.getByRole("dialog", { name });
 }
