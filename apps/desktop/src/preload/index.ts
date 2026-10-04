@@ -87,6 +87,13 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.changed, handler);
     };
   },
+  onWalkFocus: (onFocus: (focused: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, focused: unknown): void => onFocus(focused === true);
+    ipcRenderer.on(CHANNELS.walkFocused, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.walkFocused, handler);
+    };
+  },
 
 
   // Describing the work, which is the only way a Job is made from this window
@@ -637,8 +644,10 @@ const api: BridgeApi = {
   openFindingIssue: (jobId: string, finding: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openFindingIssue, jobId, finding),
 
-  requestChanges: (jobId: string, note: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note),
+  requestChanges: (jobId: string, note: string, withWalkNotes?: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note, withWalkNotes === true),
+  removeWalkNote: (jobId: string, noteId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.removeWalkNote, jobId, noteId),
 
   rejectWork: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.rejectWork, jobId),

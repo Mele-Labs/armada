@@ -37,5 +37,7 @@ if (root !== null && picker !== null) {
   else if (!framing) mountPicker(scenario.name, picker);
 }
 
-// The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a frame.
-if (!framing) void import("../annotate/mount").then(({ mount }) => mount());
+// The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
+// frame, and not inside `prototype-walked`'s stand-in window (`?walked`), whose own capture takes
+// ⌥⌘A there as main's walk window does.
+if (!framing && !query.has("walked")) void import("../annotate/mount").then(({ mount }) => mount());

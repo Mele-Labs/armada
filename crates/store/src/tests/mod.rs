@@ -69,6 +69,7 @@ mod task_drones;
 mod timings;
 mod tmp;
 mod tracing;
+mod walk_notes;
 mod waves;
 mod work_plan;
 

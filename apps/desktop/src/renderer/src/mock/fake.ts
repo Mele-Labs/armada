@@ -135,6 +135,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       listeners.add(onState);
       return () => listeners.delete(onState);
     },
+    // The stand-in walk window sets the dim itself — `walk-window.tsx`.
+    onWalkFocus: () => () => {},
 
     // **The row appears and the call never answers.** A dispatched request is a
     // Job from the press — `job-statuses.toml`, `proposing` — and that Job is
@@ -455,6 +457,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     fileFindingIssue: async () => OK,
     openFindingIssue: async () => ({ ok: false, why: "no_address" }),
     requestChanges: async () => OK,
+    removeWalkNote: async () => OK,
     rejectWork: async (jobId) => (move(jobId, { status: "rejected" }), OK),
     readRemarks: async (jobId) =>
       publish({

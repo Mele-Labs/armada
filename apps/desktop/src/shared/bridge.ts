@@ -491,6 +491,8 @@ export const NOTHING_YET: BridgeState = {
 export const CHANNELS = {
   state: "bridge:state",
   changed: "bridge:changed",
+  /** A walk window took or gave up focus, so Bridge dims behind it or lifts the dim. */
+  walkFocused: "bridge:walk-focused",
   proposeFromRequest: "bridge:propose-from-request",
   stopProposal: "bridge:stop-proposal",
   stageAttachment: "bridge:stage-attachment",
@@ -631,6 +633,7 @@ export const CHANNELS = {
   fileFindingIssue: "bridge:file-finding-issue",
   openFindingIssue: "bridge:open-finding-issue",
   requestChanges: "bridge:request-changes",
+  removeWalkNote: "bridge:remove-walk-note",
   rejectWork: "bridge:reject-work",
   takeUpRemarks: "bridge:take-up-remarks",
   dismissFinding: "bridge:dismiss-finding",

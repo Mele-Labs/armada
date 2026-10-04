@@ -85,6 +85,8 @@ export type BridgeApi = {
   protocolVersion: () => ProtocolVersion;
   state: () => Promise<BridgeState>;
   subscribe: (onState: (state: BridgeState) => void) => () => void;
+  /** Whether a walk window has focus, as it changes — Bridge dims behind it. */
+  onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
   /**
    * Describe the work and let the Job proposer decide what it is: which
    * workflow, what to call it, and whether it is one Job or several.
@@ -1029,7 +1031,9 @@ export type BridgeApi = {
    * Send the work back with a note. **The Job comes back `running`**, same step,
    * same Drone — nothing is spawned and nothing done is thrown away.
    */
-  requestChanges: (jobId: string, note: string) => Promise<Outcome>;
+  requestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => Promise<Outcome>;
+  /** Take back a walk note not yet sent. Capturing one is the walk window's own. */
+  removeWalkNote: (jobId: string, noteId: string) => Promise<Outcome>;
   /**
    * A verdict on the work, and the Job is over. **Terminal, and it ends the
    * Drone** — that is what separates it from `requestChanges`, and it is not

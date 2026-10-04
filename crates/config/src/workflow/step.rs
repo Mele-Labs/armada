@@ -97,7 +97,7 @@ const EVIDENCE_LEGAL: &[&str] = &[
 ];
 
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
-const EVIDENCE_KEYS: &[&str] = &["submitted", "captured"];
+const EVIDENCE_KEYS: &[&str] = &["submitted", "captured", "walked"];
 const SUBMITTED_KEYS: &[&str] = &["type"];
 
 /// One step of a workflow.
@@ -107,6 +107,7 @@ pub struct Step {
     label: String,
     evidence_type: Option<EvidenceType>,
     captured: bool,
+    walked: bool,
     mechanical_checks: Vec<MechanicalCheck>,
     judge_checks: Vec<JudgeCheck>,
     advance_gate: AdvanceGate,
@@ -147,6 +148,13 @@ impl Step {
     /// be read rather than looked at.
     pub fn captured(&self) -> bool {
         self.captured
+    }
+
+    /// Whether Fleet serves the repository's `walk:` server when this step
+    /// stops for a person, so they walk the work rather than read about it.
+    /// **False where the block says nothing.**
+    pub fn walked(&self) -> bool {
+        self.walked
     }
 
     /// All entries must pass. **Routinely empty** — a gateless step is the
@@ -306,7 +314,7 @@ pub(super) fn read(
     let label = table
         .required("label", out)
         .and_then(|value| yaml::text(&table.at("label"), value, out));
-    let (evidence_type, captured) = evidence(&mut table, out);
+    let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `may_dispatch_jobs`'s rule, for its reason: a value read as absent
     // would be a step written to record the plan beside its own product that
@@ -518,6 +526,7 @@ pub(super) fn read(
         label: label?,
         evidence_type,
         captured: captured?,
+        walked: walked?,
         mechanical_checks,
         judge_checks,
         advance_gate: advance_gate?,
@@ -545,13 +554,16 @@ pub(super) fn read(
 ///
 /// **Absent is neither**, which is every step that produces nothing a Judge
 /// reads. A block present but empty is the same answer said out loud.
-fn evidence(table: &mut Table<'_>, out: &mut Vec<Refusal>) -> (Option<EvidenceType>, Option<bool>) {
+fn evidence(
+    table: &mut Table<'_>,
+    out: &mut Vec<Refusal>,
+) -> (Option<EvidenceType>, Option<bool>, Option<bool>) {
     let at = table.at("evidence");
     let Some(value) = table.optional("evidence") else {
-        return (None, Some(false));
+        return (None, Some(false), Some(false));
     };
     let Some(mut block) = Table::open(&at, value, out) else {
-        return (None, None);
+        return (None, None, None);
     };
     let submitted_at = block.at("submitted");
     let submitted = block.optional("submitted").and_then(|value| {
@@ -580,8 +592,16 @@ fn evidence(table: &mut Table<'_>, out: &mut Vec<Refusal>) -> (Option<EvidenceTy
         None => Some(false),
         Some(value) => yaml::flag(&captured_at, value, out),
     };
+    // `captured`'s rule, for its reason. An instruction to Fleet beside it,
+    // and like it gating nothing: a server that will not start has
+    // established nothing about the work.
+    let walked_at = block.at("walked");
+    let walked = match block.optional("walked") {
+        None => Some(false),
+        Some(value) => yaml::flag(&walked_at, value, out),
+    };
     block.close(EVIDENCE_KEYS, out);
-    (submitted, captured)
+    (submitted, captured, walked)
 }
 
 /// `advance_gate` has its own reader because one of the schema's four forms is

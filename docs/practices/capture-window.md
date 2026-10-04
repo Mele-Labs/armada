@@ -47,6 +47,20 @@ around `nodeIntegration: false`.
 > **Rule.** The Studio is the Run's own, decided when the window opens. Capture
 > here has nothing to aim.
 
+> **Rule.** A Job's server opens with no Studio, to be walked, and what is
+> captured there lands on that Job as a walk note, kept by Fleet. The bar names
+> the Job. A server with no Job still needs its Studio.
+> Why: a Prototype Job stops at Build for a person to look, and the look
+> belongs inside Bridge rather than the system browser. The owner, 4 Oct 2026:
+> the notes he makes walking the work must reach the work — so they wait on the
+> Job and go to its Drone with the next Request changes, never into a Studio
+> nobody opened for it.
+
+> **Rule.** The window takes ⌥⌘A as well as ⌥⌘C before the page does.
+> Why: ⌥⌘A is the annotation chord a person already presses on Bridge. Left to
+> a walked mock, it opened the mock's own layer, which wrote into a worktree
+> nothing reads and that is thrown away with the Job.
+
 > **Rule.** `webSecurity` stays on, and Bridge neither adds a header to the
 > page's response nor removes one. A page's own CSP is not rewritten to make it
 > render.

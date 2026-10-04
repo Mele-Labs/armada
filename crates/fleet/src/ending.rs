@@ -280,6 +280,9 @@ where
             .await
             .forget_job(job_id)
             .map_err(Adrift::Writing)?;
+        // The walk frames go with the rows that named them. Best effort: a
+        // directory left behind is disk, and the record is already gone.
+        let _ = std::fs::remove_dir_all(self.walk_frames(job_id));
         self.publish(ipc::Event::JobForgotten(ipc::JobForgotten {
             job_id: job_id.into(),
         }));

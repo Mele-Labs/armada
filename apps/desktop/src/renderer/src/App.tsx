@@ -63,6 +63,7 @@ import {
   openFindingIssue,
   openRemarkLink,
   openServerLink,
+  runSheetServers,
   openLink,
   observeRun,
   observeCheckoutRun,
@@ -842,7 +843,8 @@ export function App({ draft }: AppProps = {}) {
                   onFileFindingIssue={(jobId, finding, title, body) => void commands.fileFindingIssue(jobId, finding, title, body)}
                   onApproveReview={(jobId) => void commands.decide(jobId, "approve")}
                   onApproveWave={(jobId, jobs) => void commands.approveWave(jobId, { jobs })}
-                  onRequestChanges={(jobId, note) => void commands.decide(jobId, "changes", note)}
+                  onRequestChanges={(jobId, note, walk) => void commands.decide(jobId, "changes", note, walk)}
+                  onRemoveWalkNote={(jobId, noteId) => void window.armada.removeWalkNote(jobId, noteId)}
                   onReject={(jobId) => void commands.decide(jobId, "reject")}
                   onTakeUpRemarks={(jobId, remarks) => void commands.takeUpRemarks(jobId, remarks)}
                   onDismissFinding={(jobId, finding, reason) => void commands.dismissFinding(jobId, finding, reason)}
@@ -870,9 +872,7 @@ export function App({ draft }: AppProps = {}) {
                     onUndoRun: undoRun,
                     onListRuns: listRuns,
                     onGetRunOutput: getRunOutput,
-                    onStartServer: startServer,
-                    onStopServer: stopServer,
-                    onOpenServerLink: openServerLink,
+                    ...runSheetServers,
                   }}
                 />
               </Boundary>

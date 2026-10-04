@@ -1,7 +1,7 @@
-// Which scenario the mock is on, and a way to another. Dev-only: nothing the
+// Which scenario the mock is on, and a way to another scenario or a walk. Dev-only: nothing the
 // Electron build bundles imports this file.
 
-import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { Button, Input } from "@armada/components";
@@ -10,6 +10,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 
 import "./mock.css";
 import { SCENARIOS } from "./scenario";
+import { EVERY_WALK } from "./walks";
 
 /**
  * The app's own left column — where the owner asked for the picker on
@@ -74,17 +75,31 @@ function score(at: number[]): number {
   return gaps * 100 + (at[0] ?? 0);
 }
 
-/** A scenario that matched, and where — the marks the row draws it with. */
-type Hit = { name: string; says: string; at: number[] };
+/** A scenario or a walk that matched, and where — the marks the row draws it with. */
+type Hit = { name: string; says: string; at: number[]; walk: boolean };
 
-/** Every scenario the query reaches, best first. The empty query is all of them, in `SCENARIOS`' order. */
-function hits(query: string): Hit[] {
+/**
+ * Every walk, as a row: **the list is how one is played from a window that
+ * cannot type an address**, which is Bridge's own window on a Job's mock —
+ * `docs/practices/capture-window.md` gives it no address field.
+ */
+const WALK_ROWS = [...EVERY_WALK].map(([name, one]) => ({
+  name,
+  says: `A walk of ${one.steps.length} steps over ${one.scenario}`,
+  walk: true,
+}));
+const SCENARIO_ROWS = SCENARIOS.map((one) => ({ name: one.name, says: one.says, walk: false }));
+
+/** Each group the query reaches, best first within it. The empty query is all of them, in roster order. */
+function hits(query: string, rows: readonly Omit<Hit, "at">[]): Hit[] {
   const wanted = query.trim().toLowerCase();
-  if (wanted === "") return SCENARIOS.map((one) => ({ name: one.name, says: one.says, at: [] }));
-  return SCENARIOS.flatMap((one) => {
-    const at = fuzzy(one.name.toLowerCase(), wanted);
-    return at === null ? [] : [{ name: one.name, says: one.says, at }];
-  }).sort((a, b) => score(a.at) - score(b.at) || a.name.length - b.name.length);
+  if (wanted === "") return rows.map((one) => ({ ...one, at: [] }));
+  return rows
+    .flatMap((one) => {
+      const at = fuzzy(one.name.toLowerCase(), wanted);
+      return at === null ? [] : [{ ...one, at }];
+    })
+    .sort((a, b) => score(a.at) - score(b.at) || a.name.length - b.name.length);
 }
 
 /** The name with the matched characters marked, so a fuzzy hit reads as one. */
@@ -111,9 +126,12 @@ function marked(name: string, at: number[]): ReactNode {
  * pressed, which is also what lets a test read where a row leads without
  * leaving the page.
  */
-function to(name: string): string {
+function to(hit: Pick<Hit, "name" | "walk">): string {
   const url = new URL(window.location.href);
-  url.searchParams.set("scenario", name);
+  // A walk names its own scenario, and `?walk` wins over `?scenario` anyway.
+  url.searchParams.delete(hit.walk ? "scenario" : "walk");
+  url.searchParams.delete("autoplay");
+  url.searchParams.set(hit.walk ? "walk" : "scenario", hit.name);
   return url.toString();
 }
 
@@ -137,7 +155,8 @@ export function Picker({ current }: { current: string }) {
   const field = useRef<HTMLInputElement>(null);
   const top = useRef<HTMLAnchorElement>(null);
 
-  const found = useMemo(() => hits(query), [query]);
+  // Scenarios first and then walks, so Enter on a query both reach is a scenario.
+  const found = useMemo(() => [...hits(query, SCENARIO_ROWS), ...hits(query, WALK_ROWS)], [query]);
   // The first row is always the one Enter takes, so a query narrowed to one
   // scenario is a two-key act. Reset with the query rather than clamped: a
   // cursor left at row nine of a list that now has two is nowhere he put it.
@@ -207,18 +226,23 @@ export function Picker({ current }: { current: string }) {
           />
           <div className="armada-mock-picker__list">
             {found.map((one, i) => (
-              <a
-                key={one.name}
-                ref={i === at ? top : undefined}
-                className="armada-mock-picker__row"
-                href={to(one.name)}
-                aria-current={one.name === current ? "true" : undefined}
-                data-at={i === at || undefined}
-                data-current={one.name === current || undefined}
-                title={one.says}
-              >
-                {marked(one.name, one.at)}
-              </a>
+              <Fragment key={`${one.walk ? "walk" : "scenario"}:${one.name}`}>
+                {one.walk && found[i - 1]?.walk !== true ? (
+                  <span className="armada-mock-picker__group">Walks</span>
+                ) : null}
+                <a
+                  ref={i === at ? top : undefined}
+                  className="armada-mock-picker__row"
+                  href={to(one)}
+                  aria-current={!one.walk && one.name === current ? "true" : undefined}
+                  data-at={i === at || undefined}
+                  data-current={(!one.walk && one.name === current) || undefined}
+                  data-walk={one.walk || undefined}
+                  title={one.says}
+                >
+                  {marked(one.name, one.at)}
+                </a>
+              </Fragment>
             ))}
           </div>
         </div>

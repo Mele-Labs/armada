@@ -70,6 +70,8 @@ const TOP_LEVEL: &[&str] = &[
     "commands",
     "ports",
     "evidence",
+    // The server a person walks a Job's work on: [`Manifest::walk`].
+    "walk",
     "setup",
     "drone",
     "after_merge",
@@ -161,6 +163,10 @@ pub struct Manifest {
     /// cell**, for `exclude_paths`' reason one field down: a workflow's
     /// captured steps were resolved against its presence at daemon start.
     harness: Option<Harness>,
+    /// The server a step with `evidence.walked` is served on when it stops
+    /// for a person — a name in `servers`, checked at load. **Not behind the
+    /// cell**, for `harness`' reason.
+    walk: Option<String>,
     proved_after_a_merge: Vec<ResolvedCheck>,
     /// **Not behind the cell**, because it is not live: every workflow was
     /// resolved against it at daemon start, so a save that moves it is
@@ -300,6 +306,12 @@ impl Manifest {
     /// every reader that waits for a Command to exit.
     pub fn server(&self, name: &str) -> Option<&Server> {
         self.servers.get(name)
+    }
+
+    /// The server a person walks a Job's work on, where this repository names
+    /// one. Always a name [`server`](Manifest::server) answers.
+    pub fn walk(&self) -> Option<&str> {
+        self.walk.as_deref()
     }
 
     /// Every Command declaring `serve`, sorted.
@@ -531,6 +543,20 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
     let harness = top
         .optional("evidence")
         .and_then(|value| harness::read(value, out));
+    let walk = top.optional("walk").and_then(|value| {
+        let name = yaml::text("walk", value, out)?;
+        if serves.contains(&name) {
+            return Some(name);
+        }
+        out.push(Refusal::new(
+            "walk",
+            Fault::NotADeclaredServer {
+                value: name,
+                declared: serves.iter().cloned().collect(),
+            },
+        ));
+        None
+    });
     let drone = match top.optional("drone") {
         Some(value) => drone::read(value, out),
         None => drone::Drone::unstated(),
@@ -573,6 +599,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
         seed,
         worktrees: worktrees?,
         harness,
+        walk,
         proved_after_a_merge,
         exclude_paths: drone.exclude_paths,
         standing_rules,

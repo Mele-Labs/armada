@@ -2313,6 +2313,32 @@ notes = """
 `agent_access` is `Helm only`: a Drone never rules on its own review, and dismissing one is still a person's judgment on it — Helm carries it out only where that person has just made the call.
 """
 
+[operations.capture_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep what a person pointed at while walking a Job's served work as a walk note on the Job, keeping its frame under the machine directory, and answer with every note on the Job"
+notes = """
+**A person's act and nobody else's**, so `agent_access` is `No`: pointing at something wrong is done with a pointer, and no agent has one. Since 23.18. `POST /jobs/:job_id/walk_notes`, body `CaptureWalkNote` — `capture_studio_note`'s body without `position` or `produced_by`, neither of which a Job has.
+
+**On the Job, never in the worktree.** A Prototype stops at Build with its mock served and the worktree is throwaway, so the note is a row beside the Job's record and its frame is copied from `frame.staged_path` into `<machine>/walks/<job_id>/<note_id>.png`. Reclaiming the worktree takes neither. The note names the kept file by its absolute path as `frame`, and the element it was pointed at as one line a person reads, `button “Save”`. `get_job` carries every note under `walk_notes`, sent ones included, oldest first.
+
+**Fixed at capture.** Nothing edits a walk note; `remove_walk_note` takes one back while unsent, and `sent` flips once, when `request_changes` with `with_walk_notes` hands it to a Drone. It moves nothing: the Job stays where it stands.
+
+A blank `said` is refused as `fleet.walk_note_blank`, a 422. A frame over 4 MiB is `fleet.walk_frame_too_large` and one Fleet cannot read `fleet.walk_frame_unreadable`, both 422 — refused rather than dropped, for `capture_studio_note`'s reason. A Job that has ended is refused as `fleet.walk_notes_job_ended`, a 409.
+"""
+
+[operations.remove_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take back a walk note no Drone has been handed yet, and answer with every note left on the Job"
+notes = """
+`POST /jobs/:job_id/walk_notes/remove`, body `{"id": "..."}`. Since 23.18. The row goes and so does its kept frame. `agent_access` is `No`, for `capture_walk_note`'s reason.
+
+**A sent note stays**, refused as `fleet.walk_note_sent`, a 409: a Drone already worked against it, so it is part of the record of what the work was asked to be. An id the Job has no note by is `fleet.no_such_walk_note`, a 422, and a Job that has ended `fleet.walk_notes_job_ended`, a 409.
+"""
+
 [operations.queue_after_finding]
 kind = "command"
 transport = "HTTP"
@@ -2358,6 +2384,8 @@ The third answer at a human gate, between taking the work and ending the Job. Th
 **409 where the Job's worktree has been reclaimed.** There is then no Drone to put the note on and none possible, which is the only case left where it has nowhere to go. What is being asked for there is a redispatch.
 
 The body carries the person's own words and is a type of its own rather than a redirect's — a redirect steers a Drone whose step stopped, and this answers a gate. Blank is refused.
+
+**`with_walk_notes: true` carries the Job's walk notes with it.** Since 23.18. Every walk note not yet sent — what `capture_walk_note` kept while the person walked the served work — is appended to the note, under a heading saying these are what the person pointed at, one item per note naming the element, its location, its selector and what was said, oldest first. Those notes are marked `sent` once the act lands, so a refused send leaves them to go with the next one and none is told twice. A blank `note` is then taken where at least one unsent walk note exists; with none, blank is refused as before.
 """
 
 [operations.restart_step]

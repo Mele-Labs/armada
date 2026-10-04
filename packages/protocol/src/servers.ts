@@ -62,6 +62,12 @@ export type ServerState = {
   links: ServerLink[];
   /** `person` or `drone`. */
   started_by: string;
+  /**
+   * Fleet started it because a step asking to be walked stopped for a person,
+   * on the Manifest's `walk` server. Bridge opens it in its own window when
+   * that Job is opened. Absent: started by anything else. Since protocol 23.18.
+   */
+  for_review?: boolean;
   started_at: string;
   /** Uptime counts from here; nothing ticks on the wire. */
   serving_since?: string;

@@ -438,7 +438,10 @@ where
                 _ = ticker.tick() => {}
             }
             match fleet.turn().await {
-                Ok(turned) => fleet.probed(&turned),
+                Ok(turned) => {
+                    fleet.probed(&turned);
+                    fleet.walked(&turned);
+                }
                 Err(why) => adrift(why),
             }
             // After the turn, with the `Arc` only this loop holds: an ended

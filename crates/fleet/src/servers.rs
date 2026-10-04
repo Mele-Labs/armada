@@ -80,7 +80,8 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Start `name` at `place`, **or answer with the instance already up** —
-    /// `true` beside the state where this call started it.
+    /// `true` beside the state where this call started it. `for_review` is
+    /// Fleet's own start at a walked stop, `crate::walking`.
     ///
     /// **A Job's servers are what it froze** — `crate::snapshotting`, falling
     /// back to the live file for a Job whose snapshot is absent or will not
@@ -93,6 +94,7 @@ where
         place: Place,
         name: &str,
         by: StartedBy,
+        for_review: bool,
     ) -> Result<(ServerState, bool), Unservable> {
         let served = match &place {
             Place::Job(job) => self.served_by(job).map_err(|why| Unservable::NotKept {
@@ -209,6 +211,7 @@ where
                 })
                 .collect(),
             started_by: by,
+            for_review,
             started_at: ipc::Instant::from(&self.now()),
             serving_since: None,
             ended_at: None,
@@ -272,7 +275,7 @@ where
     ) -> Result<ServerReport, Unservable> {
         let holder = Holder::Job(job.id().clone());
         let (mut state, fresh) = Arc::clone(&self)
-            .hold_server(Place::Job(job), name, StartedBy::Drone)
+            .hold_server(Place::Job(job), name, StartedBy::Drone, false)
             .await?;
         if state.phase == ServerPhase::Starting {
             match self.servers().running(&holder, name) {

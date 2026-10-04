@@ -141,6 +141,8 @@ mod studio;
 mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
+/// What a person said while walking a Job's served mock. Since V102.
+mod walk_notes;
 /// An Epic's waves: the pass on a member, when its pull request merged, and
 /// what finishes a Job. Spike 022, slice 6.
 mod waves;
@@ -186,4 +188,5 @@ pub use shown_again::{ShownAgain, SpecNamed};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};
+pub use walk_notes::{KeptWalkNote, WalkNoteRemoved, WalkServed};
 pub use work_plan::{PlanHand, PlanNotKept};

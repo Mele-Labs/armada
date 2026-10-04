@@ -299,6 +299,10 @@ mod unattended;
 /// sweep `noticing` already runs.
 mod under_review;
 pub mod underway;
+/// What a person pointed at while walking a Job's served mock, kept on the
+/// Job and carried to the next Drone. Protocol 23.16.
+mod walk_notes;
+mod walking;
 pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.

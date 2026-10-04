@@ -536,6 +536,19 @@ fn a_step_may_be_captured_and_hand_in_nothing() {
     assert!(def.steps()[3].captured());
 }
 
+/// A step may ask to be walked: served for the person it stops for. Like
+/// capture, an instruction to Fleet beside what the step hands in.
+#[test]
+fn a_step_may_hand_in_a_patch_and_be_walked() {
+    let def = bug_with(
+        "  - id: build\n    label: Build\n    evidence:\n      submitted:\n        type: diff\n      walked: true\n    delivers: false\n    advance_gate: human_always\n",
+    )
+    .expect("a step that hands in a diff and is walked");
+    assert_eq!(def.steps()[3].evidence_type(), Some(EvidenceType::Diff));
+    assert!(def.steps()[3].walked());
+    assert!(!def.steps()[3].captured(), "two questions, two keys");
+}
+
 /// `shown` was an evidence type and is not one now. It is refused by name
 /// rather than read as a capture, because a file still spelling it is a file
 /// somebody has to correct.

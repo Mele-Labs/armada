@@ -31,13 +31,24 @@ import { askSource } from "./layer";
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
+  /** A note kept on the Job whose server this window walks — protocol 23.18. */
+  walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
+  /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
+  focused: (serverId: string, on: boolean) => void;
 };
 
 /** `⌥⌘C`, as the action registry spells it. The renderer's own reader is `capture/Layer.tsx`. */
 function isCaptureBinding(input: Electron.Input): boolean {
-  return input.type === "keyDown" && input.code === "KeyC" && input.meta && input.alt && !input.control && !input.shift;
+  // ⌥⌘A too: the annotation chord a person already presses on Bridge, which
+  // in this window would otherwise reach the page's own layer and write a note
+  // into a worktree nothing reads.
+  const chord = input.code === "KeyC" || input.code === "KeyA";
+  return input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift;
 }
+
+/** Where a note made in this window lands: the Run's Studio, or the Job whose server it walks. */
+export type LandsOn = { studio: { id: string; name: string | null } } | { job: { id: string; handle: string } };
 
 /**
  * Every partition already given its handlers. **Kept because a partition is
@@ -72,7 +83,7 @@ export class CaptureWindow {
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
   private readonly pin: Pinned;
-  private readonly studio: { id: string; name: string | null };
+  private readonly landsOn: LandsOn;
   /** How tall the bar is drawn, in CSS pixels, from the tokens the title row is built of. */
   private readonly barHeight: number;
 
@@ -83,9 +94,9 @@ export class CaptureWindow {
   /** The capture a press is holding, which never leaves this process until it lands. */
   private holding: StudioCapture | null = null;
 
-  constructor(pin: Pinned, studio: { id: string; name: string | null }, board: CaptureBoard, barHeight: number) {
+  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, barHeight: number) {
     this.pin = pin;
-    this.studio = studio;
+    this.landsOn = landsOn;
     this.board = board;
     this.barHeight = barHeight;
 
@@ -134,6 +145,9 @@ export class CaptureWindow {
     this.window.contentView.addChildView(this.page);
     this.window.contentView.addChildView(this.bar);
     this.window.on("resize", () => this.layout());
+    this.window.on("focus", () => this.board.focused(pin.run, true));
+    this.window.on("blur", () => this.board.focused(pin.run, false));
+    this.window.on("closed", () => this.board.focused(pin.run, false));
     this.layout();
 
     this.holdThePage();
@@ -182,7 +196,8 @@ export class CaptureWindow {
   state(): CaptureWindowState {
     return {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
-      studio: this.studio,
+      studio: "studio" in this.landsOn ? this.landsOn.studio : null,
+      ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -234,7 +249,11 @@ export class CaptureWindow {
     // The run ended while the note was being written: the capture would name a
     // port that is no longer the Run's.
     if (!this.serving) return { ok: false, why: "run_ended" };
-    const outcome = await this.board.capture(this.studio.id, said, capture, await this.frame(capture));
+    const frame = await this.frame(capture);
+    const outcome =
+      "studio" in this.landsOn
+        ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
+        : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;

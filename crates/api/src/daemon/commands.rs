@@ -19,12 +19,12 @@ use std::future::Future;
 
 use crate::daemon::{Redirector, Refusal};
 use ipc::{
-    AddTask, AnswerCommand, CapRaise, ChangesRequested, CheckoutRunRecord, CheckoutRunUnderway,
-    ChosenAnswer, DropTask, FileReport, FindingDismissed, FindingQueued, IssueFiled, JobExamined,
-    JobForgotten, JobId, JobSummary, JudgeAnswered, ManifestSaved, NamedRun, ProposeJob,
-    Redirection, Redispatched, RemarksTakenUp, Report, RestartRequested, RunRecord, RunUnderway,
-    SaveManifestFile, SetWhenBlocked, SetWhenRefused, StartCheckoutRun, StartRun, TurnRaise,
-    WorktreeReclaimed,
+    AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, CheckoutRunRecord,
+    CheckoutRunUnderway, ChosenAnswer, DropTask, FileReport, FindingDismissed, FindingQueued,
+    IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, JudgeAnswered, ManifestSaved,
+    NamedRun, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote, Report,
+    RestartRequested, RunRecord, RunUnderway, SaveManifestFile, SetWhenBlocked, SetWhenRefused,
+    StartCheckoutRun, StartRun, TurnRaise, WalkNotes, WorktreeReclaimed,
 };
 
 /// Everything a client asks Fleet to do.
@@ -483,6 +483,25 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         dismissed: FindingDismissed,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `capture_walk_note` — what a person pointed at while walking the Job's
+    /// served mock, kept on the Job with its frame. Since 23.18.
+    ///
+    /// **It moves nothing.** Refused on a blank `said`, on a terminal Job, and
+    /// on a frame over 4 MiB or one Fleet cannot read.
+    fn capture_walk_note(
+        &self,
+        job_id: JobId,
+        capture: CaptureWalkNote,
+    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
+
+    /// `remove_walk_note` — a walk note taken back before any Drone was handed
+    /// it. Refused on a sent note, an unknown id, and a terminal Job.
+    fn remove_walk_note(
+        &self,
+        job_id: JobId,
+        remove: RemoveWalkNote,
+    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
 
     /// `queue_after_finding` — a person turns a For context finding into a Job that waits on
     /// this one, so it starts when this one lands. #906. The Job itself moves nothing.

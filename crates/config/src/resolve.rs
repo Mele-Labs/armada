@@ -303,6 +303,7 @@ fn resolve_step(
         step.model().cloned(),
     )
     .capturing(step.captured())
+    .walking(step.walked())
     .dispatching(step.may_dispatch_jobs())
     // Its own builder for `dispatching`'s reason, and read straight off the
     // step: the file was required to say, and `config` already refused a

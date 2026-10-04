@@ -140,10 +140,22 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
  * Bridge's own bar above it; the Studio a Note lands on is read off the Studio
  * main is holding, never off a name a renderer sent.
  */
+/** The walk windows with focus right now: Bridge's own windows dim while any does. */
+const walkFocused = new Set<string>();
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
+  walkNote: async (jobId, said, capture, frame) =>
+    (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
+    UNSENT,
   stage: stagePng,
+  focused: (serverId, on) => {
+    if (on) walkFocused.add(serverId);
+    else walkFocused.delete(serverId);
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
+    }
+  },
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -855,8 +867,13 @@ void app.whenReady().then(() => {
     (_event, jobId: string, finding: string, title: string, body: string) =>
       connection?.commands.fileFindingIssue(jobId, finding, title, body),
   );
-  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string) =>
-    connection?.commands.requestChanges(jobId, note),
+  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string, walk: unknown) =>
+    connection?.commands.requestChanges(jobId, note, walk === true),
+  );
+  ipcMain.handle(CHANNELS.removeWalkNote, (_event, jobId: unknown, noteId: unknown) =>
+    typeof jobId === "string" && typeof noteId === "string"
+      ? connection?.commands.removeWalkNote(jobId, noteId)
+      : undefined,
   );
   ipcMain.handle(CHANNELS.rejectWork, (_event, jobId: string) =>
     connection?.commands.rejectWork(jobId),
