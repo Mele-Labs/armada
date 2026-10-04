@@ -28,6 +28,7 @@ import {
   originSaidOf,
 } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
+import type { ApprovalTuning } from "./draft/tuning";
 import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
@@ -47,6 +48,11 @@ export type ProposalEdits = {
   proposal: ProposalView;
   landing: LandingRule;
   criteria: readonly CriterionView[];
+  /**
+   * What the approval canvas tunes that the wire has no field for — draft,
+   * `draft/tuning.ts`. Absent is nothing tuned; `approvalOf` never sends it.
+   */
+  tuning?: ApprovalTuning;
 };
 
 /**

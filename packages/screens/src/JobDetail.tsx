@@ -39,7 +39,7 @@ import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
 import { useApproval } from "./approval-held";
 import { baseBranch } from "./draft/branches";
-import { Approving } from "./approving";
+import { ApprovalCanvas } from "./ApprovalCanvas";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
@@ -379,7 +379,7 @@ function OneJob(props: JobDetailProps) {
             ? {}
             : {
                 approval: (
-                  <Approving
+                  <ApprovalCanvas
                     whole={whole}
                     edits={held.edits}
                     {...(props.stale ? {} : { onEdits: held.onEdits })}

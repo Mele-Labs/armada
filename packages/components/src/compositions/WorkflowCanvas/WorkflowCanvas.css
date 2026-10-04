@@ -24,3 +24,30 @@
 .armada-workflow-canvas .armada-graph-canvas__aside {
   align-items: flex-end;
 }
+
+/* The card a node opens, under it. A floating layer's surface — --bg-overlay
+   and the overlay shadow, as the node bar and a popover take — at the dock's
+   width, and it scrolls inside itself rather than running off the frame. */
+.armada-workflow-canvas__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  inline-size: var(--w-dock);
+  max-block-size: calc(var(--h-workflow-canvas) - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* Every region keeps its own height and the card scrolls: a flex column under
+   a ceiling shrinks its children instead, which folded Done when to its head. */
+.armada-workflow-canvas__card > * {
+  flex: none;
+}

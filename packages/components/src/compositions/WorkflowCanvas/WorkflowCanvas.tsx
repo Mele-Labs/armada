@@ -3,6 +3,7 @@ import {
   EdgeLabelRenderer,
   Handle,
   MarkerType,
+  NodeToolbar,
   Position,
   getNodesBounds,
   getSmoothStepPath,
@@ -14,7 +15,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import { Pin } from "lucide-react";
 
@@ -112,6 +113,13 @@ export type WorkflowCanvasProps = {
    * of arcing above the row, for the same reason: beside the spine, never on it.
    */
   runsDown?: boolean;
+  /**
+   * A card anchored under one node, holding what that node tunes — the
+   * approval canvas's. **React Flow's own `NodeToolbar`**, as the node bar is:
+   * it holds against pan and zoom without scaling with them, so the controls
+   * inside read at their own size at any zoom. Absent draws nothing.
+   */
+  opened?: { nodeId: string; label: string; children: ReactNode };
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps }, "workflow">;
@@ -323,6 +331,35 @@ function Follows({ running, following }: { running: string | null; following: bo
   return null;
 }
 
+/**
+ * Pan the opened node's card into the frame, the node bar's rule (*panned to,
+ * never clamped* — the owner, 1 Oct 2026). On the open, or the node moving,
+ * and not after it, so a person who pans away is not pulled back. The card's width is read off its
+ * token rather than measured.
+ */
+function KeepsTheCardInView({ nodeId }: { nodeId: string }) {
+  const flow = useReactFlow();
+  const width = useStore((state) => state.width);
+  // And when the node moves under its open card — a node added before it.
+  const at = useStore((state) => state.nodeLookup.get(nodeId)?.internals.positionAbsolute.x);
+  useEffect(() => {
+    const node = flow.getInternalNode(nodeId);
+    if (node === undefined || width === 0) return;
+    const { x, y, zoom } = flow.getViewport();
+    const centre = (node.internals.positionAbsolute.x + (node.measured.width ?? 0) / 2) * zoom + x;
+    const half = cardWidth() / 2 + INSET;
+    const dx = centre - half < 0 ? half - centre : centre + half > width ? width - half - centre : 0;
+    if (dx !== 0) void flow.setViewport({ x: x + dx, y, zoom });
+  }, [nodeId, at]);
+  return null;
+}
+
+/** `--w-dock`, which the card's stylesheet sizes it to, as a number. */
+function cardWidth(): number {
+  const read = Number.parseFloat(getComputedStyle(document.body).getPropertyValue("--w-dock"));
+  return Number.isFinite(read) ? read : 0;
+}
+
 export function WorkflowCanvas({
   nodes: given,
   edges: givenEdges,
@@ -333,6 +370,7 @@ export function WorkflowCanvas({
   opensOn,
   hangsFromTop = false,
   runsDown = false,
+  opened,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -418,6 +456,21 @@ export function WorkflowCanvas({
     >
       <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} />
       <Follows running={running} following={following} />
+      {opened === undefined ? null : (
+        <NodeToolbar
+          nodeId={opened.nodeId}
+          isVisible
+          position={Position.Bottom}
+          // `nowheel nopan nodrag`: a scroll, a drag or a selection inside the
+          // card is the card's, never the canvas's.
+          className="armada-workflow-canvas__card nowheel nopan nodrag"
+          role="dialog"
+          aria-label={opened.label}
+        >
+          {opened.children}
+        </NodeToolbar>
+      )}
+      {opened === undefined ? null : <KeepsTheCardInView nodeId={opened.nodeId} />}
     </GraphCanvas>
   );
 }

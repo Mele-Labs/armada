@@ -55,7 +55,17 @@ export type ProposalLandingProps = {
    * name typed by hand.
    */
   branches?: readonly BranchOption[] | null;
+  /**
+   * Which of the five fields to draw, in their own order. Absent is all five.
+   * The approval canvas draws the base on its own node and the pull request on
+   * another, so each field is drawn in one place and cannot disagree with a
+   * second copy of itself.
+   */
+  fields?: readonly ProposalLandingField[];
 };
+
+/** One of the region's five fields. */
+export type ProposalLandingField = "from" | "target" | "branching" | "completeWhen" | "prMode";
 
 /** What each branching unit is called where it is read rather than chosen. */
 const BRANCHING: Record<ProposalLandingValue["branching"], string> = {
@@ -73,7 +83,9 @@ export function ProposalLanding({
   onLanding,
   completeChoices,
   branches = null,
+  fields,
 }: ProposalLandingProps) {
+  const shows = (field: ProposalLandingField): boolean => fields === undefined || fields.includes(field);
   const moved = (change: Partial<ProposalLandingValue>): void =>
     onLanding?.({ ...landing, ...change });
   const chosen = completeChoices.find((one) => one.value === landing.completeWhen);
@@ -82,6 +94,7 @@ export function ProposalLanding({
     <section className="armada-proposal__region" aria-label="How it lands">
       <h3 className="armada-proposal__heading">How it lands</h3>
       <ProposalFields>
+        {shows("from") && (
         <ProposalField label="Base branch" bare={open}>
           {open ? (
             // The dispatch composer's own picker, so a branch is named the same
@@ -99,6 +112,8 @@ export function ProposalLanding({
             landing.from
           )}
         </ProposalField>
+        )}
+        {shows("target") && (
         <ProposalField label="Lands in" bare={open}>
           {open ? (
             <BranchPicker
@@ -115,6 +130,8 @@ export function ProposalLanding({
             landing.target
           )}
         </ProposalField>
+        )}
+        {shows("branching") && (
         <ProposalField label="Branches" bare={open}>
           {open ? (
             <Select
@@ -131,6 +148,8 @@ export function ProposalLanding({
             BRANCHING[landing.branching]
           )}
         </ProposalField>
+        )}
+        {shows("completeWhen") && (
         <ProposalField label="Complete when" bare={open}>
           {open ? (
             <Select
@@ -148,6 +167,8 @@ export function ProposalLanding({
             (chosen?.label ?? landing.completeWhen)
           )}
         </ProposalField>
+        )}
+        {shows("prMode") && (
         <ProposalField label="Pull request" bare={open}>
           {open ? (
             <Select
@@ -164,6 +185,7 @@ export function ProposalLanding({
             PR_MODE[landing.prMode]
           )}
         </ProposalField>
+        )}
       </ProposalFields>
     </section>
   );
