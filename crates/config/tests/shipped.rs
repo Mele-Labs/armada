@@ -240,6 +240,52 @@ fn a_dispatch_grant_that_is_not_a_boolean_is_refused() {
     assert!(config::WorkflowDef::parse(Path::new("grants.yml"), text, &roster()).is_err());
 }
 
+/// **Every shipped step is in the phase the owner drew it in**: the two that
+/// declare one, and every other by what `delivers` says.
+#[test]
+fn each_shipped_step_reads_in_its_phase() {
+    use core_model::StepPhase::{Delivery, Work};
+    let declared = [("design_plan", "present"), ("epic", "roll_up")];
+    for (path, text) in shipped() {
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            let named = (def.id().as_str(), step.id().as_str());
+            let expected = match declared.contains(&named) {
+                true => Some(Delivery),
+                false => None,
+            };
+            assert_eq!(step.phase(), expected, "{named:?}");
+            let read = core_model::StepPhase::of(step.phase(), step.delivers());
+            let drawn = if declared.contains(&named) || step.delivers() {
+                Delivery
+            } else {
+                Work
+            };
+            assert_eq!(read, drawn, "{named:?}");
+        }
+    }
+}
+
+/// A phase outside the three is refused rather than drawn in the lane its
+/// fallback would pick.
+#[test]
+fn a_phase_outside_the_three_is_refused() {
+    let step = |phase: &str| {
+        format!(
+            "version: 1\nworkflow_id: phased\nname: phased\nstructure: linear\n\
+             steps:\n  - id: one\n    label: \"One\"\n    phase: {phase}\n    \
+             delivers: false\n    advance_gate: auto\n"
+        )
+    };
+    let def = config::WorkflowDef::parse(Path::new("phased.yml"), &step("setup"), &roster())
+        .expect("setup is a phase");
+    assert_eq!(def.steps()[0].phase(), Some(core_model::StepPhase::Setup));
+    let refused = config::WorkflowDef::parse(Path::new("phased.yml"), &step("shipping"), &roster())
+        .expect_err("shipping is not a phase");
+    assert!(refused.to_string().contains("delivery"), "{refused}");
+}
+
 /// **This repository's own `armada.yml` loads**, which nothing asked until now.
 ///
 /// The header above has claimed since `#200` that these definitions resolve

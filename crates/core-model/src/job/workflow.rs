@@ -39,6 +39,7 @@ use crate::job::gaming::GamingCheck;
 use crate::job::ids::{ModelName, StepId, WorkflowId};
 use crate::job::judge::JudgeCheck;
 use crate::job::narrowing::Narrowing;
+use crate::job::phase::StepPhase;
 use crate::job::prerequisite::Prerequisite;
 use crate::job::runs_at::RunsAt;
 use crate::job::scope::EvidenceScope;
@@ -454,6 +455,10 @@ pub struct ResolvedStep {
     /// Drone works the whole plan (spike 022, *which step runs a Drone per
     /// task*). False on every row frozen before the key existed.
     drone_per_task: bool,
+    /// Which phase of the run the step declared itself in. **`None` is a step
+    /// declaring none**, read through [`phase`](Self::phase)'s fallback, and
+    /// every row frozen before the key existed.
+    phase: Option<StepPhase>,
     /// Whether this step records the Job's plan, and so is given
     /// `record_plan`. **True where `evidence_type` is `plan`**, which
     /// [`frozen`](Self::frozen) sets without being asked, and also true where
@@ -507,6 +512,7 @@ impl ResolvedStep {
             poke_limit: None,
             follows_plan: false,
             drone_per_task: false,
+            phase: None,
             // Inferred rather than left for a builder: the step's own product
             // being `plan` already settles this, so every caller building one
             // would otherwise have to restate a fact this constructor already
@@ -541,6 +547,23 @@ impl ResolvedStep {
     /// Drones are given neither plan tool: Fleet marks their tasks.
     pub fn drone_per_task(&self) -> bool {
         self.drone_per_task
+    }
+
+    /// The phase the step declared, for [`following_plan`](Self::following_plan)'s reason.
+    pub fn in_phase(mut self, phase: Option<StepPhase>) -> ResolvedStep {
+        self.phase = phase;
+        self
+    }
+
+    /// The phase the definition wrote, or `None`. What is frozen and stored.
+    pub fn phase_declared(&self) -> Option<StepPhase> {
+        self.phase
+    }
+
+    /// The phase the step is drawn in: its own, or [`StepPhase::of`]'s
+    /// fallback off [`delivers`](Self::delivers).
+    pub fn phase(&self) -> StepPhase {
+        StepPhase::of(self.phase, self.delivers)
     }
 
     /// This step also records the Job's plan, beside whatever

@@ -128,6 +128,7 @@ mod peer;
 mod peers;
 mod pending_evidence;
 mod permitting;
+mod phases;
 mod places;
 mod plan_person;
 mod plan_person_told;

@@ -522,3 +522,36 @@ fn a_manifest_rule_key_the_column_does_not_have_is_malformed() {
     let refused = crate::columns::read_workflow(&stored).expect_err("a key nothing defines");
     assert!(refused.contains("manifest_rule:nonsense"), "{refused}");
 }
+
+/// **A declared phase survives the column, and so does its absence**: the
+/// fallback off `delivers` is read every time and never frozen as a value.
+#[test]
+fn a_steps_declared_phase_and_its_absence_both_survive_the_column() {
+    let phased = crate::tests::workflow().regated(|step| match step.id().as_str() {
+        "reproduce" => step.in_phase(Some(core_model::StepPhase::Setup)),
+        _ => step,
+    });
+    let workflow = crate::columns::read_workflow(&crate::columns::write_workflow(&phased))
+        .expect("a workflow that was just written");
+    let step = |id: &str| workflow.step(&StepId::new(id)).expect("the step").clone();
+    assert_eq!(
+        step("reproduce").phase_declared(),
+        Some(core_model::StepPhase::Setup)
+    );
+    assert_eq!(step("fix").phase_declared(), None);
+    assert_eq!(step("fix").phase(), core_model::StepPhase::Delivery);
+
+    let before = crate::columns::read_workflow(WITHOUT_WHEN).expect("a pre-`phase` row");
+    assert_eq!(
+        before
+            .step(&StepId::new("fix"))
+            .expect("the step")
+            .phase_declared(),
+        None
+    );
+    let misspelt = WITHOUT_WHEN.replace(
+        r#""retry_limit": 0"#,
+        r#""retry_limit": 0, "phase": "shipping""#,
+    );
+    assert!(crate::columns::read_workflow(&misspelt).is_err());
+}

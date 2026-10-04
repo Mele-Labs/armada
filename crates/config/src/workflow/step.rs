@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use core_model::{
-    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, StepId,
+    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, StepId, StepPhase,
 };
 use serde_yaml_ng::Value;
 
@@ -50,6 +50,7 @@ const STEP_KEYS: &[&str] = &[
     "follows_plan",
     "records_plan",
     "drone_per_task",
+    "phase",
 ];
 
 /// **The schema's whole set, spelled out rather than sketched.** This held
@@ -96,6 +97,14 @@ const EVIDENCE_LEGAL: &[&str] = &[
     "review",
 ];
 
+/// `phase`'s words, all carried.
+const PHASE_CARRIED: &[(&str, StepPhase)] = &[
+    ("setup", StepPhase::Setup),
+    ("work", StepPhase::Work),
+    ("delivery", StepPhase::Delivery),
+];
+const PHASE_LEGAL: &[&str] = &["setup", "work", "delivery"];
+
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
 const EVIDENCE_KEYS: &[&str] = &["submitted", "captured"];
 const SUBMITTED_KEYS: &[&str] = &["type"];
@@ -122,6 +131,7 @@ pub struct Step {
     follows_plan: bool,
     records_plan: bool,
     drone_per_task: bool,
+    phase: Option<StepPhase>,
 }
 
 impl Step {
@@ -280,6 +290,12 @@ impl Step {
     pub fn drone_per_task(&self) -> bool {
         self.drone_per_task
     }
+
+    /// The phase the step declared. **`None` where the file leaves the key
+    /// out**, which `core_model::StepPhase::of` reads off `delivers`.
+    pub fn phase(&self) -> Option<StepPhase> {
+        self.phase
+    }
 }
 
 /// One step, or [`None`] where something on it was refused.
@@ -400,6 +416,19 @@ pub(super) fn read(
         None => Some(false),
         Some(value) => yaml::flag(&each_key, value, out),
     };
+    // **Absent is none, and a word outside the three is a refusal**, so a
+    // misspelt phase is not drawn in the lane its fallback picks.
+    let phase_key = table.at("phase");
+    let phase = table.optional("phase").and_then(|value| {
+        yaml::word(
+            &phase_key,
+            value,
+            PHASE_CARRIED,
+            PHASE_LEGAL,
+            PHASE_LEGAL,
+            out,
+        )
+    });
     // **Required, and there is no default to fall back to.** A file that does
     // not say whether a step sends the work out has two readings and neither is
     // safe: taken as delivering, a workflow that produces a document opens a
@@ -533,6 +562,7 @@ pub(super) fn read(
         follows_plan: follows_plan?,
         records_plan: records_plan?,
         drone_per_task: drone_per_task?,
+        phase,
     })
 }
 

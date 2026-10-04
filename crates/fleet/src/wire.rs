@@ -148,6 +148,9 @@ pub(crate) fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep>
             // `ipc::StepDetail::of` reads off `StepPass` — absent on the wire
             // rather than a cap of zero, which is not a cap anything declared.
             iteration_cap: Some(step.iteration_cap()).filter(|cap| *cap > 0),
+            phase: step.phase().into(),
+            may_dispatch_jobs: step.may_dispatch_jobs(),
+            drone_per_task: step.drone_per_task(),
         })
         .collect()
 }
