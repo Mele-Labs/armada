@@ -14,7 +14,7 @@ export default meta;
 
 type Story = StoryObj<typeof PoolSlots>;
 
-const AT = "/Users/someone/armada/.armada/slots";
+const AT = "/Users/user/armada/.armada/slots";
 
 function slot(n: number, rest: Partial<WorktreeSlot> & Pick<WorktreeSlot, "held">): WorktreeSlot {
   return { manifest_id: "armada", slot: n, path: `${AT}/slot-${n}`, base: "main", warm: false, ...rest };
@@ -32,7 +32,7 @@ const ROWS: PoolSlotRow[] = [
   },
   {
     slot: slot(2, {
-      held: { state: "session", holder: "claude (pid 4120)" },
+      held: { state: "session", holder: "zsh (pid 4120)" },
       branch: "fleet/slot-pool-in-cleanup",
       warm: true,
       behind: 7,
@@ -62,7 +62,7 @@ export const EveryState: Story = {
   args: { rows: ROWS },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getAllByRole("row")).toHaveLength(ROWS.length);
-    await expect(canvas.queryByRole("button", { name: /claude/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /zsh/ })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Fix the reader" }));
     await expect(args.onOpenJob).toHaveBeenCalledWith("01JOB");
 

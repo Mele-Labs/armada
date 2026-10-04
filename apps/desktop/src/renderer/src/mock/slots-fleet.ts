@@ -3,7 +3,7 @@
 
 import type { JobSummary, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 
-const AT = "/Users/someone/armada/.armada/slots";
+const AT = "/Users/user/armada/.armada/slots";
 
 function slot(n: number, rest: Partial<WorktreeSlot> & Pick<WorktreeSlot, "held">): WorktreeSlot {
   return { manifest_id: "armada", slot: n, path: `${AT}/slot-${n}`, base: "main", warm: false, ...rest };
@@ -23,7 +23,7 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
         behind: 0,
       }),
       slot(2, {
-        held: { state: "session", holder: "claude (pid 4120)" },
+        held: { state: "session", holder: "zsh (pid 4120)" },
         branch: "fleet/slot-pool-in-cleanup",
         since: ago(42),
         warm: true,

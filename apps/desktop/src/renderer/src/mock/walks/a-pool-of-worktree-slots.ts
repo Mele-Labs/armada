@@ -12,7 +12,7 @@ export const aPoolOfWorktreeSlots = walk("cleanup/slots", [
   { hover: inside(SLOT(1), role("img", "Held")), say: "Held: a Job has it" },
   { hover: inside(SLOT(1), role("img", "Warm")), say: "Warm: its build is on disk" },
   { hover: inside(SLOT(1), text(/hours?$/)), say: "How long it has been held" },
-  { look: inside(SLOT(2), text("claude (pid 4120)")), say: "Held by a session, named by its process" },
+  { look: inside(SLOT(2), text("zsh (pid 4120)")), say: "Held by a session, named by its process" },
   { hover: inside(SLOT(2), text("7")), say: "Seven commits behind main" },
   { hover: inside(SLOT(3), role("img", "Free")), say: "Free, and warm" },
   { hover: inside(SLOT(4), role("img", /Stranded/)), say: "Stranded: its holder is gone and it holds work" },

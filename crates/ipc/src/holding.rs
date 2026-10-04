@@ -75,7 +75,7 @@ pub enum SlotHolding {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_title: Option<String>,
     },
-    /// A process outside Fleet, as `ps` names it: `claude (pid 4120)`.
+    /// A process outside Fleet, as `ps` names it: `zsh (pid 4120)`.
     Session {
         holder: String,
     },

@@ -111,7 +111,7 @@ pub enum SlotHeld {
     Free,
     /// One of Fleet's Jobs, by id.
     Job(String),
-    /// A process, named for a person: `claude (pid 4120)`.
+    /// A process, named for a person: `zsh (pid 4120)`.
     Session(String),
     /// Its holder is gone and it holds work, said in a phrase.
     Stranded(String),

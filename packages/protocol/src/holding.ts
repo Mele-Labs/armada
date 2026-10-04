@@ -67,7 +67,7 @@ export type SlotHolding =
   | { state: "free" }
   /** One of Fleet's jobs. The title is absent where the store no longer has the job. */
   | { state: "job"; job_id: string; job_title?: string }
-  /** A process outside Fleet, as `ps` names it: `claude (pid 4120)`. */
+  /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
   | { state: "session"; holder: string }
   /** Its holder is gone and it still holds work. */
   | { state: "stranded"; why: string };
