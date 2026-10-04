@@ -10,7 +10,7 @@ const CANVAS = region("What you are approving");
 export const approvalAsACanvas = walk("proto/feature-at-approval", [
   { look: CANVAS, say: "Setup, the work and delivery, side by side" },
   { look: card("Checks"), say: "Each step's Checks hang beside it, on its row" },
-  { press: card("Start feature"), say: "The workflow is a node of its own" },
+  { look: role("combobox", "Workflow", { exact: true }), say: "The Work lane's head is the workflow: pick another here" },
   { type: "bug", into: role("combobox", "Workflow", { exact: true }), say: "Another workflow" },
   { look: card("Reproduction"), say: "and the Work lane is bug's steps" },
   { type: "feature", into: role("combobox", "Workflow", { exact: true }), say: "Back to feature" },

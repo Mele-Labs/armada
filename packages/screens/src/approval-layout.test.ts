@@ -26,7 +26,7 @@ const run = () => {
     groups: ["G1", "G2"].map((id) => ({ id, name: id, tasks: [], life: { activity: "not_started" as const, said: "" } })),
   };
   const { nodes, edges } = approvalNodesOf({
-    title: "T", from: "main", workflowName: "feature", steps: STEPS, gates: GATES, tuning: tuningOf([]),
+    title: "T", from: "main", steps: STEPS, gates: GATES, tuning: tuningOf([]),
     prMode: "ready", target: "main", life,
   });
   return { nodes, ...layoutOf(nodes, edges) };
@@ -48,7 +48,7 @@ describe("layoutOf", () => {
 
   it("draws the three lanes left to right, each as tall as the deepest", () => {
     const { places, frames } = run();
-    expect(places.get("start")!.x).toBeLessThan(places.get("plan")!.x);
+    expect(places.get("base")!.x).toBeLessThan(places.get("plan")!.x);
     expect(places.get("plan")!.x).toBeLessThan(places.get("done")!.x);
     const zones = frames.filter((frame) => frame.kind === "zone");
     expect(zones.map((zone) => zone.name)).toEqual(["Setup", "Work", "Delivery"]);
@@ -59,7 +59,7 @@ describe("layoutOf", () => {
     const { edges, frames } = run();
     const work = frames.find((frame) => frame.id === "zone:work")!;
     const setup = frames.find((frame) => frame.id === "zone:setup")!;
-    const into = edges.find((edge) => edge.source === "start" && edge.target === "plan");
+    const into = edges.find((edge) => edge.source === "base" && edge.target === "plan");
     expect(into?.via).toBeGreaterThan(setup.x + setup.width);
     expect(into?.via).toBeLessThan(work.x);
     expect(edges.find((edge) => edge.source === "plan" && edge.target === "plan:checks")?.via).toBeUndefined();

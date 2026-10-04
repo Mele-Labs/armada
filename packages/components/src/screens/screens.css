@@ -2256,3 +2256,10 @@
 .armada-approval-canvas__frame {
   box-sizing: border-box;
 }
+
+/* The Work lane's workflow picker, in a frame no press reaches: the control
+   takes its own presses back. */
+.armada-approval-canvas__picker {
+  pointer-events: auto;
+  min-width: var(--w-workflow-task-node);
+}

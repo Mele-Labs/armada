@@ -72,7 +72,12 @@ function rowsOf(fan: readonly ApprovalNode[]): ApprovalNode[][] {
 const rowWidth = (row: readonly ApprovalNode[]): number =>
   row.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, row.length - 1);
 
-export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly WorkflowCanvasEdge[]): Layout {
+export function layoutOf(
+  nodes: readonly ApprovalNode[],
+  edges: readonly WorkflowCanvasEdge[],
+  /** The workflow's name, which the Work lane's head carries. */
+  workflowName?: string,
+): Layout {
   const places = new Map<string, Place>();
   const frames: Frame[] = [];
   const labelled = new Set(edges.filter((edge) => edge.label !== undefined).map((edge) => edge.target));
@@ -155,7 +160,7 @@ export function layoutOf(nodes: readonly ApprovalNode[], edges: readonly Workflo
     ...laneFrames.map(({ lane, x: at, width }): Frame => ({
       id: `zone:${lane}`,
       kind: "zone",
-      name: LANE_NAME[lane],
+      name: lane === "work" && workflowName !== undefined ? workflowName : LANE_NAME[lane],
       x: at,
       y: 0,
       width,

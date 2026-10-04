@@ -20,14 +20,13 @@ const GATES = [
 ];
 
 const nodesOf = (tuning = tuningOf(STEPS.map((step) => ({ step_id: step.id }))), prMode: "ready" | "draft" = "ready") =>
-  approvalNodesOf({ title: "T", from: "main", workflowName: "feature", steps: STEPS, gates: GATES, tuning, prMode, target: "main" });
+  approvalNodesOf({ title: "T", from: "main", steps: STEPS, gates: GATES, tuning, prMode, target: "main" });
 
 describe("approvalNodesOf", () => {
   it("runs brief to land: Groups after Implement, Done when before the pull request", () => {
     expect(nodesOf().nodes.map((node) => node.id)).toEqual([
       "brief",
       "base",
-      "start",
       "plan",
       "plan:checks",
       "implement",
@@ -50,7 +49,8 @@ describe("approvalNodesOf", () => {
   it("lays the run in three lanes, each gate beside its step", () => {
     const { nodes } = nodesOf();
     const lane = (id: string) => nodes.find((node) => node.id === id)?.lane;
-    expect([lane("start"), lane("plan"), lane("done"), lane("land")]).toEqual(["setup", "work", "delivery", "delivery"]);
+    expect([lane("base"), lane("plan"), lane("done"), lane("land")]).toEqual(["setup", "work", "delivery", "delivery"]);
+    expect(nodes.some((node) => node.id === "start")).toBe(false);
     expect(nodes.find((node) => node.id === "plan:checks")?.side).toBe("plan");
     expect(nodes.find((node) => node.id === "handoff")?.side).toBe("pr");
   });
@@ -65,10 +65,10 @@ describe("approvalNodesOf", () => {
       ],
     };
     const { nodes } = approvalNodesOf({
-      title: "T", from: "main", workflowName: "feature", steps: STEPS, gates: GATES, tuning, prMode: "ready", target: "main", life,
+      title: "T", from: "main", steps: STEPS, gates: GATES, tuning, prMode: "ready", target: "main", life,
     });
     const ids = nodes.map((node) => node.id);
-    expect(ids.slice(5, 8)).toEqual(["implement", "group:G1", "group:G2"]);
+    expect(ids.slice(4, 7)).toEqual(["implement", "group:G1", "group:G2"]);
     expect(ids).not.toContain("groups");
     expect(nodes.find((node) => node.id === "plan")?.life?.activity).toBe("advanced");
   });
@@ -103,14 +103,14 @@ describe("a wave's Jobs", () => {
   });
   const read = (jobs?: ReturnType<typeof job>[]) =>
     approvalNodesOf({
-      title: "T", from: "main", workflowName: "epic", steps: EPIC, gates, tuning: tuningOf([]), prMode: "ready",
+      title: "T", from: "main", steps: EPIC, gates, tuning: tuningOf([]), prMode: "ready",
       target: "main", dispatchesFrom: "plan", ...(jobs === undefined ? {} : { life: { nodes: {}, jobs } }),
     });
 
   it("stands as Jobs after the step that dispatches them, until the wave exists", () => {
     const placeholder = read().nodes.find((node) => node.id === "jobs");
     expect(placeholder?.lane).toBe("work");
-    expect(read().nodes.map((node) => node.id).slice(3, 6)).toEqual(["plan", "plan:checks", "jobs"]);
+    expect(read().nodes.map((node) => node.id).slice(2, 5)).toEqual(["plan", "plan:checks", "jobs"]);
   });
 
   it("leads from the gate to each Job that waits on nothing, and on from each nobody waits on", () => {
@@ -139,7 +139,7 @@ describe("a step's lane", () => {
       { step_id: "roll_up", checks: false, judge: false, you: true },
     ];
     const { nodes } = approvalNodesOf({
-      title: "T", from: "main", workflowName: "epic", steps, gates, tuning: tuningOf([]), prMode: "ready", target: "main",
+      title: "T", from: "main", steps, gates, tuning: tuningOf([]), prMode: "ready", target: "main",
     });
     expect(nodes.find((node) => node.id === "roll_up")?.lane).toBe("delivery");
     expect(nodes.find((node) => node.id === "plan")?.lane).toBe("work");

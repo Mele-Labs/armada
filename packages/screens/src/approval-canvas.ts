@@ -26,7 +26,6 @@ import type { ApprovalTuning } from "./draft/tuning";
 export type ApprovalNodeKind =
   | "brief"
   | "base"
-  | "start"
   | "step"
   | "checks"
   | "groups"
@@ -213,7 +212,6 @@ export function approvalNodesOf({
   asked = "",
   criteria = [],
   from,
-  workflowName,
   steps,
   gates,
   tuning,
@@ -229,7 +227,6 @@ export function approvalNodesOf({
   /** What counts as done, in order. */
   criteria?: readonly string[];
   from: string;
-  workflowName: string;
   steps: readonly StepRead[];
   gates: readonly GateView[];
   tuning: ApprovalTuning;
@@ -262,7 +259,7 @@ export function approvalNodesOf({
     traits: [],
     meta: [],
   });
-  put({ id: "start", kind: "start", name: `Start ${workflowName}`, face: workflowName, traits: [], meta: [] });
+  // No Start node: the Work lane's head names the workflow, and at the gate picks it.
   lane = "work";
 
   // What counts as the work being done, read just before it leaves (the

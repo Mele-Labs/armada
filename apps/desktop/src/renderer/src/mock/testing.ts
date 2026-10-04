@@ -133,6 +133,10 @@ export async function listed(): Promise<void> {
  */
 export async function openNode(name: string, at = 0): Promise<ReturnType<typeof page.getByRole>> {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // A card already open sits beside its node and may cover the next one: close it first, as a person would.
+  for (const close of page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).elements()) {
+    (close as HTMLElement).click();
+  }
   await page
     .getByRole("button", { name: new RegExp(`^${escaped}, `) })
     .nth(at)

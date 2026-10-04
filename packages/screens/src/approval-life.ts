@@ -88,7 +88,7 @@ function membersOf(wave: WaveView | undefined): MemberRead[] {
 }
 
 export function lifeOf(whole: JobWhole, wave?: WaveView): LifeRead {
-  const nodes: Record<string, NodeLife> = { brief: PAST, base: PAST, start: PAST };
+  const nodes: Record<string, NodeLife> = { brief: PAST, base: PAST };
   for (const step of whole.steps) {
     const current = step.step_id === whole.job.current_step_id && AT.has(step.state);
     nodes[step.step_id] = stepLife(step.state, current);

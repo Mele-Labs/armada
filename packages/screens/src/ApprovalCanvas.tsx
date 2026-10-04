@@ -204,7 +204,6 @@ export function ApprovalCanvas({
     criteria: edits.criteria.map((one) => one.text).filter((text) => text.trim() !== ""),
     ...(proposal.drone_cap === undefined ? {} : { droneCap: proposal.drone_cap }),
     from: value.from,
-    workflowName: workflow?.name ?? proposal.workflow_id,
     steps,
     gates: proposal.gates,
     tuning,
@@ -216,7 +215,31 @@ export function ApprovalCanvas({
   // A node a workflow change took away closes its card with it.
   const opened = nodes.find((node) => node.id === open);
 
-  const layout = layoutOf(nodes, edges);
+  const workflowName = workflow?.name ?? proposal.workflow_id;
+  const layout = layoutOf(nodes, edges, workflowName);
+  // At the gate the Work lane's head is the workflow picker: another workflow
+  // rebuilds every gate and every step in the lane, and a step's tuning goes
+  // with its step. Past the gate it is the name, read.
+  const pick =
+    moved === undefined
+      ? undefined
+      : (workflowId: string) => {
+          const picked = workflows.find((one) => one.id === workflowId)?.steps ?? [];
+          moved({
+            proposal: proposalOnWorkflow(proposal, workflows, workflowId),
+            tuning: { ...tuning, steps: tuningOf(picked).steps },
+          });
+        };
+  const choices = workflowChoicesOf(workflows, whole.job.owner_manifest_id);
+  const workHead =
+    pick === undefined || choices.length === 0 ? undefined : (
+      <WorkflowPicker
+        value={proposal.workflow_id}
+        choices={choices}
+        onPick={pick}
+        {...(workflow?.for_requests === undefined ? {} : { forRequests: workflow.for_requests })}
+      />
+    );
   const drawnEdges = layout.edges.map((edge) => {
     const into = nodes.find((node) => node.id === edge.target);
     return into?.life?.current === true ? { ...edge, flowing: true } : edge;
@@ -231,6 +254,7 @@ export function ApprovalCanvas({
       <div className="armada-approval-canvas__frame" style={{ width: frame.width, height: frame.height }}>
         <StudioFrame
           kind={frame.kind}
+          {...(frame.id === "zone:work" && workHead !== undefined ? { head: workHead } : {})}
           {...(frame.name === undefined ? {} : { name: frame.name })}
           {...(frame.title === undefined ? {} : { title: frame.title })}
         />
@@ -374,8 +398,6 @@ function NodeCard(props: NodeCardProps) {
       return <BriefCard {...props} />;
     case "base":
       return <BaseCard {...props} />;
-    case "start":
-      return <StartCard {...props} />;
     case "step":
       return props.step === undefined ? null : <StepCard {...props} step={props.step} />;
     case "checks":
@@ -513,29 +535,35 @@ function BaseCard({ value, landed, branches }: NodeCardProps) {
   );
 }
 
-function StartCard({ edits, moved, tuning, workflows, whole, forRequests }: NodeCardProps) {
-  const { proposal } = edits;
-  return (
-    <ProposalGates
-      workflow={proposal.workflow_id}
-      workflowChoices={workflowChoicesOf(workflows, whole.job.owner_manifest_id)}
-      {...(forRequests === undefined ? {} : { forRequests })}
-      steps={[]}
-      {...(moved === undefined
-        ? {}
-        : {
-            // Another workflow rebuilds every gate, and every step node with it.
-            // A step's tuning belongs to that step, so it goes with it.
-            onWorkflow: (workflowId: string) => {
-              const picked = workflows.find((one) => one.id === workflowId)?.steps ?? [];
-              moved({
-                proposal: proposalOnWorkflow(proposal, workflows, workflowId),
-                tuning: { ...tuning, steps: tuningOf(picked).steps },
-              });
-            },
-          })}
-    />
+/**
+ * The Work lane's head at the gate: which workflow runs, picked. **What the
+ * workflow is for is its tooltip**, the words the Start card drew under it,
+ * since a lane's head is one line. Pressable inside a frame no press reaches.
+ */
+function WorkflowPicker({
+  value,
+  choices,
+  onPick,
+  forRequests,
+}: {
+  value: string;
+  choices: readonly { id: string; name: string }[];
+  onPick: (workflowId: string) => void;
+  forRequests?: string;
+}) {
+  const select = (
+    <span className="armada-approval-canvas__picker nodrag nopan">
+      <Select aria-label="Workflow" value={value} onChange={(event) => onPick(event.target.value)}>
+        {choices.some((one) => one.id === value) ? null : <option value={value}>{value}</option>}
+        {choices.map((choice) => (
+          <option key={choice.id} value={choice.id}>
+            {choice.name}
+          </option>
+        ))}
+      </Select>
+    </span>
   );
+  return forRequests === undefined ? select : <Tooltip label={forRequests}>{select}</Tooltip>;
 }
 
 /** A Drone's settings for one step: model, effort, harness, context — and on the step worked per task, the tiers and the cap. */

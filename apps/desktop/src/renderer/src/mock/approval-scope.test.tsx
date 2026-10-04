@@ -37,8 +37,8 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
     "Retire guide 8 and add guide validation rule",
   );
 
-  const start = await openNode("Start refactor");
-  await expect.element(start.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
+  // The Work lane's head is the workflow picker.
+  await expect.element(approving().getByRole("combobox", { name: "Workflow", exact: true })).toHaveValue("refactor");
 
   // Who decides each step, read off its frozen `advance_gate`: Checks and the
   // Judge on the two that do the work, each its own gate node in run order.
@@ -102,11 +102,11 @@ test("once the Job is running nothing draws: the approval is behind it", async (
   expect(approving().all()).toHaveLength(0);
 });
 
-test("the workflow's promise reads under its name, from this repository's row of the list", async () => {
+test("the workflow's promise is its picker's description, from this repository's row of the list", async () => {
   mount(onJob(refactorAtApproval()));
-  const workflow = (await openNode("Start refactor")).getByRole("region", { name: "Workflow" });
-  await expect.element(workflow.getByText(REFACTOR_FOR_REQUESTS)).toBeVisible();
-  expect(workflow.getByText("Another repository's refactor", { exact: false }).all()).toHaveLength(0);
+  const picker = approving().getByRole("combobox", { name: "Workflow", exact: true });
+  await expect.element(picker).toHaveAccessibleDescription(REFACTOR_FOR_REQUESTS);
+  expect(page.getByText("Another repository's refactor", { exact: false }).all()).toHaveLength(0);
 });
 
 test("a workflow that declares no promise draws nothing under its name", async () => {
@@ -117,9 +117,9 @@ test("a workflow that declares no promise draws nothing under its name", async (
       workflows: fixture.workflows.map(({ for_requests: _none, ...row }) => row),
     }),
   );
-  const workflow = (await openNode("Start refactor")).getByRole("region", { name: "Workflow" });
-  await expect.element(workflow.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
-  expect(document.querySelector(".armada-proposal__workflow-promise")).toBeNull();
+  const picker = approving().getByRole("combobox", { name: "Workflow", exact: true });
+  await expect.element(picker).toHaveValue("refactor");
+  await expect.element(picker).not.toHaveAccessibleDescription(REFACTOR_FOR_REQUESTS);
 });
 
 // Spike 022, slice 4: what a person changes under the lead is what the Job
