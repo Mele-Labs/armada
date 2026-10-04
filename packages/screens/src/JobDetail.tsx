@@ -362,9 +362,9 @@ function OneJob(props: JobDetailProps) {
             the product of an Epic Job, and the run is how it got there. A Job
             that dispatched nothing draws nothing. #1544. A Job pressed opens
             its panel, with what it asks of you at the top — Plan's own. */}
-        {/* Not where the run's canvas draws the wave's Jobs itself (prototype,
-            a mock draft's `life_canvas`): one wave, drawn once. */}
-        {props.draft?.life_canvas === true && !held.atGate ? null : (
+        {/* Not where the run's canvas draws the wave's Jobs itself, which is
+            every Job past its gate: one wave, drawn once. */}
+        {whole !== null && !held.atGate ? null : (
           <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
         )}
         <OverviewTab
@@ -406,9 +406,9 @@ function OneJob(props: JobDetailProps) {
                 ),
               }
             : // Past the gate, the same canvas read, marked with where the Job
-              // is (prototype, a mock draft's `life_canvas`). No `onEdits`:
-              // nothing on it can change any more.
-              props.draft?.life_canvas === true && whole !== null && !held.atGate
+              // is — every Job's Overview (the owner, 4 Oct 2026). No
+              // `onEdits`: nothing on it can change any more.
+              whole !== null && !held.atGate
               ? {
                   run: (
                     <ApprovalCanvas

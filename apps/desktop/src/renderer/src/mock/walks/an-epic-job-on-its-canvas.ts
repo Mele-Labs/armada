@@ -8,7 +8,7 @@ import { card, inside, region, role, text, walk } from "../walk";
 const job = (title: string, status?: string) =>
   role("button", new RegExp(`^${title}, ${status ?? ""}`));
 
-export const anEpicJobOnItsCanvas = walk("proto/epic-running", [
+export const anEpicJobOnItsCanvas = walk("epic/wave", [
   { look: region("This Job's run"), say: "An Epic Job's run, in its three lanes" },
   { look: card("Plan the wave"), say: "Its plan split the work" },
   { look: job("Refuse an unknown code at the seam", "done"), say: "into Jobs: the seam first, done" },

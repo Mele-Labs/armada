@@ -83,11 +83,4 @@ export type JobDraft = {
    * names no task.
    */
   drones?: readonly DroneView[];
-  /**
-   * Draw a running Job's Overview as its canvas — the approval canvas after
-   * the gate, every node marked with where the Job is (the owner, 4 Oct 2026).
-   * **Prototype, and a mock's alone**: no Fleet serves it, and absent is every
-   * Job's Overview as it was.
-   */
-  life_canvas?: true;
 };

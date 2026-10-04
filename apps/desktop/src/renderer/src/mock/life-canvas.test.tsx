@@ -25,7 +25,7 @@ test("past the gate a step opens Workflow's own panel, and a card with no panel 
 });
 
 test("an Epic Job's run draws its wave once, on the canvas", async () => {
-  mount("proto/epic-running");
+  mount("epic/wave");
   await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: /^Drop the second error shape, / })).toBeVisible();
   expect(page.getByRole("region", { name: "The wave", exact: true }).all()).toHaveLength(0);

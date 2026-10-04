@@ -90,6 +90,12 @@ export type OverviewBoardProps = {
    * `approving.tsx`. Absent on every Job not waiting to be dispatched.
    */
   approving?: ReactNode;
+  /**
+   * The Job's run as its canvas, past the gate, under the lead where the
+   * approval stood. **The Brief stays beside it**: it reads the approved words
+   * and names the Studio the work came from, which the canvas does not.
+   */
+  run?: ReactNode;
   workflow?: OverviewWorkflow;
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
@@ -122,6 +128,7 @@ export function OverviewBoard({
   lead,
   waiting,
   approving,
+  run,
   workflow,
   workflowAbsent,
   plan,
@@ -140,6 +147,7 @@ export function OverviewBoard({
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
       <JobLead {...lead} waiting={waiting} />
       {approving}
+      {approving === undefined ? run : null}
 
       {/* **No Brief while the panel holds the request** (the owner, 3 Oct
           2026). The panel's field is the request, editable; a second copy

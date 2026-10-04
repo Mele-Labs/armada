@@ -767,7 +767,7 @@ export function OverviewTab(props: OverviewTabProps) {
       {...(lead.approves !== true || waiting !== undefined || props.approval === undefined
         ? props.run === undefined
           ? {}
-          : { approving: props.run }
+          : { run: props.run }
         : { approving: props.approval })}
       {...(canvas === undefined
         ? { workflowAbsent: whyNoSteps(watched, job.id) }

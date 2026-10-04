@@ -24,6 +24,7 @@ export const markdownInAPlanRefusal = walk("arc/plan-revision-refused", [
 ]);
 
 export const markdownInAJudgeQuestion = walk("epic/wave", [
+  { press: tab("Plan"), say: "The wave's Needs you, on Plan" },
   { press: role("option", "Say which half refused"), say: "A Judge question, from Needs you" },
   { look: text("not Fleet, which refused it"), say: "What the Judge says it produced: code, bold and a list" },
 ]);

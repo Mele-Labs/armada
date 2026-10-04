@@ -890,6 +890,9 @@ const member = (ordinal: number) =>
     .getByRole("listitem")
     .nth(ordinal - 1);
 
+// Read on Plan: past its gate an Epic's Overview is the run's canvas, which
+// draws the wave's Jobs itself, and the wave region — its strip, its graph,
+// its list, Needs you — is Plan's (the owner, 4 Oct 2026).
 describe("the wave", () => {
   /**
    * The wave's own region. **Scoped, because the dock draws the same questions
@@ -910,7 +913,7 @@ describe("the wave", () => {
   }
 
   test("epic/wave: each Job of the live wave is drawn with what it has reached", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     // Each card names the Job and the verb the registry gives its status, so
     // "what it has reached" is read off the card and not counted from a list.
     for (const [title, said] of [
@@ -925,7 +928,7 @@ describe("the wave", () => {
   });
 
   test("epic/wave: the graph draws a Job that waits on another behind it", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     // The wave's own direction, as the edge reads it aloud. Dropping the second
     // error shape can only happen once every surface carries the first, so it
     // waits on them — the board had this pair the other way round.
@@ -937,7 +940,7 @@ describe("the wave", () => {
   });
 
   test("epic/wave: the same five Jobs are a list, with what each waits on", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     await wave().getByRole("tab", { name: "List" }).click();
     const list = page.getByRole("listbox", { name: "Wave 2, as a list" });
     await expect.element(list).toBeVisible();
@@ -952,7 +955,7 @@ describe("the wave", () => {
     "epic/wave: Needs you is a line per Job, and a line opens that Job's panel with its " +
       "answer at the top",
     async () => {
-      mount("epic/wave");
+      await at("epic/wave", "Plan");
       const needs = page.getByRole("listbox", { name: "Needs you" });
       await expect.poll(() => needs.element().querySelectorAll('[role="option"]').length).toBe(3);
 
@@ -982,7 +985,7 @@ describe("the wave", () => {
   );
 
   test("epic/wave: the strip names each wave, and the loop how many it may run", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     await expect.element(wave().getByRole("tab", { name: "Wave 1 · the seam" })).toBeVisible();
     await expect
       .element(wave().getByRole("tab", { name: "Wave 2 · every surface" }))
@@ -991,12 +994,13 @@ describe("the wave", () => {
   });
 
   // The owner, 30 Sep 2026: "I can't seem to scroll when I have a wave
-  // selected." The wave sat outside Overview's scroller and squeezed the board
-  // under it to nothing, so the wheel moved nothing.
-  test("epic/wave: Overview scrolls from the wave down through the board under it", async () => {
-    mount("epic/wave");
+  // selected." The wave sat outside the scroller and squeezed the board under
+  // it to nothing, so the wheel moved nothing. Plan's claim now: the run's
+  // canvas draws the wave's Jobs on Overview, and the strip is Plan's.
+  test("epic/wave: Plan scrolls from the wave down through the board under it", async () => {
+    await at("epic/wave", "Plan");
     await expect.element(wave().getByText("Up to 5 waves")).toBeVisible();
-    const board = page.getByRole("tabpanel", { name: "Overview" }).element() as HTMLElement;
+    const board = page.getByRole("tabpanel", { name: "Plan" }).element() as HTMLElement;
     let scroller: HTMLElement | null = board;
     while (scroller !== null && getComputedStyle(scroller).overflowY !== "auto") {
       scroller = scroller.parentElement;
@@ -1010,14 +1014,14 @@ describe("the wave", () => {
   });
 
   test("epic/wave: pressing a past wave draws its Jobs on the graph", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     await wave().getByRole("tab", { name: "Wave 1 · the seam" }).click();
     await expect.element(waveCard("Handle every refusal at the seam")).toBeVisible();
     expect(waveCard("Say which half refused").query()).toBeNull();
   });
 
   test("epic/wave: a Job's panel opens that Job", async () => {
-    mount("epic/wave");
+    await at("epic/wave", "Plan");
     await waveCard("Carry the code into the journal").click();
     const panel = await panelOf("Carry the code into the journal");
     await panel.getByRole("button", { name: "Open job" }).click();
