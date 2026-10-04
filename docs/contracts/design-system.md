@@ -2664,6 +2664,9 @@ read plausibly under a different job has failed.
 - **Retro** what got in the way while one Job ran, written once it ends.
   Never the post-mortem, the review — a review is of the change. What the
   retros' items make together is **Lessons**, the page that lists them.
+- **Lands in** where a retro item's fix lands: Armada, Kit or Manifest,
+  exactly one. Never the owner, the area, the component — whose way it got
+  in is a separate question.
 
 **Claude is a model name, never an actor.** Write "Drone 4 stalled", not
 "Claude stalled". The word appears only where a model is selected or

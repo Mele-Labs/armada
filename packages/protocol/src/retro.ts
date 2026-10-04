@@ -6,22 +6,24 @@ import type { Outcome } from "./reads";
 /** Whom one retro item got in the way of. */
 export type Whose = "drone" | "owner" | "fleet";
 
+/**
+ * Where the fix for one retro item lands: Armada itself, the Kit a person
+ * brings, or the repository the Job worked on. Since 23.15.
+ */
+export type LandsIn = "armada" | "kit" | "manifest";
+
 /** Where a Job's retro stands. */
 export type RetroState = "pending" | "written" | "failed" | "skipped";
 
 /**
- * Where an item's fix lands: Armada itself (Fleet or Bridge), the Kit (Skills,
- * MCP, sub-agents, the allowlist, models), or the Manifest's repository (its
- * Checks, tests and code). Exactly one per item.
+ * One thing that got in the way. `evidence` names rows of the record by `cite`.
+ * `lands_in` is on every item written since 23.15, and absent on one kept
+ * before, which is shown under All only.
  */
-export type LandsIn = "armada" | "kit" | "manifest";
-
-/** One thing that got in the way. `evidence` names rows of the record by `cite`. */
 export type RetroItem = {
   who: Whose;
   statement: string;
   evidence: string[];
-  /** Absent only on a retro stored before `lands_in` was written. */
   lands_in?: LandsIn;
 };
 
@@ -130,7 +132,7 @@ export type JobRetro = {
   annotations?: LinkedAnnotation[];
 };
 
-/** One retro item, with the Job it came from. */
+/** One retro item, with the Job it came from. `lands_in` as on `RetroItem`. */
 export type Lesson = {
   job_id: string;
   handle: string;
@@ -138,11 +140,13 @@ export type Lesson = {
   who: Whose;
   statement: string;
   evidence: string[];
-  /** Absent only on a retro stored before `lands_in` was written. */
   lands_in?: LandsIn;
 };
 
-/** `list_lessons`: `GET /lessons?manifest_id=&most=&lands_in=`, newest retro first. */
+/**
+ * `list_lessons`: `GET /lessons?manifest_id=&lands_in=&most=`, newest retro
+ * first. `lands_in` absent is all three, an item kept before 23.15 included.
+ */
 export type Lessons = {
   lessons: Lesson[];
 };

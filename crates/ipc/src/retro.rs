@@ -9,9 +9,10 @@
 //!
 //! [`cite`]: RecordRefusal::cite
 
-use serde::{Deserialize, Serialize};
+use serde::de::IgnoredAny;
+use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::enums::{Actor, Via, Whose};
+use crate::enums::{Actor, LandsIn, Via, Whose};
 use crate::ids::{Instant, JobId, StepId};
 
 /// `get_job_retro`.
@@ -64,13 +65,39 @@ pub struct RetroItem {
     pub statement: String,
     /// The [`RetroRecord`] rows that show it, by `cite`. Never empty.
     pub evidence: Vec<String>,
+    /// Where its fix lands. Since 23.15, and on every item written since:
+    /// **absent on an item kept before**, never defaulted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lands_in: Option<LandsIn>,
 }
 
 /// What the retro call answers with. Read through [`crate::decode`] and
 /// nowhere else.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroWritten {
+    /// **An item that will not read is left out**, rather than costing the
+    /// items beside it: one `lands_in` the model spelled wrong drops that item,
+    /// the way one citing nothing the record holds is dropped.
+    #[serde(deserialize_with = "readable")]
     pub items: Vec<RetroItem>,
+}
+
+/// One item of a model's answer, or whatever it wrote in that place instead.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Answered {
+    Item(RetroItem),
+    Unread(IgnoredAny),
+}
+
+fn readable<'de, D: Deserializer<'de>>(input: D) -> Result<Vec<RetroItem>, D::Error> {
+    Ok(Vec::<Answered>::deserialize(input)?
+        .into_iter()
+        .filter_map(|answered| match answered {
+            Answered::Item(item) => Some(item),
+            Answered::Unread(_) => None,
+        })
+        .collect())
 }
 
 /// `list_lessons`: retro items across Jobs, newest retro first.
@@ -91,6 +118,10 @@ pub struct Lesson {
     /// `cite` values on the Job's own retro record: `get_job_retro` resolves
     /// them.
     pub evidence: Vec<String>,
+    /// Where its fix lands. Absent on an item kept before 23.15, which
+    /// `?lands_in=` never matches.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lands_in: Option<LandsIn>,
 }
 
 /// Everything on a Job's record a retro is read from. Every row carries a

@@ -1,8 +1,8 @@
 # Retro
 
-**What it is:** What got in the way while one Job ran, and whose way it got in
-— the Drone's, the owner's or Fleet's — written once the Job ends and read on
-the Lessons page.
+**What it is:** What got in the way while one Job ran, whose way it got in —
+the Drone's, the owner's or Fleet's — and where each fix lands, written once
+the Job ends and read on the Lessons page.
 
 ---
 
@@ -10,15 +10,32 @@ the Lessons page.
 
 ## What it is
 
-A retro is a list of items. Each item names whose way it got in, says in one
-sentence what got in the way, and cites the rows of the Job's record that
-show it.
+A retro is a list of items. Each item names whose way it got in and where its
+fix lands, says in one sentence what got in the way, and cites the rows of the
+Job's record that show it.
 
 | Who | Means |
 | --- | --- |
 | `drone` | The agent doing the work was slowed or stopped |
 | `owner` | The person who owns the Job had to step in, wait or redo something |
 | `fleet` | Armada itself cost the Job something it should not have |
+
+## Where the fix lands
+
+**Every item names where its fix lands, apart from whose way it got in.** The
+owner's decision, 3 Oct 2026. Who it cost and where it is fixed are two
+questions: a command a Drone was refused cost the Drone, and is fixed in Kit.
+
+| `lands_in` | Means | For example |
+| --- | --- | --- |
+| `armada` | Armada itself: Fleet or Bridge | The gate measured a Job's diff from local main; ruled a red without confirming it; showed a Drone running after it ended |
+| `kit` | The tool set: Skills, MCP servers, sub-agents, agent files, plugins, commands, the allowlist, the models list ([Kit](kit.md)) | A command a Drone was refused, or had to ask a person to allow |
+| `manifest` | The repository the Job worked on: its `armada.yml` (Checks, Commands, places, when), its tests and its code ([Manifest](manifest.md)) | Browser tests on a fixed 15 s timeout; `test` running every Rust test on a docs-only edit |
+
+**An item names exactly one.** Where a fix spans two places, the retro writes
+two items. The Lessons page narrows by it, and **an item written before
+23.15 names none**: it reads with the field absent and is listed under All
+alone, never given a place after the fact.
 
 **Nothing acts on a retro.** No item is filed as an issue, proposed as a
 change or put into a brief. The owner reads the Lessons page and decides
@@ -64,9 +81,12 @@ kept for the retro alone.
 
 **One model call per ended Job, on the Judge's road.** It takes the Judge's
 client, budget and cheap model, reads no repository, and is handed only the
-record and the owner's linked annotations. An item citing a row the record
+record and the owner's linked annotations. Its instructions carry the table
+under *Where the fix lands*, in plain words. An item citing a row the record
 does not hold loses that citation; one citing nothing the record holds is
-dropped.
+dropped, and so is one naming no place its fix lands or a place that is not
+one of the three. **The place is never defaulted.** An item that will not read
+is dropped alone, and the items beside it are kept.
 
 ## When it is written
 
@@ -129,10 +149,11 @@ surface acts.
 | Operation | Route | Answers |
 | --- | --- | --- |
 | `get_job_retro` | `GET /jobs/:job_id/retro` | The record as it stands, the retro's state and items, linked annotations |
-| `list_lessons` | `GET /lessons?manifest_id=&most=` | Items across Jobs, newest retro first |
+| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&most=` | Items across Jobs, newest retro first; `lands_in` absent is all three |
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
-`docs/practices/protocol.md` *Protocol 23.12* has the change.
+`docs/practices/protocol.md` *Protocol 23.12* has the change, *Protocol 23.15*
+`lands_in`.
 
 ## Open questions
 
