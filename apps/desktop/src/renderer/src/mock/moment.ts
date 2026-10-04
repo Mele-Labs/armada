@@ -6,12 +6,15 @@
 import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
 import type {
   Connection,
+  JobRetro,
   JobSummary,
+  Lesson,
   ModelChoices,
   Outcome,
   RepositorySummary,
   Studio,
   WorkflowSummary,
+  WorktreesHeld,
 } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
@@ -46,6 +49,15 @@ export type Scenario = {
    * state rather than a read failure.
    */
   studios?: readonly Studio[];
+  /**
+   * Each Job's retro, by Job id, as `GET /jobs/:job_id/retro` answers. A Job the scenario holds
+   * and this does not name is answered `pending`, which is what Fleet says of a Job not ended.
+   */
+  retros?: Record<string, JobRetro>;
+  /** `GET /worktrees`. Absent is a read Fleet does not answer. */
+  held?: WorktreesHeld;
+  /** `GET /lessons`, newest retro first. Absent is a Fleet with no retro written. */
+  lessons?: Lesson[];
   /**
    * Calls this scenario answers as Fleet would, over the fake's own. For a
    * flow whose answers depend on what was pressed before — Setup's edits and

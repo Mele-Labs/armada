@@ -761,6 +761,7 @@ impl Queries for FakeDaemon {
                 .into_iter()
                 .filter(|one| self.owns(manifest_id.as_ref(), &one.job_id))
                 .collect(),
+            slots: Vec::new(),
         })
     }
 

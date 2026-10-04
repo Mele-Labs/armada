@@ -197,6 +197,7 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 // the component: not-provably-safe is one word for four situations a person
 // answers differently, and each wants different facts in front of the decision.
 export * from "./compositions/HeldWorktree/HeldWorktree";
+export * from "./compositions/PoolSlots/PoolSlots";
 
 // What one Job holds on the machine, and the act that goes and looks. Not a
 // debug panel: the first thing on it is a sentence answering *is this working*,
@@ -404,3 +405,8 @@ export * from "./compositions/PullRequestCard/PullRequestCard";
 export * from "./compositions/CriterionOrigin/CriterionOrigin";
 // A field a proposing Job's proposer has not written yet.
 export * from "./compositions/SettlingMark/SettlingMark";
+// A Job's retro, and the Lessons page that lists every retro's items. 23.12.
+export * from "./compositions/WhoMark/WhoMark";
+export * from "./compositions/LandsMark/LandsMark";
+export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/RetroSheet/RetroSheet";

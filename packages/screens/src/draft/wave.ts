@@ -72,6 +72,11 @@ export type WaveRoundView = {
    */
   says?: string;
   /**
+   * The whole approach `says` is the first sentence of, which a hover on the
+   * strip reads. Absent wherever `says` came from anywhere but the wire.
+   */
+  approach?: string;
+  /**
    * Whether this is the plan the Job is running now. Every earlier round is
    * history and says so, rather than reading as a second live split.
    */
@@ -132,7 +137,12 @@ export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveVie
     rounds: passes.map((round) => {
       const approach = detail.wave_rounds?.find((one) => one.pass === round)?.approach;
       const says = approach === undefined ? undefined : lineOf(approach);
-      return { round, ...(says === undefined ? {} : { says }), live: round === latest };
+      return {
+        round,
+        ...(says === undefined ? {} : { says }),
+        ...(approach === undefined ? {} : { approach }),
+        live: round === latest,
+      };
     }),
     jobs,
   };

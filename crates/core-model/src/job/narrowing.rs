@@ -34,6 +34,7 @@ pub struct Narrowing {
     from: Option<Covers>,
     under: Option<String>,
     except: Vec<String>,
+    outside: Option<Covers>,
 }
 
 impl Narrowing {
@@ -54,7 +55,16 @@ impl Narrowing {
             from,
             under,
             except,
+            outside: None,
         }
+    }
+
+    /// The same narrowing, with the paths [`run`](Self::run) reads on its own.
+    /// Separate from [`declared`](Self::declared) because nearly every
+    /// narrowing has none, and a sixth positional argument would be `None` at
+    /// every caller but one.
+    pub fn with_outside(self, outside: Option<Covers>) -> Narrowing {
+        Narrowing { outside, ..self }
     }
 
     /// The command a narrowed run starts from, before any value is appended.
@@ -106,5 +116,19 @@ impl Narrowing {
     /// apply.
     pub fn except(&self) -> &[String] {
         &self.except
+    }
+
+    /// Paths outside [`under`](Self::under) that [`run`](Self::run) already
+    /// reads on its own. **`None` means there are none**, which is every
+    /// narrowing but this repository's `test`.
+    ///
+    /// A changed path matching one adds no value and does not run the Check
+    /// whole: the narrowed run is `run` with whatever `under` named, and `run`
+    /// alone where it named nothing. In this repository `run` carries
+    /// `-p xtask`, and `xtask`'s tests are the only ones that read `apps/` and
+    /// `packages/` — so a Bridge-only change is measured by them and not by
+    /// every test in the workspace. Owner, 4 Oct 2026, after Job 3.
+    pub fn outside(&self) -> Option<&Covers> {
+        self.outside.as_ref()
     }
 }

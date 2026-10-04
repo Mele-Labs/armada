@@ -12,10 +12,18 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useState } from "react";
-import { planViewNamed, workflowViewNamed, type PlanView, type WorkflowView } from "@armada/screens";
+import {
+  lessonsTabNamed,
+  planViewNamed,
+  workflowViewNamed,
+  type LessonsTab,
+  type PlanView,
+  type WorkflowView,
+} from "@armada/screens";
 
 const WORKFLOW_KEY = "armada.bridge.workflow-view";
 const PLAN_KEY = "armada.bridge.plan-view";
+const LESSONS_KEY = "armada.bridge.lessons-tab";
 
 /**
  * A remembered arrangement and the press that moves it, on whatever the
@@ -55,4 +63,9 @@ export function useWorkflowView(): [WorkflowView, (view: WorkflowView) => void] 
 /** Graph or list on Plan. Graph where nothing is stored. */
 export function usePlanView(): [PlanView, (view: PlanView) => void] {
   return remembered(PLAN_KEY, planViewNamed);
+}
+
+/** Which place Lessons is narrowed to (owner, 3 Oct 2026). All where nothing is stored. */
+export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
+  return remembered(LESSONS_KEY, lessonsTabNamed);
 }

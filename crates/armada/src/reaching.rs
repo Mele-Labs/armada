@@ -2,7 +2,7 @@
 //! as the merge line asks for it. `docs/capabilities/merge-line.md`, *What a
 //! narrowed Check runs*.
 
-use checks_runner::{narrowed_at_the_gate, Attempt, Narrowed};
+use checks_runner::{narrowed_over, Attempt, Narrowed};
 use verification::Exit;
 
 use crate::declared::Ran;
@@ -15,7 +15,7 @@ pub enum Asked<'a> {
     /// One test, through the Check's `one_test`.
     OneTest(&'a str),
     /// What these changed paths reach, through the Check's `narrow` as the
-    /// merge line reads it: [`checks_runner::narrowed_at_the_gate`].
+    /// merge line reads it: [`checks_runner::narrowed_over`].
     Changed(&'a [String]),
 }
 
@@ -30,16 +30,11 @@ pub enum Reached {
     Nothing,
 }
 
-/// The narrowed command, where there is one, and what `changed` came to. Only
-/// the paths `check` covers are read: a changed document is no reason to run
-/// a Rust suite whole.
+/// The narrowed command, where there is one, and what `changed` came to.
 pub fn reached(check: &config::Check, changed: &[String]) -> (Option<String>, Reached) {
-    let covered: Vec<String> = changed
-        .iter()
-        .filter(|path| check.covers(std::slice::from_ref(*path)))
-        .cloned()
-        .collect();
-    match narrowed_at_the_gate(check.narrow(), &covered) {
+    match narrowed_over(check.narrow(), changed, |path| {
+        check.covers(std::slice::from_ref(path))
+    }) {
         Narrowed::Whole => (None, Reached::Whole),
         Narrowed::Nothing => (None, Reached::Nothing),
         Narrowed::To(command) => {

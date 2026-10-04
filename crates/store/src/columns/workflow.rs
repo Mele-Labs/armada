@@ -192,6 +192,10 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
                             true => None,
                             false => Some(narrowing.except()),
                         },
+                        // Absent where it declares none, `from`'s shape: a
+                        // row written before the key reads back as none.
+                        "outside": narrowing.outside().map(|covers| covers.patterns().iter()
+                            .map(|pattern| pattern.as_str()).collect::<Vec<&str>>()),
                     })),
                 }),
                 ResolvedCheck::DiffNonempty => json!({ "type": DIFF_NONEMPTY }),
@@ -829,19 +833,22 @@ fn read_narrow(entry: &Map<String, Value>) -> Result<Option<Narrowing>, Malforme
         return Ok(None);
     }
     let narrowing = object(value)?;
-    Ok(Some(Narrowing::declared(
-        text(narrowing, "run")?,
-        text(narrowing, "each")?,
-        read_patterns(narrowing, "from")?,
-        match narrowing.get("under") {
-            None | Some(Value::Null) => None,
-            Some(_) => Some(text(narrowing, "under")?),
-        },
-        match narrowing.get("except") {
-            None | Some(Value::Null) => Vec::new(),
-            Some(_) => texts(narrowing, "except")?,
-        },
-    )))
+    Ok(Some(
+        Narrowing::declared(
+            text(narrowing, "run")?,
+            text(narrowing, "each")?,
+            read_patterns(narrowing, "from")?,
+            match narrowing.get("under") {
+                None | Some(Value::Null) => None,
+                Some(_) => Some(text(narrowing, "under")?),
+            },
+            match narrowing.get("except") {
+                None | Some(Value::Null) => Vec::new(),
+                Some(_) => texts(narrowing, "except")?,
+            },
+        )
+        .with_outside(read_patterns(narrowing, "outside")?),
+    ))
 }
 
 /// A definition's own version number. `u32` on the record, so a stored value

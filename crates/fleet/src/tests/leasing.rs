@@ -456,3 +456,33 @@ async fn a_job_with_no_slot_recorded_uses_its_derived_path() {
         "and it never touched the pool"
     );
 }
+
+/// Bridge's Cleanup reads the pool off `GET /worktrees`: every slot, and the
+/// Job holding one named by its title as well as its id.
+#[tokio::test]
+async fn the_pool_crosses_the_wire_with_each_slot_and_its_job() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = approved(&fleet, &home, "fix the reader").await;
+
+    let events = fleet.events();
+    let app = api::router(api::Served::by(fleet, ipc::RunId::carried("01RUN"), events));
+    let (status, body) = crate::tests::http::call(&app, "GET", "/worktrees", "").await;
+    assert_eq!(status, axum::http::StatusCode::OK);
+    let answer: ipc::WorktreesHeld =
+        ipc::decode("what fleet is holding", &body).expect("the answer decodes");
+
+    assert_eq!(answer.slots.len(), 8, "one row per slot the Manifest sizes");
+    let first = &answer.slots[0];
+    assert_eq!(first.slot, 1);
+    assert_eq!(PathBuf::from(&first.path), slot(&home, 1));
+    assert_eq!(
+        first.held,
+        ipc::SlotHolding::Job {
+            job_id: ipc::JobId::carried(job.as_str()),
+            job_title: Some(String::from("fix the reader")),
+        }
+    );
+    assert_eq!(first.base, "main");
+    assert_eq!(answer.slots[1].held, ipc::SlotHolding::Unmade);
+}

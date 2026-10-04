@@ -800,6 +800,11 @@ void app.whenReady().then(() => {
     connection?.readCheckOutput(jobId, kept),
   );
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
+  // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
+  ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
+  ipcMain.handle(CHANNELS.readLessons, (event) =>
+    connection?.readLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>
     connection?.readComposing(repository, connection.repositories.pickedByWindow.of(windowIdOf(event))),

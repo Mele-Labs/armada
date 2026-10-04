@@ -269,7 +269,7 @@ fn spawn_the_run(
             &checks,
             &[],
             false,
-            false,
+            checking::Reading::Whole,
             std::path::Path::new(&repo_root),
             budget,
             &room,

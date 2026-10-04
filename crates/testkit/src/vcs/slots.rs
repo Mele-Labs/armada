@@ -16,7 +16,8 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    slot_path, SlotKept, SlotLeased, SlotPool, SlotStanding, Worktree, WorktreeSpec,
+    slot_path, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, Worktree,
+    WorktreeSpec,
 };
 
 use super::{FakeVcs, FakeVcsError};
@@ -166,6 +167,34 @@ impl FakeSlots {
             .expect("not poisoned")
             .push((slot, job.to_string()));
         Ok(())
+    }
+
+    /// Every slot: made or not and who holds it. Never warm, and never behind,
+    /// because nothing here is a checkout git could count.
+    pub(super) fn readings(&self, pool: &SlotPool) -> Vec<SlotReading> {
+        let root = pool.repo_root().to_string();
+        self.with(pool, |slots| {
+            slots
+                .iter()
+                .enumerate()
+                .map(|(at, slot)| {
+                    let number = at as u32 + 1;
+                    SlotReading {
+                        slot: number,
+                        path: slot_path(&root, number),
+                        held: match (&slot.held_by, slot.made) {
+                            (Some(job), _) => SlotHeld::Job(job.clone()),
+                            (None, true) => SlotHeld::Free,
+                            (None, false) => SlotHeld::Unmade,
+                        },
+                        branch: None,
+                        since: None,
+                        warm: false,
+                        behind: None,
+                    }
+                })
+                .collect()
+        })
     }
 
     /// Who holds each slot of the pool at `root` this fake has looked at, in

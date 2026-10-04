@@ -417,12 +417,23 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     readCheckOutput: async (jobId, kept) =>
       readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
     readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
+    readRetro: async (jobId) => {
+      const retro = scenario.retros?.[jobId];
+      if (retro !== undefined) return { ok: true, retro };
+      return readsOf(jobId) === undefined
+        ? refused(path(jobId, "/retro"))
+        : { ok: true, retro: { job_id: jobId, state: "pending", record: {} } };
+    },
+    readLessons: async () => ({ ok: true, lessons: scenario.lessons ?? [] }),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
     readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
     frameStreamUrl: (jobId, kept) => `armada-frame://frame/${jobId}/${kept}`,
     readReports: async (want) => publish({ reports: want ? unread("/reports") : nothing }),
-    readHeld: async (want) => publish({ held: want ? unread("/worktrees/held") : nothing }),
+    readHeld: async (want) =>
+      publish({
+        held: !want ? nothing : scenario.held === undefined ? unread("/worktrees/held") : { state: "read", held: scenario.held },
+      }),
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
     ...studios,

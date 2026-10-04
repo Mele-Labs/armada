@@ -78,6 +78,45 @@ pub enum SlotStanding {
     Gone,
 }
 
+/// One slot of the pool, as `armada worktree --status` reads it, with whether
+/// it is warm and how far it is behind the base.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotReading {
+    pub slot: u32,
+    pub path: String,
+    pub held: SlotHeld,
+    /// The branch it is on. `None` for a slot not made, and for one nothing
+    /// recorded a branch for.
+    pub branch: Option<String>,
+    /// Seconds since the epoch its holder took it, where that was recorded.
+    pub since: Option<u64>,
+    /// Every `setup.seed.paths` entry is a directory in the slot. A Manifest
+    /// that declares none has nothing to be warm with, so its slots are cold.
+    pub warm: bool,
+    /// Commits on the base its checkout does not have. `None` where git could
+    /// not count them, or the slot is not a checkout.
+    pub behind: Option<u32>,
+}
+
+/// Who holds a slot, or why nothing can.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotHeld {
+    /// Never made. The next lease makes it.
+    Unmade,
+    /// A directory that is not a checkout, so nothing leases it until a person
+    /// removes it.
+    NotACheckout,
+    /// A take or a release is under way on it.
+    Busy,
+    Free,
+    /// One of Fleet's Jobs, by id.
+    Job(String),
+    /// A process, named for a person: `zsh (pid 4120)`.
+    Session(String),
+    /// Its holder is gone and it holds work, said in a phrase.
+    Stranded(String),
+}
+
 /// Why a Job's slot was not given back, in a sentence. The slot stays held.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotKept(pub String);

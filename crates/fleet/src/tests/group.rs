@@ -112,6 +112,45 @@ async fn a_tool_outliving_a_drone_that_ended_on_its_own_dies_when_it_is_reaped()
     );
 }
 
+/// **4 Oct 2026, the machine it froze.** A test ended with its Drone still
+/// polling a flag in the test's directory, and `setsid` kept the Drone alive
+/// with nobody left to end it — 22 of them forking `sleep` until the load hit
+/// 114. Here the Drone's handle goes first, which is Fleet gone with nothing
+/// signalled, and then the directory the test ran in: that drop is the last
+/// thing a test does, and it has to take the loop with it.
+///
+/// **Remove the record in `Detached::spawn` and this fails**, on the poll: the
+/// loop is still there five seconds later, and every one after.
+#[tokio::test]
+async fn a_looping_drone_dies_with_the_directory_its_test_ran_in() {
+    let at = TempDir::new();
+    let marker = at.path().join("loop.pid");
+    let loops = format!(
+        "while :; do sleep 0.1; done & echo $! > '{}'; exec cat >/dev/null",
+        marker.display()
+    );
+    let started = start(
+        &FakeHarness::running("/bin/sh", &["-c", loops.as_str()]),
+        &config(&at),
+    )
+    .await
+    .expect("a shell starts");
+    let looping = pid_written_to(&marker).await;
+    assert!(
+        matches!(holder_of(looping), Ok(Holder::Held(_))),
+        "the loop was not running before the test ended, so its going proves \
+         nothing"
+    );
+
+    drop(started);
+    drop(at);
+
+    assert!(
+        nothing_holds(looping).await,
+        "a Drone's loop outlived the test that started it: pid {looping}"
+    );
+}
+
 /// Whether the Drone has ended, asked the way Fleet asks — **on a turn, and
 /// never as a wait**. `exited` is the reap, so this is also what performs it.
 async fn reaped(session: &DroneSession) -> bool {

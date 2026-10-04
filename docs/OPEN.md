@@ -101,7 +101,6 @@ on purpose and makes the gate name what was waiting.
 ## docs/concepts/retro.md
 
 - **[retro-rewrite]** Whether a person can ask for a failed or skipped retro to be written again. Nothing offers it.
-- **[retro-annotation-link]** What Bridge writes as `openJobId`, and on which screens a Job's detail counts as open.
 
 ## docs/concepts/studio.md
 

@@ -64,6 +64,9 @@ import { FIRST_PLAN_VIEW } from "./plan-view";
 import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
 import { useTrail } from "./trail";
+import { JobRetroSheet } from "./Lessons";
+import { jobOf } from "./retro";
+import { OPEN_JOB_ATTRIBUTE } from "./open-job";
 
 export type { ConfirmableAct, HeldAct, JobAct } from "./Acts";
 export type { FoldedReads } from "./mine";
@@ -199,6 +202,8 @@ function OneJob(props: JobDetailProps) {
   // them is under**, so one press opens one panel whichever drew the strip,
   // and another Job opens with none.
   const [checkLog, setCheckLog] = useState<JobCheckLog | null>(null);
+  // Whether this Job's retro is open over the Record. `docs/concepts/retro.md`.
+  const [retroOpen, setRetroOpen] = useState(false);
   useEffect(() => setCheckLog(null), [job.id]);
   const checkOutputs = useCheckOutputs(props.onReadCheckOutput, job.id);
   const checkFollowing = useFollowing(props.onFollowCheckOutput, props.followed ?? NOT_FOLLOWING, job.id);
@@ -320,7 +325,7 @@ function OneJob(props: JobDetailProps) {
       : undefined;
 
   return (
-    <div className="armada-screen__detail" ref={screen}>
+    <div className="armada-screen__detail" ref={screen} {...{ [OPEN_JOB_ATTRIBUTE]: job.id }}>
       <JobDetailHeaderActions {...heading} onCopied={props.onCopied} />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
@@ -579,6 +584,7 @@ function OneJob(props: JobDetailProps) {
           onOpenCheckLog={setCheckLog}
           {...(opensCheck === undefined ? {} : { opensCheck })}
           {...(opensRow === undefined ? {} : { opensRow })}
+          onOpenRetro={() => setRetroOpen(true)}
           trail={trail.of("record")}
         />
       ) : tab === "drones" ? (
@@ -642,6 +648,15 @@ function OneJob(props: JobDetailProps) {
           onClose={() => setCheckLog(null)}
         />
       )}
+      {retroOpen ? (
+        <JobRetroSheet
+          jobId={job.id}
+          job={jobOf(job.handle)}
+          read={props.onReadRetro}
+          floor={floor}
+          onClose={() => setRetroOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

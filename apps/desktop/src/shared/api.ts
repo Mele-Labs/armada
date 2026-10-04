@@ -18,6 +18,8 @@ import type {
   CaptureOpened,
   CheckOutputRead,
   BriefRead,
+  LessonsRead,
+  RetroRead,
   ClearOutcome,
   CommandAnswer,
   HelmCallAnswer,
@@ -779,6 +781,14 @@ export type BridgeApi = {
   readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
   /** One kept brief a Judge or a gaming check was asked, by its file name. `readCheckOutput`'s shape. */
   readBrief: (jobId: string, name: string) => Promise<BriefRead>;
+  /**
+   * One Job's retro — `docs/concepts/retro.md`. `readBrief`'s shape: answered once to the
+   * surface that asked, and asked again when the window regains focus, because nothing on
+   * `/events` says a retro was written. Read-only; nothing acts on a retro.
+   */
+  readRetro: (jobId: string) => Promise<RetroRead>;
+  /** Every written retro's items across Jobs, newest first, narrowed to this window's pick. Read-only. */
+  readLessons: () => Promise<LessonsRead>;
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask

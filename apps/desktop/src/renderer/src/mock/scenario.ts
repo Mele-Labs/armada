@@ -72,11 +72,13 @@ import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { featureAfterAgreeing } from "./job-detail-refusal";
+import { retroFixtures } from "./job-3-retro";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { slotsHeld } from "./slots-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -592,7 +594,25 @@ export const SCENARIOS: readonly Scenario[] = [
   }),
   // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
   holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
+  // Job 3's retro and Job 2's, and the Lessons page over both (23.12): on Overview, and on Job 3.
+  retros("retro/lessons", "Two Jobs' retros written, on Overview"),
+  retros("retro/job-3", "Job 3, its retro written", { opensJob3: true }),
+  pooled(),
 ];
+
+/** Cleanup over the worktree pool, one slot in each state; the first is a running Job's. */
+function pooled(): Scenario {
+  const running = EVERY_STATE_ROWS.find((one) => one.job.handle.endsWith("-running"))!;
+  const scenario = holding("cleanup/slots", "The worktree pool on Cleanup, a slot in each state", [running]);
+  return { ...scenario, held: slotsHeld(running.job, Date.now()) };
+}
+
+/** Job 3 and Job 2 with their retros written, and the Lessons listing over both. */
+function retros(name: string, says: string, { opensJob3 = false }: { opensJob3?: boolean } = {}): Scenario {
+  const { fixtures, retros: written, lessons } = retroFixtures();
+  const scenario = holding(name, says, fixtures, opensJob3 ? { opens: fixtures[0]?.job.id } : {});
+  return { ...scenario, retros: written, lessons };
+}
 
 /** The scenario by name, or `undefined` for a name nothing here holds. */
 export function scenarioNamed(name: string): Scenario | undefined {

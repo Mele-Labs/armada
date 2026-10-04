@@ -86,6 +86,8 @@ pub(crate) fn end_the_group(group: NonZeroU32) {
     // it naming anything else. The third, `crate::servers::left`, holds none:
     // it signals only after `crate::process::holder_of` finds the process at
     // the pid started when its record says, so a reused pid is never named.
+    // Under test there is a fourth, `crate::tests::tmp::TempDir`, ending what a
+    // test spawned in its directory; it holds no proof, and says why there.
     unsafe {
         libc::killpg(group, libc::SIGKILL);
     }

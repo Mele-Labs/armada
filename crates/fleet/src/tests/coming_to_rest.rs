@@ -59,10 +59,12 @@ async fn row_of(fleet: &Fixture, job: &JobId, drone: &core_model::DroneId) -> ip
 }
 
 /// A Drone that says nothing until `flag` exists, then comes to rest once,
-/// naming its price, and reads on.
+/// naming its price, and reads on. It exits once the test that started it is
+/// gone, which would otherwise leave it polling forever under launchd.
 fn resting_on(flag: &std::path::Path) -> FakeHarness {
     let script = format!(
-        "while [ ! -e '{flag}' ]; do sleep 0.02; done; rm -f '{flag}'; echo RESTED; \
+        "while [ ! -e '{flag}' ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.02; done; \
+         rm -f '{flag}'; echo RESTED; \
          exec cat >/dev/null",
         flag = flag.display()
     );
