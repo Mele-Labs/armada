@@ -6,14 +6,15 @@
 //! files exist nowhere but that checkout is — and a size beside those would be
 //! the figure read first and meaning least.
 //!
-//! **A piloted worktree is not on this wire at all**, so there is no variant
+//! **A piloted worktree is not among `worktrees`**, so there is no variant
 //! below to render by mistake. `#367`, and Fleet drops it through
-//! `Holding::offerable` rather than trusting a client with a flag.
+//! `Holding::offerable` rather than trusting a client with a flag. Its pool
+//! slot is still in `slots`, as held by its Job: a slot row offers no act.
 
 use serde::{Deserialize, Serialize};
 
 use crate::enums::JobStatus;
-use crate::ids::{Instant, JobId};
+use crate::ids::{Instant, JobId, ManifestId};
 
 /// Every worktree Fleet is holding disk for, ordered by Job id.
 ///
@@ -24,6 +25,64 @@ use crate::ids::{Instant, JobId};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorktreesHeld {
     pub worktrees: Vec<WorktreeHeld>,
+    /// Every slot of each served repository's pool, as `armada worktree
+    /// --status` reads it. Since 23.16.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slots: Vec<WorktreeSlot>,
+}
+
+/// One slot of a repository's worktree pool.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorktreeSlot {
+    /// The Manifest whose repository the pool belongs to.
+    pub manifest_id: ManifestId,
+    pub slot: u32,
+    pub path: String,
+    pub held: SlotHolding,
+    /// The branch `behind` is counted against.
+    pub base: String,
+    /// The branch it is on. Absent for a free slot, which sits detached.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// When its holder took it, where that was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<Instant>,
+    /// Every `setup.seed.paths` entry is a directory in the slot.
+    pub warm: bool,
+    /// Commits on the base its checkout does not have. Absent where git could
+    /// not count them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub behind: Option<u32>,
+}
+
+/// Who holds a slot, or why nothing can. Tagged on `state`; widening it is a
+/// major bump, for `HeldReason`'s reason.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum SlotHolding {
+    /// Never made. The next lease makes it.
+    Unmade,
+    /// A directory that is not a checkout. Nothing leases it until a person
+    /// removes it.
+    NotACheckout,
+    /// A take or a release is under way.
+    Busy,
+    Free,
+    /// One of Fleet's Jobs. The title is absent where the store no longer
+    /// has the Job.
+    Job {
+        job_id: JobId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        job_title: Option<String>,
+    },
+    /// A process outside Fleet, as `ps` names it: `claude (pid 4120)`.
+    Session {
+        holder: String,
+    },
+    /// Its holder is gone and it still holds work.
+    Stranded {
+        why: String,
+    },
 }
 
 /// One Job's worktree, and every test it failed.

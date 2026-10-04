@@ -72,7 +72,7 @@ pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
-pub use slots::{SlotKept, SlotLeased, SlotPool, SlotStanding};
+pub use slots::{SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding};
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
     WhatPeopleSaid, WhatTheForgeRan,
@@ -362,6 +362,9 @@ pub trait Vcs {
     /// `armada worktree --status` reads it as held until a person clears the
     /// Job. Best-effort: it changes what the status says and nothing else.
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str);
+
+    /// Every slot in the pool, as `armada worktree --status` reads it.
+    fn slot_pool(&self, pool: &SlotPool) -> alloc::vec::Vec<SlotReading>;
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

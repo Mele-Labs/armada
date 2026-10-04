@@ -784,6 +784,41 @@ pub(crate) fn worktree_held(holding: &Holding) -> WorktreeHeld {
     }
 }
 
+/// One pool slot. `since` is seconds on the wire's clock, read off the lease
+/// record.
+pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot {
+    use adapter_traits::SlotHeld;
+    let reading = &one.reading;
+    ipc::WorktreeSlot {
+        manifest_id: ManifestId::carried(one.manifest.clone()),
+        slot: reading.slot,
+        path: reading.path.clone(),
+        held: match &reading.held {
+            SlotHeld::Unmade => ipc::SlotHolding::Unmade,
+            SlotHeld::NotACheckout => ipc::SlotHolding::NotACheckout,
+            SlotHeld::Busy => ipc::SlotHolding::Busy,
+            SlotHeld::Free => ipc::SlotHolding::Free,
+            SlotHeld::Job(id) => ipc::SlotHolding::Job {
+                job_id: ipc::JobId::carried(id.clone()),
+                job_title: one.job_title.clone(),
+            },
+            SlotHeld::Session(holder) => ipc::SlotHolding::Session {
+                holder: holder.clone(),
+            },
+            SlotHeld::Stranded(why) => ipc::SlotHolding::Stranded { why: why.clone() },
+        },
+        base: one.base.clone(),
+        branch: reading.branch.clone(),
+        since: reading.since.map(|secs| {
+            ipc::Instant::carried(crate::clock::rfc3339_utc(
+                i64::try_from(secs.saturating_mul(1000)).unwrap_or(i64::MAX),
+            ))
+        }),
+        warm: reading.warm,
+        behind: reading.behind,
+    }
+}
+
 /// One reason, or `None` for the one that is never served.
 ///
 /// `usize` becomes `u32` here rather than on the wire type: a commit count is a

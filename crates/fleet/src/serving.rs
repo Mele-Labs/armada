@@ -882,12 +882,16 @@ where
         let holding = Fleet::worktrees_held(self)
             .await
             .map_err(|why| self.refusal(why))?;
+        let slots = Fleet::pool_slots(self)
+            .await
+            .map_err(|why| self.refusal(why))?;
         let held = WorktreesHeld {
             worktrees: holding
                 .iter()
                 .filter(|one| one.offerable())
                 .map(worktree_held)
                 .collect(),
+            slots: slots.iter().map(crate::wire::worktree_slot).collect(),
         };
         self.worktrees_within(held, manifest_id)
     }
