@@ -184,6 +184,7 @@ mod reviewing_brief;
 mod runners;
 mod runtime;
 mod scope;
+mod rescuing;
 mod scouting;
 mod second_opinion;
 pub(crate) mod seeding;

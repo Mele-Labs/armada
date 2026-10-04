@@ -2684,6 +2684,31 @@ was. The notes are marked sent only once the send lands, so a refused one leaves
 **Store V103**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
 trigger refuses any update but `sent_at` moving once from null.
 
+## Protocol 23.19: a Scout reads a stranded slot
+
+The owner, 4 Oct 2026: when a worktree slot is stranded, send an agent to look at the work, then
+choose to scrap it or stash it. `../concepts/scout.md`, *Starting from a stranded slot*, and
+`../concepts/fleet.md`, *Rescuing a stranded slot*.
+
+**Additive only.** One command, six DTOs and two optional fields on `WorktreeSlot`; a 23.18 Bridge
+reads neither field and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
+| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose | A slot that is not stranded |
+| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed` | No Scout has read it, or it has moved off the commit read |
+
+**Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
+`fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
+`fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.
+
+**Bridge re-reads `GET /worktrees` while a Finding is `reading`.** No event carries it.
+
+**Store V104**, `slot_rescues`: one row per slot, keyed by Manifest and slot number, replaced as
+the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
+`failed` when Fleet starts.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
