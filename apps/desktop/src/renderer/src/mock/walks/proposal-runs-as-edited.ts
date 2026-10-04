@@ -25,7 +25,7 @@ export const proposalRunsAsEdited = walk("real/proposal-from-an-issue", [
     into: inside(BRIEF, role("textbox", "Criterion 2", { exact: true })),
     say: "A criterion reworded: still the issue's line",
   },
-  { press: card("Restructure"), say: "Restructure's gate is the node under it" },
+  { press: card("Restructure"), say: "Restructure's gate hangs beside it" },
   { press: card("Checks"), say: "its Checks" },
   { press: inside(dialog("Checks on Restructure"), role("checkbox", "You on Restructure")), say: "Restructure now stops for you" },
   { press: card("Land"), say: "Where it lands" },

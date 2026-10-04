@@ -47,6 +47,7 @@ import type {
 } from "@armada/components";
 
 import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
+import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
 import type { ApprovingProps } from "./approving";
@@ -109,12 +110,17 @@ function opensOnOf(nodes: readonly ApprovalNode[], places: ReadonlyMap<string, {
       (node.life !== undefined && node.life.activity !== "advanced" && node.life.activity !== "not_started"),
   );
   const from = live === undefined ? 0 : Math.max(0, (places.get(live.id)?.y ?? 0) - RUN_NODE_HEIGHT);
-  return nodes
-    .filter((node) => {
-      const y = places.get(node.id)?.y ?? 0;
-      return y >= from && y <= from + RUN_NODE_HEIGHT * 3;
-    })
-    .map((node) => node.id);
+  const yOf = (node: ApprovalNode) => places.get(node.id)?.y ?? 0;
+  const band = nodes.filter((node) => yOf(node) >= from && yOf(node) <= from + RUN_NODE_HEIGHT * 3);
+  // Every lane's whole width, gates beside included: the node nearest the band
+  // in each lane, and what hangs beside it — so no lane opens cut off.
+  const middle = from + (RUN_NODE_HEIGHT * 3) / 2;
+  const reach = LANES.flatMap((lane) => {
+    const inLane = nodes.filter((node) => node.lane === lane && node.side === undefined);
+    const nearest = inLane.sort((a, b) => Math.abs(yOf(a) - middle) - Math.abs(yOf(b) - middle))[0];
+    return nearest === undefined ? [] : [nearest, ...nodes.filter((node) => node.side === nearest.id)];
+  });
+  return [...new Set([...band, ...reach].map((node) => node.id))];
 }
 
 /** Where the Job is on a node: nothing dimmed at the gate; past it, live, done, or not reached. */
@@ -143,11 +149,20 @@ export type ApprovalCanvasProps = ApprovingProps & {
   life?: LifeRead;
   /** Open a Job the wave dispatched, as the wave graph did. */
   onOpenJob?: (jobId: string) => void;
+  /**
+   * Past the gate, a step's panel — the one Workflow opens, over the work
+   * area — in place of its card. A gate opens its step's. Absent is the card.
+   */
+  onOpenStep?: (stepId: string) => void;
+  /** Past the gate, a plan group's panel — the one Plan opens, its tasks reached from it. */
+  onOpenGroup?: (groupId: string) => void;
 };
 
 export function ApprovalCanvas({
   life,
   onOpenJob,
+  onOpenStep,
+  onOpenGroup,
   whole,
   edits,
   onEdits,
@@ -223,14 +238,25 @@ export function ApprovalCanvas({
     ),
   }));
   const placed: WorkflowCanvasNode[] = nodes.map((node) => {
+    // Past the gate a node with a panel of its own on another tab opens that
+    // panel; Brief, the base, the start, Done when, the pull request and Land
+    // have none, so keep their card.
+    const panel =
+      (node.kind === "step" || node.kind === "checks") && node.stepId !== undefined && onOpenStep !== undefined
+        ? () => onOpenStep(node.stepId!)
+        : node.kind === "group" && onOpenGroup !== undefined
+          ? () => onOpenGroup(node.id.replace(/^group:/, ""))
+          : undefined;
     const onOpen =
       node.opensJob !== undefined
         ? onOpenJob === undefined
           ? undefined
           : () => onOpenJob(node.opensJob!)
-        : node.inert === true
-          ? undefined
-          : () => setOpen(node.id === open ? null : node.id);
+        : panel !== undefined
+          ? panel
+          : node.inert === true
+            ? undefined
+            : () => setOpen(node.id === open ? null : node.id);
     const said = node.life?.said ?? NOT_STARTED;
     return {
       id: node.id,

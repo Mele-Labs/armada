@@ -19,10 +19,10 @@ const SIDE_GAP = 32;
 /** Across a fan, member to member (`--space-6`). */
 const ACROSS = 24;
 
-/** A lane's frame: its head, its padding (`--space-6`), and the gutter between two lanes (`--space-12` twice). */
+/** A lane's frame: its head, its padding (`--space-4` and `--space-1`), and the gutter between two lanes (`--space-12` and `--space-8`, and `--space-2`). */
 const ZONE_HEAD = 40;
-const ZONE_PAD = 24;
-const LANE_GAP = 96;
+const ZONE_PAD = 20;
+const LANE_GAP = 88;
 
 /** The room under a lane's last card (`--space-8`), so an edge leaving it turns inside the lane. */
 const ZONE_FOOT = 56;

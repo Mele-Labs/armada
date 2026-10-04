@@ -1,5 +1,5 @@
-// The dispatch gate drawn as the run it will be (prototype, 3 Oct 2026), top to
-// bottom: each node opens a card beside it with what it tunes for this Job,
+// The dispatch gate drawn as the run it will be (prototype, 3 Oct 2026), in
+// three lanes — setup, the work, delivery — each gate beside its step: each node opens a card beside it with what it tunes for this Job,
 // another workflow rebuilds the steps, Done when is one list on two nodes, and
 // how it lands reshapes the end of the run.
 
@@ -8,10 +8,11 @@ import { button, card, inside, region, role, text, walk } from "../walk";
 const CANVAS = region("What you are approving");
 
 export const approvalAsACanvas = walk("proto/feature-at-approval", [
-  { look: CANVAS, say: "Brief to Land, top to bottom" },
+  { look: CANVAS, say: "Setup, the work and delivery, side by side" },
+  { look: card("Checks"), say: "Each step's Checks hang beside it, on its row" },
   { press: card("Start feature"), say: "The workflow is a node of its own" },
   { type: "bug", into: role("combobox", "Workflow", { exact: true }), say: "Another workflow" },
-  { look: card("Reproduction"), say: "and the steps are bug's" },
+  { look: card("Reproduction"), say: "and the Work lane is bug's steps" },
   { type: "feature", into: role("combobox", "Workflow", { exact: true }), say: "Back to feature" },
   { press: card("Base branch"), say: "Where the work starts" },
   { press: role("combobox", "Base branch"), say: "The repository's branches" },

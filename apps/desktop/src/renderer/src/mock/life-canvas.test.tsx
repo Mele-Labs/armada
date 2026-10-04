@@ -8,16 +8,15 @@ import { mount, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-test("past the gate every card reads, and none offers a control", async () => {
+test("past the gate a step opens Workflow's own panel, and a card with no panel elsewhere reads", async () => {
   mount("proto/feature-running");
   await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
   // It opens on where the Job is, at full size; Fit brings the whole run in.
   await page.getByRole("button", { name: "Fit" }).click();
-  const plan = await openNode("Plan the change");
-  await expect.element(plan.getByText("Auto").first()).toBeVisible();
-  expect(plan.getByRole("combobox").all()).toHaveLength(0);
-  // It opens on where the Job is, so Brief is panned past; Fit brings it back.
-  await page.getByRole("button", { name: "Close" }).last().click();
+  await page.getByRole("button", { name: /^Plan the change, / }).click();
+  await expect.element(page.getByRole("tab", { name: /^Workflow/, selected: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back to Overview" }).click();
+  await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
   await page.getByRole("button", { name: "Fit" }).click();
   const brief = await openNode("Brief");
   await expect.element(brief.getByRole("region", { name: "Done when" })).toBeVisible();

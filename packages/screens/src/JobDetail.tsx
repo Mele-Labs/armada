@@ -108,6 +108,8 @@ function OneJob(props: JobDetailProps) {
   // The task Plan opens on, where the Drones' reading sent a person there.
   // Cleared by the strip, on `opensStep`'s terms.
   const [opensTask, setOpensTask] = useState<string | undefined>(undefined);
+  // The group Plan opens on, where the run's canvas sent a person there. On `opensTask`'s terms.
+  const [opensGroup, setOpensGroup] = useState<string | undefined>(undefined);
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
@@ -116,6 +118,7 @@ function OneJob(props: JobDetailProps) {
   // The way back across a jump between destinations — `trail.ts`.
   const trail = useTrail((to) => {
     setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
+    setOpensGroup(undefined);
     setOpensDrone(to.tab === "drones" ? to.open?.id : undefined);
     setOpensRow(to.tab === "record" ? to.open?.id : undefined);
     setOpensStep(to.tab === "workflow" ? to.open?.id : undefined);
@@ -127,6 +130,7 @@ function OneJob(props: JobDetailProps) {
     setOpensRow(undefined);
     setOpensStep(undefined);
     setOpensTask(undefined);
+    setOpensGroup(undefined);
     setOpensDrone(undefined);
     setOpensCheck(undefined);
     setTab(next);
@@ -407,6 +411,20 @@ function OneJob(props: JobDetailProps) {
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []))}
                       onOpenJob={openJob}
+                      // A step, a group or a task opens the panel its own tab
+                      // opens, by the jump Record and Drones already make — with
+                      // the way back to Overview in its head (`trail.ts`).
+                      onOpenStep={(stepId) => {
+                        trail.push("overview");
+                        setOpensStep(stepId);
+                        setTab("workflow");
+                      }}
+                      onOpenGroup={(groupId) => {
+                        trail.push("overview");
+                        setOpensTask(undefined);
+                        setOpensGroup(groupId);
+                        setTab("plan");
+                      }}
                       workflows={props.workflows}
                       manifest={manifest}
                       branches={held.branches}
@@ -500,6 +518,7 @@ function OneJob(props: JobDetailProps) {
           onSaid={props.onSaid}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
+          {...(opensGroup === undefined ? {} : { opensGroup })}
           now={props.now}
           drones={drones}
           onOpenDrone={(droneId) => {
