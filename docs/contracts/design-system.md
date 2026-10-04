@@ -517,11 +517,10 @@ What a node on the approval canvas *is*, in four hues, declared in
 canvas's nodes and nothing else.
 
 ```
-             dark      light
---kind-setup     #7DB8AE   #3E7F76   the brief, its base branch, the workflow starting
---kind-step      #8B95E8   #4C57B8   a Drone step, and the groups or Jobs it fans into
---kind-gate      #D2A6C8   #965A89   a gate the work passes: Checks, a Judge, a person
---kind-delivery  #A8C07F   #6A7F3F   Done when, the pull request, Land
+--kind-setup     #7DB8AE   the brief, its base branch
+--kind-step      #8B95E8   a Drone step, and the groups or Jobs it fans into
+--kind-gate      #D2A6C8   a gate the work passes: Checks, a Judge, a person
+--kind-delivery  #A8C07F   Done when, the pull request, Land
 ```
 
 **A kind is a tint or an edge, never a solid band; a status is always the
@@ -536,9 +535,6 @@ the kind.
 sits near a status — setup near `completed_success`, the gate near
 `rejected` — and a tint or a 4px edge is never read as a status, which is
 a mark, a badge or a solid band.
-
-**One theme in the token set.** `packages/tokens` declares dark only, so
-the light column above is this contract's until a light theme lands.
 
 ---
 

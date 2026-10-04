@@ -4,7 +4,7 @@
    is always a tint or a leading edge, never a solid band; a status is always
    the solid band, so the two never share a slot. Canvas only. */
 :root {
-  /* Setting the Job up: the brief, its base branch, the workflow starting. */
+  /* Setting the Job up: the brief and its base branch. */
   --kind-setup: #7DB8AE;
   /* The work: a Drone step, and the groups or Jobs it fans into. */
   --kind-step: #8B95E8;
