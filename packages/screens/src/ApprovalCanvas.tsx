@@ -74,11 +74,7 @@ import {
 } from "./tab-proposal-read";
 import type { ProposalEdits } from "./tab-proposal-read";
 
-/**
- * What each node is drawn as: **its own object, by kind** (`RunNode`). The
- * heights and widths are the node's own table, so a placement lands where the
- * node draws.
- */
+/** Which of RunNode's kinds a node is drawn as. Every kind is one card of one size. */
 function runKindOf(node: ApprovalNode): RunNodeKind {
   switch (node.kind) {
     case "step":
@@ -103,10 +99,8 @@ const PHASE = 56;
 const LABELLED = 24;
 
 /** How far apart two Jobs of one band of the wave sit: a card's width and `--space-8`. */
-const ACROSS = 228 + 32;
+const ACROSS = 260 + 32;
 
-const heightOf = (node: ApprovalNode): number => RUN_NODE_HEIGHT[runKindOf(node)];
-const widthOf = (node: ApprovalNode): number => RUN_NODE_WIDTH[runKindOf(node)];
 
 /** Which gap stands above a node. */
 function gapAbove(node: ApprovalNode, before: ApprovalNode): number {
@@ -122,13 +116,18 @@ function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
 }
 
 /**
- * What a run too long to read whole opens on: the first live node with two
- * before it — a step, a group, a wave's Job — or the top of the run at the gate.
+ * What a run too long to read whole opens on, at full size: the first node
+ * at work or waiting on you, with one before it — a step, a group, a wave's Job — or the top of the run at the gate.
  */
 function opensOnOf(nodes: readonly ApprovalNode[]): string[] {
-  const live = nodes.findIndex((node) => node.life?.current === true || node.life?.activity === "running");
-  const at = Math.max(0, live - 2);
-  return nodes.slice(at, at + 6).map((node) => node.id);
+  // The first node neither done nor untouched: at work, or waiting on a person.
+  const live = nodes.findIndex(
+    (node) =>
+      node.life?.current === true ||
+      (node.life !== undefined && node.life.activity !== "advanced" && node.life.activity !== "not_started"),
+  );
+  const at = Math.max(0, live - 1);
+  return nodes.slice(at, at + 4).map((node) => node.id);
 }
 
 
@@ -142,11 +141,11 @@ function placesOf(
   nodes: readonly ApprovalNode[],
   edges: readonly WorkflowCanvasEdge[],
 ): { x: number; y: number }[] {
-  const spine = RUN_NODE_WIDTH.step / 2;
+  const spine = RUN_NODE_WIDTH / 2;
   const places: { x: number; y: number }[] = [];
   let y = 0;
   for (const [at, node] of nodes.entries()) {
-    const half = widthOf(node) / 2;
+    const half = RUN_NODE_WIDTH / 2;
     const band = node.band;
     if (band !== undefined && band.index > 0) {
       const first = places[at - band.index]!;
@@ -156,8 +155,7 @@ function placesOf(
     if (at > 0) y += gapAbove(node, nodes[at - 1]!);
     if (edges.some((edge) => edge.target === node.id && edge.label !== undefined)) y += LABELLED;
     places.push({ x: spine - half + (band === undefined ? 0 : (-(band.of - 1) / 2) * ACROSS), y });
-    const tallest = band === undefined ? heightOf(node) : Math.max(...nodes.slice(at, at + band.of).map(heightOf));
-    y += tallest;
+    y += RUN_NODE_HEIGHT;
   }
   return places;
 }
@@ -171,10 +169,6 @@ function stateOf(node: ApprovalNode, running: boolean): RunNodeState {
   if (life === undefined || life.activity === "not_started") return "upcoming";
   return "ahead";
 }
-
-/** What each edge is: whether the Job has come this way, which is whether it reached the node it leads to. */
-const reached = (node: ApprovalNode | undefined): boolean =>
-  node?.life !== undefined && (node.life.activity !== "not_started" || node.life.current === true);
 
 /** What each answer to the delivery control is called. */
 const DELIVERY: Record<Delivery, string> = {
@@ -251,13 +245,9 @@ export function ApprovalCanvas({
   const opened = nodes.find((node) => node.id === open);
 
   const places = placesOf(nodes, edges);
-  // Only the workflow's own steps are counted: they are the sequence, and a
-  // gate or a group numbered beside them would read as a step of its own.
-  const stepOrdinal = new Map(nodes.filter((node) => node.kind === "step").map((node, at) => [node.id, at + 1]));
   const drawnEdges = edges.map((edge) => {
     const into = nodes.find((node) => node.id === edge.target);
-    if (into?.life?.current === true) return { ...edge, travelled: true, flowing: true };
-    return reached(into) ? { ...edge, travelled: true } : edge;
+    return into?.life?.current === true ? { ...edge, flowing: true } : edge;
   });
   const placed: WorkflowCanvasNode[] = nodes.map((node, at) => {
     const onOpen =
@@ -269,7 +259,6 @@ export function ApprovalCanvas({
           ? undefined
           : () => setOpen(node.id === open ? null : node.id);
     const said = node.life?.said ?? NOT_STARTED;
-    const ordinal = stepOrdinal.get(node.id);
     return {
       id: node.id,
       position: places[at]!,
@@ -279,10 +268,13 @@ export function ApprovalCanvas({
         <RunNode
           kind={runKindOf(node)}
           name={node.name}
-          {...(ordinal === undefined ? {} : { ordinal })}
           {...(node.face === undefined ? {} : { face: node.face })}
-          {...(node.line === undefined ? {} : { line: node.line, lineMono: node.kind === "land" })}
+          {...(node.faceMono === true ? { faceMono: true } : {})}
+          {...(node.opensJob !== undefined && onOpenJob !== undefined ? { links: true } : {})}
+          {...(node.bandId === undefined ? {} : { id: node.bandId })}
+          {...(node.line === undefined || node.line === "" ? {} : { line: node.line })}
           traits={node.traits}
+          meta={node.meta}
           {...(node.items === undefined ? {} : { items: node.items })}
           activity={node.life?.activity ?? "not_started"}
           said={said}
@@ -337,8 +329,7 @@ export function ApprovalCanvas({
 
   return (
     <section
-      // No glass of its own: the nodes are the cards on the canvas, and glass in glass is flat.
-      className="armada-approval-canvas"
+      className="armada-approval-canvas armada-glass"
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
@@ -346,7 +337,7 @@ export function ApprovalCanvas({
         edges={drawnEdges}
         label="Run"
         runsDown
-        heavyEdges
+        downOnly
         centred
         opensOn={[opensOnOf(nodes)]}
         {...(card === undefined ? {} : { opened: card })}

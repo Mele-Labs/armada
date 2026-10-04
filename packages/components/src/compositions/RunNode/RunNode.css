@@ -1,385 +1,198 @@
-/* A node of the run on the approval canvas, each kind its own object. Every
-   height is fixed off the tokens and mirrored in RUN_NODE_HEIGHT (border-box),
-   so a placement lands where the node draws. */
+/* A node of the run: a band naming its kind in its state's hue, a body of
+   three lines. One card and one size for every kind — the worktree-slot card's
+   language (the owner, 4 Oct 2026). State is the frame: no glow, no gradient,
+   no shadow. Contrast is PoolSlots' worked figures: --fg-inverse on the
+   running band 8.10:1, on the waiting band 8.88:1. */
 
 .armada-run-node {
+  --run-hue: var(--border-default);
   box-sizing: border-box;
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
   width: var(--w-workflow-node);
-  padding: var(--space-3);
+  /* The band, the body's three lines and their gaps, and the edge. */
+  height: calc(
+    var(--leading-2xs) + var(--space-1) * 2 + var(--space-2) * 2 + var(--leading-sm) + var(--leading-xs) +
+      var(--leading-2xs) + var(--space-1) * 2 + var(--border-width) * 2
+  );
+  padding: 0;
   overflow: hidden;
-  border: var(--border-width) solid var(--border-default);
+  border: var(--border-width) solid var(--run-hue);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--fg-default);
   font-family: var(--font-sans);
   text-align: start;
-  transition: border-color var(--duration-fast) var(--ease);
 }
 
 button.armada-run-node {
   cursor: pointer;
 }
 
-button.armada-run-node:hover {
-  border-color: var(--border-strong);
-}
-
 .armada-run-node[aria-current] {
-  border-color: var(--edge-focus);
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--edge-active);
 }
 
-.armada-run-node__head {
+.armada-run-node__band {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--run-hue);
+  color: var(--fg-inverse);
 }
 
-/* Type carries the hierarchy inside a node: a big name, small traits. */
-.armada-run-node__name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
+.armada-run-node__kind {
+  flex: 1 1 auto;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
-.armada-run-node__line {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-}
-
-.armada-run-node__line[data-mono],
-.armada-run-node__trait-value[data-mono] {
+.armada-run-node__id {
   font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
 }
 
-.armada-run-node__glyph {
-  flex: none;
-  color: var(--fg-muted);
+/* The step mark keeps its glyph and drops its own hue on the band: the band is the hue. */
+.armada-run-node__band .armada-step-mark {
+  color: inherit;
 }
 
-.armada-run-node__mark {
-  color: var(--armada-run-node-mark);
-}
-
-/* Traits: a small key over its value, side by side across the node's face. */
-.armada-run-node__traits {
-  display: flex;
-  gap: var(--space-3);
-  min-width: 0;
-  margin-block-start: var(--space-1);
-}
-
-.armada-run-node__trait {
+.armada-run-node__body {
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
+  padding: var(--space-2) var(--space-3);
 }
 
-.armada-run-node__trait-key {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-run-node__trait-value {
+.armada-run-node__title,
+.armada-run-node__line,
+.armada-run-node__traits,
+.armada-run-node__meta,
+.armada-run-node__item {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
 }
 
-/* --- The brief: a sheet, its top corner folded. -------------------------- */
-.armada-run-node[data-kind="brief"] {
-  height: calc(var(--space-3) * 2 + var(--leading-base) + var(--space-1) + var(--leading-2xs) * 2 + var(--border-width) * 2);
-  clip-path: polygon(0 0, calc(100% - var(--space-4)) 0, 100% var(--space-4), 100% 100%, 0 100%);
-}
-
-.armada-run-node[data-kind="brief"]::after {
-  content: "";
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  width: var(--space-4);
-  height: var(--space-4);
-  background: linear-gradient(to bottom left, transparent 50%, var(--border-strong) 50%);
-}
-
-.armada-run-node[data-kind="brief"] .armada-run-node__line {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  white-space: normal;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-/* --- Pills: the base as a ref tag, the pull request, a group. ------------ */
-.armada-run-node:is([data-kind="base"], [data-kind="pr"], [data-kind="group"], [data-kind="stack"], [data-kind="fan"]) {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  height: calc(var(--h-control) + var(--border-width) * 2);
-  padding: 0 var(--space-3);
-}
-
-.armada-run-node:is([data-kind="base"], [data-kind="pr"], [data-kind="group"], [data-kind="stack"], [data-kind="fan"])
-  .armada-run-node__name {
+.armada-run-node__title {
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   font-weight: var(--weight-medium);
 }
 
-.armada-run-node:is([data-kind="base"], [data-kind="pr"]) .armada-run-node__traits {
-  margin: 0;
-}
-
-/* A ref: notched at its leading end, the branch in mono. */
-.armada-run-node[data-kind="base"] {
-  width: var(--w-workflow-task-node);
-  border-radius: var(--radius-sm) var(--h-control) var(--h-control) var(--radius-sm);
-  clip-path: polygon(var(--space-2) 0, 100% 0, 100% 100%, var(--space-2) 100%, 0 50%);
-  padding-inline-start: var(--space-4);
-}
-
-.armada-run-node__name[data-ref] {
+.armada-run-node__title[data-mono] {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
 
-.armada-run-node[data-kind="pr"] {
-  border-radius: var(--h-control);
+.armada-run-node__title[data-links] {
+  color: var(--accent);
 }
 
-/* A plan's groups before there is a plan: a stack of cards. A wave's Jobs: a fan. */
-.armada-run-node[data-kind="stack"] {
-  width: var(--w-workflow-group-node);
-  overflow: visible;
-  box-shadow:
-    var(--space-1) var(--space-1) 0 calc(var(--border-width) * -1) var(--bg-raised),
-    var(--space-1) var(--space-1) 0 0 var(--border-default),
-    var(--space-2) var(--space-2) 0 calc(var(--border-width) * -1) var(--bg-raised),
-    var(--space-2) var(--space-2) 0 0 var(--border-subtle);
-}
-
-.armada-run-node[data-kind="fan"] {
-  width: var(--w-workflow-group-node);
-  overflow: visible;
-  isolation: isolate;
-}
-
-.armada-run-node[data-kind="fan"]::before,
-.armada-run-node[data-kind="fan"]::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--border-width) * -1);
-  z-index: -1;
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: inherit;
-  background: var(--bg-raised);
-  transform-origin: bottom center;
-}
-
-.armada-run-node[data-kind="fan"]::before {
-  transform: rotate(-4deg);
-}
-
-.armada-run-node[data-kind="fan"]::after {
-  transform: rotate(4deg);
-}
-
-.armada-run-node[data-kind="group"] {
-  width: var(--w-workflow-group-node);
-}
-
-/* --- The start: a station on the line. ------------------------------------ */
-.armada-run-node[data-kind="start"] {
-  flex-direction: row;
-  align-items: center;
-  width: var(--w-workflow-task-node);
-  height: var(--space-12);
-  padding: 0;
-  border: 0;
-  background: none;
-  overflow: visible;
-}
-
-.armada-run-node[data-kind="start"] .armada-step-mark {
-  display: none;
-}
-
-.armada-run-node[data-kind="start"] .armada-run-node__glyph {
-  box-sizing: border-box;
-  width: var(--space-12);
-  height: var(--space-12);
-  padding: var(--space-3);
-  border: var(--edge-active) solid var(--border-strong);
-  border-radius: 50%;
-  background: var(--bg-raised);
-  color: var(--fg-default);
-}
-
-.armada-run-node[data-kind="start"][data-state="done"] .armada-run-node__glyph {
-  border-color: var(--step-advanced);
-}
-
-/* --- A Drone step: the heaviest card, its traits on its face. ------------ */
-.armada-run-node[data-kind="step"] {
-  height: calc(
-    var(--space-3) * 2 + var(--leading-base) + var(--space-2) + var(--leading-2xs) + var(--leading-xs) + var(--border-width) * 2
-  );
-}
-
-/* --- A gate: a bar the line runs through, a post at either end. ---------- */
-.armada-run-node[data-kind="gate"] {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  height: calc(var(--h-control) + var(--border-width) * 2);
-  padding: 0 var(--space-3);
-  border-inline: var(--space-1) solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-}
-
-.armada-run-node[data-kind="gate"] .armada-run-node__name {
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-}
-
-.armada-run-node[data-kind="gate"] .armada-run-node__traits {
-  gap: var(--space-2);
-  margin: 0;
-}
-
-/* On a bar the values name themselves — Checks, 3 Judges, Auto-merge — so the keys go. */
-.armada-run-node:is([data-kind="gate"], [data-kind="pr"]) .armada-run-node__trait-key {
-  display: none;
-}
-
-.armada-run-node:is([data-kind="gate"], [data-kind="pr"]) .armada-run-node__trait-value {
-  color: var(--fg-muted);
-}
-
-/* --- A wave's Job: two lines of its title. ------------------------------- */
-.armada-run-node[data-kind="job"] {
-  width: var(--w-workflow-group-node);
-  height: calc(var(--space-2) * 2 + var(--leading-xs) * 2 + var(--border-width) * 2);
-  padding: var(--space-2) var(--space-3);
-}
-
-.armada-run-node[data-kind="job"] .armada-run-node__head {
-  align-items: flex-start;
-}
-
-.armada-run-node[data-kind="job"] .armada-run-node__name {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  white-space: normal;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  font-weight: var(--weight-medium);
-}
-
-/* --- Done when: a ticket, perforated where it tears off. ----------------- */
-.armada-run-node[data-kind="done"] {
-  height: calc(var(--space-3) * 2 + var(--leading-base) + var(--space-1) + var(--leading-xs) * 3 + var(--border-width) * 2);
-  border-block-start-style: dashed;
-}
-
-.armada-run-node__items {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
+.armada-run-node__line,
 .armada-run-node__item {
-  position: relative;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-inline-start: var(--space-4);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
 }
 
-.armada-run-node__item::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: calc((var(--leading-xs) - var(--space-2)) / 2);
-  width: var(--space-2);
-  height: var(--space-2);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-sm);
-}
-
-/* --- Land: the terminal, on a heavy base. -------------------------------- */
-.armada-run-node[data-kind="land"] {
-  height: calc(
-    var(--space-3) * 2 + var(--leading-base) + var(--space-1) + var(--leading-xs) + var(--space-1) + var(--leading-2xs) +
-      var(--leading-xs) + var(--border-width) + var(--edge-active)
-  );
-  border-block-end: var(--edge-active) solid var(--border-strong);
-  border-radius: var(--radius-lg);
-}
-
-/* --- Where the Job is. ---------------------------------------------------- */
-
-/* Live: the one loud thing — the running edge as a ring, and its glow. */
-.armada-run-node[data-state="live"] {
-  border-color: var(--phase-live-edge);
-  box-shadow:
-    0 0 0 var(--edge-active) var(--phase-live-edge),
-    0 0 var(--space-8) color-mix(in srgb, var(--status-running) 40%, transparent);
-  animation: armada-run-node-live var(--duration-pulse) var(--ease) infinite alternate;
-}
-
-@keyframes armada-run-node-live {
-  to {
-    box-shadow:
-      0 0 0 var(--edge-active) var(--phase-live-edge),
-      0 0 var(--space-12) color-mix(in srgb, var(--status-running) 65%, transparent);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-run-node[data-state="live"] {
-    animation: none;
-  }
-}
-
-/* Done: settled — the edge goes quiet, the name steps down, the mark says it. */
-.armada-run-node[data-state="done"]:not([aria-current]) {
-  border-color: var(--border-subtle);
-}
-
-.armada-run-node[data-state="done"] .armada-run-node__name {
+.armada-run-node__traits,
+.armada-run-node__meta {
+  font-family: var(--font-mono);
   color: var(--fg-muted);
 }
 
-/* Upcoming on a running Job: on the canvas, not lifted, a step back. */
-.armada-run-node[data-state="upcoming"]:not([aria-current]) {
-  border-color: var(--border-subtle);
-  background: var(--bg-base);
+.armada-run-node__traits {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
-.armada-run-node[data-state="upcoming"] :is(.armada-run-node__name, .armada-run-node__trait-value) {
+.armada-run-node__meta {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-run-node__sep {
+  color: var(--fg-subtle);
+  white-space: pre;
+}
+
+/* A value moved off its default: the card's one accent. */
+.armada-run-node__value[data-tuned] {
+  color: var(--accent);
+}
+
+/* --- State, through the frame. ------------------------------------------- */
+
+/* At the gate: nothing has run, so the band is neutral. */
+.armada-run-node[data-tone="neutral"] .armada-run-node__band {
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+}
+
+.armada-run-node[data-tone="live"] {
+  --run-hue: var(--step-running);
+  background: color-mix(in srgb, var(--step-running) var(--row-tint), var(--bg-raised));
+}
+
+.armada-run-node[data-tone="done"] {
+  --run-hue: var(--step-advanced);
+}
+
+.armada-run-node[data-tone="waiting"] {
+  --run-hue: var(--step-waiting);
+}
+
+/* Blocked: the waiting hue, and its body hatched. */
+.armada-run-node:is([data-tone="blocked"], [data-tone="failed"]) {
+  --run-hue: var(--step-waiting);
+  background:
+    repeating-linear-gradient(135deg, var(--status-awaiting-review-bg) 0 var(--space-2), transparent var(--space-2) var(--space-4)),
+    var(--bg-raised);
+}
+
+.armada-run-node[data-tone="failed"] {
+  --run-hue: var(--step-failed);
+  background:
+    repeating-linear-gradient(135deg, var(--step-failed-bg) 0 var(--space-2), transparent var(--space-2) var(--space-4)),
+    var(--bg-raised);
+}
+
+/* Not reached yet: an open dashed outline, the band unfilled. */
+.armada-run-node[data-tone="upcoming"] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.armada-run-node[data-tone="upcoming"] .armada-run-node__band {
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+.armada-run-node[data-tone="upcoming"] .armada-run-node__title {
+  color: var(--fg-muted);
+}
+
+/* Not made yet: a faint dashed outline and its word, centred. */
+.armada-run-node[data-tone="ghost"] {
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  background: transparent;
+}
+
+.armada-run-node__ghost {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   color: var(--fg-subtle);
 }

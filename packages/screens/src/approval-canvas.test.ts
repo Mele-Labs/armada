@@ -67,7 +67,7 @@ describe("approvalNodesOf", () => {
     const tuning = { ...tuningOf([]), local: true };
     const { nodes } = nodesOf(tuning);
     expect(nodes.some((node) => node.kind === "pr")).toBe(false);
-    expect(nodes.at(-1)?.traits).toEqual([{ key: "Merge", value: "Local merge" }]);
+    expect(nodes.at(-1)?.meta).toEqual([{ key: "Merge", value: "local merge", tuned: true }]);
   });
 
   it("says on the edge into Land that it merges on its own", () => {

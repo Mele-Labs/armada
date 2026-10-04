@@ -72,12 +72,6 @@ export type WorkflowCanvasEdge = {
   kind: WorkflowCanvasEdgeKind;
   /** What the edge says — a loop's cap, `up to 5 passes`. Absent on the spine. */
   label?: string;
-  /**
-   * Whether the Job has already come this way — drawn a step lighter, so the
-   * path behind the work reads apart from the path ahead of it. A neutral and
-   * never a status hue: having passed is a place, not an outcome.
-   */
-  travelled?: boolean;
   /** The way into the node the Job is at: drawn moving along it, the one edge that does. */
   flowing?: boolean;
 };
@@ -136,12 +130,17 @@ export type WorkflowCanvasProps = {
    * beside the node and needs the room either side (the owner, 4 Oct 2026).
    */
   centred?: boolean;
-  /** Edges drawn as one heavy conduit — the approval canvas's pipeline. Their arrows stay small. */
-  heavyEdges?: boolean;
+  /**
+   * Every forward edge leaves a node's bottom and enters the next one's top,
+   * however far across it lies. A Job beside the one it waits on was joined
+   * side to side and the line looped back round the card (the approval
+   * canvas's wave, 4 Oct 2026).
+   */
+  downOnly?: boolean;
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean; travelled: boolean; flowing: boolean }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -192,7 +191,6 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
         className={
           [
             props.data?.returning ? "armada-workflow-edge--returning" : "",
-            props.data?.travelled ? "armada-workflow-edge--travelled" : "",
             props.data?.flowing ? "armada-workflow-edge--flowing" : "",
           ]
             .join(" ")
@@ -218,6 +216,9 @@ const EDGE_TYPES = { workflow: EdgeView };
 
 /** A returning edge leaves and arrives on the top edge, which is what puts its arc above the spine. */
 const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Top}` };
+
+/** A forward edge on a canvas that only runs down: out of the bottom, into the top. */
+const DOWN_THE_SPINE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` };
 
 /** The same, on a spine that runs down: out of the right edge and back into it. */
 const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
@@ -411,7 +412,7 @@ export function WorkflowCanvas({
   runsDown = false,
   opened,
   centred = false,
-  heavyEdges = false,
+  downOnly = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -444,7 +445,9 @@ export function WorkflowCanvas({
           ? runsDown
             ? BESIDE_THE_SPINE
             : OVER_THE_SPINE
-          : facingSides(placed.get(edge.source), placed.get(edge.target));
+          : downOnly
+            ? DOWN_THE_SPINE
+            : facingSides(placed.get(edge.source), placed.get(edge.target));
       return {
         id: edge.id,
         source: edge.source,
@@ -452,17 +455,15 @@ export function WorkflowCanvas({
         ...sides,
         type: "workflow" as const,
         ariaLabel: `${from} ${SAYS[edge.kind]} ${to}`,
-        // A heavy line's arrow is drawn small: the marker scales with the stroke.
-        markerEnd: heavyEdges ? { type: MarkerType.ArrowClosed, width: 8, height: 8 } : { type: MarkerType.ArrowClosed },
+        markerEnd: { type: MarkerType.ArrowClosed },
         data: {
           returning,
-          travelled: edge.travelled === true,
           flowing: edge.flowing === true,
           ...(edge.label === undefined ? {} : { label: edge.label }),
         },
       };
     });
-  }, [given, givenEdges, nodes, runsDown, heavyEdges]);
+  }, [given, givenEdges, nodes, runsDown, downOnly]);
 
   const fitViewOptions = useMemo(
     () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),

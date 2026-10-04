@@ -85,11 +85,18 @@ export type ApprovalNode = {
   name: string;
   /** Its position in the run, from one. */
   ordinal: number;
-  /** The big words on the node's face, where they are not its name — the brief's title, the base's branch. */
+  /** The body's first line where it is not the name — the brief's title, the base's branch. */
   face?: string;
+  /** A branch, so mono. */
+  faceMono?: boolean;
+  /** The id the band carries, right-aligned: a step's, a group's. */
+  bandId?: string;
+  /** The body's second line, in words — the brief's request. */
   line?: string;
-  /** What the node is tuned to, on its face: a step's model, a gate's Judges. */
+  /** The body's second line as values: a step's model, effort and harness. */
   traits: RunNodeTrait[];
+  /** The body's third line: Drones, Judges, how it merges. */
+  meta: RunNodeTrait[];
   /** Done when's criteria. */
   items?: readonly string[];
   /** Where the Job is on it. Absent is not reached. */
@@ -178,8 +185,8 @@ export const gateIsANode = (step: StepRead): boolean => step.checks.length > 0 |
 /** What each delivery is called on the pull request's face. */
 const PR_FACE = { draft: "Draft pull request", ready: "Pull request" } as const;
 
-/** A trait whose value names itself — a gate's Checks, a pull request's Auto-merge. */
-const plain = (value: string): RunNodeTrait => ({ key: value, value });
+/** A value that names itself — a gate's Checks, a pull request's auto-merge. */
+const plain = (value: string, tuned = false): RunNodeTrait => ({ key: value, value, ...(tuned ? { tuned } : {}) });
 
 export function approvalNodesOf({
   title,
@@ -221,14 +228,21 @@ export function approvalNodesOf({
   };
   const delivery = deliveryOf(tuning.local, prMode);
 
-  put({ id: "brief", kind: "brief", name: "Brief", face: title, ...(asked === "" ? {} : { line: asked }), traits: [] });
-  put({ id: "base", kind: "base", name: "Base branch", ...(from === "" ? {} : { face: from }), traits: [] });
-  put({ id: "start", kind: "start", name: `Start ${workflowName}`, traits: [] });
+  put({ id: "brief", kind: "brief", name: "Brief", face: title, ...(asked === "" ? {} : { line: asked }), traits: [], meta: [] });
+  put({
+    id: "base",
+    kind: "base",
+    name: "Base branch",
+    ...(from === "" ? {} : { face: from, faceMono: true }),
+    traits: [],
+    meta: [],
+  });
+  put({ id: "start", kind: "start", name: `Start ${workflowName}`, face: workflowName, traits: [], meta: [] });
 
   // What counts as the work being done, read just before it leaves (the
   // owner, 4 Oct 2026). The same criteria Brief's card edits.
   const done = () =>
-    put({ id: "done", kind: "done", name: "Done when", ...(criteria.length === 0 ? {} : { items: criteria }), traits: [] });
+    put({ id: "done", kind: "done", name: "Done when", ...(criteria.length === 0 ? {} : { items: criteria }), traits: [], meta: [] });
   const pr = () => {
     done();
     put({
@@ -236,7 +250,11 @@ export function approvalNodesOf({
       kind: "pr",
       name: "Pull request",
       face: PR_FACE[delivery === "draft" ? "draft" : "ready"],
-      traits: tuning.auto_merge ? [plain("Auto-merge")] : [],
+      traits: [],
+      meta: [
+        { key: "Pull request", value: delivery === "draft" ? "draft" : "ready", tuned: delivery === "draft" },
+        { key: "Auto-merge", value: tuning.auto_merge ? "auto-merge" : "you merge", tuned: tuning.auto_merge },
+      ],
     });
   };
   let opened = false;
@@ -251,26 +269,28 @@ export function approvalNodesOf({
     }
     const ownGate = !gateIsANode(step) && gate?.you === true;
     // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
-    const traits: RunNodeTrait[] = ownGate
-      ? [{ key: "Gate", value: YOU }]
-      : [
-          { key: "Model", value: tuned?.model ?? AUTO, mono: tuned?.model != null },
-          { key: "Effort", value: tuned?.effort ?? AUTO },
-          { key: "Harness", value: tuned?.harness ?? AUTO },
-          ...(perTask(step) ? [{ key: "Drones", value: droneCap === undefined ? AUTO : String(droneCap) }] : []),
-        ];
     put({
       id: step.id,
       kind: "step",
       stepId: step.id,
       name: step.label,
-      traits,
+      bandId: step.id,
+      traits: ownGate
+        ? [plain(YOU)]
+        : [
+            { key: "Model", value: tuned?.model ?? AUTO, tuned: tuned?.model != null },
+            { key: "Effort", value: tuned?.effort ?? AUTO, tuned: tuned?.effort != null },
+            { key: "Harness", value: tuned?.harness ?? AUTO, tuned: tuned?.harness != null },
+          ],
+      meta: perTask(step)
+        ? [{ key: "Drones at once", value: `drones ${droneCap ?? AUTO}`, tuned: droneCap !== undefined }]
+        : [],
     });
     // The plan's groups, worked by this step: a placeholder until Plan has
     // recorded them, and each group once it has.
     if (perTask(step)) {
       if (life?.groups === undefined || life.groups.length === 0) {
-        put({ id: "groups", kind: "groups", name: "Groups", traits: [], inert: true });
+        put({ id: "groups", kind: "groups", name: "Groups", traits: [], meta: [], inert: true });
       } else {
         for (const group of life.groups) {
           nodes.push({
@@ -278,7 +298,10 @@ export function approvalNodesOf({
             kind: "group",
             stepId: step.id,
             name: group.name,
+            bandId: group.id,
+            line: group.tasks.map((task) => task.id).join(" "),
             traits: [],
+            meta: [],
             life: group.life,
             tasks: group.tasks,
             ordinal: nodes.length + 1,
@@ -292,7 +315,7 @@ export function approvalNodesOf({
     // The wave's Jobs, after the step that dispatches them and its gate.
     if (step.id === dispatchesFrom) {
       if (life?.jobs === undefined || life.jobs.length === 0) {
-        put({ id: "jobs", kind: "jobs", name: "Jobs", traits: [], inert: true });
+        put({ id: "jobs", kind: "jobs", name: "Jobs", traits: [], meta: [], inert: true });
       } else {
         const depths = depthsOf(life.jobs);
         const ordered = [...life.jobs].sort((a, b) => depths.get(a.id)! - depths.get(b.id)!);
@@ -304,6 +327,7 @@ export function approvalNodesOf({
             kind: "job",
             name: job.name,
             traits: [],
+            meta: [],
             life: job.life,
             opensJob: job.id,
             band: { depth, index: peers.indexOf(job), of: peers.length },
@@ -317,16 +341,24 @@ export function approvalNodesOf({
   /** A step's gate, as a node of its own. */
   function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined) {
     const judges = tuned?.judges ?? 1;
-    const said: RunNodeTrait[] = [];
-    if (gate?.checks === true) said.push(plain("Checks"));
-    if (gate?.judge === true) said.push(plain(judges === 1 ? "Judge" : `${judges} Judges`));
-    if (gate?.you === true) said.push(plain(YOU));
+    const declared = step.judges[0]?.panel_size ?? 1;
+    // Who decides, in order: the gate's title. What was tuned on it: its meta.
+    const who = [gate?.checks === true ? "Checks" : "", gate?.judge === true ? "Judge" : "", gate?.you === true ? "You" : ""]
+      .filter((one) => one !== "")
+      .join(" · ");
+    const meta: RunNodeTrait[] = [];
+    if (gate?.judge === true) meta.push({ key: "Judges", value: `judges ${judges}`, tuned: judges !== declared });
+    const off = tuned?.checks_off.length ?? 0;
+    if (off > 0) meta.push({ key: "Checks this Job does not run", value: `${off} off`, tuned: true });
     put({
       id: `${step.id}:checks`,
       kind: "checks",
       stepId: step.id,
       name: "Checks",
-      traits: said,
+      ...(who === "" ? {} : { face: who }),
+      bandId: step.id,
+      traits: [],
+      meta,
     });
   }
   // A workflow with no step that delivers still opens its pull request last.
@@ -336,11 +368,13 @@ export function approvalNodesOf({
     id: "land",
     kind: "land",
     name: "Land",
-    ...(target === "" ? {} : { line: target }),
-    traits: [
+    ...(target === "" ? {} : { face: target, faceMono: true }),
+    traits: [],
+    meta: [
       {
         key: "Merge",
-        value: delivery === "local" ? "Local merge" : tuning.auto_merge ? "On its own" : YOU,
+        value: delivery === "local" ? "local merge" : tuning.auto_merge ? "merges on its own" : "you merge",
+        tuned: delivery === "local" || tuning.auto_merge,
       },
     ],
   });

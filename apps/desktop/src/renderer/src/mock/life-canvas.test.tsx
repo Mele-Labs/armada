@@ -11,6 +11,8 @@ unmountAfterEach();
 test("past the gate every card reads, and none offers a control", async () => {
   mount("proto/feature-running");
   await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
+  // It opens on where the Job is, at full size; Fit brings the whole run in.
+  await page.getByRole("button", { name: "Fit" }).click();
   const plan = await openNode("Plan the change");
   await expect.element(plan.getByText("Auto").first()).toBeVisible();
   expect(plan.getByRole("combobox").all()).toHaveLength(0);

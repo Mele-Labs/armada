@@ -7,11 +7,6 @@
   stroke-dasharray: var(--space-1) var(--space-1);
 }
 
-/* A way the Job has already come: a step lighter than the way ahead. */
-.armada-workflow-canvas .react-flow__edge-path.armada-workflow-edge--travelled {
-  stroke: var(--fg-subtle);
-}
-
 /* The way into where the Job is, moving: what animates is what is still working. */
 .armada-workflow-canvas .react-flow__edge-path.armada-workflow-edge--flowing {
   stroke: var(--status-running);
