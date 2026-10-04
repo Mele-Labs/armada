@@ -62,6 +62,12 @@ export type ProposalLandingProps = {
    * second copy of itself.
    */
   fields?: readonly ProposalLandingField[];
+  /**
+   * Which drawn fields `onLanding` may move. Absent is every one; the rest
+   * read. Past the gate a Job frozen with nowhere to land keeps that one field
+   * a picker (the approval canvas, prototype).
+   */
+  editable?: readonly ProposalLandingField[];
 };
 
 /** One of the region's five fields. */
@@ -84,38 +90,42 @@ export function ProposalLanding({
   completeChoices,
   branches = null,
   fields,
+  editable,
 }: ProposalLandingProps) {
   const shows = (field: ProposalLandingField): boolean => fields === undefined || fields.includes(field);
   const moved = (change: Partial<ProposalLandingValue>): void =>
     onLanding?.({ ...landing, ...change });
   const chosen = completeChoices.find((one) => one.value === landing.completeWhen);
-  const open = onLanding !== undefined;
+  const may = (field: ProposalLandingField): boolean =>
+    onLanding !== undefined && (editable === undefined || editable.includes(field));
   return (
     <section className="armada-proposal__region" aria-label="How it lands">
       <h3 className="armada-proposal__heading">How it lands</h3>
       <ProposalFields>
         {shows("from") && (
-        <ProposalField label="Base branch" bare={open}>
-          {open ? (
+        <ProposalField label="Base branch" bare={may("from")}>
+          {may("from") || landing.from === "" ? (
             // The dispatch composer's own picker, so a branch is named the same
-            // way wherever Armada asks for one (#1605).
+            // way wherever Armada asks for one (#1605). **Empty, it is the
+            // picker even where nothing may change it**: no base named is a
+            // branch somebody has to pick, never a sentence (owner, 4 Oct 2026).
             <BranchPicker
               label="Base branch"
               labelledByRow
               value={landing.from}
               onValue={(from) => moved({ from })}
               branches={branches}
+              required
+              disabled={!may("from")}
             />
-          ) : landing.from === "" ? (
-            "The Manifest names no base"
           ) : (
             landing.from
           )}
         </ProposalField>
         )}
         {shows("target") && (
-        <ProposalField label="Lands in" bare={open}>
-          {open ? (
+        <ProposalField label="Lands in" bare={may("target")}>
+          {may("target") || landing.target === "" ? (
             <BranchPicker
               label="Lands in"
               labelledByRow
@@ -123,17 +133,17 @@ export function ProposalLanding({
               onValue={(target) => moved({ target })}
               branches={branches}
               offerNew
+              required
+              disabled={!may("target")}
             />
-          ) : landing.target === "" ? (
-            "The Manifest names no base"
           ) : (
             landing.target
           )}
         </ProposalField>
         )}
         {shows("branching") && (
-        <ProposalField label="Branches" bare={open}>
-          {open ? (
+        <ProposalField label="Branches" bare={may("branching")}>
+          {may("branching") ? (
             <Select
               aria-label="Branches"
               value={landing.branching}
@@ -150,8 +160,8 @@ export function ProposalLanding({
         </ProposalField>
         )}
         {shows("completeWhen") && (
-        <ProposalField label="Complete when" bare={open}>
-          {open ? (
+        <ProposalField label="Complete when" bare={may("completeWhen")}>
+          {may("completeWhen") ? (
             <Select
               aria-label="Complete when"
               value={landing.completeWhen}
@@ -169,8 +179,8 @@ export function ProposalLanding({
         </ProposalField>
         )}
         {shows("prMode") && (
-        <ProposalField label="Pull request" bare={open}>
-          {open ? (
+        <ProposalField label="Pull request" bare={may("prMode")}>
+          {may("prMode") ? (
             <Select
               aria-label="Pull request"
               value={landing.prMode}

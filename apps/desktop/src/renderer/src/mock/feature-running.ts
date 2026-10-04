@@ -42,8 +42,20 @@ export function featureRunning(): JobFixture {
   };
   return {
     ...base,
+    // The repository's branches, so where it lands is picked from them.
+    branches: {
+      branches: [
+        { name: "main", base: false },
+        { name: "release/2026-10", base: false },
+        { name: "armada/1-draw-the-plans-groups", base: false },
+      ],
+    },
     name: "running — a feature Job mid-Implement, its canvas marked with where it is",
     job,
-    watched: { ...base.watched, detail: { ...whole, job, steps, work_plan: { ...plan, tasks, groups } } },
+    // Approved before it ran, as Fleet stamps it since 23.8.
+    watched: {
+      ...base.watched,
+      detail: { ...whole, job, steps, work_plan: { ...plan, tasks, groups }, approved_at: "2026-10-02T13:58:00.000Z" },
+    },
   };
 }

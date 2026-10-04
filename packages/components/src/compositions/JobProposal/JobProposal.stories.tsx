@@ -103,7 +103,7 @@ const WORKFLOWS = [
 
 const COMPLETE = [
   { value: "pr_merged", label: "Its pull request merges", served: false },
-  { value: "delivered", label: "The step that delivers has delivered", served: true },
+  { value: "delivered", label: "The work is delivered", served: true },
 ];
 
 const COMMON = {

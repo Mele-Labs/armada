@@ -16,5 +16,6 @@ export const aRunningJobOnItsCanvas = walk("proto/feature-running", [
   { press: card("Plan the change"), say: "A card past the gate" },
   { look: inside(dialog("Plan the change"), text("Auto")), say: "reads what it ran on" },
   { press: card("Land"), say: "Where it lands" },
-  { look: inside(dialog("Land"), text("Lands in")), say: "frozen at the press" },
+  { look: inside(dialog("Land"), role("combobox", "Lands in")), say: "No branch named: pick one" },
+  { look: inside(dialog("Land"), text("The work is delivered")), say: "Complete when" },
 ]);

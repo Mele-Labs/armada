@@ -374,7 +374,7 @@ const COMPLETE_LABEL: Readonly<Record<CompleteWhen, string>> = {
   pr_merged: "Its pull request merges",
   all_members_landed: "Every Job it holds has landed",
   pr_opened: "Its pull request is opened",
-  delivered: "The step that delivers has delivered",
+  delivered: "The work is delivered",
 };
 
 /**

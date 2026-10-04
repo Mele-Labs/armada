@@ -1,4 +1,4 @@
-// What a Job at its dispatch gate will do, as nodes left to right: the brief,
+// What a Job at its dispatch gate will do, as nodes top to bottom: the brief,
 // where the work starts, the workflow starting, each step and what gates it,
 // the pull request, and where it lands. The approval canvas, prototype.
 //

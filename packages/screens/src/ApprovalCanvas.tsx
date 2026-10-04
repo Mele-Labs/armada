@@ -1,7 +1,7 @@
 // What a Job at its dispatch gate will do, drawn as the run it will be rather
 // than as a form: brief, base branch, the workflow starting, each step and its
-// gate, the pull request, and where it lands — left to right. A node pressed
-// opens a card under it holding what that node tunes for this Job.
+// gate, the pull request, and where it lands — top to bottom. A node pressed
+// opens a card beside it holding what that node tunes for this Job.
 //
 // **Prototype** (the owner, 3 Oct 2026: *What you are approving* read as a
 // boring form). It takes `Approving`'s place and its props, and moves the same
@@ -157,7 +157,14 @@ export function ApprovalCanvas({
   const steps = stepsReadOf(proposal.gates, whole, declared);
   const tuning = edits.tuning ?? tuningOf(steps.map((step) => ({ step_id: step.id, judge_checks: step.judges })));
   const base = baseBranch(branches);
-  const value = landingValueOf(landing, base);
+  // **Where it lands, picked late.** A Job frozen with no branch to land in
+  // has to be given one before it can land (the owner, 4 Oct 2026), so past
+  // the gate that one field stays a picker. Held here: nothing on the wire
+  // takes it yet — `draft/tuning.ts` says what is owed.
+  const [late, setLate] = useState("");
+  const frozenValue = landingValueOf(landing, base);
+  const picksLate = life !== undefined && frozenValue.target === "";
+  const value = picksLate ? { ...frozenValue, target: late } : frozenValue;
   const workflow = workflows.find(
     (one) => one.id === proposal.workflow_id && one.manifest_id === whole.job.owner_manifest_id,
   );
@@ -231,6 +238,7 @@ export function ApprovalCanvas({
                 moved={moved}
                 tuned={onEdits === undefined ? undefined : tuned}
                 landed={onEdits === undefined ? undefined : landed}
+                {...(picksLate ? { landsLate: (target: string) => setLate(target) } : {})}
                 value={value}
                 branches={branches}
                 models={models}
@@ -252,7 +260,7 @@ export function ApprovalCanvas({
       <WorkflowCanvas
         nodes={placed}
         edges={edges}
-        label={life === undefined ? "What this Job will do" : "What this Job does"}
+        label="Run"
         runsDown
         centred
         hangsFromTop
@@ -279,6 +287,8 @@ type NodeCardProps = {
   whole: ApprovingProps["whole"];
   manifest: ApprovingProps["manifest"];
   forRequests: string | undefined;
+  /** Past the gate, where it lands is still to pick: that one field's mover. */
+  landsLate?: (target: string) => void;
 };
 
 /** What one node tunes. */
@@ -392,18 +402,21 @@ function DoneWhen({ edits, moved }: Pick<NodeCardProps, "edits" | "moved">) {
 function BaseCard({ value, landed, branches }: NodeCardProps) {
   return (
     <ProposalFields>
-      <ProposalField label="Base branch" bare={landed !== undefined}>
-        {landed === undefined ? (
+      <ProposalField label="Base branch" bare={landed !== undefined || value.from === ""}>
+        {landed === undefined && value.from !== "" ? (
           value.from
         ) : (
           // `offerNew`: a name the repository does not hold is a branch to cut.
+          // Empty, a branch to pick, and nothing said about why.
           <BranchPicker
             label="Base branch"
             labelledByRow
             value={value.from}
-            onValue={(from) => landed({ ...value, from })}
+            onValue={(from) => landed?.({ ...value, from })}
             branches={branches}
             offerNew
+            required
+            disabled={landed === undefined}
           />
         )}
       </ProposalField>
@@ -682,13 +695,17 @@ function DeliveryFields({
 }
 
 /** Where it lands, and the delivery again: local only is answered here once the pull request node is gone. */
-function LandCard({ value, landed, branches, edits, tuning, tuned, moved }: NodeCardProps) {
+function LandCard({ value, landed, landsLate, branches, edits, tuning, tuned, moved }: NodeCardProps) {
   const delivery = deliveryOf(tuning.local, edits.landing.pr_mode);
   return (
     <>
       <ProposalLanding
         landing={value}
-        {...(landed === undefined ? {} : { onLanding: landed })}
+        {...(landsLate !== undefined
+          ? { onLanding: (next: ProposalLandingValue) => landsLate(next.target), editable: ["target"] as const }
+          : landed === undefined
+            ? {}
+            : { onLanding: landed })}
         completeChoices={completeChoices()}
         branches={branches}
         fields={["target", "branching", "completeWhen"]}
