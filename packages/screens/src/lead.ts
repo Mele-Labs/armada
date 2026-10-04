@@ -14,7 +14,7 @@
 import { CHECK_ADVANCES, ESCALATION_REASON, JOB_LIFECYCLE } from "@armada/components";
 import type { CheckRun, Criterion, JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/protocol";
 
-import { didNotPass, didPass, panelsOf } from "./gates";
+import { checksAgain, checksOf, didNotPass, didPass, isRunning, panelsOf } from "./gates";
 
 import { elapsedSince, span } from "./duration";
 import { onlyCurrentAttempt } from "./facts";
@@ -462,6 +462,17 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       because: because(held.refused === undefined ? "" : held.caught, holdsUp(whole, held.step)),
       tone: "awaiting-review",
       act: "Answer it",
+    };
+  }
+  // **A stopped step's Checks running again.** The status and the step still
+  // say stopped and Fleet offers nothing until the run ends, so *Out of
+  // retries* with no act read as a dead end over work in flight — the owner's
+  // Job 3, 4 Oct 2026. The line beneath is the Check running now; when the run
+  // ends this branch is not taken and the lead is whatever Fleet then says.
+  if (!over && step !== undefined && checksAgain(step)) {
+    return {
+      said: "Running Checks again",
+      because: because(...checksOf(step).filter(isRunning).map((one) => one.name)),
     };
   }
   const refused = over ? undefined : refusals(step, whole?.acceptance_criteria ?? []);

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { ARC_MOMENTS, FIXTURES, arcMoment } from "./fixtures/build/index";
 import { agentText } from "./fixtures/build/markdown";
+import { awaitingRepairChecksAgain } from "./fixtures/build/waiting";
 import type { JobFixture } from "./fixtures/fixture";
 import { leadOf } from "./lead";
 import { detailOf } from "./mine";
@@ -50,6 +51,14 @@ function withOutcome(one: JobFixture, stepId: string, outcome: string): JobFixtu
       },
     },
   };
+}
+
+/** The same Job with its gate's live set taken down, as the ruling being written does. */
+function withoutChecking(one: JobFixture): JobFixture {
+  if (one.watched.state !== "read") throw new Error(`${one.name} serves no detail`);
+  const detail = one.watched.detail;
+  const steps = detail.steps.map((step) => ({ ...step, checking: undefined }));
+  return { ...one, watched: { ...one.watched, detail: { ...detail, steps } } };
 }
 
 /** The same Job with nothing flagged, so no flag holds its stopped step. */
@@ -253,6 +262,22 @@ describe("the three states that were saying the wrong thing", () => {
     expect(lead.because).toBe("cargo_nextest failed · exit 101");
     // Fleet does not serve the status, so there is nothing for a button to do.
     expect(lead.act).toBeUndefined();
+  });
+
+  it("a stopped step whose Checks are running again says so, and offers nothing", () => {
+    // The owner's Job 3, 4 Oct 2026: he pressed Run Checks again and the lead
+    // went on saying *Out of retries* with no act while the Checks ran.
+    const lead = leadFor(awaitingRepairChecksAgain());
+    expect(lead.said).toBe("Running Checks again");
+    expect(lead.because).toBe("desktop_test");
+    expect(lead.act).toBeUndefined();
+    expect(lead.tone).toBeUndefined();
+  });
+
+  it("with no Check live, awaiting_repair is out of retries again", () => {
+    const lead = leadFor(withoutChecking(awaitingRepairChecksAgain()));
+    expect(lead.said).toBe("Out of retries");
+    expect(lead.because).toBe("desktop_test failed · exit 1");
   });
 
   it("awaiting_attestation names the criterion it owes, in the requester's words", () => {

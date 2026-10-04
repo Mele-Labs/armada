@@ -699,7 +699,10 @@ as a machine's, so a step waiting on him is as easy to spot; the sweep does not 
 a bar along the top would say *still working* a second time about the same
 card. The step panel's header draws the same track. The owner chose it on
 3 Oct 2026, over a mark on the state pill that was too easy to miss.
-`StepPhaseTrack`.
+`StepPhaseTrack`. A stopped step whose Checks a person sent to run again
+draws it too, Checks the part now, for as long as the gate's live set
+stands — its state still says stopped, and nothing else on the card would
+say the Checks are running.
 
 **A control waiting on Fleet sweeps a bar along its bottom edge**, from
 the press until Fleet answers or refuses. Its label says what it is
