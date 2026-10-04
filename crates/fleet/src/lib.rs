@@ -253,6 +253,7 @@ pub mod scope;
 mod scoping;
 /// The read-only agent a person starts from a Studio. `#1292`.
 pub mod scout;
+mod rescuing;
 mod scouting;
 pub mod seeding;
 mod servers;

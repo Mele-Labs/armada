@@ -278,6 +278,16 @@ pub trait Commands: Send + Sync + 'static {
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::SlotPoolChanged, Refusal>> + Send;
 
+    /// `rescue_slot` — start the Scout that reads a stranded slot, stop it, or
+    /// scrap or stash the slot's work and free it. [`Refusal::IllegalMove`]
+    /// naming why a slot cannot: not stranded, busy, being read, on no branch,
+    /// or with nowhere to push.
+    fn rescue_slot(
+        self: std::sync::Arc<Self>,
+        asked: ipc::RescueSlot,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::SlotRescued, Refusal>> + Send;
+
     /// `delete_branch` — deletes a terminal Job's branch, unmerged or not, once
     /// its checkout is gone and only while it stands at the `tip` a person was
     /// shown. [`Refusal::IllegalMove`] otherwise, naming which.

@@ -817,6 +817,34 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
         warm: reading.warm,
         behind: reading.behind,
         closed: reading.closed,
+        stranded: one.stranded.as_ref().map(|work| ipc::SlotStranded {
+            uncommitted: work.uncommitted.clone(),
+            commits: work
+                .commits
+                .iter()
+                .map(|commit| ipc::SlotCommit {
+                    sha: commit.sha.clone(),
+                    subject: commit.subject.clone(),
+                })
+                .collect(),
+            unpushed: work.unpushed,
+        }),
+        rescue: one.rescue.as_ref().map(|kept| ipc::SlotFinding {
+            state: match kept.state {
+                store::RescueState::Reading => ipc::SlotFindingState::Reading,
+                store::RescueState::Answered => ipc::SlotFindingState::Answered,
+                store::RescueState::Stopped => ipc::SlotFindingState::Stopped,
+                store::RescueState::Failed => ipc::SlotFindingState::Failed,
+            },
+            commit: kept.commit.clone(),
+            uncommitted: kept.uncommitted,
+            cut: kept.cut,
+            read: kept.read.clone(),
+            searched: kept.searched.clone(),
+            summary: kept.summary.clone(),
+            why: kept.why.clone(),
+            cost_micros: kept.cost_micros,
+        }),
     }
 }
 

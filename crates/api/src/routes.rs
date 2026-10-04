@@ -30,7 +30,7 @@ use crate::amending::edit_manifest;
 use crate::attention::{get_activity_feed, list_alerts, list_job_board, list_reviews};
 use crate::commands::{
     add_task, answer_command, answer_judge, answer_question, approve_dispatch, approve_review,
-    ask_person_to_approve, change_slot_pool, delete_branch, dismiss_finding, drop_task,
+    ask_person_to_approve, change_slot_pool, rescue_slot, delete_branch, dismiss_finding, drop_task,
     examine_job, file_finding_issue, file_report, forget_job, kill_drone, kill_job,
     merge_pull_request, move_plan, override_verdict, propose_from_request, propose_job,
     queue_after_finding, raise_cost_cap, raise_turn_cap, reclaim_worktree, redirect_drone,
@@ -356,6 +356,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/reports", get(list_reports::<D>))
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
+        .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
         .route("/jobs/:job_id/observe", get(observe_job::<D>))
         .route("/jobs/:job_id/log", get(job_log::<D>))
         .route("/jobs/:job_id/log/read", get(get_job_log::<D>))

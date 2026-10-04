@@ -823,6 +823,15 @@ where
         Fleet::change_slot_pool(self, change, manifest_id.as_ref())
     }
 
+    /// A stranded slot read, scrapped or stashed — `crate::rescuing`.
+    async fn rescue_slot(
+        self: Arc<Self>,
+        asked: ipc::RescueSlot,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::SlotRescued, Refusal> {
+        Fleet::rescue_slot(self, asked, manifest_id.as_ref()).await
+    }
+
     async fn delete_branch(
         self: Arc<Self>,
         job_id: JobId,

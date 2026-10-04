@@ -57,6 +57,62 @@ export type WorktreeSlot = {
    * which closes nothing.
    */
   closed?: boolean;
+  /** What a stranded slot holds, which a Scrap would lose. Since 23.19. */
+  stranded?: SlotStranded;
+  /** What a rescue Scout read of a stranded slot, while it reads and after. Since 23.19. */
+  rescue?: SlotFinding;
+};
+
+/** The work a stranded slot holds. */
+export type SlotStranded = {
+  /** Every path `git status` reports, untracked included. */
+  uncommitted: string[];
+  /** Commits the base does not have, newest first. */
+  commits: SlotCommit[];
+  /** Of those, how many are on neither the remote nor the base. */
+  unpushed: number;
+};
+
+/** One commit on a stranded slot's branch. */
+export type SlotCommit = { sha: string; subject: string };
+
+/** Where a rescue Scout is. */
+export type SlotFindingState = "reading" | "answered" | "stopped" | "failed";
+
+/** What a rescue Scout read of a stranded slot, kept against the slot. Since 23.19. */
+export type SlotFinding = {
+  state: SlotFindingState;
+  /** The commit the slot was at when the Scout read it. */
+  commit: string;
+  /** Whether uncommitted changes were on top of it. */
+  uncommitted: boolean;
+  /** Characters of the change dropped before the Scout was handed it. */
+  cut?: number;
+  read: string[];
+  searched: string[];
+  /** What it said last. */
+  summary?: string;
+  /** Why it failed, where it did. */
+  why?: string;
+  cost_micros?: number;
+};
+
+/** What a person does with a stranded slot. Since 23.19. */
+export type RescueAct = "start" | "stop" | "scrap" | "stash";
+
+/** `rescue_slot`'s body, `POST /worktrees/slots/rescue?manifest_id=`. */
+export type RescueSlot = { act: RescueAct; slot: number };
+
+/** What `rescue_slot` did. */
+export type SlotRescued = {
+  manifest_id: string;
+  slot: number;
+  /** The branch the slot was on, for a Scrap or a Stash. */
+  branch?: string;
+  /** A Scrap kept the branch, because it holds commits nothing else has. */
+  branch_kept?: boolean;
+  /** The commit a Stash made of the uncommitted work. */
+  committed?: string;
 };
 
 /** What a person does to the pool from Cleanup's bay grid. Since 23.17. */

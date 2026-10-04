@@ -25,13 +25,13 @@ use crate::repositories::Served;
 const BASE_UNSTATED: &str = "main";
 
 /// A slot the pool does not have, or none named. A 422.
-const NO_SUCH_SLOT: &str = "fleet.no_such_slot";
+pub(crate) const NO_SUCH_SLOT: &str = "fleet.no_such_slot";
 /// A slot removed while something holds it. A 409, as are the five after.
 const SLOT_HELD: &str = "fleet.slot_held";
 /// A slot removed whose holder is gone and left work in it.
 const SLOT_STRANDED: &str = "fleet.slot_stranded";
 /// A slot removed while a lease or a release is under way on it.
-const SLOT_BUSY: &str = "fleet.slot_busy";
+pub(crate) const SLOT_BUSY: &str = "fleet.slot_busy";
 /// A slot removed that is a directory and not a checkout: a person's to clear.
 const SLOT_NOT_A_CHECKOUT: &str = "fleet.slot_not_a_checkout";
 /// A slot removed whose checkout holds uncommitted files.
@@ -39,7 +39,7 @@ const SLOT_DIRTY: &str = "fleet.slot_dirty";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
-const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
+pub(crate) const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
 
 /// The served repository's pool, as its root Manifest sizes it.
 pub(crate) fn pool_of(served: &Served) -> SlotPool {
@@ -95,6 +95,10 @@ pub(crate) struct PoolSlot {
     pub(crate) base: String,
     pub(crate) reading: SlotReading,
     pub(crate) job_title: Option<String>,
+    /// What it holds, where it is stranded.
+    pub(crate) stranded: Option<adapter_traits::StrandedWork>,
+    /// What a rescue Scout read of it, where one has.
+    pub(crate) rescue: Option<store::KeptRescue>,
 }
 
 /// A Job's worktree, as the lookup finds it.
@@ -185,6 +189,7 @@ where
                 .find(|job| job.id().as_str() == id)
                 .map(|job| job.title().as_str().to_string())
         };
+        let mut kept = self.store().lock().await.rescues().unwrap_or_default();
         let mut slots = Vec::new();
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
@@ -194,11 +199,25 @@ where
                     SlotHeld::Job(id) => title(id),
                     _ => None,
                 };
+                let stranded = match &reading.held {
+                    SlotHeld::Stranded(_) => self.vcs().stranded_work(&pool, reading.slot).ok(),
+                    _ => None,
+                };
+                // **A Finding is of the commit it read.** One whose slot has
+                // moved on, or is no longer stranded, is not shown.
+                let at = kept.iter().position(|one| {
+                    one.manifest_id == manifest
+                        && one.slot == reading.slot
+                        && stranded.as_ref().is_some_and(|work| work.commit == one.commit)
+                });
+                let rescue = at.map(|at| kept.swap_remove(at));
                 slots.push(PoolSlot {
                     manifest: manifest.clone(),
                     base: pool.base().to_string(),
                     reading,
                     job_title,
+                    stranded,
+                    rescue,
                 });
             }
         }

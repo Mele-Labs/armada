@@ -587,6 +587,24 @@ pub(crate) async fn change_slot_pool<D: Commands>(
     }
 }
 
+/// One act on a stranded slot: start the Scout that reads it, stop it, or
+/// scrap or stash the work. 409 naming why it cannot; 422 for a slot the pool
+/// does not have.
+pub(crate) async fn rescue_slot<D: Commands>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::RescueSlot = match ipc::decode("an act on a stranded slot", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().rescue_slot(asked, scope.manifest()).await {
+        Ok(done) => answer(StatusCode::OK, &done, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Delete the Job's branch, guarded by the tip in the body. 409 where the Job
 /// is not terminal, its checkout still stands, the branch is gone, or the tip
 /// moved.
