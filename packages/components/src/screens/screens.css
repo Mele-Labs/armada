@@ -2204,9 +2204,12 @@
 /* The approval canvas (prototype): what the Job will do, left to right, in the
    place the form held. As tall as a Job's own plan canvas, so a node's card
    opens under it inside the frame. */
+/* The canvas is open ground, not a card: its nodes are the cards on it, as a
+   Studio's are. A hairline holds its edge. */
 .armada-approval-canvas {
   block-size: var(--h-workflow-run-canvas);
   min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -2248,4 +2251,14 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* --- The approval canvas's pipeline (prototype, 4 Oct 2026) --------------
+
+   The nodes are RunNode's own objects; what is left here is the line they
+   sit on. Heavier than a workflow's default edge, so the run reads as one
+   conduit through the nodes rather than as arrows between boxes. */
+.armada-approval-canvas .react-flow__edge-path {
+  stroke-width: var(--space-1);
+  stroke-linecap: round;
 }

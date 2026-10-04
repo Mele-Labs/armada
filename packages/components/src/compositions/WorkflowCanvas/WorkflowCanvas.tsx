@@ -42,6 +42,8 @@ export type WorkflowCanvasNode = {
   /** Where it sits, in the canvas's own coordinates. Computed from step order. */
   position: { x: number; y: number };
   card: WorkflowStepCardProps;
+  /** Drawn in the card's place — the approval canvas's own nodes. `card` still names it. */
+  drawn?: ReactNode;
 };
 
 /**
@@ -70,6 +72,14 @@ export type WorkflowCanvasEdge = {
   kind: WorkflowCanvasEdgeKind;
   /** What the edge says — a loop's cap, `up to 5 passes`. Absent on the spine. */
   label?: string;
+  /**
+   * Whether the Job has already come this way — drawn a step lighter, so the
+   * path behind the work reads apart from the path ahead of it. A neutral and
+   * never a status hue: having passed is a place, not an outcome.
+   */
+  travelled?: boolean;
+  /** The way into the node the Job is at: drawn moving along it, the one edge that does. */
+  flowing?: boolean;
 };
 
 export type WorkflowCanvasProps = {
@@ -126,10 +136,12 @@ export type WorkflowCanvasProps = {
    * beside the node and needs the room either side (the owner, 4 Oct 2026).
    */
   centred?: boolean;
+  /** Edges drawn as one heavy conduit — the approval canvas's pipeline. Their arrows stay small. */
+  heavyEdges?: boolean;
 };
 
-type CanvasNode = Node<{ card: WorkflowStepCardProps }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean }, "workflow">;
+type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; travelled: boolean; flowing: boolean }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -137,7 +149,7 @@ function NodeView({ data }: NodeProps<CanvasNode>) {
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
       ))}
-      <WorkflowStepCard {...data.card} />
+      {data.drawn ?? <WorkflowStepCard {...data.card} />}
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
@@ -177,7 +189,15 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
         id={props.id}
         path={path}
         markerEnd={props.markerEnd}
-        className={props.data?.returning ? "armada-workflow-edge--returning" : undefined}
+        className={
+          [
+            props.data?.returning ? "armada-workflow-edge--returning" : "",
+            props.data?.travelled ? "armada-workflow-edge--travelled" : "",
+            props.data?.flowing ? "armada-workflow-edge--flowing" : "",
+          ]
+            .join(" ")
+            .trim() || undefined
+        }
       />
       {label === undefined ? null : (
         <EdgeLabelRenderer>
@@ -391,6 +411,7 @@ export function WorkflowCanvas({
   runsDown = false,
   opened,
   centred = false,
+  heavyEdges = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -406,7 +427,7 @@ export function WorkflowCanvas({
         // `aria-current` is what says which one is open.
         selectable: true,
         focusable: false,
-        data: { card: entry.card },
+        data: { card: entry.card, ...(entry.drawn === undefined ? {} : { drawn: entry.drawn }) },
       })),
     [given],
   );
@@ -431,11 +452,17 @@ export function WorkflowCanvas({
         ...sides,
         type: "workflow" as const,
         ariaLabel: `${from} ${SAYS[edge.kind]} ${to}`,
-        markerEnd: { type: MarkerType.ArrowClosed },
-        data: { returning, ...(edge.label === undefined ? {} : { label: edge.label }) },
+        // A heavy line's arrow is drawn small: the marker scales with the stroke.
+        markerEnd: heavyEdges ? { type: MarkerType.ArrowClosed, width: 8, height: 8 } : { type: MarkerType.ArrowClosed },
+        data: {
+          returning,
+          travelled: edge.travelled === true,
+          flowing: edge.flowing === true,
+          ...(edge.label === undefined ? {} : { label: edge.label }),
+        },
       };
     });
-  }, [given, givenEdges, nodes, runsDown]);
+  }, [given, givenEdges, nodes, runsDown, heavyEdges]);
 
   const fitViewOptions = useMemo(
     () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),

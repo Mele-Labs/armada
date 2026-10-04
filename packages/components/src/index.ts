@@ -330,6 +330,7 @@ export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
 // the card both draw, and the panel a step or group opens into. #1539.
 export * from "./compositions/WorkflowStepCard/WorkflowStepCard";
 export * from "./compositions/WorkflowCanvas/WorkflowCanvas";
+export * from "./compositions/RunNode/RunNode";
 export * from "./compositions/WorkflowStacked/WorkflowStacked";
 export * from "./compositions/WorkflowInspector/WorkflowInspector";
 // A label and its figure in one aligned column — Pulse and the Fleet panel.

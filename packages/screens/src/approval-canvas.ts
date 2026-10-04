@@ -11,8 +11,8 @@
 // so its node goes and Land reads as a local merge; auto-merge says on the edge
 // into Land that it merges on its own. One field each, read here.
 
-import { STEP_STATE } from "@armada/components";
-import type { StepActivity, WorkflowCanvasEdge, WorkflowStepFact } from "@armada/components";
+import { AUTO, STEP_STATE } from "@armada/components";
+import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, WorkflowStep } from "@armada/protocol";
 
@@ -85,10 +85,13 @@ export type ApprovalNode = {
   name: string;
   /** Its position in the run, from one. */
   ordinal: number;
+  /** The big words on the node's face, where they are not its name — the brief's title, the base's branch. */
+  face?: string;
   line?: string;
-  facts: WorkflowStepFact[];
-  /** Where the node waits for a person. */
-  gate?: string;
+  /** What the node is tuned to, on its face: a step's model, a gate's Judges. */
+  traits: RunNodeTrait[];
+  /** Done when's criteria. */
+  items?: readonly string[];
   /** Where the Job is on it. Absent is not reached. */
   life?: NodeLife;
   /** Whether a press opens a card. Absent is yes. */
@@ -172,8 +175,16 @@ function depthsOf(jobs: readonly MemberRead[]): Map<string, number> {
 /** Whether a step's gate is a node of its own. */
 export const gateIsANode = (step: StepRead): boolean => step.checks.length > 0 || step.judges.length > 0;
 
+/** What each delivery is called on the pull request's face. */
+const PR_FACE = { draft: "Draft pull request", ready: "Pull request" } as const;
+
+/** A trait whose value names itself — a gate's Checks, a pull request's Auto-merge. */
+const plain = (value: string): RunNodeTrait => ({ key: value, value });
+
 export function approvalNodesOf({
   title,
+  asked = "",
+  criteria = [],
   from,
   workflowName,
   steps,
@@ -182,9 +193,14 @@ export function approvalNodesOf({
   prMode,
   target,
   life,
+  droneCap,
   dispatchesFrom,
 }: {
   title: string;
+  /** The request, the brief's second line. */
+  asked?: string;
+  /** What counts as done, in order. */
+  criteria?: readonly string[];
   from: string;
   workflowName: string;
   steps: readonly StepRead[];
@@ -193,6 +209,8 @@ export function approvalNodesOf({
   prMode: "ready" | "draft";
   target: string;
   life?: LifeRead;
+  /** How many Drones the Job may run at once. Absent is the machine's. */
+  droneCap?: number;
   /** The step the wave's Jobs are dispatched from, where the workflow dispatches any. */
   dispatchesFrom?: string;
 }): { nodes: ApprovalNode[]; edges: WorkflowCanvasEdge[] } {
@@ -203,21 +221,22 @@ export function approvalNodesOf({
   };
   const delivery = deliveryOf(tuning.local, prMode);
 
-  put({ id: "brief", kind: "brief", name: "Brief", line: title, facts: [] });
-  put({ id: "base", kind: "base", name: "Base branch", ...(from === "" ? {} : { line: from }), facts: [] });
-  put({ id: "start", kind: "start", name: `Start ${workflowName}`, facts: [] });
+  put({ id: "brief", kind: "brief", name: "Brief", face: title, ...(asked === "" ? {} : { line: asked }), traits: [] });
+  put({ id: "base", kind: "base", name: "Base branch", ...(from === "" ? {} : { face: from }), traits: [] });
+  put({ id: "start", kind: "start", name: `Start ${workflowName}`, traits: [] });
 
   // What counts as the work being done, read just before it leaves (the
   // owner, 4 Oct 2026). The same criteria Brief's card edits.
-  const done = () => put({ id: "done", kind: "done", name: "Done when", facts: [] });
+  const done = () =>
+    put({ id: "done", kind: "done", name: "Done when", ...(criteria.length === 0 ? {} : { items: criteria }), traits: [] });
   const pr = () => {
     done();
     put({
       id: "pr",
       kind: "pr",
       name: "Pull request",
-      line: delivery === "draft" ? "Draft" : "Ready for review",
-      facts: tuning.auto_merge ? [{ value: "Auto-merge" }] : [],
+      face: PR_FACE[delivery === "draft" ? "draft" : "ready"],
+      traits: tuning.auto_merge ? [plain("Auto-merge")] : [],
     });
   };
   let opened = false;
@@ -230,25 +249,28 @@ export function approvalNodesOf({
       pr();
       opened = true;
     }
-    const facts: WorkflowStepFact[] = [];
-    if (tuned?.model != null) facts.push({ value: tuned.model, hint: "Model" });
-    if (tuned?.effort != null) facts.push({ value: tuned.effort, hint: "Effort" });
-    if (tuned?.harness != null) facts.push({ value: tuned.harness, hint: "Harness" });
-    if (perTask(step)) facts.push({ value: "Drone per task" });
     const ownGate = !gateIsANode(step) && gate?.you === true;
+    // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
+    const traits: RunNodeTrait[] = ownGate
+      ? [{ key: "Gate", value: YOU }]
+      : [
+          { key: "Model", value: tuned?.model ?? AUTO, mono: tuned?.model != null },
+          { key: "Effort", value: tuned?.effort ?? AUTO },
+          { key: "Harness", value: tuned?.harness ?? AUTO },
+          ...(perTask(step) ? [{ key: "Drones", value: droneCap === undefined ? AUTO : String(droneCap) }] : []),
+        ];
     put({
       id: step.id,
       kind: "step",
       stepId: step.id,
       name: step.label,
-      facts,
-      ...(ownGate ? { gate: YOU } : {}),
+      traits,
     });
     // The plan's groups, worked by this step: a placeholder until Plan has
     // recorded them, and each group once it has.
     if (perTask(step)) {
       if (life?.groups === undefined || life.groups.length === 0) {
-        put({ id: "groups", kind: "groups", name: "Groups", facts: [], inert: true });
+        put({ id: "groups", kind: "groups", name: "Groups", traits: [], inert: true });
       } else {
         for (const group of life.groups) {
           nodes.push({
@@ -256,7 +278,7 @@ export function approvalNodesOf({
             kind: "group",
             stepId: step.id,
             name: group.name,
-            facts: [],
+            traits: [],
             life: group.life,
             tasks: group.tasks,
             ordinal: nodes.length + 1,
@@ -270,7 +292,7 @@ export function approvalNodesOf({
     // The wave's Jobs, after the step that dispatches them and its gate.
     if (step.id === dispatchesFrom) {
       if (life?.jobs === undefined || life.jobs.length === 0) {
-        put({ id: "jobs", kind: "jobs", name: "Jobs", facts: [], inert: true });
+        put({ id: "jobs", kind: "jobs", name: "Jobs", traits: [], inert: true });
       } else {
         const depths = depthsOf(life.jobs);
         const ordered = [...life.jobs].sort((a, b) => depths.get(a.id)! - depths.get(b.id)!);
@@ -281,7 +303,7 @@ export function approvalNodesOf({
             id: `job:${job.id}`,
             kind: "job",
             name: job.name,
-            facts: [],
+            traits: [],
             life: job.life,
             opensJob: job.id,
             band: { depth, index: peers.indexOf(job), of: peers.length },
@@ -295,16 +317,16 @@ export function approvalNodesOf({
   /** A step's gate, as a node of its own. */
   function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined) {
     const judges = tuned?.judges ?? 1;
-    const said: WorkflowStepFact[] = [];
-    if (gate?.checks === true) said.push({ value: "Checks" });
-    if (gate?.judge === true) said.push({ value: judges === 1 ? "Judge" : `${judges} Judges` });
+    const said: RunNodeTrait[] = [];
+    if (gate?.checks === true) said.push(plain("Checks"));
+    if (gate?.judge === true) said.push(plain(judges === 1 ? "Judge" : `${judges} Judges`));
+    if (gate?.you === true) said.push(plain(YOU));
     put({
       id: `${step.id}:checks`,
       kind: "checks",
       stepId: step.id,
       name: "Checks",
-      facts: said,
-      ...(gate?.you === true ? { gate: YOU } : {}),
+      traits: said,
     });
   }
   // A workflow with no step that delivers still opens its pull request last.
@@ -315,8 +337,12 @@ export function approvalNodesOf({
     kind: "land",
     name: "Land",
     ...(target === "" ? {} : { line: target }),
-    facts: delivery === "local" ? [{ value: "Local merge" }] : [],
-    ...(delivery !== "local" && !tuning.auto_merge ? { gate: YOU } : {}),
+    traits: [
+      {
+        key: "Merge",
+        value: delivery === "local" ? "Local merge" : tuning.auto_merge ? "On its own" : YOU,
+      },
+    ],
   });
 
   const edges: WorkflowCanvasEdge[] = [];

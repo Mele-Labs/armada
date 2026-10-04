@@ -32,10 +32,20 @@ import {
   Switch,
   Textarea,
   Tooltip,
+  RUN_NODE_HEIGHT,
+  RUN_NODE_WIDTH,
+  RunNode,
   WorkflowCanvas,
   WorkflowStepCard,
 } from "@armada/components";
-import type { GateBox, ProposalLandingValue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type {
+  GateBox,
+  ProposalLandingValue,
+  WorkflowCanvasEdge,
+  RunNodeKind,
+  RunNodeState,
+  WorkflowCanvasNode,
+} from "@armada/components";
 
 import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
@@ -65,21 +75,45 @@ import {
 import type { ProposalEdits } from "./tab-proposal-read";
 
 /**
- * How tall a card is with nothing under its name, and the gap under it for the
- * arrow: `--space-12`. Numbers because React Flow places by number; the run's
- * own canvas counts its spine the same way (`workflow-canvas.ts`).
+ * What each node is drawn as: **its own object, by kind** (`RunNode`). The
+ * heights and widths are the node's own table, so a placement lands where the
+ * node draws.
  */
-const CARD = 36;
-const GAP = 48;
+function runKindOf(node: ApprovalNode): RunNodeKind {
+  switch (node.kind) {
+    case "step":
+      return "step";
+    case "checks":
+      return "gate";
+    case "groups":
+      return "stack";
+    case "jobs":
+      return "fan";
+    default:
+      return node.kind;
+  }
+}
 
-/** One row under a card's name — its line, its facts, its gate: `--leading-xs` and `--space-2`. */
-const ROW = 28;
+/** Three gaps make the rhythm: a step's own work held tight, units apart, phases further (`--space-4`, `-8`, `-12` plus `-2`). */
+const TIGHT = 16;
+const APART = 32;
+const PHASE = 56;
 
 /** The room an edge's own words take in the gap: `merges on its own` at --text-2xs. */
 const LABELLED = 24;
 
-const rowsOf = (node: ApprovalNode): number =>
-  Number(node.line !== undefined) + Number(node.facts.length > 0) + Number(node.gate !== undefined);
+/** How far apart two Jobs of one band of the wave sit: a card's width and `--space-8`. */
+const ACROSS = 228 + 32;
+
+const heightOf = (node: ApprovalNode): number => RUN_NODE_HEIGHT[runKindOf(node)];
+const widthOf = (node: ApprovalNode): number => RUN_NODE_WIDTH[runKindOf(node)];
+
+/** Which gap stands above a node. */
+function gapAbove(node: ApprovalNode, before: ApprovalNode): number {
+  if (node.kind === "checks" || node.kind === "group" || node.kind === "groups") return TIGHT;
+  if (before.kind === "start" || node.kind === "done") return PHASE;
+  return APART;
+}
 
 /** What a node's card is called: its own name, and a gate's step beside it. */
 function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
@@ -88,44 +122,59 @@ function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
 }
 
 /**
- * What a run too long to read whole opens on: the node the Job is at with two
- * before it, or the top of the run at the gate.
+ * What a run too long to read whole opens on: the first live node with two
+ * before it — a step, a group, a wave's Job — or the top of the run at the gate.
  */
 function opensOnOf(nodes: readonly ApprovalNode[]): string[] {
-  const at = Math.max(0, nodes.findIndex((node) => node.life?.current === true) - 2);
+  const live = nodes.findIndex((node) => node.life?.current === true || node.life?.activity === "running");
+  const at = Math.max(0, live - 2);
   return nodes.slice(at, at + 6).map((node) => node.id);
 }
 
-/** How far apart two Jobs of one band of the wave sit: a card's width and `--space-8`. */
-const ACROSS = 196 + 32;
 
 /**
- * Where each node sits, top to bottom (the owner, 4 Oct 2026): one under the
- * last, by what each draws. **A wave's Jobs of one depth share a row**, side by
- * side about the run's own line, so what may run at once reads as at once.
+ * Where each node sits, top to bottom (the owner, 4 Oct 2026): **every card
+ * centred on one spine**, whatever its width, one under the last by what it
+ * draws. A wave's Jobs of one depth share a row, side by side about the spine,
+ * so what may run at once reads as at once.
  */
 function placesOf(
   nodes: readonly ApprovalNode[],
   edges: readonly WorkflowCanvasEdge[],
 ): { x: number; y: number }[] {
+  const spine = RUN_NODE_WIDTH.step / 2;
   const places: { x: number; y: number }[] = [];
   let y = 0;
   for (const [at, node] of nodes.entries()) {
+    const half = widthOf(node) / 2;
     const band = node.band;
     if (band !== undefined && band.index > 0) {
-      // Beside the first of its band, on that one's row.
       const first = places[at - band.index]!;
-      places.push({ x: (band.index - (band.of - 1) / 2) * ACROSS, y: first.y });
+      places.push({ x: spine - half + (band.index - (band.of - 1) / 2) * ACROSS, y: first.y });
       continue;
     }
+    if (at > 0) y += gapAbove(node, nodes[at - 1]!);
     if (edges.some((edge) => edge.target === node.id && edge.label !== undefined)) y += LABELLED;
-    places.push({ x: band === undefined ? 0 : (-(band.of - 1) / 2) * ACROSS, y });
-    const tallest =
-      band === undefined ? rowsOf(node) : Math.max(...nodes.slice(at, at + band.of).map(rowsOf));
-    y += CARD + tallest * ROW + GAP;
+    places.push({ x: spine - half + (band === undefined ? 0 : (-(band.of - 1) / 2) * ACROSS), y });
+    const tallest = band === undefined ? heightOf(node) : Math.max(...nodes.slice(at, at + band.of).map(heightOf));
+    y += tallest;
   }
   return places;
 }
+
+/** Where the Job is on a node: nothing dimmed at the gate; past it, live, done, or not reached. */
+function stateOf(node: ApprovalNode, running: boolean): RunNodeState {
+  if (!running) return "ahead";
+  const life = node.life;
+  if (life?.current === true || life?.activity === "running") return "live";
+  if (life?.activity === "advanced") return "done";
+  if (life === undefined || life.activity === "not_started") return "upcoming";
+  return "ahead";
+}
+
+/** What each edge is: whether the Job has come this way, which is whether it reached the node it leads to. */
+const reached = (node: ApprovalNode | undefined): boolean =>
+  node?.life !== undefined && (node.life.activity !== "not_started" || node.life.current === true);
 
 /** What each answer to the delivery control is called. */
 const DELIVERY: Record<Delivery, string> = {
@@ -185,6 +234,9 @@ export function ApprovalCanvas({
   const dispatchesFrom = dispatchesFromOf(proposal.workflow_id, steps);
   const { nodes, edges } = approvalNodesOf({
     title: proposal.title,
+    ...(proposal.asked === undefined ? {} : { asked: proposal.asked }),
+    criteria: edits.criteria.map((one) => one.text).filter((text) => text.trim() !== ""),
+    ...(proposal.drone_cap === undefined ? {} : { droneCap: proposal.drone_cap }),
     from: value.from,
     workflowName: workflow?.name ?? proposal.workflow_id,
     steps,
@@ -199,30 +251,49 @@ export function ApprovalCanvas({
   const opened = nodes.find((node) => node.id === open);
 
   const places = placesOf(nodes, edges);
-  const placed: WorkflowCanvasNode[] = nodes.map((node, at) => ({
-    id: node.id,
-    position: places[at]!,
-    card: {
-      kind: "task",
-      name: node.name,
-      activity: node.life?.activity ?? "not_started",
-      said: node.life?.said ?? NOT_STARTED,
-      ...(node.life?.mark === undefined ? {} : { mark: node.life.mark }),
-      ...(node.life?.current === true ? { current: true } : {}),
-      ordinal: node.ordinal,
-      facts: node.facts,
-      ...(node.line === undefined ? {} : { line: node.line }),
-      ...(node.gate === undefined ? {} : { gate: node.gate }),
-      selected: node.id === open,
-      ...(node.opensJob !== undefined
+  // Only the workflow's own steps are counted: they are the sequence, and a
+  // gate or a group numbered beside them would read as a step of its own.
+  const stepOrdinal = new Map(nodes.filter((node) => node.kind === "step").map((node, at) => [node.id, at + 1]));
+  const drawnEdges = edges.map((edge) => {
+    const into = nodes.find((node) => node.id === edge.target);
+    if (into?.life?.current === true) return { ...edge, travelled: true, flowing: true };
+    return reached(into) ? { ...edge, travelled: true } : edge;
+  });
+  const placed: WorkflowCanvasNode[] = nodes.map((node, at) => {
+    const onOpen =
+      node.opensJob !== undefined
         ? onOpenJob === undefined
-          ? {}
-          : { onOpen: () => onOpenJob(node.opensJob!) }
+          ? undefined
+          : () => onOpenJob(node.opensJob!)
         : node.inert === true
-          ? {}
-          : { onOpen: () => setOpen(node.id === open ? null : node.id) }),
-    },
-  }));
+          ? undefined
+          : () => setOpen(node.id === open ? null : node.id);
+    const said = node.life?.said ?? NOT_STARTED;
+    const ordinal = stepOrdinal.get(node.id);
+    return {
+      id: node.id,
+      position: places[at]!,
+      // Named for the edges and the fit; `drawn` is what is seen.
+      card: { kind: "step", name: node.name, activity: node.life?.activity ?? "not_started", said },
+      drawn: (
+        <RunNode
+          kind={runKindOf(node)}
+          name={node.name}
+          {...(ordinal === undefined ? {} : { ordinal })}
+          {...(node.face === undefined ? {} : { face: node.face })}
+          {...(node.line === undefined ? {} : { line: node.line, lineMono: node.kind === "land" })}
+          traits={node.traits}
+          {...(node.items === undefined ? {} : { items: node.items })}
+          activity={node.life?.activity ?? "not_started"}
+          said={said}
+          {...(node.life?.mark === undefined ? {} : { mark: node.life.mark })}
+          state={stateOf(node, life !== undefined)}
+          selected={node.id === open}
+          {...(onOpen === undefined ? {} : { onOpen })}
+        />
+      ),
+    };
+  });
 
   const card =
     opened === undefined
@@ -266,16 +337,17 @@ export function ApprovalCanvas({
 
   return (
     <section
-      className="armada-approval-canvas armada-glass"
+      // No glass of its own: the nodes are the cards on the canvas, and glass in glass is flat.
+      className="armada-approval-canvas"
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
         nodes={placed}
-        edges={edges}
+        edges={drawnEdges}
         label="Run"
         runsDown
+        heavyEdges
         centred
-        hangsFromTop
         opensOn={[opensOnOf(nodes)]}
         {...(card === undefined ? {} : { opened: card })}
       />
