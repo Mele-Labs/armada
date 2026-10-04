@@ -24,6 +24,14 @@ Write it to `.armada/epics/<milestone>.md`. That path is ignored, the way a
 Drone's own artifact is, because this repository is public and the workspace a
 plan quotes is not. `armada clean` does not reach it.
 
+**Keep it in a worktree of the parent's own, and keep children's plans there too.**
+A hook refuses every write in the checkout at `main`, ignored paths included. A
+child's isolated worktree with no commits is removed the moment the child stops,
+and a gitignored file in it goes with it. Confirmed 1 Oct 2026: child A wrote its
+plan for a Job with no `WorkflowDef` into its own `.armada/epics/`, stopped on a
+question, and the plan was gone by the time the parent went to read it. It cost a
+resume to rewrite it. Name the parent's folder, by absolute path, in every brief.
+
 It carries, per wave:
 
 | In the plan | Why |
@@ -104,6 +112,23 @@ every time, and the worktree goes back at the merge — a leased slot by
 
 Then write the next wave into the same file, under the last one, saying what the
 wave that just ran made untrue. That file is the record of the run.
+
+**Children push and stop; the parent lands.** The permission system refuses
+`scripts/land` to an agent even with an allow rule, and refused it three times
+on 2 Oct 2026 before the parent took the landing over. Two children at once is
+the owner's cap (2 Oct), and it is what keeps full suites from timing out.
+
+**A red on the same test twice is the branch, not the load.** Confirmed 2 Oct
+2026: slice 1b's screens went red on one Helm-dock test, the parent called it
+load and re-queued, and it went red again — a recording had added a third
+Manifest the test counts. Read the failing test before re-queueing, every time.
+
+**Watch a landing by its merge commit, not by the branch.** The line deletes the
+branch's remote after merging, so `merge-base --is-ancestor origin/<branch>`
+reads a landed branch as "not merged". Grep `git log origin/main --merges
+--first-parent` for the branch name instead. And expect the shared append points
+— the protocol minor, store migration numbers, the mock's `scenario.ts` — to
+conflict on nearly every landing until #1059 is built.
 
 ## Asking, when you do not know
 
