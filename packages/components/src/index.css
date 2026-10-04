@@ -373,6 +373,9 @@
 @import "./compositions/CriterionOrigin/CriterionOrigin.css";
 @import "./compositions/SettlingMark/SettlingMark.css";
 
+/* A running step's parts in order, on its card and in its panel. */
+@import "./compositions/StepPhaseTrack/StepPhaseTrack.css";
+
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */
 .armada-helm-dock {

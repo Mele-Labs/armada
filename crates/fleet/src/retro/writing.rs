@@ -178,6 +178,20 @@ fn question(gathered: &Gathered) -> Option<String> {
          again.\n\
          - `fleet`: Armada cost the job something it should not have. A check failed for a \
          reason unrelated to the work, or a rule stopped work that was legitimate.\n\n\
+         Say separately where the fix for each item lands, as `lands_in`. It is exactly one \
+         of three, and it is not the same question as whose way it got in:\n\
+         - `armada`: Armada itself, the app that ran the job. For example the gate measured \
+         the job's change against the wrong base, ruled a check failed without confirming \
+         it, or showed an agent running after it had ended.\n\
+         - `kit`: the tools the agent was given: its skills, MCP servers, sub-agents, agent \
+         files, plugins, commands, the list of commands it is allowed to run, and the list \
+         of models. For example a command the agent was refused, or had to ask a person to \
+         allow.\n\
+         - `manifest`: the repository the job worked on: its `armada.yml` (its checks, \
+         commands, places and when each runs), its tests and its code. For example a test \
+         that waits a fixed number of seconds, or a check that runs every test on a change \
+         to documentation alone.\n\
+         An item names one place. Where a fix would land in two, write two items.\n\n\
          Name only what the record shows, and cite at least one row for each item. One \
          sentence per item, saying what got in the way and not what to do about it. Leave out \
          what went well. If nothing got in the way, answer with no items.\n\n\
@@ -187,12 +201,15 @@ fn question(gathered: &Gathered) -> Option<String> {
          {data}\n\
          -----END RECORD-----\n\n\
          Answer with JSON and nothing else, in this shape:\n\
-         {{\"items\":[{{\"who\":\"drone\",\"statement\":\"...\",\"evidence\":[\"refusal:1\"]}}]}}"
+         {{\"items\":[{{\"who\":\"drone\",\"lands_in\":\"kit\",\"statement\":\"...\",\
+         \"evidence\":[\"refusal:1\"]}}]}}"
     ))
 }
 
 /// The items an answer names, each held to the record: an item citing nothing
-/// the record holds is dropped, and so is one that says nothing.
+/// the record holds is dropped, and so is one that says nothing, and one that
+/// names no place its fix lands. **The place is never defaulted**: a guess
+/// would list it under a place the model did not choose.
 pub(crate) fn read(said: &str, known: &BTreeSet<String>) -> Result<Vec<RetroLine>, String> {
     let from = said.find('{').ok_or("there is no JSON object in it")?;
     let to = said
@@ -211,10 +228,12 @@ pub(crate) fn read(said: &str, known: &BTreeSet<String>) -> Result<Vec<RetroLine
                 .filter(|cited| known.contains(cited))
                 .collect();
             let said = item.statement.trim().to_string();
+            let lands_in = item.lands_in?;
             (!evidence.is_empty() && !said.is_empty()).then(|| RetroLine {
                 whose: item.who.domain(),
                 said,
                 evidence,
+                lands_in: Some(lands_in.domain()),
             })
         })
         .collect())

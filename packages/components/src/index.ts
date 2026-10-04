@@ -68,6 +68,7 @@ export * from "./compositions/ViewSheet/ViewSheet";
 export * from "./compositions/Sidebar/Sidebar";
 export * from "./compositions/StatsPanel/StatsPanel";
 export * from "./compositions/StepActivityMark/StepActivityMark";
+export * from "./compositions/StepPhaseTrack/StepPhaseTrack";
 export * from "./compositions/StepBar/StepBar";
 export * from "./compositions/TaskMark/TaskMark";
 export * from "./compositions/TransitionHistory/TransitionHistory";

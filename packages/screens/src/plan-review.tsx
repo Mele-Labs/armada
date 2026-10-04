@@ -54,7 +54,7 @@ import type { GroupView } from "./draft/group";
 import { taskDronesOf, type DroneView } from "./draft/drone";
 import { spentOf } from "./workflow-inspector";
 import {
-  DRONE_SAYS,
+  droneSays,
   droneOnTask,
   droneTurnsOf,
   ranForOf,
@@ -467,7 +467,7 @@ export function usePlanReview({
               id: one.id,
               label: droneOfTask(whole, { ...open, drone_id: one.id })?.label ?? `Drone on ${open.id}`,
               state: one.state,
-              stateSays: DRONE_SAYS[one.state],
+              stateSays: droneSays(one),
               ...(one.model === undefined ? {} : { model: one.model }),
               ...(spent === "" ? {} : { spent }),
               ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(one.id) }),
@@ -489,7 +489,7 @@ export function usePlanReview({
       : {
           title: droneOfTask(whole, { ...open, drone_id: own.id })?.label ?? `Drone on ${open.id}`,
           state: own.state,
-          stateSays: DRONE_SAYS[own.state],
+          stateSays: droneSays(own),
           ...(ran === undefined ? {} : { ranFor: ran }),
           turns: peekTurns,
           live: own.state === "running",

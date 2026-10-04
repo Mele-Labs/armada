@@ -678,6 +678,16 @@ travelling and a mark breathing in the same header are two things saying
 one word, and a reader has to decide which of them they were watching. So
 where a card sweeps, every mark inside its header holds still.
 
+**A running step's card carries a phase track instead, and then the track is
+its one loop.** Along its bottom edge, the step's parts in order — its
+Drones, its gate's Checks, its Judge, and a person where one holds it — done
+filled, now lit, next hollow. The part now breathes, a person's turn as much
+as a machine's, so a step waiting on him is as easy to spot; the sweep does not run beside it, because
+a bar along the top would say *still working* a second time about the same
+card. The step panel's header draws the same track. The owner chose it on
+3 Oct 2026, over a mark on the state pill that was too easy to miss.
+`StepPhaseTrack`.
+
 **A control waiting on Fleet sweeps a bar along its bottom edge**, from
 the press until Fleet answers or refuses. Its label says what it is
 doing — *Request changes* reads *Requesting changes…* — and the rest of
@@ -2654,6 +2664,9 @@ read plausibly under a different job has failed.
 - **Retro** what got in the way while one Job ran, written once it ends.
   Never the post-mortem, the review — a review is of the change. What the
   retros' items make together is **Lessons**, the page that lists them.
+- **Lands in** where a retro item's fix lands: Armada, Kit or Manifest,
+  exactly one. Never the owner, the area, the component — whose way it got
+  in is a separate question.
 
 **Claude is a model name, never an actor.** Write "Drone 4 stalled", not
 "Claude stalled". The word appears only where a model is selected or

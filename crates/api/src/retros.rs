@@ -13,11 +13,14 @@ use crate::served::Served;
 /// How many items `list_lessons` answers where `?most=` is absent.
 const MOST: u32 = 200;
 
-/// `?manifest_id=` and `?most=` on `list_lessons`.
+/// `?manifest_id=`, `?lands_in=` and `?most=` on `list_lessons`. A `lands_in`
+/// that is not one of the three is refused, as any query that will not read is.
 #[derive(Deserialize)]
 pub(crate) struct Listing {
     #[serde(default)]
     manifest_id: Option<String>,
+    #[serde(default)]
+    lands_in: Option<ipc::LandsIn>,
     #[serde(default)]
     most: Option<u32>,
 }
@@ -42,7 +45,7 @@ pub(crate) async fn list_lessons<D: Retros>(
     let manifest = listing.manifest_id.map(ipc::ManifestId::carried);
     match served
         .daemon()
-        .list_lessons(manifest, listing.most.unwrap_or(MOST))
+        .list_lessons(manifest, listing.lands_in, listing.most.unwrap_or(MOST))
         .await
     {
         Ok(lessons) => answer(StatusCode::OK, &lessons, served.run_id()),

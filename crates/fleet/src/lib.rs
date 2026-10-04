@@ -61,6 +61,8 @@ pub mod clock;
 /// files, and no delegating signature between them.
 pub mod commanding;
 mod configured;
+/// Whether a gate's red is the work's or the machine's, before it is ruled on.
+mod confirming;
 /// What an upstream's terminal status does to the Job waiting behind it — the
 /// one place a dependency edge is weighed, for both admission and the Board.
 pub mod conflict_resolution;
@@ -318,6 +320,7 @@ pub use asked::Asked;
 pub use at_step::AtStep;
 pub use clock::{Clock, SystemClock};
 pub use commanding::CommandBudget;
+pub use confirming::{Confirmed, ONE_BY_ONE};
 pub use converging::{NoReport, ReportNow, Stage, StepNorms, Tripwire, Wandering, FORCED_REPORT};
 pub use crossing::{Cleared, Crossed, Dispatched, Produced, Reconciling, Redirected, ThePlan};
 pub use daemon::{Fittings, Fleet, Host, StartingIn};

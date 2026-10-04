@@ -30,6 +30,7 @@ import { ordered } from "./facts";
 import { frozenBeneath } from "./frozen";
 import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
+import { trackOf } from "./step-phase";
 
 // Where the groups were made and are worked is the groups' own fact, and lives
 // beside them; the canvas and its readers still ask here.
@@ -59,8 +60,14 @@ const ROW = 28;
 function apartAfter(card: WorkflowStepCardProps): number {
   const rows =
     (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
-  return STEP_APART + (rows - 1) * ROW;
+  return STEP_APART + (rows - 1) * ROW + (card.track === undefined ? 0 : TRACK);
 }
+
+/**
+ * The phase track's row: `--leading-2xs`, `--space-2` above it inside its rule
+ * and `--space-2` of the card's own gap, rounded up to the four-unit grid.
+ */
+const TRACK = 36;
 
 /** `step:`, so a node id is never mistaken for another kind in a join. */
 export const stepNodeId = (stepId: string): string => `step:${stepId}`;
@@ -199,6 +206,7 @@ function stepCard(
   const needs = needsOf(whole, step, activity, groups);
   const running = drones.filter((one) => one.step === step.step_id && one.state === "running").length;
   const line = lineOf(step, said, activity, running, took(step, now, frozen !== undefined), needs.length > 0);
+  const track = trackOf(whole, step, activity, drones);
   return {
     kind: "step",
     name: step.label,
@@ -212,6 +220,7 @@ function stepCard(
     ...(onOpen === undefined ? {} : { onOpen }),
     ...(needs.length === 0 ? {} : { needs }),
     ...(working && groups.length > 0 ? { bar: barOf(groups) } : {}),
+    ...(track === undefined ? {} : { track }),
   };
 }
 

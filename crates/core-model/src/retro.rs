@@ -1,5 +1,6 @@
-//! Two small vocabularies a Job's retro is written in: which door an act came
-//! through, and whom a piece of friction got in the way of.
+//! Three small vocabularies a Job's retro is written in: which door an act came
+//! through, whom a piece of friction got in the way of, and where its fix
+//! lands.
 //! `docs/concepts/retro.md`.
 
 /// Which door a request that moved a Job came through.
@@ -72,5 +73,39 @@ impl Whose {
             .iter()
             .copied()
             .find(|whose| whose.as_wire() == value)
+    }
+}
+
+/// Where the fix for one item of a retro lands. **Apart from [`Whose`]**: whose
+/// way a thing got in does not say which place its fix belongs in, and an item
+/// names exactly one. A fix that spans two is written as two items.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LandsIn {
+    /// Armada itself: Fleet or Bridge.
+    Armada,
+    /// The tool set a person brings: Skills, MCP servers, sub-agents, agent
+    /// files, plugins, commands, the allowlist, the models list.
+    Kit,
+    /// The repository the Job worked on: its `armada.yml`, its tests and its
+    /// code.
+    Manifest,
+}
+
+impl LandsIn {
+    pub const ALL: &'static [LandsIn] = &[LandsIn::Armada, LandsIn::Kit, LandsIn::Manifest];
+
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            LandsIn::Armada => "armada",
+            LandsIn::Kit => "kit",
+            LandsIn::Manifest => "manifest",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<LandsIn> {
+        LandsIn::ALL
+            .iter()
+            .copied()
+            .find(|lands| lands.as_wire() == value)
     }
 }
