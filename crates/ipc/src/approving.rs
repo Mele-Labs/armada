@@ -177,9 +177,15 @@ pub struct LandingChoice {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
     /// The branch the worktree is cut from. Left out is `target`'s reading.
-    /// Refused unless the repository holds it.
+    /// Refused unless the repository holds it, or `start_point` says where to
+    /// make it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ref: Option<String>,
+    /// A branch the repository holds, that Fleet makes `from_ref` at when the
+    /// repository holds no `from_ref` yet. **Read only then.** `target` may
+    /// name the new branch too. Since 23.19.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_point: Option<String>,
     /// Refused at `group`: one branch per Job is all Fleet runs.
     #[serde(default)]
     pub branching: LandingUnit,

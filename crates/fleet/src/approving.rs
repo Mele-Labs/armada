@@ -12,8 +12,7 @@
 //! acceptance test reads what `approve_dispatch` calls. `crate::approved`
 //! asks the machine and applies.
 //!
-//! **Over 500 lines by [`Refused`]**, one list because one press refuses for
-//! any of them. A step's tuning reads in `crate::tuned`, its own refusals with it.
+//! **Over 500 by [`Refused`]**, one press's list; a step's tuning is `crate::tuned`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

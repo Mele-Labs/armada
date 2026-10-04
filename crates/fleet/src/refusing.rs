@@ -464,7 +464,7 @@ where
                     .about_job(ipc::JobId::from(job))
                     .with_field("branch", WireValue::Str(named.clone())),
             ),
-            Adrift::BranchesUnread { .. } => {
+            Adrift::BranchesUnread { .. } | Adrift::BranchNotCut { .. } => {
                 Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
             }
             // A person's add or drop, refused by the plan itself. `NoPlan` is

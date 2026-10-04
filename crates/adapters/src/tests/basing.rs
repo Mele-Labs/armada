@@ -184,3 +184,30 @@ fn the_branches_are_listed_with_the_base_first_and_marked() {
         .collect();
     assert_eq!(rest, [("release/2.0", false), ("zebra", false)]);
 }
+
+/// A branch made where a named branch is, for a Job approved to start from a
+/// branch that did not exist yet (23.19). **One already there is refused**, so
+/// nothing a person made is moved.
+#[test]
+fn a_branch_is_made_at_its_start_point_and_never_over_one_already_there() {
+    let repo = TempRepo::with_a_commit();
+    repo.git(&["branch", "release/2.0"]);
+    let vcs = GitVcs::new();
+    vcs.create_branch(&repo.root_str(), "reader/next", "release/2.0")
+        .expect("made");
+    let names: Vec<String> = vcs
+        .branches(&repo.root_str(), None)
+        .expect("listed")
+        .into_iter()
+        .map(|branch| branch.name)
+        .collect();
+    assert!(names.contains(&"reader/next".to_string()), "{names:?}");
+    assert!(matches!(
+        vcs.create_branch(&repo.root_str(), "reader/next", "release/2.0"),
+        Err(crate::error::CreateWorktreeError::BranchExists { .. })
+    ));
+    assert!(matches!(
+        vcs.create_branch(&repo.root_str(), "reader/other", "nowhere"),
+        Err(crate::error::CreateWorktreeError::RefNotFound { .. })
+    ));
+}

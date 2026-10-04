@@ -81,8 +81,17 @@ export type CriterionWritten = {
 export type LandingChoice = {
   /** Left out is the Manifest's base. Refused unless the repository holds it. */
   target?: string;
-  /** Left out is `target`'s reading. Refused unless the repository holds it. */
+  /**
+   * Left out is `target`'s reading. Refused unless the repository holds it, or
+   * `start_point` says where Fleet makes it.
+   */
   from_ref?: string;
+  /**
+   * A branch the repository holds, where Fleet makes `from_ref` when the
+   * repository holds no `from_ref` yet. Read only then; `target` may name the
+   * new branch too. Since 23.19.
+   */
+  start_point?: string;
   /** `job` or `group`; only `job` is run, and `group` is refused. */
   branching?: string;
   /** `ready` or `draft`. Left out is `ready`. */

@@ -701,6 +701,13 @@ impl fmt::Display for Adrift {
             Adrift::BranchesUnread { why, .. } => {
                 write!(out, "git would not list this repository's branches: {why}")
             }
+            Adrift::BranchNotCut {
+                named, from, why, ..
+            } => write!(
+                out,
+                "git would not make the branch `{named}` from `{from}`, so the proposal was left \
+                 as it was: {why}"
+            ),
             Adrift::TaskAlreadySettled { job, named, state } => write!(
                 out,
                 "{}'s task {named} is already {}, and a person's drop does not repeat a \
@@ -825,6 +832,7 @@ impl Adrift {
             | Adrift::ProposalRefused { job, .. }
             | Adrift::WaveRefused { job, .. }
             | Adrift::NoSuchBranch { job, .. }
+            | Adrift::BranchNotCut { job, .. }
             | Adrift::TaskAlreadySettled { job, .. }
             | Adrift::TaskNotFailed { job, .. }
             | Adrift::TaskInFlight { job, .. }
@@ -929,6 +937,7 @@ impl Error for Adrift {
             | Adrift::WaveRefused { .. }
             | Adrift::NoSuchBranch { .. }
             | Adrift::BranchesUnread { .. }
+            | Adrift::BranchNotCut { .. }
             | Adrift::Unnameable
             | Adrift::NoSuchWorkflow { .. }
             | Adrift::NoSuchManifest { .. }

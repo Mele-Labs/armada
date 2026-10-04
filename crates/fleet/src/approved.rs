@@ -182,7 +182,23 @@ where
             self.offered(model.trim())
                 .map_err(|why| why.about(job_id))?;
         }
-        self.branches_held(&served, &decided.landing, job_id)?;
+        let start_point = body
+            .landing
+            .as_ref()
+            .and_then(|landing| landing.start_point.as_deref())
+            .map(str::trim)
+            .filter(|start| !start.is_empty());
+        let cut = self.branches_held(&served, &decided.landing, start_point, job_id)?;
+        if let Some((named, from)) = cut {
+            self.vcs()
+                .create_branch(served.root(), named, from)
+                .map_err(|why| Adrift::BranchNotCut {
+                    job: job_id.clone(),
+                    named: named.to_string(),
+                    from: from.to_string(),
+                    why: why.to_string(),
+                })?;
+        }
         let job = self.proposal_kept(&job, decided.edit.clone()).await?;
         {
             let mut store = self.store().lock().await;
@@ -245,20 +261,23 @@ where
 
     /// Refused where either branch is one the repository does not hold: a
     /// worktree cannot be cut from a branch that is not there, and a pull
-    /// request cannot open against one.
-    fn branches_held(
+    /// request cannot open against one. **A `from_ref` it lacks is answered
+    /// with the branch to make**, where `start_point` names one it holds, and
+    /// `target` may name that branch too. Since 23.19.
+    fn branches_held<'a>(
         &self,
         served: &crate::repositories::Served,
-        landing: &Landing,
+        landing: &'a Landing,
+        start_point: Option<&'a str>,
         job_id: &JobId,
-    ) -> Result<(), Adrift> {
+    ) -> Result<Option<(&'a str, &'a str)>, Adrift> {
         let named: Vec<&str> = [&landing.target, &landing.from_ref]
             .into_iter()
             .flatten()
             .map(|branch| branch.as_str())
             .collect();
         if named.is_empty() {
-            return Ok(());
+            return Ok(None);
         }
         let held = self
             .vcs()
@@ -267,15 +286,27 @@ where
                 job: Some(job_id.clone()),
                 why: why.to_string(),
             })?;
-        for name in named {
-            if !held.iter().any(|branch| branch.name == name) {
-                return Err(Adrift::NoSuchBranch {
-                    job: job_id.clone(),
-                    named: name.to_string(),
-                });
-            }
+        let holds = |name: &str| held.iter().any(|branch| branch.name == name);
+        let refused = |name: &str| Adrift::NoSuchBranch {
+            job: job_id.clone(),
+            named: name.to_string(),
+        };
+        let from_ref = landing.from_ref.as_ref().map(|branch| branch.as_str());
+        let cut = match (from_ref, start_point) {
+            (Some(from), Some(start)) if !holds(from) => match holds(start) {
+                true => Some((from, start)),
+                false => return Err(refused(start)),
+            },
+            _ => None,
+        };
+        let made = cut.map(|(from, _)| from);
+        match named
+            .into_iter()
+            .find(|name| !holds(name) && made != Some(*name))
+        {
+            Some(name) => Err(refused(name)),
+            None => Ok(cut),
         }
-        Ok(())
     }
 
     /// How this Job lands, as approved. **A Job with no row lands as every Job

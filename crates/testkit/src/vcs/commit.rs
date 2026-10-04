@@ -2,6 +2,7 @@
 //!
 //! **Its own file for size**, beside `tests.rs` and for that file's reason:
 //! `vcs.rs` fakes three traits and was near the 900 lines the gate refuses at.
+//! A branch cut for a Job is here too, for the same reason.
 
 use adapter_traits::{CommitTime, Committed, Worktree};
 
@@ -95,4 +96,22 @@ impl FakeVcs {
             }
         }
     }
+}
+
+/// `Vcs::create_branch`, against the fake's refs: `name` at `start`'s commit.
+pub(super) fn cut_branch(vcs: &FakeVcs, name: &str, start: &str) -> Result<(), FakeVcsError> {
+    let mut refs = vcs.refs.lock().expect("not poisoned");
+    if refs.contains_key(name) {
+        return Err(FakeVcsError::BranchExists {
+            branch: name.to_string(),
+        });
+    }
+    let commit = refs
+        .get(start)
+        .cloned()
+        .ok_or_else(|| FakeVcsError::NoSuchRef {
+            r#ref: start.to_string(),
+        })?;
+    refs.insert(name.to_string(), commit);
+    Ok(())
 }

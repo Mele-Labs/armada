@@ -381,3 +381,63 @@ async fn the_dispatch_settings_reach_the_proposal_and_leave_it_at_its_gate() {
         "the delivering step defers to auto_merge, so a person at review is never"
     );
 }
+
+/// **A `from_ref` the repository lacks is made at its start point** (23.19),
+/// and the Job lands in it where `target` names it too. A start point the
+/// repository lacks is refused by name, and makes nothing.
+#[tokio::test]
+async fn a_branch_that_does_not_exist_yet_is_cut_from_its_start_point() {
+    use adapter_traits::Vcs;
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let job = fleet
+        .propose(a_proposal("the reader"))
+        .await
+        .expect("a Job");
+    let held = |fleet: &Fixture| -> Vec<String> {
+        fleet
+            .vcs()
+            .branches("/a-repository", None)
+            .expect("listed")
+            .into_iter()
+            .map(|branch| branch.name)
+            .collect()
+    };
+
+    let nowhere = r#"{"landing": {"from_ref": "reader/next", "start_point": "nowhere"}}"#;
+    let refused =
+        Commands::approve_dispatch(Arc::clone(&fleet), job.id().into(), Some(body(nowhere)))
+            .await
+            .expect_err("a start point the repository lacks");
+    assert_eq!(code(&refused), "fleet.no_such_branch");
+    let unstarted = r#"{"landing": {"from_ref": "reader/next"}}"#;
+    let refused =
+        Commands::approve_dispatch(Arc::clone(&fleet), job.id().into(), Some(body(unstarted)))
+            .await
+            .expect_err("a new branch with nowhere to start it");
+    assert_eq!(code(&refused), "fleet.no_such_branch");
+    assert!(
+        !held(&fleet).contains(&"reader/next".to_string()),
+        "nothing was made"
+    );
+
+    let cut = r#"{"landing": {"from_ref": "reader/next", "start_point": "release/2.0", "target": "reader/next"}}"#;
+    Commands::approve_dispatch(Arc::clone(&fleet), job.id().into(), Some(body(cut)))
+        .await
+        .expect("approved onto a new branch");
+    assert!(held(&fleet).contains(&"reader/next".to_string()));
+    assert_eq!(
+        fleet
+            .vcs()
+            .base_commit("/a-repository", Some("reader/next"))
+            .expect("read"),
+        Some("c".repeat(40)),
+        "made where its start point is"
+    );
+    let detail = Queries::get_job(&*fleet, job.id().into())
+        .await
+        .expect("the detail");
+    let landing = detail.landing.expect("a landing");
+    assert_eq!(landing.from_ref.as_deref(), Some("reader/next"));
+    assert_eq!(landing.target.as_deref(), Some("reader/next"));
+}

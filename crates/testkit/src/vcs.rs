@@ -1096,6 +1096,10 @@ impl Vcs for FakeVcs {
         Ok(listed)
     }
 
+    fn create_branch(&self, _repo_root: &str, name: &str, start: &str) -> Result<(), Self::Error> {
+        commit::cut_branch(self, name, start)
+    }
+
     /// **Answers the same checkout every time it is asked for one commit**,
     /// which is the sharing the real one promises. The `prepared` flag comes
     /// back as it was left, so a second Job on one base is told it need not
