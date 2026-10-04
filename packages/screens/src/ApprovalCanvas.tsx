@@ -34,10 +34,10 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { GateBox, ProposalLandingValue, WorkflowCanvasNode } from "@armada/components";
+import type { GateBox, ProposalLandingValue, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 
 import { NOT_STARTED, approvalNodesOf, checksOf, perTask, stepsReadOf } from "./approval-canvas";
-import type { ApprovalNode, StepRead } from "./approval-canvas";
+import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import type { ApprovingProps } from "./approving";
 import { baseBranch } from "./draft/branches";
 import type { ProposalView } from "./draft/proposal";
@@ -62,24 +62,48 @@ import {
 import type { ProposalEdits } from "./tab-proposal-read";
 
 /**
- * How far apart two nodes sit: `--w-workflow-task-node` and `--space-12` for
- * the arrow. A number because React Flow places by number.
+ * How tall a card is with nothing under its name, and the gap under it for the
+ * arrow: `--space-12`. Numbers because React Flow places by number; the run's
+ * own canvas counts its spine the same way (`workflow-canvas.ts`).
  */
-const APART = 196 + 48;
+const CARD = 36;
+const GAP = 48;
 
-/**
- * One row under a card's name — its line, its facts, its gate — with the gap
- * above it: `--leading-xs` and `--space-2`, as the run's canvas counts it.
- * Cards are centred on one line by it, so an edge runs straight rather than
- * stepping between a card of two rows and one of none.
- */
+/** One row under a card's name — its line, its facts, its gate: `--leading-xs` and `--space-2`. */
 const ROW = 28;
 
-/** The room an edge's own words take, beside the arrow's: `merges on its own` at --text-2xs. */
-const LABELLED = 96;
+/** The room an edge's own words take in the gap: `merges on its own` at --text-2xs. */
+const LABELLED = 24;
 
 const rowsOf = (node: ApprovalNode): number =>
   Number(node.line !== undefined) + Number(node.facts.length > 0) + Number(node.gate !== undefined);
+
+/** What a node's card is called: its own name, and a gate's step beside it. */
+function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
+  const step = steps.find((one) => one.id === node.stepId);
+  return node.kind === "checks" && step !== undefined ? `Checks on ${step.label}` : node.name;
+}
+
+/**
+ * What a run too long to read whole opens on: the node the Job is at with two
+ * before it, or the top of the run at the gate.
+ */
+function opensOnOf(nodes: readonly ApprovalNode[]): string[] {
+  const at = Math.max(0, nodes.findIndex((node) => node.life?.current === true) - 2);
+  return nodes.slice(at, at + 6).map((node) => node.id);
+}
+
+/** Where each node sits, top to bottom (the owner, 4 Oct 2026): one under the last, by what each draws. */
+function placesOf(nodes: readonly ApprovalNode[], edges: readonly WorkflowCanvasEdge[]): number[] {
+  const ys: number[] = [];
+  let y = 0;
+  for (const node of nodes) {
+    if (edges.some((edge) => edge.target === node.id && edge.label !== undefined)) y += LABELLED;
+    ys.push(y);
+    y += CARD + rowsOf(node) * ROW + GAP;
+  }
+  return ys;
+}
 
 /** What each answer to the delivery control is called. */
 const DELIVERY: Record<Delivery, string> = {
@@ -88,7 +112,17 @@ const DELIVERY: Record<Delivery, string> = {
   ready: "Pull request",
 };
 
+export type ApprovalCanvasProps = ApprovingProps & {
+  /**
+   * Where a running Job is on each node, which is the canvas drawn after the
+   * gate: the Overview for the Job's whole life (the owner, 4 Oct 2026).
+   * Absent is the gate itself. Drawn with no `onEdits`, so every card reads.
+   */
+  life?: LifeRead;
+};
+
 export function ApprovalCanvas({
+  life,
   whole,
   edits,
   onEdits,
@@ -97,7 +131,7 @@ export function ApprovalCanvas({
   branches,
   models,
   machineCap,
-}: ApprovingProps) {
+}: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
@@ -125,31 +159,28 @@ export function ApprovalCanvas({
     tuning,
     prMode: landing.pr_mode,
     target: value.target,
+    ...(life === undefined ? {} : { life }),
   });
   // A node a workflow change took away closes its card with it.
   const opened = nodes.find((node) => node.id === open);
 
-  const most = Math.max(...nodes.map(rowsOf));
-  // Each node one step on from the last, and further where the edge into it says something.
-  const xs = nodes.map((_, at) => at * APART);
-  for (const [at, node] of nodes.entries()) {
-    const said = edges.some((edge) => edge.target === node.id && edge.label !== undefined);
-    if (said) for (let after = at; after < xs.length; after += 1) xs[after]! += LABELLED;
-  }
+  const ys = placesOf(nodes, edges);
   const placed: WorkflowCanvasNode[] = nodes.map((node, at) => ({
     id: node.id,
-    position: { x: xs[at]!, y: ((most - rowsOf(node)) * ROW) / 2 },
+    position: { x: 0, y: ys[at]! },
     card: {
       kind: "task",
       name: node.name,
-      activity: "not_started",
-      said: NOT_STARTED,
+      activity: node.life?.activity ?? "not_started",
+      said: node.life?.said ?? NOT_STARTED,
+      ...(node.life?.mark === undefined ? {} : { mark: node.life.mark }),
+      ...(node.life?.current === true ? { current: true } : {}),
       ordinal: node.ordinal,
       facts: node.facts,
       ...(node.line === undefined ? {} : { line: node.line }),
       ...(node.gate === undefined ? {} : { gate: node.gate }),
       selected: node.id === open,
-      onOpen: () => setOpen(node.id === open ? null : node.id),
+      ...(node.inert === true ? {} : { onOpen: () => setOpen(node.id === open ? null : node.id) }),
     },
   }));
 
@@ -158,11 +189,13 @@ export function ApprovalCanvas({
       ? undefined
       : {
           nodeId: opened.id,
-          label: opened.name,
+          // A gate node is `Checks` on the canvas, where its place says whose;
+          // the card it opens says so in words.
+          label: dialogNameOf(opened, steps),
           children: (
             <>
               <div className="armada-approval-canvas__card-head">
-                <h3 className="armada-proposal__heading">{opened.name}</h3>
+                <h3 className="armada-proposal__heading">{dialogNameOf(opened, steps)}</h3>
                 <Tooltip label="Close">
                   <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={() => setOpen(null)}>
                     <X size={16} aria-hidden />
@@ -191,13 +224,18 @@ export function ApprovalCanvas({
         };
 
   return (
-    <section className="armada-approval-canvas armada-glass" aria-label="What you are approving">
+    <section
+      className="armada-approval-canvas armada-glass"
+      aria-label={life === undefined ? "What you are approving" : "This Job's run"}
+    >
       <WorkflowCanvas
         nodes={placed}
         edges={edges}
-        label="What this Job will do"
+        label={life === undefined ? "What this Job will do" : "What this Job does"}
+        runsDown
+        centred
         hangsFromTop
-        opensOn={[nodes.slice(0, 6).map((node) => node.id)]}
+        opensOn={[opensOnOf(nodes)]}
         {...(card === undefined ? {} : { opened: card })}
       />
     </section>
@@ -236,6 +274,11 @@ function NodeCard(props: NodeCardProps) {
       return props.step === undefined ? null : <StepCard {...props} step={props.step} />;
     case "checks":
       return props.step === undefined ? null : <GateCard {...props} step={props.step} />;
+    case "done":
+      return <DoneWhen {...props} />;
+    case "groups":
+    case "group":
+      return null;
     case "pr":
       return <PullRequestCard {...props} />;
     case "land":
@@ -244,7 +287,7 @@ function NodeCard(props: NodeCardProps) {
 }
 
 function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
-  const { proposal, criteria } = edits;
+  const { proposal } = edits;
   const [note, setNote] = useState("");
   return (
     <>
@@ -272,16 +315,7 @@ function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
           )}
         </ProposalField>
       </ProposalFields>
-      <ProposalDoneWhen
-        criteria={criteriaRowsOf(criteria)}
-        {...(moved === undefined
-          ? {}
-          : {
-              onCriterion: (at: number, text: string) => moved({ criteria: criteriaWith(criteria, at, text) }),
-              onAdd: () => moved({ criteria: criteriaAdded(criteria) }),
-              onRemove: (at: number) => moved({ criteria: criteriaWithout(criteria, at) }),
-            })}
-      />
+      <DoneWhen edits={edits} moved={moved} />
       {tuned === undefined ? null : (
         <section className="armada-proposal__region" aria-label="To the proposer">
           <h3 className="armada-proposal__heading">To the proposer</h3>
@@ -309,6 +343,26 @@ function BriefCard({ edits, moved, tuning, tuned }: NodeCardProps) {
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * What counts as the work being done. **One list, drawn on two nodes** — Brief
+ * and Done when, before it leaves — and both edit `edits.criteria`.
+ */
+function DoneWhen({ edits, moved }: Pick<NodeCardProps, "edits" | "moved">) {
+  const { criteria } = edits;
+  return (
+    <ProposalDoneWhen
+      criteria={criteriaRowsOf(criteria)}
+      {...(moved === undefined
+        ? {}
+        : {
+            onCriterion: (at: number, text: string) => moved({ criteria: criteriaWith(criteria, at, text) }),
+            onAdd: () => moved({ criteria: criteriaAdded(criteria) }),
+            onRemove: (at: number) => moved({ criteria: criteriaWithout(criteria, at) }),
+          })}
+    />
   );
 }
 

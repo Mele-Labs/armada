@@ -124,3 +124,18 @@ export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLEleme
 export async function listed(): Promise<void> {
   await expect.poll(() => rows().length).toBeGreaterThan(0);
 }
+
+/**
+ * A node on the approval canvas pressed, and the card it opens beside it.
+ * **`at` picks among nodes of one name** — every gate is `Checks` on the
+ * canvas, in run order — and the card it opens says whose: `Checks on
+ * Restructure`. Pressing an open node closes it, so a test opens each once.
+ */
+export async function openNode(name: string, at = 0): Promise<ReturnType<typeof page.getByRole>> {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page
+    .getByRole("button", { name: new RegExp(`^${escaped}, `) })
+    .nth(at)
+    .click();
+  return page.getByRole("dialog", { name });
+}

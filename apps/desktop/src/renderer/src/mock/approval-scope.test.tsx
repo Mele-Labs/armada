@@ -4,7 +4,9 @@
 // else; the proposer had picked `refactor` for a visible change, and the Judge
 // refused the plan for it. What counts as done, what the workflow promises and
 // how each step gates now read under the lead, while it waits — and since
-// 23.8 each is a person's to change before the press.
+// 23.8 each is a person's to change before the press. Since the approval
+// canvas (prototype, 4 Oct 2026) each is on the node it belongs to, read by
+// opening that node.
 
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
@@ -12,7 +14,7 @@ import { page } from "vitest/browser";
 import { REFACTOR_FOR_REQUESTS, refactorAtApproval, withRow } from "./job-detail-fixtures";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { onJob } from "./scenario";
-import { mount, unmountAfterEach } from "./testing";
+import { mount, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -22,39 +24,47 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   mount(onJob(refactorAtApproval()));
   await expect.element(page.getByRole("heading", { name: "Waiting for your approval" })).toBeVisible();
 
-  const done = approving().getByRole("region", { name: "Done when" });
+  const brief = await openNode("Brief");
+  const done = brief.getByRole("region", { name: "Done when" });
   await expect.element(done.getByRole("textbox", { name: "Criterion 1" })).toHaveValue(
     "Guide 8 is removed from the catalogue",
   );
   await expect
     .element(done.getByRole("textbox", { name: "Criterion 2" }))
     .toHaveValue("A validation rule prevents guides without drawn pieces");
-
-  // Who decides each step, read off its frozen `advance_gate`: Checks and the
-  // Judge on the two that do the work, a person on the one that hands it over.
-  const workflow = approving().getByRole("region", { name: "Workflow" });
-  await expect.element(workflow.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
-  for (const step of ["Scope the refactor", "Restructure"]) {
-    await expect.element(workflow.getByRole("checkbox", { name: `Checks on ${step}` })).toBeChecked();
-    await expect.element(workflow.getByRole("checkbox", { name: `Judge on ${step}` })).toBeChecked();
-    await expect.element(workflow.getByRole("checkbox", { name: `You on ${step}` })).not.toBeChecked();
-  }
-  await expect
-    .element(workflow.getByRole("listitem", { name: "Scope the refactor" }))
-    .toHaveTextContent("Its Checks have to pass and the Judge has to decline to refuse them.");
-  await expect.element(workflow.getByRole("checkbox", { name: "You on Review the change" })).toBeChecked();
-  await expect
-    .element(workflow.getByRole("listitem", { name: "Review the change" }))
-    .toHaveTextContent("It holds at awaiting review for you to answer");
-  // The registry's word for the status, never its id (`#1748` row 16).
-  await expect.element(workflow.getByText(/awaiting_review/)).not.toBeInTheDocument();
-
   // Yours to change until the press: `approve_dispatch` carries it since 23.8.
-  await expect.element(approving().getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
+  await expect.element(brief.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
     "Retire guide 8 and add guide validation rule",
   );
+
+  const start = await openNode("Start refactor");
+  await expect.element(start.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
+
+  // Who decides each step, read off its frozen `advance_gate`: Checks and the
+  // Judge on the two that do the work, each its own gate node in run order.
+  for (const [at, step] of ["Scope the refactor", "Restructure"].entries()) {
+    const gate = await openNode("Checks", at);
+    await expect.element(gate.getByRole("checkbox", { name: `Checks on ${step}` })).toBeChecked();
+    await expect.element(gate.getByRole("checkbox", { name: `Judge on ${step}` })).toBeChecked();
+    await expect.element(gate.getByRole("checkbox", { name: `You on ${step}` })).not.toBeChecked();
+    if (at === 0) {
+      await expect
+        .element(gate.getByRole("listitem", { name: "Scope the refactor" }))
+        .toHaveTextContent("Its Checks have to pass and the Judge has to decline to refuse them.");
+    }
+  }
+  // A person on the one that hands it over, whose gate is on its own card.
+  const review = await openNode("Review the change");
+  await expect.element(review.getByRole("checkbox", { name: "You on Review the change" })).toBeChecked();
+  await expect
+    .element(review.getByRole("listitem", { name: "Review the change" }))
+    .toHaveTextContent("It holds at awaiting review for you to answer");
+  // The registry's word for the status, never its id (`#1748` row 16).
+  await expect.element(review.getByText(/awaiting_review/)).not.toBeInTheDocument();
+
   // No branch list read for this Job, so the field takes a typed name.
-  await expect.element(approving().getByRole("textbox", { name: "Lands in" })).toBeVisible();
+  const land = await openNode("Land");
+  await expect.element(land.getByRole("textbox", { name: "Lands in" })).toBeVisible();
 
   // Straight under the lead.
   const lead = document.querySelector(".armada-lead");
@@ -66,7 +76,7 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
 // is not drawn beside it; after the press the Brief reads the approved words.
 test("the Brief is not drawn at the gate, and reads the request as approved after the press", async () => {
   mount(onJob(proposalFromAnIssue()));
-  const asked = approving().getByRole("textbox", { name: "What was asked" });
+  const asked = (await openNode("Brief")).getByRole("textbox", { name: "What was asked" });
   await expect.element(asked).toBeVisible();
   expect(page.getByRole("region", { name: "Brief", exact: true }).all()).toHaveLength(0);
 
@@ -94,7 +104,7 @@ test("once the Job is running nothing draws: the approval is behind it", async (
 
 test("the workflow's promise reads under its name, from this repository's row of the list", async () => {
   mount(onJob(refactorAtApproval()));
-  const workflow = approving().getByRole("region", { name: "Workflow" });
+  const workflow = (await openNode("Start refactor")).getByRole("region", { name: "Workflow" });
   await expect.element(workflow.getByText(REFACTOR_FOR_REQUESTS)).toBeVisible();
   expect(workflow.getByText("Another repository's refactor", { exact: false }).all()).toHaveLength(0);
 });
@@ -107,7 +117,7 @@ test("a workflow that declares no promise draws nothing under its name", async (
       workflows: fixture.workflows.map(({ for_requests: _none, ...row }) => row),
     }),
   );
-  const workflow = approving().getByRole("region", { name: "Workflow" });
+  const workflow = (await openNode("Start refactor")).getByRole("region", { name: "Workflow" });
   await expect.element(workflow.getByRole("combobox", { name: "Workflow" })).toHaveValue("refactor");
   expect(document.querySelector(".armada-proposal__workflow-promise")).toBeNull();
 });
@@ -117,10 +127,11 @@ test("a workflow that declares no promise draws nothing under its name", async (
 test("what a person moved under the lead is what the press sends, and what the Job carries", async () => {
   const app = mount(onJob(proposalFromAnIssue()));
   const approveDispatch = vi.spyOn(app.api, "approveDispatch");
-  await approving().getByRole("textbox", { name: "Title", exact: true }).fill("Retire guide 8");
-  await approving().getByRole("textbox", { name: "Criterion 2" }).fill("A rule refuses a guide with no pieces");
-  await approving().getByRole("checkbox", { name: "You on Restructure" }).click();
-  await approving().getByRole("combobox", { name: "Lands in" }).fill("release/2026-10");
+  const brief = await openNode("Brief");
+  await brief.getByRole("textbox", { name: "Title", exact: true }).fill("Retire guide 8");
+  await brief.getByRole("textbox", { name: "Criterion 2" }).fill("A rule refuses a guide with no pieces");
+  await (await openNode("Checks", 1)).getByRole("checkbox", { name: "You on Restructure" }).click();
+  await (await openNode("Land")).getByRole("combobox", { name: "Lands in" }).fill("release/2026-10");
   await page.getByRole("button", { name: "Approve dispatch" }).last().click();
 
   await expect.poll(() => approveDispatch.mock.calls.length).toBe(1);
