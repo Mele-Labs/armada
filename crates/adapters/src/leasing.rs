@@ -17,6 +17,7 @@
 mod answers;
 mod git;
 pub(crate) mod jobs;
+mod reading;
 mod record;
 
 use std::fs::{File, OpenOptions, TryLockError};

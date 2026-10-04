@@ -76,6 +76,7 @@ import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { slotsHeld } from "./slots-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -576,7 +577,15 @@ export const SCENARIOS: readonly Scenario[] = [
   // Job 3's retro and Job 2's, and the Lessons page over both (23.12): on Overview, and on Job 3.
   retros("retro/lessons", "Two Jobs' retros written, on Overview"),
   retros("retro/job-3", "Job 3, its retro written", { opensJob3: true }),
+  pooled(),
 ];
+
+/** Cleanup over the worktree pool, one slot in each state; the first is a running Job's. */
+function pooled(): Scenario {
+  const running = EVERY_STATE_ROWS.find((one) => one.job.handle.endsWith("-running"))!;
+  const scenario = holding("cleanup/slots", "The worktree pool on Cleanup, a slot in each state", [running]);
+  return { ...scenario, held: slotsHeld(running.job, Date.now()) };
+}
 
 /** Job 3 and Job 2 with their retros written, and the Lessons listing over both. */
 function retros(name: string, says: string, { opensJob3 = false }: { opensJob3?: boolean } = {}): Scenario {

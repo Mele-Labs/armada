@@ -1,0 +1,224 @@
+/* The worktree pool as bays, one per slot, read at a glance by availability.
+   Held is a filled card under a band in the leased hue; free an open dashed
+   outline; stranded hatched in the warning hue; not made a faint ghost.
+   Contrast, worked from the tokens: --fg-inverse on the running band 8.10:1,
+   on the review band 8.88:1; --fg-default on the hatch's stripe 11.29:1 and
+   --fg-muted 5.23:1; --accent on a held body 5.42:1; --fg-subtle on a ghost
+   5.42:1. Every one clears 4.5:1. */
+
+.armada-pool-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 5), 1fr));
+  grid-auto-rows: 1fr;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-bay {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(var(--h-row) * 3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+/* Held, and a take or release under way: a solid card under a filled band. */
+.armada-bay[data-bay="held"],
+.armada-bay[data-bay="busy"] {
+  --bay-hue: var(--slot-held);
+  background: color-mix(in srgb, var(--slot-held) var(--row-tint), var(--bg-raised));
+  border-color: var(--slot-held);
+}
+
+/* Stranded: the warning hue, hatched, so it reads as needing a person. */
+.armada-bay[data-bay="stranded"] {
+  --bay-hue: var(--slot-stranded);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--slot-stranded-bg) 0 var(--space-2),
+      transparent var(--space-2) var(--space-4)
+    ),
+    var(--bg-raised);
+  border-color: var(--slot-stranded);
+}
+
+.armada-bay__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bay-hue);
+  color: var(--fg-inverse);
+}
+
+.armada-bay__state {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The one legal ALL CAPS, an eyebrow: --text-2xs at --tracking-caps. */
+.armada-bay__eyebrow {
+  flex: 1 1 auto;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-bay__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-bay__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.armada-bay__branch,
+.armada-bay__why,
+.armada-bay__session {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-bay__branch {
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.armada-bay__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.armada-bay__foot > :last-child {
+  margin-left: auto;
+}
+
+/* The Job holding a bay: a link, --accent and underlined on hover. */
+.armada-bay__job {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--accent);
+  cursor: pointer;
+  text-align: start;
+}
+
+.armada-bay__job > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-bay__job > svg {
+  flex: none;
+}
+
+.armada-bay__job:hover > span {
+  text-decoration: underline;
+}
+
+.armada-bay__job:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Free and not made: open bays. The name sits in the corner, the state in the middle. */
+.armada-bay[data-bay="free"],
+.armada-bay[data-bay="ghost"] {
+  padding: var(--space-2) var(--space-3);
+  border-style: dashed;
+  background: transparent;
+}
+
+.armada-bay[data-bay="free"] {
+  border-color: var(--slot-free);
+  color: var(--slot-free);
+}
+
+.armada-bay[data-bay="ghost"] {
+  border-color: var(--border-default);
+  color: var(--fg-subtle);
+}
+
+.armada-bay[data-bay="free"] .armada-bay__name,
+.armada-bay[data-bay="ghost"] .armada-bay__name {
+  color: var(--fg-subtle);
+}
+
+.armada-bay__open {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.armada-bay__word {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-bay[data-bay="free"] .armada-bay__word {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-bay__warmth {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--slot-cold);
+}
+
+.armada-bay__warmth[data-warm] {
+  color: var(--slot-warm);
+}
+
+/* A take or a release under way, the one state that is in motion. */
+.armada-bay[data-bay="busy"] .armada-bay__state > svg {
+  animation: armada-pool-slots-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-pool-slots-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-bay[data-bay="busy"] .armada-bay__state > svg {
+    animation: none;
+  }
+}

@@ -771,7 +771,11 @@ no table has not been decided, whatever it looks like in a mockup.
    `circle-dashed` (`step_state.not_started` only), and a glyph inheriting a
    disabled control's text colour, which dims to it with that control's
    label — see Contrast floor above — and never let an icon carry colour
-   independently of its badge.
+   independently of its badge. **One exception: a worktree slot's bay on
+   Cleanup.** Its marks take the slot hue of their bay (`--slot-*`), and a
+   bay for a slot not made is a ghost whose mark is `--fg-subtle` with its
+   words. The owner asked for colour on free and held bays on 4 Oct 2026,
+   because icons and tint alone did not say which slots were available.
 7. **A new enum variant must add a table here.** The codegen test asserting
    every variant has a verb asserts it has an icon in the same pass, so a
    new reason cannot ship iconless.

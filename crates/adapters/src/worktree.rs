@@ -27,8 +27,8 @@ use std::fs;
 use std::path::Path;
 
 use adapter_traits::{
-    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotPool, SlotStanding,
-    Vcs, Worktree, WorktreeSpec,
+    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotPool, SlotReading,
+    SlotStanding, Vcs, Worktree, WorktreeSpec,
 };
 use git2::{BranchType, ErrorCode, Repository, WorktreeAddOptions};
 
@@ -164,6 +164,10 @@ impl Vcs for GitVcs {
 
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {
         crate::leasing::jobs::completed(pool, slot, job_id)
+    }
+
+    fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
+        crate::leasing::jobs::readings(pool)
     }
 }
 

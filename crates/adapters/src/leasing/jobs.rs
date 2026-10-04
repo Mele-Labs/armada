@@ -3,7 +3,9 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use adapter_traits::{SlotKept, SlotLeased, SlotPool, SlotStanding, Worktree, WorktreeSpec};
+use adapter_traits::{
+    SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, Worktree, WorktreeSpec,
+};
 
 use super::{Holder, LeaseRefused, Leased, Pool, SlotState};
 
@@ -69,4 +71,8 @@ pub(crate) fn release(slots: &SlotPool, slot: u32, job: &str) -> Result<(), Slot
 
 pub(crate) fn completed(slots: &SlotPool, slot: u32, job: &str) {
     let _ = pool(slots).mark_completed(slot as usize, &Holder::job(job));
+}
+
+pub(crate) fn readings(slots: &SlotPool) -> Vec<SlotReading> {
+    pool(slots).readings()
 }

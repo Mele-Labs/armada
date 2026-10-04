@@ -9,8 +9,8 @@
 //! slot recorded and keeps the path its handle derives.
 
 use adapter_traits::{
-    AgentHarness, Delivery, SlotKept, SlotPool, SlotStanding, Vcs, WorkProduct, WorktreeSpec,
-    WorktreeSpecRefused,
+    AgentHarness, Delivery, SlotHeld, SlotKept, SlotPool, SlotReading, SlotStanding, Vcs,
+    WorkProduct, WorktreeSpec, WorktreeSpecRefused,
 };
 use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
 
@@ -67,6 +67,15 @@ pub(crate) fn spec_of(root: &str, job: &Job) -> Result<WorktreeSpec, WorktreeSpe
         Some(slot) => spec.in_slot(slot),
         None => spec,
     })
+}
+
+/// One slot of a served repository's pool, and the title of the Job holding
+/// it where one does and the store still has it.
+pub(crate) struct PoolSlot {
+    pub(crate) manifest: String,
+    pub(crate) base: String,
+    pub(crate) reading: SlotReading,
+    pub(crate) job_title: Option<String>,
 }
 
 /// A Job's worktree, as the lookup finds it.
@@ -144,6 +153,37 @@ where
                 WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
             }
         }
+    }
+
+    /// Every served repository's pool, slot by slot: what Bridge's Cleanup
+    /// draws, read the way `armada worktree --status` reads it.
+    pub(crate) async fn pool_slots(&self) -> Result<Vec<PoolSlot>, Adrift> {
+        let (loaded, _) = self.every_job().await?;
+        let title = |id: &str| {
+            loaded
+                .jobs
+                .iter()
+                .find(|job| job.id().as_str() == id)
+                .map(|job| job.title().as_str().to_string())
+        };
+        let mut slots = Vec::new();
+        for served in self.repositories().served() {
+            let manifest = served.manifest().id().as_str().to_string();
+            let pool = pool_of(&served);
+            for reading in self.vcs().slot_pool(&pool) {
+                let job_title = match &reading.held {
+                    SlotHeld::Job(id) => title(id),
+                    _ => None,
+                };
+                slots.push(PoolSlot {
+                    manifest: manifest.clone(),
+                    base: pool.base().to_string(),
+                    reading,
+                    job_title,
+                });
+            }
+        }
+        Ok(slots)
     }
 
     /// Whether a Job that has never had a worktree would find no slot free in

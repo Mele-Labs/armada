@@ -16,7 +16,14 @@
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { BranchDeleted, HeldWorktrees, Outcome, WorktreeHeld, WorktreeReclaimed } from "@armada/protocol";
+import type {
+  BranchDeleted,
+  HeldWorktrees,
+  Outcome,
+  WorktreeHeld,
+  WorktreeReclaimed,
+  WorktreeSlot,
+} from "@armada/protocol";
 
 import { mount, unmount } from "./mounted";
 import { Worktrees } from "./Worktrees";
@@ -77,6 +84,7 @@ function opened(
       now={NOW}
       onClose={() => {}}
       onCopied={() => {}}
+      onOpenJob={() => {}}
     />,
   );
   return { reclaimed, branchesDeleted, forgotten };
@@ -297,6 +305,7 @@ test("a read that failed says so rather than drawing an empty page", async () =>
       now={NOW}
       onClose={() => {}}
       onCopied={() => {}}
+      onOpenJob={() => {}}
     />,
   );
 
@@ -350,6 +359,62 @@ test("the confirmation says how long the work it is about to destroy has sat", a
   await expect
     .element(page.getByRole("dialog"))
     .toHaveTextContent("Forgotten — last moved 4 days ago");
+});
+
+/**
+ * The worktree pool, a bay per slot, each figure named by its label. **A Job
+ * holding one opens that Job.**
+ */
+test("the pool draws a bay per slot, and a slot's Job opens from it", async () => {
+  const opens: string[] = [];
+  const slot = (n: number, over: Partial<WorktreeSlot> & Pick<WorktreeSlot, "held">): WorktreeSlot => ({
+    manifest_id: "armada",
+    slot: n,
+    path: `/r/.armada/slots/slot-${n}`,
+    base: "main",
+    warm: false,
+    ...over,
+  });
+  mount(
+    <Worktrees
+      onWant={WANT}
+      held={{
+        state: "read",
+        held: {
+          worktrees: [],
+          slots: [
+            slot(1, {
+              held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" },
+              branch: "armada/1-fix-the-reader",
+              since: "2026-09-03T10:00:00.000Z",
+              warm: true,
+              behind: 4,
+            }),
+            slot(2, { held: { state: "unmade" } }),
+          ],
+        },
+      }}
+      onReclaim={() => Promise.resolve({ ok: true })}
+      onDeleteBranch={() => Promise.resolve({ ok: true })}
+      onForget={() => Promise.resolve({ ok: true })}
+      now={NOW}
+      onClose={() => {}}
+      onCopied={() => {}}
+      onOpenJob={(jobId) => opens.push(jobId)}
+    />,
+  );
+
+  await expect.element(page.getByRole("list", { name: "Worktree slots" })).toBeInTheDocument();
+  await expect.element(page.getByRole("listitem", { name: "slot-1" })).toBeInTheDocument();
+  await expect.element(page.getByRole("img", { name: "Held" })).toBeInTheDocument();
+  await expect.element(page.getByRole("img", { name: "Warm" })).toBeInTheDocument();
+  await expect.element(page.getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Commits behind main: 4")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
+  expect(page.getByText(/slots? free/).elements()).toHaveLength(0);
+
+  await userEvent.click(page.getByRole("button", { name: "Fix the reader" }));
+  expect(opens).toEqual(["01JOB"]);
 });
 
 // Only referenced for their types, so the answer functions above stay honest

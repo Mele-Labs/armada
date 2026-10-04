@@ -911,6 +911,8 @@ export function App({ draft }: AppProps = {}) {
                   now={now}
                   onClose={() => setClearing(false)}
                   onCopied={setCopied}
+                  // A slot's Job opens over Cleanup, and Escape comes back here.
+                  onOpenJob={setOpenJob}
                   actions={
                     <SweepButtons jobs={boardJobs} live={live} sweeping={commands.sweeping} onAsk={setSweep} />
                   }

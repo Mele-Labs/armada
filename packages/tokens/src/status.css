@@ -225,6 +225,23 @@
   --run-serving: var(--status-running);
 }
 
+/* A worktree slot's bay on Cleanup, and the marks inside it. Declared 4 Oct
+   2026: the owner asked for colour on free and held bays because icons and
+   tint alone did not say which slots were available.
+
+   Held is a lease in flight, so running; free is ready, so success; stranded
+   needs a person, so review's amber, hatched from its -bg. Warm and cold are
+   the build's: escalated's orange and not-started's grey. A slot not made
+   takes none. */
+:root {
+  --slot-held: var(--status-running);
+  --slot-free: var(--status-completed-success);
+  --slot-stranded: var(--status-awaiting-review);
+  --slot-stranded-bg: var(--status-awaiting-review-bg);
+  --slot-warm: var(--status-escalated);
+  --slot-cold: var(--status-not-started);
+}
+
 /* The error treatment: one red, told apart from a Job status by shape.
 
    A failed Job is Armada working and an error is Armada failing, so both are
