@@ -1,5 +1,5 @@
 /* The worktree pool, one row per slot. Heights, rules and cell padding are
-   `Table`'s. A mark is --fg-muted: the slot's state is not a Job's. */
+   `Table`'s. A mark takes its status hue; a slot not made stays --fg-muted. */
 
 .armada-pool-slots__mark {
   color: var(--fg-muted);
@@ -8,6 +8,58 @@
 .armada-pool-slots__mark span {
   display: inline-flex;
   align-items: center;
+}
+
+.armada-pool-slots__mark [data-tone="leased"] { color: var(--status-running); }
+.armada-pool-slots__mark [data-tone="free"] { color: var(--status-completed-success); }
+.armada-pool-slots__mark [data-tone="stranded"] { color: var(--status-awaiting-review); }
+.armada-pool-slots__mark [data-tone="warm"] { color: var(--status-escalated); }
+.armada-pool-slots__mark [data-tone="cold"] { color: var(--status-not-started); }
+
+/* A row takes its state's hue at --row-tint, as a Board row does; hover
+   replaces it rather than mixing with it. */
+.armada-pool-slots .armada-table-row[data-tone="leased"] {
+  background: color-mix(in srgb, var(--status-running) var(--row-tint), transparent);
+}
+
+.armada-pool-slots .armada-table-row[data-tone="free"] {
+  background: color-mix(in srgb, var(--status-completed-success) var(--row-tint), transparent);
+}
+
+.armada-pool-slots .armada-table-row[data-tone="stranded"] {
+  background: color-mix(in srgb, var(--status-awaiting-review) var(--row-tint), transparent);
+}
+
+.armada-pool-slots .armada-table-row[data-tone]:hover {
+  background: var(--bg-hover);
+}
+
+/* The Job holding a slot: a link, --accent and underlined on hover. */
+.armada-pool-slots__job {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: start;
+}
+
+.armada-pool-slots__job > svg {
+  flex: none;
+}
+
+.armada-pool-slots__job:hover > span {
+  text-decoration: underline;
+}
+
+.armada-pool-slots__job:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
 }
 
 /* A take or a release under way, the one state that is in motion. */

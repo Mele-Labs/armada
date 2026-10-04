@@ -1000,6 +1000,13 @@
   reserved = "A Record row about the Job itself: created, started, moved, ended. Never a Job's status, which the Job state group owns; never a package, an export or storage; never Kit, which is `briefcase`."
   notes = "Minted 2026-09-29 when the owner asked for the six Record marks that were owed ([record-kind-marks]). The Job is the one thing every other row happens inside, and a closed solid is that thing rather than any state of it. Against the grey set it sits beside, `archive` is a lidded box drawn face-on, a rectangle with a band; this is a hexagon whose outline is cut by its two top faces, and the difference is silhouette rather than interior detail. Refused: `briefcase`, reserved to Kit and by its own row never a Job; `package`, this cube with a band across it, which `briefcase`'s row already refused as a lidded box; `clipboard-list`, the Job Board's; `scroll-text`, the workflow a Job runs; `activity`, free again, but its own row says the outline does not survive 12px."
 
+  [[icons.box.usage]]
+    means = "The Job holding a worktree slot, leading its title on Cleanup"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Added 4 Oct 2026 on the owner's walk of the slot pool: the holder cell needed to read as a Job and as a press. The same drawing of the Job itself the Record uses, never its status. --accent, with the title, as a link."
+
 [icons.scale]
   means = "A balance \u2014 a beam on a post, a pan hanging from each end"
   group = "Record kind"

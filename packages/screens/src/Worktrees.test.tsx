@@ -362,8 +362,8 @@ test("the confirmation says how long the work it is about to destroy has sat", a
 });
 
 /**
- * The worktree pool, one row per slot. **A Job holding one opens that Job**,
- * and a bare figure is named by its label rather than by a heading.
+ * The worktree pool, one row per slot under a header naming each column.
+ * **A Job holding one opens that Job.**
  */
 test("the pool draws a row per slot, and a slot's Job opens from it", async () => {
   const opens: string[] = [];
@@ -407,8 +407,10 @@ test("the pool draws a row per slot, and a slot's Job opens from it", async () =
   await expect.element(page.getByRole("img", { name: "Held" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Warm" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Commits behind main: 4")).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
+  await expect.element(page.getByRole("columnheader", { name: "Behind main" })).toBeInTheDocument();
+  await expect.element(page.getByRole("columnheader", { name: "Held for" })).toBeInTheDocument();
+  await expect.element(page.getByRole("cell", { name: "4", exact: true })).toBeInTheDocument();
+  await expect.element(page.getByRole("cell", { name: "2 hours" })).toBeInTheDocument();
   expect(page.getByText(/slots? free/).elements()).toHaveLength(0);
 
   await userEvent.click(page.getByRole("button", { name: "Fix the reader" }));

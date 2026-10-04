@@ -54,21 +54,40 @@ const ROWS: PoolSlotRow[] = [
 ];
 
 /**
- * Every state a slot can be in. **A Job holder opens its Job**; a session
- * holder is named and not pressable; a slot not made has no warmth mark.
+ * Every state a slot can be in, under a header naming each column. **A Job
+ * holder is a link that opens its Job**; a session holder is named and not
+ * pressable; a slot not made has no warmth mark. Leased, free and stranded rows
+ * take their hue; a slot not made stays neutral.
  */
 export const EveryState: Story = {
   name: "Every state",
   args: { rows: ROWS },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.getAllByRole("row")).toHaveLength(ROWS.length);
+    for (const heading of ["Slot", "State", "Build", "Branch", "Held by", "Held for", "Behind main"]) {
+      await expect(canvas.getByRole("columnheader", { name: heading })).toBeInTheDocument();
+    }
+    const rows = canvas.getAllByRole("row").slice(1);
+    await expect(rows).toHaveLength(ROWS.length);
+    await expect(within(rows[3]!).getByRole("cell", { name: "12" })).toBeInTheDocument();
+
     await expect(canvas.queryByRole("button", { name: /zsh/ })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Fix the reader" }));
     await expect(args.onOpenJob).toHaveBeenCalledWith("01JOB");
 
-    const unmade = canvas.getAllByRole("row")[5]!;
+    const unmade = rows[5]!;
     await expect(within(unmade).getAllByRole("img", { name: "Not made yet" })).toHaveLength(1);
     await expect(within(unmade).queryByRole("img", { name: /Warm|Cold/ })).toBeNull();
-    await expect(canvas.getByLabelText("Commits behind main: 12")).toBeInTheDocument();
+
+    // A hue, not a value: the leased and free rows and marks differ from the neutral one.
+    const look = (row: HTMLElement, mark: string | RegExp) => ({
+      row: getComputedStyle(row).backgroundColor,
+      mark: getComputedStyle(within(row).getByRole("img", { name: mark })).color,
+    });
+    const neutral = look(unmade, "Not made yet");
+    for (const [row, mark] of [[rows[0]!, "Held"], [rows[2]!, "Free"], [rows[3]!, /Stranded/]] as const) {
+      const toned = look(row, mark);
+      await expect(toned.row).not.toBe(neutral.row);
+      await expect(toned.mark).not.toBe(neutral.mark);
+    }
   },
 };
