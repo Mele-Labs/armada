@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { refusalsOf } from "@armada/components/src/compositions/WorkflowCreator/def";
 import { entriesOf, parse as load, readDefinition, writeDefinition } from "@armada/components/src/compositions/WorkflowCreator/json";
 
-const CARRIED = join(import.meta.dirname, "../../../../../.armada/workflows");
+const CARRIED = join(import.meta.dirname, "../../../../.armada/workflows");
 const files = readdirSync(CARRIED).map((name) => [name, readFileSync(join(CARRIED, name), "utf8")] as const);
 
 function opened(text: string, from: "carried" | "kit" | "repository" = "carried") {
