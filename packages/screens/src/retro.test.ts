@@ -196,11 +196,10 @@ describe("an item's title, what happened and fix", () => {
 });
 
 describe("what Agree and Disagree say they do", () => {
-  it("names the place for each, and says what Agree does with no place", () => {
+  it("names the place for each", () => {
     expect(agreeTipOf("armada")).toBe("Proposes a Job on Armada's repository");
     expect(agreeTipOf("manifest")).toBe("Proposes a Job on the Manifest's repository");
     expect(agreeTipOf("kit")).toBe("Saves it under Accepted");
-    expect(agreeTipOf(undefined)).toBe("Agrees with it");
     expect(DISAGREE_TIP).toBe("Discards it");
   });
 });

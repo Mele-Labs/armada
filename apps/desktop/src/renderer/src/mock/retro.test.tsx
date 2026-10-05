@@ -54,7 +54,7 @@ test("an item says whose way and where in words, and an old item has its stateme
   ]);
   const old = card(/waited in the dock/);
   expect(old.getByRole("heading").elements()).toHaveLength(0);
-  expect(old.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(2);
+  expect(old.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
 });
 
 test("a Job label opens its retro, each item with the record rows it cites behind Evidence, and the owner's notes", async () => {

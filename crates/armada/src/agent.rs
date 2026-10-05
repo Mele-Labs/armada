@@ -62,6 +62,13 @@ pub const JUDGE_MODEL: &str = "ARMADA_JUDGE_MODEL";
 /// and the two are raised for different reasons.
 pub const PROPOSER_MODEL: &str = "ARMADA_PROPOSER_MODEL";
 
+/// The environment variable naming the model a Job's retro is written on.
+///
+/// A fourth variable for the third reason: a retro is read by a person who
+/// rejected a cheap model's, so it is raised on its own, and once per ended
+/// Job rather than per criterion or per dispatch.
+pub const RETRO_MODEL: &str = "ARMADA_RETRO_MODEL";
+
 /// What a step naming no model of its own is judged by.
 ///
 /// **`crates/config/settings.toml` decides it and this module still never
@@ -87,6 +94,12 @@ pub fn second_opinion_model() -> Result<Model, SpawnConfigRefused> {
 /// and this module never learns the spelling of either.
 pub fn proposer_model(named: Option<String>) -> Result<Model, SpawnConfigRefused> {
     resolved(named, HeadlessAgent::proposer_model())
+}
+
+/// What a Job's retro is written on. `crates/config/settings.toml`'s
+/// `retro-model` row decides it, and this module never learns the spelling.
+pub fn retro_model(named: Option<String>) -> Result<Model, SpawnConfigRefused> {
+    resolved(named, HeadlessAgent::retro_model())
 }
 
 /// An override where one is set and not blank, and the adapter's default

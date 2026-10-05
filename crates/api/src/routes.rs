@@ -192,6 +192,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_job_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/agree",
+            post(crate::retros::agree_lesson::<D>),
+        )
+        .route(
+            "/lessons/:lesson_id/disagree",
+            post(crate::retros::disagree_lesson::<D>),
+        )
         .route("/jobs/:job_id/evidence", get(get_evidence::<D>))
         .route("/jobs/:job_id/diff", get(get_diff::<D>))
         .route("/jobs/:job_id/remarks", get(get_remarks::<D>))

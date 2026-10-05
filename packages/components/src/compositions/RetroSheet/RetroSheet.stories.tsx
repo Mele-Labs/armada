@@ -70,7 +70,6 @@ const ITEMS: RetroSheetItem[] = [
     id: "dock",
     who: "owner",
     statement: "The Judge's question waited in the dock while the plan was read twice.",
-    answers: answers("Agrees with it"),
   },
 ];
 
@@ -88,7 +87,7 @@ export const Written: Story = {
   play: async ({ canvas }) => {
     const sheet = canvas.getByRole("dialog", { name: "Retro" });
     await expect(sheet).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(3);
+    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(2);
     // Collapsed until asked for.
     await expect(canvas.queryByText("out_of_bounds")).toBeNull();
     await userEvent.click(canvas.getAllByRole("button", { name: "Evidence" })[0]!);

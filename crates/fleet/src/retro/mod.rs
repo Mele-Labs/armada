@@ -3,13 +3,16 @@
 //!
 //! [`record`] assembles the record and does no I/O; [`gathering`] reads what
 //! it is assembled from; [`writing`] asks a model once per ended Job, off the
-//! turn; [`serving`] answers `get_job_retro` and `list_lessons`. **Nothing here
-//! moves a Job or reaches a Drone.**
+//! turn; [`serving`] answers `get_job_retro` and `list_lessons`; [`agreeing`]
+//! answers a person's agree or disagree on an item. **Nothing here moves a Job
+//! or reaches a Drone**, and the one thing a retro does, a person's agreeing,
+//! is to propose a Job at the approval gate.
 //!
 //! It also signs a person's move for the door it came through, which every
 //! move asks of [`signed`]: a retro of a Job an agent drove is wrong about
 //! whose friction it was unless the record says an agent drove it.
 
+mod agreeing;
 pub(crate) mod gathering;
 pub(crate) mod record;
 mod serving;

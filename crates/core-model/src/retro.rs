@@ -109,3 +109,46 @@ impl LandsIn {
             .find(|lands| lands.as_wire() == value)
     }
 }
+
+/// Where a retro item stands with the person who reads it.
+///
+/// **Apart from where its fix lands.** `Agreed` and `Accepted` are two
+/// answers to the same press: a fix that lands in Armada or in a Manifest
+/// becomes a Job a person approves, and a fix that lands in Kit has nothing
+/// to dispatch and is kept.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LessonState {
+    /// Nobody has answered it. Every item starts here.
+    Open,
+    /// Agreed, and a Job proposed for it.
+    Agreed,
+    /// Agreed, and kept as it is: a Kit item.
+    Accepted,
+    /// Disagreed with. The row stays.
+    Discarded,
+}
+
+impl LessonState {
+    pub const ALL: &'static [LessonState] = &[
+        LessonState::Open,
+        LessonState::Agreed,
+        LessonState::Accepted,
+        LessonState::Discarded,
+    ];
+
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            LessonState::Open => "open",
+            LessonState::Agreed => "agreed",
+            LessonState::Accepted => "accepted",
+            LessonState::Discarded => "discarded",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<LessonState> {
+        LessonState::ALL
+            .iter()
+            .copied()
+            .find(|state| state.as_wire() == value)
+    }
+}

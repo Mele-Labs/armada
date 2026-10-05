@@ -217,7 +217,7 @@ export function underTab(rows: readonly LessonRow[], tab: LessonsTab): LessonRow
 }
 
 /** What Agree does for an item, by where its fix lands, as its tooltip says it. */
-export function agreeTipOf(landsIn: LandsIn | undefined): string {
+export function agreeTipOf(landsIn: LandsIn): string {
   switch (landsIn) {
     case "armada":
       return "Proposes a Job on Armada's repository";
@@ -225,8 +225,6 @@ export function agreeTipOf(landsIn: LandsIn | undefined): string {
       return "Proposes a Job on the Manifest's repository";
     case "kit":
       return "Saves it under Accepted";
-    case undefined:
-      return "Agrees with it";
   }
 }
 
@@ -291,7 +289,8 @@ export function useAnswers(
         },
       };
     }
-    if (agree === undefined || disagree === undefined) return { gone: false };
+    // An item kept before a place was named is refused both answers by Fleet, so it has none.
+    if (agree === undefined || disagree === undefined || landsIn === undefined) return { gone: false };
     const held = pressing[lessonId];
     const why = refused[lessonId];
     return {

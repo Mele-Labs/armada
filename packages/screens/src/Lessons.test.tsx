@@ -124,13 +124,13 @@ test("each Agree names what it does for its item's place, and Disagree discards"
   await tip(/every Rust test/, "Disagree", "Discards it");
 });
 
-test("an item written before the headline draws its statement as the body, with the same two answers", async () => {
+test("an item written before the headline draws its statement as the body, with no answers, since Fleet refuses both", async () => {
   opened([OLD]);
   const one = card(/in the dock/);
   await expect.element(one.getByText(/waited in the dock/)).toBeVisible();
   expect(one.getByRole("heading").elements()).toHaveLength(0);
   expect(one.getByText("Fix", { exact: true }).elements()).toHaveLength(0);
-  expect(one.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements().map((b) => b.textContent)).toEqual(["Agree", "Disagree"]);
+  expect(one.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
 });
 
 test("agreeing with an Armada item leaves a link to the Job it proposed, and the link opens it", async () => {

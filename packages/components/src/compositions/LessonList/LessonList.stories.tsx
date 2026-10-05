@@ -75,7 +75,6 @@ const ROWS: LessonRow[] = [
     when: "Oct 1, 8:40 PM",
     who: "owner",
     statement: "The Judge's question waited in the dock while the plan was read twice.",
-    answers: answers("Agrees with it"),
   },
 ];
 
@@ -97,7 +96,7 @@ export const Listed: Story = {
       "Lands in the Manifest",
       "You",
     ]);
-    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(4);
+    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(3);
     await userEvent.click(canvas.getByRole("button", { name: "Job 2" }));
     await expect(args.onOpen).toHaveBeenCalledWith("01K6Q2JOB2");
   },
