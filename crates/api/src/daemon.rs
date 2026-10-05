@@ -25,6 +25,7 @@
 //! this crate that did not follow it. Each module below states its own half.
 
 mod admitting;
+mod authoring;
 mod commands;
 mod conversing;
 mod queries;
@@ -33,6 +34,7 @@ mod studios;
 mod tools;
 
 pub use admitting::{offerable, Admitting, HelmReach, Redirector};
+pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use queries::{FramePart, FrameSpan, Queries};
@@ -74,12 +76,16 @@ use ipc::WireError;
 /// [`Admitting`] answers for a caller rather than for a Job or a message, and
 /// its module says why the answer is placed rather than asked for. [`Studios`]
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
+/// [`Authoring`] is one more, for [`Retros`]' reason.
 pub trait Daemon:
-    Queries + Commands + Tools + Conversations + Admitting + Studios + Retros
+    Queries + Commands + Tools + Conversations + Admitting + Studios + Retros + Authoring
 {
 }
 
-impl<D: Queries + Commands + Tools + Conversations + Admitting + Studios + Retros> Daemon for D {}
+impl<D: Queries + Commands + Tools + Conversations + Admitting + Studios + Retros + Authoring>
+    Daemon for D
+{
+}
 
 /// A request the daemon would not serve.
 ///

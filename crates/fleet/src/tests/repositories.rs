@@ -12,7 +12,9 @@ use ipc::{AddRepository, ManifestSummary, RepositoryList, RepositoryScan, RunId,
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
-use crate::repositories::{Located, Locating, NotLocated, SetUp};
+use crate::repositories::{
+    Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotSaved,
+};
 use crate::tests::daemon::{a_proposal, fitted_with, manifest, one};
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;
@@ -29,6 +31,11 @@ const FIRST: &str = "01FIXTUREMANIFEST";
 pub struct Planted {
     folders: Mutex<BTreeMap<PathBuf, Located>>,
     served: Mutex<Vec<String>>,
+    /// What the next save answers, and every save asked for.
+    saving: Mutex<Option<Result<SavedWorkflow, WorkflowNotSaved>>>,
+    saves: Mutex<Vec<ipc::SaveWorkflow>>,
+    /// What the folders read as when Fleet reads them again.
+    reading: Mutex<Option<Catalogued>>,
 }
 
 impl Planted {
@@ -47,6 +54,25 @@ impl Planted {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(folder.into(), located);
+    }
+
+    /// What the next save answers. Nothing is written: what a save checks and
+    /// writes is the composition root's, tested there against real files.
+    pub fn will_save(&self, answer: Result<SavedWorkflow, WorkflowNotSaved>) {
+        *self.saving.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// What the folders read as from now on.
+    pub fn will_read(&self, read: Catalogued) {
+        *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
+    }
+
+    /// Every save Fleet asked the composition root to make.
+    pub fn saves(&self) -> Vec<ipc::SaveWorkflow> {
+        self.saves
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Every root Fleet said it now serves, in order.
@@ -68,6 +94,31 @@ impl Locating for Planted {
                 folder: folder.display().to_string(),
                 why: String::from("nothing is planted there"),
             })
+    }
+
+    fn save_workflow(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<SavedWorkflow, WorkflowNotSaved> {
+        self.saves
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(asked.clone());
+        self.saving
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that saves says what the save answers")
+    }
+
+    fn workflows(&self, _root: &Path, _manifest: &config::Manifest) -> Catalogued {
+        self.reading
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .unwrap_or_default()
     }
 
     fn serving(&self, root: &str) {

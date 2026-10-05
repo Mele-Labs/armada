@@ -359,6 +359,9 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
 | Remove | The slot named, and only a free or unmade one, never the last. A made one's checkout goes by `git worktree remove`, which refuses one holding anything uncommitted; held, stranded and busy slots are refused by name. The other slots keep their numbers |
+| Rescue | On a stranded slot only, and only on a person's press: starts a Scout that reads the slot's checkout, and keeps its Finding against the slot. Then the person chooses Scrap or Stash below |
+| Scrap | Discards the uncommitted files, puts the checkout back at the base and frees the slot. Bridge's confirm names the uncommitted files and the commits that exist only in the slot. The branch is deleted only where the base holds every commit on it; otherwise it is kept, and the answer says so |
+| Stash | Commits the uncommitted files to the slot's branch, pushes the branch to `origin` under its own name, and frees the slot. Refused on a checkout on no branch or on the base, and where there is no `origin` |
 | Close, open | A closed slot is never leased until it is opened. A holder keeps one closed under it until its lease ends, and it stays closed after |
 
 **An agent's lease is held for a process, recorded beside the slot as its pid
@@ -383,6 +386,38 @@ records, which is never committed; `armada worktree lease` and Fleet both read
 it. Once a slot is added or removed, that list stands in for `setup.worktrees`,
 which stays the size a fresh machine starts at. Bridge's Cleanup offers each act
 on the slot's bay, and `change_slot_pool` is the act on the wire.
+
+### Rescuing a stranded slot
+
+**A stranded slot is work its holder left and nobody has looked at.** Rescue
+sends a [Scout](scout.md) to read it, and the bay offers a way into what it
+found, which opens in Bridge's trailing sheet. Scrap and Stash are in that
+sheet, and are Fleet's acts, run on the press that asks. The Scout has no tool
+that writes, so it never does either.
+
+> **Rule.** A Scout reads a stranded slot only on a person's press, and its
+> Finding is kept against the slot, not a Studio.
+> Why: a stranded slot's holder is gone, so nothing else owns the Finding, and
+> it has to survive a Bridge reload to be there when the person decides.
+
+> **Rule.** Neither act runs while a Scout is reading the slot, and a Finding
+> is of the commit the slot was at. A slot that has moved off it shows none.
+> Why: the Finding describes one state of the work, and an act on another
+> would be decided on a description of something else.
+
+**Each commit on the slot's branch says where else it exists.** Fleet asks git per commit: on a
+remote branch (`git branch -r --contains`), else on the local base (`git merge-base
+--is-ancestor`), else only here. The Finding lists the ones that exist only here first, and the
+Scrap's confirm names those.
+
+**A Job's slot that the pool would not take back is rescued the same way.** A Job that was
+killed or failed with work only in its slot cannot give the slot back, and the pool records why.
+The bay shows that reason, Rescue reads the slot as it does a stranded one, and Scrap and Stash
+each end the Job's claim on it, so the slot is free after.
+
+**Pick up is not built.** It would propose a Job that continues from the
+slot's branch, and a proposal cannot name the branch its worktree is cut from;
+a person chooses that at approval.
 
 `armada worktree` and its forms are in `../practices/running-locally.md`,
 *Leasing a worktree*.

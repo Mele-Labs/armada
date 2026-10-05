@@ -73,7 +73,8 @@ pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused, SlotStanding,
+    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased, SlotPool,
+    SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
@@ -382,6 +383,27 @@ pub trait Vcs {
     /// Add, remove, close or reopen a slot on this machine, answering the
     /// slot it changed. The CLI's lease honours it as Fleet's does.
     fn change_slot_pool(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused>;
+
+    /// What a stranded slot holds, refused for any slot that is not stranded.
+    fn stranded_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused>;
+
+    /// The stranded slot's change against where its branch left the base,
+    /// uncommitted changes to tracked files included. What a rescue Scout is
+    /// handed, since it cannot run git.
+    fn stranded_diff(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<alloc::string::String, RescueRefused>;
+
+    /// Scrap or stash a stranded slot's work, and free the slot. Only a person
+    /// asks for either.
+    fn rescue_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        rescue: SlotRescue,
+    ) -> Result<SlotRescued, RescueRefused>;
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what
