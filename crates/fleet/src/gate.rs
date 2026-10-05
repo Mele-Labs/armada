@@ -62,15 +62,31 @@ use crate::underway::Announcing;
 /// `crates/config/settings.toml` names a Check timeout, so there is no value to
 /// read and inventing one here would put a threshold where nobody can find it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CheckBudget(Duration);
+pub struct CheckBudget(Duration, Duration);
+
+/// What a Drone's whole `run_checks` may spend waiting for a place, on top of
+/// the per-command budget. The budget starts only once a place is granted, so
+/// without this a run behind a full line was bounded by nothing.
+const PLACE_WAIT_ALLOWANCE: Duration = Duration::from_secs(10 * 60);
 
 impl CheckBudget {
     pub fn of(budget: Duration) -> CheckBudget {
-        CheckBudget(budget)
+        CheckBudget(budget, PLACE_WAIT_ALLOWANCE)
+    }
+
+    /// The same budget with its own wait for a place, for a case that cannot
+    /// spend minutes.
+    pub fn waiting(self, place_wait: Duration) -> CheckBudget {
+        CheckBudget(self.0, place_wait)
     }
 
     pub fn duration(&self) -> Duration {
         self.0
+    }
+
+    /// How long a Drone's whole request may take, waiting and running.
+    pub fn whole_run(&self) -> Duration {
+        self.0 + self.1
     }
 }
 

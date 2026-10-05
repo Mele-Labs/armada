@@ -385,10 +385,10 @@ there is no judgment to render. `circle-minus` returns to the family it left
 on 2026-08-21, but the meaning is new rather than restored: `shield-minus`
 keeps Check's `not_reached`, and this is a distinct state in a distinct
 family that happens to share its outline. `core-model`'s escalation module
-states why the rendering differs from a verdict: `gate_undecided` is the one
-escalation trigger that is not overrulable, because the machine is saying it
-could not read the artifact, so there is nothing ruled to disagree with —
-`Recourse::RerunGate` is what answers it, not Override. It renders in
+states why the rendering differs from a verdict: `gate_undecided` is the
+machine saying it could not read the artifact, so there is nothing ruled to
+disagree with. A person may still override it, and `Recourse::RerunGate` is
+offered beside that. It renders in
 `--fg-subtle`, not `--verdict-met` or `--verdict-not-met`, because the
 criterion went unjudged rather than judged and coloured.
 

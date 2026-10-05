@@ -2202,7 +2202,7 @@
 }
 
 /* The approval canvas (prototype): what the Job will do, left to right, in the
-   place the form held. As tall as a Job's own plan canvas, so a node's card
+   place the form held. As tall as a Job's own plan canvas, so a node's panel
    opens under it inside the frame. */
 .armada-approval-canvas {
   block-size: var(--h-workflow-run-canvas);
@@ -2211,11 +2211,22 @@
   overflow: hidden;
 }
 
-.armada-approval-canvas__card-head {
+.armada-approval-canvas__panel {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Every region keeps its own height and the panel scrolls. */
+.armada-approval-canvas__panel > * {
+  flex: none;
+}
+
+.armada-approval-canvas__about {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
 }
 
 .armada-approval-canvas__checks {

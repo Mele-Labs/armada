@@ -37,8 +37,11 @@ fn vitest() -> Runner {
 
 #[test]
 fn a_check_naming_vitest_narrows_to_the_tests_reaching_what_changed() {
-    let narrowed_to = by_its_runner(&check(Some(vitest()), None), &paths(&["src/overview.ts"]))
-        .expect("vitest ships a run_changed");
+    let narrowed_to = by_its_runner(
+        &check(Some(vitest()), None),
+        &paths(&["packages/screens/src/overview.ts"]),
+    )
+    .expect("vitest ships a run_changed");
     assert_eq!(
         narrowed_to,
         "pnpm --dir packages/screens exec vitest related src/overview.ts \
@@ -115,11 +118,60 @@ fn what_a_runner_narrows_to_is_still_a_narrowed_run() {
         &check(Some(vitest()), None),
         "screens_test",
         "pnpm --dir packages/screens exec vitest run",
-        &paths(&["src/overview.ts"]),
+        &paths(&["packages/screens/src/overview.ts"]),
         true,
     );
     let Planned::Command { narrowed_to, .. } = planned else {
         panic!("it narrows");
     };
     assert!(narrowed_to.is_some(), "recorded as narrowed, not as whole");
+}
+
+/// The runner's template runs from its `dir`, so `{files}` is dir-relative.
+#[test]
+fn files_reach_the_runner_relative_to_its_dir() {
+    let runner = Runner::declared("vitest".to_string(), Some("apps/desktop".to_string()));
+    let made = by_its_runner(
+        &check(Some(runner), None),
+        &paths(&["apps/desktop/src/a.test.tsx"]),
+    )
+    .expect("it narrows");
+    assert_eq!(
+        made,
+        "pnpm --dir apps/desktop exec vitest related src/a.test.tsx \
+         --run --passWithNoTests=false"
+    );
+}
+
+/// A path outside the dir cannot be named to the runner, and dropping it would
+/// narrow to a subset nobody was told about, so the Check runs whole.
+#[test]
+fn a_covered_path_outside_the_dir_leaves_the_check_whole() {
+    assert_eq!(
+        by_its_runner(
+            &check(Some(vitest()), None),
+            &paths(&["packages/screens/src/a.ts", "crates/x/src/lib.rs"])
+        ),
+        None
+    );
+    assert_eq!(
+        by_its_runner(
+            &check(Some(vitest()), None),
+            &paths(&["packages/other/a.ts"])
+        ),
+        None,
+        "nothing under the dir"
+    );
+}
+
+/// A dir sharing a prefix is not under it.
+#[test]
+fn a_sibling_sharing_a_prefix_is_not_under_the_dir() {
+    assert_eq!(
+        by_its_runner(
+            &check(Some(vitest()), None),
+            &paths(&["packages/screens-extra/a.ts"])
+        ),
+        None
+    );
 }

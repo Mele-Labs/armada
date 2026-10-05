@@ -25,15 +25,13 @@
 //! machines is [`approve_review`](Fleet::approve_review), called not restated.
 
 use adapter_traits::{
-    AgentHarness, Delivery, Landing, Mergeable, Merged, NotMerged, PushedOntoBase, Vcs,
-    WhatBecameOfIt, WhatTheForgeRan, WorkProduct,
+    AgentHarness, Delivery, Merged, NotMerged, Vcs, WhatBecameOfIt, WhatTheForgeRan, WorkProduct,
 };
 use config::MergeBy;
 use core_model::{Actor, AdvanceGate, Component, Envelope, FieldValue, Job, JobId, Level};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::repositories::Served;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -104,12 +102,12 @@ where
         // somebody most wants to know what was attempted.
         self.said_about_the_merge(&job, Level::Warn, why, &url, None);
         let served = self.served_by(&job)?;
-        // `merge_by:` picks the road and nothing after it differs: both answer
-        // what became of the pull request, and `settled_landing` takes it from
-        // there. `docs/capabilities/merge-line.md`, *The merge*.
+        // `merge_by:` picks the road. Under `push` the Job joins the merge line
+        // and its landing, record and approval are the line's, so a Fleet that
+        // restarts mid-landing finishes them: `crate::taking_turns`.
         let read: WhatBecameOfIt = match served.manifest().merge_by() {
             MergeBy::Forge => self.merged_by_the_forge(&job, served.root(), &url)?,
-            MergeBy::Push => self.merged_by_push(&job, &served, &url).await?,
+            MergeBy::Push => return self.merged_through_the_line(&job, &served, &url, by).await,
         };
         // **Held, never raised.** The merge happened; a record that would not
         // write must not leave a person told their press failed and their work
@@ -178,66 +176,6 @@ where
         // base is on now are one `landed` — and everything that follows a merge
         // is `crate::noticing`'s, reached rather than done again.
         Ok(self.vcs().landed(root, url))
-    }
-
-    /// `merge_by: push`: the merge commit is made here and pushed onto the
-    /// base, never forced, through the code `armada land` lands through. A
-    /// base that moved past the branch is brought into it and the branch gated
-    /// again first, and so is a head its Checks never passed on —
-    /// `crate::pushing_onto_base`.
-    ///
-    /// **The answer is written from the push**, not read from the forge: the
-    /// forge reads the pull request merged once its head is in the base, which
-    /// it may not have caught up to yet, and there is nothing else to ask.
-    async fn merged_by_push(
-        &self,
-        job: &Job,
-        served: &Served,
-        url: &str,
-    ) -> Result<WhatBecameOfIt, Adrift> {
-        let number = url.rsplit('/').next().and_then(|tail| tail.parse().ok());
-        let pushed = match self.pushed_onto_the_base(job, served, number).await {
-            Err(Adrift::NotMerged { why, .. }) => Err(why),
-            Err(other) => return Err(other),
-            Ok(pushed) => Ok(pushed),
-        };
-        let base = match pushed {
-            Ok(PushedOntoBase { base, merged }) => {
-                let said = match merged {
-                    Merged::Taken => "the merge commit was pushed onto the base",
-                    Merged::AlreadyMerged => {
-                        "the base already held the branch, so the press moved the record \
-                         rather than the base"
-                    }
-                };
-                self.said_about_the_merge(job, Level::Info, said, url, None);
-                base
-            }
-            Err(why) => {
-                self.said_about_the_merge(
-                    job,
-                    Level::Warn,
-                    "the merge commit was not pushed onto the base, and the Job is where it was",
-                    url,
-                    Some(&why),
-                );
-                return Err(Adrift::NotMerged {
-                    job: job.id().clone(),
-                    why,
-                });
-            }
-        };
-        Ok(WhatBecameOfIt {
-            landing: Landing::Merged {
-                url: url.to_string(),
-            },
-            base: Some(base),
-            number,
-            title: None,
-            mergeable: Mergeable::Unreadable,
-            // Fleet merged it this moment, so the instant is Fleet's clock.
-            merged_at: Some(self.now().as_str().to_string()),
-        })
     }
 
     /// Merge this Job's pull request where the repository's `auto_merge` policy
@@ -352,7 +290,7 @@ where
     /// **A log line that will not write does not undo anything**, for
     /// `landing::noted_not_sent`'s reason: what happened to the pull request is
     /// on the record, and this is the account of who asked for it.
-    fn said_about_the_merge(
+    pub(crate) fn said_about_the_merge(
         &self,
         job: &Job,
         level: Level,

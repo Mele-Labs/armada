@@ -53,8 +53,9 @@ pub enum Recourse {
     /// A person disagrees with a machine's decision and the stopped step
     /// advances still carrying it.
     OverrideVerdict,
-    /// The gate is asked again over evidence already submitted. The act for
-    /// `gate_undecided`, where there is no decision to disagree with.
+    /// The gate is asked again over evidence already submitted. Offered
+    /// for `gate_undecided` beside [`Recourse::OverrideVerdict`], where there is
+    /// no decision to disagree with.
     RerunGate,
     /// The stopped step's Checks run again on the worktree as it stands, with
     /// no Drone. The act for a Check that failed where nothing needs redoing.

@@ -137,6 +137,36 @@ pub fn remote_head(repo: &Path, remote: &str, branch: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// The merge commit on `base`'s first-parent line that took `head` in: the
+/// first one whose second parent holds `head`. `None` where the base holds
+/// `head` by some other road, or nothing lands it there yet.
+///
+/// What names a killed turn's push afterwards, when it died before it wrote
+/// the merge down.
+pub fn merge_naming(repo: &Path, base: &str, head: &str) -> Option<String> {
+    let range = format!("{head}..{base}");
+    let listed = git(
+        repo,
+        &[
+            "rev-list",
+            "--first-parent",
+            "--merges",
+            "--reverse",
+            "--ancestry-path",
+            "--max-count=500",
+            &range,
+        ],
+    )
+    .ok()?;
+    if !listed.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&listed.stdout)
+        .lines()
+        .find(|merge| is_ancestor(repo, head, &format!("{merge}^2")))
+        .map(str::to_string)
+}
+
 /// Whether `ancestor` is reachable from `descendant`; `false` on any failure.
 pub fn is_ancestor(repo: &Path, ancestor: &str, descendant: &str) -> bool {
     git(repo, &["merge-base", "--is-ancestor", ancestor, descendant])

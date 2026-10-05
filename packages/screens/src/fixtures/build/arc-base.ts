@@ -48,6 +48,7 @@ import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
+import { aboutOf } from "./step-about";
 
 /** The Job every arc moment is a moment of. */
 export const ARC_JOB_ID = "01M2D4YQK80011620DRONEST";
@@ -161,14 +162,14 @@ export const BRIDGE_CHECKS: DeclaredCheck[] = [
 export const checkNames = (checks: DeclaredCheck[]): string[] =>
   checks.map((check) => check.name ?? check.kind);
 
-/** The four steps `feature.json` declares, with the gates it declares them at. */
+/** The three steps `feature.json` declares, with the gates it declares them at. */
 export function featureWorkflow(): WorkflowSummary {
   return {
     id: "feature",
     name: "feature",
     version: 1,
     manifest_id: MANIFEST_ID,
-    steps: [
+    steps: ([
       {
           step_id: "plan",
           label: "Plan the change",
@@ -181,20 +182,12 @@ export function featureWorkflow(): WorkflowSummary {
       {
           step_id: "implement",
           label: "Implement",
-          checks: [...RUST_CHECKS, ...BRIDGE_CHECKS],
-          judge_checks: [{ criteria: 4, gaming_check: false }],
+          // `test` is in both lists; a step declares each Check once.
+          checks: [...RUST_CHECKS, ...BRIDGE_CHECKS.filter((one) => !RUST_CHECKS.some((rust) => rust.name === one.name))],
+          judge_checks: [{ criteria: 5, gaming_check: true }],
           advance_gate: "auto_if_judge_passes",
           delivers: false,
           drone_per_task: true,
-          phase: "work",
-        },
-      {
-          step_id: "tests",
-          label: "Write tests",
-          checks: BRIDGE_CHECKS,
-          judge_checks: [{ criteria: 1, gaming_check: true }],
-          advance_gate: "auto_if_judge_passes",
-          delivers: false,
           phase: "work",
         },
       {
@@ -206,7 +199,7 @@ export function featureWorkflow(): WorkflowSummary {
           delivers: true,
           phase: "delivery",
         },
-    ],
+    ] satisfies WorkflowSummary["steps"]).map((one) => ({ ...one, ...aboutOf("feature", one.step_id) })),
   };
 }
 
