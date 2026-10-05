@@ -34,16 +34,11 @@ export type Step =
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
-export type Walk = {
-  scenario: string;
-  steps: readonly Step[];
-  /** How the run canvas draws a plan's tasks, where the walk is the one that compares layouts (`?plan=`). */
-  plan?: "chains" | "clusters";
-};
+export type Walk = { scenario: string; steps: readonly Step[] };
 
 /** A walk over `scenario`. Its name is the name it is exported under. */
-export function walk(scenario: string, steps: readonly Step[], options: { plan?: "chains" | "clusters" } = {}): Walk {
-  return { scenario, steps, ...(options.plan === undefined ? {} : { plan: options.plan }) };
+export function walk(scenario: string, steps: readonly Step[]): Walk {
+  return { scenario, steps };
 }
 
 const quoted = (name: Name) => (typeof name === "string" ? `“${name}”` : String(name));

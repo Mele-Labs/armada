@@ -21,7 +21,6 @@ import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, S
 import type { GateView } from "./draft/proposal";
 import type { TaskView } from "./draft/task";
 import { TASK_ACTIVITY, taskNodeId } from "./plan-canvas";
-import { planLayout } from "./plan-layout";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 
@@ -585,17 +584,14 @@ export function approvalNodesOf({
   // one waits, and from each nobody waits on to the next node on the spine.
   const byId = new Map(nodes.map((one) => [one.id, one]));
   const spine = nodes.filter((one) => one.from === undefined && one.chain === undefined);
-  // A group's tasks hang below it in plan order. The plan carries no dependency
-  // between tasks, so none is drawn: only the order it lists them in.
-  // A group's tasks hang below it in waves: the tasks the plan declares may run
-  // at once share a row, the rest chain. Each wave leads into the next.
+  // A group's tasks sit in its Cluster in waves: the tasks the plan declares may
+  // run at once share a row, the rest follow. Each wave leads into the next.
   for (const node of nodes) {
     if (node.chain === undefined) continue;
     const { group, wave } = node.chain;
-    // In a cluster the group is the frame the first wave sits in: no edge into it.
-    if (wave === 0 && planLayout() === "clusters") continue;
-    const before = wave === 0 ? [byId.get(group)] : nodes.filter((one) => one.chain?.group === group && one.chain.wave === wave - 1);
-    for (const above of before) if (above !== undefined) lead(above, node);
+    // The group is the frame the first wave sits in: no edge into it.
+    if (wave === 0) continue;
+    for (const above of nodes.filter((one) => one.chain?.group === group && one.chain.wave === wave - 1)) lead(above, node);
   }
   for (const node of nodes) {
     if (node.from !== undefined) {
@@ -634,11 +630,8 @@ export function approvalNodesOf({
     }
     for (const member of fan) {
       if (fan.some((other) => other.waits_on?.includes(member.id) === true)) continue;
-      // A group with tasks rejoins from the foot of its chain.
-      const chain = nodes.filter((one) => one.chain?.group === member.id);
-      const last = Math.max(-1, ...chain.map((one) => one.chain!.wave));
-      // A cluster leaves from its own bottom, a chain from the foot of its last wave.
-      for (const foot of last < 0 || planLayout() === "clusters" ? [member] : chain.filter((one) => one.chain!.wave === last)) lead(foot, node);
+      // A cluster leaves from its own bottom.
+      lead(member, node);
     }
   }
   return { nodes, edges };

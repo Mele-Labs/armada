@@ -1,10 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ApprovalNode } from "./approval-canvas";
 import { layoutOf } from "./approval-layout";
-import { setPlanLayout } from "./plan-layout";
-
-afterEach(() => setPlanLayout(undefined));
 
 const base = { lane: "work" as const, traits: [], meta: [], ordinal: 0 };
 const step: ApprovalNode = { ...base, id: "implement", kind: "step", name: "Implement" };
@@ -23,7 +20,6 @@ const nodes = [step, group("G1"), task("T1", "G1", 0), task("T2", "G1", 0), grou
 
 describe("the clusters layout", () => {
   it("sizes a group as the frame its tasks sit in, side by side with the next", () => {
-    setPlanLayout("clusters");
     const { places, sizes } = layoutOf(nodes, []);
     const one = sizes.get("group:G1")!;
     const two = sizes.get("group:G2")!;
@@ -33,7 +29,6 @@ describe("the clusters layout", () => {
   });
 
   it("holds each task inside its cluster, concurrent ones on one row and the rest below", () => {
-    setPlanLayout("clusters");
     const { places, sizes } = layoutOf(nodes, []);
     const at = (id: string) => places.get(id)!;
     expect(at("task:T1").y).toBe(at("task:T2").y);
@@ -45,16 +40,14 @@ describe("the clusters layout", () => {
   });
 
   it("puts the gate below the tallest cluster, and draws no frames of its own for the groups", () => {
-    setPlanLayout("clusters");
     const { places, sizes, frames } = layoutOf(nodes, []);
     const tallest = Math.max(...[...sizes.values()].map((one) => one.height));
     expect(places.get("implement:checks")!.y).toBeGreaterThan(places.get("group:G1")!.y + tallest);
     expect(frames.some((one) => one.kind === "cluster")).toBe(false);
   });
 
-  it("keeps the chains where it is not asked for", () => {
-    const { sizes, frames } = layoutOf(nodes, []);
-    expect(sizes.size).toBe(0);
-    expect(frames.some((one) => one.kind === "cluster")).toBe(true);
+  it("gives the clusters in a row one height, the tallest", () => {
+    const { sizes } = layoutOf(nodes, []);
+    expect(sizes.get("group:G1")!.height).toBe(sizes.get("group:G2")!.height);
   });
 });

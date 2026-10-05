@@ -8,7 +8,6 @@ import type { WorkflowCanvasEdge } from "@armada/components";
 
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, Lane } from "./approval-canvas";
-import { planLayout } from "./plan-layout";
 
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
 const CARD = { height: 112, width: 260, narrow: 196 };
@@ -82,32 +81,6 @@ function rowsOf(fan: readonly ApprovalNode[]): ApprovalNode[][] {
 const rowWidth = (row: readonly ApprovalNode[], nodes: readonly ApprovalNode[]): number =>
   row.reduce((sum, one) => sum + columnOf(one, nodes), 0) + ACROSS * Math.max(0, row.length - 1);
 
-/**
- * **The one place a group's tasks are put.** Chains: each group's tasks hang
- * in a column under it, in plan order. The clusters-side-by-side layout would
- * replace this function and `joinOf`, and nothing else.
- */
-function chainsUnder(row: readonly ApprovalNode[], nodes: readonly ApprovalNode[], places: Map<string, Place>, top: number): number {
-  let tallest = 0;
-  for (const group of row) {
-    const at = places.get(group.id);
-    const chain = nodes.filter((one) => one.chain?.group === group.id);
-    if (at === undefined || chain.length === 0) continue;
-    // Each wave a row, centred under the group, so an uneven wave sits on the group's axis.
-    const waves = wavesOfChain(chain);
-    for (const [n, wave] of waves.entries()) {
-      const y = top + TASK.gap + n * (TASK.height + TASK.gap);
-      let x = at.x + widthOf(group) / 2 - waveWidth(wave) / 2;
-      for (const task of wave) {
-        places.set(task.id, { x, y });
-        x += widthOf(task) + ACROSS;
-      }
-    }
-    tallest = Math.max(tallest, waves.length * (TASK.height + TASK.gap));
-  }
-  return tallest;
-}
-
 const wavesOfChain = (chain: readonly ApprovalNode[]): ApprovalNode[][] => {
   const waves: ApprovalNode[][] = [];
   for (const task of chain) (waves[task.chain!.wave] ??= []).push(task);
@@ -120,13 +93,10 @@ const waveWidth = (wave: readonly ApprovalNode[]): number =>
 /** How wide a group's column is: its card, or its widest wave of tasks. */
 const columnOf = (group: ApprovalNode, nodes: readonly ApprovalNode[]): number =>
   Math.max(widthOf(group), ...wavesOfChain(nodes.filter((one) => one.chain?.group === group.id)).map(waveWidth)) +
-  (clustered(group) ? CLUSTER_PAD * 2 : 0);
-
-/** Whether a plan group is drawn as a Cluster holding its tasks, rather than a card with a chain under it. */
-const clustered = (node: ApprovalNode): boolean => node.kind === "group" && planLayout() === "clusters";
+  (group.kind === "group" ? CLUSTER_PAD * 2 : 0);
 
 /**
- * **The clusters layout, the other place a group's tasks are put.** Each group
+ * **Where a group's tasks are put.** Each group
  * is a Cluster side by side with its neighbours: a head, then its waves as
  * rows inside. The group's own node is the frame, so an edge enters its top
  * and leaves its bottom. Returns where the row ends.
@@ -158,18 +128,10 @@ function clustersUnder(
     tallest = Math.max(tallest, height);
     x += width + ACROSS;
   }
+  // One height for the row, so every exit drops the same distance to the gate.
+  for (const group of fan) sizes.set(group.id, { ...sizes.get(group.id)!, height: tallest });
   return top + tallest;
 }
-
-/** Where chains of any length rejoin: one line, half a row above the node they rejoin at. */
-const joinOf = (nodes: ReadonlyMap<string, ApprovalNode>, edge: WorkflowCanvasEdge, places: ReadonlyMap<string, Place>): number | undefined => {
-  const from = nodes.get(edge.source);
-  const into = nodes.get(edge.target);
-  const reaches = from?.chain !== undefined || from?.kind === "group";
-  const lands = into !== undefined && into.from === undefined && into.chain === undefined;
-  const at = places.get(edge.target);
-  return reaches && lands && at !== undefined ? at.y - ROW_GAP / 2 : undefined;
-};
 
 export function layoutOf(
   nodes: readonly ApprovalNode[],
@@ -219,7 +181,7 @@ export function layoutOf(
       const fan = fans.get(node.id);
       if (fan !== undefined) {
         const top = y + ROW_GAP;
-        if (fan[0] !== undefined && clustered(fan[0])) {
+        if (fan[0]?.kind === "group") {
           y = clustersUnder(fan, nodes, places, sizes, spine, top);
         } else {
         // The fan's Cluster: a head, then its rows centred on the spine.
@@ -233,7 +195,7 @@ export function layoutOf(
             places.set(member.id, { x: at + (column - widthOf(member)) / 2, y: rowY });
             at += column + ACROSS;
           }
-          rowY += CARD.height + chainsUnder(row, nodes, places, rowY + CARD.height) + ROW_GAP;
+          rowY += CARD.height + ROW_GAP;
         }
         const bottom = rowY - ROW_GAP + CLUSTER_PAD;
         frames.push({
@@ -273,10 +235,7 @@ export function layoutOf(
     })),
   );
 
-  const byId = new Map(nodes.map((node) => [node.id, node]));
   const drawn = edges.map((edge) => {
-    const joinY = joinOf(byId, edge, places);
-    if (joinY !== undefined) return { ...edge, joinY };
     const from = laneOfId.get(edge.source);
     const into = laneOfId.get(edge.target);
     if (edge.kind === "returns" && from !== undefined) {
