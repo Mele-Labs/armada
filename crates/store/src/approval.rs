@@ -55,6 +55,16 @@ CREATE TABLE job_issue_sources (
 ) STRICT;
 "#;
 
+/// Version 104 — whether a Job stops at its branch, and whether its pull
+/// request is set to merge itself. **Nothing is backfilled**: a row kept
+/// before this opened a pull request and left the merge to somebody.
+pub(crate) const V104: &str = r#"
+ALTER TABLE job_landing ADD COLUMN local INTEGER NOT NULL DEFAULT 0
+    CHECK (local IN (0, 1));
+ALTER TABLE job_landing ADD COLUMN auto_merge INTEGER NOT NULL DEFAULT 0
+    CHECK (auto_merge IN (0, 1));
+"#;
+
 impl Store {
     /// Rewrite what a person edited on a Job at its approval gate, and its step
     /// rows, in one transaction. **Compare-and-swap on `awaiting_approval`**,
@@ -109,17 +119,20 @@ impl Store {
     pub fn set_landing(&mut self, job_id: &JobId, landing: &Landing) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO job_landing (job_id, target, from_ref, pr_mode, complete_when)
-                 VALUES (?1, ?2, ?3, ?4, ?5)
+                "INSERT INTO job_landing (job_id, target, from_ref, pr_mode, complete_when, local, auto_merge)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                  ON CONFLICT (job_id) DO UPDATE SET
                      target = excluded.target, from_ref = excluded.from_ref,
-                     pr_mode = excluded.pr_mode, complete_when = excluded.complete_when",
+                     pr_mode = excluded.pr_mode, complete_when = excluded.complete_when,
+                     local = excluded.local, auto_merge = excluded.auto_merge",
                 rusqlite::params![
                     job_id.as_str(),
                     landing.target.as_ref().map(Branch::as_str),
                     landing.from_ref.as_ref().map(Branch::as_str),
                     landing.pr_mode.as_wire(),
                     landing.complete_when.as_wire(),
+                    landing.local,
+                    landing.auto_merge,
                 ],
             )
             .map_err(fault("keeping how a job lands"))
@@ -133,7 +146,7 @@ impl Store {
         let row = self
             .conn
             .query_row(
-                "SELECT target, from_ref, pr_mode, complete_when FROM job_landing
+                "SELECT target, from_ref, pr_mode, complete_when, local, auto_merge FROM job_landing
                  WHERE job_id = ?1",
                 (job_id.as_str(),),
                 |row| {
@@ -142,6 +155,8 @@ impl Store {
                         row.get::<_, Option<String>>(1)?,
                         row.get::<_, String>(2)?,
                         row.get::<_, Option<String>>(3)?,
+                        row.get::<_, bool>(4)?,
+                        row.get::<_, bool>(5)?,
                     ))
                 },
             )
@@ -152,17 +167,21 @@ impl Store {
             })
             .map_err(fault(reading))
             .map_err(LoadJobError::Database)?;
-        Ok(row.map(|(target, from_ref, mode, when)| Landing {
-            target: core_model::branch_named(target.as_deref()),
-            from_ref: core_model::branch_named(from_ref.as_deref()),
-            // The table's check admits nothing else.
-            pr_mode: PrMode::from_wire(&mode).unwrap_or_default(),
-            // Null on a row kept before V101, which completed when delivered.
-            complete_when: when
-                .as_deref()
-                .and_then(CompleteWhen::from_wire)
-                .unwrap_or_default(),
-        }))
+        Ok(row.map(
+            |(target, from_ref, mode, when, local, auto_merge)| Landing {
+                local,
+                auto_merge,
+                target: core_model::branch_named(target.as_deref()),
+                from_ref: core_model::branch_named(from_ref.as_deref()),
+                // The table's check admits nothing else.
+                pr_mode: PrMode::from_wire(&mode).unwrap_or_default(),
+                // Null on a row kept before V101, which completed when delivered.
+                complete_when: when
+                    .as_deref()
+                    .and_then(CompleteWhen::from_wire)
+                    .unwrap_or_default(),
+            },
+        ))
     }
 
     /// Keep this Job's Drone cap, or clear it where `None`.

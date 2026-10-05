@@ -211,4 +211,6 @@ export type ModelChoices = {
   models: string[];
   /** Always a member of `models`, so a picker selects it without a lookup. */
   default: string;
+  /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
+  harnesses?: string[];
 };

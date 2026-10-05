@@ -215,6 +215,13 @@ in_code = "Yes"
 notes = "**The one road out that produces work**, and the Job on it is the head of what the proposal became. `propose_from_request` already answers every Job it mints at `awaiting_approval`, so this edge adds no gate and removes none — what changes is that the row was on the Board while the proposer read, rather than appearing when it answered. The step machine is initialised as it crosses, because this is the moment a WorkflowDef exists to initialise it from. Where the proposer splits one request into several, the extras are created here rather than moved and carry `dispatched_by` back to this Job; a second relation for the split was refused because `dispatched_by` already says it."
 
 [[transitions]]
+from = "awaiting_approval"
+to = "proposing"
+on = "A person sent the proposal back to the proposer with a note"
+in_code = "Yes"
+notes = "**A person's act, and the one edge into `proposing` from anywhere**, 4 Oct 2026. The Job is read again from its gate: the proposer is given the request and the note, and its answer replaces the words, the workflow and the criteria whole, the same crossing back to `awaiting_approval` as the first. No `Target` names `proposing`, so `Job::sent_back_to_the_proposer` is the only way across, as `Job::answered` is the only way back."
+
+[[transitions]]
 from = "proposing"
 to = "escalated"
 on = "The proposer declined to find a workflow, or the call faulted"

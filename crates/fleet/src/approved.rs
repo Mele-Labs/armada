@@ -153,7 +153,7 @@ where
 
     /// [`approve_as_left`](Fleet::approve_as_left) up to the press: read,
     /// refused or kept whole, and the Job left at its gate.
-    async fn kept_as_left(
+    pub(crate) async fn kept_as_left(
         &self,
         job_id: &JobId,
         body: &ipc::ApproveDispatch,
@@ -173,6 +173,11 @@ where
                     .map_err(|why| why.about(job_id))?;
             }
         }
+        crate::tuned::harnesses_held(
+            body.tuning.as_deref().unwrap_or_default(),
+            &self.models().harnesses,
+        )
+        .map_err(|why| refused(job_id, Refused::Untuned(why)))?;
         for model in body
             .tuning
             .iter()

@@ -88,6 +88,13 @@ pub enum Refused {
     /// A Drone cap of zero.
     NoCap,
     BlankModel,
+    /// A note for the proposer that says nothing.
+    NoNote,
+    /// The Job is one of a split, or was split: its siblings are at their own
+    /// gates, and a rewrite would leave them behind.
+    SplitAlready,
+    /// `local` with `auto_merge`: nothing opens a pull request to merge.
+    NothingToAutoMerge,
     /// A step's tuning nothing could honour.
     Untuned(crate::tuned::Untunable),
 }
@@ -157,6 +164,17 @@ impl fmt::Display for Refused {
             ),
             Refused::NoCap => write!(out, "a drone cap of zero lets the job run nothing"),
             Refused::BlankModel => write!(out, "a tier names a blank model"),
+            Refused::NoNote => write!(out, "a note for the proposer says nothing"),
+            Refused::SplitAlready => write!(
+                out,
+                "this job is one of a split, or was split, and its siblings are at their own \
+                 gates, so a rewrite would leave them behind"
+            ),
+            Refused::NothingToAutoMerge => write!(
+                out,
+                "local keeps the work on its branch and opens no pull request, so there is \
+                 nothing to auto-merge"
+            ),
             Refused::Untuned(why) => write!(out, "{why}"),
         }
     }
@@ -460,7 +478,7 @@ fn agree<P: PartialEq + Copy>(
 
 /// The landing a person set. **Only what Fleet runs is kept** (`landing.ts`'s
 /// `COMPLETE_WHEN_SERVED`): one branch per Job, done delivered or landed.
-fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
+pub(crate) fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
     let Some(choice) = choice else {
         return Ok(Landing::as_ever());
     };
@@ -482,14 +500,23 @@ fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
         ipc::CompleteWhen::PrMerged => return refused("pr_merged"),
         ipc::CompleteWhen::PrOpened => return refused("pr_opened"),
     };
+    if choice.local && choice.auto_merge {
+        return Err(Refused::NothingToAutoMerge);
+    }
     Ok(Landing {
+        local: choice.local,
+        auto_merge: choice.auto_merge,
         complete_when,
         target: core_model::branch_named(choice.target.as_deref()),
         from_ref: core_model::branch_named(choice.from_ref.as_deref()),
-        pr_mode: choice
-            .pr_mode
-            .map(|mode| mode.domain())
-            .unwrap_or(PrMode::Ready),
+        // Ignored while `local` holds: one answer, not two.
+        pr_mode: match choice.local {
+            true => PrMode::Ready,
+            false => choice
+                .pr_mode
+                .map(|mode| mode.domain())
+                .unwrap_or(PrMode::Ready),
+        },
     })
 }
 

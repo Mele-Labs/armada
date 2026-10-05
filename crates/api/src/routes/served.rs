@@ -883,6 +883,11 @@ const ROUTES: &[Route] = &[
         path: "/jobs/:job_id/set_tiers",
     },
     Route {
+        operation: "to_proposer",
+        method: "POST",
+        path: "/jobs/:job_id/to_proposer",
+    },
+    Route {
         operation: "set_landing_target",
         method: "POST",
         path: "/jobs/:job_id/set_landing_target",

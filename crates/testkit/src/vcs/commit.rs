@@ -4,6 +4,8 @@
 //! `vcs.rs` fakes three traits and was near the 900 lines the gate refuses at.
 //! A branch cut for a Job, and a ref moved, are here too, for the same reason.
 
+use std::collections::BTreeMap;
+
 use adapter_traits::{CommitTime, Committed, Worktree};
 
 use super::{FakeVcs, FakeVcsError};
@@ -43,6 +45,30 @@ pub(super) enum Willing {
 }
 
 impl FakeVcs {
+    /// Every base checkout this fake is holding, by commit, with whether it has
+    /// been marked prepared.
+    pub fn bases(&self) -> BTreeMap<String, bool> {
+        self.bases.lock().expect("not poisoned").clone()
+    }
+
+    /// The commits this fake has been asked to drop a base checkout for.
+    pub fn dropped_bases(&self) -> Vec<String> {
+        self.dropped_bases.lock().expect("not poisoned").clone()
+    }
+
+    /// Say a base checkout has finished `setup.requires`, the way writing the
+    /// marker into a real one does.
+    ///
+    /// **On the fake rather than inferred from a `prepare` call**, because
+    /// nothing here runs a command: preparation is Fleet's, and what this fake
+    /// owes it is somewhere to record that it happened.
+    pub fn base_is_prepared(&self, commit: &str) {
+        self.bases
+            .lock()
+            .expect("not poisoned")
+            .insert(commit.to_string(), true);
+    }
+
     /// Make every commit answer `NothingToCommit`, as a Job that wrote no file
     /// would.
     pub fn with_nothing_to_commit(self) -> FakeVcs {
@@ -124,4 +150,19 @@ pub(super) fn cut_branch(vcs: &FakeVcs, name: &str, start: &str) -> Result<(), F
         })?;
     refs.insert(name.to_string(), commit);
     Ok(())
+}
+
+/// `Delivery::enable_auto_merge`: recorded, then answered as scripted.
+pub(super) fn auto_merge(vcs: &FakeVcs, pull_request: &str) -> Result<(), String> {
+    vcs.delivered
+        .lock()
+        .expect("not poisoned")
+        .push(super::Delivered::AutoMerge {
+            pull_request: pull_request.to_string(),
+        });
+    vcs.delivery
+        .lock()
+        .expect("not poisoned")
+        .auto_merge
+        .clone()
 }
