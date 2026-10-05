@@ -161,14 +161,14 @@ export function OverviewBoard({
       <div className="armada-overview-board__cards" data-brief={approving === undefined && run === undefined ? undefined : "in-panel"}>
         {approving !== undefined || run !== undefined ? null : (
         <>
-        /* **What the Job is for, before what it is doing.** It took the
+        {/* **What the Job is for, before what it is doing.** It took the
             figures strip's place at the owner's word, 29 Sep 2026: *"maybe
             the brief should replace where the figures list is right now."*
             The one card with no destination behind it.
 
             **Where the work came from, named, at the head's trailing edge** —
             the owner's call of 2 Oct 2026 on #1674. One press, the header
-            sentence's own: the Studio's canvas with this Job's node picked. */
+            sentence's own: the Studio's canvas with this Job's node picked. */}
         <DestinationCard
           label="Brief"
           trailing={

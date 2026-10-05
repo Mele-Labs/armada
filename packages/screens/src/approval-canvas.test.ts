@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { approvalNodesOf } from "./approval-canvas";
+import { approvalNodesOf, flowingOf, stepsReadOf } from "./approval-canvas";
 import type { StepRead } from "./approval-canvas";
 import { tuningOf } from "./draft/tuning";
 
@@ -31,31 +31,31 @@ describe("approvalNodesOf", () => {
       "brief",
       "base",
       "plan",
-      "plan:checks",
+      "plan:judge",
       "implement",
       "groups",
       "implement:checks",
       "done",
       "pr",
       "handoff",
+      "handoff:you",
       "land",
     ]);
   });
 
-  it("puts Done when before Land on the spine where nothing opens a pull request, Review beside it", () => {
+  it("puts Done when before the Review step and its You stage where nothing opens a pull request", () => {
     const { nodes } = nodesOf(tuningOf([]), "ready", { local: true });
-    const spine = nodes.filter((node) => node.side === undefined && node.from === undefined).map((node) => node.id);
-    expect(spine.slice(-2)).toEqual(["done", "land"]);
-    expect(nodes.find((node) => node.id === "handoff")?.side).toBe("done");
+    expect(nodes.map((node) => node.id).slice(-4)).toEqual(["done", "handoff", "handoff:you", "land"]);
   });
 
-  it("lays the run in three lanes, each gate beside its step", () => {
+  it("lays the run in three lanes, each gate a stage on its lane's spine", () => {
     const { nodes } = nodesOf();
     const lane = (id: string) => nodes.find((node) => node.id === id)?.lane;
     expect([lane("base"), lane("plan"), lane("done"), lane("land")]).toEqual(["setup", "work", "delivery", "delivery"]);
     expect(nodes.some((node) => node.id === "start")).toBe(false);
-    expect(nodes.find((node) => node.id === "plan:checks")?.side).toBe("plan");
-    expect(nodes.find((node) => node.id === "handoff")?.side).toBe("pr");
+    expect(lane("plan:judge")).toBe("work");
+    expect(lane("handoff:you")).toBe("delivery");
+    expect(nodes.find((node) => node.id === "plan:judge")?.gate).toBe("judge");
   });
 
   it("draws the plan's groups in the placeholder's place, each in its own state", () => {
@@ -116,17 +116,16 @@ describe("a wave's Jobs", () => {
   it("stands as Jobs after the step that dispatches them, until the wave exists", () => {
     const placeholder = read().nodes.find((node) => node.id === "jobs");
     expect(placeholder?.lane).toBe("work");
-    expect(read().nodes.map((node) => node.id).slice(2, 5)).toEqual(["plan", "plan:checks", "jobs"]);
+    expect(read().nodes.map((node) => node.id).slice(2, 6)).toEqual(["plan", "plan:judge", "plan:you", "jobs"]);
   });
 
   it("leads from the gate to each Job that waits on nothing, and on from each nobody waits on", () => {
     const { nodes, edges } = read([job("A"), job("B", ["A"]), job("C")]);
     expect(nodes.find((node) => node.id === "job:B")?.band).toEqual({ depth: 1, index: 0, of: 1 });
     const pairs = edges.map((edge) => `${edge.source}>${edge.target}`);
-    // The gate hangs beside Plan, so the wave falls from Plan itself.
-    expect(pairs).toContain("plan>plan:checks");
-    expect(pairs).toContain("plan>job:A");
-    expect(pairs).toContain("plan>job:C");
+    expect(pairs).toContain("plan:judge>plan:you");
+    expect(pairs).toContain("plan:you>job:A");
+    expect(pairs).toContain("plan:you>job:C");
     expect(pairs).toContain("job:A>job:B");
     expect(pairs).toContain("job:B>roll_up");
     expect(pairs).toContain("job:C>roll_up");
@@ -181,15 +180,16 @@ describe("a setting moved since the approval", () => {
 
   it("puts what a refusing Judge does on the Judge's gates still to run, and nowhere else", () => {
     const judged = GATES.map((gate) => (gate.step_id === "implement" ? { ...gate, judge: true } : gate));
+    const steps = STEPS.map((step) => (step.id === "implement" ? { ...step, judges: [{ criteria: 1, gaming_check: false }] } : step));
     const read = approvalNodesOf({
-      title: "T", from: "main", steps: STEPS, gates: judged, tuning: tuningOf([]), prMode: "ready", target: "main", life,
+      title: "T", from: "main", steps, gates: judged, tuning: tuningOf([]), prMode: "ready", target: "main", life,
     }).nodes;
     const gate = (id: string) => read.find((one) => one.id === id)!;
-    expect(gate("implement:checks").meta).toEqual([
+    expect(gate("implement:judge").meta).toEqual([
       { key: "When the Judge refuses, was Ask me", value: "Always stop the step", tuned: true },
     ]);
     // Plan's gate has passed, so the change does not reach it.
-    expect(gate("plan:checks").meta).toEqual([]);
+    expect(gate("plan:judge").meta).toEqual([]);
   });
 });
 
@@ -200,5 +200,37 @@ describe("Land, local only", () => {
       prMode: "ready", local: true, target: "main", branch: "armada/1-retire-guide-8",
     });
     expect(nodes.at(-1)).toMatchObject({ id: "land", face: "armada/1-retire-guide-8" });
+  });
+});
+
+describe("stepsReadOf", () => {
+  const gates = [{ step_id: "handoff", checks: false, judge: true, you: true }];
+  const whole = { steps: [{ step_id: "handoff", label: "Review", judge_checks: [{ criteria: 1, gaming_check: false }] }] } as never;
+  const catalog = new Map([["handoff", { step_id: "handoff", label: "Review", judge_checks: [] } as never]]);
+
+  it("reads the catalog at the gate, and the Job's own step past it", () => {
+    expect(stepsReadOf(gates, whole, catalog)[0]?.judges).toEqual([]);
+    expect(stepsReadOf(gates, whole, catalog, true)[0]?.judges).toHaveLength(1);
+  });
+});
+
+describe("flowingOf", () => {
+  const at = { activity: "running" as const, said: "running", current: true };
+  const run = (pass?: { number: number; of: number }) => {
+    const steps = STEPS.map((step) => (step.id === "implement" ? { ...step, returns: { to: "implement", ...(pass === undefined ? {} : { pass }) } } : step));
+    const { nodes, edges } = approvalNodesOf({
+      title: "T", from: "main", steps, gates: GATES, tuning: tuningOf([]), prMode: "ready", target: "main",
+      life: { nodes: { implement: at } },
+    });
+    const flowing = flowingOf(nodes, edges, steps).filter((edge) => edge.flowing === true);
+    return flowing.map((edge) => `${edge.kind}:${edge.source}>${edge.target}`);
+  };
+
+  it("flows the forward edge into the step on its first attempt", () => {
+    expect(run({ number: 1, of: 3 })).toEqual(["leads:plan:judge>implement"]);
+  });
+
+  it("flows the way back, and not the forward edge, once the step is on another attempt", () => {
+    expect(run({ number: 2, of: 3 })).toEqual(["returns:implement:checks>implement"]);
   });
 });

@@ -177,3 +177,42 @@ it("drops an answer whose Job was replaced while it was in flight", async () => 
   const painted = states.filter((state) => state.state === "read");
   expect(painted.every((state) => state.jobId === ANOTHER_JOB)).toBe(true);
 });
+
+/**
+ * **A read that failed is taken again, with no event to prompt it.** A Job
+ * awaiting approval has none coming, so one lost read at the moment it opened
+ * left the Overview saying *Fleet did not answer* indefinitely.
+ */
+it("takes a failed read again on its own where the reader asks to", async () => {
+  const { port, held } = await holding();
+  const states: JobRead<{ seen: unknown }>[] = [];
+  const reader = new JobReader<{ seen: unknown }>({
+    route: (jobId) => `/jobs/${jobId}`,
+    keeps: (body) => ({ seen: body }),
+    publish: (state) => states.push(state),
+    retryMs: 10,
+  });
+
+  const first = reader.want(port, A_JOB);
+  await parked(held, 1);
+  held[0]?.breaks();
+  await first;
+  expect(shown(states)).toBe("failed");
+
+  await parked(held, 2);
+  held[1]?.answer({ ok: true });
+  for (let n = 0; n < 200 && shown(states) === "failed"; n += 1) await new Promise((w) => setTimeout(w, 5));
+  expect(shown(states)).toEqual({ ok: true });
+  reader.close();
+});
+
+it("does not retry a read without the option, or once it is closed", async () => {
+  const { port, held } = await holding();
+  const { reader } = reading();
+  const first = reader.want(port, A_JOB);
+  await parked(held, 1);
+  held[0]?.breaks();
+  await first;
+  await new Promise((w) => setTimeout(w, 60));
+  expect(held).toHaveLength(1);
+});

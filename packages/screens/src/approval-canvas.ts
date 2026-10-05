@@ -2,10 +2,11 @@
 // where the work starts, the workflow starting, each step and what gates it,
 // the pull request, and where it lands. The approval canvas, prototype.
 //
-// **The order is the run's.** A step's gate follows the step as its own node
-// where the step declares Checks or a Judge — what the owner drew, `Plan →
-// Checks → Implement` — and sits on the step's own card where it declares
-// neither, so a step a person alone reads is one node and not two.
+// **The order is the run's.** A step's gate is a stage on the spine between it
+// and the next step, because the next step cannot start until it passes
+// (the owner, 5 Oct 2026): `Plan → Checks → Judge → Implement`, one stage per
+// kind of gate the step has, each with a face of its own. A step with no gate
+// has no stage. A gate that sends the step back draws the way back on an edge.
 //
 // **What lands reshapes the end.** Local delivery has no pull request to open,
 // so its node goes and Land names the branch the work stays on — local only
@@ -13,9 +14,9 @@
 // says on the edge into Land that it merges on its own. One field each, read here.
 
 import { AUTO, STEP_STATE } from "@armada/components";
-import type { RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
+import type { GateCommandOutcome, PanelMark, RunNodeGate, RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
-import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, StepPhase, WorkflowStep } from "@armada/protocol";
+import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, StepPass, StepPhase, WorkflowStep } from "@armada/protocol";
 
 import type { GateView } from "./draft/proposal";
 import type { TaskView } from "./draft/task";
@@ -36,6 +37,25 @@ export type ApprovalNodeKind =
   | "pr"
   | "land";
 
+/** The kinds of gate a step can have, in the order they run. */
+export type GateKind = "checks" | "judge" | "you";
+
+/** What a running gate stage has done so far: what Fleet serves of it, and nothing more. */
+export type GateRun = {
+  /** Each command's outcome, by name. */
+  commands?: readonly { name: string; outcome: GateCommandOutcome }[];
+  /** How long the Checks have run. */
+  elapsed?: string;
+  /** The last line a live command printed. */
+  output?: string;
+  /** The panel as it stands: one mark per judge. */
+  panel?: readonly PanelMark[];
+  /** A refusal's first line. */
+  refusal?: string;
+  /** How long a person has been waited on. */
+  waited?: string;
+};
+
 /**
  * Where a node is in the Job's life, once it has one. Absent is a node nothing
  * reached, which is every node at the gate.
@@ -48,6 +68,8 @@ export type NodeLife = {
   mark?: { icon: LucideIcon; token: string };
   /** The node the Job is at. */
   current?: boolean;
+  /** A gate stage's run so far. */
+  run?: GateRun;
 };
 
 /** One of the plan's groups, as the canvas draws it in the Groups node's place. */
@@ -110,6 +132,8 @@ export type StepRead = {
   perTask: boolean;
   /** Whether its Drone creates the wave's Jobs: `may_dispatch_jobs`. */
   dispatches: boolean;
+  /** Where its gate sends the work back to, and the pass it is on: `verdict_routing_target`, `pass`. */
+  returns?: { to: string; pass?: StepPass };
 };
 
 /** The three phases the run is laid out in, left to right (the owner, 4 Oct 2026). */
@@ -121,12 +145,14 @@ export type ApprovalNode = {
   id: string;
   kind: ApprovalNodeKind;
   lane: Lane;
-  /** A gate hung beside the node it gates, on its row, by that node's id. Off the spine. */
-  side?: string;
   /** A fanned group or Job, under the node it falls from, by that node's id. Off the spine. */
   from?: string;
   /** The step it belongs to, on a step or its gate. */
   stepId?: string;
+  /** Which kind of gate a `checks` node is the stage for. */
+  gate?: GateKind;
+  /** A gate stage's face. */
+  gateFace?: RunNodeGate;
   name: string;
   /** Its position in the run, from one. */
   ordinal: number;
@@ -169,8 +195,8 @@ export const NOT_STARTED = STEP_STATE["not_started"]?.verb ?? "not started";
 /** A setting left to Armada, in the word the tier map uses for it. */
 const AUTO_WORD = AUTO;
 
-/** What a gate node and a step's own gate say a person does. */
-const YOU = "You";
+/** What a You stage says at the gate, before it is asking anything. */
+const I_REVIEW = "I review it";
 
 /**
  * The steps of the chosen workflow in the order the gates hold them. **The
@@ -181,10 +207,12 @@ export function stepsReadOf(
   gates: readonly GateView[],
   whole: JobWhole | null,
   declared: ReadonlyMap<string, WorkflowStep>,
+  /** Past the gate the Job's own frozen step is the truth, and the catalog's only fills in what it lacks. */
+  frozenFirst = false,
 ): StepRead[] {
   return gates.map((gate) => {
     const frozen = whole?.steps.find((one) => one.step_id === gate.step_id);
-    const step: WorkflowStep | StepDetail | undefined = declared.get(gate.step_id) ?? frozen;
+    const step: WorkflowStep | StepDetail | undefined = frozenFirst ? (frozen ?? declared.get(gate.step_id)) : (declared.get(gate.step_id) ?? frozen);
     return {
       id: gate.step_id,
       label: step?.label ?? gate.step_id,
@@ -196,6 +224,9 @@ export function stepsReadOf(
       // The Job's own step where it holds one, else what the picked workflow declares.
       perTask: (frozen?.drone_per_task ?? declared.get(gate.step_id)?.drone_per_task) === true,
       dispatches: step?.may_dispatch_jobs === true,
+      ...(frozen?.verdict_routing_target === undefined
+        ? {}
+        : { returns: { to: frozen.verdict_routing_target, ...(frozen.pass === undefined ? {} : { pass: frozen.pass }) } }),
     };
   });
 }
@@ -220,17 +251,23 @@ function depthsOf(jobs: readonly MemberRead[]): Map<string, number> {
   return depth;
 }
 
-/** Whether a step's gate is a node of its own. */
+/** Whether a step declares Checks or a Judge. */
 export const gateIsANode = (step: StepRead): boolean => step.checks.length > 0 || step.judges.length > 0;
+
+/** The stages a step's gate is, in the order they run: each kind it declares, and You where it stops for a person. */
+export function gateKindsOf(step: StepRead, gate: GateView | undefined): GateKind[] {
+  return [
+    ...(step.checks.length > 0 ? (["checks"] as const) : []),
+    ...(step.judges.length > 0 ? (["judge"] as const) : []),
+    ...(gate?.you === true ? (["you"] as const) : []),
+  ];
+}
 
 /** What each delivery is called on the pull request's face. */
 const PR_FACE = { draft: "Draft pull request", ready: "Pull request" } as const;
 
 /** The values moved off their defaults, and nothing else. */
 const movedOnly = (values: readonly RunNodeTrait[]): RunNodeTrait[] => values.filter((one) => one.tuned === true);
-
-/** A value that names itself — a gate's Checks, a pull request's auto-merge. */
-const plain = (value: string, tuned = false): RunNodeTrait => ({ key: value, value, ...(tuned ? { tuned } : {}) });
 
 export function approvalNodesOf({
   studio,
@@ -282,9 +319,6 @@ export function approvalNodesOf({
     const at = life?.nodes[node.id];
     nodes.push({ ...node, lane, ...(at === undefined ? {} : { life: at }), ordinal: nodes.length + 1 });
   };
-  /** The last node on the spine so far: what a gate hung beside the next one hangs from. */
-  const spineEnd = (): ApprovalNode | undefined =>
-    [...nodes].reverse().find((one) => one.side === undefined && one.from === undefined);
   const delivery = deliveryOf(local, prMode);
 
   // Where the work came from, first, and only where it came from a Studio.
@@ -337,8 +371,6 @@ export function approvalNodesOf({
     // Its own lane, by its phase. Once the work is delivering, what follows delivers too.
     lane = delivering ? "delivery" : step.phase === "setup" ? "setup" : "work";
     const ownGate = !gateIsANode(step) && gate?.you === true;
-    // In delivery a step a person alone reads is a gate, hung beside what it reviews.
-    const hangs = spineEnd()?.lane === "delivery" && ownGate ? spineEnd()?.id : undefined;
     // A step a person alone reads runs no Drone, so it carries its gate and nothing a Drone is tuned by.
     // Where the step the Job is at has got to: the Workflow card's own line.
     const lineNow = life?.nodes[step.id]?.current === true ? life.lines?.[step.id] : undefined;
@@ -352,10 +384,9 @@ export function approvalNodesOf({
       name: step.label,
       bandId: step.id,
       ...(lineNow === undefined ? {} : { line: lineNow }),
-      ...(hangs === undefined ? {} : { side: hangs }),
       // A Drone's settings left to Armada draw nothing (default to no text); what was tuned shows.
       traits: ownGate
-        ? [plain(YOU)]
+        ? []
         : movedOnly([
             since?.model !== undefined
               ? { key: `Model, was ${tuned?.model ?? AUTO_WORD}`, value: since.model, tuned: true }
@@ -379,7 +410,7 @@ export function approvalNodesOf({
     // recorded them, and each group once it has.
     if (perTask(step)) {
       if (life?.groups === undefined || life.groups.length === 0) {
-        put({ id: "groups", kind: "groups", name: "Groups", traits: [], meta: [], inert: true });
+        put({ id: "groups", kind: "groups", name: "Plan", line: "Groups drawn once the plan exists", traits: [], meta: [], inert: true });
       } else {
         for (const [at, group] of life.groups.entries()) {
           nodes.push({
@@ -402,11 +433,12 @@ export function approvalNodesOf({
         }
       }
     }
-    if (gateIsANode(step)) {
-      putGate(step, gate, tuned);
-    }
+    // Its gate: the next stage on the spine, one for each kind.
+    for (const kind of gateKindsOf(step, gate)) putGate(step, gate, tuned, kind);
     // The wave's Jobs, after the step that dispatches them and its gate.
     if (step.id === dispatchesFrom) {
+      // Under its last gate stage: the wave is what the step's gate let through.
+      const under = [...nodes].reverse().find((one) => one.stepId === step.id && one.from === undefined)?.id ?? step.id;
       if (life?.jobs === undefined || life.jobs.length === 0) {
         put({ id: "jobs", kind: "jobs", name: "Jobs", traits: [], meta: [], inert: true });
       } else {
@@ -419,7 +451,7 @@ export function approvalNodesOf({
             id: `job:${job.id}`,
             kind: "job",
             lane,
-            from: step.id,
+            from: under,
             name: job.name,
             traits: [],
             meta: [],
@@ -433,29 +465,58 @@ export function approvalNodesOf({
       }
     }
   }
-  /** A step's gate, as a node of its own. */
-  function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined) {
-    const judges = tuned?.judges ?? 1;
-    const declared = step.judges[0]?.panel_size ?? 1;
-    // Who decides, in order: the gate's title. What was tuned on it: its meta.
-    const who = [gate?.checks === true ? "Checks" : "", gate?.judge === true ? "Judge" : "", gate?.you === true ? "You" : ""]
-      .filter((one) => one !== "")
-      .join(" · ");
+  /** One stage of a step's gate, with the face its kind has. */
+  function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined, kind: GateKind) {
+    const id = `${step.id}:${kind}`;
+    const run = life?.nodes[id]?.run;
+    // A stage the Job is past, with nothing served of it, passed whole.
+    const past = life?.nodes[id]?.activity === "advanced" && run === undefined;
     const meta: RunNodeTrait[] = [];
-    if (gate?.judge === true && judges !== declared) meta.push({ key: "Judges", value: `${judges} judges`, tuned: true });
-    const refused = life !== undefined && life.nodes[step.id]?.activity !== "advanced" ? life.changed?.whenRefused : undefined;
-    if (gate?.judge === true && refused !== undefined) {
-      meta.push({ key: `When the Judge refuses, was ${refused.was}`, value: refused.now, tuned: true });
+    let gateFace: RunNodeGate;
+    if (kind === "checks") {
+      const off = tuned?.checks_off ?? [];
+      if (gate?.checks !== true) meta.push({ key: "This Job does not run these Checks", value: "off", tuned: true });
+      else if (off.length > 0) meta.push({ key: "Checks this Job does not run", value: `${off.length} off`, tuned: true });
+      gateFace = {
+        kind,
+        commands: checksOf(step, off).map((one) => ({
+          name: one.name,
+          outcome:
+            !one.runs || gate?.checks !== true
+              ? "off"
+              : (run?.commands?.find((had) => had.name === one.name)?.outcome ?? (past ? "passed" : "waiting")),
+        })),
+        ...(run?.elapsed === undefined ? {} : { elapsed: run.elapsed }),
+        ...(run?.output === undefined ? {} : { output: run.output }),
+      };
+    } else if (kind === "judge") {
+      const judges = tuned?.judges ?? 1;
+      const declared = step.judges[0]?.panel_size ?? 1;
+      if (gate?.judge !== true) meta.push({ key: "This Job has no Judge here", value: "off", tuned: true });
+      else if (judges !== declared) meta.push({ key: "Judges", value: `${judges} judges`, tuned: true });
+      const refused = life !== undefined && life.nodes[step.id]?.activity !== "advanced" ? life.changed?.whenRefused : undefined;
+      if (gate?.judge === true && refused !== undefined) {
+        meta.push({ key: `When the Judge refuses, was ${refused.was}`, value: refused.now, tuned: true });
+      }
+      gateFace = {
+        kind,
+        panel: gate?.judge !== true ? [] : (run?.panel ?? Array.from({ length: judges }, (): PanelMark => (past ? "met" : "pending"))),
+        ...(run?.refusal === undefined ? {} : { refusal: run.refusal }),
+      };
+    } else {
+      gateFace = {
+        kind,
+        asking: run?.waited === undefined ? I_REVIEW : step.label,
+        ...(run?.waited === undefined ? {} : { waited: run.waited }),
+      };
     }
-    const off = tuned?.checks_off.length ?? 0;
-    if (off > 0) meta.push({ key: "Checks this Job does not run", value: `${off} off`, tuned: true });
     put({
-      id: `${step.id}:checks`,
+      id,
       kind: "checks",
       stepId: step.id,
-      side: step.id,
-      name: "Checks",
-      ...(who === "" ? {} : { face: who }),
+      gate: kind,
+      gateFace,
+      name: kind === "checks" ? "Checks" : kind === "judge" ? "Judge" : "You",
       bandId: step.id,
       traits: [],
       meta,
@@ -486,29 +547,25 @@ export function approvalNodesOf({
   });
 
   const edges: WorkflowCanvasEdge[] = [];
-  const lead = (source: ApprovalNode, target: ApprovalNode, across = false) => {
+  const lead = (source: ApprovalNode, target: ApprovalNode) => {
     const own = target.kind === "land" && delivery !== "local" && autoMerge;
     edges.push({
       id: `${source.id}->${target.id}`,
       source: source.id,
       target: target.id,
       kind: "leads",
-      ...(across ? { across: true } : {}),
       ...(own ? { label: "merges on its own" } : {}),
     });
   };
   // The spine runs node to node within a lane, and across a lane once, from
-  // the bottom of one lane's last to the top of the next one's first. A gate
-  // hangs beside its node. A fan leads from the node it falls from to each of
-  // its members that waits on nothing, member to member where one waits, and
-  // from each nobody waits on to the next node on the spine.
+  // the bottom of one lane's last to the top of the next one's first, a gate's
+  // stages between its step and the next. A fan leads from the node it falls
+  // from to each of its members that waits on nothing, member to member where
+  // one waits, and from each nobody waits on to the next node on the spine.
   const byId = new Map(nodes.map((one) => [one.id, one]));
-  const spine = nodes.filter((one) => one.side === undefined && one.from === undefined);
+  const spine = nodes.filter((one) => one.from === undefined);
   for (const node of nodes) {
-    if (node.side !== undefined) {
-      const on = byId.get(node.side);
-      if (on !== undefined) lead(on, node, true);
-    } else if (node.from !== undefined) {
+    if (node.from !== undefined) {
       const waits = node.waits_on ?? [];
       if (waits.length === 0) {
         const head = byId.get(node.from);
@@ -519,6 +576,20 @@ export function approvalNodesOf({
         if (on !== undefined) lead(on, node);
       }
     }
+  }
+  // A gate that sends the step back: the way back from its last stage, with the pass it is on.
+  for (const step of steps) {
+    if (step.returns === undefined) continue;
+    const last = [...nodes].reverse().find((one) => one.kind === "checks" && one.stepId === step.id);
+    const to = byId.get(step.returns.to);
+    if (last === undefined || to === undefined) continue;
+    edges.push({
+      id: `${last.id}->${to.id}`,
+      source: last.id,
+      target: to.id,
+      kind: "returns",
+      ...(step.returns.pass === undefined ? {} : { label: `attempt ${step.returns.pass.number} of ${step.returns.pass.of}` }),
+    });
   }
   for (const [at, node] of spine.entries()) {
     if (at === 0) continue;
@@ -533,6 +604,26 @@ export function approvalNodesOf({
     }
   }
   return { nodes, edges };
+}
+
+/**
+ * The edge the Job is moving along: the one into the node it is at. **On a
+ * retry that is the way back**, not the forward edge into the step, which was
+ * passed this attempt before it was entered by the loop.
+ */
+export function flowingOf(
+  nodes: readonly ApprovalNode[],
+  edges: readonly WorkflowCanvasEdge[],
+  steps: readonly StepRead[],
+): WorkflowCanvasEdge[] {
+  return edges.map((edge) => {
+    const into = nodes.find((node) => node.id === edge.target);
+    if (into?.life?.current !== true) return edge;
+    const retrying = into.kind === "step" && (steps.find((one) => one.id === into.stepId)?.returns?.pass?.number ?? 1) > 1;
+    // Only one way into a step moves: the loop on a retry, the forward edge otherwise.
+    const loop = edge.kind === "returns";
+    return into.kind === "step" && loop !== retrying ? edge : { ...edge, flowing: true };
+  });
 }
 
 /** The declared Checks of a step by name, each with whether this Job runs it. */
