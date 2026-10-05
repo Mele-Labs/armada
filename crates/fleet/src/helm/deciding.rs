@@ -56,7 +56,7 @@ const WRITES_A_FILE: &[&str] = &["Write", "Edit", "NotebookEdit"];
 pub fn because(asking: &AskingToRun) -> Option<Because> {
     let tool = asking.tool_name.as_str();
     if let Some(operation) = tool.strip_prefix(&format!("mcp__{}__", ipc::door::SERVER)) {
-        return door(operation);
+        return door(operation, asking);
     }
     if tool == "Bash" {
         return shell(asking.detail().unwrap_or_default());
@@ -72,7 +72,7 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
 /// **A query never asks**, since a read changes nothing anywhere. A command
 /// asks only where it is one of the three: pausing a Job, adding a task,
 /// writing a Studio note and starting a local run are none of them.
-fn door(operation: &str) -> Option<Because> {
+fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
     const SHARED: &[&str] = &[
         "approve_dispatch",
         "approve_review",
@@ -107,6 +107,9 @@ fn door(operation: &str) -> Option<Because> {
         "add_repository",
         "clone_repository",
     ];
+    if operation == "save_workflow" {
+        return replacing_a_workflow(asking);
+    }
     if SHARED.contains(&operation) {
         return Some(Because::PushesToShared);
     }
@@ -117,6 +120,20 @@ fn door(operation: &str) -> Option<Because> {
         return Some(Because::WritesOffMachine);
     }
     None
+}
+
+/// `save_workflow` asks only where it says `overwrite`. **Replacing a
+/// definition is the destructive act and a first save is not**: Fleet refuses a
+/// save that would replace one unless the call carries `overwrite`, so the
+/// word is the whole of the line between the two, and a call that omits it
+/// cannot reach the case this guards.
+fn replacing_a_workflow(asking: &AskingToRun) -> Option<Because> {
+    let overwrite = asking
+        .input
+        .get("body")
+        .and_then(|body| body.get("overwrite"))
+        .and_then(|said| said.as_bool());
+    (overwrite == Some(true)).then_some(Because::Destructive)
 }
 
 /// A built-in, or a tool from a server Armada knows nothing about.

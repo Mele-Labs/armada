@@ -8,10 +8,10 @@
 // and its tooltip; nothing here writes a status phrase.
 
 import { GROUP_STATE, JOB_STATUS, STEP_STATE } from "@armada/components";
-import type { StepActivity } from "@armada/components";
-import type { JobDetail as JobWhole } from "@armada/protocol";
+import type { GateCommandOutcome, PanelMark, StepActivity } from "@armada/components";
+import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
-import type { ChangedSince, LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
+import type { ChangedSince, GateRun, LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
 import { WHEN_BLOCKED_LABEL, WHEN_REFUSED_LABEL } from "./copy";
 import { REFUSED_STARTS_AT, STARTS_AT } from "./settings";
 import { taskGroupsOf } from "./draft/group";
@@ -107,18 +107,99 @@ function changedOf(whole: JobWhole): ChangedSince | undefined {
   return Object.keys(changed).length === 0 ? undefined : changed;
 }
 
+/** `4m 12s`, as the Workflow card says how long. */
+function sinceOf(from: string | undefined, now: number): string | undefined {
+  const at = from === undefined ? NaN : Date.parse(from);
+  if (Number.isNaN(at)) return undefined;
+  const seconds = Math.max(0, Math.floor((now - at) / 1000));
+  const [h, m, s] = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60];
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+const OUTCOME_OF: Readonly<Record<string, GateCommandOutcome>> = { passed: "passed", running: "running", waiting: "waiting", never_ran: "waiting", skipped: "waiting" };
+
+/** A gate stage's life, in the step machine's states. Absent is a stage nothing reached. */
+const stageLife = (activity: StepActivity, run?: GateRun): NodeLife => ({
+  ...stepLife(activity === "failed" ? "stopped" : activity, false),
+  activity,
+  ...(activity === "failed" ? { said: "failed" } : {}),
+  ...(run === undefined ? {} : { run }),
+});
+
+/**
+ * Where each stage of a step's gate is, off what Fleet serves of the step's
+ * latest run: its Checks, the Judge's answers by member, and whether it is
+ * held for a person. A stage nothing reached is absent, which draws upcoming.
+ */
+function gatesOf(step: StepDetail, now: number): Record<string, NodeLife> {
+  const out: Record<string, NodeLife> = {};
+  const advanced = step.state === "advanced";
+  const attempts = step.attempts ?? [];
+  const latest = attempts.reduce((most, one) => Math.max(most, one.attempt), 1);
+  const started = attempts.find((one) => one.attempt === latest)?.started_at;
+  const runs = (step.check_runs ?? []).filter((one) => one.attempt === latest);
+  const declared = step.checks ?? [];
+  let checksPassed = declared.length === 0 || advanced;
+  if (declared.length > 0) {
+    const outcomes = runs.map((one) => OUTCOME_OF[one.outcome] ?? "failed");
+    if (advanced) {
+      out[`${step.step_id}:checks`] = PAST;
+    } else if (runs.length > 0) {
+      const failed = outcomes.includes("failed");
+      const running = outcomes.includes("running") || runs.length < declared.length;
+      checksPassed = !failed && !running;
+      const live = runs.find((one) => one.outcome === "running");
+      const elapsed = sinceOf(started, now);
+      const run: GateRun = {
+        commands: runs.map((one, at) => ({ name: one.name, outcome: outcomes[at]! })),
+        ...(elapsed === undefined ? {} : { elapsed }),
+        ...(live?.produced === undefined ? {} : { output: live.produced }),
+      };
+      out[`${step.step_id}:checks`] = stageLife(running ? "running" : failed ? "failed" : "advanced", run);
+    }
+  }
+  const panel = step.judge_checks?.[0]?.panel_size ?? 1;
+  if ((step.judge_checks ?? []).length > 0) {
+    const answers = (step.judged ?? []).filter((one) => one.attempt === latest);
+    const marks: PanelMark[] = Array.from({ length: panel }, (_, member): PanelMark => {
+      const mine = answers.filter((one) => (one.member ?? 0) === member);
+      if (mine.length === 0) return advanced ? "met" : "pending";
+      return mine.some((one) => one.verdict !== "met") ? "not_met" : "met";
+    });
+    const refused = answers.find((one) => one.verdict !== "met");
+    const landed = marks.filter((one) => one !== "pending").length;
+    if (advanced) out[`${step.step_id}:judge`] = PAST;
+    else if (refused !== undefined) {
+      const first = (refused.consequence ?? refused.produced ?? "").split("\n")[0] ?? "";
+      out[`${step.step_id}:judge`] = stageLife("failed", { panel: marks, ...(first === "" ? {} : { refusal: first }) });
+    } else if (landed > 0 || (declared.length > 0 && runs.length > 0 && checksPassed)) {
+      const reading = marks.map((one): PanelMark => (one === "pending" ? "judging" : one));
+      out[`${step.step_id}:judge`] = stageLife(landed === panel ? "advanced" : "running", { panel: reading });
+    }
+  }
+  if (step.advance_gate === "human_always") {
+    if (advanced) out[`${step.step_id}:you`] = PAST;
+    else if (step.state === "awaiting_human") {
+      const waited = sinceOf(attempts.find((one) => one.attempt === latest)?.ended_at ?? started, now);
+      out[`${step.step_id}:you`] = stageLife("awaiting_human", waited === undefined ? {} : { waited });
+    }
+  }
+  return out;
+}
+
 export function lifeOf(
   whole: JobWhole,
   wave?: WaveView,
   /** Each step's line as the Workflow card draws it, by step id. */
   lines?: Readonly<Record<string, string>>,
+  now: number = Date.now(),
 ): LifeRead {
   const nodes: Record<string, NodeLife> = { studio: PAST, brief: PAST, base: PAST };
   for (const step of whole.steps) {
     const current = step.step_id === whole.job.current_step_id && AT.has(step.state);
     nodes[step.step_id] = stepLife(step.state, current);
-    // A step's gate is behind it once the step advanced past it.
-    if (step.state === "advanced") nodes[`${step.step_id}:checks`] = PAST;
+    // Each stage of a step's gate, where it has got to.
+    Object.assign(nodes, gatesOf(step, now));
   }
   const served = whole.work_plan === undefined ? [] : taskGroupsOf(whole);
   const groups: PlanGroupRead[] = served.map((group) => {
