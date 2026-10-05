@@ -19,6 +19,7 @@ else lists them. Git does the merge, so a branch needs nothing but the file.
 | `crates/ipc/operations.toml` | A header, then one `[operations.<name>]` table an entry |
 | `crates/fleet/src/tests/mod.rs` | `mod` lines and their comments only |
 | `packages/icons/icons.toml` | A header, then one table an entry |
+| `apps/desktop/src/renderer/src/mock/scenario-rows.ts` | `export * from "./scenarios/<row>";` lines only, one a scenario. Each row, with its own imports, is a file in `scenarios/` |
 
 `cargo xtask verify-foundations` (*every declared list file holds only entries*)
 names any line of a declared file that is not an entry for its kind: an export,
@@ -26,13 +27,22 @@ an `@import`, a `mod`, a comment, a table. **Keeping both sides of code that is
 not a list interleaves two edits unseen**, which is why the gate refuses it
 rather than a reviewer.
 
+## Adding a mock scenario's row
+
+A file in `apps/desktop/src/renderer/src/mock/scenarios/` exporting one `Scenario`, built with `holding` from
+`../holding`, and one line for it in `scenario-rows.ts`. **`scenario.ts` is not edited.** The export name
+must be unique, or `export *` drops it without saying, and `scenario.test.ts` fails where a file or a
+name is missing from the list. **Order:** `scenario.ts` sorts the rows by export name, because a union
+merge orders lines by merge. The seventeen rows that were in `scenario.ts` carry `s010`–`s170` ahead of
+their names so they list exactly as before, and the test pins them; a new row is named for what it is
+and sorts by that name among them. Nothing the owner saw moved.
+
 ## Not declared, and what would make each safe
 
 | File | Why not | Smallest split |
 |---|---|---|
 | `packages/components/src/index.css` | Ends with a `.armada-helm-dock` rule, and a later `@import` after it | Move the rule to its own stylesheet and import it, leaving imports only. A visual change, so it waits for a walk |
 | `crates/ipc/src/lib.rs` | `pub use` re-exports are rustfmt-wrapped multi-line statements, not lines, and `#[cfg(test)] mod tests;` sits between the two lists | One `pub use m::*;` a module, which gives up the curated export surface, or `pub use` lines each kept to one line |
-| `apps/desktop/src/renderer/src/mock/scenario.ts` | Imports at the top, rows inside `SCENARIOS`, and builders between | Each walk's row and import in a file of its own, `export * from` into a list file of entries |
 | `packages/protocol/src/pending.ts` | Deletions, below | None; it is edited by removing |
 
 ## Limits
