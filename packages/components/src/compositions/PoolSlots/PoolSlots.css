@@ -235,21 +235,24 @@
   gap: var(--space-1);
 }
 
-/* An act on a bay: a bare glyph in the bay's own colour, named on hover. */
+/* An act on a bay reads as a button at rest: an edge and a fill drawn from the
+   bay's own colour, so it holds on the inverse band and on an open bay alike.
+   Hover fills it further; the focus ring is the shared one. */
 .armada-bay__act {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-1);
-  border: none;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid color-mix(in srgb, currentColor 55%, transparent);
   border-radius: var(--radius-sm);
-  background: none;
+  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
   color: inherit;
   cursor: pointer;
 }
 
 .armada-bay__act:hover {
-  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor calc(var(--row-tint-recent) * 2), transparent);
 }
 
 .armada-bay__act:focus-visible,

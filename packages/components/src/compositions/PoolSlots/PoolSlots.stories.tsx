@@ -196,6 +196,11 @@ export const Acts: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: "Add a slot" }));
     await expect(args.onAct).toHaveBeenLastCalledWith("add");
+
+    // Every act has an edge at rest, so none reads as a bare glyph.
+    const acts = canvas.getAllByRole("button", { name: /^(Close|Reopen|Remove)$/ });
+    await expect(acts.length).toBeGreaterThan(8);
+    for (const act of acts) await expect(getComputedStyle(act).borderTopStyle).toBe("solid");
   },
 };
 
