@@ -172,7 +172,24 @@ or a name would help, say which in your answer.";
 fn the_brief_for_an_acting_helm_reads_as_the_contract_draws_it() {
     let voice = Voice::said("Terse.");
     let brief = brief(&a_manifest(), Authority::Acting, voice.as_ref());
-    assert_eq!(brief.as_str(), ACTING_IN_A_TERSE_VOICE);
+    assert_eq!(
+        without_authoring(brief.as_str()),
+        ACTING_IN_A_TERSE_VOICE,
+        "everything but the block read from the schema and the sample"
+    );
+}
+
+/// The brief with *Authoring a workflow* cut out. **Its fixed wording is pinned
+/// below; the field list and the sample are read from files** and a snapshot of
+/// them would be a second copy that goes stale the week a field is added.
+fn without_authoring(brief: &str) -> String {
+    let (before, rest) = brief
+        .split_once("AUTHORING A WORKFLOW")
+        .expect("the brief carries the block");
+    let (_, after) = rest
+        .split_once("HOW YOU ANSWER")
+        .expect("and what follows it");
+    format!("{before}HOW YOU ANSWER{after}")
 }
 
 /// Read-only changes *What you may do* and the acting paragraphs of *On a
@@ -181,6 +198,10 @@ fn the_brief_for_an_acting_helm_reads_as_the_contract_draws_it() {
 fn a_read_only_helm_with_no_voice_is_told_it_only_reads() {
     let acting = brief(&a_manifest(), Authority::Acting, None);
     let reading = brief(&a_manifest(), Authority::ReadOnly, None);
+    let (acting, reading) = (
+        without_authoring(acting.as_str()),
+        without_authoring(reading.as_str()),
+    );
     let acting = acting.as_str();
     let cut = |from: &str, to: &str| -> (String, String) {
         let (before, rest) = acting.split_once(from).expect("the acting brief has it");
@@ -196,14 +217,57 @@ fn a_read_only_helm_with_no_voice_is_told_it_only_reads() {
         .expect("unasked");
     let (_, after) = studio.split_once("\n\nRuns in the checkout").expect("runs");
     assert_eq!(
-        reading.as_str(),
+        reading,
         format!(
             "{before}{WHAT_A_READ_ONLY_HELM_MAY_DO}\n\nON A STUDIO{opening}\n\n\
              {A_READ_ONLY_HELM_ON_A_STUDIO}\n\nRuns in the checkout{after}"
         )
     );
-    assert!(!reading.as_str().contains("VOICE"));
-    assert!(!reading.as_str().contains("add_studio_node"));
+    assert!(!reading.contains("VOICE"));
+    assert!(!reading.contains("add_studio_node"));
+}
+
+/// Helm outside the Armada repository has neither the schema nor a workflow to
+/// copy, so the brief carries both, and where to save is a door call.
+#[test]
+fn the_brief_carries_what_helm_needs_to_author_a_workflow() {
+    let acting = brief(&a_manifest(), Authority::Acting, None);
+    let acting = acting.as_str();
+    assert!(acting.contains("AUTHORING A WORKFLOW"));
+    assert!(acting.contains("advance_gate (enum, under steps[])"));
+    assert!(acting.contains("One of: auto, auto_if_judge_passes, human_always"));
+    assert!(acting.contains("\"workflow_id\": \"bug\""), "the sample");
+    assert!(!acting.contains("# Bug, as M1 runs it"), "not the file's comment block");
+    assert!(acting.contains("Call save_workflow with the scope"));
+    assert!(acting.contains("overwrite true"));
+    assert!(acting.contains("Do not write the file with Write or Edit"));
+}
+
+#[test]
+fn a_read_only_helm_is_shown_the_schema_and_not_told_to_save() {
+    let reading = brief(&a_manifest(), Authority::ReadOnly, None);
+    let reading = reading.as_str();
+    assert!(reading.contains("advance_gate (enum, under steps[])"));
+    assert!(!reading.contains("save_workflow"));
+}
+
+/// **The sample is one the parser takes**, which `workflow-samples/bug.json` is
+/// not. A brief teaching a shape Fleet then refuses would send Helm round the
+/// refusal loop on its first save.
+#[test]
+fn the_sample_in_the_brief_loads() {
+    let acting = brief(&a_manifest(), Authority::Acting, None);
+    let (_, sample) = acting
+        .as_str()
+        .split_once("to copy the shape from:\n\n")
+        .expect("the sample");
+    let sample = sample.split("\n\nHOW YOU ANSWER").next().expect("up to the next block");
+    let loaded = config::WorkflowDef::parse(
+        Path::new("bug.json"),
+        sample,
+        &config::Roster::of(["haiku"]),
+    );
+    assert!(loaded.is_ok(), "{loaded:?}");
 }
 
 /// Never told anything of the Manifest past its id and folder.
