@@ -1,4 +1,4 @@
-import { LessonCard, type LessonAnswers, type LessonSettled, type RetroCite } from "../LessonCard/LessonCard";
+import { LessonCard, type LessonAnswers, type LessonEvidence, type LessonSettled, type RetroCite } from "../LessonCard/LessonCard";
 import type { Lands } from "../LandsMark/LandsMark";
 import type { Who } from "../WhoMark/WhoMark";
 
@@ -25,6 +25,8 @@ export type LessonRow = {
   /** What an answered row reads as while it stays on screen. */
   settled?: LessonSettled;
   cites?: readonly RetroCite[];
+  /** Set while the rows it cites are not read yet: the control that reads them. */
+  evidence?: LessonEvidence;
 };
 
 export type LessonListProps = {
@@ -60,6 +62,7 @@ export function LessonList({ rows, onOpen }: LessonListProps) {
             ...(row.fix === undefined ? {} : { fix: row.fix }),
             ...(row.cites === undefined ? {} : { cites: row.cites }),
           }}
+          {...(row.evidence === undefined ? {} : { evidence: row.evidence })}
           {...(row.answers === undefined ? {} : { answers: row.answers })}
           {...(row.settled === undefined ? {} : { settled: row.settled })}
           from={{

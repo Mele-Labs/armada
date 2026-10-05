@@ -126,8 +126,8 @@ where
         self.budget
     }
     /// How long a plain command may take. See
-    /// [`crate::commanding::CommandBudget`].
-    pub(crate) fn command_budget(&self) -> crate::commanding::CommandBudget {
+    /// [`crate::budget::CommandBudget`].
+    pub(crate) fn command_budget(&self) -> crate::budget::CommandBudget {
         self.command_budget
     }
     /// How long a permission question is held inside the Drone's call. See

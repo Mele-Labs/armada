@@ -338,6 +338,13 @@
   size = "12px"
   status = "Specified"
 
+  [[icons.git-commit-horizontal.usage]]
+    means = "The commit a rescue Scout read a stranded slot at, on its Finding"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot. The one existing glyph for a commit, before its short hash in mono. Tooltip `Commit it read`."
+
 [icons.git-pull-request]
   means = "pull request"
   group = "Git and config"
@@ -546,6 +553,13 @@
     group = "Action"
     size = "16px"
     notes = "Added 2026-09-29 with Pulse's Processes card (#1647): a kill on each row and one in the card's head, icon-only with `Hold to kill` as the tooltip. Kill's own glyph, for the reason the server stop above borrows it — a process ended on purpose. 16px, the button size, as is the head's `rotate-cw` Refresh beside it."
+
+  [[icons.power.usage]]
+    means = "Stop the Scout reading a stranded worktree slot, and the mark on a Finding it was stopped on"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person ending a read on purpose, which is what the silhouette is for. Tooltip `Stop`, and `Stopped` on the Finding. Refused: `octagon-alert` and `x`, both reserved elsewhere and neither about a process."
 
 [icons.presentation]
   means = "Studios — a whiteboard on its stand, which is what a Studio is drawn as"
@@ -1213,3 +1227,35 @@
   status = "Specified"
   reserved = "A cold worktree slot only."
   paired_with = "flame"
+
+[icons.life-buoy]
+  means = "A life ring - a stranded slot a person can rescue"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Rescuing a stranded worktree slot, the act on its bay. Never help, support or a Job's recovery."
+  notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. The stranded bay is a ghost left holding work; a ring thrown to it is the one drawing that says the work can be got back, and no glyph in the set claims it. Refused: `undo-2`, which is a reversal of a change; `rotate-cw`, which is Refresh; `ghost`, the state itself. Tooltip `Rescue`."
+
+[icons.scan-search]
+  means = "Corner brackets round a magnifier - a Scout reading a stranded slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
+  notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."
+
+[icons.file-pen-line]
+  means = "A page with a pen writing a line - changes on top of the commit that nobody committed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
+  notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."
+
+[icons.anchor]
+  means = "An anchor - a Job that ended and still holds its slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
+  notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."

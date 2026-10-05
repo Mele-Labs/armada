@@ -58,6 +58,143 @@ pub struct WorktreeSlot {
     /// holder keeps it until its lease ends. Since 23.17.
     #[serde(default)]
     pub closed: bool,
+    /// What a slot holds that a Scrap would lose. Present where `held` is
+    /// `stranded`, and where it is a Job's with `kept`. Since 23.29.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stranded: Option<SlotStranded>,
+    /// What a rescue Scout read of a stranded slot, while it reads and after.
+    /// Since 23.29.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rescue: Option<SlotFinding>,
+}
+
+/// The work a stranded slot holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotStranded {
+    /// Every path `git status` reports, untracked included.
+    pub uncommitted: Vec<String>,
+    /// Commits the base does not have, newest first.
+    pub commits: Vec<SlotCommit>,
+    /// Of those, how many are on neither the remote nor the base.
+    pub unpushed: u32,
+}
+
+/// One commit on a stranded slot's branch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotCommit {
+    pub sha: String,
+    pub subject: String,
+    /// Whether it exists anywhere but this slot. Since 23.29.
+    pub home: CommitHome,
+}
+
+/// Where else a commit on a stranded slot exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitHome {
+    /// On no remote branch and not on the local base.
+    OnlyHere,
+    /// On a remote branch.
+    OnRemote,
+    /// On the local base.
+    OnMain,
+}
+
+/// Where a rescue Scout is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotFindingState {
+    Reading,
+    Answered,
+    Stopped,
+    Failed,
+}
+
+/// What a rescue Scout concluded of a stranded slot's work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotVerdict {
+    /// The work has a part left to do.
+    Unfinished,
+    /// Leftovers that need no more work.
+    Scraps,
+}
+
+/// What a rescue Scout read of a stranded slot: the Finding, kept against the
+/// slot. Since 23.29.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotFinding {
+    pub state: SlotFindingState,
+    /// The commit the slot was at when the Scout read it.
+    pub commit: String,
+    /// Whether uncommitted changes were on top of it.
+    pub uncommitted: bool,
+    /// Characters of the change dropped before the Scout was handed it. `0`
+    /// where it got all of it.
+    #[serde(default)]
+    pub cut: u64,
+    /// Every file it read, in the order first read.
+    pub read: Vec<String>,
+    /// Every search it ran.
+    pub searched: Vec<String>,
+    /// Whether the work still has a part left to do, or is leftovers. Absent
+    /// while the Scout has not answered, and where its answer was not the
+    /// shape asked for. Since 23.29.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<SlotVerdict>,
+    /// Under `unfinished`, what is left to do, a line each. Under `scraps`, one
+    /// line saying what the leftovers are. Since 23.29.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<String>,
+    /// What it said last, where that was not the shape asked for. Absent while
+    /// it has said nothing, and where `verdict` carries the answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// Why it failed, where it did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_micros: Option<u64>,
+}
+
+/// `rescue_slot`'s body: one act on a stranded slot. Since 23.29.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RescueSlot {
+    pub act: RescueAct,
+    pub slot: u32,
+}
+
+/// What a person does with a stranded slot. `start` and `stop` are the rescue
+/// Scout; the other two are Fleet's, on the Finding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RescueAct {
+    /// Start a Scout reading the slot.
+    Start,
+    /// Stop it.
+    Stop,
+    /// Discard the work and free the slot.
+    Scrap,
+    /// Commit the uncommitted work, push the branch and free the slot.
+    Stash,
+    /// Stash, then propose a Job that continues from the branch. Since 23.30.
+    PickUp,
+}
+
+/// What `rescue_slot` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotRescued {
+    pub manifest_id: ManifestId,
+    pub slot: u32,
+    /// The branch the slot was on, for a Scrap or a Stash.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// A Scrap kept the branch, because it holds commits nothing else has.
+    #[serde(default)]
+    pub branch_kept: bool,
+    /// The commit a Stash made of the uncommitted work.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub committed: Option<String>,
 }
 
 /// `change_slot_pool`'s body: one change to a repository's pool, on this
@@ -108,6 +245,17 @@ pub enum SlotHolding {
         job_id: JobId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_title: Option<String>,
+        /// Where the Job ended, for a Job that has. Since 23.29.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        job_status: Option<JobStatus>,
+        /// Why the Job's release was refused after it ended: its work is in
+        /// the slot, which it still holds. Since 23.29.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kept: Option<String>,
+        /// The Job completed and holds the slot until a person clears it.
+        /// Since 23.29.
+        #[serde(default)]
+        completed: bool,
     },
     /// A process outside Fleet, as `ps` names it: `zsh (pid 4120)`.
     Session {

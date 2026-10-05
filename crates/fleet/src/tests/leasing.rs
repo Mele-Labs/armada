@@ -476,13 +476,20 @@ async fn the_pool_crosses_the_wire_with_each_slot_and_its_job() {
     let first = &answer.slots[0];
     assert_eq!(first.slot, 1);
     assert_eq!(PathBuf::from(&first.path), slot(&home, 1));
-    assert_eq!(
-        first.held,
-        ipc::SlotHolding::Job {
-            job_id: ipc::JobId::carried(job.as_str()),
-            job_title: Some(String::from("fix the reader")),
-        }
-    );
+    let ipc::SlotHolding::Job {
+        job_id,
+        job_title,
+        job_status,
+        kept,
+        completed,
+    } = &first.held
+    else {
+        panic!("a Job holds slot 1: {:?}", first.held);
+    };
+    assert_eq!(job_id, &ipc::JobId::carried(job.as_str()));
+    assert_eq!(job_title.as_deref(), Some("fix the reader"));
+    assert!(job_status.is_some(), "where the Job is travels with it");
+    assert_eq!((kept, completed), (&None, &false));
     assert_eq!(first.base, "main");
     assert_eq!(answer.slots[1].held, ipc::SlotHolding::Unmade);
 }

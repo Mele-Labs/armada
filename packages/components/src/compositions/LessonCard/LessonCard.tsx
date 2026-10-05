@@ -56,8 +56,23 @@ export type LessonSettled = {
   job?: { label: string; onOpen: () => void };
 };
 
+/**
+ * An item whose rows are not read yet: the list holds only the ids they cite,
+ * so the Evidence control asks for them. Absent once they are read, or where
+ * the surface read them with the item.
+ */
+export type LessonEvidence = {
+  /** Ask for the rows. Pressed again after a failed read, it asks again. */
+  onAsk: () => void;
+  /** The read is out. */
+  pending?: boolean;
+  /** Fleet's words for a read that failed. */
+  failure?: string;
+};
+
 export type LessonCardProps = {
   item: LessonCardItem;
+  evidence?: LessonEvidence;
   answers?: LessonAnswers;
   settled?: LessonSettled;
   /** The Job the item came from, on the Lessons list, where a press opens its retro. */
@@ -77,9 +92,10 @@ export type LessonCardProps = {
  * **The words come first and the marks beside them stay**: a mark carries the
  * tooltip it always did, and never stands in for the word.
  */
-export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
+export function LessonCard({ item, evidence, answers, settled, from }: LessonCardProps) {
   const [showing, setShowing] = useState(false);
   const cites = item.cites ?? [];
+  const asking = evidence !== undefined;
   const headed = item.title !== undefined && item.title !== "";
   const body = headed ? item.what : item.statement;
   return (
@@ -128,7 +144,20 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
           {answers.refusal}
         </Alert>
       )}
-      {answers === undefined && settled === undefined && cites.length === 0 ? null : (
+      {evidence?.failure === undefined ? null : (
+        <Alert
+          tone="escalated"
+          title="Retros could not be read"
+          action={
+            <Button size="sm" onClick={evidence.onAsk}>
+              Retry
+            </Button>
+          }
+        >
+          {evidence.failure}
+        </Alert>
+      )}
+      {answers === undefined && settled === undefined && cites.length === 0 && !asking ? null : (
         <div className="armada-lesson__acts">
           {settled !== undefined ? (
             <span className="armada-lesson__settled">
@@ -163,10 +192,21 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
               </Tooltip>
             </>
           )}
-          {cites.length === 0 ? null : (
+          {cites.length === 0 && !asking ? null : (
             <span className="armada-lesson__evidence-toggle">
-              <Button variant="ghost" size="sm" aria-expanded={showing} onClick={() => setShowing((was) => !was)}>
-                {showing ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-expanded={showing && !asking}
+                pending={evidence?.pending === true}
+                onClick={() => {
+                  if (evidence !== undefined) {
+                    setShowing(true);
+                    evidence.onAsk();
+                  } else setShowing((was) => !was);
+                }}
+              >
+                {showing && !asking ? (
                   <ChevronDown size={14} strokeWidth={2} aria-hidden />
                 ) : (
                   <ChevronRight size={14} strokeWidth={2} aria-hidden />

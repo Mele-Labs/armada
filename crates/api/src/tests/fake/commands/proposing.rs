@@ -47,6 +47,7 @@ impl FakeDaemon {
                 write_targets: None,
                 dependencies: Vec::new(),
                 attachments: Vec::new(),
+                continue_from: None,
             },
             by,
         )

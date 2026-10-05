@@ -36,6 +36,7 @@ export interface ArrivalHost {
   setGreeted(value: boolean): void;
   proposalRef(): string | null;
   setProposalRef(value: string | null): void;
+  setProposalJob(value: string): void;
   watchedJobId(): string | null;
   readonly repositories: RepositoryReads;
   readonly rehearsal: RehearsalConnection;
@@ -356,6 +357,7 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     const filling = settledOnto(host.current(), event);
     if (event.client_ref !== undefined && event.client_ref === host.proposalRef()) {
       const proposing = event.proposing ?? null;
+      if (event.job_id !== undefined) host.setProposalJob(event.job_id);
       if (proposing === null) host.setProposalRef(null);
       host.publish({ connection, proposing, ...filling });
       return;

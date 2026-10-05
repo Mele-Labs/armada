@@ -267,7 +267,10 @@ pub fn workflow() -> FrozenWorkflow {
             // is what the shipped definitions do and what the roundtrip has to
             // carry: a `false` read back over a `true` is a Job whose branch
             // never goes.
-            .delivering(true),
+            .delivering(true)
+            // Walked, so every roundtrip carries it: a `false` read back over a
+            // `true` is a Job whose walk server Fleet never starts.
+            .walking(true),
         ],
     )
 }

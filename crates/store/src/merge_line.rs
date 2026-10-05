@@ -16,13 +16,13 @@ use rusqlite::{OptionalExtension, Row};
 use crate::error::{fault, WriteError};
 use crate::open::Store;
 
-/// Version 106 — the merge line, its turn, and the size a turn takes.
+/// Version 108 — the merge line, its turn, and the size a turn takes.
 ///
 /// **One waiting entry per Job**, by a partial unique index: a press made again
 /// after a restart finds the entry it left and keeps its place. **One turn per
 /// repository**, by the primary key. Entries point at `jobs`, so
 /// `forget_job` takes a forgotten Job's with it.
-pub(crate) const V106: &str = r#"
+pub(crate) const V108: &str = r#"
 CREATE TABLE merge_line_entries (
     entry_id     INTEGER PRIMARY KEY AUTOINCREMENT,
     repository   TEXT NOT NULL,

@@ -70,6 +70,7 @@ where
             subject: None,
             facts: queued_facts(&job, &finding, &why),
             attachments: Vec::new(),
+            continue_from: None,
         };
         let created = match self.propose(proposal).await {
             Ok(created) => created,

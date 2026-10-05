@@ -75,6 +75,7 @@ where
         self.reconciled_checkout_ports().await;
         // A scout does not outlive the Fleet reading it. `crate::scouting`.
         self.scouts_left_gathering().await;
+        self.rescues_left_reading().await;
         // Before any Studio is read: the Links this build reads as an Issue, a
         // Pull request or an Epic. `crate::recognising`.
         let recognised = self.links_recognised().await;
@@ -314,12 +315,14 @@ where
                     .id(),
             )
             .map_err(Adrift::Reading)?;
+        let continuing = proposal.continue_from.clone();
         let (new, origin) = self.drafted(proposal, stated, &at, minted_by, number)?;
         let job = match split_from {
             Some(head) => Job::create_split(new, head.clone(), origin, at.clone()),
             None => Job::create_top_level(new, origin, at.clone()),
         };
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
+        crate::approved::continuing_from(&mut store, job.id(), continuing.as_deref())?;
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;
         drop(store);

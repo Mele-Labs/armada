@@ -28,6 +28,7 @@ mod keeping_current;
 mod landing;
 mod leasing;
 mod leasing_jobs;
+mod leasing_rescue;
 mod leasing_shape;
 mod mcp;
 mod merging_after_a_kill;

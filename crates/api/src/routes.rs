@@ -34,8 +34,9 @@ use crate::commands::{
     examine_job, file_finding_issue, file_report, forget_job, kill_drone, kill_job,
     merge_pull_request, move_plan, override_verdict, propose_from_request, propose_job,
     queue_after_finding, raise_cost_cap, raise_turn_cap, reclaim_worktree, redirect_drone,
-    redispatch_job, reject_job, request_changes, rerun_checks, rerun_gate, restart_step,
-    restart_task, set_when_blocked, set_when_refused, show_again, stop_proposal, take_up_remarks,
+    redispatch_job, reject_job, request_changes, rerun_checks, rerun_gate, rescue_slot,
+    restart_step, restart_task, set_when_blocked, set_when_refused, show_again, stop_proposal,
+    take_up_remarks,
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
@@ -376,6 +377,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/reports", get(list_reports::<D>))
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
+        .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
         .route("/jobs/:job_id/observe", get(observe_job::<D>))
         .route("/jobs/:job_id/log", get(job_log::<D>))
         .route("/jobs/:job_id/log/read", get(get_job_log::<D>))

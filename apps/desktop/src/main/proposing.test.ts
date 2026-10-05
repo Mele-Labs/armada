@@ -318,3 +318,34 @@ it("refuses as not set up where the answered repository has no Manifest", async 
   expect(answered).toEqual({ ok: false, why: "refused", outcome: { ok: false, why: "not_set_up" } });
   expect(urls).toEqual([]);
 });
+
+/**
+ * **A lost answer is not a Job that was never made.** The Job exists from the
+ * first `proposal.moved`; the owner's dispatch showed a failure for a Job that
+ * had been created. The send reads it back, waiting out `proposing`.
+ */
+it("reads back the Job it made when the answer was lost", async () => {
+  let reads = 0;
+  const port = await fleetThat((response) => {
+    if (reads === 0 && response.req.method === "POST") {
+      reads = 1;
+      response.destroy();
+      return;
+    }
+    reads += 1;
+    const status = reads < 3 ? "proposing" : "awaiting_approval";
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ job: { ...A_JOB, status } }));
+  });
+  const folded: string[] = [];
+  const board: Board = { ...boardOn(port), proposalJob: () => A_JOB.id, fold: (job) => folded.push(job.id) };
+
+  const answered = await proposeFromRequest(board, "Make the parser take it", [], null, undefined, {
+    everyMs: 5,
+    forMs: 1_000,
+  });
+
+  expect(answered.ok).toBe(true);
+  expect(answered.ok === true && answered.jobs.map((job) => job.id)).toEqual([A_JOB.id]);
+  expect(folded).toEqual([A_JOB.id]);
+});

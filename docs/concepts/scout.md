@@ -1,6 +1,6 @@
 # Scout
 
-**What it is:** A read-only agent a person starts from a Studio to read the repository or an outside source, which comes back as a Finding. It never writes.
+**What it is:** A read-only agent a person starts from a Studio to read the repository or an outside source, or from a stranded worktree slot to read the work left in it, which comes back as a Finding. It never writes.
 
 ---
 
@@ -16,15 +16,15 @@ You ask a [Studio](studio.md) how routing is decided across three packages. A sc
 > **Rule.** A scout starts only on a person's ask, made directly or through [Helm](helm.md).
 > Why: a scout spends money, and nothing on a Studio spends until a person asks.
 
-> **Rule.** A scout has no worktree. It reads the repository's checkout as it is on disk, and its Finding records the commit and whether uncommitted changes were present.
+> **Rule.** A scout has no worktree. It reads the repository's checkout as it is on disk, or a stranded slot's, and its Finding records the commit and whether uncommitted changes were present.
 > Why: it answers about the code a person is looking at, and the Finding says which state that was.
 
 | | Drone | Helm | Scout |
 |---|---|---|---|
-| Reads | Its Job's worktree | Fleet, through the Fleet MCP | The checkout on disk, and allowed sources |
+| Reads | Its Job's worktree | Fleet, through the Fleet MCP | The checkout on disk or a stranded slot's, and allowed sources |
 | Writes | Code, in its worktree | Through commands, on ask | Nothing |
 | Lifetime | One Job | A conversation | One ask |
-| Started by | The dispatch gate | A person's message | A person's ask |
+| Started by | The dispatch gate | A person's message | A person's ask, or Rescue on a stranded slot |
 
 ## What it may read
 
@@ -78,7 +78,7 @@ Reading Helm threads needs no operation, and gets none: `observe_helm` in `crate
 | Spend | No cap. Its cost is shown on its Finding when it ends |
 | Stop | A stop on its node, at any time |
 | Record | Its Finding lists every file and source it read |
-| Start | A person's ask, and nothing else |
+| Start | A person's ask or press, and nothing else |
 
 > **Rule.** A scout has no budget cap. A person ends one with the stop on its node.
 > Why: its cost is shown on its Finding, and a person's ask is what started the spending.
@@ -107,5 +107,26 @@ A Finding lists a file when the agent answered the read, so a read refused as ou
 | `stop_scout` | A person, on Bridge | The stop on its node |
 
 A Finding whose Fleet stopped while its scout was reading ends as failed when Fleet next starts, keeping what it read.
+
+## Starting from a stranded slot
+
+A person presses Rescue on a stranded bay in Cleanup and a scout reads the work its holder left there. It is the same scout, with the same limits. What changes is where it starts and where its Finding lives.
+
+> **Rule.** A scout started from a stranded slot reads that slot's checkout, not the repository's. Its Finding lives on that slot, read in the sheet its bay opens, not on a Studio.
+> Why: the question is about one slot's work, and the person is deciding what to do with that slot.
+
+> **Rule.** That Finding records the commit the slot was at and whether uncommitted changes were present, and a Finding of another commit is not shown.
+> Why: it describes one state of the work, and an act chosen from it must be on that state.
+
+Its Finding is a one-word verdict and plain items. **Unfinished** means the work has a part left to do, and the items are what is left, a line each. **Scraps** means leftovers that need no more work, and the one item says what they are. Fleet reads the verdict out of the Scout's closing JSON block (`agent-prompt.md`, section 5d); an answer in any other shape is kept as the Scout's own words with no verdict.
+
+What it reads is the commit, the branch, the change against the base with uncommitted changes to tracked files in it, and the uncommitted files. Fleet reads those with git and hands the scout the text, because the scout cannot run git. They are material, the way a source is, and the brief says so before they arrive: commit messages and diff lines were written by an agent or a person.
+
+> **Rule.** A scout never scraps, stashes or picks up. Fleet does, on the press that asks.
+> Why: the scout reads and never writes, and the acts change what the machine holds.
+
+| Operation | Who | Does |
+|---|---|---|
+| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then proposes a Job that continues from its branch, its request the Finding's items |
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

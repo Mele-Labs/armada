@@ -2919,6 +2919,65 @@ The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating
 
 **No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again. The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
 
+## Protocol 23.29: a Scout reads a stranded slot
+
+The owner, 4 Oct 2026: when a worktree slot is stranded, send an agent to look at the work, then
+choose to scrap it or stash it. `../concepts/scout.md`, *Starting from a stranded slot*, and
+`../concepts/fleet.md`, *Rescuing a stranded slot*.
+
+**Additive only.** One command, six DTOs and two optional fields on `WorktreeSlot`; a 23.18 Bridge
+reads neither field and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
+| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose. Each commit is `{ sha, subject, home }`, `home` being `only_here` (on no remote branch and not on the local base), `on_remote` or `on_main` | A slot that is not stranded |
+| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, verdict?, items?, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed`. `verdict` is `unfinished` or `scraps`; `items` is what is left to do under the first and one line of leftovers under the second. `summary` is the Scout's own words, kept only where its answer was not that shape | No Scout has read it, or it has moved off the commit read |
+
+**A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains
+`job_status` (where the Job ended), `kept` (why its release was refused, so its work is still in
+the slot) and `completed`, all optional or defaulted. A kept slot carries `stranded` too, and
+`rescue_slot` acts on it as on a stranded one; each act ends the Job's claim, so the slot is free
+after.
+
+**Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
+`fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
+`fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.
+
+**Bridge re-reads `GET /worktrees` while a Finding is `reading`.** No event carries it.
+
+**Store V104 and V105**, `slot_rescues` (V105 adds `verdict` and `items`): one row per slot, keyed by Manifest and slot number, replaced as
+the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
+`failed` when Fleet starts.
+
+## Protocol 23.30: a Scout's Finding picked up
+
+The owner, 5 Oct 2026: a stranded slot's Finding gets a third act beside Scrap and Stash, which
+proposes a Job that continues the work from the slot's branch. `../concepts/fleet.md`,
+*Rescuing a stranded slot*.
+
+**Additive only.** One variant and one optional field; a 23.29 Bridge never sends the variant and
+never sends the field.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `pick_up` | `RescueAct` | Stash, then a proposal. The answer is `SlotRescued`, as a stash's | A 23.29 peer sends `start`, `stop`, `scrap` or `stash` |
+| `continue_from` | `ProposeJob` | A branch the Job's worktree is cut from in place of the base. Kept as the proposal's landing `from_ref`, so the approval shows it and refuses it unless the repository holds it | Cut from the base, as every proposal before it |
+
+**The seam is the landing the approval already has.** `from_ref` was set only at the approval; a
+proposal can now arrive with it set, and the approval's own body still replaces it. A blank
+`continue_from` is none.
+
+**Pick up uses the proposer, not a workflow of its own.** Fleet assigns no workflow by default
+(`crates/fleet/src/proposing.rs`), so the request, the branch and the Finding's items, goes to the
+proposer as a dispatched request does, and the head of its plan is cut from the branch. A plan's
+other Jobs wait on the head and are cut from the base.
+
+**Two refusals, both 409s:** `fleet.rescue_unread` (no Finding of the slot has items or words to
+carry) and `fleet.rescue_nothing_left` (its verdict is `scraps`). A stash's refusals apply too.
+
+**No migration, no store change and no event.** The landing is the existing `job_landing` row.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
