@@ -123,7 +123,7 @@ export type SlotFinding = {
 };
 
 /** What a person does with a stranded slot. Since 23.29. */
-export type RescueAct = "start" | "stop" | "scrap" | "stash";
+export type RescueAct = "start" | "stop" | "scrap" | "stash" | "pick_up";
 
 /** `rescue_slot`'s body, `POST /worktrees/slots/rescue?manifest_id=`. */
 export type RescueSlot = { act: RescueAct; slot: number };
