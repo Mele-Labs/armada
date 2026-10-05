@@ -29,6 +29,13 @@
   width: var(--w-workflow-task-node);
 }
 
+/* A task under its group: the band and its title, nothing else. */
+.armada-run-node:is([data-kind="task"], [data-kind="more"]) {
+  height: calc(
+    var(--leading-2xs) + var(--space-1) * 2 + var(--space-2) * 2 + var(--leading-sm) + var(--border-width) * 2
+  );
+}
+
 button.armada-run-node {
   cursor: pointer;
 }
@@ -305,7 +312,7 @@ button.armada-run-node {
   --armada-run-node-kind: var(--kind-setup);
 }
 
-.armada-run-node:is([data-kind="step"], [data-kind="stack"], [data-kind="fan"], [data-kind="group"], [data-kind="job"]) {
+.armada-run-node:is([data-kind="step"], [data-kind="stack"], [data-kind="fan"], [data-kind="group"], [data-kind="task"], [data-kind="more"], [data-kind="job"]) {
   --armada-run-node-kind: var(--kind-step);
 }
 

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Eye, Scale, ShieldEllipsis, type LucideIcon } from "lucide-react";
+import { Ellipsis, Eye, Scale, ShieldEllipsis, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, CRITERION_VERDICT_JUDGE, STEP_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -18,6 +18,8 @@ export type RunNodeKind =
   | "stack"
   | "fan"
   | "group"
+  | "task"
+  | "more"
   | "job"
   | "done"
   | "pr"
@@ -102,6 +104,8 @@ export const RUN_NODE_HEIGHT = 112;
 export const RUN_NODE_WIDTH = 260;
 export const RUN_NODE_NARROW = 196;
 /** A gate stage is the lighter card between two steps: `RunNode.css` declares it off the tokens. */
+/** A task hung under its group: the band and one title line, so a chain of four stays short. */
+export const RUN_NODE_TASK_HEIGHT = 66;
 export const RUN_NODE_GATE_HEIGHT = 44;
 export const RUN_NODE_GATE_WIDTH = 216;
 
@@ -115,6 +119,8 @@ const KIND: Record<RunNodeKind, string> = {
   stack: "Plan",
   fan: "Jobs",
   group: "Group",
+  task: "Task",
+  more: "More",
   job: "Job",
   done: "Done when",
   pr: "Pull request",
@@ -280,7 +286,7 @@ export function RunNode({
 }: RunNodeProps) {
   const named = `${name}, ${said}`;
   // Not made yet: Groups before a plan, Jobs before a wave. A faint outline and its word.
-  const ghost = kind === "stack" || kind === "fan";
+  const ghost = kind === "stack" || kind === "fan" || kind === "more";
   const attributes = {
     className: "armada-run-node",
     "data-kind": kind,
@@ -301,6 +307,10 @@ export function RunNode({
     );
   const body = gate !== undefined ? (
     <GateLine gate={gate} named={named} meta={meta} />
+  ) : kind === "more" ? (
+    <Tooltip asChild label={said}>
+      <Ellipsis size={16} aria-hidden />
+    </Tooltip>
   ) : ghost ? (
     <>
       <span className="armada-run-node__ghost">{KIND[kind]}</span>

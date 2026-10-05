@@ -76,7 +76,7 @@ const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "c
  * machine's word for work that ended without advancing; the task's own word is
  * printed beside the mark either way.
  */
-const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
+export const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   open: "not_started",
   working: "running",
   // Its agent has stopped, so nothing sweeps; `taskCard` draws its own mark.

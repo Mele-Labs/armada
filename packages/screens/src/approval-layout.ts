@@ -20,6 +20,9 @@ const ROW_GAP = 56;
 const CHAIN_GAP = 16;
 const LOOP_ROOM = 64;
 
+/** A task in a group's chain, as `RunNode.css` draws it (`RUN_NODE_TASK_HEIGHT`), and the room between two of a chain (`--space-6` and `--space-1`). */
+const TASK = { height: 66, gap: 28 };
+
 /** Across a fan, member to member (`--space-6`). */
 const ACROSS = 24;
 
@@ -50,6 +53,8 @@ export type Frame = { id: string; kind: "zone" | "cluster"; name?: string; title
 export type Layout = {
   places: ReadonlyMap<string, Place>;
   frames: readonly Frame[];
+  /** A node drawn as a frame, by id: a plan group as a Cluster. */
+  sizes: ReadonlyMap<string, { width: number; height: number }>;
   /** Each edge as drawn: one crossing between lanes turns in the gutter between them. */
   edges: readonly WorkflowCanvasEdge[];
 };
@@ -57,8 +62,9 @@ export type Layout = {
 /** What a lane is called on its head. */
 const LANE_NAME: Record<Lane, string> = { setup: "Setup", work: "Work", delivery: "Delivery" };
 
-/** Whether a node is drawn narrow: a plan group in a fan, the setup lane. */
-export const narrowOf = (node: ApprovalNode): boolean => node.kind === "group" || node.lane === "setup";
+/** Whether a node is drawn narrow: a plan group in a fan, its tasks, the setup lane. */
+export const narrowOf = (node: ApprovalNode): boolean =>
+  node.kind === "group" || node.kind === "task" || node.kind === "more" || node.lane === "setup";
 
 const widthOf = (node: ApprovalNode): number => (narrowOf(node) ? CARD.narrow : CARD.width);
 
@@ -72,8 +78,60 @@ function rowsOf(fan: readonly ApprovalNode[]): ApprovalNode[][] {
   return rows.filter((row) => row !== undefined);
 }
 
-const rowWidth = (row: readonly ApprovalNode[]): number =>
-  row.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, row.length - 1);
+const rowWidth = (row: readonly ApprovalNode[], nodes: readonly ApprovalNode[]): number =>
+  row.reduce((sum, one) => sum + columnOf(one, nodes), 0) + ACROSS * Math.max(0, row.length - 1);
+
+const wavesOfChain = (chain: readonly ApprovalNode[]): ApprovalNode[][] => {
+  const waves: ApprovalNode[][] = [];
+  for (const task of chain) (waves[task.chain!.wave] ??= []).push(task);
+  return waves.filter((wave) => wave !== undefined);
+};
+
+const waveWidth = (wave: readonly ApprovalNode[]): number =>
+  wave.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, wave.length - 1);
+
+/** How wide a group's column is: its card, or its widest wave of tasks. */
+const columnOf = (group: ApprovalNode, nodes: readonly ApprovalNode[]): number =>
+  Math.max(widthOf(group), ...wavesOfChain(nodes.filter((one) => one.chain?.group === group.id)).map(waveWidth)) +
+  (group.kind === "group" ? CLUSTER_PAD * 2 : 0);
+
+/**
+ * **Where a group's tasks are put.** Each group
+ * is a Cluster side by side with its neighbours: a head, then its waves as
+ * rows inside. The group's own node is the frame, so an edge enters its top
+ * and leaves its bottom. Returns where the row ends.
+ */
+function clustersUnder(
+  fan: readonly ApprovalNode[],
+  nodes: readonly ApprovalNode[],
+  places: Map<string, Place>,
+  sizes: Map<string, { width: number; height: number }>,
+  spine: number,
+  top: number,
+): number {
+  let x = spine - rowWidth(fan, nodes) / 2;
+  let tallest = 0;
+  for (const group of fan) {
+    const width = columnOf(group, nodes);
+    const waves = wavesOfChain(nodes.filter((one) => one.chain?.group === group.id));
+    const body = waves.length === 0 ? 0 : waves.length * (TASK.height + TASK.gap) - TASK.gap + CLUSTER_PAD;
+    const height = CLUSTER_HEAD + CLUSTER_PAD + body;
+    places.set(group.id, { x, y: top });
+    sizes.set(group.id, { width, height });
+    for (const [n, wave] of waves.entries()) {
+      let at = x + width / 2 - waveWidth(wave) / 2;
+      for (const task of wave) {
+        places.set(task.id, { x: at, y: top + CLUSTER_HEAD + CLUSTER_PAD + n * (TASK.height + TASK.gap) });
+        at += widthOf(task) + ACROSS;
+      }
+    }
+    tallest = Math.max(tallest, height);
+    x += width + ACROSS;
+  }
+  // One height for the row, so every exit drops the same distance to the gate.
+  for (const group of fan) sizes.set(group.id, { ...sizes.get(group.id)!, height: tallest });
+  return top + tallest;
+}
 
 export function layoutOf(
   nodes: readonly ApprovalNode[],
@@ -83,6 +141,7 @@ export function layoutOf(
 ): Layout {
   const places = new Map<string, Place>();
   const frames: Frame[] = [];
+  const sizes = new Map<string, { width: number; height: number }>();
   const labelled = new Set(edges.filter((edge) => edge.label !== undefined).map((edge) => edge.target));
   const laneOfId = new Map(nodes.map((node) => [node.id, node.lane]));
   /** Where each lane's left edge is, for the gutters. */
@@ -101,7 +160,7 @@ export function layoutOf(
     }
     // How far the lane reaches either side of its spine: a card, a way back beside it, the widest fan row.
     const hasLoop = edges.some((edge) => edge.kind === "returns" && laneOfId.get(edge.source) === lane);
-    const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map(rowWidth)));
+    const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map((row) => rowWidth(row, nodes))));
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
     const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
     const left = Math.max(half, fanHalf);
@@ -114,23 +173,27 @@ export function layoutOf(
 
     let y = LANE_TOP;
     for (const [at, node] of inLane.entries()) {
-      if (node.from !== undefined) continue;
+      if (node.from !== undefined || node.chain !== undefined) continue;
       if (labelled.has(node.id)) y += LABELLED;
       const gate = node.kind === "checks";
       places.set(node.id, { x: spine - (gate ? GATE.width : spineCard) / 2, y });
       y += gate ? GATE.height : CARD.height;
       const fan = fans.get(node.id);
       if (fan !== undefined) {
-        // The fan's Cluster: a head, then its rows centred on the spine.
         const top = y + ROW_GAP;
+        if (fan[0]?.kind === "group") {
+          y = clustersUnder(fan, nodes, places, sizes, spine, top);
+        } else {
+        // The fan's Cluster: a head, then its rows centred on the spine.
         let rowY = top + CLUSTER_HEAD + CLUSTER_PAD;
         const rows = rowsOf(fan);
-        const across = Math.max(...rows.map(rowWidth));
+        const across = Math.max(...rows.map((row) => rowWidth(row, nodes)));
         for (const row of rows) {
-          let at = spine - rowWidth(row) / 2;
+          let at = spine - rowWidth(row, nodes) / 2;
           for (const member of row) {
-            places.set(member.id, { x: at, y: rowY });
-            at += widthOf(member) + ACROSS;
+            const column = columnOf(member, nodes);
+            places.set(member.id, { x: at + (column - widthOf(member)) / 2, y: rowY });
+            at += column + ACROSS;
           }
           rowY += CARD.height + ROW_GAP;
         }
@@ -145,6 +208,7 @@ export function layoutOf(
           height: bottom - top,
         });
         y = bottom;
+        }
       }
       // A gate's stages stand close under their step, and close to each other: one stage, not three.
       const next = inLane.slice(at + 1).find((one) => one.from === undefined);
@@ -183,5 +247,5 @@ export function layoutOf(
     const enters = laneLeft.get(into);
     return enters === undefined ? edge : { ...edge, via: enters - LANE_GAP / 2, intoSide: true };
   });
-  return { places, frames, edges: drawn };
+  return { places, frames, sizes, edges: drawn };
 }

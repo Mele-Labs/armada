@@ -27,6 +27,8 @@ export type StudioFrameProps = {
   /** What the head draws in the kind's place, where it is a control — a canvas lane's picker. Wins over `name`. */
   head?: ReactNode;
   selected?: boolean;
+  /** Where the work inside is, on a run's canvas: `live` is under way, `done` recedes. Absent is the frame as it was. */
+  tone?: "live" | "done";
 };
 
 /** What a frame is read aloud as: its kind, then its title where it has one. */
@@ -34,9 +36,9 @@ export function studioFrameLabel({ kind, title }: Pick<StudioFrameProps, "kind" 
   return title === undefined || title === "" ? STUDIO_NODE_KIND[kind] : `${STUDIO_NODE_KIND[kind]}: ${title}`;
 }
 
-export function StudioFrame({ kind, title, name, head, selected = false }: StudioFrameProps) {
+export function StudioFrame({ kind, title, name, head, selected = false, tone }: StudioFrameProps) {
   return (
-    <div className="armada-studio-frame" data-kind={kind} data-selected={selected || undefined}>
+    <div className="armada-studio-frame" data-kind={kind} data-selected={selected || undefined} data-tone={tone}>
       <div className="armada-studio-frame__head">
         {head ?? <span className="armada-studio-frame__kind">{name ?? STUDIO_NODE_KIND[kind]}</span>}
         {title === undefined || title === "" ? null : (
