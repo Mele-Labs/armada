@@ -402,6 +402,7 @@ where
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             pressing: crate::showing_again::Pressing::default(),
             rechecking: crate::rechecking::Rechecking::default(),
+            lines: crate::taking_turns::Lines::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
             sizes: crate::resources::Sizes::default(),

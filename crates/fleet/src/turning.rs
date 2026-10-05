@@ -441,6 +441,8 @@ where
                 Ok(turned) => {
                     fleet.probed(&turned);
                     fleet.walked(&turned);
+                    // Beside the probes, for their reason: a landing is minutes.
+                    fleet.lines_driven().await;
                 }
                 Err(why) => adrift(why),
             }

@@ -32,6 +32,7 @@ mod limits;
 mod lineage;
 mod manifest_allowed;
 mod manifest_snapshot;
+mod merge_line;
 mod migrate;
 mod model_override;
 mod model_per_task;

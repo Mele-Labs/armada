@@ -47,6 +47,12 @@ impl fmt::Display for DatabaseFault {
     }
 }
 
+impl From<DatabaseFault> for WriteError {
+    fn from(fault: DatabaseFault) -> WriteError {
+        WriteError::Database(fault)
+    }
+}
+
 pub(crate) fn fault(doing: &'static str) -> impl FnOnce(rusqlite::Error) -> DatabaseFault {
     move |cause| DatabaseFault {
         doing,
