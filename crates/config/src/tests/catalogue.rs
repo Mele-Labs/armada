@@ -9,7 +9,7 @@ use std::path::Path;
 
 use core_model::WorkflowSource;
 
-use crate::catalogue::{Catalogue, CatalogueRefused, WhyLeftOut, Written};
+use crate::catalogue::{Catalogue, WhyLeftOut, Written};
 use crate::manifest::Manifest;
 use crate::resolve::ResolvedWorkflow;
 use crate::tests::{named, roster};
@@ -44,10 +44,7 @@ fn a_manifest() -> Manifest {
 }
 
 fn resolved(written: Vec<Written>) -> crate::catalogue::ResolvedCatalogue {
-    Catalogue::of(written, &roster())
-        .expect("a catalogue")
-        .resolve(&a_manifest())
-        .expect("nothing the repository wrote is refused")
+    Catalogue::of(written, &roster()).resolve(&a_manifest())
 }
 
 fn label_of(held: &crate::catalogue::ResolvedCatalogue, id: &str) -> (String, WorkflowSource) {
@@ -97,26 +94,6 @@ fn an_id_only_one_place_declares_is_held_from_that_place() {
     );
 }
 
-/// Two of the repository's own files naming one id is refused, naming both:
-/// the repository declared them, and a catalogue that picked would be choosing
-/// on behalf of whoever wrote the second.
-#[test]
-fn one_id_twice_in_the_repository_is_refused_naming_both() {
-    let refused = Catalogue::of(
-        [
-            repository("first.yml", one_step("shared", "One", None)),
-            repository("second.yml", one_step("shared", "Two", None)),
-        ],
-        &roster(),
-    )
-    .expect_err("two of the repository's files agree on an id");
-    let CatalogueRefused::DuplicateWorkflowId { id, first, second } = refused else {
-        panic!("a duplicate, not {refused:?}");
-    };
-    assert_eq!(id, "shared");
-    assert!(first.ends_with("first.yml") && second.ends_with("second.yml"));
-}
-
 /// **Two Kit files naming one id are both left out, and named together**, and
 /// what the next place down holds for the id runs instead.
 #[test]
@@ -141,18 +118,11 @@ fn one_id_twice_in_kit_leaves_both_out_and_the_next_place_answers() {
     );
 }
 
-/// **The repository's own is strict; Kit's is left out and named**, and the
-/// repository still gets its catalogue.
+/// **A definition that will not parse is left out and named**, in Kit and in
+/// the repository alike, and the repository still gets its catalogue.
 #[test]
-fn a_definition_that_will_not_parse_is_refused_in_the_repository_and_left_out_of_kit() {
+fn a_definition_that_will_not_parse_is_left_out_and_named() {
     let broken = || "version: 1\nworkflow_id: broken\n".to_string();
-    let refused = Catalogue::of([repository("broken.yml", broken())], &roster())
-        .expect_err("the repository declared it");
-    let CatalogueRefused::Refused(why) = refused else {
-        panic!("a parse refusal, not {refused:?}");
-    };
-    assert_eq!(why.path(), Path::new("/repo/.armada/workflows/broken.yml"));
-
     let held = resolved(vec![
         kit("broken.yml", broken()),
         repository("bug.yml", one_step("bug", "Bug", None)),
@@ -191,23 +161,6 @@ fn a_kit_definition_naming_an_undeclared_check_is_left_out_and_named() {
     );
 }
 
-/// A repository's own that will not resolve still refuses: it declared it.
-#[test]
-fn a_repositorys_definition_naming_an_undeclared_check_is_still_refused() {
-    let catalogue = Catalogue::of(
-        [
-            kit("bug.yml", one_step("bug", "Kit's", None)),
-            repository("bug.yml", one_step("bug", "Own", Some("build"))),
-        ],
-        &roster(),
-    )
-    .expect("both parse");
-    assert!(
-        catalogue.resolve(&a_manifest()).is_err(),
-        "not Kit's in its place"
-    );
-}
-
 /// A replaced definition never runs, so a Check it names that this repository
 /// does not declare is not checked, and nothing is left out for it.
 #[test]
@@ -229,20 +182,17 @@ fn a_definition_resolved_on_its_own_is_the_repositorys() {
     assert_eq!(resolved.frozen().source(), WorkflowSource::Repository);
 }
 
-/// What a running Fleet reads: **a repository's own bad file is left out and
-/// named, and the files beside it stand.** Start refuses (above); this is the
-/// same text read leniently.
+/// **A repository's own bad file is left out and named, and the files beside
+/// it stand**, at start and on every re-read.
 #[test]
-fn leniently_a_bad_repository_file_does_not_take_the_others_down() {
+fn a_bad_repository_file_does_not_take_the_others_down() {
     let written = vec![
         repository("broken.yml", "workflow_id: [unclosed".to_string()),
         repository("needs.yml", one_step("needs", "Needs", Some("missing"))),
         repository("fine.yml", one_step("fine", "Fine", None)),
         kit("hotfix.yml", one_step("hotfix", "Hot", None)),
     ];
-    let held = Catalogue::leniently(written, &roster())
-        .resolve(&a_manifest())
-        .expect("a lenient catalogue refuses nothing");
+    let held = Catalogue::of(written, &roster()).resolve(&a_manifest());
     assert_eq!(
         label_of(&held, "fine"),
         ("Fine".to_string(), WorkflowSource::Repository)
@@ -262,16 +212,15 @@ fn leniently_a_bad_repository_file_does_not_take_the_others_down() {
 /// A repository's own that will not resolve steps down, as Kit's does: the
 /// next place down answers for its id, and the sentence says whose.
 #[test]
-fn leniently_a_repository_file_that_will_not_resolve_steps_down_to_kits() {
-    let held = Catalogue::leniently(
+fn a_repository_file_that_will_not_resolve_steps_down_to_kits() {
+    let held = Catalogue::of(
         vec![
             kit("bug.yml", one_step("bug", "Kit's", None)),
             repository("bug.yml", one_step("bug", "Mine", Some("missing"))),
         ],
         &roster(),
     )
-    .resolve(&a_manifest())
-    .expect("nothing is refused");
+    .resolve(&a_manifest());
     assert_eq!(
         label_of(&held, "bug"),
         ("Kit's".to_string(), WorkflowSource::Kit)
@@ -283,8 +232,8 @@ fn leniently_a_repository_file_that_will_not_resolve_steps_down_to_kits() {
 }
 
 #[test]
-fn leniently_one_id_twice_in_the_repository_leaves_both_out() {
-    let held = Catalogue::leniently(
+fn one_id_twice_in_the_repository_leaves_both_out() {
+    let held = Catalogue::of(
         vec![
             repository("first.yml", one_step("shared", "One", None)),
             repository("second.yml", one_step("shared", "Two", None)),
@@ -292,8 +241,7 @@ fn leniently_one_id_twice_in_the_repository_leaves_both_out() {
         ],
         &roster(),
     )
-    .resolve(&a_manifest())
-    .expect("nothing is refused");
+    .resolve(&a_manifest());
     assert!(!held.workflows().keys().any(|id| id.as_str() == "shared"));
     assert!(held.workflows().keys().any(|id| id.as_str() == "other"));
     assert!(matches!(
@@ -319,4 +267,32 @@ fn a_definition_fits_where_it_parses_and_resolves_and_says_why_where_it_does_not
     .expect_err("no");
     assert!(matches!(unresolved, crate::Unfit::Unresolved(_)));
     assert!(unresolved.to_string().contains("missing"), "{unresolved}");
+}
+
+/// **Every file that parsed is kept, with its text**, the one that runs and each
+/// one a more specific place replaced, so a list can draw the dashed row and an
+/// editor can open it.
+#[test]
+fn every_parsed_file_is_kept_and_says_what_replaced_it() {
+    let held = resolved(vec![
+        kit("bug.yml", one_step("bug", "Kit's", None)),
+        repository("bug.yml", one_step("bug", "Mine", None)),
+        kit("solo.yml", one_step("solo", "Solo", None)),
+        kit("needs.yml", one_step("needs", "Needs", Some("missing"))),
+    ]);
+    let files: Vec<_> = held
+        .files()
+        .iter()
+        .map(|file| (file.id().as_str(), file.source(), file.overridden_by()))
+        .collect();
+    assert_eq!(
+        files,
+        vec![
+            ("bug", WorkflowSource::Repository, None),
+            ("bug", WorkflowSource::Kit, Some(WorkflowSource::Repository)),
+            ("solo", WorkflowSource::Kit, None),
+        ],
+        "a left-out file is on the left-out list and not here"
+    );
+    assert_eq!(held.files()[1].text(), one_step("bug", "Kit's", None));
 }

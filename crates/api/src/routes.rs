@@ -110,6 +110,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/proposals/stop", post(stop_proposal::<D>))
         .route("/workflows", get(list_workflows::<D>))
         .route(
+            "/workflows/definition",
+            get(crate::repositories::get_workflow::<D>),
+        )
+        .route(
             "/workflows/left_out",
             get(crate::repositories::list_left_out_workflows::<D>),
         )

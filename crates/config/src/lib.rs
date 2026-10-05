@@ -48,7 +48,7 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRunner, NotAmended, PortEdit, Unplaceable,
 };
 pub use catalogue::{
-    carried, fit, Catalogue, CatalogueRefused, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut,
+    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile,
     Written, CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};

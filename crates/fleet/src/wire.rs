@@ -264,7 +264,9 @@ pub(crate) fn canonical(path: &std::path::Path) -> String {
 pub(crate) fn workflow_summary(
     workflow: &config::ResolvedWorkflow,
     manifest_id: &core_model::ManifestId,
+    files: &[config::WorkflowFile],
 ) -> WorkflowSummary {
+    let of_this = || files.iter().filter(|file| file.id() == workflow.id());
     WorkflowSummary {
         id: WorkflowId::from(workflow.id()),
         name: workflow.name().to_string(),
@@ -273,6 +275,28 @@ pub(crate) fn workflow_summary(
         manifest_id: ManifestId::from(manifest_id),
         source: workflow.source().as_wire().to_string(),
         for_requests: workflow.for_requests().map(str::to_string),
+        file: of_this()
+            .find(|file| file.overridden_by().is_none())
+            .map(|file| file.path().to_string_lossy().to_string())
+            .unwrap_or_default(),
+        overrides: of_this()
+            .filter(|file| file.overridden_by().is_some())
+            .map(|file| ipc::OverriddenWorkflow {
+                source: file.source().as_wire().to_string(),
+                file: file.path().to_string_lossy().to_string(),
+            })
+            .collect(),
+    }
+}
+
+/// One definition file as `get_workflow` answers it.
+pub(crate) fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowDefinition {
+    ipc::WorkflowDefinition {
+        workflow_id: WorkflowId::from(file.id()),
+        source: file.source().as_wire().to_string(),
+        file: file.path().to_string_lossy().to_string(),
+        definition: file.text().to_string(),
+        overridden_by: file.overridden_by().map(|place| place.as_wire().to_string()),
     }
 }
 

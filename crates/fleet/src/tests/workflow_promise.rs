@@ -29,7 +29,7 @@ fn summary_of(for_requests: Option<&str>) -> ipc::WorkflowSummary {
     .expect("the fixture manifest parses");
     let workflow = config::ResolvedWorkflow::resolve(&def, &manifest)
         .unwrap_or_else(|refused| panic!("the fixture workflow did not resolve: {refused}"));
-    workflow_summary(&workflow, manifest.id())
+    workflow_summary(&workflow, manifest.id(), &[])
 }
 
 #[test]

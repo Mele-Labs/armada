@@ -250,7 +250,7 @@ fn the_repositorys_definition_beats_kits_by_id() {
             )
             .expect("saved");
         }
-        let (held, _) = workflows_again(repository.path(), kit.path(), &roster(), &manifest);
+        let (held, _, _) = workflows_again(repository.path(), kit.path(), &roster(), &manifest);
         assert_eq!(
             label(&held, "shared"),
             ("The repository's".to_string(), WorkflowSource::Repository),
@@ -350,9 +350,8 @@ fn a_file_named_for_the_id_that_defines_something_else_is_not_replaced() {
     );
 }
 
-/// **One bad file does not take the others down**, on a Fleet that is running —
-/// and start is still strict about the repository's own, which is the owner's
-/// decision and not this change's to move.
+/// **One bad file does not take the others down**, on a Fleet that is running
+/// and at start alike.
 #[test]
 fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
     let repository = a_repository();
@@ -374,7 +373,7 @@ fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
         &defining("everyones", "Everyone's", None),
     );
 
-    let (held, left_out) = workflows_again(
+    let (held, left_out, _) = workflows_again(
         repository.path(),
         kit.path(),
         &roster(),
@@ -397,10 +396,10 @@ fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
         "{said:?}"
     );
 
-    assert!(
-        Setup::at(repository.path(), kit.path(), &roster()).is_err(),
-        "start still refuses a repository's own bad file"
-    );
+    let setup = Setup::at(repository.path(), kit.path(), &roster())
+        .expect("start leaves a repository's own bad file out rather than refusing");
+    assert_eq!(setup.left_out().len(), 2);
+    assert_eq!(label(setup.workflows(), "fine").1, WorkflowSource::Repository);
 }
 
 /// Waits for the watch to say something, or fails naming the wait.

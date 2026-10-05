@@ -29,8 +29,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use config::{
-    Catalogue, CatalogueRefused, LeftOut, LoadError, Manifest, Reloads, ResolveError,
-    ResolvedWorkflow, Roster, Written,
+    Catalogue, LeftOut, LoadError, Manifest, Reloads, ResolvedWorkflow, Roster, WorkflowFile,
+    Written,
 };
 
 /// The Manifest's name at a repository root. Not configurable: a repository
@@ -76,6 +76,9 @@ pub struct Setup {
     workflows: BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
     /// Definitions from Kit or Armada this repository runs without, and why.
     left_out: Vec<LeftOut>,
+    /// Every definition file that parsed, the ones that run and the ones a more
+    /// specific place replaced, with the text each was read from.
+    files: Vec<WorkflowFile>,
     /// The handle that reads `armada.yml` again. **Read here, so the thing
     /// that can re-read the file is the thing that opened it** — see
     /// `config::live` for what a re-read may and may not move.
@@ -116,15 +119,8 @@ impl Setup {
         let mut written = config::carried();
         written.extend(definitions(&kit.join(KIT_WORKFLOWS), Written::in_kit)?);
         written.extend(definitions(&root.join(WORKFLOWS), Written::in_repository)?);
-        let catalogue = Catalogue::of(written, roster).map_err(|why| match why {
-            CatalogueRefused::Refused(why) => SetupRefused::WorkflowRefused(why),
-            CatalogueRefused::DuplicateWorkflowId { id, first, second } => {
-                SetupRefused::DuplicateWorkflowId { id, first, second }
-            }
-        })?;
-        let (workflows, left_out) = catalogue
+        let (workflows, left_out, files) = Catalogue::of(written, roster)
             .resolve(&manifest)
-            .map_err(SetupRefused::ChecksNotDeclared)?
             .into_parts();
 
         Ok(Setup {
@@ -132,6 +128,7 @@ impl Setup {
             manifest,
             workflows,
             left_out,
+            files,
             reloads,
         })
     }
@@ -159,6 +156,10 @@ impl Setup {
     /// words Fleet prints at start.
     pub fn left_out(&self) -> &[LeftOut] {
         &self.left_out
+    }
+
+    pub fn files(&self) -> &[WorkflowFile] {
+        &self.files
     }
 
     /// The two halves a `Fittings` wants by value, and the handle that reads
@@ -248,20 +249,20 @@ pub(crate) fn listed(dir: &Path) -> Result<Vec<PathBuf>, SetupRefused> {
         }
     }
     // Read order is the filesystem's and is not stable across machines. Sorted,
-    // so a refusal that names one of these does so in an order somebody can
-    // compare, and so the duplicate-id refusal above always names the first
-    // occurrence by that same order.
+    // so a sentence that names one of these does so in an order somebody can
+    // compare, and so a duplicate id always names the first occurrence by that
+    // same order.
     found.sort();
     Ok(found)
 }
 
 /// Every workflow `root` runs now, read again from the three places.
 ///
-/// **Leniently, where [`Setup::at`] is strict**: a definition that does not fit
-/// is left out with its reason and the others stand, because this is a Fleet
-/// with Jobs in flight and a file somebody saved a second ago. The Manifest is
-/// the one the Fleet holds, so what a definition resolves against is what its
-/// Jobs are gated on.
+/// **A definition that does not fit is left out with its reason and the others
+/// stand**, as at start; and a file that cannot be read is said and skipped
+/// rather than refusing, because this is a Fleet with Jobs in flight and a file
+/// somebody saved a second ago. The Manifest is the one the Fleet holds, so what
+/// a definition resolves against is what its Jobs are gated on.
 pub fn workflows_again(
     root: &Path,
     kit: &Path,
@@ -270,6 +271,7 @@ pub fn workflows_again(
 ) -> (
     BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
     Vec<LeftOut>,
+    Vec<WorkflowFile>,
 ) {
     let mut written = config::carried();
     written.extend(definitions_leniently(
@@ -280,10 +282,7 @@ pub fn workflows_again(
         &root.join(WORKFLOWS),
         Written::in_repository,
     ));
-    Catalogue::leniently(written, roster)
-        .resolve(manifest)
-        .expect("a lenient catalogue refuses nothing")
-        .into_parts()
+    Catalogue::of(written, roster).resolve(manifest).into_parts()
 }
 
 /// Why a repository's setup could not be read.
@@ -293,7 +292,7 @@ pub fn workflows_again(
 /// the terminal: the person reading the output is the person who wrote the
 /// file, and a parser reporting one fault per run turns one edit into three.
 ///
-/// Six variants because a person has six different things to do about them,
+/// Four variants because a person has four different things to do about them,
 /// and each names the file it is about. `source` is deliberately absent: every
 /// variant renders its own detail below, and returning the inner error as a
 /// cause would print the same faults a second time in a different shape.
@@ -308,25 +307,8 @@ pub enum SetupRefused {
         path: PathBuf,
         cause: std::io::Error,
     },
-    /// Two definitions in one place name the same `workflow_id`. Naming both paths rather
-    /// than picking one — a Fleet that chose silently would be deciding on
-    /// behalf of whoever wrote the second file.
-    DuplicateWorkflowId {
-        id: String,
-        first: PathBuf,
-        second: PathBuf,
-    },
     /// The definition is there and Armada will not have it.
     WorkflowRefused(LoadError),
-    /// The two files disagree: a step names a Check the Manifest has not
-    /// declared, or names one it declares and says something else about it.
-    /// **The cross-file fault**, and the reason it is answered at start rather
-    /// than at the step that needed the name.
-    ///
-    /// The name is the first of the two shapes and is kept, because it is the
-    /// one every caller and every test already says. What it carries is
-    /// [`ResolveError`], which is where the shapes are told apart.
-    ChecksNotDeclared(ResolveError),
 }
 
 impl SetupRefused {
@@ -336,15 +318,7 @@ impl SetupRefused {
             SetupRefused::NoManifest { path } | SetupRefused::WorkflowsUnreadable { path, .. } => {
                 path
             }
-            // The first occurrence, by the sorted order `definitions` reads
-            // them in — the file a person would fix, since it was already
-            // there when the second one was added.
-            SetupRefused::DuplicateWorkflowId { first, .. } => first,
             SetupRefused::ManifestRefused(why) | SetupRefused::WorkflowRefused(why) => why.path(),
-            SetupRefused::ChecksNotDeclared(
-                ResolveError::ChecksNotDeclared { workflow, .. }
-                | ResolveError::StepsDisagreeWithTheManifest { workflow, .. },
-            ) => workflow,
         }
     }
 }
@@ -365,60 +339,8 @@ impl fmt::Display for SetupRefused {
             SetupRefused::WorkflowsUnreadable { path, cause } => {
                 write!(f, "{} could not be listed: {cause}", path.display())
             }
-            SetupRefused::DuplicateWorkflowId { id, first, second } => write!(
-                f,
-                "workflow_id `{id}` is declared twice, and Fleet does not pick between them:\n  \
-                 {}\n  {}",
-                first.display(),
-                second.display()
-            ),
             SetupRefused::ManifestRefused(why) | SetupRefused::WorkflowRefused(why) => {
                 loudly(f, why)
-            }
-            SetupRefused::ChecksNotDeclared(ResolveError::ChecksNotDeclared {
-                workflow,
-                manifest,
-                unknown,
-            }) => {
-                write!(
-                    f,
-                    "{} names {} Check(s) {} does not declare",
-                    workflow.display(),
-                    unknown.len(),
-                    manifest.display()
-                )?;
-                for miss in unknown {
-                    write!(
-                        f,
-                        "\n  step `{}` needs `{}`",
-                        miss.step.as_str(),
-                        miss.check
-                    )?;
-                    if miss.is_a_command {
-                        write!(f, ", which is declared as a Command, not a Check")?;
-                    } else {
-                        let names: Vec<&str> = miss.declared.iter().map(String::as_str).collect();
-                        write!(f, ", and the declared Checks are {}", Listed(&names))?;
-                    }
-                }
-                Ok(())
-            }
-            SetupRefused::ChecksNotDeclared(ResolveError::StepsDisagreeWithTheManifest {
-                workflow,
-                manifest,
-                disagreements,
-            }) => {
-                write!(
-                    f,
-                    "{} and {} disagree in {} place(s)",
-                    workflow.display(),
-                    manifest.display(),
-                    disagreements.len()
-                )?;
-                for said in disagreements {
-                    write!(f, "\n  {said}")?;
-                }
-                Ok(())
             }
         }
     }
@@ -448,19 +370,4 @@ fn loudly(f: &mut fmt::Formatter<'_>, why: &LoadError) -> fmt::Result {
         write!(f, "\n  `{}` {}", fault.key, fault.fault)?;
     }
     Ok(())
-}
-
-/// A comma-separated list, for a message that names what was expected.
-struct Listed<'a, T>(&'a [T]);
-
-impl<T: fmt::Display> fmt::Display for Listed<'_, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (n, item) in self.0.iter().enumerate() {
-            if n > 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "`{item}`")?;
-        }
-        Ok(())
-    }
 }

@@ -92,6 +92,11 @@ where
             probes,
             not_probed: elsewhere(),
             helm_action_authority: helm_action_authority(self.helm_authority()),
+            workflows_left_out: self
+                .repositories()
+                .served()
+                .iter()
+                .any(|one| !one.left_out().is_empty()),
         })
     }
 

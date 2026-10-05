@@ -208,10 +208,7 @@ pub fn catalogued(kit: &[(&str, String)], own: &[(&str, String)]) -> ResolvedCat
             own.iter()
                 .map(|(file, text)| Written::in_repository(at(OWN_AT, file), text.clone())),
         );
-    Catalogue::of(written, &Roster::of(named))
-        .unwrap_or_else(|why| panic!("the three places merge: {why:?}"))
-        .resolve(&self::written())
-        .unwrap_or_else(|why| panic!("nothing the storefront wrote is refused: {why}"))
+    Catalogue::of(written, &Roster::of(named)).resolve(&self::written())
 }
 
 /// The `armada.yml` a finished Setup would write for that repository.

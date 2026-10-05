@@ -15,7 +15,7 @@
 
 use config::{Fault, LoadError, ResolvedCheck, Roster, WorkflowDef, WorkflowSource};
 
-use crate::setup::{Setup, SetupRefused, MANIFEST, WORKFLOWS};
+use crate::setup::{Setup, MANIFEST, WORKFLOWS};
 use crate::tests::{repository, TempDir};
 
 /// What this machine can run a Drone as, resolved the way `serve` resolves it.
@@ -456,19 +456,22 @@ fn a_repository_whose_workflow_names_no_check_starts_and_keeps_its_order() {
     );
 }
 
-/// Two files naming the same `workflow_id` is refused, and the refusal names
-/// both paths — a person reading it must not have to search the directory to
-/// find the second.
+/// **Two files naming the same `workflow_id` in one place are both left out,
+/// and named together**, and the repository still starts: a duplicate is not
+/// grounds for refusing it, and nothing picks between the two.
 #[test]
-fn a_duplicate_workflow_id_across_two_files_is_refused_naming_both() {
+fn a_duplicate_workflow_id_across_two_files_leaves_both_out_and_the_repository_starts() {
     let dir = a_repository();
     dir.write(".armada/workflows/first.yml", &a_workflow("shared"));
     dir.write(".armada/workflows/second.yml", &a_workflow("shared"));
 
-    let refused = Setup::at(dir.path(), TempDir::new().path(), &roster())
-        .expect_err("two files agree on one id");
-    assert!(matches!(refused, SetupRefused::DuplicateWorkflowId { .. }));
-    let said = refused.to_string();
+    let setup = Setup::at(dir.path(), TempDir::new().path(), &roster())
+        .expect("a duplicate does not refuse the repository");
+    assert!(!setup.workflows().keys().any(|id| id.as_str() == "shared"));
+    let said: Vec<String> = setup.left_out().iter().map(ToString::to_string).collect();
+    let [said] = said.as_slice() else {
+        panic!("one sentence for the pair: {said:?}");
+    };
     assert!(said.contains("first.yml"), "{said}");
     assert!(said.contains("second.yml"), "{said}");
     assert!(said.contains("shared"), "{said}");
