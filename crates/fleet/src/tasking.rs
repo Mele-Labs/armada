@@ -157,7 +157,7 @@ pub fn together(plan: &WorkPlan, runs: &GroupRuns, hand_ins: &[HandIn]) -> Optio
 
 /// Whether the step's Checks passed, which is when a handed-in task is done
 /// (answer 1). A Judge refusing after them does not undo it.
-fn green(ruling: &Ruling) -> bool {
+pub(crate) fn green(ruling: &Ruling) -> bool {
     !matches!(
         ruling,
         Ruling::Failed { .. }

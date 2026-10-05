@@ -158,6 +158,7 @@ mod read_only_git;
 mod reading_a_gate;
 mod reading_in;
 mod rechecking;
+mod rechecking_groups;
 mod reclaim;
 mod records;
 mod redirect;

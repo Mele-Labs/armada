@@ -416,7 +416,7 @@ where
     }
 
     /// Append a change Fleet makes to the plan, and say which task it moved.
-    async fn fleet_marked(
+    pub(crate) async fn fleet_marked(
         &self,
         job_id: &JobId,
         step: &StepId,

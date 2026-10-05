@@ -104,6 +104,8 @@ them is still on the branch, so the plan does not reset with the step.
 
 **`failed` is a task whose group's Checks were still red when the step's retries ran out** (answer 9). It is not `open`, not `working`, not `done` and not `dropped`. Restart this task puts a Drone on it again, and a green gate over its group is what clears it.
 
+**A re-run that passes clears it too** (4 Oct 2026, Job 3). Run Checks again (#1105) takes no group's gate through `done`, so after one the failed tasks stayed `failed` with the red run's reason, and the Judge read them beside Checks that had passed, refused `the_evidence_accounts_for_itself`, and stopped the step again. A green ruling on a re-run now marks the failed tasks of the group it ruled on `done` and drops the reason, before the step moves. A task failed in another group is left alone. **The Drone's `shown` is kept as it wrote it**; the Judge's brief carries a line after the plan naming the settled tasks and saying each `shown` was written before the re-run. `crates/fleet/src/rerun_settles.rs`. A re-run that is still red changes nothing.
+
 **Neither is a Drone's or a person's to set.** `update_task` refuses both, because Fleet marks them from a hand-in and from a group's Checks.
 
 **A done task a later task edits stays done, and is flagged.** The work behind it is still on the branch, so nothing reopens it; what a person needs is to know that somebody wrote into its files afterwards, which the flag says and the state does not.
