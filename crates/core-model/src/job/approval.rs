@@ -93,6 +93,14 @@ pub struct Landing {
     pub from_ref: Option<Branch>,
     pub pr_mode: PrMode,
     pub complete_when: CompleteWhen,
+    /// **Stop at the branch**: the work is committed on the Job's own branch
+    /// with no pull request, merge or push, and the branch is kept for a
+    /// person to act on. `pr_mode` is `Ready` while it holds, so there is one
+    /// answer to how the work leaves the worktree, and never two.
+    pub local: bool,
+    /// Turn on the forge's auto-merge for the pull request once it opens.
+    /// Never with [`local`](Self::local), which opens none.
+    pub auto_merge: bool,
 }
 
 impl Landing {

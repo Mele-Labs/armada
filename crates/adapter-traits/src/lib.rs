@@ -62,8 +62,8 @@ pub use delivery::{
 };
 pub use event::{CallDetail, DroneEvent, Speaker};
 pub use harness::{
-    AmbientServers, DroneHandle, DroneSpawnConfig, Environment, Grant, Launch, McpConfig, Model,
-    Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
+    AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
+    Model, Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
@@ -251,6 +251,17 @@ pub trait Vcs {
         repo_root: &str,
         declared: Option<&str>,
     ) -> Result<alloc::vec::Vec<BranchListed>, Self::Error>;
+
+    /// Make the local branch `name` at the commit the local branch
+    /// `start_point` is at, for a Job approved to start from a branch that
+    /// does not exist yet. **Refused where `name` is already a branch**, so
+    /// nothing a person made is moved.
+    fn create_branch(
+        &self,
+        repo_root: &str,
+        name: &str,
+        start_point: &str,
+    ) -> Result<(), Self::Error>;
 
     /// Check the repository out at one commit, detached, for every Job on that
     /// commit to share.

@@ -52,8 +52,8 @@ pub use job::{
     Citation, CitedAt, ClearedFlag, Collision, Confidence, ContextSource, Covers, CriteriaOwed,
     CriterionId, CriterionSource, DecidedBy, DeclarePlanAt, DeclaredPaths, DependencyDirection,
     DependencyEdge, Dismissal, DispatchOrigin, DroneAssigned, DroneId, DroneMoved, DronePresence,
-    DroneStanding, Edge, EscalationTrigger, EvidenceRef, EvidenceScope, EvidenceType, Facts,
-    Finding, FixWaiter, FollowUp, FrozenWorkflow, GamingCheck, GamingFlag, GamingPattern,
+    DroneStanding, Edge, Effort, EscalationTrigger, EvidenceRef, EvidenceScope, EvidenceType,
+    Facts, Finding, FixWaiter, FollowUp, FrozenWorkflow, GamingCheck, GamingFlag, GamingPattern,
     GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
     IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
     JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName,
@@ -62,12 +62,12 @@ pub use job::{
     RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath, ResolvedCheck,
     ResolvedPolicies, ResolvedStep, Resumption, ReviewGate, ReviewRecord, Runner, RunsAt,
     ScopeClaim, ScopeRevision, ScopeRevisionOutcome, Side, Spent, Standing, StepCheck, StepEdge,
-    StepEvent, StepEvidence, StepFrame, StepId, StepLevelTrigger, StepSeed, StepState, StepTarget,
-    StepTransitioned, StepVerdict, Stuck, Subject, Target, TestChange, TestsInChange, Title,
-    TopLevelOrigin, TransitionReason, Transitioned, TriggerKind, TriggerLevel, Untested, Urgency,
-    ViewStep, WhenBlocked, WhenRefused, WorkflowId, WorkflowSource, WriteTargets,
-    ADVANCING_STATUSES, ARTIFACT_EXISTS, CREDENTIAL_NAMES, DIFF_NONEMPTY, EDGES,
-    EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
+    StepEvent, StepEvidence, StepFrame, StepId, StepLevelTrigger, StepPhase, StepSeed, StepState,
+    StepTarget, StepTransitioned, StepTuning, StepVerdict, Stuck, Subject, Target, TestChange,
+    TestsInChange, Title, TopLevelOrigin, TransitionReason, Transitioned, TriggerKind,
+    TriggerLevel, Untested, Urgency, ViewStep, WhenBlocked, WhenRefused, WorkflowId,
+    WorkflowSource, WriteTargets, ADVANCING_STATUSES, ARTIFACT_EXISTS, CREDENTIAL_NAMES,
+    DIFF_NONEMPTY, EDGES, EVERY_MANIFEST_CHECK, MANIFEST_CHECK, STEP_EDGES,
 };
 pub use job::{
     Apart, Approach, DropReason, FailReason, GroupAttempt, GroupEnded, GroupId, GroupMove,
@@ -78,7 +78,7 @@ pub use job::{
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };
-pub use retro::{LandsIn, Via, Whose};
+pub use retro::{LandsIn, LessonState, Via, Whose};
 pub use studio::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow,
     ContradictionOutcome, Drawing, EdgeRefused, EndedFinding, EpicRead, EpicTake, ForgeFacts,

@@ -26,6 +26,10 @@
 pub mod admitting;
 pub mod adopting;
 pub mod adrift;
+/// What a person changes on a proposal, and the Job it leaves at the press.
+/// Spike 022, slice 4.
+/// Where an approved Job lands, set once after its approval. 23.22.
+pub mod aiming;
 pub mod allowance;
 /// A form's edits to `armada.yml`, placed a key at a time and written through
 /// `editing::save`.
@@ -33,8 +37,6 @@ mod amending;
 /// What Fleet does with a proposal a person left: keeps, releases, lands and
 /// serves it. Spike 022, slice 4.
 mod approved;
-/// What a person changes on a proposal, and the Job it leaves at the press.
-/// Spike 022, slice 4.
 pub mod approving;
 pub mod asked;
 pub mod asking;
@@ -216,6 +218,8 @@ mod reclaiming;
 mod recognising;
 /// What the boot read found and what the reconciliation did about it.
 mod reconciled;
+/// A proposal sent back to the proposer with a note. 23.25.
+pub mod reconsidering;
 /// Where one repository's records live, off the checkout — the per-repository
 /// key and the one-time move of what an older Fleet wrote under it.
 pub mod records;
@@ -230,6 +234,7 @@ pub mod remarks;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
+mod rerun_settles;
 mod rerunning;
 mod rescuing;
 /// What one Job holds on this machine — its processes, what they are burning,
@@ -293,6 +298,8 @@ pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;
+/// A step's tuning at the approval press. 23.20.
+pub mod tuned;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
 mod unattended;

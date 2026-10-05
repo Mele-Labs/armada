@@ -684,6 +684,22 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
+    async fn to_proposer(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _note: ipc::ToProposer,
+    ) -> Result<ipc::ProposedPlan, Refusal> {
+        Ok(ipc::ProposedPlan {
+            jobs: vec![self.unmoved(&job_id)?],
+        })
+    }
+    async fn set_landing_target(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _target: ipc::SetLandingTarget,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
+    }
     async fn remove_allowed_command(
         self: std::sync::Arc<Self>,
         job_id: JobId,

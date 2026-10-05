@@ -10,11 +10,11 @@
 use crate::error::{fault, WriteError};
 use crate::open::Store;
 
-/// Version 104 — a stranded slot's rescue Finding.
+/// Version 106 — a stranded slot's rescue Finding.
 ///
 /// **`read` and `searched` are JSON arrays of text**, written whole with each
 /// look: they are shown and never queried. **Nothing to backfill.**
-pub(crate) const V104: &str = r#"
+pub(crate) const V106: &str = r#"
 CREATE TABLE slot_rescues (
     manifest_id TEXT NOT NULL,
     slot        INTEGER NOT NULL,
@@ -31,11 +31,11 @@ CREATE TABLE slot_rescues (
 ) STRICT;
 "#;
 
-/// Version 105 — what the Scout concluded: a verdict and its items.
+/// Version 107 — what the Scout concluded: a verdict and its items.
 ///
 /// **`items` is a JSON array of text**, as `read` is. A row kept before this
 /// has neither and reads as a Finding with only its summary.
-pub(crate) const V105: &str = r#"
+pub(crate) const V107: &str = r#"
 ALTER TABLE slot_rescues ADD COLUMN verdict TEXT CHECK (verdict IN ('unfinished', 'scraps'));
 ALTER TABLE slot_rescues ADD COLUMN items TEXT NOT NULL DEFAULT '[]';
 "#;

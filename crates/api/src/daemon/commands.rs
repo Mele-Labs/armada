@@ -817,6 +817,34 @@ pub trait Commands: Send + Sync + 'static {
         tiers: ipc::SetTiers,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `to_proposer` — a note sent back to the proposer from the approval
+    /// gate. The proposer rewrites the proposal whole and the Job, or each Job
+    /// a split makes, comes back to the gate with the person's tuning carried
+    /// over by step id. 23.25.
+    ///
+    /// **Answers with a plan, as [`Commands::propose_from_request`] does**, since
+    /// a rewrite may split. [`Refusal::IllegalMove`] off the gate;
+    /// [`Refusal::Unacceptable`] on a blank note, a Job already split or one of
+    /// a split, and a tuning nothing could honour. A call that fails leaves the
+    /// proposal as it was.
+    fn to_proposer(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        note: ipc::ToProposer,
+    ) -> impl Future<Output = Result<ipc::ProposedPlan, Refusal>> + Send;
+
+    /// `set_landing_target` — where an approved Job that lands in the base is
+    /// to land instead, before its work goes out. 23.22.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job is at its gate, ended, already
+    /// lands somewhere a person chose, or its work went out;
+    /// [`Refusal::Unacceptable`] on a blank or unheld branch.
+    fn set_landing_target(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        target: ipc::SetLandingTarget,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `remove_allowed_command` — take back a command a person allowed for
     /// this Job. The next reach for it is answered by the Job's setting again;
     /// one already written into armada.yml stays there.

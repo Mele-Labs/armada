@@ -2684,7 +2684,225 @@ was. The notes are marked sent only once the send lands, so a refused one leaves
 **Store V103**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
 trigger refuses any update but `sent_at` moving once from null.
 
-## Protocol 23.19: a Scout reads a stranded slot
+## Protocol 23.19: a step's phase, and the grants a canvas draws
+
+The owner, 4 Oct 2026: the approval canvas lays its lanes by phase. #1768 waits on it too.
+
+**Optional fields and one enum, all additive.** `WorkflowStep` gains `phase`, `may_dispatch_jobs`
+and `drone_per_task`; `StepDetail` gains `phase` and `may_dispatch_jobs`, `drone_per_task` being
+there since 23.1. `StepPhase` is `setup`, `work` or `delivery`, a plain closed set Bridge lays a
+lane per value of rather than matching on.
+
+**Fleet serves the phase resolved.** A step's own `phase:` where it declares one, else `delivery`
+where it `delivers` and `work` otherwise: `core_model::StepPhase::of` spells it once. Design Plan's
+`present` and Epic's `roll_up` declare `delivery`, since neither sends anything out. On
+`StepDetail` it is absent where Fleet cannot say, as `delivers` is. The two booleans are absent at
+false.
+
+**The workflow file gains `phase:`**, a word refused outside the three. **No store migration**:
+the frozen workflow column carries `phase` beside `model`, null where the step declared none, and
+a row frozen before it reads as none. The event stream is untouched.
+
+## Protocol 23.20: a step tuned at the press
+
+The owner, 4 Oct 2026: the approval canvas tunes each step, and lands only once Fleet takes what
+it draws.
+
+**One optional field, one DTO and one enum, all additive.** `ApproveDispatch` gains `tuning`, a
+`StepTuning` per step a person tuned, `gates`' shape: `step_id`, and `model?`, `effort?`
+(`Effort`: `low`, `medium`, `high`), `context?`, `judges?` and `checks_off?`. A field left out is
+the step as declared, so a 23.19 Bridge approves as before.
+
+**Frozen into the step, after its gate**, as `gates` is, so the Job keeps it for its life and each
+reader finds it where it already reads the step. `model` is the step's model in
+`Job::model_spawned_for`'s order, under a task's pick, a tier and `set_model`. `effort` goes to the
+harness at the spawn; absent sends nothing, the harness's own default. `context` is the Drone's
+FOR THIS PART block (`../contracts/agent-prompt.md`). `judges` sets every judge check's
+`panel_size`. `checks_off` drops Manifest Checks by name and refuses Fleet's own looks, as the gate
+box does.
+
+**Refused, keeping nothing**, with 422 `fleet.unacceptable_proposal`: a step the workflow lacks,
+one tuned twice, a blank model, `judges: 0`, `judges` on a step with no Judge, a Check the step
+does not run, and a built-in. A model `list_models` does not offer is refused as `tiers`' is.
+**`StepTuning` refuses an unknown field**, so the canvas's `harness` is refused rather than
+dropped: one harness runs, and a per-step one is not built.
+
+**No store migration**: the frozen workflow column carries `effort` and `context` beside
+`model`. `get_job` reads `checks` and `judge_checks` off the frozen step as before; the effort and
+the words are not served back. The event stream is untouched.
+
+## Protocol 23.21: a branch that does not exist yet
+
+The owner, 4 Oct 2026: a Job may start from a branch a person names on the canvas before it exists.
+
+**One optional field, additive.** `LandingChoice` gains `start_point`, a branch the repository
+holds. Where `from_ref` names a branch the repository does not hold, Fleet makes it at
+`start_point`'s commit at the press, a local branch, and the worktree is cut from it as from any
+`from_ref`. `target` may name the same new branch. **Read only then**: beside a `from_ref` the
+repository holds, or none, it is not used. A 23.20 Bridge sends none and is refused an unknown
+`from_ref` as before.
+
+**Refused before anything is kept**: a `from_ref` the repository lacks with no `start_point`, and
+a `start_point` it lacks, are 422 `fleet.no_such_branch` naming the branch. git refusing to make
+the branch is a `fleet.fault` naming both. The branch is made before the proposal is written, so
+an approval refused after it, by the machine, leaves the branch at its start point.
+
+**`Vcs` gains `create_branch`**, which refuses a name already a branch. No store change: the
+landing row keeps `from_ref` as before, and `start_point` is not kept. The event stream is
+untouched.
+
+## Protocol 23.22: where an approved Job lands, set once
+
+The owner, 4 Oct 2026: a Job approved landing in the base may be aimed at another branch after
+the press.
+
+**A route and a body, additive.** `POST /jobs/:job_id/set_landing_target`, `set_landing_target`,
+takes `SetLandingTarget { target }` and answers the Job's `JobSummary`. `JobDetail.landing.target`
+reads it back, and the delivering step opens its pull request against it, as against a target the
+approval set. A 23.21 Fleet has no such route, so a 23.22 Bridge behind it is refused, which is the
+skew rule's own direction.
+
+| Refused | Code |
+|---|---|
+| At `awaiting_approval`, where the approval sets it; ended; already landing where a person chose; its work committed or opened for review | 409 `fleet.landing_target_settled` |
+| A blank branch | 422 `fleet.landing_target_blank` |
+| A branch the repository does not hold | 422 `fleet.no_such_branch` |
+
+**Once, and before the work goes out**, because the pull request opens against it: a target moved
+after that is a record the forge disagrees with. **The worktree keeps what it was cut from.** No
+store migration: the landing row takes the target. The event stream is untouched.
+
+## Protocol 23.23: the harness a step runs under
+
+The owner, 4 Oct 2026: the card shows the one harness Fleet runs, and any other is refused.
+
+**Two optional fields, additive.** `ModelChoices` gains `harnesses`, the harness names a Drone may
+run under, one today and absent from a Fleet before 23.23. `StepTuning` gains `harness`. A name
+`harnesses` does not list is 422 `fleet.unacceptable_proposal`, and the message names the ones that
+do. The one name is spelled in `adapters` (`HeadlessAgent::harness_name`). The tuning keeps no
+harness, since there is one to run, so nothing about it is frozen or served back.
+
+## Protocol 23.24: how the work leaves the worktree, as approved
+
+The owner, 4 Oct 2026: the canvas offers stop at the branch, and a pull request that merges itself.
+
+**Two optional booleans on two shapes, additive.** `LandingChoice` and `LandingRule` gain `local`
+and `auto_merge`, each absent at false.
+
+| Setting | What Fleet does |
+|---|---|
+| `local` | **Stop at the branch.** On entering the delivering step the work is committed on the Job's own branch, with no push, no pull request and no merge. The step then runs as any other, and the branch outlives the Job: reclaiming keeps unmerged work. |
+| `auto_merge` | When the pull request opens, Fleet runs `gh pr merge --auto --merge` on it, so the forge merges once its required checks pass. A forge that will not, usually a repository that does not allow auto-merge, is said in the Job's log as a warning carrying the forge's own sentence, and the pull request stays open for a person. |
+
+**One source of truth with `pr_mode`.** `local` wins: `pr_mode` is stored `ready` while it holds, so
+`LandingRule` never reads `draft` beside `local`. `local` with `auto_merge` is 422
+`fleet.unacceptable_proposal`, since a branch with no pull request has nothing to merge.
+`policy_overrides.auto_merge` is untouched: it answers a `manifest_rule:auto_merge` gate, which is
+the repository deciding, and this is one Job's forge setting.
+
+**Store V104** adds `local` and `auto_merge` to `job_landing`, false on every row kept before. `Delivery`
+gains `enable_auto_merge`. The refusal is a log line and not a wire error, because the approval
+cannot know the forge's answer until the pull request exists.
+
+## Protocol 23.25: a note sent back to the proposer
+
+The owner, 4 Oct 2026: from the approval gate a person can send the proposal back with a note, and
+the proposer rewrites it.
+
+**A route, a body and the one new edge, additive.** `POST /jobs/:job_id/to_proposer`, `to_proposer`,
+takes `ToProposer { note, tuning?, landing? }` and answers a `ProposedPlan`. The transition registry
+gains `awaiting_approval -> proposing`, a person's act, crossed by `Job::sent_back_to_the_proposer`
+alone; `proposing -> awaiting_approval` is still `Job::answered`'s. The first `job.state_changed`
+carries the move out, and the answer's the move back, so a Bridge that reads the stream sees the Job
+leave its gate and return. A 23.24 Bridge has no such route, and a 23.25 Bridge behind it is
+refused, which is the skew rule's own direction.
+
+| What | How |
+|---|---|
+| The proposer is asked | The Job's request, the proposal's title, and the note |
+| What the answer replaces | Title, workflow, steps, criteria, urgency and the rest `Job::answered` freezes, whole |
+| The person's tuning | Carried to every step whose id the new workflow has; the rest is dropped and logged |
+| The person's landing | Carried as it stands; one the repository will not take is dropped and logged |
+| A split | **The whole split goes back together**, from any one of its Jobs. The proposer answers once and its answer replaces the group (below); each Job comes to the gate on its own with the matching tuning |
+| A call that fails | The proposal is put back as it was, and the refusal is the proposer's |
+
+**A split goes back whole, so no sibling is stranded.** The group is the head and every extra
+naming it, by number. The answer is laid over it in order: the head and the old extras are kept as
+the same Jobs and rewritten whole, an answer with more Jobs makes the rest as new extras of the
+head, and an answer with fewer ends the old extras it has no place for, killed with a line in their
+logs saying the revised proposal replaced them. Every rewrite is read before any is written. A call
+that cannot be read puts every Job of the group back as it was.
+
+**Refused, moving nothing:** 409 `fleet.proposal_frozen` off the gate; 422
+`fleet.unacceptable_proposal` on a blank note, on a Job of the group that is not at its gate (the
+message names it and its status, and nothing goes back), on a Job dispatched by an Epic's plan step,
+which the Epic's plan owns, and on a tuning or landing the proposal in front of the person cannot
+take. The tuning and landing in the body are laid on every Job the answer makes. **Store**: no migration. `record_answered` clears the step and write-target rows a revised
+answer replaces, and the rebuild replays `awaiting_approval -> proposing` and the answer back
+through the machine, from the columns the last answer wrote.
+## Protocol 23.27: a retro item says where it stands
+
+The owner, 5 Oct 2026. The Retro sheet in Bridge offered Agree and Disagree on an item already
+answered from the Lessons list, because `get_job_retro` carried no answer state.
+
+**Additive.** Two optional fields, with the names and types `Lesson` already has.
+
+| Change | Where | Absent or older |
+| --- | --- | --- |
+| `state` | `RetroItem` | Only on an item whose row has no answer record, read as before |
+| `job_proposed` | `RetroItem` | Absent until agreeing proposed a Job for the item |
+
+Both are read from the rows `list_lessons` reads. A 23.26 Bridge ignores them.
+
+## Protocol 23.26: a retro item has parts, and a person answers it
+
+The owner, 4 Oct 2026, after Job 3's retro was rejected as prose nobody could act on and wrong
+about whose fault it was. `../concepts/retro.md`, *Items* and *Agree and disagree*, is the concept.
+
+**All additive.** Two routes, one query parameter and a handful of optional fields.
+
+| Change | Where | Absent or older |
+| --- | --- | --- |
+| `id` | `RetroItem`, `Lesson` | Always present: the Job's id, a hyphen and the item's place in its retro |
+| `title`, `what`, `fix` | `RetroItem`, `Lesson` | An item kept before 23.26, which has `statement` alone |
+| `state` | `Lesson` | Always present: `open`, `agreed`, `accepted` or `discarded`. Every item kept before starts `open` |
+| `job_proposed` | `Lesson` | Absent until agreeing proposed a Job for the item |
+| `paths` | `RecordCheck` | A failure that names no file, or one the Drone ran itself |
+| `GET /lessons?state=` | `list_lessons` | Absent is `open`; any other word than the four is a 400 |
+| `POST /lessons/:lesson_id/agree` | `agree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
+| `POST /lessons/:lesson_id/disagree` | `disagree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
+
+**`statement` stays**, and on an item written since 23.26 it repeats `what`, so a Bridge that
+predates the parts still has a sentence to draw. **The listing's default changed in meaning, not in
+shape**: before 23.26 it listed every item, and it now lists the `open` ones. A 23.22 Bridge
+never answers an item, so every item it reads is open and it sees no difference.
+
+**Agreeing**, by where the fix lands. `manifest` proposes a Job at the approval gate on the
+repository the item's own Job worked on, and `armada` on Armada's own repository, the Manifest
+named `armada`. Both go through `propose_from_request`, with the item as the request. `kit`
+proposes nothing and the state becomes `accepted`. An item that is not `open` answers with the
+state it stands in and proposes nothing, so agreeing twice makes one Job.
+
+| Refused | Code |
+|---|---|
+| No item has that id | 404 `fleet.no_such_lesson` |
+| An item kept before 23.15, which names no place its fix lands | 422 `fleet.lesson_names_no_place` |
+| A fix in Armada, where this Fleet does not serve the Manifest `armada` | 422 `fleet.lesson_armada_not_served` |
+
+A refusal from the proposer itself is returned as it is, and the item is open again.
+**Disagreeing** keeps the row as `discarded` and never takes back a Job already proposed.
+
+**Store V105** adds `title`, `what`, `fix`, `state` and `job_proposed` to `job_retro_items`. Existing
+rows read `open`.
+
+**The record gains a fact.** A gate failure that names a file carries `paths`, each file with
+`named_in_drone_calls`: whether a tool call of the step's Drones names it. `false` says the failure
+did not come from the Drone's own calls. It is handed to the retro call and drawn nowhere.
+
+**The retro is written on its own model.** `ARMADA_RETRO_MODEL` overrides it and the default is
+`sonnet`, from `crates/config/settings.toml`'s `retro-model`. The Judge's dial is not moved.
+
+## Protocol 23.28: a Scout reads a stranded slot
 
 The owner, 4 Oct 2026: when a worktree slot is stranded, send an agent to look at the work, then
 choose to scrap it or stash it. `../concepts/scout.md`, *Starting from a stranded slot*, and

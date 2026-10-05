@@ -910,6 +910,39 @@ pub(crate) async fn set_tiers<D: Commands>(
     }
 }
 
+/// Send a proposal back to the proposer with a note. 23.25.
+pub(crate) async fn to_proposer<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let note: ipc::ToProposer = match ipc::decode("a note for the proposer", &body) {
+        Ok(note) => note,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().to_proposer(job.id(), note).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Land an approved Job somewhere other than the base, before its work goes
+/// out. 23.22.
+pub(crate) async fn set_landing_target<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let target: ipc::SetLandingTarget = match ipc::decode("a landing target", &body) {
+        Ok(target) => target,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_landing_target(job.id(), target).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Take back a command a person allowed for this Job. **The Job comes back
 /// unchanged**: the next reach for the command is asked about again.
 pub(crate) async fn remove_allowed_command<D: Commands>(

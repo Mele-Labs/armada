@@ -45,6 +45,7 @@ import type {
   WhenRefused,
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
+import type { Lesson, LessonAnswer } from "@armada/protocol";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
 import { Clearing } from "./clearing";
@@ -157,6 +158,8 @@ export class JobCommands {
   private readonly killing = new Set<string>();
   private readonly redirecting = new Set<string>();
   private readonly restarting = new Set<string>();
+  /** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
+  private readonly answeringLesson = new Set<string>();
   /** Jobs with an override in flight. Its own set: it is its own act. */
   private readonly overruling = new Set<string>();
   /**
@@ -800,6 +803,42 @@ export class JobCommands {
     return this.act(jobId, this.restarting, "already_restarting", (port) =>
       ask(port, "POST", route(jobId, "restart_step"), body),
     );
+  }
+
+  /**
+   * Agree with one retro item. Fleet proposes a Job at the approval gate for an Armada or
+   * Manifest item and saves a Kit item; the item comes back as it now stands. **The board is read
+   * again**, because a proposed Job is a row nobody had.
+   */
+  async agreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.answerLesson(lessonId, "agree");
+  }
+
+  /** Disagree with one retro item: Fleet discards it. */
+  async disagreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.answerLesson(lessonId, "disagree");
+  }
+
+  /**
+   * **Not `act`'s shape**: the subject is an item rather than a Job, and what comes back is the
+   * item. One press sends one answer per item, and a second answer on it while the first is out
+   * is refused here rather than sent.
+   */
+  private async answerLesson(lessonId: string, answer: "agree" | "disagree"): Promise<LessonAnswer> {
+    if (this.answeringLesson.has(lessonId)) {
+      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
+    }
+    const port = this.board.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    this.answeringLesson.add(lessonId);
+    try {
+      const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/${answer}`);
+      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
+      if (answer === "agree") await this.board.reread(port);
+      return { ok: true, lesson: sent.body as Lesson };
+    } finally {
+      this.answeringLesson.delete(lessonId);
+    }
   }
 
   /**

@@ -210,6 +210,7 @@ pub fn fitted_over<V>(
         judge_model: Model::named("the-cheap-model").expect("a model name"),
         second_opinion_model: Model::named("the-second-model").expect("a model name"),
         proposer_model: Model::named("the-cheap-model").expect("a model name"),
+        retro_model: Model::named("the-retro-model").expect("a model name"),
         // Resolves nothing, so every fixture but `proposing`'s own behaves
         // exactly as it did before this seam existed. The cases about it
         // plant their own.
@@ -222,6 +223,7 @@ pub fn fitted_over<V>(
         models: ipc::ModelChoices {
             models: vec!["a-model".to_string(), "another-model".to_string()],
             default: "a-model".to_string(),
+            harnesses: vec!["a-harness".to_string()],
         },
         events: api::Broadcaster::new(),
     }

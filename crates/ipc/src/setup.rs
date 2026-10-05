@@ -108,6 +108,38 @@ pub struct WorkflowStep {
     /// 14.3, #1149.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub iteration_cap: Option<u32>,
+    /// Which phase of the run the step is in: its own declaration, or
+    /// delivery where it delivers and the work otherwise. **Resolved by
+    /// Fleet**, so the fallback is spelled once. Since 23.19.
+    pub phase: StepPhase,
+    /// Whether this step's Drone may create Jobs. Absent is false. Since 23.19.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub may_dispatch_jobs: bool,
+    /// Whether this step works the plan's tasks a Drone each.
+    /// [`StepDetail`](crate::StepDetail)'s own field, before a dispatch.
+    /// Absent is false. Since 23.19.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub drone_per_task: bool,
+}
+
+/// Which part of a Job's run a step belongs to, in the order a Job meets them.
+/// **Read as opaque** by Bridge, which lays a lane per value. Since 23.19.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepPhase {
+    Setup,
+    Work,
+    Delivery,
+}
+
+impl From<core_model::StepPhase> for StepPhase {
+    fn from(phase: core_model::StepPhase) -> StepPhase {
+        match phase {
+            core_model::StepPhase::Setup => StepPhase::Setup,
+            core_model::StepPhase::Work => StepPhase::Work,
+            core_model::StepPhase::Delivery => StepPhase::Delivery,
+        }
+    }
 }
 
 /// One workflow Fleet holds, as a picker offers it.
@@ -217,4 +249,9 @@ pub struct ModelChoices {
     /// The one a proposal that names none is given. Always a member of
     /// `models`, so a picker can select it without a lookup that can miss.
     pub default: String,
+    /// The agent harnesses a Drone may run under, in the harness's own name.
+    /// **One today.** A step's tuning naming any other is refused, naming
+    /// these. Absent from a Fleet before 23.23. Since 23.23.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub harnesses: Vec<String>,
 }

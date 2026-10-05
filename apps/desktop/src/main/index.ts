@@ -664,6 +664,11 @@ void app.whenReady().then(() => {
         typeof droneId === "string" ? droneId : undefined,
       ),
   );
+  // The owner's answer to one retro item. Both are acts on the item and not on a Job.
+  ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
+  ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
+    connection?.commands.disagreeLesson(lessonId),
+  );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),
   );
@@ -828,8 +833,11 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
   // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
   ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
-  ipcMain.handle(CHANNELS.readLessons, (event) =>
-    connection?.readLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
+    connection?.readLessons(
+      connection.repositories.pickedByWindow.of(windowIdOf(event)),
+      state === "accepted" ? "accepted" : "open",
+    ),
   );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>

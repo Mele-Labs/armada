@@ -46,6 +46,62 @@ pub struct ApproveDispatch {
     pub drone_cap: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landing: Option<LandingChoice>,
+    /// One per step a person tuned, `gates`' shape. A step left out runs as
+    /// its workflow declares it. Since 23.20.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tuning: Option<Vec<StepTuning>>,
+}
+
+/// What a person tuned on one step at the approval press, frozen with the Job
+/// and read where the step runs. **Each field left out is the step as its
+/// workflow declares it.** Since 23.20.
+///
+/// **An unknown field is refused, not dropped**, `EditJob`'s rule: a harness
+/// picked on the canvas and silently lost would read as running.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StepTuning {
+    pub step_id: StepId,
+    /// The model the step's Drone runs. Refused unless `list_models` offers it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Left out is Armada picking.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Effort>,
+    /// Words handed to the step's Drone beside its brief. Blank is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    /// The harness the step's Drone runs under. **Only one runs**: a name
+    /// `list_models` does not list under `harnesses` is refused, naming those
+    /// that do. Since 23.23.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub harness: Option<String>,
+    /// How many Judges answer each criterion: every judge check's
+    /// `panel_size`. Refused at zero, and on a step that asks the Judge nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judges: Option<u32>,
+    /// Manifest Checks the step declares that this Job does not run, by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks_off: Vec<String>,
+}
+
+/// How hard a step's Drone thinks. Since 23.20.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Effort {
+    Low,
+    Medium,
+    High,
+}
+
+impl Effort {
+    pub fn domain(self) -> core_model::Effort {
+        match self {
+            Effort::Low => core_model::Effort::Low,
+            Effort::Medium => core_model::Effort::Medium,
+            Effort::High => core_model::Effort::High,
+        }
+    }
 }
 
 /// `edit_job`'s body (#1699): a proposal's words, saved without releasing it.
@@ -126,9 +182,15 @@ pub struct LandingChoice {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
     /// The branch the worktree is cut from. Left out is `target`'s reading.
-    /// Refused unless the repository holds it.
+    /// Refused unless the repository holds it, or `start_point` says where to
+    /// make it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ref: Option<String>,
+    /// A branch the repository holds, that Fleet makes `from_ref` at when the
+    /// repository holds no `from_ref` yet. **Read only then.** `target` may
+    /// name the new branch too. Since 23.21.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_point: Option<String>,
     /// Refused at `group`: one branch per Job is all Fleet runs.
     #[serde(default)]
     pub branching: LandingUnit,
@@ -137,6 +199,18 @@ pub struct LandingChoice {
     pub pr_mode: Option<crate::PrMode>,
     #[serde(default)]
     pub complete_when: CompleteWhen,
+    /// Stop at the branch: commit the work on the Job's own branch and open
+    /// no pull request, merge nothing and push nothing. The branch is kept for
+    /// the person to act on. **`pr_mode` is ignored while it holds**, so one
+    /// answer says how the work leaves the worktree. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local: bool,
+    /// Turn on the forge's auto-merge for the pull request when it opens, so the
+    /// forge merges once its required checks pass. Refused with `local`, which
+    /// opens none. Where the repository does not allow auto-merge, the Job's
+    /// log says so when the pull request opens. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_merge: bool,
 }
 
 /// How one Job lands, frozen at approval, on `JobDetail.landing`. **Absent is
@@ -154,6 +228,14 @@ pub struct LandingRule {
     /// Fleet runs; absent is a Fleet before it, whose Jobs finished delivered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub complete_when: Option<CompleteWhen>,
+    /// The work stops at the Job's branch: no pull request. `pr_mode` reads
+    /// `ready` while it holds. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local: bool,
+    /// The pull request is set to merge itself on the forge. Absent is false.
+    /// Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_merge: bool,
 }
 
 impl From<&core_model::Landing> for LandingRule {
@@ -163,6 +245,8 @@ impl From<&core_model::Landing> for LandingRule {
             from_ref: landing.from_ref.as_ref().map(|b| b.as_str().to_string()),
             pr_mode: landing.pr_mode.into(),
             complete_when: Some(CompleteWhen::from(landing.complete_when)),
+            local: landing.local,
+            auto_merge: landing.auto_merge,
         }
     }
 }
@@ -174,6 +258,29 @@ impl From<core_model::CompleteWhen> for CompleteWhen {
             core_model::CompleteWhen::AllMembersLanded => CompleteWhen::AllMembersLanded,
         }
     }
+}
+
+/// `to_proposer`'s body (23.25): a note sent back to the proposer from the
+/// approval gate, with what the person has set on the canvas so far. **The
+/// proposer rewrites the proposal whole**, so `tuning` and `landing` are what
+/// Fleet carries onto the rewrite: `tuning` wherever a step's id still matches,
+/// `landing` as it stands. Both are in the shapes `ApproveDispatch` takes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToProposer {
+    /// What the person wants different. Never blank.
+    pub note: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tuning: Option<Vec<StepTuning>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing: Option<LandingChoice>,
+}
+
+/// `set_landing_target`'s body (23.22): the branch an approved Job that lands
+/// in the Manifest's base is to land in instead. Refused unless the repository
+/// holds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetLandingTarget {
+    pub target: String,
 }
 
 /// What Approve the plan sends at an Epic's plan gate (#1694): **every Job of

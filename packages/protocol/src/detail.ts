@@ -47,6 +47,7 @@ import type {
 import type { JudgeQuestion, WhenRefused } from "./asking";
 import type { TierModels, WorkPlan } from "./work-plan";
 import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving";
+import type { StepPhase } from "./setup";
 
 /**
  * One Job, whole. The answer to `GET /jobs/:job_id`. `crates/ipc/src/detail.rs`.
@@ -849,6 +850,10 @@ export type StepDetail = {
    * the step a Job's tasks are worked at. **Absent is false.** Since 23.1.
    */
   drone_per_task?: boolean;
+  /** `WorkflowStep.phase`, off the frozen workflow. Absent where Fleet cannot say. Since 23.19. */
+  phase?: StepPhase;
+  /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
+  may_dispatch_jobs?: boolean;
   /**
    * Which pass this step is on, where it closes a loop. Since protocol 13.20.
    * **On the step that sends the work back, not the step it is sent to.**

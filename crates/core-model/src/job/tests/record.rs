@@ -327,23 +327,19 @@ fn every_trigger_says_whether_it_is_about_a_step_or_about_the_job() {
 /// used to end the Job — `no_step_running` admits every state but `running`, so
 /// `running` is the one state it excludes and the only state excluded from two.
 ///
-/// **And a third status is not everywhere and is not a guard.** `proposing`
-/// (`#1159`) is a Job dispatched from a request, before a workflow has been
-/// resolved, so it has no step rows at all — nothing is beneath it, and no
-/// state names it. That is why `advanced` no longer answers `JobStatus::ALL`
-/// and why every count here is one short of the set.
+/// **`proposing` is everywhere again.** `#1159` kept it out, a Job dispatched
+/// from a request having no step rows; a person may now send a proposal back
+/// from its gate with its rows still there, so the walk reaches it beneath
+/// every state.
 #[test]
 fn a_step_state_the_machine_reaches_is_seen_beneath_every_status_but_the_guarded_one() {
     assert!(
-        !StepState::Advanced
+        StepState::Advanced
             .seen_under()
             .contains(&JobStatus::Proposing),
-        "a Job being proposed holds no step, so no state is beneath it"
+        "a proposal sent back keeps its rows until the answer replaces them"
     );
-    assert_eq!(
-        StepState::Advanced.seen_under().len(),
-        JobStatus::ALL.len() - 1
-    );
+    assert_eq!(StepState::Advanced.seen_under().len(), JobStatus::ALL.len());
     for state in [
         StepState::Stopped,
         StepState::NotStarted,
@@ -357,13 +353,12 @@ fn a_step_state_the_machine_reaches_is_seen_beneath_every_status_but_the_guarded
             state.as_wire()
         );
         assert!(
-            !state.seen_under().contains(&JobStatus::Proposing),
-            "{} is seen beneath a status that holds no step at all",
+            state.seen_under().contains(&JobStatus::Proposing),
+            "{} is held beneath a proposal sent back",
             state.as_wire()
         );
-        // One for `completed_success`, one for `proposing`, and a second guard
-        // for `running`.
-        let excluded = if state == StepState::Running { 3 } else { 2 };
+        // One for `completed_success`, and a second guard for `running`.
+        let excluded = if state == StepState::Running { 2 } else { 1 };
         assert_eq!(
             state.seen_under().len(),
             JobStatus::ALL.len() - excluded,

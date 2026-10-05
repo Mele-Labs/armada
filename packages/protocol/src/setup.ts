@@ -120,7 +120,20 @@ export type WorkflowStep = {
    * **Present exactly where `verdict_routing_target` is.** Since 14.3, #1149.
    */
   iteration_cap?: number;
+  /**
+   * Which phase of the run the step is in. **Fleet resolves it**: the step's
+   * own declaration, or `delivery` where it delivers and `work` otherwise.
+   * Sent on every step since 23.19; optional here so a fixture need not say.
+   */
+  phase?: StepPhase;
+  /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
+  may_dispatch_jobs?: boolean;
+  /** `StepDetail.drone_per_task`, before a dispatch. Absent is false. Since 23.19. */
+  drone_per_task?: boolean;
 };
+
+/** Which part of a Job's run a step belongs to, in the order a Job meets them. Since 23.19. */
+export type StepPhase = "setup" | "work" | "delivery";
 
 /** One Manifest Fleet holds. */
 export type ManifestSummary = {
@@ -198,4 +211,6 @@ export type ModelChoices = {
   models: string[];
   /** Always a member of `models`, so a picker selects it without a lookup. */
   default: string;
+  /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
+  harnesses?: string[];
 };

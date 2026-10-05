@@ -233,6 +233,17 @@ notes = """
 **Nothing about the workflow's shape is refused.** On a step with no plan before it, or once every task is handed in — a person restarting the step — there is no task to put a Drone on, and the step runs one Drone as it would without the key.
 """
 
+[fields.phase]
+type = "enum"
+concern = "Structure"
+parent = "steps[]"
+purpose = "Which part of a Job's run the step belongs to: `setup`, `work` or `delivery`. Optional, and absent reads off `delivers`."
+notes = """
+**The owner's, 4 Oct 2026.** The approval canvas lays its lanes by it, and #1768's progress across workflows reads it too. **A step declaring none is `delivery` where it `delivers` and `work` otherwise**, never read off its id or its place: `core_model::StepPhase::of` spells it once, and Fleet serves the resolved phase on `WorkflowStep` and `StepDetail` so no reader spells it again.
+
+**Declared only where the fallback is wrong.** Design Plan's `present` and Epic's `roll_up` deliver what their workflow is for and send nothing out, so `delivers` alone draws them as the work. A word outside the three is refused at load.
+"""
+
 [fields.records_plan]
 type = "bool"
 concern = "Gating"
@@ -594,7 +605,7 @@ No sample carries one yet.
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "drone_per_task"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "drone_per_task", "phase"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and loop-capable: `structure: "loop"` means a step returns to an earlier one by `verdict_routing`, not that the array is unordered.

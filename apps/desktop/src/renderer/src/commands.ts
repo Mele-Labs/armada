@@ -137,7 +137,10 @@ export const readCheckOutput = (jobId: string, kept: string) =>
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
 /** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (jobId: string) => window.armada.readRetro(jobId);
-export const readLessons = () => window.armada.readLessons();
+export const readLessons = (state: "open" | "accepted") => window.armada.readLessons(state);
+/** The owner's answer to one retro item. */
+export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);
+export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
 /** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
 export const listBranches = async (manifestId: string) => {
   const read = await window.armada.listBranches(manifestId);

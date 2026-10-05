@@ -14,6 +14,7 @@ import { page } from "vitest/browser";
 import type { JobSummary } from "@armada/protocol";
 
 import { Unrenderable } from "./heading";
+import { leading, readingOf } from "./reading";
 import { mount, unmount } from "./mounted";
 
 function job(over: Partial<JobSummary> = {}): JobSummary {
@@ -42,4 +43,11 @@ test("names the variant where the wire spelling has no row at all", async () => 
   await expect
     .element(page.getByText("The registry carries no variant for it, so this Job has no detail to draw."))
     .toBeInTheDocument();
+});
+
+test("reads Needs review in the header badge for a Job waiting on a person's review", () => {
+  const reading = readingOf(job({ status: "awaiting_review" }));
+  expect(reading.as).toBe("badge");
+  if (reading.as !== "badge") return;
+  expect(leading(reading.verb)).toBe("Needs review");
 });

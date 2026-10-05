@@ -62,6 +62,10 @@ pub const THE_OUTPUT: &str = "implement.1.0.log";
 /// a Judge's: step, attempt, criterion.
 pub const THE_BRIEF: &str = "implement.1.tests_pass.txt";
 
+/// The one retro item this fake knows, which it answers with a refusal that is
+/// not a 404, so the routed-operations walk can tell the route is there.
+pub const THE_LESSON: &str = "01JOB0-0";
+
 /// The one kept frame this fake's record holds, spelled the way a frame is
 /// named: the run's directory and the harness's own file name, joined.
 ///
@@ -131,6 +135,8 @@ fn step_rail(
         advance_gate: Some(ipc::AdvanceGate::from_wire(gate).expect("a gate the registry has")),
         delivers: Some(false),
         drone_per_task: false,
+        phase: Some(ipc::StepPhase::Work),
+        may_dispatch_jobs: false,
         held_for_handoff: Vec::new(),
         pass: None,
         verdict_routing_target: None,
@@ -728,6 +734,9 @@ pub fn workflows() -> Vec<WorkflowSummary> {
                 held_for_handoff: Vec::new(),
                 verdict_routing_target: None,
                 iteration_cap: None,
+                phase: ipc::StepPhase::Work,
+                may_dispatch_jobs: false,
+                drone_per_task: true,
             },
             ipc::WorkflowStep {
                 step_id: StepId::carried("handoff"),
@@ -740,6 +749,9 @@ pub fn workflows() -> Vec<WorkflowSummary> {
                 held_for_handoff: Vec::new(),
                 verdict_routing_target: None,
                 iteration_cap: None,
+                phase: ipc::StepPhase::Delivery,
+                may_dispatch_jobs: false,
+                drone_per_task: false,
             },
         ],
         manifest_id: ManifestId::carried("01MF"),
@@ -780,6 +792,7 @@ pub fn models() -> ModelChoices {
     ModelChoices {
         models: vec!["a-model".to_string(), "another-model".to_string()],
         default: "a-model".to_string(),
+        harnesses: vec!["a-harness".to_string()],
     }
 }
 

@@ -69,7 +69,7 @@ fn two_groups() -> PlanChange {
     ])
 }
 
-fn planned(tasks: &[(&str, u32)]) -> PlanChange {
+pub(super) fn planned(tasks: &[(&str, u32)]) -> PlanChange {
     PlanChange::Recorded {
         approach: Approach::new("Bound the reader and cover it, then say so").expect("one"),
         tasks: tasks
@@ -83,19 +83,19 @@ fn planned(tasks: &[(&str, u32)]) -> PlanChange {
     }
 }
 
-fn implement() -> StepId {
+pub(super) fn implement() -> StepId {
     StepId::new("implement")
 }
 
-fn task(id: &str) -> TaskId {
+pub(super) fn task(id: &str) -> TaskId {
     TaskId::read(id).expect("a task id")
 }
 
-fn group(id: &str) -> GroupId {
+pub(super) fn group(id: &str) -> GroupId {
     GroupId::read(id).expect("a group id")
 }
 
-fn hand_in(claimed: &'static str) -> Call<'static> {
+pub(super) fn hand_in(claimed: &'static str) -> Call<'static> {
     Call {
         evidence_type: EvidenceType::Diff,
         claimed: Claimed(claimed),
@@ -114,7 +114,7 @@ fn code(refusal: &Refusal) -> &str {
     }
 }
 
-async fn states(fleet: &Fixture, job: &JobId) -> Vec<TaskState> {
+pub(super) async fn states(fleet: &Fixture, job: &JobId) -> Vec<TaskState> {
     fleet
         .plan_of(job)
         .await
@@ -134,7 +134,7 @@ async fn at_implement(home: &TempDir, work: FakeWorkProduct) -> (Arc<Fixture>, J
 }
 
 /// A Job at `implement` on this Fleet, its plan recorded, T1's Drone working.
-async fn at_implement_on(
+pub(super) async fn at_implement_on(
     fleet: Arc<Fixture>,
     home: &TempDir,
     plan: &PlanChange,
@@ -167,12 +167,12 @@ async fn at_implement_on(
 }
 
 /// What a turn's gate ruled, by its variant's name.
-fn ruled(turned: &crate::turning::Turned) -> String {
+pub(super) fn ruled(turned: &crate::turning::Turned) -> String {
     format!("{:?}", turned.ruled())
 }
 
 /// G1's two tasks handed in, each by its own Drone, and its gate run once.
-async fn g1_handed_in(fleet: &Fixture) -> String {
+pub(super) async fn g1_handed_in(fleet: &Fixture) -> String {
     submitted_by_the_one(fleet, hand_in("T1 is done."))
         .await
         .expect("T1's hand-in");

@@ -198,8 +198,8 @@ pub use amending::{
 pub use approval_ask::AskedApproval;
 pub use approving::{
     moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
-    CriterionWritten, DispatchSettings, EditJob, GateChoice, LandingChoice, LandingRule,
-    LandingUnit, LandsWhen, PolicyOverrides,
+    CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
+    LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning, ToProposer,
 };
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
@@ -232,10 +232,11 @@ pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, Job
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
-    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, ManifestReach,
-    Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side,
-    StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
-    StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency, Via, Whose,
+    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, LessonState,
+    ManifestReach, Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption,
+    ScoutSourceKind, Side, StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
+    StudioNodeKind, StudioNodeState, StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
+    Via, Whose,
 };
 pub use error::{RunId, WireError, WireValue};
 pub use event::{
@@ -327,8 +328,8 @@ pub use resources::{
 };
 pub use retro::{
     AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
-    RecordAsked, RecordCheck, RecordNotMet, RecordRefusal, RecordSaid, RecordWaited, RetroItem,
-    RetroRecord, RetroState, RetroWritten,
+    RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
+    RetroAnswered, RetroItem, RetroRecord, RetroState, RetroWritten,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
@@ -344,7 +345,9 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use setup::{LeftOutWorkflow, ManifestSummary, ModelChoices, WorkflowStep, WorkflowSummary};
+pub use setup::{
+    LeftOutWorkflow, ManifestSummary, ModelChoices, StepPhase, WorkflowStep, WorkflowSummary,
+};
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};
 pub use slot_found::{what_a_scout_found_in_a_slot, SlotFound, MOST_ITEMS, MOST_ITEM_CHARACTERS};

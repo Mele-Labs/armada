@@ -1126,6 +1126,24 @@ where
         Fleet::set_tiers_by_person(self, job, body).await
     }
 
+    /// A proposal sent back to the proposer with a note. `reconsidering` has it.
+    async fn to_proposer(
+        self: Arc<Self>,
+        job: JobId,
+        note: ipc::ToProposer,
+    ) -> Result<ipc::ProposedPlan, Refusal> {
+        Fleet::to_proposer_by_person(self, job, note).await
+    }
+
+    /// Where an approved Job lands, set once. `aiming` has it.
+    async fn set_landing_target(
+        self: Arc<Self>,
+        job: JobId,
+        body: ipc::SetLandingTarget,
+    ) -> Result<JobSummary, Refusal> {
+        Fleet::set_landing_target_by_person(self, job, body).await
+    }
+
     /// A command a person allowed for this Job, taken back.
     async fn remove_allowed_command(
         self: Arc<Self>,

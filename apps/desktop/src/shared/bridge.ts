@@ -623,6 +623,8 @@ export const CHANNELS = {
   readBrief: "bridge:read-brief",
   readRetro: "bridge:read-retro",
   readLessons: "bridge:read-lessons",
+  agreeLesson: "bridge:agree-lesson",
+  disagreeLesson: "bridge:disagree-lesson",
   readFrame: "bridge:read-frame",
   readReports: "bridge:read-reports",
   readHeld: "bridge:read-held",

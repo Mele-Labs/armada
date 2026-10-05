@@ -2,10 +2,15 @@
 //! a listing of nothing. **What it records is the door each read came
 //! through**, which is the transport's to name and what the tests here ask.
 
-use ipc::{JobId, JobRetro, LandsIn, Lessons, ManifestId, RetroRecord, RetroState};
+use std::sync::Arc;
+
+use ipc::{
+    JobId, JobRetro, LandsIn, Lesson, LessonState, Lessons, ManifestId, RetroRecord, RetroState,
+};
 
 use super::FakeDaemon;
-use crate::{Refusal, Retros};
+use crate::tests::shapes::run_id;
+use crate::{Redirector, Refusal, Retros};
 
 impl Retros for FakeDaemon {
     async fn get_job_retro(&self, job_id: JobId) -> Result<JobRetro, Refusal> {
@@ -38,6 +43,7 @@ impl Retros for FakeDaemon {
         &self,
         _manifest_id: Option<ManifestId>,
         _lands_in: Option<LandsIn>,
+        _state: Option<LessonState>,
         _most: u32,
     ) -> Result<Lessons, Refusal> {
         self.read_via
@@ -47,5 +53,41 @@ impl Retros for FakeDaemon {
         Ok(Lessons {
             lessons: Vec::new(),
         })
+    }
+
+    async fn agree_lesson(
+        self: Arc<Self>,
+        lesson_id: String,
+        _by: Redirector,
+    ) -> Result<Lesson, Refusal> {
+        Err(self.refusing_lesson(&lesson_id))
+    }
+
+    async fn disagree_lesson(&self, lesson_id: String) -> Result<Lesson, Refusal> {
+        Err(self.refusing_lesson(&lesson_id))
+    }
+}
+
+impl FakeDaemon {
+    /// The one id the fake knows answers with a 422, and any other is one
+    /// nothing answers to.
+    fn refusing_lesson(&self, lesson_id: &str) -> Refusal {
+        if lesson_id == crate::tests::shapes::THE_LESSON {
+            return Refusal::Unacceptable(ipc::WireError::raised(
+                "fake.lesson_names_no_place",
+                format!("{lesson_id} names no place its fix lands"),
+                run_id(),
+            ));
+        }
+        self.no_such_lesson(lesson_id)
+    }
+
+    /// The fake holds no retro items, so every id is one nothing answers to.
+    fn no_such_lesson(&self, lesson_id: &str) -> Refusal {
+        Refusal::NoSuchJob(ipc::WireError::raised(
+            "fake.no_such_lesson",
+            format!("no retro item is named {lesson_id}"),
+            run_id(),
+        ))
     }
 }

@@ -1,14 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, userEvent } from "storybook/test";
 
 import { RetroSheet, type RetroSheetItem } from "./RetroSheet";
 
 /**
- * One Job's retro on its sheet, in Job 3's shape (2 Oct 2026): an
- * out_of_bounds failure on armada.yml an upstream commit brought in, a Judge
- * `not_met`, the owner agreeing and then restarting, Helm's acts through
- * `curl`, a command he was asked to allow, and a Drone that never saw its
- * test pass.
+ * One Job's retro on its sheet, in Job 3's shape: the gate measuring from a
+ * stale local main, a Drone waiting on a command it was not allowed, and an
+ * item written before headlines. Each item reads as words, a headline, what
+ * happened and a fix, and answers with Agree and Disagree.
  *
  * The sheet lays out inside the nearest positioned ancestor, so every story
  * draws one.
@@ -29,11 +28,24 @@ export default meta;
 
 type Story = StoryObj<typeof RetroSheet>;
 
+const answers = (agreeLabel: string, agreeTip: string) => ({
+  agreeLabel,
+  agreeTip,
+  disagreeTip: "Discards it.",
+  onAgree: fn(),
+  onDisagree: fn(),
+});
+
 const ITEMS: RetroSheetItem[] = [
   {
+    id: "stale-main",
     who: "fleet",
     landsIn: "armada",
-    statement: "The gate failed out_of_bounds on armada.yml, a line that came in with an upstream commit.",
+    statement: "The gate compared the step against a stale local main.",
+    title: "The gate blamed the Drone for Fleet's own mistake",
+    what: "It compared the step against a local main two commits behind origin, so two commits that edited armada.yml counted as the Drone's work.",
+    fix: "Compare against origin/main, where the branch is cut from.",
+    answers: answers("Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board."),
     cites: [
       {
         id: "check:1",
@@ -45,44 +57,27 @@ const ITEMS: RetroSheetItem[] = [
     ],
   },
   {
+    id: "grep",
     who: "drone",
-    statement: "The plan was refused on addresses_the_request for a documentation task nobody asked for.",
-    cites: [
-      {
-        id: "not_met:1",
-        name: "addresses_the_request",
-        mono: true,
-        detail: "T4 adds documentation updates to design-system.md",
-      },
-    ],
+    landsIn: "kit",
+    statement: "A Drone waited on grep.",
+    title: "A Drone had to wait for grep to be allowed",
+    what: "It asked to run grep on a check log, and the step waited until you allowed it.",
+    fix: "Add grep on .armada/checks to the allowlist.",
+    answers: answers("Accept", "Saves it under Accepted."),
+    cites: [{ id: "asked:1", name: "Allow grep on .armada/checks?", detail: "Allow", when: "Oct 2, 9:10 PM" }],
   },
   {
+    id: "dock",
     who: "owner",
-    statement: "You agreed with the refusal, then restarted the step.",
-    cites: [
-      { id: "act:1", name: "answer_judge_question", detail: "owner via bridge", when: "Oct 1, 8:31 PM" },
-      { id: "restart:1", name: "restart_step", detail: "owner via bridge", when: "Oct 1, 8:33 PM" },
-    ],
-  },
-  {
-    who: "owner",
-    statement: "Helm restarted the step and re-ran the Checks with curl.",
-    cites: [
-      { id: "act:2", name: "restart_step", detail: "helm via http", when: "Oct 2, 9:20 PM" },
-      { id: "act:3", name: "rerun_checks", detail: "helm via http", when: "Oct 2, 9:22 PM" },
-    ],
-  },
-  {
-    who: "drone",
-    statement: "The Drone handed in without ever seeing screens_test pass.",
-    cites: [{ id: "said:1", name: "implement", mono: true, detail: "I never saw screens_test pass locally." }],
+    statement: "The Judge's question waited in the dock while the plan was read twice.",
   },
 ];
 
 /**
- * **Written, with the owner's notes under it.** Each item leads with whose
- * way it got in, as a mark its tooltip names, and nothing on the sheet acts:
- * the one control is the close.
+ * **Written, with the owner's notes under it.** Evidence is behind a control
+ * on each item that cites rows, and an item with a statement alone draws it as
+ * the body.
  */
 export const Written: Story = {
   name: "A written retro",
@@ -93,12 +88,12 @@ export const Written: Story = {
   play: async ({ canvas }) => {
     const sheet = canvas.getByRole("dialog", { name: "Retro" });
     await expect(sheet).toBeVisible();
-    // Nothing acts on a retro: the close is the only button.
-    const buttons = canvas.getAllByRole("button").filter((one) => sheet.contains(one));
-    await expect(buttons.map((one) => one.textContent)).toEqual([expect.stringContaining("Close")]);
+    await expect(canvas.getAllByRole("button", { name: "Create Job" })).toHaveLength(1);
+    // Collapsed until asked for.
+    await expect(canvas.queryByText("out_of_bounds")).toBeNull();
+    await userEvent.click(canvas.getAllByRole("button", { name: "Evidence" })[0]!);
     await expect(canvas.getByText("out_of_bounds")).toBeVisible();
     await expect(canvas.getByRole("region", { name: "Notes" })).toBeVisible();
-    // Where the fix lands, beside whose way, on the item that says.
     await expect(canvas.getByRole("img", { name: "Lands in Armada" })).toBeVisible();
   },
 };

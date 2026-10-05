@@ -11,6 +11,8 @@
 //! anything, so the whole proposal is kept or none of it is, and the
 //! acceptance test reads what `approve_dispatch` calls. `crate::approved`
 //! asks the machine and applies.
+//!
+//! **Over 500 by [`Refused`]**, one press's list; a step's tuning is `crate::tuned`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -86,6 +88,21 @@ pub enum Refused {
     /// A Drone cap of zero.
     NoCap,
     BlankModel,
+    /// A note for the proposer that says nothing.
+    NoNote,
+    /// The Job was dispatched by an Epic's plan step, whose plan owns it.
+    WaveMember,
+    /// A Job of the same split is not at its gate, so the split cannot go back
+    /// to the proposer together, and none of it does.
+    SiblingPastItsGate {
+        sibling: String,
+        title: String,
+        status: JobStatus,
+    },
+    /// `local` with `auto_merge`: nothing opens a pull request to merge.
+    NothingToAutoMerge,
+    /// A step's tuning nothing could honour.
+    Untuned(crate::tuned::Untunable),
 }
 
 impl fmt::Display for Refused {
@@ -153,6 +170,28 @@ impl fmt::Display for Refused {
             ),
             Refused::NoCap => write!(out, "a drone cap of zero lets the job run nothing"),
             Refused::BlankModel => write!(out, "a tier names a blank model"),
+            Refused::NoNote => write!(out, "a note for the proposer says nothing"),
+            Refused::WaveMember => write!(
+                out,
+                "this job belongs to an Epic's wave, which the Epic's plan owns, so it is not \
+                 sent back on its own"
+            ),
+            Refused::SiblingPastItsGate {
+                sibling,
+                title,
+                status,
+            } => write!(
+                out,
+                "`{title}` ({sibling}), which was proposed together with this one, is {} and not \
+                 awaiting_approval, so the split cannot go back to the proposer together",
+                status.as_wire()
+            ),
+            Refused::NothingToAutoMerge => write!(
+                out,
+                "local keeps the work on its branch and opens no pull request, so there is \
+                 nothing to auto-merge"
+            ),
+            Refused::Untuned(why) => write!(out, "{why}"),
         }
     }
 }
@@ -194,6 +233,8 @@ pub fn decided(
         _ => job.workflow().clone(),
     };
     let (workflow, overrides) = gated(base, body.gates.as_deref().unwrap_or_default())?;
+    let workflow = crate::tuned::tuned(workflow, body.tuning.as_deref().unwrap_or_default())
+        .map_err(Refused::Untuned)?;
     let tiers = match &body.tiers {
         Some(map) => Some(tiers_named(map)?),
         None => None,
@@ -453,7 +494,7 @@ fn agree<P: PartialEq + Copy>(
 
 /// The landing a person set. **Only what Fleet runs is kept** (`landing.ts`'s
 /// `COMPLETE_WHEN_SERVED`): one branch per Job, done delivered or landed.
-fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
+pub(crate) fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
     let Some(choice) = choice else {
         return Ok(Landing::as_ever());
     };
@@ -475,14 +516,23 @@ fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
         ipc::CompleteWhen::PrMerged => return refused("pr_merged"),
         ipc::CompleteWhen::PrOpened => return refused("pr_opened"),
     };
+    if choice.local && choice.auto_merge {
+        return Err(Refused::NothingToAutoMerge);
+    }
     Ok(Landing {
+        local: choice.local,
+        auto_merge: choice.auto_merge,
         complete_when,
         target: core_model::branch_named(choice.target.as_deref()),
         from_ref: core_model::branch_named(choice.from_ref.as_deref()),
-        pr_mode: choice
-            .pr_mode
-            .map(|mode| mode.domain())
-            .unwrap_or(PrMode::Ready),
+        // Ignored while `local` holds: one answer, not two.
+        pr_mode: match choice.local {
+            true => PrMode::Ready,
+            false => choice
+                .pr_mode
+                .map(|mode| mode.domain())
+                .unwrap_or(PrMode::Ready),
+        },
     })
 }
 

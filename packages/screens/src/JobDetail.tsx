@@ -611,6 +611,9 @@ function OneJob(props: JobDetailProps) {
           jobId={job.id}
           job={jobOf(job.handle)}
           read={props.onReadRetro}
+          onAgreeLesson={props.onAgreeLesson}
+          onDisagreeLesson={props.onDisagreeLesson}
+          {...(props.onOpenJob === undefined ? {} : { onOpenJob: props.onOpenJob })}
           floor={floor}
           onClose={() => setRetroOpen(false)}
         />

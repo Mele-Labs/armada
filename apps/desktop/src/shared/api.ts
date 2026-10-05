@@ -18,6 +18,7 @@ import type {
   CaptureOpened,
   CheckOutputRead,
   BriefRead,
+  LessonAnswer,
   LessonsRead,
   RetroRead,
   ClearOutcome,
@@ -798,11 +799,21 @@ export type BridgeApi = {
   /**
    * One Job's retro — `docs/concepts/retro.md`. `readBrief`'s shape: answered once to the
    * surface that asked, and asked again when the window regains focus, because nothing on
-   * `/events` says a retro was written. Read-only; nothing acts on a retro.
+   * `/events` says a retro was written.
    */
   readRetro: (jobId: string) => Promise<RetroRead>;
-  /** Every written retro's items across Jobs, newest first, narrowed to this window's pick. Read-only. */
-  readLessons: () => Promise<LessonsRead>;
+  /**
+   * Every written retro's items across Jobs, newest first, narrowed to this window's pick: the
+   * open ones, or the saved Kit items under `accepted`.
+   */
+  readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
+  /**
+   * Agree with one retro item. An Armada or Manifest item proposes a Job at the approval gate;
+   * a Kit item is saved under Accepted. Answers the item as it now stands.
+   */
+  agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+  /** Disagree with one retro item: it is discarded. */
+  disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask

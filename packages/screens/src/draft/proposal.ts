@@ -238,7 +238,7 @@ export type Declared = { checks: boolean; judge: boolean };
 /**
  * The status a person's gate holds a Job at, in the registry's own word.
  * **Never the wire's id** (owner, 1 Oct 2026, `#1748` row 16): the sentence
- * read `It holds at awaiting_review`, Fleet's spelling where a person decides.
+ * read `It holds at awaiting_review`; the sentence now reads `It reads needs review until you answer`, because the registry word is a predicate, Fleet's spelling where a person decides.
  */
 const HOLDS_AT = JOB_STATUS["awaiting_review"]?.verb ?? "awaiting_review";
 
@@ -307,7 +307,7 @@ export function gateReadingOf(gate: GateView, says: RepositorySays = {}): GateRe
   if (gate.you) {
     return {
       advance_gate: "human_always",
-      does: ranBeside(`It holds at ${HOLDS_AT} for you to answer`, gate.checks, gate.judge),
+      does: ranBeside(`It reads ${HOLDS_AT} until you answer`, gate.checks, gate.judge),
     };
   }
   if (gate.judge) {

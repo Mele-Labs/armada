@@ -133,8 +133,8 @@ mod showing;
 mod shown_again;
 /// Which pool slot a Job's worktree is.
 mod slot;
-/// The Finding a rescue Scout brought back from a stranded slot. Since V104;
-/// its verdict and items since V105.
+/// The Finding a rescue Scout brought back from a stranded slot. Since V106;
+/// its verdict and items since V107.
 mod slot_rescues;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;

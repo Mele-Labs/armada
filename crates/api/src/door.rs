@@ -50,7 +50,7 @@ const MOST_A_CALL_MAY_BE: usize = 1024 * 1024;
 const QUERIES: &[(&str, &[&str])] = &[
     ("search_files", &["q"]),
     ("get_events_since", &["since"]),
-    ("list_lessons", &["lands_in", "most"]),
+    ("list_lessons", &["lands_in", "state", "most"]),
 ];
 
 /// Every tool this door offers: the inventory's `agent_access` column, joined

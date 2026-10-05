@@ -104,6 +104,16 @@ impl Store {
         if updated == 0 {
             return Err(refused_move(&tx, event)?);
         }
+        // Nothing on the first answer; the rows of the proposal a person sent
+        // back, on a revision, which the answer replaces whole.
+        for table in ["job_steps", "job_write_targets"] {
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE job_id = ?1"),
+                (job.id().as_str(),),
+            )
+            .map_err(fault("clearing what a revised answer replaces"))
+            .map_err(WriteError::Database)?;
+        }
         write_steps(&tx, job)?;
         crate::write::write_targets(&tx, job)?;
         let seq = append_transition(&tx, event)?;

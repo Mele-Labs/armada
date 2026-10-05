@@ -205,7 +205,51 @@ where
             (_, false) => Some(Opened::NothingPushed),
             (None, true) => None,
         };
+        if let Some(Opened::PullRequest { url } | Opened::AlreadyOpen { url }) = &delivered.opened {
+            self.auto_merge_turned_on(job, url).await;
+        }
         Ok(delivered)
+    }
+
+    /// Where the Job was approved with `auto_merge`, ask the forge to merge the
+    /// pull request itself once its checks pass. **Held, never raised**: the
+    /// branch is out either way. A forge that will not, usually a repository
+    /// that does not allow auto-merge, is said in the Job's log in the forge's
+    /// own words, so nobody waits for a merge that was never set up.
+    async fn auto_merge_turned_on(&self, job: &Job, url: &str) {
+        if !self.landing_of(job.id()).await.auto_merge {
+            return;
+        }
+        let Ok(served) = self.served_by(job) else {
+            return;
+        };
+        let (level, said, cause) = match self.vcs().enable_auto_merge(served.root(), url) {
+            Ok(()) => (
+                Level::Info,
+                "auto-merge is on for this job's pull request: the forge merges it once its \
+                 required checks pass",
+                None,
+            ),
+            Err(why) => (
+                Level::Warn,
+                "this job was approved to auto-merge and the forge would not turn it on, so \
+                 the pull request will wait for a person to merge it",
+                Some(why),
+            ),
+        };
+        let mut envelope = Envelope::new(
+            self.now(),
+            level,
+            Component::Fleet,
+            self.run().clone(),
+            said,
+        )
+        .in_job(job.id().as_ulid().clone())
+        .with_field("pull_request", FieldValue::Str(url.to_string()));
+        if let Some(cause) = cause {
+            envelope = envelope.with_field("cause", FieldValue::Str(cause));
+        }
+        self.noted_in_the_log(job.id(), &envelope);
     }
 
     /// [`deliver`](Fleet::deliver), where Fleet's own commit found nothing new

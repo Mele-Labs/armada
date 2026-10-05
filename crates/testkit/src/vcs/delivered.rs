@@ -7,6 +7,8 @@ use adapter_traits::Review;
 pub enum Delivered {
     /// The branch was put on top of `base`.
     BroughtUpToDate { branch: String, base: String },
+    /// Auto-merge was turned on for this pull request.
+    AutoMerge { pull_request: String },
     /// The branch was pushed.
     Pushed { branch: String },
     /// The branch was pushed `--force-with-lease`, over history this fake was

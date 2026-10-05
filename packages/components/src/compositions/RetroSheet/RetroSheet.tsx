@@ -3,31 +3,17 @@ import type { ReactNode } from "react";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
-import { LandsMark, type Lands } from "../LandsMark/LandsMark";
-import { WhoMark, type Who } from "../WhoMark/WhoMark";
+import { LessonCard, type LessonAnswers, type LessonCardItem, type LessonSettled } from "../LessonCard/LessonCard";
 
-/** One row of the Job's record an item cites, resolved from its `cite`. */
-export type RetroCite = {
-  /** The record's own `cite`, unique within the record. */
-  id: string;
-  /** What the row is about: a tool, a Check, a criterion, a move. */
-  name: string;
-  /** A declared name — a tool, a Check, a criterion — is drawn in the mono face. */
-  mono?: boolean;
-  /** What it came to, in the record's words. */
-  detail?: string;
-  /** When, where the row says. */
-  when?: string;
-};
-
-/** One thing that got in the way. */
-export type RetroSheetItem = {
-  who: Who;
-  /** Where its fix lands. Absent on an item stored before that was written. */
-  landsIn?: Lands;
-  statement: string;
-  /** The rows the record holds for it. A cite the record does not hold is left out. */
-  cites: readonly RetroCite[];
+/**
+ * One thing that got in the way. `cites` are the rows the record holds for it:
+ * a cite the record does not hold is left out.
+ */
+export type RetroSheetItem = LessonCardItem & {
+  /** The item's own id, which an answer names. */
+  id?: string;
+  answers?: LessonAnswers;
+  settled?: LessonSettled;
 };
 
 /** A note the owner left with this Job's detail open. */
@@ -58,8 +44,8 @@ export type RetroSheetProps = {
  * Job's own Record. The same layer in both, so a retro reads the same
  * wherever it is reached.
  *
- * **Nothing here acts.** No control files, proposes or writes; the owner
- * reads and decides. The close is the sheet's own.
+ * **Each item is a `LessonCard`**, the Lessons list's own, so the owner agrees
+ * or disagrees with it here as there.
  *
  * **An empty slot stays empty.** A written retro with no items draws nothing,
  * and a Job with no linked notes draws no notes section.
@@ -113,32 +99,12 @@ function Body({
       {items.length === 0 ? null : (
         <ol className="armada-retro__items">
           {items.map((item, at) => (
-            <li key={at} className="armada-retro__item">
-              <span className="armada-retro__marks">
-                <WhoMark who={item.who} />
-                {item.landsIn === undefined ? null : <LandsMark lands={item.landsIn} />}
-              </span>
-              <div className="armada-retro__said">
-                <p className="armada-retro__statement">{item.statement}</p>
-                {item.cites.length === 0 ? null : (
-                  <ul className="armada-retro__cites">
-                    {item.cites.map((cite) => (
-                      <li key={cite.id} className="armada-retro__cite">
-                        <span className="armada-retro__name" data-mono={cite.mono ? "true" : undefined}>
-                          {cite.name}
-                        </span>
-                        {cite.detail === undefined ? null : (
-                          <span className="armada-retro__detail">{cite.detail}</span>
-                        )}
-                        {cite.when === undefined ? null : (
-                          <span className="armada-retro__when">{cite.when}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </li>
+            <LessonCard
+              key={item.id ?? at}
+              item={item}
+              {...(item.answers === undefined ? {} : { answers: item.answers })}
+              {...(item.settled === undefined ? {} : { settled: item.settled })}
+            />
           ))}
         </ol>
       )}

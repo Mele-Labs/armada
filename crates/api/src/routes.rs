@@ -193,6 +193,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_job_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/agree",
+            post(crate::retros::agree_lesson::<D>),
+        )
+        .route(
+            "/lessons/:lesson_id/disagree",
+            post(crate::retros::disagree_lesson::<D>),
+        )
         .route("/jobs/:job_id/evidence", get(get_evidence::<D>))
         .route("/jobs/:job_id/diff", get(get_diff::<D>))
         .route("/jobs/:job_id/remarks", get(get_remarks::<D>))
@@ -348,6 +356,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/jobs/:job_id/set_tiers",
             post(crate::commands::set_tiers::<D>),
+        )
+        .route(
+            "/jobs/:job_id/to_proposer",
+            post(crate::commands::to_proposer::<D>),
+        )
+        .route(
+            "/jobs/:job_id/set_landing_target",
+            post(crate::commands::set_landing_target::<D>),
         )
         .route(
             "/jobs/:job_id/remove_allowed_command",

@@ -40,19 +40,45 @@ use crate::Worktree;
 /// every adapter implements cannot name the domain crate. The composition root
 /// is the one place both types are in scope, and `ModelName::as_str` is the
 /// only thing that should ever be handed to [`Model::named`].
+///
+/// **It carries the effort the model thinks at**, because the two are one
+/// answer to what the Drone runs as. `None` is the harness's own default.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Model(String);
+pub struct Model {
+    name: String,
+    effort: Option<Effort>,
+}
+
+/// How hard the model thinks, as a person set it on the step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Effort {
+    Low,
+    Medium,
+    High,
+}
 
 impl Model {
     pub fn named(name: &str) -> Result<Model, SpawnConfigRefused> {
+        Model::named_at(name, None)
+    }
+
+    /// [`named`](Model::named), thinking at `effort`.
+    pub fn named_at(name: &str, effort: Option<Effort>) -> Result<Model, SpawnConfigRefused> {
         if name.trim().is_empty() {
             return Err(SpawnConfigRefused::ModelUnnamed);
         }
-        Ok(Model(String::from(name)))
+        Ok(Model {
+            name: String::from(name),
+            effort,
+        })
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.name
+    }
+
+    pub fn effort(&self) -> Option<Effort> {
+        self.effort
     }
 }
 
