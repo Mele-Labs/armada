@@ -18,6 +18,7 @@
 
 mod admitted;
 mod adopting;
+mod agreeing;
 mod aiming;
 mod allowance;
 mod always_allow;

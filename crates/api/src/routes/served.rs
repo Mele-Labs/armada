@@ -330,6 +330,19 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/lessons",
     },
+    // A person's answer to one item. Under `/lessons`, by the item's own id,
+    // because the item is what is acted on and its Job is only where it came
+    // from.
+    Route {
+        operation: "agree_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/agree",
+    },
+    Route {
+        operation: "disagree_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/disagree",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the

@@ -2,7 +2,7 @@
 
 **What it is:** What got in the way while one Job ran, whose way it got in —
 the Drone's, the owner's or Fleet's — and where each fix lands, written once
-the Job ends and read on the Lessons page.
+the Job ends and read on the Retros page.
 
 ---
 
@@ -33,13 +33,58 @@ questions: a command a Drone was refused cost the Drone, and is fixed in Kit.
 | `manifest` | The repository the Job worked on: its `armada.yml` (Checks, Commands, places, when), its tests and its code ([Manifest](manifest.md)) | Browser tests on a fixed 15 s timeout; `test` running every Rust test on a docs-only edit |
 
 **An item names exactly one.** Where a fix spans two places, the retro writes
-two items. The Lessons page narrows by it, and **an item written before
+two items. The Retros page narrows by it, and **an item written before
 23.15 names none**: it reads with the field absent and is listed under All
 alone, never given a place after the fact.
 
-**Nothing acts on a retro.** No item is filed as an issue, proposed as a
-change or put into a brief. The owner reads the Lessons page and decides
-what each item is worth.
+## Items
+
+**An item has parts, so it can be read at a glance and acted on.** The owner's
+decision, 4 Oct 2026, after Job 3's retro was rejected as a wall of prose that
+named no root cause and blamed the wrong party.
+
+| Part | Is |
+| --- | --- |
+| `title` | A headline of about eight words |
+| `what` | One or two short sentences: what happened, and to whom |
+| `fix` | One sentence naming what to change |
+| `who`, `lands_in`, `evidence` | As above |
+| `id` | Names the item for an act. The Job's id, a hyphen and the item's place in its retro |
+
+**`statement` stays, and repeats `what`** on an item written since, so a reader
+that predates the parts still has a sentence. **An item written before the parts
+has `statement` alone**: they read absent, and nothing writes them after the
+fact. Job 3's own retro stays as it was written, as the owner's evidence.
+
+**An item is kept whole or not at all.** One missing a part, one with a dash in
+any of the three, one citing nothing the record holds and one naming no place
+are each dropped alone, and the items beside them are kept.
+
+## Agree and disagree
+
+**A person answers each item, and agreeing is the one place a retro acts.**
+Every item starts `open`.
+
+| State | Means |
+| --- | --- |
+| `open` | Nobody has answered it. What the Retros page lists by default |
+| `agreed` | A Job was proposed for it at the approval gate, and `job_proposed` names it |
+| `accepted` | A Kit item the person agreed with. Nothing to dispatch, so it is kept as it is: the person's saved Kit items |
+| `discarded` | Disagreed with. The row stays |
+
+**Agreeing is by where the fix lands.** A `manifest` fix proposes a Job on the
+repository the item's own Job worked on, and an `armada` fix on Armada's own
+repository, the Manifest named `armada`. Where Fleet does not serve that one it
+refuses with `fleet.lesson_armada_not_served` and the item stays open. A `kit`
+fix proposes nothing. The request is the item: its title, what happened, the
+fix and a line naming the source Job's handle. It goes through the call
+`propose_from_request` makes, so a person approves the Job where they approve
+any other. **An item that is not open answers with the state it stands in**, so
+agreeing twice makes one Job. **Disagreeing never takes back a Job** already
+proposed.
+
+An item kept before `lands_in` names no place, so agreeing with it is refused:
+where its Job would go is not Fleet's to guess.
 
 ## The record it is read from
 
@@ -51,7 +96,7 @@ transcripts and its own log.
 | Row | Read from |
 | --- | --- |
 | `refusals` | A transcript's refused call, joined to the call it answered |
-| `failed_checks` | The gate's runs, checks only a transcript kept, the Drone's own `run_checks`, and each red the gate ran again alone — Fleet's friction, not the Drone's ([Manifest](manifest.md), Confirming a red) |
+| `failed_checks` | The gate's runs, checks only a transcript kept, the Drone's own `run_checks`, and each red the gate ran again alone — Fleet's friction, not the Drone's ([Manifest](manifest.md), Confirming a red). **A gate failure that names a file carries `paths`**: each file, and whether a tool call of the step's Drones names it. `false` says the failure did not come from the Drone's own calls |
 | `not_met` | A Judge criterion `not_met`, with expected and produced |
 | `not_done` | What each step's submission said it had not done |
 | `said_after` | What a Drone said in prose right after each submission, and last |
@@ -79,14 +124,36 @@ kept for the retro alone.
 
 ### The retro call
 
-**One model call per ended Job, on the Judge's road.** It takes the Judge's
-client, budget and cheap model, reads no repository, and is handed only the
-record and the owner's linked annotations. Its instructions carry the table
-under *Where the fix lands*, in plain words. An item citing a row the record
-does not hold loses that citation; one citing nothing the record holds is
-dropped, and so is one naming no place its fix lands or a place that is not
-one of the three. **The place is never defaulted.** An item that will not read
-is dropped alone, and the items beside it are kept.
+**One model call per ended Job, on the Judge's road and on a model of its
+own.** It takes the Judge's client and budget, reads no repository, and is
+handed only the record and the owner's linked annotations. Its instructions
+carry the table under *Where the fix lands*, in plain words. An item citing a
+row the record does not hold loses that citation; one citing nothing the record
+holds is dropped, and so is one naming no place its fix lands or a place that
+is not one of the three. **The place is never defaulted.** An item that will
+not read is dropped alone, and the items beside it are kept.
+
+**The model is Sonnet**, the owner's decision on 4 Oct 2026 after the cheap
+tier wrote the retro of Job 3. It is `settings.retro-model`, overridden by
+`ARMADA_RETRO_MODEL`, and the Judge's own dial does not move with it. The call
+is one per ended Job, made after the Job ended, and it is not metered: an
+unwatched call reports no cost, so it counts against no cost cap, as the
+Judge's calls never have.
+
+**The instructions refuse to guess.** They say, in plain words:
+
+- Name a cause only where the record shows one. "Unclear" is an allowed
+  answer, and a symptom may be written as a symptom.
+- Blame the Drone only for what the record shows the Drone did, its own tool
+  call or its own claim. A failed check on a file the Drone's calls never name
+  is not the Drone's, and the record says so with `paths`.
+- A fault of Armada's goes to `who: fleet` and `lands_in: armada`, and so does
+  a check that failed with others running beside it and passed alone.
+- One item per cause. Fewer, truer items beat many.
+- Write the three texts in plain words: short sentences with concrete facts,
+  plain verbs, no dashes, no "not X but Y", no lists of three for rhythm, no
+  stock words, no vague "associated with", no closing line, no first sentence
+  that restates the headline.
 
 ## When it is written
 
@@ -128,7 +195,7 @@ a Job from the time a note was left.
 **Bridge writes the open Job's ULID as `openJobId` when a note is saved.** Job
 detail stamps its Job's id on its own root, and the layer reads the page at the
 save, so a note begun on one Job and saved on another names the second. Job
-detail alone counts as open: a retro read on the Lessons page is not that Job's
+detail alone counts as open: a retro read on the Retros page is not that Job's
 detail, and a note left there names no Job. The key is left out, never null,
 where none is open. `packages/screens/src/open-job.ts`.
 
@@ -136,24 +203,56 @@ where none is open. `packages/screens/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. A row opens its Job's retro |
-| **Retro**, in the head of a Job's Record | The same sheet, on `get_job_retro` |
+| **Retros**, a rail surface (glyph `rewind`, Proposed) under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
+| **Retro**, in the head of a Job's Record | The same cards, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
-nothing on `/events` says a retro was written. Whose way an item got in, and
-where its fix lands, are marks named by their tooltips, and nothing on either
-surface acts.
+nothing on `/events` says a retro was written. What Fleet serves for acting is
+*Agree and disagree*.
+
+**An item reads top to bottom:** one arrow from whose way it got in (`Drone`,
+`You`, `Fleet`) to where its fix lands (`Armada`, `Kit`, `Manifest`), both ends
+words with their marks beside them and each its own hue, then the `title`, what
+happened, the `fix` under the label `What would change`, and the two answers.
+The cited record rows sit behind an `Evidence` control.
+`packages/components/src/compositions/LessonCard`.
+
+**The hues are not status hues.** Whose way: Drone `--tool-change`, You
+`--tool-look`, Fleet `--tool-run`. Where: Armada `--accent`, Kit `--diff-add-fg`,
+Manifest `--diff-del-fg`. Proposed, for the owner to rule on.
+
+**The buttons carry words for what they do, not the wire's names.** Where the
+fix lands in Armada or the Manifest the button reads `Create Job`, since agreeing
+proposes a Job that waits for approval on the Board. In Kit it reads `Accept`,
+since nothing is dispatched and the item is saved. The other reads
+`Reject change`. The acts are still `agree` and `disagree` on the wire.
+
+**What a press leaves on screen.** Create Job keeps the card as `Agreed` with a
+link to the proposed Job until the list is read again, when Fleet no longer
+lists it as open. Accept and Reject change take the card off at once. There is
+no confirmation: a mistaken Create Job proposes a Job that waits for the
+owner's approval, and a mistaken Reject change discards one item. **An item
+answered already stands as its `state` says**, on the sheet as on the list:
+`Agreed` with the link, or `Accepted`, or nothing where discarded, and no
+buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
+the buttons**: Fleet refuses both acts on one with no place.
 
 ## Where it is served
 
 | Operation | Route | Answers |
 | --- | --- | --- |
 | `get_job_retro` | `GET /jobs/:job_id/retro` | The record as it stands, the retro's state and items, linked annotations |
-| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&most=` | Items across Jobs, newest retro first; `lands_in` absent is all three |
+| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Jobs, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
+| `agree_lesson` | `POST /lessons/:lesson_id/agree` | The `Lesson` as it now stands, with `job_proposed` where a Job was proposed |
+| `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
 `docs/practices/protocol.md` *Protocol 23.12* has the change, *Protocol 23.15*
-`lands_in`.
+`lands_in`, *Protocol 23.26* the parts, the two acts and `state`, *Protocol 23.27*
+`state` and `job_proposed` on the items `get_job_retro` serves, so the sheet and the
+Lessons list agree on what has been answered. Both acts are
+Helm only, as `propose_from_request` is: a person presses them in Bridge, and
+Helm may when a person asks.
 
 ## Open questions
 

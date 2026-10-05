@@ -182,7 +182,7 @@ pub struct LeftOutWorkflow {
     pub id: Option<WorkflowId>,
     /// `armada`, `kit` or `repository`. A repository's own definition refuses
     /// Fleet's start; it is left out only by a Fleet that was already running
-    /// when the file was saved (protocol 23.26).
+    /// when the file was saved (protocol 23.28).
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,
@@ -193,7 +193,7 @@ pub struct LeftOutWorkflow {
     pub instead: Option<String>,
 }
 
-/// Where a saved workflow definition lives (protocol 23.26).
+/// Where a saved workflow definition lives (protocol 23.28).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowScope {
@@ -213,7 +213,7 @@ impl WorkflowScope {
     }
 }
 
-/// `save_workflow`'s body (protocol 23.26): one definition, and where it goes.
+/// `save_workflow`'s body (protocol 23.28): one definition, and where it goes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SaveWorkflow {
     pub scope: WorkflowScope,

@@ -14,8 +14,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use core_model::Timestamp;
 use ipc::{
     Actor, CheckRunBy, Instant, JobDetail, JobEvidence, JobHistory, LogNote, Movement, RecordAct,
-    RecordAsked, RecordCheck, RecordNotMet, RecordRefusal, RecordSaid, RecordWaited, RetroRecord,
-    Saw, StepId, TranscriptRow, Voice,
+    RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
+    RetroRecord, Saw, StepId, TranscriptRow, Voice,
 };
 
 use super::lines;
@@ -154,6 +154,7 @@ fn failed_checks(from: &Sources<'_>) -> Vec<RecordCheck> {
                 run: CheckRunBy::Gate,
                 expected: run.expected.clone(),
                 produced: run.produced.clone(),
+                paths: Vec::new(),
             });
         }
     }
@@ -180,6 +181,7 @@ fn failed_checks(from: &Sources<'_>) -> Vec<RecordCheck> {
             run: CheckRunBy::Gate,
             expected: run.expected.clone(),
             produced: run.produced.clone(),
+            paths: Vec::new(),
         });
     }
     for note in from
@@ -207,6 +209,7 @@ fn failed_checks(from: &Sources<'_>) -> Vec<RecordCheck> {
                 run: CheckRunBy::Drone,
                 expected: None,
                 produced: None,
+                paths: Vec::new(),
             });
         }
     }
@@ -236,12 +239,69 @@ fn failed_checks(from: &Sources<'_>) -> Vec<RecordCheck> {
             produced: Some(format!(
                 "{first}; the whole check run again alone {alone}, and that run was ruled on"
             )),
+            paths: Vec::new(),
         });
     }
     for (n, row) in out.iter_mut().enumerate() {
         row.cite = cite("check", n);
+        if row.run == CheckRunBy::Gate {
+            row.paths = paths_named(row, from.transcripts);
+        }
     }
     out
+}
+
+/// Each file a gate failure names, and whether a tool call of the step's
+/// Drones names it too. **Read off the text and the transcript**: a failure
+/// that reaches a file the Drone's calls never name is a failure the Drone did
+/// not cause, and the retro is handed that as a fact instead of being left to
+/// work it out. A `true` says a call names the file, which may be a read, and
+/// a shell command that wrote it by a glob names nothing.
+fn paths_named(check: &RecordCheck, transcripts: &[Vec<TranscriptRow>]) -> Vec<RecordPath> {
+    let calls: Vec<String> = transcripts
+        .iter()
+        .flatten()
+        .filter(|row| check.step.is_none() || row.step.is_none() || row.step == check.step)
+        .filter_map(|row| match &row.saw {
+            Saw::Called { detail, whole, .. } => Some(match whole {
+                Some(whole) => format!("{detail}\n{whole}"),
+                None => detail.clone(),
+            }),
+            _ => None,
+        })
+        .collect();
+    let said = format!(
+        "{} {}",
+        check.expected.as_deref().unwrap_or_default(),
+        check.produced.as_deref().unwrap_or_default()
+    );
+    let mut seen = BTreeSet::new();
+    said.split(|c: char| c.is_whitespace() || "`'\"(),;:".contains(c))
+        .map(|token| token.trim_end_matches('.'))
+        .filter(|token| looks_like_a_path(token))
+        .filter(|token| seen.insert(token.to_string()))
+        .map(|path| RecordPath {
+            path: path.to_string(),
+            named_in_drone_calls: calls.iter().any(|call| call.contains(path)),
+        })
+        .collect()
+}
+
+/// A word that is a path: one with a directory in it, or a name with an
+/// extension that has a letter in it. `e.g` and `1.5` are neither.
+pub(crate) fn looks_like_a_path(token: &str) -> bool {
+    if token.contains('/') {
+        return token.len() > 2 && token.chars().any(char::is_alphanumeric);
+    }
+    match token.rsplit_once('.') {
+        Some((stem, extension)) => {
+            stem.chars().filter(|c| c.is_alphanumeric()).count() >= 2
+                && (1..=5).contains(&extension.len())
+                && extension.chars().all(char::is_alphanumeric)
+                && extension.chars().any(char::is_alphabetic)
+        }
+        None => false,
+    }
 }
 
 fn not_met(detail: &JobDetail) -> Vec<RecordNotMet> {

@@ -12,19 +12,21 @@ import { page } from "vitest/browser";
 import { refactorAtApproval, withRow } from "./job-detail-fixtures";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { onJob } from "./scenario";
-import { mount, unmountAfterEach } from "./testing";
+import { mount, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
 beforeEach(() => window.localStorage.setItem("armada.bridge.plan-lead-open", "true"));
 
-const doneWhen = () => page.getByRole("region", { name: "What you are approving" }).getByRole("region", { name: "Done when" });
+// The approval canvas's Done when node, opened (prototype, 4 Oct 2026).
+const doneWhen = () => page.getByRole("dialog", { name: "Done when" }).getByRole("region", { name: "Done when" });
 const heldTo = () => page.getByRole("list").filter({ hasText: "Guide 8 is removed from the catalogue" }).last();
 const FROM_REQUEST = { name: "From your request" };
 const MOVED = { name: /^The issue has been edited since Fleet read it/ };
 
 test("a Job Fleet found draws no origin on its criteria, on the approval panel or on Plan", async () => {
   mount(onJob(withRow(refactorAtApproval(), { origin: "auto_detected" })));
+  await openNode("Done when");
   await expect
     .element(doneWhen().getByRole("textbox", { name: "Criterion 1" }))
     .toHaveValue("Guide 8 is removed from the catalogue");
@@ -39,6 +41,7 @@ test("a Job Fleet found draws no origin on its criteria, on the approval panel o
 
 test("a Job a person dispatched still says its criteria came from their request", async () => {
   mount(onJob(withRow(refactorAtApproval(), { origin: "manual" })));
+  await openNode("Done when");
   await expect.element(doneWhen().getByRole("img", FROM_REQUEST).first()).toBeVisible();
 
   await page.getByRole("tab", { name: /^Plan/ }).last().click();
@@ -47,6 +50,7 @@ test("a Job a person dispatched still says its criteria came from their request"
 
 test("a criterion Fleet read from an issue names the issue, and says the issue moved since", async () => {
   mount(onJob(proposalFromAnIssue()));
+  await openNode("Done when");
   await expect.element(doneWhen().getByText("armada#1162").first()).toBeVisible();
   // Two lines are the issue's and one the prompt's, each as Fleet said.
   expect(doneWhen().getByText("armada#1162").elements()).toHaveLength(2);

@@ -152,6 +152,23 @@ fn a_flag_is_read_again_on_a_stronger_model_than_raised_it() {
     );
 }
 
+/// A retro is written on the middle tier, a member of the roster and stronger
+/// than the Judge's cheap one, as `retro-model` decided on 4 Oct 2026.
+#[test]
+fn a_retro_is_written_on_a_roster_model_stronger_than_the_judges() {
+    assert_eq!(HeadlessAgent::retro_model(), "sonnet");
+    let roster = HeadlessAgent::models();
+    let at = |model| roster.iter().position(|named| *named == model);
+    assert!(
+        at(HeadlessAgent::retro_model()).is_some(),
+        "a member of the roster"
+    );
+    assert!(
+        at(HeadlessAgent::retro_model()) < at(HeadlessAgent::judge_model()),
+        "the roster runs strongest first"
+    );
+}
+
 /// Decided 2 Oct 2026: **a Judge reads the repository, and nothing more.** The
 /// three read tools are the whole toolset and the whole allowlist; every
 /// built-in that writes, runs a command or reaches the network is denied by

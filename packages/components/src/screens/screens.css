@@ -2200,3 +2200,76 @@
   flex: none;
   overflow-y: visible;
 }
+
+/* The approval canvas (prototype): what the Job will do, left to right, in the
+   place the form held. As tall as a Job's own plan canvas, so a node's card
+   opens under it inside the frame. */
+.armada-approval-canvas {
+  block-size: var(--h-workflow-run-canvas);
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.armada-approval-canvas__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-approval-canvas__checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-approval-canvas__sent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-muted);
+}
+
+.armada-approval-canvas__acts {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* A plan group's card: its tasks, the Plan graph's own task cards, one under
+   another. */
+.armada-approval-canvas__tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+
+/* A lane's Zone or a fan's Cluster behind the approval canvas's nodes: the
+   frame fills the box the layout gives it. */
+.armada-approval-canvas__frame {
+  box-sizing: border-box;
+}
+
+/* The Work lane's workflow picker, in a frame no press reaches: the control
+   takes its own presses back. */
+.armada-approval-canvas__picker {
+  pointer-events: auto;
+  min-width: var(--w-workflow-task-node);
+}
+
+/* A lane's or a fan's head on the approval canvas: its word, or its picker,
+   and the guide the Overview card it replaced carried. A frame takes no
+   press, so the head takes its own back. */
+.armada-approval-canvas__head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: auto;
+}

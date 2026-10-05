@@ -331,6 +331,7 @@ export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
 // the card both draw, and the panel a step or group opens into. #1539.
 export * from "./compositions/WorkflowStepCard/WorkflowStepCard";
 export * from "./compositions/WorkflowCanvas/WorkflowCanvas";
+export * from "./compositions/RunNode/RunNode";
 export * from "./compositions/WorkflowStacked/WorkflowStacked";
 export * from "./compositions/WorkflowInspector/WorkflowInspector";
 // A label and its figure in one aligned column — Pulse and the Fleet panel.
@@ -407,5 +408,6 @@ export * from "./compositions/SettlingMark/SettlingMark";
 // A Job's retro, and the Lessons page that lists every retro's items. 23.12.
 export * from "./compositions/WhoMark/WhoMark";
 export * from "./compositions/LandsMark/LandsMark";
+export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/RetroSheet/RetroSheet";

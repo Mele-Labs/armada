@@ -1081,9 +1081,24 @@
   means = "A mortarboard — a flat square cap on a band, a tassel off one corner"
   group = "Navigation"
   size = "16px"
+  status = "Retired"
+  notes = "Minted 3 Oct 2026 for the Lessons rail row, retired 5 Oct 2026 when the owner renamed the page Retros: a mortarboard says the person is the one learning, and the page lists what got in the way. The glyph is free again."
+
+[icons.rewind]
+  means = "Two left-pointing triangles — playing back"
+  group = "Navigation"
+  size = "16px"
   status = "Specified"
-  reserved = "The Lessons surface only. Never a guide, a tutorial or help, which is `book-open`, and never a proposal or a suggestion: nothing on Lessons proposes."
-  notes = "Minted 3 Oct 2026 with the Lessons rail row (`docs/concepts/retro.md`), the eleventh in rail order, under Work. What a person reads there is what got in the way across Jobs, and learning from it is theirs to do. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine; a flat diamond over a band is none of them. Refused: `lightbulb`, which reads as an idea offered, and the page offers none; `book-open`, Guides'; `scroll-text`, a workflow; `history`, a clock face, which the set holds one of by decision."
+  reserved = "The Retros surface only. Never a restart or a redispatch, which are `rotate-cw`, and never history as a clock, which the set holds one of by decision."
+  notes = "Proposed 5 Oct 2026 for the Retros rail row, for the owner to rule on in the walk. A retro is a Job played back to see what got in the way, and two triangles pointing back is that drawing. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine. Refused: `graduation-cap`, which says the person is learning; `history`, a clock face; `undo-2`, which reads as taking an act back; `clipboard-list`, the Job Board's."
+
+[icons.move-right]
+  means = "A long arrow pointing right"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "From whose way to where the fix lands on a retro item, and nowhere else. Never a step order or a Job moving between statuses, and never a disclosure, which are the chevrons."
+  notes = "Proposed 5 Oct 2026. The owner asked for one arrow from who to where, in place of two separate tags, so an item reads as `Fleet to Armada`. A long thin arrow rather than `chevron-right`, which is the disclosure caret and would read as a fold. --fg-muted, a mark between two words."
 
 [icons.app-window]
   means = "A window with its title bar — an application"

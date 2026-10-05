@@ -14,7 +14,7 @@ import { page } from "vitest/browser";
 
 import { conceptSaid } from "@armada/components";
 
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -226,14 +226,15 @@ describe("the proposal — Overview at and just past the approval gate", () => {
 describe("the brief — the Proposer's words, as the markdown they were written in", () => {
   // **The card the owner pinned the ask on**, 1 Oct 2026: *"Can we please
   // support markdown when displaying text from agents?"*
+  // On the canvas's Brief node since the Brief card folded into it (4 Oct 2026).
   test("a backticked name in the brief is drawn as code, not as backticks", async () => {
-    await drawn("arc/executing-concurrent", ".armada-overview-board__brief");
-
-    const brief = page.getByRole("region", { name: "Brief" });
-    const name = brief.getByText("get_capacity");
+    mount("arc/executing-concurrent");
+    const card = await openNode("Brief");
+    const name = card.getByText("get_capacity").first();
     await expect.element(name).toBeVisible();
     expect(name.element().tagName).toBe("CODE");
-    expect(brief.element().textContent).not.toContain("`");
+    // The request's own prose, which is where the name was written.
+    expect(name.element().closest(".armada-prose")?.textContent).not.toContain("`");
   });
 });
 

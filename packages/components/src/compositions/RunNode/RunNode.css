@@ -1,0 +1,231 @@
+/* A node of the run: a band naming its kind in its state's hue, a body of
+   three lines. One card and one size for every kind — the worktree-slot card's
+   language (the owner, 4 Oct 2026). State is the frame: no glow, no gradient,
+   no shadow. Contrast is PoolSlots' worked figures: --fg-inverse on the
+   running band 8.10:1, on the waiting band 8.88:1. */
+
+.armada-run-node {
+  --armada-run-node-hue: var(--border-default);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: var(--w-workflow-node);
+  /* The band, the body's three lines and their gaps, and the edge. */
+  height: calc(
+    var(--leading-2xs) + var(--space-1) * 2 + var(--space-2) * 2 + var(--leading-sm) + var(--leading-xs) +
+      var(--leading-2xs) + var(--space-1) * 2 + var(--border-width) * 2
+  );
+  padding: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--armada-run-node-hue);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  text-align: start;
+}
+
+.armada-run-node[data-narrow] {
+  width: var(--w-workflow-task-node);
+}
+
+button.armada-run-node {
+  cursor: pointer;
+}
+
+.armada-run-node[aria-current] {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--edge-active);
+}
+
+.armada-run-node__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--armada-run-node-hue);
+  color: var(--fg-inverse);
+}
+
+.armada-run-node__kind {
+  flex: 1 1 auto;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-run-node__id {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* The step mark keeps its glyph and drops its own hue on the band: the band is the hue. */
+.armada-run-node__band .armada-step-mark {
+  color: inherit;
+}
+
+.armada-run-node__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.armada-run-node__title,
+.armada-run-node__line,
+.armada-run-node__traits,
+.armada-run-node__meta,
+.armada-run-node__item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-run-node__title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+}
+
+.armada-run-node__title[data-mono] {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.armada-run-node__title[data-links] {
+  color: var(--accent);
+}
+
+.armada-run-node__line,
+.armada-run-node__item {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-run-node__traits,
+.armada-run-node__meta {
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.armada-run-node__traits {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-run-node__meta {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-run-node__sep {
+  color: var(--fg-subtle);
+  white-space: pre;
+}
+
+/* A value moved off its default: the card's one accent. */
+.armada-run-node__value[data-tuned] {
+  color: var(--accent);
+}
+
+/* --- State, through the frame. ------------------------------------------- */
+
+/* --- Kind, through a tint and an edge. ----------------------------------
+
+   What a node IS, from kinds.css: setup, a Drone step and what it fans into,
+   a gate, delivery. A kind is never a solid band — that is a status — so it
+   is a 4px leading edge on every node, and at the gate, where nothing has a
+   status yet, the band's tint. On a running Job the status takes the band
+   and the edge keeps the kind. */
+.armada-run-node:is([data-kind="studio"], [data-kind="brief"], [data-kind="base"]) {
+  --armada-run-node-kind: var(--kind-setup);
+}
+
+.armada-run-node:is([data-kind="step"], [data-kind="stack"], [data-kind="fan"], [data-kind="group"], [data-kind="job"]) {
+  --armada-run-node-kind: var(--kind-step);
+}
+
+.armada-run-node[data-kind="gate"] {
+  --armada-run-node-kind: var(--kind-gate);
+}
+
+.armada-run-node:is([data-kind="done"], [data-kind="pr"], [data-kind="land"]) {
+  --armada-run-node-kind: var(--kind-delivery);
+}
+
+.armada-run-node:not([data-tone="ghost"]) {
+  border-inline-start: var(--space-1) solid var(--armada-run-node-kind);
+}
+
+/* At the gate: nothing has run, so the band is the kind's tint. */
+.armada-run-node[data-tone="neutral"] .armada-run-node__band {
+  background: color-mix(in srgb, var(--armada-run-node-kind) 22%, var(--bg-raised));
+  color: var(--fg-default);
+}
+
+.armada-run-node[data-tone="live"] {
+  --armada-run-node-hue: var(--step-running);
+  background: color-mix(in srgb, var(--step-running) var(--row-tint), var(--bg-raised));
+}
+
+.armada-run-node[data-tone="done"] {
+  --armada-run-node-hue: var(--step-advanced);
+}
+
+.armada-run-node[data-tone="waiting"] {
+  --armada-run-node-hue: var(--step-waiting);
+}
+
+/* Blocked: the waiting hue, and its body hatched. */
+.armada-run-node:is([data-tone="blocked"], [data-tone="failed"]) {
+  --armada-run-node-hue: var(--step-waiting);
+  background:
+    repeating-linear-gradient(135deg, var(--status-awaiting-review-bg) 0 var(--space-2), transparent var(--space-2) var(--space-4)),
+    var(--bg-raised);
+}
+
+.armada-run-node[data-tone="failed"] {
+  --armada-run-node-hue: var(--step-failed);
+  background:
+    repeating-linear-gradient(135deg, var(--step-failed-bg) 0 var(--space-2), transparent var(--space-2) var(--space-4)),
+    var(--bg-raised);
+}
+
+/* Not reached yet: an open dashed outline, the band unfilled. */
+.armada-run-node[data-tone="upcoming"] {
+  border-style: dashed;
+  background: transparent;
+  /* Its kind, a step back with everything else not reached yet. */
+  border-inline-start-color: color-mix(in srgb, var(--armada-run-node-kind) 50%, transparent);
+}
+
+.armada-run-node[data-tone="upcoming"] .armada-run-node__band {
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+.armada-run-node[data-tone="upcoming"] .armada-run-node__title {
+  color: var(--fg-muted);
+}
+
+/* Not made yet: a faint dashed outline and its word, centred. */
+.armada-run-node[data-tone="ghost"] {
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  background: transparent;
+}
+
+.armada-run-node__ghost {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}

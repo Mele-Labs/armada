@@ -12,7 +12,7 @@
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::enums::{Actor, LandsIn, Via, Whose};
+use crate::enums::{Actor, LandsIn, LessonState, Via, Whose};
 use crate::ids::{Instant, JobId, StepId};
 
 /// `get_job_retro`.
@@ -55,13 +55,28 @@ pub enum RetroState {
 
 /// One thing that got in the way.
 ///
-/// **Also the shape the model answers in**, inside [`RetroWritten`], so what
-/// it wrote and what the wire carries cannot drift.
+/// **`title`, `what` and `fix` are absent on an item kept before 23.26**, which
+/// has `statement` alone. On one written since, `statement` repeats `what`, so
+/// a reader that predates the three still has a sentence to draw.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroItem {
+    /// Names this item in `agree_lesson` and `disagree_lesson`. Stable: it is
+    /// the Job's id and the item's place in its retro, and a retro is written
+    /// once. Since 23.26.
+    pub id: String,
     /// Whose way it got in.
     pub who: Whose,
-    /// One sentence: what got in the way.
+    /// A headline of about eight words. Since 23.26.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// One or two short sentences: what happened, and to whom. Since 23.26.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub what: Option<String>,
+    /// One sentence naming what to change. Since 23.26.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix: Option<String>,
+    /// What got in the way, as one piece of prose. On an item written since
+    /// 23.26 it is `what`.
     pub statement: String,
     /// The [`RetroRecord`] rows that show it, by `cite`. Never empty.
     pub evidence: Vec<String>,
@@ -69,6 +84,28 @@ pub struct RetroItem {
     /// **absent on an item kept before**, never defaulted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<LandsIn>,
+    /// Where it stands with the person, as on [`Lesson`]. **Absent only on an
+    /// item whose row has no answer record**, read as before. Since 23.27.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<LessonState>,
+    /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_proposed: Option<JobId>,
+}
+
+/// One item of what the retro call answers with. **Not [`RetroItem`]**: the
+/// model names no `id` and no `statement`, and an answer lacking a `title`,
+/// `what` or `fix` is not an item.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetroAnswered {
+    pub who: Whose,
+    /// Absent is an item that is dropped, the way a place spelt wrong is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lands_in: Option<LandsIn>,
+    pub title: String,
+    pub what: String,
+    pub fix: String,
+    pub evidence: Vec<String>,
 }
 
 /// What the retro call answers with. Read through [`crate::decode`] and
@@ -76,21 +113,22 @@ pub struct RetroItem {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroWritten {
     /// **An item that will not read is left out**, rather than costing the
-    /// items beside it: one `lands_in` the model spelled wrong drops that item,
-    /// the way one citing nothing the record holds is dropped.
+    /// items beside it: one `lands_in` the model spelled wrong, or one with no
+    /// `title`, drops that item, the way one citing nothing the record holds is
+    /// dropped.
     #[serde(deserialize_with = "readable")]
-    pub items: Vec<RetroItem>,
+    pub items: Vec<RetroAnswered>,
 }
 
 /// One item of a model's answer, or whatever it wrote in that place instead.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Answered {
-    Item(RetroItem),
+    Item(RetroAnswered),
     Unread(IgnoredAny),
 }
 
-fn readable<'de, D: Deserializer<'de>>(input: D) -> Result<Vec<RetroItem>, D::Error> {
+fn readable<'de, D: Deserializer<'de>>(input: D) -> Result<Vec<RetroAnswered>, D::Error> {
     Ok(Vec::<Answered>::deserialize(input)?
         .into_iter()
         .filter_map(|answered| match answered {
@@ -109,11 +147,20 @@ pub struct Lessons {
 /// One retro item, with the Job it came from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lesson {
+    /// `RetroItem::id`. Since 23.26.
+    pub id: String,
     pub job_id: JobId,
     pub handle: String,
     /// When the retro this item is in was written.
     pub at: Instant,
     pub who: Whose,
+    /// As on [`RetroItem`]: absent on an item kept before 23.26.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub what: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix: Option<String>,
     pub statement: String,
     /// `cite` values on the Job's own retro record: `get_job_retro` resolves
     /// them.
@@ -122,6 +169,12 @@ pub struct Lesson {
     /// `?lands_in=` never matches.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<LandsIn>,
+    /// Where it stands with the person. Every item starts `open`. Since 23.26.
+    pub state: LessonState,
+    /// The Job proposed for it, once `agree_lesson` has proposed one. Since
+    /// 23.26.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_proposed: Option<JobId>,
 }
 
 /// Everything on a Job's record a retro is read from. Every row carries a
@@ -197,6 +250,20 @@ pub struct RecordCheck {
     pub expected: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub produced: Option<String>,
+    /// Each file the gate's failure names, and whether the step's Drones
+    /// named it in a tool call of their own. Since 23.26, on a gate failure
+    /// that names a file.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<RecordPath>,
+}
+
+/// A file a failed Check names, set against what the Drone did. **A fact read
+/// off the transcript, and never a verdict**: `false` says no tool call of the
+/// Drone's names the file, and `true` says one does, which may be a read.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordPath {
+    pub path: String,
+    pub named_in_drone_calls: bool,
 }
 
 /// A Judge criterion that was not met.

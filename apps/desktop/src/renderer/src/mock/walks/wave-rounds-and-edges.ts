@@ -5,6 +5,7 @@
 import { card, tab, walk } from "../walk";
 
 export const waveRoundsAndEdges = walk("epic/wave-off-the-wire", [
+  { press: tab("Plan"), say: "The wave, on Plan" },
   { look: tab("Wave 2 · The seam first"), say: "Each wave is named by what its plan split the work into" },
   { look: card("Drop the second error shape"), say: "A Job sits behind the Jobs it waits on" },
   { press: tab("Wave 1 · The seam as one Job"), say: "The first wave keeps its own line" },

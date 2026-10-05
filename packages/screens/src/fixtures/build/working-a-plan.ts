@@ -95,6 +95,14 @@ export function workingAPlan(): JobFixture {
     ...fixture,
     job,
     name: "running — working the plan's second task of three",
-    watched: watchedRead({ ...fixture.watched.detail, job, work_plan: PLAN_MID_TASK }),
+    watched: watchedRead({
+      ...fixture.watched.detail,
+      job,
+      // The step the plan is worked at declares a Drone per task.
+      steps: fixture.watched.detail.steps.map((step) =>
+        step.step_id === job.current_step_id ? { ...step, drone_per_task: true } : step,
+      ),
+      work_plan: PLAN_MID_TASK,
+    }),
   });
 }

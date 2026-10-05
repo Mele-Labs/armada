@@ -74,7 +74,7 @@ export function useApproval({
     drafted: drafted !== undefined && !approved,
     atGate: atGate && drafted === undefined,
     frozen: approved ? fromWhole : drafted?.proposal.approved_at === undefined ? undefined : drafted,
-    approval: () => (edits === undefined || before === undefined ? undefined : approvalOf(edits, before, workflows)),
+    approval: () => (edits === undefined || before === undefined ? undefined : approvalOf(edits, before, workflows, branches)),
     branches,
   };
 }

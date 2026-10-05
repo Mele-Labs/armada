@@ -26,7 +26,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, SetLandingTarget, ToProposer } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -44,6 +44,7 @@ import type {
   WhenRefused,
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
+import type { Lesson, LessonAnswer } from "@armada/protocol";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
 import { Clearing } from "./clearing";
@@ -156,6 +157,8 @@ export class JobCommands {
   private readonly killing = new Set<string>();
   private readonly redirecting = new Set<string>();
   private readonly restarting = new Set<string>();
+  /** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
+  private readonly answeringLesson = new Set<string>();
   /** Jobs with an override in flight. Its own set: it is its own act. */
   private readonly overruling = new Set<string>();
   /**
@@ -790,6 +793,42 @@ export class JobCommands {
   }
 
   /**
+   * Agree with one retro item. Fleet proposes a Job at the approval gate for an Armada or
+   * Manifest item and saves a Kit item; the item comes back as it now stands. **The board is read
+   * again**, because a proposed Job is a row nobody had.
+   */
+  async agreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.answerLesson(lessonId, "agree");
+  }
+
+  /** Disagree with one retro item: Fleet discards it. */
+  async disagreeLesson(lessonId: string): Promise<LessonAnswer> {
+    return this.answerLesson(lessonId, "disagree");
+  }
+
+  /**
+   * **Not `act`'s shape**: the subject is an item rather than a Job, and what comes back is the
+   * item. One press sends one answer per item, and a second answer on it while the first is out
+   * is refused here rather than sent.
+   */
+  private async answerLesson(lessonId: string, answer: "agree" | "disagree"): Promise<LessonAnswer> {
+    if (this.answeringLesson.has(lessonId)) {
+      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
+    }
+    const port = this.board.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    this.answeringLesson.add(lessonId);
+    try {
+      const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/${answer}`);
+      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
+      if (answer === "agree") await this.board.reread(port);
+      return { ok: true, lesson: sent.body as Lesson };
+    } finally {
+      this.answeringLesson.delete(lessonId);
+    }
+  }
+
+  /**
    * Overrule a Judge that refused the work. **The step advances still carrying
    * its failure** — nothing about the verdict is rewritten, and the Job goes on
    * at the next step, or commits and delivers where the refused step was the
@@ -975,6 +1014,30 @@ export class JobCommands {
   async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
+    );
+  }
+
+  /**
+   * The proposal sent back to the proposer with a note (23.25). Under
+   * `deciding`, the review's lock, since it leaves the gate and returns to it:
+   * the answer is a `ProposedPlan`, so the Job is read again rather than folded.
+   * Fleet's refusals (`proposal_frozen`, `unacceptable_proposal`) come back as the outcome.
+   */
+  async toProposer(jobId: string, body: ToProposer): Promise<Outcome> {
+    return this.act(jobId, this.deciding, "already_deciding", (port) =>
+      ask(port, "POST", route(jobId, "to_proposer"), body),
+    );
+  }
+
+  /**
+   * Where an approved Job with no landing target lands, once (23.22). Under
+   * `setting`, as the other changes to a Job's settings; Fleet's refusals
+   * (`landing_target_settled`, `landing_target_blank`) come back as the outcome.
+   */
+  async setLandingTarget(jobId: string, target: string): Promise<Outcome> {
+    const body: SetLandingTarget = { target };
+    return this.act(jobId, this.setting, "already_setting", (port) =>
+      ask(port, "POST", route(jobId, "set_landing_target"), body),
     );
   }
 

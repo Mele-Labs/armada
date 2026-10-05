@@ -32,14 +32,19 @@ import {
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
-import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
+import type { FollowedLog, JobDetail as JobWhole, ToProposer } from "@armada/protocol";
 import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
 import { useApproval } from "./approval-held";
 import { baseBranch } from "./draft/branches";
-import { Approving } from "./approving";
+import { ApprovalCanvas } from "./ApprovalCanvas";
+import { lifeOf } from "./approval-life";
+import { proposalEditsOfWhole } from "./tab-proposal-read";
+import { stepNodeId, workflowRunOf } from "./workflow-canvas";
+import type { DroneView } from "./draft/drone";
+import { taskGroupsOf } from "./draft/group";
 import { DronesTab } from "./tab-drones";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
@@ -54,7 +59,7 @@ const NOT_FOLLOWING: FollowedLog = { state: "none" };
 import { SettingsTab } from "./tab-settings";
 import { whyNothingToChange } from "./settings";
 import { WorkflowTab } from "./tab-workflow";
-import { type WaveRegionProps } from "./tab-wave";
+import { type WaveRegionProps, waveReadingOf } from "./tab-wave";
 import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
@@ -110,6 +115,8 @@ function OneJob(props: JobDetailProps) {
   // The task Plan opens on, where the Drones' reading sent a person there.
   // Cleared by the strip, on `opensStep`'s terms.
   const [opensTask, setOpensTask] = useState<string | undefined>(undefined);
+  // The group Plan opens on, where the run's canvas sent a person there. On `opensTask`'s terms.
+  const [opensGroup, setOpensGroup] = useState<string | undefined>(undefined);
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
@@ -118,6 +125,7 @@ function OneJob(props: JobDetailProps) {
   // The way back across a jump between destinations — `trail.ts`.
   const trail = useTrail((to) => {
     setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
+    setOpensGroup(undefined);
     setOpensDrone(to.tab === "drones" ? to.open?.id : undefined);
     setOpensRow(to.tab === "record" ? to.open?.id : undefined);
     setOpensStep(to.tab === "workflow" ? to.open?.id : undefined);
@@ -129,6 +137,7 @@ function OneJob(props: JobDetailProps) {
     setOpensRow(undefined);
     setOpensStep(undefined);
     setOpensTask(undefined);
+    setOpensGroup(undefined);
     setOpensDrone(undefined);
     setOpensCheck(undefined);
     setTab(next);
@@ -358,7 +367,11 @@ function OneJob(props: JobDetailProps) {
             the product of an Epic Job, and the run is how it got there. A Job
             that dispatched nothing draws nothing. #1544. A Job pressed opens
             its panel, with what it asks of you at the top — Plan's own. */}
-        <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
+        {/* Not where the run's canvas draws the wave's Jobs itself, which is
+            every Job past its gate: one wave, drawn once. */}
+        {whole !== null && !held.atGate ? null : (
+          <WavePlan {...wave} floor={floor} onDropFromWave={(jobId) => props.onActHeld("kill_job", jobId)} />
+        )}
         <OverviewTab
           {...props}
           job={job}
@@ -382,11 +395,10 @@ function OneJob(props: JobDetailProps) {
           onOpenCheckLog={setCheckLog}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
-          {...(!held.atGate || held.edits === undefined || whole === null
-            ? {}
-            : {
+          {...(held.atGate && held.edits !== undefined && whole !== null
+            ? {
                 approval: (
-                  <Approving
+                  <ApprovalCanvas
                     whole={whole}
                     edits={held.edits}
                     {...(props.stale ? {} : { onEdits: held.onEdits })}
@@ -394,10 +406,54 @@ function OneJob(props: JobDetailProps) {
                     manifest={manifest}
                     branches={held.branches}
                     models={props.models?.models ?? []}
+                    harnesses={props.models?.harnesses ?? []}
+                    {...(props.onToProposer === undefined || props.stale
+                      ? {}
+                      : { onToProposer: (body: ToProposer) => props.onToProposer!(whole.job.id, body) })}
                     machineCap={props.machineCap ?? null}
+                    {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                   />
                 ),
-              })}
+              }
+            : // Past the gate, the same canvas read, marked with where the Job
+              // is — every Job's Overview (the owner, 4 Oct 2026). No
+              // `onEdits`: nothing on it can change any more.
+              whole !== null && !held.atGate
+              ? {
+                  run: (
+                    <ApprovalCanvas
+                      whole={whole}
+                      edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
+                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
+                      {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
+                      onOpenJob={openJob}
+                      {...(props.onSetLandingTarget === undefined
+                        ? {}
+                        : { onSetLandingTarget: (target: string) => props.onSetLandingTarget!(whole.job.id, target) })}
+                      // A step, a group or a task opens the panel its own tab
+                      // opens, by the jump Record and Drones already make — with
+                      // the way back to Overview in its head (`trail.ts`).
+                      onOpenStep={(stepId) => {
+                        trail.push("overview");
+                        setOpensStep(stepId);
+                        setTab("workflow");
+                      }}
+                      onOpenGroup={(groupId) => {
+                        trail.push("overview");
+                        setOpensTask(undefined);
+                        setOpensGroup(groupId);
+                        setTab("plan");
+                      }}
+                      workflows={props.workflows}
+                      manifest={manifest}
+                      branches={held.branches}
+                      models={props.models?.models ?? []}
+                      harnesses={props.models?.harnesses ?? []}
+                      machineCap={props.machineCap ?? null}
+                    />
+                  ),
+                }
+              : {})}
           {...(opensTask === undefined ? {} : { opensTask })}
           onOpenDrone={(droneId) => {
             trail.push("overview");
@@ -410,6 +466,7 @@ function OneJob(props: JobDetailProps) {
         </div>
       ) : tab === "workflow" ? (
         <WorkflowTab
+          pulse={{ resources: props.resources, examination: props.examination, onNeedPulse: props.onNeedPulse }}
           job={job}
           whole={whole}
           {...(absent === undefined ? {} : { absent })}
@@ -482,6 +539,7 @@ function OneJob(props: JobDetailProps) {
           onSaid={props.onSaid}
           {...(props.draft === undefined ? {} : { draft: props.draft })}
           {...(opensTask === undefined ? {} : { opensTask })}
+          {...(opensGroup === undefined ? {} : { opensGroup })}
           now={props.now}
           drones={drones}
           onOpenDrone={(droneId) => {
@@ -611,6 +669,9 @@ function OneJob(props: JobDetailProps) {
           jobId={job.id}
           job={jobOf(job.handle)}
           read={props.onReadRetro}
+          onAgreeLesson={props.onAgreeLesson}
+          onDisagreeLesson={props.onDisagreeLesson}
+          {...(props.onOpenJob === undefined ? {} : { onOpenJob: props.onOpenJob })}
           floor={floor}
           onClose={() => setRetroOpen(false)}
         />
@@ -719,4 +780,19 @@ function pulseOf(
         if (because !== null) props.onSaid(because);
       }),
   };
+}
+
+/**
+ * Each step's line as the Workflow tab's own card draws it — how long, and how
+ * many Drones on the one at work — so the canvas's live node says it in the
+ * same words. **The same builder**, never a second wording of it.
+ */
+function stepLinesOf(whole: JobWhole, drones: readonly DroneView[]): Record<string, string> {
+  const run = workflowRunOf({ whole, groups: taskGroupsOf(whole), drones });
+  const lines: Record<string, string> = {};
+  for (const step of whole.steps) {
+    const line = run.nodes.find((node) => node.id === stepNodeId(step.step_id))?.card.line;
+    if (line !== undefined) lines[step.step_id] = line;
+  }
+  return lines;
 }

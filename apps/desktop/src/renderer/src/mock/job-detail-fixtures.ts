@@ -295,7 +295,7 @@ export function refactorAtItsPlan(): JobFixture {
     job,
     steps: [
       plan,
-      step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      { ...step("implement", "Restructure", 1, "auto_if_judge_passes"), drone_per_task: true },
       step("handoff", "Review the change", 2, "human_always"),
     ],
     work_plan: {
@@ -353,6 +353,7 @@ export function refactorAtApproval(): JobFixture {
     },
     {
       ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      drone_per_task: true,
       checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
       judge_checks: [{ criteria: 4, gaming_check: true }],
     },
@@ -379,13 +380,15 @@ export function refactorAtApproval(): JobFixture {
     name: "refactor",
     version: 1,
     manifest_id,
+    // Each step's lane on the approval canvas: the hand-off delivers, the rest is the work.
     steps: steps.map((one) => ({
-      step_id: one.step_id,
-      label: one.label,
-      checks: one.checks ?? [],
-      judge_checks: one.judge_checks ?? [],
-      advance_gate: one.advance_gate ?? "human_always",
-      delivers: one.delivers ?? false,
+          step_id: one.step_id,
+          label: one.label,
+          checks: one.checks ?? [],
+          judge_checks: one.judge_checks ?? [],
+          advance_gate: one.advance_gate ?? "human_always",
+          delivers: one.delivers ?? false,
+          phase: one.step_id === "handoff" ? ("delivery" as const) : ("work" as const),
     })),
     for_requests,
   });
@@ -449,6 +452,8 @@ export function featureOnItsPlan(tasks: Partial<Record<string, PlanTask["state"]
     judge_checks: [{ criteria: 1, gaming_check: false }],
     advance_gate: "auto_if_judge_passes",
     delivers: false,
+    // `feature.json` declares a Drone per task on `implement`, as Fleet serves it since 23.1.
+    ...(step_id === "implement" ? { drone_per_task: true } : {}),
     overridden: false,
     judged: [],
     flagged: [],

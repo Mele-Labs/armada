@@ -1,4 +1,4 @@
-//! Saving a workflow definition. Since 23.26.
+//! Saving a workflow definition. Since 23.28.
 //!
 //! **Its own surface, and not a method of [`Commands`](super::Commands)**, which
 //! was at the line the gate refuses a file over when this arrived. The reason

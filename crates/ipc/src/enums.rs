@@ -355,3 +355,8 @@ wire_enum! {
     /// Since 23.15. `docs/concepts/retro.md`.
     LandsIn, core_model::LandsIn, "a place a retro item's fix lands"
 }
+wire_enum! {
+    /// Where a retro item stands with the person: `open`, `agreed`, `accepted`
+    /// or `discarded`. Since 23.26. `docs/concepts/retro.md`.
+    LessonState, core_model::LessonState, "a state a retro item is in"
+}

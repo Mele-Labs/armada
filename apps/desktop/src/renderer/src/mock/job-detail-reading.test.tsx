@@ -64,20 +64,24 @@ test("Overview, unread: every card drawn from the read stands in, and none answe
   expect(text()).not.toContain("Checks running");
 });
 
-test("Overview: the read lands and the Plan card draws the plan it holds", async () => {
+// The Plan and Brief cards folded into the canvas (the owner, 4 Oct 2026):
+// the plan the read holds is its groups, drawn on the run.
+test("Overview: the read lands and the canvas draws the plan it holds", async () => {
   const fleet = await openedReading();
   fleet.answer(workingAPlan());
-  await expect.element(card("Plan").getByText("Working now")).toBeVisible();
-  expect(card("Plan").getByRole("status").elements()).toHaveLength(0);
-  expect(card("Brief").getByRole("status").elements()).toHaveLength(0);
+  const run = page.getByRole("region", { name: "This Job's run" });
+  await expect.element(run.getByRole("button", { name: /^Group 1, / })).toBeInTheDocument();
+  expect(run.getByRole("status").elements()).toHaveLength(0);
 });
 
-test("Overview: a read that holds no plan draws nothing in the Plan card, once it has been read", async () => {
+test("Overview: a read that holds no plan draws nothing in the plan's place, once it has been read", async () => {
   const fleet = await openedReading();
   fleet.answer(running());
-  await expect.poll(() => card("Plan").getByRole("status").elements().length).toBe(0);
-  expect(card("Plan").getByRole("note").elements()).toHaveLength(0);
-  expect(card("Plan").getByText("No plan has been recorded.").elements()).toHaveLength(0);
+  const run = page.getByRole("region", { name: "This Job's run" });
+  await expect.element(run).toBeVisible();
+  expect(run.getByRole("status").elements()).toHaveLength(0);
+  expect(run.getByRole("note").elements()).toHaveLength(0);
+  expect(run.getByText("No plan has been recorded.").elements()).toHaveLength(0);
 });
 
 test("Overview: a refused read does not say there is no plan", async () => {
