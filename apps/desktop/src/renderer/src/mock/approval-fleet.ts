@@ -94,7 +94,7 @@ export function sentBack(detail: JobDetail, body: ToProposer): JobDetail | Outco
 }
 
 /** The one harness the mock's Fleet runs, `ModelChoices.harnesses`. */
-export const HARNESS = "Claude Code";
+export const HARNESS = "mock-harness";
 
 /** A refusal, in Fleet's own code and words. */
 const refusedAs = (code: string, message: string): Outcome => ({

@@ -259,7 +259,7 @@ export function approvalNodesOf({
   gates: readonly GateView[];
   tuning: ApprovalTuning;
   prMode: "ready" | "draft";
-  /** `LandingRule.local`: the work stays on its branch. */
+  /** The local-only delivery field: the work stays on its branch. */
   local?: boolean;
   /** `LandingRule.auto_merge`: the pull request merges on its own. */
   autoMerge?: boolean;

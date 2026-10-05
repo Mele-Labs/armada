@@ -80,7 +80,7 @@ export type LandingRule = {
    * its own.
    */
   land_together: string[][];
-  /** Stop at the branch: no push, pull request or merge (`LandingRule.local`, 23.24). Absent is false. */
+  /** Stop at the branch: no push, pull request or merge (the local-only delivery field, 23.24). Absent is false. */
   local?: boolean;
   /** The forge merges the pull request once its checks pass (`LandingRule.auto_merge`, 23.24). Absent is false. */
   auto_merge?: boolean;
