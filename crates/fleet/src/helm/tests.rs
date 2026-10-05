@@ -237,7 +237,10 @@ fn the_brief_carries_what_helm_needs_to_author_a_workflow() {
     assert!(acting.contains("advance_gate (enum, under steps[])"));
     assert!(acting.contains("One of: auto, auto_if_judge_passes, human_always"));
     assert!(acting.contains("\"workflow_id\": \"bug\""), "the sample");
-    assert!(!acting.contains("# Bug, as M1 runs it"), "not the file's comment block");
+    assert!(
+        !acting.contains("# Bug, as M1 runs it"),
+        "not the file's comment block"
+    );
     assert!(acting.contains("Call save_workflow with the scope"));
     assert!(acting.contains("overwrite true"));
     assert!(acting.contains("Do not write the file with Write or Edit"));
@@ -261,7 +264,10 @@ fn the_sample_in_the_brief_loads() {
         .as_str()
         .split_once("to copy the shape from:\n\n")
         .expect("the sample");
-    let sample = sample.split("\n\nHOW YOU ANSWER").next().expect("up to the next block");
+    let sample = sample
+        .split("\n\nHOW YOU ANSWER")
+        .next()
+        .expect("up to the next block");
     let loaded = config::WorkflowDef::parse(
         Path::new("bug.json"),
         sample,

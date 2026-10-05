@@ -56,6 +56,24 @@ pub(crate) async fn clone_repository<D: Commands>(
     }
 }
 
+/// Check one workflow definition against the repository and write it in the
+/// scope named — protocol 23.26. **200 and not 201**, for `save_manifest_file`'s
+/// reason: the file is on disk and held when this answers.
+pub(crate) async fn save_workflow<D: Commands>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SaveWorkflow = match ipc::decode("a workflow definition to save", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_workflow(asked, scope.manifest()).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What one repository's catalogue left out of its workflows, each with why — #425.
 pub(crate) async fn list_left_out_workflows<D: Queries>(
     State(served): State<Served<D>>,

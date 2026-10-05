@@ -254,7 +254,9 @@ fn leniently_a_bad_repository_file_does_not_take_the_others_down() {
     assert!(!held.workflows().keys().any(|id| id.as_str() == "needs"));
     let said: Vec<String> = held.left_out().iter().map(ToString::to_string).collect();
     assert_eq!(said.len(), 2, "{said:?}");
-    assert!(said.iter().any(|s| s.starts_with("the repository's `needs` was left out")));
+    assert!(said
+        .iter()
+        .any(|s| s.starts_with("the repository's `needs` was left out")));
 }
 
 /// A repository's own that will not resolve steps down, as Kit's does: the
@@ -294,7 +296,10 @@ fn leniently_one_id_twice_in_the_repository_leaves_both_out() {
     .expect("nothing is refused");
     assert!(!held.workflows().keys().any(|id| id.as_str() == "shared"));
     assert!(held.workflows().keys().any(|id| id.as_str() == "other"));
-    assert!(matches!(held.left_out()[0].why(), WhyLeftOut::Duplicated { .. }));
+    assert!(matches!(
+        held.left_out()[0].why(),
+        WhyLeftOut::Duplicated { .. }
+    ));
 }
 
 #[test]
@@ -305,8 +310,13 @@ fn a_definition_fits_where_it_parses_and_resolves_and_says_why_where_it_does_not
     assert_eq!(id.as_str(), "x");
     let unparsed = crate::fit(at, "workflow_id: [", &roster(), &manifest).expect_err("no");
     assert!(matches!(unparsed, crate::Unfit::Unparsed(_)));
-    let unresolved = crate::fit(at, &one_step("x", "X", Some("missing")), &roster(), &manifest)
-        .expect_err("no");
+    let unresolved = crate::fit(
+        at,
+        &one_step("x", "X", Some("missing")),
+        &roster(),
+        &manifest,
+    )
+    .expect_err("no");
     assert!(matches!(unresolved, crate::Unfit::Unresolved(_)));
     assert!(unresolved.to_string().contains("missing"), "{unresolved}");
 }

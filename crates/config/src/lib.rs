@@ -51,8 +51,8 @@ pub use catalogue::{
     carried, fit, Catalogue, CatalogueRefused, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut,
     Written, CARRIED_AT,
 };
-pub use fields::{workflow_fields, Field};
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
+pub use fields::{workflow_fields, Field};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
     BadSeedPath, Check, Command, Harness, Link, Manifest, MergeBy, Preparation, Seed, Server,

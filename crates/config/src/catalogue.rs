@@ -244,9 +244,7 @@ impl Catalogue {
                         workflows.insert(id.clone(), resolved.read_from(source));
                         break;
                     }
-                    Err(why) if strict && source == WorkflowSource::Repository => {
-                        return Err(why)
-                    }
+                    Err(why) if strict && source == WorkflowSource::Repository => return Err(why),
                     Err(why) => left_out.push(LeftOut::of(
                         Some(id.clone()),
                         source,

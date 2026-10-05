@@ -464,6 +464,18 @@ where
         self.write_manifest_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
 
+    /// A workflow definition, checked and written — [`authoring`](mod@crate::authoring).
+    ///
+    /// **Not `Arc`**, for [`Commands::save_manifest_file`]'s reason: the file is
+    /// on disk, and held, when this answers.
+    async fn save_workflow(
+        &self,
+        asked: ipc::SaveWorkflow,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowSaved, Refusal> {
+        self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
+
     /// A form's edits, placed and written — [`amending`](mod@crate::amending).
     ///
     /// **Not `Arc`**, for [`Commands::save_manifest_file`]'s reason: the bytes

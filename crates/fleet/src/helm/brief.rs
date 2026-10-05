@@ -321,7 +321,10 @@ fn field_list() -> String {
             } else {
                 format!(" One of: {}.", field.values.join(", "))
             };
-            format!("{} ({}{under}): {}{values}", field.name, field.kind, field.purpose)
+            format!(
+                "{} ({}{under}): {}{values}",
+                field.name, field.kind, field.purpose
+            )
         })
         .collect::<Vec<_>>()
         .join("\n")

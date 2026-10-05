@@ -35,7 +35,9 @@ pub fn workflow_fields() -> Vec<Field> {
         if let Some(header) = line.strip_prefix("[fields.") {
             let header = header.trim_end_matches(']');
             if let Some(name) = header.strip_suffix(".values") {
-                in_values = fields.last().is_some_and(|last| last.name == unquoted(name));
+                in_values = fields
+                    .last()
+                    .is_some_and(|last| last.name == unquoted(name));
                 continue;
             }
             in_values = false;

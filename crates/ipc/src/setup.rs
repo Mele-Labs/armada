@@ -173,14 +173,16 @@ pub struct WorkflowSummary {
     pub for_requests: Option<String>,
 }
 
-/// A Kit or carried definition this Fleet runs without, and why. #425: named only in
+/// A definition this Fleet runs without, and why. #425: named only in
 /// Fleet's log before, where a person picking a workflow never looks.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LeftOutWorkflow {
     /// Absent where the file did not parse far enough to say.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<WorkflowId>,
-    /// `armada` or `kit`. A repository's own definition is never left out: it refuses.
+    /// `armada`, `kit` or `repository`. A repository's own definition refuses
+    /// Fleet's start; it is left out only by a Fleet that was already running
+    /// when the file was saved (protocol 23.26).
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,
@@ -189,6 +191,57 @@ pub struct LeftOutWorkflow {
     /// Whose definition of the same id runs instead, where one does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instead: Option<String>,
+}
+
+/// Where a saved workflow definition lives (protocol 23.26).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowScope {
+    /// `<repository>/.armada/workflows/`: this repository's own, which beats
+    /// Kit's and Armada's by id.
+    Repository,
+    /// `~/.armada/workflows/`: every repository on this machine.
+    Kit,
+}
+
+impl WorkflowScope {
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            WorkflowScope::Repository => "repository",
+            WorkflowScope::Kit => "kit",
+        }
+    }
+}
+
+/// `save_workflow`'s body (protocol 23.26): one definition, and where it goes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaveWorkflow {
+    pub scope: WorkflowScope,
+    /// The definition, whole, as JSON text. What `workflow_id` names is the
+    /// file's name, so nothing else says where in the scope it goes.
+    pub definition: String,
+    /// **Required to replace a definition that is already there.** Absent is
+    /// `false`, and a save that would replace one is refused without it, so
+    /// replacing is something a caller says rather than something that happens.
+    #[serde(default)]
+    pub overwrite: bool,
+}
+
+/// What `save_workflow` wrote.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowSaved {
+    pub workflow_id: WorkflowId,
+    pub scope: WorkflowScope,
+    /// The file as written, absolute.
+    pub file: String,
+    /// Whether a definition of this id was there and is now replaced.
+    pub replaced: bool,
+    /// Whose definition of this id runs in this repository now: `armada`, `kit`
+    /// or `repository`. Not the scope's where a more specific place holds the id
+    /// too. Absent where none does, which a definition that was checked does
+    /// not reach.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runs_from: Option<String>,
 }
 
 /// One Manifest Fleet holds.

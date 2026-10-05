@@ -445,6 +445,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/workflows/left_out",
     },
+    // The act in the last segment, beside `/manifest/save_file`'s. Under
+    // `/workflows` with the reads, since what it writes is what they list.
+    Route {
+        operation: "save_workflow",
+        method: "POST",
+        path: "/workflows/save",
+    },
     Route {
         operation: "list_manifests",
         method: "GET",

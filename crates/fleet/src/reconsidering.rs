@@ -112,7 +112,7 @@ where
         );
         let (read, _settled) = proposed(
             &request,
-            served.workflows(),
+            &served.workflows(),
             &proposing,
             self.making(Actor::Human).for_job(&proposal_id, job.id()),
             None,

@@ -968,6 +968,22 @@ pub trait Commands: Send + Sync + 'static {
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ManifestSaved, Refusal>> + Send;
 
+    /// `save_workflow` — check one workflow definition against the repository's
+    /// Checks and this machine's models, and write it in the scope named.
+    /// Protocol 23.26.
+    ///
+    /// **Checked before anything is written**, with the rules a loader applies,
+    /// so a definition that is saved is one that loads. [`Refusal::Unacceptable`]
+    /// with the loader's reason where it does not fit, where its id cannot be a
+    /// file's name, and where the scope already holds the id and `overwrite` was
+    /// not set; nothing is written in any of them. [`Refusal::Fault`] where the
+    /// file will not be written. The definition is held when this answers.
+    fn save_workflow(
+        &self,
+        save: ipc::SaveWorkflow,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::WorkflowSaved, Refusal>> + Send;
+
     /// `edit_manifest` — apply a form's edits to `armada.yml`, **changing only
     /// the lines they name**, and write the result.
     ///

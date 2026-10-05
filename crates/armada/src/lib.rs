@@ -37,6 +37,7 @@
 //! shim over it.
 
 pub mod agent;
+pub mod authoring;
 pub mod clean;
 pub mod cli;
 pub mod declared;
