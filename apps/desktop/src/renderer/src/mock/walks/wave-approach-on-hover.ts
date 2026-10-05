@@ -4,6 +4,7 @@
 import { tab, walk } from "../walk";
 
 export const waveApproachOnHover = walk("epic/wave-off-the-wire", [
+  { press: tab("Plan"), say: "The wave, on Plan" },
   { look: tab("Wave 2 · The seam first"), say: "Each wave is named by the first sentence of its plan" },
   { hover: tab("Wave 2 · The seam first"), say: "Hovering it reads the whole approach" },
   { hover: tab("Wave 1 · The seam as one Job"), say: "and the first wave keeps its own" },

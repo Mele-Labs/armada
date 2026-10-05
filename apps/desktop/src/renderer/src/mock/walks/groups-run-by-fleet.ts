@@ -2,16 +2,17 @@
 // red group's task carries the failed mark and says why, a Check on a passed
 // group opens that group's own run, and Restart this task works the task again.
 
-import { button, dialog, inside, role, tab, walk } from "../walk";
+import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
 const GROUPS = role("list", "Groups, in the order they run");
 const groupOne = inside(GROUPS, role("listitem", "Group 1", { exact: true }));
 const t4 = inside(GROUPS, role("listitem", /^T4 /));
 
-const OVERVIEW_PLAN = role("region", "Plan", { exact: true });
+// The canvas's own group, since the Plan card folded into it (4 Oct 2026).
+const OVERVIEW_GROUP_3 = role("button", /^Group 3, /);
 
 export const groupsRunByFleet = walk("real/groups-run-by-fleet", [
-  { hover: inside(OVERVIEW_PLAN, role("img", "Failed", { exact: true })), say: "Overview's rows draw a group's state as the same mark" },
+  { hover: inside(OVERVIEW_GROUP_3, text("failed")), say: "Overview's canvas draws a group's state as the same mark" },
   { press: tab("Plan"), say: "Fleet's plan, in its own three groups" },
   { press: tab("List"), say: "Groups one and two passed, each with its commit" },
   { hover: inside(groupOne, role("img", "Passed", { exact: true })), say: "A group's state is a mark, named on hover" },

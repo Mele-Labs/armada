@@ -3,6 +3,7 @@ import {
   EdgeLabelRenderer,
   Handle,
   MarkerType,
+  NodeToolbar,
   Position,
   getNodesBounds,
   getSmoothStepPath,
@@ -14,7 +15,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import { Pin } from "lucide-react";
 
@@ -41,6 +42,10 @@ export type WorkflowCanvasNode = {
   /** Where it sits, in the canvas's own coordinates. Computed from step order. */
   position: { x: number; y: number };
   card: WorkflowStepCardProps;
+  /** Drawn in the card's place — the approval canvas's own nodes. `card` still names it. */
+  drawn?: ReactNode;
+  /** Drawn behind the rest and never pressed: a lane or a cluster's frame. Presses pass to the canvas. */
+  backdrop?: boolean;
 };
 
 /**
@@ -69,6 +74,14 @@ export type WorkflowCanvasEdge = {
   kind: WorkflowCanvasEdgeKind;
   /** What the edge says — a loop's cap, `up to 5 passes`. Absent on the spine. */
   label?: string;
+  /** The way into the node the Job is at: drawn moving along it, the one edge that does. */
+  flowing?: boolean;
+  /** Leaves the source's trailing side and enters the target's leading side: a gate hung beside its step. */
+  across?: boolean;
+  /** Where the edge turns, in canvas x — a gutter between two lanes, so it never runs through one. */
+  via?: number;
+  /** Enters the target's leading side rather than its top: one bend into a lane beside, not a loop over it. */
+  intoSide?: boolean;
 };
 
 export type WorkflowCanvasProps = {
@@ -112,10 +125,30 @@ export type WorkflowCanvasProps = {
    * of arcing above the row, for the same reason: beside the spine, never on it.
    */
   runsDown?: boolean;
+  /**
+   * A card anchored beside one node, holding what that node tunes — the
+   * approval canvas's. **React Flow's own `NodeToolbar`**, as the node bar is:
+   * it holds against pan and zoom without scaling with them, so the controls
+   * inside read at their own size at any zoom. Absent draws nothing.
+   */
+  opened?: { nodeId: string; label: string; children: ReactNode };
+  /**
+   * Whether a run too long to read whole opens centred across the frame
+   * rather than at its leading edge — the approval canvas, whose card opens
+   * beside the node and needs the room either side (the owner, 4 Oct 2026).
+   */
+  centred?: boolean;
+  /**
+   * Every forward edge leaves a node's bottom and enters the next one's top,
+   * however far across it lies. A Job beside the one it waits on was joined
+   * side to side and the line looped back round the card (the approval
+   * canvas's wave, 4 Oct 2026).
+   */
+  downOnly?: boolean;
 };
 
-type CanvasNode = Node<{ card: WorkflowStepCardProps }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean }, "workflow">;
+type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -123,7 +156,7 @@ function NodeView({ data }: NodeProps<CanvasNode>) {
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`t-${side}`} id={`t-${side}`} type="target" position={side} isConnectable={false} />
       ))}
-      <WorkflowStepCard {...data.card} />
+      {data.drawn ?? <WorkflowStepCard {...data.card} />}
       {GRAPH_CANVAS_SIDES.map((side) => (
         <Handle key={`s-${side}`} id={`s-${side}`} type="source" position={side} isConnectable={false} />
       ))}
@@ -151,10 +184,12 @@ const CLEARS_THE_CARD = 20;
  * is painted differently.
  */
 function EdgeView(props: EdgeProps<CanvasEdge>) {
+  const via = props.data?.via;
   const [path, labelX, labelY] = getSmoothStepPath({
     ...props,
     borderRadius: CLEARS_THE_CARD,
     offset: CLEARS_THE_CARD,
+    ...(via === undefined ? {} : { centerX: via }),
   });
   const label = props.data?.label;
   return (
@@ -163,7 +198,14 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
         id={props.id}
         path={path}
         markerEnd={props.markerEnd}
-        className={props.data?.returning ? "armada-workflow-edge--returning" : undefined}
+        className={
+          [
+            props.data?.returning ? "armada-workflow-edge--returning" : "",
+            props.data?.flowing ? "armada-workflow-edge--flowing" : "",
+          ]
+            .join(" ")
+            .trim() || undefined
+        }
       />
       {label === undefined ? null : (
         <EdgeLabelRenderer>
@@ -184,6 +226,15 @@ const EDGE_TYPES = { workflow: EdgeView };
 
 /** A returning edge leaves and arrives on the top edge, which is what puts its arc above the spine. */
 const OVER_THE_SPINE = { sourceHandle: `s-${Position.Top}`, targetHandle: `t-${Position.Top}` };
+
+/** A forward edge on a canvas that only runs down: out of the bottom, into the top. */
+const DOWN_THE_SPINE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Top}` };
+
+/** Into a lane beside: out of the bottom, into the leading side. */
+const INTO_THE_SIDE = { sourceHandle: `s-${Position.Bottom}`, targetHandle: `t-${Position.Left}` };
+
+/** A gate hung beside its step: out of the step's trailing side, into the gate's leading one. */
+const ACROSS_THE_ROW = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Left}` };
 
 /** The same, on a spine that runs down: out of the right edge and back into it. */
 const BESIDE_THE_SPINE = { sourceHandle: `s-${Position.Right}`, targetHandle: `t-${Position.Right}` };
@@ -236,11 +287,13 @@ function FitsTheFrame({
   opensOn,
   following,
   hangsFromTop,
+  centred,
 }: {
   options: FitViewOptions;
   opensOn: readonly (readonly string[])[] | undefined;
   following: boolean;
   hangsFromTop: boolean;
+  centred: boolean;
 }) {
   const flow = useReactFlow();
   const width = useStore((state) => state.width);
@@ -298,11 +351,13 @@ function FitsTheFrame({
     }
     const bounds = getNodesBounds(found);
     void flow.setViewport({
-      x: INSET - bounds.x * SMALLEST_READABLE,
+      x: centred
+        ? (width - bounds.width * SMALLEST_READABLE) / 2 - bounds.x * SMALLEST_READABLE
+        : INSET - bounds.x * SMALLEST_READABLE,
       y: INSET - bounds.y * SMALLEST_READABLE,
       zoom: SMALLEST_READABLE,
     });
-  }, [flow, following, options, opens, width, height, hangsFromTop]);
+  }, [flow, following, options, opens, width, height, hangsFromTop, centred]);
   return null;
 }
 
@@ -323,6 +378,44 @@ function Follows({ running, following }: { running: string | null; following: bo
   return null;
 }
 
+/**
+ * Pan the opened node's card into the frame — beside the node, off its
+ * trailing edge (the owner, 4 Oct 2026) — the node bar's rule: *panned to,
+ * never clamped* (1 Oct 2026). On the open, or the node moving, and not after
+ * it, so a person who pans away is not pulled back. The card's size is read
+ * off its tokens rather than measured.
+ */
+function KeepsTheCardInView({ nodeId }: { nodeId: string }) {
+  const flow = useReactFlow();
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  // And when the node moves under its open card — a node added before it.
+  const at = useStore((state) => {
+    const placed = state.nodeLookup.get(nodeId)?.internals.positionAbsolute;
+    return placed === undefined ? undefined : `${placed.x} ${placed.y}`;
+  });
+  useEffect(() => {
+    const node = flow.getInternalNode(nodeId);
+    if (node === undefined || width === 0) return;
+    const { x, y, zoom } = flow.getViewport();
+    // The card opens off the node's trailing edge, top edges flush.
+    const left = node.internals.positionAbsolute.x * zoom + x;
+    const right = left + (node.measured.width ?? 0) * zoom + token("--space-2") + token("--w-dock") + INSET;
+    const top = node.internals.positionAbsolute.y * zoom + y;
+    const bottom = top + token("--h-workflow-canvas") + INSET;
+    const dx = right > width ? Math.max(width - right, INSET - left) : 0;
+    const dy = top < INSET ? INSET - top : bottom > height ? Math.max(height - bottom, INSET - top) : 0;
+    if (dx !== 0 || dy !== 0) void flow.setViewport({ x: x + dx, y: y + dy, zoom });
+  }, [nodeId, at]);
+  return null;
+}
+
+/** One length off the token set, as a number — what the card's stylesheet sizes it by. */
+function token(name: string): number {
+  const read = Number.parseFloat(getComputedStyle(document.body).getPropertyValue(name));
+  return Number.isFinite(read) ? read : 0;
+}
+
 export function WorkflowCanvas({
   nodes: given,
   edges: givenEdges,
@@ -333,6 +426,9 @@ export function WorkflowCanvas({
   opensOn,
   hangsFromTop = false,
   runsDown = false,
+  opened,
+  centred = false,
+  downOnly = false,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -346,9 +442,10 @@ export function WorkflowCanvas({
         // or focus, and the pane behind it then swallows every press on the
         // card. Nothing is drawn for a selected node — the card's own
         // `aria-current` is what says which one is open.
-        selectable: true,
+        selectable: entry.backdrop !== true,
         focusable: false,
-        data: { card: entry.card },
+        ...(entry.backdrop === true ? { zIndex: -1 } : {}),
+        data: { card: entry.card, ...(entry.drawn === undefined ? {} : { drawn: entry.drawn }) },
       })),
     [given],
   );
@@ -365,7 +462,13 @@ export function WorkflowCanvas({
           ? runsDown
             ? BESIDE_THE_SPINE
             : OVER_THE_SPINE
-          : facingSides(placed.get(edge.source), placed.get(edge.target));
+          : edge.across === true
+            ? ACROSS_THE_ROW
+            : edge.intoSide === true
+              ? INTO_THE_SIDE
+            : downOnly
+              ? DOWN_THE_SPINE
+              : facingSides(placed.get(edge.source), placed.get(edge.target));
       return {
         id: edge.id,
         source: edge.source,
@@ -374,10 +477,15 @@ export function WorkflowCanvas({
         type: "workflow" as const,
         ariaLabel: `${from} ${SAYS[edge.kind]} ${to}`,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { returning, ...(edge.label === undefined ? {} : { label: edge.label }) },
+        data: {
+          returning,
+          flowing: edge.flowing === true,
+          ...(edge.via === undefined ? {} : { via: edge.via }),
+          ...(edge.label === undefined ? {} : { label: edge.label }),
+        },
       };
     });
-  }, [given, givenEdges, nodes, runsDown]);
+  }, [given, givenEdges, nodes, runsDown, downOnly]);
 
   const fitViewOptions = useMemo(
     () => ({ maxZoom: 1, minZoom: SMALLEST_READABLE }),
@@ -416,8 +524,25 @@ export function WorkflowCanvas({
       railBelow={stay}
       fitViewOptions={fitViewOptions}
     >
-      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} />
+      <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
       <Follows running={running} following={following} />
+      {opened === undefined ? null : (
+        <NodeToolbar
+          nodeId={opened.nodeId}
+          isVisible
+          position={Position.Right}
+          align="start"
+          offset={token("--space-2")}
+          // `nowheel nopan nodrag`: a scroll, a drag or a selection inside the
+          // card is the card's, never the canvas's.
+          className="armada-workflow-canvas__card nowheel nopan nodrag"
+          role="dialog"
+          aria-label={opened.label}
+        >
+          {opened.children}
+        </NodeToolbar>
+      )}
+      {opened === undefined ? null : <KeepsTheCardInView nodeId={opened.nodeId} />}
     </GraphCanvas>
   );
 }

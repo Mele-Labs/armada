@@ -124,3 +124,24 @@ export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLEleme
 export async function listed(): Promise<void> {
   await expect.poll(() => rows().length).toBeGreaterThan(0);
 }
+
+/**
+ * A node on the approval canvas pressed, and the card it opens beside it.
+ * **`at` picks among nodes of one name** — every gate is `Checks` on the
+ * canvas, in run order — and the card it opens says whose: `Checks on
+ * Restructure`. Pressing an open node closes it, so a test opens each once.
+ */
+export async function openNode(name: string, at = 0): Promise<ReturnType<typeof page.getByRole>> {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // A card already open sits beside its node and may cover the next one: close it first, as a person would.
+  for (const close of page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).elements()) {
+    (close as HTMLElement).click();
+  }
+  // Pressed as the walk engine presses, at the node itself: past the gate the
+  // run opens on where the Job is, at full size, and a node above it is
+  // outside the pane, where a pointer cannot reach without panning first.
+  const node = page.getByRole("button", { name: new RegExp(`^${escaped}, `) }).nth(at);
+  await expect.element(node).toBeInTheDocument();
+  (node.element() as HTMLElement).click();
+  return page.getByRole("dialog", { name });
+}

@@ -3,6 +3,7 @@
 // scenario's own Fleet (`setup-fleet.ts`) can build on it and still be listed
 // there without the two importing each other.
 
+import { HARNESS } from "./approval-fleet";
 import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
 import type {
   Connection,
@@ -93,7 +94,7 @@ const CONNECTED: Connection = connectedTo(
 );
 
 /** What `list_models` answers — `props.ts`' own guess, so a story and the app agree. */
-const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet" };
+const MODELS: ModelChoices = { models: ["haiku", "sonnet", "opus"], default: "sonnet", harnesses: [HARNESS] };
 
 /** The state a connected Fleet publishes, holding these Jobs. */
 export function connected(

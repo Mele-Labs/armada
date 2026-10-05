@@ -85,6 +85,12 @@ export type ProposalGatesProps = {
   onGate?: (stepId: string, box: GateBox, ticked: boolean) => void;
   /** Take the decision off the repository for this Job, or hand it back. */
   onOverride?: (stepId: string, overridden: boolean) => void;
+  /**
+   * The step rows alone, with no heading and no picker — one step's gate on
+   * the approval canvas, where the node it opens from already names the step
+   * and the workflow is picked on a node of its own.
+   */
+  stepsOnly?: boolean;
 };
 
 /**
@@ -105,10 +111,13 @@ export function ProposalGates({
   frozen,
   onGate,
   onOverride,
+  stepsOnly = false,
 }: ProposalGatesProps) {
   const named = workflowChoices.find((one) => one.id === workflow);
   return (
-    <section className="armada-proposal__region" aria-label="Workflow">
+    <section className="armada-proposal__region" aria-label={stepsOnly ? "Gate" : "Workflow"}>
+      {stepsOnly ? null : (
+      <>
       {/* The `?` on the heading, not on a row: what the ticks cannot turn off
           is the same about every step, and a mark per row would read as a
           property of that row. The sentence that used to stand here is guide
@@ -149,6 +158,8 @@ export function ProposalGates({
           anyone sees changes, for a visible change. */}
       {forRequests === undefined ? null : (
         <p className="armada-proposal__workflow-promise">{forRequests}</p>
+      )}
+      </>
       )}
       <ul className="armada-proposal__gates">
         {steps.map((step) => (

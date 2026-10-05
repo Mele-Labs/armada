@@ -15,6 +15,7 @@ import type {
   JobDetail as JobWhole,
   LandingChoice,
   ManifestSummary,
+  StepTuning as WireStepTuning,
   TierModels as WireTiers,
   WorkflowStep,
   WorkflowSummary,
@@ -28,6 +29,10 @@ import {
   originSaidOf,
 } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
+import { baseBranch } from "./draft/branches";
+import type { BranchView } from "./draft/branches";
+import { stepTuningOf } from "./draft/tuning";
+import type { ApprovalTuning } from "./draft/tuning";
 import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
 import type { CompleteWhen, LandingRule } from "./draft/landing";
@@ -47,6 +52,11 @@ export type ProposalEdits = {
   proposal: ProposalView;
   landing: LandingRule;
   criteria: readonly CriterionView[];
+  /**
+   * What the approval canvas tunes that the wire has no field for — draft,
+   * `draft/tuning.ts`, sent as `tuning`.
+   */
+  tuning?: ApprovalTuning;
 };
 
 /**
@@ -94,6 +104,8 @@ export function proposalEditsOfWhole(whole: JobWhole, machineCap: number | null)
       // Only `delivered` completes a Job, and the approval refuses the rest.
       complete_when: "delivered",
       land_together: [],
+      local: whole.landing?.local === true,
+      auto_merge: whole.landing?.auto_merge === true,
     },
     criteria: criterionViewsOf(whole),
   };
@@ -120,6 +132,8 @@ export function approvalOf(
   edits: ProposalEdits,
   before: ProposalEdits,
   workflows: readonly WorkflowSummary[],
+  /** The repository's branches, to tell a branch Fleet must make from one it holds. `null` is nobody having listed them. */
+  branches: readonly BranchView[] | null = null,
 ): ApproveDispatch | undefined {
   const { proposal, landing, criteria } = edits;
   const body: ApproveDispatch = {};
@@ -141,8 +155,33 @@ export function approvalOf(
     body.tiers = wireTiersOf(proposal.tiers);
   }
   if (proposal.drone_cap !== undefined) body.drone_cap = proposal.drone_cap;
-  if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing);
+  if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing, branches);
+  const tuning = tuningChoicesOf(edits, workflows);
+  if (tuning.length > 0) body.tuning = tuning;
   return Object.keys(body).length === 0 ? undefined : body;
+}
+
+/**
+ * What a person tuned per step, as `approve_dispatch` takes it (23.20): only
+ * the fields that moved off the step as declared, and only the steps with one.
+ * `judges` is judged against the workflow's own `panel_size`, since a Judge
+ * count nobody moved is what the step already runs.
+ */
+export function tuningChoicesOf(edits: ProposalEdits, workflows: readonly WorkflowSummary[]): WireStepTuning[] {
+  const declared = workflows.find((one) => one.id === edits.proposal.workflow_id)?.steps ?? [];
+  const choices: WireStepTuning[] = [];
+  for (const [stepId, tuned] of Object.entries(edits.tuning?.steps ?? {})) {
+    const choice: WireStepTuning = { step_id: stepId };
+    if (tuned.model !== null) choice.model = tuned.model;
+    if (tuned.effort !== null) choice.effort = tuned.effort;
+    if (tuned.harness !== null) choice.harness = tuned.harness;
+    if (tuned.context.trim() !== "") choice.context = tuned.context;
+    const was = stepTuningOf(declared.find((one) => one.step_id === stepId)?.judge_checks ?? []).judges;
+    if (tuned.judges !== was) choice.judges = tuned.judges;
+    if (tuned.checks_off.length > 0) choice.checks_off = [...tuned.checks_off];
+    if (Object.keys(choice).length > 1) choices.push(choice);
+  }
+  return choices;
 }
 
 /** The three tiers, in the map's own order. */
@@ -220,18 +259,28 @@ function landingMoved(after: LandingRule, before: LandingRule): boolean {
     after.from_ref !== before.from_ref ||
     after.branching !== before.branching ||
     after.pr_mode !== before.pr_mode ||
-    after.complete_when !== before.complete_when
+    after.complete_when !== before.complete_when ||
+    (after.local === true) !== (before.local === true) ||
+    (after.auto_merge === true) !== (before.auto_merge === true)
   );
 }
 
 /** The landing as the approval sets it. A `null` ref is left out, which is the Manifest's base. */
-function landingChoiceOf(landing: LandingRule): LandingChoice {
+export function landingChoiceOf(landing: LandingRule, branches: readonly BranchView[] | null): LandingChoice {
+  // Where the work starts, and it is a branch the repository does not hold:
+  // Fleet makes it from the base (`start_point`, 23.21).
+  const starts = landing.from_ref ?? landing.target;
+  const base = baseBranch(branches);
+  const makes = starts !== null && branches !== null && !branches.some((one) => one.name === starts);
   return {
+    ...(makes && base !== null ? { start_point: base } : {}),
     ...(landing.target === null ? {} : { target: landing.target }),
     ...(landing.from_ref === null ? {} : { from_ref: landing.from_ref }),
     branching: landing.branching,
     pr_mode: landing.pr_mode,
     complete_when: landing.complete_when,
+    // Fleet refuses the two together: a branch with no pull request has nothing to merge.
+    ...(landing.local === true ? { local: true } : landing.auto_merge === true ? { auto_merge: true } : {}),
   };
 }
 
@@ -368,7 +417,7 @@ const COMPLETE_LABEL: Readonly<Record<CompleteWhen, string>> = {
   pr_merged: "Its pull request merges",
   all_members_landed: "Every Job it holds has landed",
   pr_opened: "Its pull request is opened",
-  delivered: "The step that delivers has delivered",
+  delivered: "The work is delivered",
 };
 
 /**

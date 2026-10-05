@@ -37,7 +37,8 @@ const cardFor = (guide: { number: number; title: string }) =>
   page.getByRole("dialog", { name: `Guide ${guide.number}, ${guide.title}` });
 
 /**
- * The Workflow card carries the first mark a person meets on a Job.
+ * The Work lane's head carries the first mark a person meets on a Job — the
+ * Workflow card's, until the canvas became the whole Overview (4 Oct 2026).
  *
  * **It was the run band's step bar until 29 Sep 2026** — `GUIDE_STEP_BAR`,
  * guide 8, whose only mark was in `InsideAJob`. The Overview reframe took
@@ -81,7 +82,8 @@ test("the mark still opens the card after the piece has been met", async () => {
   mount(onJob(running()));
   await closeCard();
 
-  await runMark().click();
+  // Pressed at the mark itself: the run opens on where the Job is, below the lane's head.
+  (runMark().element() as HTMLElement).click();
   await expect.element(card()).toBeVisible();
   // No switch: the offer was made once, and Settings is where it lives now.
   expect(card().getByRole("switch").query()).toBeNull();
