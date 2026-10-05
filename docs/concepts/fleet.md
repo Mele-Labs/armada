@@ -390,9 +390,10 @@ on the slot's bay, and `change_slot_pool` is the act on the wire.
 ### Rescuing a stranded slot
 
 **A stranded slot is work its holder left and nobody has looked at.** Rescue
-sends a [Scout](scout.md) to read it, and the bay opens to what it found.
-Scrap and Stash are then Fleet's acts, run on the press that asks. The Scout
-has no tool that writes, so it never does either.
+sends a [Scout](scout.md) to read it, and the bay offers a way into what it
+found, which opens in Bridge's trailing sheet. Scrap and Stash are in that
+sheet, and are Fleet's acts, run on the press that asks. The Scout has no tool
+that writes, so it never does either.
 
 > **Rule.** A Scout reads a stranded slot only on a person's press, and its
 > Finding is kept against the slot, not a Studio.

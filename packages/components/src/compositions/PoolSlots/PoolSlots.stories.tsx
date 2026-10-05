@@ -255,6 +255,20 @@ const FOUND = {
 const bay = (canvas: { getByRole: (role: "listitem", options: { name: string }) => HTMLElement }, n: number) =>
   within(canvas.getByRole("listitem", { name: `slot-${n}` }));
 
+/** The Finding's sheet, which a bay's way in opens. */
+const sheet = (canvas: { getByRole: (role: "dialog", options: { name: string }) => HTMLElement }) =>
+  within(canvas.getByRole("dialog", { name: "Finding" }));
+
+/** Open the Finding of bay `n`. */
+async function opened(
+  canvas: Parameters<typeof bay>[0] & Parameters<typeof sheet>[0],
+  userEvent: { click: (element: Element) => Promise<void> },
+  n: number,
+) {
+  await userEvent.click(bay(canvas, n).getByRole("button", { name: "Finding" }));
+  return sheet(canvas);
+}
+
 /**
  * A stranded bay with no rescue offers Rescue, and only a stranded one does: a
  * held, a free and a ghost bay have nothing to rescue. The act sends the slot.
@@ -272,18 +286,19 @@ export const RescueOffered: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getAllByRole("button", { name: "Rescue" })).toHaveLength(1);
-    await expect(bay(canvas, 4).queryByRole("region", { name: "Finding" })).toBeNull();
+    await expect(bay(canvas, 4).queryByRole("button", { name: "Finding" })).toBeNull();
     await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Rescue" }));
     await expect(args.onRescue).toHaveBeenCalledWith("start", 4);
+    await expect(getComputedStyle(bay(canvas, 4).getByRole("button", { name: "Rescue" })).borderTopStyle).toBe("solid");
     // The pool's own acts stay beside it.
     await expect(bay(canvas, 4).getByRole("button", { name: "Close" })).toBeInTheDocument();
   },
 };
 
 /**
- * A Scout reading: the live state is a pulsing mark and the files so far, with
- * Stop where Rescue was. **Scrap and Stash wait for the Finding**, so neither
- * is on the bay while it reads.
+ * A Scout reading: the bay shows the live mark and Stop where Rescue was, and
+ * the files so far are read in the sheet. **Scrap and Stash wait for the
+ * Finding**, so neither is offered while it reads.
  */
 export const Reading: Story = {
   name: "Reading",
@@ -293,20 +308,26 @@ export const Reading: Story = {
     onRescue: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    const finding = within(bay(canvas, 4).getByRole("region", { name: "Finding" }));
+    await expect(bay(canvas, 4).getByRole("img", { name: "Reading" })).toBeInTheDocument();
+    await expect(bay(canvas, 4).queryByRole("list")).toBeNull();
+    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Scrap|Stash/ })).toBeNull();
+    const finding = await opened(canvas, userEvent, 4);
     await expect(finding.getByRole("img", { name: "Reading" })).toBeInTheDocument();
     await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
     await expect(finding.queryByRole("list", { name: "Searched" })).toBeNull();
-    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Scrap|Stash/ })).toBeNull();
-    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stop" }));
+    await expect(finding.queryByRole("button", { name: /Scrap|Stash/ })).toBeNull();
+    await userEvent.click(finding.getByRole("button", { name: "Stop" }));
     await expect(args.onRescue).toHaveBeenCalledWith("stop", 4);
+    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stop" }));
+    await expect(args.onRescue).toHaveBeenLastCalledWith("stop", 4);
   },
 };
 
 /**
- * The Finding, on the bay: the summary, what it read and searched, the slot's
+ * The Finding, in the sheet: the summary, what it read and searched, the slot's
  * commits, the commit it read and that uncommitted changes sat on it, and what
- * was cut. **Stash acts at once**; Scrap waits on its confirm.
+ * was cut. **The bay holds none of it.** Stash acts at once and closes the
+ * sheet; Scrap waits on its confirm.
  */
 export const FindingAnswered: Story = {
   name: "Finding answered",
@@ -328,7 +349,11 @@ export const FindingAnswered: Story = {
     onRescue: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    const finding = within(bay(canvas, 4).getByRole("region", { name: "Finding" }));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(bay(canvas, 4).queryByText(/A retry for a short read/)).toBeNull();
+    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop|Scrap|Stash/ })).toBeNull();
+
+    const finding = await opened(canvas, userEvent, 4);
     await expect(finding.getByText(/A retry for a short read/)).toBeInTheDocument();
     await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/mod.rs");
     await expect(finding.getByRole("list", { name: "Searched" })).toHaveTextContent("retry_short_read in src/");
@@ -337,18 +362,44 @@ export const FindingAnswered: Story = {
     await expect(finding.getByRole("img", { name: "Uncommitted changes on top" })).toBeInTheDocument();
     await expect(finding.getByLabelText(/cut before it read them: 1200/)).toHaveTextContent("1200 cut");
     await expect(finding.queryByRole("img", { name: "Reading" })).toBeNull();
-    await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop/ })).toBeNull();
+    await expect(finding.queryByRole("button", { name: /Rescue|Stop/ })).toBeNull();
 
-    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stash" }));
+    await userEvent.click(finding.getByRole("button", { name: "Stash" }));
     await expect(args.onRescue).toHaveBeenCalledTimes(1);
     await expect(args.onRescue).toHaveBeenCalledWith("stash", 4);
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+  },
+};
+
+/**
+ * **Escape closes the sheet and nothing is sent**, and the bay is as it was.
+ * The labelled Close is the other way out, and a press on the ground behind is
+ * neither.
+ */
+export const FindingClosed: Story = {
+  name: "Finding closed",
+  args: {
+    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }) }],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await opened(canvas, userEvent, 4);
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(bay(canvas, 4).getByRole("button", { name: "Finding" })).toBeInTheDocument();
+
+    const again = await opened(canvas, userEvent, 4);
+    await userEvent.click(again.getByRole("button", { name: /^Close/ }));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+    await expect(args.onRescue).not.toHaveBeenCalled();
   },
 };
 
 /**
  * A Scout that ended without an answer. A failed one shows why it failed, a
  * stopped one is marked stopped, both keep what they read, and **both still
- * offer Scrap and Stash**. Nothing is cut and nothing was left uncommitted, so
+ * offer Scrap and Stash** in the sheet. Nothing is cut and nothing was left uncommitted, so
  * neither mark is drawn.
  */
 export const FindingFailed: Story = {
@@ -366,17 +417,22 @@ export const FindingFailed: Story = {
     onAct: fn(),
     onRescue: fn(),
   },
-  play: async ({ canvas }) => {
-    await expect(bay(canvas, 4).getByText("The Scout ended before it answered")).toBeInTheDocument();
-    await expect(bay(canvas, 4).queryByRole("img", { name: "Stopped" })).toBeNull();
-    await expect(bay(canvas, 5).getByRole("img", { name: "Stopped" })).toBeInTheDocument();
-    for (const n of [4, 5]) {
-      await expect(bay(canvas, n).getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
-      await expect(bay(canvas, n).getByRole("button", { name: "Scrap" })).toBeInTheDocument();
-      await expect(bay(canvas, n).getByRole("button", { name: "Stash" })).toBeInTheDocument();
-      await expect(bay(canvas, n).queryByRole("img", { name: "Uncommitted changes on top" })).toBeNull();
-      await expect(bay(canvas, n).queryByLabelText(/cut before/)).toBeNull();
-    }
+  play: async ({ canvas, userEvent }) => {
+    const reading = async (n: number) => {
+      const finding = await opened(canvas, userEvent, n);
+      await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
+      await expect(finding.getByRole("button", { name: "Scrap" })).toBeInTheDocument();
+      await expect(finding.getByRole("button", { name: "Stash" })).toBeInTheDocument();
+      await expect(finding.queryByRole("img", { name: "Uncommitted changes on top" })).toBeNull();
+      await expect(finding.queryByLabelText(/cut before/)).toBeNull();
+      return finding;
+    };
+    const failed = await reading(4);
+    await expect(failed.getByText("The Scout ended before it answered")).toBeInTheDocument();
+    await expect(failed.queryByRole("img", { name: "Stopped" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    const stopped = await reading(5);
+    await expect(stopped.getByRole("img", { name: "Stopped" })).toBeInTheDocument();
   },
 };
 
@@ -393,7 +449,8 @@ export const ScrapConfirm: Story = {
     onRescue: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    const finding = await opened(canvas, userEvent, 4);
+    await userEvent.click(finding.getByRole("button", { name: "Scrap" }));
     await expect(args.onRescue).not.toHaveBeenCalled();
 
     const confirm = within(canvas.getByRole("group", { name: "Scrap slot-4" }));
@@ -401,18 +458,18 @@ export const ScrapConfirm: Story = {
     await expect(confirm.getByRole("list", { name: "Uncommitted" })).toHaveTextContent("src/reader/retry.rs");
     await expect(confirm.getByRole("list", { name: "Unpushed" })).toHaveTextContent("Retry a short read once");
     await expect(confirm.getByRole("list", { name: "Unpushed" })).not.toHaveTextContent("Split the reader");
-    // The bay's own Scrap gives way to the confirm's, so there is one to press.
+    // The sheet's own Scrap gives way to the confirm's, so there is one to press.
     await expect(canvas.getAllByRole("button", { name: "Scrap" })).toHaveLength(1);
 
     await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
     await expect(canvas.queryByRole("group", { name: "Scrap slot-4" })).toBeNull();
     await expect(args.onRescue).not.toHaveBeenCalled();
 
-    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    await userEvent.click(sheet(canvas).getByRole("button", { name: "Scrap" }));
     await userEvent.click(within(canvas.getByRole("group", { name: "Scrap slot-4" })).getByRole("button", { name: "Scrap" }));
     await expect(args.onRescue).toHaveBeenCalledTimes(1);
     await expect(args.onRescue).toHaveBeenCalledWith("scrap", 4);
-    await expect(canvas.queryByRole("group", { name: "Scrap slot-4" })).toBeNull();
+    await expect(canvas.queryByRole("dialog")).toBeNull();
   },
 };
 
@@ -436,7 +493,8 @@ export const ScrapConfirmNothingToName: Story = {
     onRescue: fn(),
   },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Scrap" }));
+    const finding = await opened(canvas, userEvent, 4);
+    await userEvent.click(finding.getByRole("button", { name: "Scrap" }));
     const confirm = within(canvas.getByRole("group", { name: "Scrap slot-4" }));
     await expect(confirm.queryByRole("list")).toBeNull();
     await expect(confirm.getByRole("button", { name: "Scrap" })).toBeInTheDocument();
@@ -531,8 +589,9 @@ export const KeptJob: Story = {
 };
 
 /**
- * The kept bay's rescue is a stranded bay's: its Finding opens on it, Stash
- * acts at once, and Scrap confirms by naming the files and the unpushed commit.
+ * The kept bay's rescue is a stranded bay's: its Finding opens in the sheet,
+ * Stash acts at once, and Scrap confirms by naming the files and the unpushed
+ * commit.
  */
 export const KeptJobFinding: Story = {
   name: "Kept Job finding",
@@ -542,10 +601,14 @@ export const KeptJobFinding: Story = {
     onRescue: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(bay(canvas, 8).getByRole("region", { name: "Finding" })).toHaveTextContent("Route edited, test not.");
-    await userEvent.click(bay(canvas, 8).getByRole("button", { name: "Stash" }));
+    const finding = await opened(canvas, userEvent, 8);
+    await expect(finding.getByText("Route edited, test not.")).toBeInTheDocument();
+    await userEvent.click(finding.getByRole("button", { name: "Stash" }));
     await expect(args.onRescue).toHaveBeenLastCalledWith("stash", 8);
-    await userEvent.click(bay(canvas, 8).getByRole("button", { name: "Scrap" }));
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+
+    await opened(canvas, userEvent, 8);
+    await userEvent.click(sheet(canvas).getByRole("button", { name: "Scrap" }));
     const confirm = within(canvas.getByRole("group", { name: "Scrap slot-8" }));
     await expect(confirm.getByRole("list", { name: "Uncommitted" })).toHaveTextContent("docs/notes/retry.md");
     await expect(confirm.getByRole("list", { name: "Unpushed" })).toHaveTextContent("Retry the manifest read on a short answer");

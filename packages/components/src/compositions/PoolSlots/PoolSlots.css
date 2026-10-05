@@ -355,29 +355,40 @@
   }
 }
 
-/* A stranded bay with a rescue opens across the grid, to the Scout's read and
-   then its Finding. Rows size to their content, so a bay opened wide does not
-   stretch every other row to match it. */
-.armada-bay[data-open] {
-  grid-column: 1 / -1;
+/* What a bay shows of its rescue: the way into the Finding, and the live mark. */
+.armada-bay__finding {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-/* What a rescue Scout read, on a raised ground so the hatch does not run
-   under the words. */
+/* The Finding, read in the bay's sheet. */
+.armada-slot-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.armada-slot-sheet__about {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+}
+
 .armada-finding {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
   color: var(--fg-default);
 }
 
+/* The Scrap's confirm, set off in the warning hue. */
 .armada-finding--confirm {
-  border-color: var(--slot-stranded);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--slot-stranded);
+  border-radius: var(--radius-sm);
 }
 
 .armada-finding__meta {
@@ -401,13 +412,9 @@
 }
 
 .armada-finding__lists {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 4), 1fr));
-  gap: var(--space-3);
-}
-
-.armada-finding__summary {
-  max-width: calc(var(--space-12) * 14);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .armada-finding__group {
@@ -426,10 +433,8 @@
 .armada-finding__names {
   display: flex;
   flex-direction: column;
-  max-height: calc(var(--h-row) * 4);
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
 }
 
@@ -438,9 +443,7 @@
 }
 
 .armada-finding__names > li {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .armada-finding__choice {

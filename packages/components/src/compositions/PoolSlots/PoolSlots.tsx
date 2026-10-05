@@ -1,5 +1,6 @@
 import {
   Box,
+  ChevronRight,
   DoorClosedLocked,
   DoorOpen,
   Flame,
@@ -10,8 +11,8 @@ import {
   KeyRound,
   LifeBuoy,
   LoaderCircle,
-  Package,
   Power,
+  ScanSearch,
   Snowflake,
   SquareDashed,
   Trash2,
@@ -20,8 +21,10 @@ import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
 
+import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { ScrapConfirm, SlotFinding } from "./SlotFinding";
+import { Mark } from "./SlotFinding";
+import { SlotSheet } from "./SlotSheet";
 
 /**
  * A repository's worktree pool as a grid of bays, one per slot, styled by
@@ -32,8 +35,9 @@ import { ScrapConfirm, SlotFinding } from "./SlotFinding";
  * `armada worktree --status` is the same reading. Marks are group `Worktree
  * slot` in `packages/icons/icons.toml`.
  *
- * A stranded bay can be rescued: a Scout reads it, and the bay opens across the
- * grid to its Finding, where the owner Scraps or Stashes it. Pick up is not here.
+ * A stranded bay can be rescued: a Scout reads it, and the bay offers a way
+ * into its Finding, which opens in the trailing sheet where the owner Scraps or
+ * Stashes it. The bay itself says only its state. Pick up is not here.
  */
 export type PoolSlotsProps = {
   rows: readonly PoolSlotRow[];
@@ -46,13 +50,16 @@ export type PoolSlotsProps = {
   onAct?: (act: SlotAct, slot?: number) => void;
   /**
    * Rescue a stranded slot: start or stop its Scout, or Scrap or Stash what it
-   * holds. A Scrap is sent only from its confirm. Absent draws none of the acts.
+   * holds. A Scrap is sent only from its confirm, in the Finding's sheet. Absent
+   * draws none of the acts.
    */
   onRescue?: (act: RescueAct, slot: number) => void;
   /** Why the last add was refused, drawn on the add tile. */
   addRefused?: string;
   /** An add is out, so the tile waits. */
   adding?: boolean;
+  /** The window is at `--window-floor`, where the Finding's sheet is flush to both edges. */
+  floor?: boolean;
 };
 
 export type PoolSlotRow = {
@@ -175,18 +182,15 @@ function rescuable(slot: WorktreeSlot): boolean {
   return slot.held.state === "stranded" || (slot.held.state === "job" && slot.held.kept !== undefined);
 }
 
-/** What a stranded bay offers by where its rescue is: Rescue, Stop, or Scrap and Stash. */
+/** What a rescuable bay offers by where its rescue is: Rescue, or Stop while it reads. The rest is in the sheet. */
 function RescueActs({
   slot,
   waiting,
   onRescue,
-  onScrap,
 }: {
   slot: WorktreeSlot;
   waiting: boolean;
   onRescue: (act: RescueAct, slot: number) => void;
-  /** Open the Scrap's confirm. Absent while it is open, so its own Scrap is the only one. */
-  onScrap: (() => void) | undefined;
 }) {
   const rescue = slot.rescue;
   if (rescue === undefined) {
@@ -195,13 +199,7 @@ function RescueActs({
   if (rescue.state === "reading") {
     return <Act said="Stop" Glyph={Power} waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />;
   }
-  if (onScrap === undefined) return null;
-  return (
-    <>
-      <Act said="Scrap" Glyph={Trash2} waiting={waiting} onPress={onScrap} />
-      <Act said="Stash" Glyph={Package} waiting={waiting} onPress={() => onRescue("stash", slot.slot)} />
-    </>
-  );
+  return null;
 }
 
 /** Close or reopen on every bay, and remove where the pool would let it go. */
@@ -210,13 +208,11 @@ function Acts({
   state,
   onAct,
   onRescue,
-  onScrap,
 }: {
   row: PoolSlotRow;
   state: State;
   onAct: PoolSlotsProps["onAct"];
   onRescue: PoolSlotsProps["onRescue"];
-  onScrap: (() => void) | undefined;
 }) {
   if (onAct === undefined && onRescue === undefined) return null;
   const { slot } = row;
@@ -225,7 +221,7 @@ function Acts({
   return (
     <span className="armada-bay__acts">
       {onRescue === undefined || !rescuable(slot) ? null : (
-        <RescueActs slot={slot} waiting={waiting} onRescue={onRescue} onScrap={onScrap} />
+        <RescueActs slot={slot} waiting={waiting} onRescue={onRescue} />
       )}
       {onAct === undefined ? null : slot.closed === true ? (
         <Act said="Reopen" Glyph={DoorOpen} waiting={waiting} onPress={() => onAct("open", slot.slot)} />
@@ -266,31 +262,40 @@ function Said({ said }: { said: string | undefined }) {
   );
 }
 
+/** What a bay shows of its rescue: that a Scout is reading, and the way into the Finding. */
+function FindingWay({ slot, onOpen }: { slot: WorktreeSlot; onOpen: () => void }) {
+  const reading = slot.rescue?.state === "reading";
+  return (
+    <div className="armada-bay__finding">
+      {reading ? (
+        <Mark said="Reading">
+          <ScanSearch className="armada-finding__reading" size={12} strokeWidth={2} aria-hidden />
+        </Mark>
+      ) : null}
+      <Button variant="ghost" size="sm" onClick={onOpen}>
+        Finding
+        <ChevronRight size={12} strokeWidth={2} aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
 function BayTile({
   row,
   onOpenJob,
   onAct,
   onRescue,
+  onOpenFinding,
 }: {
   row: PoolSlotRow;
   onOpenJob: (jobId: string) => void;
   onAct: PoolSlotsProps["onAct"];
   onRescue: PoolSlotsProps["onRescue"];
+  onOpenFinding: () => void;
 }) {
   const { slot, heldFor } = row;
-  /** The Scrap's confirm is open on this bay. */
-  const [scrapping, setScrapping] = useState(false);
   const rescue = rescuable(slot) ? slot.rescue : undefined;
-  const scrappable = rescue !== undefined && rescue.state !== "reading";
-  const acts = (state: State) => (
-    <Acts
-      row={row}
-      state={state}
-      onAct={onAct}
-      onRescue={onRescue}
-      onScrap={scrappable && !scrapping ? () => setScrapping(true) : undefined}
-    />
-  );
+  const acts = (state: State) => <Acts row={row} state={state} onAct={onAct} onRescue={onRescue} />;
   const state = stateOf(slot);
   const closed = slot.closed === true;
   const name = `slot-${slot.slot}`;
@@ -343,7 +348,6 @@ function BayTile({
       className="armada-bay"
       data-bay={state.bay}
       data-closed={closed ? "" : undefined}
-      data-open={rescue === undefined ? undefined : ""}
       aria-label={name}
       aria-busy={row.acting || undefined}
     >
@@ -363,17 +367,7 @@ function BayTile({
             <span className="armada-bay__branch">{slot.branch}</span>
           </Tooltip>
         )}
-        <SlotFinding slot={slot} />
-        {scrapping && scrappable && onRescue !== undefined ? (
-          <ScrapConfirm
-            slot={slot}
-            onScrap={() => {
-              setScrapping(false);
-              onRescue("scrap", slot.slot);
-            }}
-            onCancel={() => setScrapping(false)}
-          />
-        ) : null}
+        {rescue === undefined ? null : <FindingWay slot={slot} onOpen={onOpenFinding} />}
         <Refused said={row.refused} />
         <Said said={row.said} />
         <div className="armada-bay__foot">
@@ -411,19 +405,37 @@ function AddTile({ onAct, refused, adding }: { onAct: NonNullable<PoolSlotsProps
   );
 }
 
-export function PoolSlots({ rows, onOpenJob, onAct, onRescue, addRefused, adding }: PoolSlotsProps) {
+const keyOf = (slot: WorktreeSlot) => `${slot.manifest_id}/${slot.slot}`;
+
+export function PoolSlots({ rows, onOpenJob, onAct, onRescue, addRefused, adding, floor = false }: PoolSlotsProps) {
+  /** The bay whose Finding is open in the sheet. */
+  const [reading, setReading] = useState<string | null>(null);
+  // A slot that was rescued or scrapped has no Finding left to read.
+  const open = rows.find((row) => keyOf(row.slot) === reading && rescuable(row.slot) && row.slot.rescue !== undefined);
   return (
-    <ul className="armada-pool-slots" aria-label="Worktree slots">
-      {rows.map((row) => (
-        <BayTile
-          key={`${row.slot.manifest_id}/${row.slot.slot}`}
-          row={row}
-          onOpenJob={onOpenJob}
-          onAct={onAct}
-          onRescue={onRescue}
+    <>
+      <ul className="armada-pool-slots" aria-label="Worktree slots">
+        {rows.map((row) => (
+          <BayTile
+            key={keyOf(row.slot)}
+            row={row}
+            onOpenJob={onOpenJob}
+            onAct={onAct}
+            onRescue={onRescue}
+            onOpenFinding={() => setReading(keyOf(row.slot))}
+          />
+        ))}
+        {onAct === undefined ? null : <AddTile onAct={onAct} refused={addRefused} adding={adding} />}
+      </ul>
+      {open === undefined ? null : (
+        <SlotSheet
+          key={reading}
+          row={open}
+          floor={floor}
+          {...(onRescue === undefined ? {} : { onRescue })}
+          onClose={() => setReading(null)}
         />
-      ))}
-      {onAct === undefined ? null : <AddTile onAct={onAct} refused={addRefused} adding={adding} />}
-    </ul>
+      )}
+    </>
   );
 }

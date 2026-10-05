@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, PoolSlots } from "@armada/components";
+import { useAtFloor } from "@armada/shell";
 import type {
   ChangeSlotPool,
   Outcome,
@@ -70,6 +71,7 @@ export function SlotPools({ slots, now, onOpenJob, onChange, onRescue }: SlotPoo
   const [receipts, setReceipts] = useState<Record<string, string>>({});
   /** Bays with an act out, so a second press is not sent. */
   const [acting, setActing] = useState<ReadonlySet<string>>(new Set());
+  const floor = useAtFloor();
 
   const pools = new Map<string, WorktreeSlot[]>();
   for (const slot of slots) pools.set(slot.manifest_id, [...(pools.get(slot.manifest_id) ?? []), slot]);
@@ -119,6 +121,7 @@ export function SlotPools({ slots, now, onOpenJob, onChange, onRescue }: SlotPoo
           </CardHeader>
           <CardContent>
             <PoolSlots
+              floor={floor}
               rows={pool.map((slot) => {
                 const key = keyOf(manifestId, slot.slot);
                 const heldFor = slot.since === undefined ? null : sitting(slot.since, now);

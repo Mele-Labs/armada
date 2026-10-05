@@ -409,8 +409,8 @@ test("the pool draws a bay per slot, and a slot's Job opens from it", async () =
   await expect.element(page.getByRole("img", { name: "Held" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Warm" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Commits behind main: 4")).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("4 commits behind main")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Held for 2 hours")).toBeInTheDocument();
   expect(page.getByText(/slots? free/).elements()).toHaveLength(0);
 
   await userEvent.click(page.getByRole("button", { name: "Fix the reader" }));
@@ -488,6 +488,24 @@ test("a refused rescue is said on its bay", async () => {
   await expect.element(page.getByRole("alert")).toHaveTextContent("Not started: a lease is under way");
 });
 
+/**
+ * The Finding opens in the app's trailing sheet and not on the bay, and Escape
+ * closes it without sending anything.
+ */
+test("a Finding opens in the sheet and Escape closes it", async () => {
+  const sent: string[] = [];
+  rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), (_manifest, rescue) => {
+    sent.push(rescue.act);
+    return Promise.resolve({ ok: true, rescued: RECEIPT });
+  });
+  expect(page.getByText("Half moved.").elements()).toHaveLength(0);
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await expect.element(page.getByRole("dialog", { name: "Finding" }).getByText("Half moved.")).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(page.getByRole("dialog").elements()).toHaveLength(0);
+  expect(sent).toEqual([]);
+});
+
 /** A Scrap that kept the branch says so on the slot it freed, once its confirm is answered. */
 test("a scrap that kept its branch says so, after its confirm", async () => {
   const sent: string[] = [];
@@ -495,7 +513,8 @@ test("a scrap that kept its branch says so, after its confirm", async () => {
     sent.push(rescue.act);
     return Promise.resolve({ ok: true, rescued: { ...RECEIPT, branch: "fleet/an-old-try", branch_kept: true } });
   });
-  await userEvent.click(page.getByRole("button", { name: "Scrap" }));
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await userEvent.click(page.getByRole("dialog", { name: "Finding" }).getByRole("button", { name: "Scrap" }));
   expect(sent).toEqual([]);
   await userEvent.click(page.getByRole("group", { name: "Scrap slot-4" }).getByRole("button", { name: "Scrap" }));
   expect(sent).toEqual(["scrap"]);

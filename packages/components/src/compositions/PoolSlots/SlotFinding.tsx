@@ -25,7 +25,7 @@ function Names({ label, items, mono = true }: { label: string; items: readonly s
 }
 
 /** A mark with no words, named by its tooltip and its accessible name. */
-function Mark({ said, children }: { said: string; children: ReactNode }) {
+export function Mark({ said, children }: { said: string; children: ReactNode }) {
   return (
     <Tooltip label={said}>
       <span className="armada-finding__mark" role="img" aria-label={said}>
@@ -36,9 +36,9 @@ function Mark({ said, children }: { said: string; children: ReactNode }) {
 }
 
 /**
- * What a rescue Scout read of a stranded slot, on the bay: the live read while
- * it goes, the Finding when it ends. The summary and `why` are the Scout's;
- * the commits are the slot's own, not its.
+ * What a rescue Scout read of a stranded slot, in the bay's sheet: the live
+ * read while it goes, the Finding when it ends. The summary and `why` are the
+ * Scout's; the commits are the slot's own, not its.
  */
 export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
   const rescue = slot.rescue;

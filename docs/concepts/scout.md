@@ -112,7 +112,7 @@ A Finding whose Fleet stopped while its scout was reading ends as failed when Fl
 
 A person presses Rescue on a stranded bay in Cleanup and a scout reads the work its holder left there. It is the same scout, with the same limits. What changes is where it starts and where its Finding lives.
 
-> **Rule.** A scout started from a stranded slot reads that slot's checkout, not the repository's. Its Finding lives on that slot, shown on the bay, not on a Studio.
+> **Rule.** A scout started from a stranded slot reads that slot's checkout, not the repository's. Its Finding lives on that slot, read in the sheet its bay opens, not on a Studio.
 > Why: the question is about one slot's work, and the person is deciding what to do with that slot.
 
 > **Rule.** That Finding records the commit the slot was at and whether uncommitted changes were present, and a Finding of another commit is not shown.
