@@ -96,6 +96,30 @@ export const AStepNotStarted: Story = {
 };
 
 /**
+ * A Check with a log is a press that opens it; one that has not run is a plain
+ * row, because there is nothing to open.
+ */
+export const ChecksThatOpen: Story = {
+  args: {
+    name: "Write tests",
+    kind: "step",
+    checks: [
+      { name: "test", outcome: "2m 10s", live: "running", onOpen: fn() },
+      { name: "typecheck", outcome: "passed", named: "passed" as const, onOpen: fn() },
+      { name: "desktop_test", live: "waiting" },
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const running = canvas.getByRole("button", { name: "Open test" });
+    running.click();
+    await expect(args.checks?.[0]?.onOpen).toHaveBeenCalledTimes(1);
+    await expect(canvas.getByRole("button", { name: "Open typecheck" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Open desktop_test" })).toBeNull();
+  },
+};
+
+/**
  * A step with one Drone on it names it in a sentence rather than a picker, and
  * a task a later task edited keeps its flag.
  *

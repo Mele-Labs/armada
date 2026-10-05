@@ -16,7 +16,9 @@ import type {
 import { issueLink, type JobDetail as JobWhole, type StepDetail } from "@armada/protocol";
 
 import { span } from "./duration";
-import { checksOf as gateChecksOf, isRunning } from "./gates";
+import type { JobCheckLog } from "./check-log-sheet";
+import { checksOf as gateChecksOf, isRunning, type CheckRead } from "./gates";
+import { basename } from "./phases";
 import type { GroupView } from "./draft/group";
 import type { DroneView } from "./draft/drone";
 import { trackOf } from "./step-phase";
@@ -47,7 +49,12 @@ const NO_CASES = {
  * has it right now**, while the gate runs them (owner, 29 Sep 2026, `juhq`).
  * `gates.ts` is what reads the live set over the last ruling.
  */
-function checksOf(step: StepDetail, now: number, only?: readonly string[]): WorkflowInspectorCheck[] {
+function checksOf(
+  step: StepDetail,
+  now: number,
+  only?: readonly string[],
+  onOpenCheckLog?: (log: JobCheckLog) => void,
+): WorkflowInspectorCheck[] {
   // **De-duplicated.** A step can declare the same Check twice under different
   // globs — the arc's `implement` declares `test` for Rust and again for
   // Bridge — and one command is one row whatever selected it.
@@ -57,6 +64,8 @@ function checksOf(step: StepDetail, now: number, only?: readonly string[]): Work
     .filter((read) => only === undefined || only.includes(read.name))
     .map((read) => {
       const row: WorkflowInspectorCheck = { name: read.name };
+      const log = onOpenCheckLog === undefined ? undefined : logOf(read);
+      if (log !== undefined) row.onOpen = () => onOpenCheckLog!(log);
       if (isRunning(read)) {
         row.live = "running";
         const lasted = span(read.live!.started_at!, now);
@@ -75,6 +84,31 @@ function checksOf(step: StepDetail, now: number, only?: readonly string[]): Work
       }
       return row;
     });
+}
+
+/**
+ * Where a Check on this step keeps its log, or `undefined` where it has none.
+ *
+ * **While the gate holds the Check, its live log** — of one that has started,
+ * ended or not, as `plan-board.ts` reads it. **Once the gate has ruled, the kept
+ * file of the run.** A Check that is waiting, or never ran, has no log.
+ */
+function logOf(read: CheckRead): JobCheckLog | undefined {
+  if (read.live !== undefined) {
+    const started = read.live.started_at !== undefined || read.live.ran !== undefined;
+    const path = read.live.output_path;
+    return !started || path === undefined ? undefined : { name: read.name, kept: basename(path), live: true };
+  }
+  const kept = read.run?.output_path;
+  return kept === undefined || read.run === undefined
+    ? undefined
+    : {
+        name: read.name,
+        kept: basename(kept),
+        live: false,
+        stepAttempt: read.run.attempt,
+        ...(read.run.group === undefined ? {} : { group: read.run.group }),
+      };
 }
 
 /**
@@ -123,6 +157,8 @@ export type WorkflowInspectorReading = {
   now?: number;
   /** Every Drone the Job has had, for the track a running step draws. Absent reads none. */
   drones?: readonly DroneView[];
+  /** Opens a Check's log panel. Absent leaves the Check rows plain. */
+  onOpenCheckLog?: (log: JobCheckLog) => void;
 };
 
 /**
@@ -137,6 +173,7 @@ export function workflowReadingOf({
   onOpenPlan,
   now = Date.now(),
   drones = [],
+  onOpenCheckLog,
 }: WorkflowInspectorReading): WorkflowReading | undefined {
   if (selected === null) return undefined;
 
@@ -164,7 +201,7 @@ export function workflowReadingOf({
   const works = step.step_id === groupsUnder;
   const frozen = frozenBeneath(whole.job.status, step.state);
   const activity = frozen?.activity ?? activityOf(step.state);
-  const checks = checksOf(step, now);
+  const checks = checksOf(step, now, undefined, onOpenCheckLog);
   // The card's own track, so the card and its panel say it together.
   const track = trackOf(whole, step, activity, drones);
   return {

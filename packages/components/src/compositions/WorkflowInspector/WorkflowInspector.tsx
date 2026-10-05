@@ -67,6 +67,11 @@ export type WorkflowInspectorCheck = {
    * with `outcome` its elapsed time, or waiting its turn. Absent once written.
    */
   live?: "running" | "waiting";
+  /**
+   * Opens what the Check is doing — its log, following live while it runs.
+   * Absent draws the row as a fact: a Check that has not run has nothing to open.
+   */
+  onOpen?: () => void;
 };
 
 /** One case that runs at this boundary. Drawn apart from the Checks above. */
@@ -442,17 +447,35 @@ export function WorkflowInspector({
           <Absent said={checksAbsent ?? "No Check runs here."} />
         ) : (
           <ul className="armada-wf-inspector__rows">
-            {checks.map((check) => (
-              <li className="armada-wf-inspector__row" key={check.name} data-live={check.live}>
-                <span className="armada-wf-inspector__row-name">
-                  {check.live === "running" ? (
-                    <StepActivityMark activity="running" label="running" pulsing />
-                  ) : null}
-                  {check.name}
-                </span>
-                <FactChip named={check.named}>{check.outcome ?? "not run"}</FactChip>
-              </li>
-            ))}
+            {checks.map((check) => {
+              const row = (
+                <>
+                  <span className="armada-wf-inspector__row-name">
+                    {check.live === "running" ? (
+                      <StepActivityMark activity="running" label="running" pulsing />
+                    ) : null}
+                    {check.name}
+                  </span>
+                  <FactChip named={check.named}>{check.outcome ?? "not run"}</FactChip>
+                </>
+              );
+              return (
+                <li className="armada-wf-inspector__row" key={check.name} data-live={check.live}>
+                  {check.onOpen === undefined ? (
+                    row
+                  ) : (
+                    <button
+                      type="button"
+                      className="armada-wf-inspector__row-press"
+                      aria-label={`Open ${check.name}`}
+                      onClick={check.onOpen}
+                    >
+                      {row}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Region>

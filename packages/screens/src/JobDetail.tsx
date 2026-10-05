@@ -506,6 +506,7 @@ function OneJob(props: JobDetailProps) {
             setOpensDrone(droneId);
             setTab("drones");
           }}
+          onOpenCheckLog={setCheckLog}
           {...(opensStep === undefined ? {} : { opensStep })}
           trail={trail.of("workflow")}
         />

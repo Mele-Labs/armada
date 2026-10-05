@@ -153,6 +153,32 @@
   white-space: nowrap;
 }
 
+/* A Check row that opens its log: the whole row is the press. */
+.armada-wf-inspector__row-press {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-wf-inspector__row-press:hover .armada-wf-inspector__row-name {
+  color: var(--fg-default);
+}
+
+.armada-wf-inspector__row-press:focus-visible {
+  outline: var(--focus-ring-width, 2px) solid var(--focus-ring, currentColor);
+  outline-offset: 2px;
+}
+
 /* Which Drone the box reaches, where there is only one and so no picker. */
 .armada-wf-inspector__reaches {
   font-size: var(--text-xs);

@@ -38,6 +38,7 @@ import { isWorking, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
 import { droneLabelOf, droneSays } from "./tab-drones-read";
+import type { JobCheckLog } from "./check-log-sheet";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
@@ -139,6 +140,12 @@ export type WorkflowTabProps = {
    */
   onOpenDrone?: (droneId: string) => void;
   /**
+   * Opens a Check's log in the screen's Check log sheet, which stacks over
+   * the step's panel. **The screen's**, as its other sheets are. Absent draws
+   * the Checks as plain rows.
+   */
+  onOpenCheckLog?: (log: JobCheckLog) => void;
+  /**
    * The way back after a jump into this tab, and where this tab's open step
    * is reported so a jump out of it can return — `trail.ts`.
    */
@@ -180,6 +187,7 @@ export function WorkflowTab({
   onRerunChecks,
   onOpenPlan,
   onOpenDrone,
+  onOpenCheckLog,
   trail,
   opensStep,
   pulse,
@@ -301,7 +309,7 @@ export function WorkflowTab({
   // never blank — there is no column now. The canvas has the tab's whole width
   // and this is a layer over it, so a reading nobody asked for would be a panel
   // covering the run it exists to explain.
-  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder, onOpenPlan, drones });
+  const reading = workflowReadingOf({ whole, groups, selected: open, groupsUnder, onOpenPlan, drones, onOpenCheckLog });
   const steering = steeringOf(job, whole);
   const label = `${job.title}, as its workflow's run`;
   // The board's corner: which workflow this is, and which step the Job is on.

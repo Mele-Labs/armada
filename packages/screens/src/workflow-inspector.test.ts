@@ -98,6 +98,46 @@ describe("a step", () => {
     expect(checks.find((check) => check.name === first)).toMatchObject({ live: "running", outcome: "42s" });
     expect(checks.find((check) => check.name === second)).toMatchObject({ live: "waiting", outcome: "waiting" });
   });
+
+  it("opens a running Check's live log, a ruled Check's kept one, and a waiting Check none", () => {
+    const step = whole.steps[1]!;
+    const [first, second] = [...new Set((step.checks ?? []).map((check) => check.name ?? check.kind))];
+    const opens = (one: typeof step) => {
+      const logs: unknown[] = [];
+      const checks = workflowReadingOf({
+        whole: { ...whole, steps: whole.steps.map((was, at) => (at === 1 ? one : was)) },
+        groups,
+        groupsUnder,
+        selected: stepNodeId(step.step_id),
+        onOpenCheckLog: (log) => void logs.push(log),
+      })!.checks!;
+      return { checks, logs };
+    };
+
+    const running = opens({
+      ...step,
+      check_runs: [],
+      checking: {
+        attempt: 1,
+        checks: [
+          { name: first!, started_at: "2026-09-22T10:00:00Z", output_path: "/gate/logs/first.log" },
+          { name: second! },
+        ],
+      },
+    });
+    running.checks.find((check) => check.name === first)!.onOpen!();
+    expect(running.logs).toEqual([{ name: first, kept: "first.log", live: true }]);
+    expect(running.checks.find((check) => check.name === second)!.onOpen).toBeUndefined();
+
+    const attempt = step.attempts.length;
+    const ruled = opens({
+      ...step,
+      checking: undefined,
+      check_runs: [{ name: first!, attempt, outcome: "passed", output_path: "/kept/first.log" } as never],
+    });
+    ruled.checks.find((check) => check.name === first)!.onOpen!();
+    expect(ruled.logs).toEqual([{ name: first, kept: "first.log", live: false, stepAttempt: attempt }]);
+  });
 });
 
 describe("a group", () => {
