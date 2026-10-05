@@ -1227,13 +1227,30 @@ description = "The Kit and carried workflow definitions Fleet runs without, each
 notes = """
 #425. `config`'s catalogue leaves out a Kit or carried definition that will not parse, will not resolve against this repository, or shares an id with a sibling in its own place, and Fleet printed each only at start. A person who customised `bug` in Kit and picks `bug` in the composer was running Armada's without any way to find out.
 
-**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is never here, because one that does not fit refuses Fleet's start instead.
+**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here only when it was written or edited under a Fleet that was already running (protocol 23.28): one that does not fit refuses Fleet's start, and is set aside, with its reason, by a re-read.
 
 **Per repository**, named by `?manifest_id=` and the one Fleet started in where absent: whether a Kit or carried definition resolves depends on that repository's own Checks.
 
 `said` is the sentence Fleet prints, rendered and never matched on. `file` is absolute, on `ManifestSummary.path`'s ground: two processes on one machine agreeing where a file is.
 
 `agent_access` is `Yes` on `list_workflows`' terms: a Helm about to propose `bug` should be able to see that the `bug` it would get is not Kit's.
+"""
+
+[operations.save_workflow]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Check one workflow definition against the repository's Checks and this machine's models, and write it in the repository's own folder or in Kit's"
+notes = """
+`POST /workflows/save`, protocol 23.28, with `?manifest_id=` as the other Manifest-scoped routes take it. The body is `SaveWorkflow`: `scope` (`repository` for `<repository>/.armada/workflows/`, `kit` for `~/.armada/workflows/`), `definition` (the whole definition as JSON text) and `overwrite`. The answer is a `WorkflowSaved`: the id, the scope, the file as written, whether it replaced one, and whose definition of that id runs in this repository now.
+
+**Checked before anything is written, with the rules a loader applies.** `config::fit` parses the definition against this machine's models and resolves it against the repository's Manifest, the parse and the resolve a catalogue does, so a definition that is saved is one that loads. A refusal carries the loader's own sentence, every fault of it, and nothing is written: not the file, not the folder, not a temporary one. 422 `fleet.workflow_unfit` where it does not fit, and `fleet.workflow_id_not_a_name` where its `workflow_id` is not letters, digits, `-` and `_`.
+
+**Replacing is said.** A definition that already holds the id in that scope is found by the id it declares and not by the file's name, since the repository's own place is strict at start and two files naming one id would refuse it. 422 `fleet.workflow_exists`, naming the file, unless `overwrite` is `true`; with it the file that held the id is the one replaced. A file named for the id that defines something else is never replaced. 500 `fleet.workflow_unwritable` where the file cannot be written.
+
+**Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start is unchanged, and still refuses a repository whose own definition does not fit.
+
+`agent_access` is `Helm only`, `edit_manifest`'s reason: what is written decides what every Job here is gated on. Helm calls it on a person's ask and never unasked. **A save that carries `overwrite: true` is put to the person**, as destructive, and a first save is not, because the call without it cannot replace anything — `fleet::helm::deciding`.
 """
 
 [operations.list_worktrees]

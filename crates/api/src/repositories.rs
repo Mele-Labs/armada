@@ -7,7 +7,7 @@ use axum::response::Response;
 use ipc::{AddRepository, CloneRepository};
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::{Authoring, Commands, Queries};
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -52,6 +52,24 @@ pub(crate) async fn clone_repository<D: Commands>(
     };
     match served.shared().clone_repository(asked).await {
         Ok(added) => answer(StatusCode::CREATED, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Check one workflow definition against the repository and write it in the
+/// scope named — protocol 23.26. **200 and not 201**, for `save_manifest_file`'s
+/// reason: the file is on disk and held when this answers.
+pub(crate) async fn save_workflow<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SaveWorkflow = match ipc::decode("a workflow definition to save", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_workflow(asked, scope.manifest()).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

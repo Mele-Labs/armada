@@ -128,7 +128,8 @@ and read-only with no Manifest tier. The obligation to call
 `get_events_since(cursor)` at the start of each turn. What a Studio is, the
 few calls on one it may make without being asked —
 `fleet::helm::reach::UNASKED` — and the acts on one that stay a person's.
-Voice.
+What a workflow definition declares, one the parser accepts to copy the shape
+from, and where a definition may be saved and which place wins. Voice.
 
 **Never told:** anything outside the selected Manifest. Secrets.
 
@@ -1565,6 +1566,7 @@ selected Manifest, the resolved authority and Voice, once per session.
 | **Where they are** | Read one line naming the screen, the pick, a chipped Job, the cursor row and, on a Studio, the Studio — ahead of what was typed — and call `get_job` or `get_studio` for what the one it names holds | `#1075`: Bridge sends this with every ask, so the person never has to say which Job they mean. `#1287` adds the Studio's id, for the same reason |
 | **What you may do** | Call any tool that acts once a person asks for it, and never on your own initiative but for the calls *On a Studio* names; `undo_run` stays theirs regardless | `#73` drew Helm's line as an allowlist inside the door's `Yes` rows; `#1150` reversed it to a denylist of one. `fleet::helm::may` is the rule, and the brief states it rather than restating a list |
 | **On a Studio** | Read a Studio before answering about it; add a proposed node, propose an edge and name an untitled Studio unasked; start a run, write up and dispatch only on an ask, and dispatch only where the ask names it; read the runs it starts; leave accepting, deferring and deleting to the person | `#1288`, from [Studio](../concepts/studio.md)'s *Helm on a Studio*. The door cannot tell an ask from its absence, so the line between the two columns is drawn here and nowhere else |
+| **Authoring a workflow** | Help write a definition, and save it with `save_workflow` and never with `Write` or `Edit`; set `overwrite` only where the person asked to replace one | A session outside Armada's own repository has neither the schema nor a workflow to copy, and a file written by hand skips the check that refuses a step naming a Check or a model that is not there. Where it is read-only the block still teaches the schema and says to leave writing to the person |
 | **How you answer** | Answer first, add at most one flagged observation, say "I" only for Helm's own acts, hedge by source | [Helm](../concepts/helm.md)'s Voice & conduct, and the Design System's P3 and P4 |
 | **Voice** | None. It tunes length and formality | Rendered only where the setting is set. It comes last, so it adjusts what is above it and does not contradict it |
 
@@ -1829,6 +1831,65 @@ place of the paragraphs about calling unasked and on an ask:
 │ help, say which in your answer.
 └────────────────────────────────────────────────
 ```
+
+**The authoring block's two lists are read, not written here.** The field list is
+`crates/core-model/domain/workflowdef-fields.toml` through
+`config::workflow_fields`, and the sample is the carried `bug`, which `config`
+loads on every start. It is not `workflow-samples/bug.json`, which is the
+designed workflow and which the parser does not agree with. A copy of either in
+this page would be wrong the week a field is added, so the test holds the
+block's fixed wording and checks that the sample loads.
+
+The block's fixed wording, which sits between *On a Studio* and *How you answer*:
+
+```
+┌─ AUTHORING A WORKFLOW ─────────────────────────
+│ A workflow is the template a Job runs against:
+│ an ordered or looping set of steps, each with
+│ its checks, its gate and its limits. A person
+│ may ask you to help write one. It lives in one
+│ of two places, and the person chooses: this
+│ repository's own `.armada/workflows/`, which
+│ only this repository uses, or Kit's
+│ `~/.armada/workflows/`, which every repository
+│ on this machine uses. Where a repository and Kit
+│ both define the same workflow_id the
+│ repository's is the one that runs, and Kit's
+│ beats the set Armada carries. The file is named
+│ for the workflow_id and holds JSON.
+│
+│ The fields a definition may declare, each with
+│ its type, the field it sits under, and what it
+│ is for. A key not listed here is refused, and so
+│ is a step naming a Check this repository does
+│ not declare or a model this machine does not
+│ offer.
+│
+│ {the field list}
+│
+│ Do not write the file with Write or Edit. Call
+│ save_workflow with the scope the person chose,
+│ `repository` or `kit`, and the whole definition
+│ as text. Fleet checks it against this
+│ repository's Checks and this machine's models,
+│ and where it does not fit it says why and writes
+│ nothing: read the reason, fix the definition and
+│ call again, and say in your answer what you
+│ changed. Where a workflow with that id already
+│ exists in that scope, the call is refused unless
+│ it carries overwrite true, and you set that only
+│ where the person has asked you to replace the
+│ existing one.
+│
+│ One definition that runs here as it is written,
+│ to copy the shape from:
+│
+│ {the carried bug, without its comment block}
+└────────────────────────────────────────────────
+```
+
+Under read-only the last two paragraphs before the sample become one: *Where a
+definition would help, say which and why, and leave writing it to the person.*
 
 **The brief is pinned whole** by `crates/fleet/src/helm/tests.rs`, so an edit
 here lands there in the same change.

@@ -228,3 +228,95 @@ fn a_definition_resolved_on_its_own_is_the_repositorys() {
     assert_eq!(resolved.source(), WorkflowSource::Repository);
     assert_eq!(resolved.frozen().source(), WorkflowSource::Repository);
 }
+
+/// What a running Fleet reads: **a repository's own bad file is left out and
+/// named, and the files beside it stand.** Start refuses (above); this is the
+/// same text read leniently.
+#[test]
+fn leniently_a_bad_repository_file_does_not_take_the_others_down() {
+    let written = vec![
+        repository("broken.yml", "workflow_id: [unclosed".to_string()),
+        repository("needs.yml", one_step("needs", "Needs", Some("missing"))),
+        repository("fine.yml", one_step("fine", "Fine", None)),
+        kit("hotfix.yml", one_step("hotfix", "Hot", None)),
+    ];
+    let held = Catalogue::leniently(written, &roster())
+        .resolve(&a_manifest())
+        .expect("a lenient catalogue refuses nothing");
+    assert_eq!(
+        label_of(&held, "fine"),
+        ("Fine".to_string(), WorkflowSource::Repository)
+    );
+    assert_eq!(
+        label_of(&held, "hotfix"),
+        ("Hot".to_string(), WorkflowSource::Kit)
+    );
+    assert!(!held.workflows().keys().any(|id| id.as_str() == "needs"));
+    let said: Vec<String> = held.left_out().iter().map(ToString::to_string).collect();
+    assert_eq!(said.len(), 2, "{said:?}");
+    assert!(said
+        .iter()
+        .any(|s| s.starts_with("the repository's `needs` was left out")));
+}
+
+/// A repository's own that will not resolve steps down, as Kit's does: the
+/// next place down answers for its id, and the sentence says whose.
+#[test]
+fn leniently_a_repository_file_that_will_not_resolve_steps_down_to_kits() {
+    let held = Catalogue::leniently(
+        vec![
+            kit("bug.yml", one_step("bug", "Kit's", None)),
+            repository("bug.yml", one_step("bug", "Mine", Some("missing"))),
+        ],
+        &roster(),
+    )
+    .resolve(&a_manifest())
+    .expect("nothing is refused");
+    assert_eq!(
+        label_of(&held, "bug"),
+        ("Kit's".to_string(), WorkflowSource::Kit)
+    );
+    let [left] = held.left_out() else {
+        panic!("{:?}", held.left_out());
+    };
+    assert_eq!(left.instead(), Some(WorkflowSource::Kit));
+}
+
+#[test]
+fn leniently_one_id_twice_in_the_repository_leaves_both_out() {
+    let held = Catalogue::leniently(
+        vec![
+            repository("first.yml", one_step("shared", "One", None)),
+            repository("second.yml", one_step("shared", "Two", None)),
+            repository("other.yml", one_step("other", "Other", None)),
+        ],
+        &roster(),
+    )
+    .resolve(&a_manifest())
+    .expect("nothing is refused");
+    assert!(!held.workflows().keys().any(|id| id.as_str() == "shared"));
+    assert!(held.workflows().keys().any(|id| id.as_str() == "other"));
+    assert!(matches!(
+        held.left_out()[0].why(),
+        WhyLeftOut::Duplicated { .. }
+    ));
+}
+
+#[test]
+fn a_definition_fits_where_it_parses_and_resolves_and_says_why_where_it_does_not() {
+    let manifest = a_manifest();
+    let at = Path::new("/repo/.armada/workflows/x.json");
+    let id = crate::fit(at, &one_step("x", "X", None), &roster(), &manifest).expect("fits");
+    assert_eq!(id.as_str(), "x");
+    let unparsed = crate::fit(at, "workflow_id: [", &roster(), &manifest).expect_err("no");
+    assert!(matches!(unparsed, crate::Unfit::Unparsed(_)));
+    let unresolved = crate::fit(
+        at,
+        &one_step("x", "X", Some("missing")),
+        &roster(),
+        &manifest,
+    )
+    .expect_err("no");
+    assert!(matches!(unresolved, crate::Unfit::Unresolved(_)));
+    assert!(unresolved.to_string().contains("missing"), "{unresolved}");
+}

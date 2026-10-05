@@ -120,10 +120,11 @@ where
     ) -> Result<(), Adrift> {
         for job in made {
             let served = self.served_by(job)?;
+            let workflows = served.workflows();
             let held = settings
                 .workflow_id
                 .as_ref()
-                .and_then(|named| served.workflows().get(&named.to_domain()))
+                .and_then(|named| workflows.get(&named.to_domain()))
                 .map(|held| held.frozen().clone());
             let workflow = held.as_ref().unwrap_or(job.workflow());
             let gates = match (settings.lands, workflow.delivering_step()) {
@@ -161,10 +162,11 @@ where
     ) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         let served = self.served_by(&job)?;
+        let workflows = served.workflows();
         let held = body
             .workflow_id
             .as_ref()
-            .and_then(|named| served.workflows().get(&named.to_domain()))
+            .and_then(|named| workflows.get(&named.to_domain()))
             .map(|held| held.frozen().clone());
         let decided = decided(&job, body, held.as_ref()).map_err(|why| refused(job_id, why))?;
         if let Some(tiers) = &decided.tiers {

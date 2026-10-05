@@ -123,13 +123,14 @@ where
         // Fleet happens to hold, which would replace the Job with one running
         // a different workflow than it asked for.
         let served = self.served_by(failed)?;
-        let workflow = served
-            .workflows()
-            .get(failed.workflow_id())
-            .ok_or_else(|| Adrift::WorkflowWithdrawn {
-                job: failed.id().clone(),
-                workflow_id: failed.workflow_id().as_str().to_string(),
-            })?;
+        let workflows = served.workflows();
+        let workflow =
+            workflows
+                .get(failed.workflow_id())
+                .ok_or_else(|| Adrift::WorkflowWithdrawn {
+                    job: failed.id().clone(),
+                    workflow_id: failed.workflow_id().as_str().to_string(),
+                })?;
         let frozen = workflow.frozen();
         let outcome = enrich(failed.facts().as_str(), self.links().as_ref()).await;
         let facts = self.re_enriched(failed.facts(), &outcome);

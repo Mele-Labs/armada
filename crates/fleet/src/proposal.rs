@@ -405,7 +405,7 @@ where
         let request = enriched.as_str();
         let (read, settled) = proposed(
             request,
-            served.workflows(),
+            &served.workflows(),
             &proposing,
             self.making(actor).for_job(&minted_by, head.id()),
             client_ref,
