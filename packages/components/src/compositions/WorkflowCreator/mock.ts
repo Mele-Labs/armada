@@ -5,6 +5,11 @@
 
 import type { Definition, Entry, Gate, Step } from "./def";
 
+export const MOCK_REPOSITORY = "armada";
+
+/** The Manifests a definition may be written to, beside Kit. */
+export const MOCK_MANIFESTS: readonly string[] = [MOCK_REPOSITORY, "ledger", "site"];
+
 const none: Gate = { checks: false, judge: false, you: false, repository: false };
 
 function step(id: string, over: Partial<Omit<Step, "id">> = {}): Step {
@@ -16,26 +21,25 @@ function step(id: string, over: Partial<Omit<Step, "id">> = {}): Step {
     gate: none,
     retryLimit: 3,
     returnsTo: "",
+    iterationCap: 5,
     ...over,
   };
 }
 
-export const MOCK_REPOSITORY = "armada";
 
 export const MOCK_ENTRIES: readonly Entry[] = [
-  { key: "carried/feature", id: "feature", source: "carried", file: "feature", structure: "linear" },
-  { key: "carried/bug", id: "bug", source: "carried", file: "bug", structure: "loop" },
-  { key: "carried/design_plan", id: "design_plan", source: "carried", file: "design_plan", structure: "loop" },
-  { key: "kit/design_plan", id: "design_plan", source: "kit", file: "design_plan.json", structure: "loop" },
-  { key: "kit/release_notes", id: "release_notes", source: "kit", file: "release_notes.json", structure: "linear" },
-  { key: "repository/bug", id: "bug", source: "repository", file: "bug.json", structure: "loop" },
-  { key: "repository/migration", id: "migration", source: "repository", file: "migration.json", structure: "linear" },
+  { key: "carried/feature", id: "feature", source: "carried", file: "feature" },
+  { key: "carried/bug", id: "bug", source: "carried", file: "bug" },
+  { key: "carried/design_plan", id: "design_plan", source: "carried", file: "design_plan" },
+  { key: "kit/design_plan", id: "design_plan", source: "kit", file: "design_plan.json" },
+  { key: "kit/release_notes", id: "release_notes", source: "kit", file: "release_notes.json" },
+  { key: "repository/bug", id: "bug", source: "repository", file: "bug.json" },
+  { key: "repository/migration", id: "migration", source: "repository", file: "migration.json" },
   {
     key: "kit/hotfix",
     id: "hotfix",
     source: "kit",
     file: "hotfix.json",
-    structure: "linear",
     leftOut: "Names the check smoke, which this repository does not declare",
   },
 ];
@@ -44,9 +48,7 @@ export const MOCK_ENTRIES: readonly Entry[] = [
 export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
   "carried/feature": {
     id: "feature",
-    structure: "linear",
     scope: "kit",
-    iterationCap: 5,
     steps: [
       step("plan", { evidence: "document", check: "plan_recorded", gate: { ...none, checks: true } }),
       step("implement", {
@@ -59,9 +61,7 @@ export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
   },
   "carried/bug": {
     id: "bug",
-    structure: "loop",
     scope: "kit",
-    iterationCap: 5,
     steps: [
       step("repro", {
         evidence: "failing_test",
@@ -74,34 +74,28 @@ export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
         judge: "Does this diff address the stated root cause, not just the symptom?",
         gate: { ...none, checks: true, judge: true },
       }),
-      step("review", { evidence: "bundle", gate: { ...none, repository: true }, returnsTo: "fix" }),
+      step("review", { evidence: "bundle", gate: { ...none, repository: true }, returnsTo: "fix", iterationCap: 4 }),
     ],
   },
   "carried/design_plan": {
     id: "design_plan",
-    structure: "loop",
     scope: "kit",
-    iterationCap: 5,
     steps: [
       step("draft", { evidence: "document", check: "artifact_exists" }),
-      step("feedback", { evidence: "document", gate: { ...none, you: true }, returnsTo: "draft" }),
+      step("feedback", { evidence: "document", gate: { ...none, you: true }, returnsTo: "draft", iterationCap: 3 }),
     ],
   },
   "kit/design_plan": {
     id: "design_plan",
-    structure: "loop",
     scope: "kit",
-    iterationCap: 3,
     steps: [
       step("draft", { evidence: "document", check: "artifact_exists" }),
-      step("feedback", { evidence: "document", gate: { ...none, you: true }, returnsTo: "draft" }),
+      step("feedback", { evidence: "document", gate: { ...none, you: true }, returnsTo: "draft", iterationCap: 3 }),
     ],
   },
   "kit/release_notes": {
     id: "release_notes",
-    structure: "linear",
     scope: "kit",
-    iterationCap: 5,
     steps: [
       step("gather", { evidence: "facts_note", check: "artifact_exists", gate: { ...none, checks: true } }),
       step("write", {
@@ -114,9 +108,7 @@ export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
   },
   "repository/bug": {
     id: "bug",
-    structure: "loop",
-    scope: "repository",
-    iterationCap: 4,
+    scope: MOCK_REPOSITORY,
     steps: [
       step("repro", {
         evidence: "failing_test",
@@ -130,14 +122,12 @@ export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
         gate: { ...none, checks: true, judge: true },
         retryLimit: 2,
       }),
-      step("review", { evidence: "bundle", gate: { ...none, you: true }, returnsTo: "fix" }),
+      step("review", { evidence: "bundle", gate: { ...none, you: true }, returnsTo: "fix", iterationCap: 4 }),
     ],
   },
   "repository/migration": {
     id: "migration",
-    structure: "linear",
-    scope: "repository",
-    iterationCap: 5,
+    scope: MOCK_REPOSITORY,
     steps: [
       step("schema", { check: "manifest_check", gate: { ...none, checks: true } }),
       step("backfill", { evidence: "test_suite_run", check: "manifest_check", gate: { ...none, checks: true, you: true } }),

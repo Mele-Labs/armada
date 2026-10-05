@@ -199,7 +199,7 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/HeldWorktree/HeldWorktree";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
-export { MOCK_DEFINITIONS, MOCK_ENTRIES, MOCK_REPOSITORY } from "./compositions/WorkflowCreator/mock";
+export { MOCK_DEFINITIONS, MOCK_ENTRIES, MOCK_MANIFESTS, MOCK_REPOSITORY } from "./compositions/WorkflowCreator/mock";
 
 // What one Job holds on the machine, and the act that goes and looks. Not a
 // debug panel: the first thing on it is a sentence answering *is this working*,

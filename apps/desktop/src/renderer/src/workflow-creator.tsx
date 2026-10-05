@@ -2,7 +2,7 @@
 // and the definitions are written down in `@armada/components`, and the one
 // thing that leaves the screen is the draft handed to Helm.
 
-import { MOCK_DEFINITIONS, MOCK_ENTRIES, MOCK_REPOSITORY, WorkflowCreator } from "@armada/components";
+import { MOCK_DEFINITIONS, MOCK_ENTRIES, MOCK_MANIFESTS, MOCK_REPOSITORY, WorkflowCreator } from "@armada/components";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -20,6 +20,7 @@ export function WorkflowCreatorSurface({
       <div className="armada-screen__overview">
         <WorkflowCreator
           repository={MOCK_REPOSITORY}
+          manifests={MOCK_MANIFESTS}
           entries={MOCK_ENTRIES}
           definitions={MOCK_DEFINITIONS}
           onDiscuss={(draft) => void askHelm(draft)}

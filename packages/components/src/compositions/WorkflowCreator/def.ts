@@ -9,24 +9,18 @@
 /** Where a definition comes from, least specific first. The most specific wins by id. */
 export type Source = "carried" | "kit" | "repository";
 
-/** Where a saved definition is written: Kit, or this repository's `.armada/workflows/`. */
-export type Scope = "kit" | "repository";
+/** Where a saved definition is written: `kit`, or a Manifest by name. */
+export type Scope = string;
+
+export const KIT: Scope = "kit";
 
 export const SOURCE_RANK: Record<Source, number> = { carried: 0, kit: 1, repository: 2 };
-
-export const SOURCE_WORD: Record<Source, string> = {
-  carried: "Carried",
-  kit: "Kit",
-  repository: "Repository",
-};
 
 export const SOURCE_DIR: Record<Source, string> = {
   carried: "compiled in",
   kit: "~/.armada/workflows",
   repository: ".armada/workflows",
 };
-
-export type Structure = "linear" | "loop";
 
 export const EVIDENCE = ["diff", "failing_test", "facts_note", "test_suite_run", "bundle", "document"] as const;
 export type Evidence = (typeof EVIDENCE)[number];
@@ -54,15 +48,16 @@ export type Step = {
   judge: string;
   gate: Gate;
   retryLimit: number;
-  /** `verdict_routing`: the step a loop returns to. Empty is none. */
+  /** `verdict_routing`: the earlier step this one sends the work back to. Empty is none. */
   returnsTo: string;
+  /** How many passes the back edge may make. Read only where `returnsTo` is set. */
+  iterationCap: number;
 };
 
+/** A workflow is its steps. Any step may send the work back to an earlier one. */
 export type Definition = {
   id: string;
-  structure: Structure;
   scope: Scope;
-  iterationCap: number;
   steps: Step[];
 };
 
@@ -72,7 +67,6 @@ export type Entry = {
   id: string;
   source: Source;
   file: string;
-  structure: Structure;
   /** Set aside at start, and why. Such a file is never edited here. */
   leftOut?: string;
 };
@@ -118,7 +112,7 @@ export function refusalsOf(def: Definition, taken: readonly string[]): Refusal[]
   if (def.id === "") out.push({ where: "id", why: "Empty" });
   else if (!NAME.test(def.id)) out.push({ where: "id", why: "Lowercase letters, digits and underscores, starting with a letter" });
   else if (taken.includes(def.id)) {
-    out.push({ where: "id", why: def.scope === "kit" ? "Another Kit file has this id" : "Another file in .armada/workflows has this id" });
+    out.push({ where: "id", why: def.scope === KIT ? "Another Kit file has this id" : "Another file in .armada/workflows has this id" });
   }
   if (def.steps.length === 0) out.push({ where: "steps", why: "At least one step" });
 
@@ -138,21 +132,16 @@ export function refusalsOf(def: Definition, taken: readonly string[]): Refusal[]
     }
     if (step.returnsTo !== "") {
       const to = def.steps.findIndex((one) => one.id === step.returnsTo);
-      if (def.structure === "linear") {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `linear carries verdict_routing on ${displayId(step, n)}`, step: at });
-      } else if (to === -1) {
+      if (to === -1) {
         out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not a step`, step: at });
-      } else if (to > at) {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} comes after ${displayId(step, n)}`, step: at });
+      } else if (to >= at) {
+        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not before ${displayId(step, n)}`, step: at });
+      }
+      if (!Number.isInteger(step.iterationCap) || step.iterationCap < 1) {
+        out.push({ where: `steps[${n}].iteration_cap`, why: "At least 1", step: at });
       }
     }
   });
-  if (def.structure === "loop" && def.steps.every((one) => one.returnsTo === "")) {
-    out.push({ where: "structure", why: "loop carries no verdict_routing" });
-  }
-  if (def.structure === "loop" && (!Number.isInteger(def.iterationCap) || def.iterationCap < 1)) {
-    out.push({ where: "iteration_cap", why: "At least 1" });
-  }
   return out;
 }
 
@@ -160,10 +149,11 @@ function displayId(step: Step | { id: string }, n: number): string {
   return step.id === "" ? `step ${n}` : step.id;
 }
 
-/** The file a definition is written to. */
-export function fileOf(def: Pick<Definition, "id" | "scope">): string {
-  const dir = def.scope === "kit" ? SOURCE_DIR.kit : SOURCE_DIR.repository;
-  return `${dir}/${def.id === "" ? "…" : def.id}.json`;
+/** The file a definition is written to, from the Manifest the window is in. */
+export function fileOf(def: Pick<Definition, "id" | "scope">, current: string): string {
+  const name = def.id === "" ? "…" : def.id;
+  if (def.scope === KIT) return `${SOURCE_DIR.kit}/${name}.json`;
+  return `${def.scope === current ? "" : `${def.scope}/`}${SOURCE_DIR.repository}/${name}.json`;
 }
 
 /** The draft as plain text, for Helm to read. */
@@ -171,8 +161,6 @@ export function textOf(def: Definition): string {
   return JSON.stringify(
     {
       workflow_id: def.id,
-      structure: def.structure,
-      ...(def.structure === "loop" ? { iteration_cap: def.iterationCap } : {}),
       steps: def.steps.map((step, at) => ({
         id: step.id,
         order: at + 1,
@@ -181,7 +169,7 @@ export function textOf(def: Definition): string {
         judge_checks: step.judge === "" ? [] : [{ enabled: true, question: step.judge }],
         gate: step.gate,
         retry_limit: step.retryLimit,
-        ...(step.returnsTo === "" ? {} : { verdict_routing: step.returnsTo }),
+        ...(step.returnsTo === "" ? {} : { verdict_routing: step.returnsTo, iteration_cap: step.iterationCap }),
       })),
     },
     null,
@@ -198,9 +186,11 @@ export function blankStep(): Step {
     gate: { checks: false, judge: false, you: false, repository: false },
     retryLimit: 3,
     returnsTo: "",
+    iterationCap: 5,
   };
 }
 
-export function blankDefinition(): Definition {
-  return { id: "", structure: "linear", scope: "kit", iterationCap: 5, steps: [blankStep()] };
+/** A new definition, written to the Manifest the window is in. */
+export function blankDefinition(scope: Scope): Definition {
+  return { id: "", scope, steps: [blankStep()] };
 }

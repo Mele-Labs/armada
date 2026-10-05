@@ -1,13 +1,13 @@
-/* The Workflow creator: a list of bays, one per workflow file, and the open
-   definition as one frame. Weighted the way the worktree pool is: a band that
-   carries the state, a mono body, and the state in the frame's own edge rather
-   than a sentence about it.
+/* The Workflow creator: a list of rows, and the picked workflow as a graph on
+   the Job's own canvas under one band that carries its state — accent while
+   drafted, caution once refused, success once saved. Edits open in the app's
+   sheet, so nothing here draws a form.
 
    Contrast, worked from the tokens: --fg-inverse on the draft band (--accent)
-   6.35:1, on the saved band (--status-completed-success) and on the refused
-   band (--status-awaiting-review) each clear of 4.5:1; --fg-muted on the
-   neutral source band (--bg-sunken) 5.9:1; --fg-subtle on an overridden bay
-   4.58:1 at the lightest ground. Every one clears 4.5:1. */
+   6.35:1, and on the saved (--status-completed-success) and refused
+   (--status-awaiting-review) bands each clear of 4.5:1; --fg-muted on a row
+   over --bg-base 5.9:1; --fg-subtle on a shadowed row 4.58:1 at the lightest
+   ground. Every one clears 4.5:1. */
 
 .armada-wf {
   display: flex;
@@ -19,169 +19,115 @@
 
 .armada-wf__list {
   display: flex;
-  flex: 1 1 calc(var(--space-12) * 5);
+  flex: 1 1 calc(var(--space-12) * 4);
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  max-width: calc(var(--space-12) * 6);
 }
 
-.armada-wf-bays {
+.armada-wf-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.armada-wf-bay {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--bg-raised);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-}
-
-.armada-wf-bay[data-on] {
-  border-color: var(--accent);
-}
-
-.armada-wf-bay__band {
+.armada-wf-row > button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-}
-
-.armada-wf-bay__mark {
-  display: inline-flex;
-  align-items: center;
-}
-
-.armada-wf-bay__eyebrow {
-  flex: 1 1 auto;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-wf-bay__structure,
-.armada-wf-bay__file,
-.armada-wf-bay__over,
-.armada-wf-bay__why {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-wf-bay__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  width: 100%;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-}
-
-.armada-wf-bay__id {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 0;
-  border: none;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
   background: none;
-  font-family: var(--font-mono);
+  color: var(--fg-default);
+  font: inherit;
   font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--accent);
-  cursor: pointer;
+  line-height: var(--leading-xs);
   text-align: start;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  cursor: pointer;
 }
 
-.armada-wf-bay__id:hover {
-  text-decoration: underline;
+.armada-wf-row > button:hover {
+  background: var(--bg-hover);
 }
 
-.armada-wf-bay__id:focus-visible {
+.armada-wf-row > button[aria-current] {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+
+.armada-wf-row > button:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
 }
 
-.armada-wf-bay__file {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.armada-wf-row__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
   color: var(--fg-muted);
 }
 
-/* Shadowed by a more specific place: an open outline, the way an unmade slot is. */
-.armada-wf-bay[data-bay="overridden"] {
-  border-style: dashed;
-  background: transparent;
+.armada-wf-row__id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+/* Shadowed by a more specific place: quiet, the way an unmade slot is. */
+.armada-wf-row[data-state="overridden"] > button {
   color: var(--fg-subtle);
 }
 
-.armada-wf-bay[data-bay="overridden"] .armada-wf-bay__band {
-  background: transparent;
+.armada-wf-row[data-state="overridden"] .armada-wf-row__mark {
   color: var(--fg-subtle);
 }
 
-.armada-wf-bay[data-bay="overridden"] .armada-wf-bay__id,
-.armada-wf-bay[data-bay="overridden"] .armada-wf-bay__file {
-  color: var(--fg-subtle);
+/* A file that cannot run: the caution hue on its mark, struck through its id. */
+.armada-wf-row[data-state="left-out"] .armada-wf-row__mark {
+  color: var(--notice-caution);
 }
 
-.armada-wf-bay__over {
-  color: var(--fg-subtle);
+.armada-wf-row[data-state="left-out"] .armada-wf-row__id {
+  text-decoration: line-through;
 }
 
-/* Set aside at start: hatched in the caution hue, as a stranded slot is, with
-   the reason on the bay. */
-.armada-wf-bay[data-bay="left-out"] {
-  border-color: var(--notice-caution);
-  background:
-    repeating-linear-gradient(
-      135deg,
-      var(--notice-caution-bg) 0 var(--space-2),
-      transparent var(--space-2) var(--space-4)
-    ),
-    var(--bg-raised);
-}
-
-.armada-wf-bay[data-bay="left-out"] .armada-wf-bay__band {
-  background: var(--notice-caution);
-  color: var(--fg-inverse);
-}
-
-.armada-wf-bay[data-bay="left-out"] .armada-wf-bay__id {
-  color: var(--fg-default);
-  cursor: default;
-}
-
-.armada-wf-bay__why {
-  color: var(--fg-default);
-}
-
-/* The open definition. Its band is its state: accent while drafted, caution
-   once refused, success once saved. */
-.armada-wf-frame {
-  --frame-hue: var(--accent);
+/* A left-out file's reason, as plain facts where its graph would be. */
+.armada-wf-left {
   display: flex;
   flex: 3 1 calc(var(--space-12) * 8);
   flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
-  border: var(--border-width) solid var(--frame-hue);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--notice-caution);
+  border-radius: var(--radius-md);
+  background: var(--notice-caution-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-wf-left__file {
+  color: var(--fg-muted);
+}
+
+.armada-wf-stage {
+  --stage-hue: var(--accent);
+  display: flex;
+  flex: 3 1 calc(var(--space-12) * 8);
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  border: var(--border-width) solid var(--stage-hue);
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-raised);
@@ -190,30 +136,30 @@
   color: var(--fg-default);
 }
 
-.armada-wf-frame[data-standing="refused"] {
-  --frame-hue: var(--notice-caution);
+.armada-wf-stage[data-standing="refused"] {
+  --stage-hue: var(--notice-caution);
 }
 
-.armada-wf-frame[data-standing="saved"] {
-  --frame-hue: var(--status-completed-success);
+.armada-wf-stage[data-standing="saved"] {
+  --stage-hue: var(--status-completed-success);
 }
 
-.armada-wf-frame__band {
+.armada-wf-stage__band {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background: var(--frame-hue);
+  background: var(--stage-hue);
   color: var(--fg-inverse);
 }
 
-.armada-wf-frame__state,
-.armada-wf-frame__mark {
+.armada-wf-stage__state,
+.armada-wf-stage__mark {
   display: inline-flex;
   align-items: center;
 }
 
-.armada-wf-frame__eyebrow {
+.armada-wf-stage__eyebrow {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
@@ -221,7 +167,7 @@
   text-transform: uppercase;
 }
 
-.armada-wf-frame__name {
+.armada-wf-stage__name {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -232,12 +178,22 @@
   line-height: var(--leading-2xs);
 }
 
-.armada-wf-frame__body {
+.armada-wf-stage__acts {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-  padding: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.armada-wf-stage__end {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.armada-wf-stage > .armada-alert {
+  margin: 0 var(--space-3);
 }
 
 .armada-wf-refusals {
@@ -261,130 +217,29 @@
   color: var(--fg-muted);
 }
 
-.armada-wf-head {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
-  gap: var(--space-3);
-  align-items: start;
+/* React Flow measures its own frame, so the canvas takes a height and never a
+   share of one — `.armada-workflow-tab__canvas`'s reason. */
+.armada-wf-stage__canvas {
+  flex: none;
+  height: calc(var(--h-workflow-canvas) * 1.5);
 }
 
-.armada-wf-steps {
+.armada-wf-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-wf-step {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--bg-raised);
-}
-
-/* A step the refusals name takes the caution edge. */
-.armada-wf-step[data-refused] {
-  border-color: var(--notice-caution);
-}
-
-.armada-wf-step__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-}
-
-.armada-wf-step[data-refused] .armada-wf-step__band {
-  background: var(--notice-caution);
-  color: var(--fg-inverse);
-}
-
-.armada-wf-step__order,
-.armada-wf-step__name {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-wf-step__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--fg-default);
-}
-
-.armada-wf-step[data-refused] .armada-wf-step__name {
-  color: var(--fg-inverse);
-}
-
-.armada-wf-step__act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.armada-wf-step__act:hover {
-  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
-}
-
-.armada-wf-step__act:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-wf-step__body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr));
-  gap: var(--space-3);
-  align-items: start;
-  min-width: 0;
   padding: var(--space-3);
-  font-family: var(--font-mono);
 }
 
-.armada-wf-step__wide {
-  grid-column: 1 / -1;
-}
-
-.armada-wf-step__gate {
+.armada-wf-panel__gate {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
-  grid-column: 1 / -1;
 }
 
-.armada-wf-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-}
-
-.armada-wf-foot__file {
+.armada-wf-panel__fact {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
-}
-
-.armada-wf-foot__acts {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-left: auto;
 }
