@@ -13,7 +13,7 @@
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
+use api::{Authoring, Refusal};
 use ipc::{SaveWorkflow, WireError, WireValue, WorkflowSaved};
 
 use crate::daemon::Fleet;
@@ -40,8 +40,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `save_workflow` — check, write, and hold.
-    pub(crate) fn save_workflow_file(
+    /// Check, write, and hold.
+    fn save_workflow_file(
         &self,
         asked: SaveWorkflow,
         served: &Served,
@@ -125,5 +125,26 @@ where
                 .with_field("file", WireValue::Str(file)),
             ),
         }
+    }
+}
+
+impl<H, V, W> Authoring for Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// **Not `Arc`**, for `Commands::save_manifest_file`'s reason: the file is on
+    /// disk, and held, when this answers.
+    async fn save_workflow(
+        &self,
+        asked: SaveWorkflow,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<WorkflowSaved, Refusal> {
+        self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
 }

@@ -12,8 +12,8 @@
 //! one id would refuse the repository. Without `overwrite` that is a refusal;
 //! with it, the file that held the id is the one replaced.
 //!
-//! **It is written beside and renamed over**, so a watch or a start reading the
-//! folder sees the old file or the new and never half of one.
+//! **Written beside and renamed over**, so a watch or a start reading the folder
+//! sees the old file or the new and never half of one.
 
 use std::path::{Path, PathBuf};
 

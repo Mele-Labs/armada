@@ -7,7 +7,7 @@ use axum::response::Response;
 use ipc::{AddRepository, CloneRepository};
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::{Authoring, Commands, Queries};
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -59,7 +59,7 @@ pub(crate) async fn clone_repository<D: Commands>(
 /// Check one workflow definition against the repository and write it in the
 /// scope named — protocol 23.26. **200 and not 201**, for `save_manifest_file`'s
 /// reason: the file is on disk and held when this answers.
-pub(crate) async fn save_workflow<D: Commands>(
+pub(crate) async fn save_workflow<D: Authoring>(
     State(served): State<Served<D>>,
     Query(scope): Query<InManifest>,
     body: Bytes,

@@ -269,22 +269,6 @@ impl Commands for FakeDaemon {
             at: ipc::Instant::carried("2026-09-12T09:00:00.000Z"),
         })
     }
-    /// The scope and the id's length echoed so a route test can tell the body
-    /// arrived. Nothing is written: what a save does is `fleet::authoring`'s and
-    /// `armada::authoring`'s, tested against real files.
-    async fn save_workflow(
-        &self,
-        save: ipc::SaveWorkflow,
-        _manifest_id: Option<ipc::ManifestId>,
-    ) -> Result<ipc::WorkflowSaved, Refusal> {
-        Ok(ipc::WorkflowSaved {
-            workflow_id: ipc::WorkflowId::carried("01WF"),
-            scope: save.scope,
-            file: String::from("bug.json"),
-            replaced: save.overwrite,
-            runs_from: None,
-        })
-    }
     /// The edits counted into the answer so a route test can tell the body
     /// arrived. Nothing is placed: what edits do to a file is
     /// `config::amend`'s, and `fleet::amending`'s against a real one.
