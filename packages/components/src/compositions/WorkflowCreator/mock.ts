@@ -1,9 +1,12 @@
-// The list and the definitions the Workflow creator mock opens on. Invented to
-// show every state the list has: a carried definition, one shadowed by Kit, one
-// shadowed by the repository, a Kit file and a repository file of their own,
-// and a Kit file set aside. Delete with the mock.
+// What the mock Fleet answers the Workflow creator with. Invented to show every
+// state the list has: a carried definition, one shadowed by Kit, one shadowed by
+// the repository, a Kit file and a repository file of their own, and a Kit file
+// set aside. The fixtures are written as definitions and handed over the way
+// Fleet hands them: a row each, the left-out files, and each definition's text.
+// Delete with the mock.
 
-import type { Definition, Entry, Gate, Step } from "./def";
+import { resolve, type Definition, type Entry, type Gate, type Step } from "./def";
+import { writeDefinition, type LeftOutRow, type WorkflowRow, WIRE_OF_SOURCE } from "./json";
 
 export const MOCK_REPOSITORY = "armada";
 
@@ -27,7 +30,7 @@ function step(id: string, over: Partial<Omit<Step, "id">> = {}): Step {
 }
 
 
-export const MOCK_ENTRIES: readonly Entry[] = [
+const MOCK_ENTRIES: readonly Entry[] = [
   { key: "carried/feature", id: "feature", source: "carried", file: "feature" },
   { key: "carried/bug", id: "bug", source: "carried", file: "bug" },
   { key: "carried/design_plan", id: "design_plan", source: "carried", file: "design_plan" },
@@ -45,7 +48,7 @@ export const MOCK_ENTRIES: readonly Entry[] = [
 ];
 
 /** The definitions behind each editable row, by key. A carried one is edited as a copy. */
-export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
+const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
   "carried/feature": {
     id: "feature",
     scope: "kit",
@@ -134,3 +137,38 @@ export const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
     ],
   },
 };
+
+/** Fleet's own spelling of a file: a bracketed name where Armada carries it. */
+const fileOf = (one: Entry) => (one.source === "carried" ? `[${one.file}]` : one.file);
+
+/** `GET /workflows`: the definition that runs for each id, and the ones it replaces. */
+export const MOCK_WORKFLOWS: readonly WorkflowRow[] = (() => {
+  const resolved = resolve(MOCK_ENTRIES);
+  return resolved
+    .filter((one) => one.leftOut === undefined && one.overriddenBy === undefined)
+    .map((one) => {
+      const under = resolved.filter((other) => other.id === one.id && other.overriddenBy !== undefined);
+      return {
+        id: one.id,
+        source: WIRE_OF_SOURCE[one.source],
+        file: fileOf(one),
+        ...(under.length === 0 ? {} : { overrides: under.map((other) => ({ source: WIRE_OF_SOURCE[other.source], file: fileOf(other) })) }),
+      };
+    });
+})();
+
+/** `GET /workflows/left_out`. */
+export const MOCK_LEFT_OUT: readonly LeftOutRow[] = MOCK_ENTRIES.filter((one) => one.leftOut !== undefined).map((one) => ({
+  id: one.id,
+  source: WIRE_OF_SOURCE[one.source],
+  file: one.file,
+  said: one.leftOut ?? "",
+}));
+
+/** `GET /workflows/definition`: each definition's text, by `<source>/<id>` with the source as Fleet spells it. */
+export const MOCK_DEFINITION_TEXT: Readonly<Record<string, string>> = Object.fromEntries(
+  MOCK_ENTRIES.filter((one) => one.leftOut === undefined).map((one) => [
+    `${WIRE_OF_SOURCE[one.source]}/${one.id}`,
+    writeDefinition(MOCK_DEFINITIONS[one.key]!),
+  ]),
+);

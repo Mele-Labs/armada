@@ -199,7 +199,16 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/HeldWorktree/HeldWorktree";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
-export { MOCK_DEFINITIONS, MOCK_ENTRIES, MOCK_MANIFESTS, MOCK_REPOSITORY } from "./compositions/WorkflowCreator/mock";
+export {
+  MOCK_DEFINITION_TEXT,
+  MOCK_LEFT_OUT,
+  MOCK_MANIFESTS,
+  MOCK_REPOSITORY,
+  MOCK_WORKFLOWS,
+} from "./compositions/WorkflowCreator/mock";
+export { entriesOf, readDefinition, writeDefinition } from "./compositions/WorkflowCreator/json";
+export type { Definition as WorkflowDefinitionDraft, Entry as WorkflowEntry, Read as WorkflowRead, Saved as WorkflowSavedAnswer } from "./compositions/WorkflowCreator/def";
+export { KIT as WORKFLOW_KIT } from "./compositions/WorkflowCreator/def";
 
 // What one Job holds on the machine, and the act that goes and looks. Not a
 // debug panel: the first thing on it is a sentence answering *is this working*,

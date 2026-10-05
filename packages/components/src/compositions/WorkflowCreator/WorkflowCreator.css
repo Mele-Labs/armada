@@ -245,6 +245,11 @@
   cursor: pointer;
 }
 
+/* Fleet's own sentence, with no field to open. */
+span.armada-wf-refusal {
+  cursor: auto;
+}
+
 .armada-wf-refusal:hover span {
   text-decoration: underline;
 }

@@ -1,10 +1,11 @@
-// What the Workflow creator draws, and the rules it refuses a definition on.
-// **A mock.** Nothing here reads a file or asks Fleet: the list, the
-// definitions and the refusals are written down so the screen can be walked
-// before anything real is built. The shapes follow
-// `crates/core-model/domain/workflowdef-fields.toml`, the refusals follow the
-// load-time rules that file names, and the three gate settings follow
-// `docs/concepts/workflow.md`, *A step's gate is three settings*.
+// What the Workflow creator draws, and the refusals it can give before Fleet
+// does. Nothing here reads a file or asks Fleet: `json.ts` turns a definition's
+// text into this model and back, and the surface supplies the text. The shapes
+// follow `crates/core-model/domain/workflowdef-fields.toml`, and the three gate
+// settings follow `docs/concepts/workflow.md`, *A step's gate is three
+// settings*. **Fleet's loader is the authority on every other refusal**; a rule
+// is written here only where it is the loader's own, so a save is never refused
+// here for something Fleet would take.
 
 /** Where a definition comes from, least specific first. The most specific wins by id. */
 export type Source = "carried" | "kit" | "repository";
@@ -22,28 +23,29 @@ export const SOURCE_DIR: Record<Source, string> = {
   repository: ".armada/workflows",
 };
 
-export const EVIDENCE = ["diff", "failing_test", "facts_note", "test_suite_run", "bundle", "document"] as const;
-export type Evidence = (typeof EVIDENCE)[number];
+export const EVIDENCE = ["diff", "failing_test", "facts_note", "test_suite_run", "bundle", "document", "plan", "review"] as const;
 
+/** The mechanical checks a step may name, and `none` for one that names none. */
 export const CHECKS = [
   "none",
   "diff_nonempty",
   "artifact_exists",
   "manifest_check",
   "every_manifest_check",
-  "test_run",
   "plan_recorded",
+  "test_run",
+  "pr_merged",
 ] as const;
-export type Check = (typeof CHECKS)[number];
 
 /** Three independent settings and a fourth state that stands in for all three. */
 export type Gate = { checks: boolean; judge: boolean; you: boolean; repository: boolean };
 
 export type Step = {
   id: string;
-  evidence: Evidence;
-  /** The one mechanical check this mock draws. */
-  check: Check;
+  /** What the step hands in. Empty is a step that hands in nothing. */
+  evidence: string;
+  /** The first mechanical check the step names, or `none`. */
+  check: string;
   /** The Judge's yes/no question. Empty is no Judge check. */
   judge: string;
   gate: Gate;
@@ -52,6 +54,8 @@ export type Step = {
   returnsTo: string;
   /** How many passes the back edge may make. Read only where `returnsTo` is set. */
   iterationCap: number;
+  /** The step as its file wrote it. A key the editor does not own goes back out unchanged. */
+  carried?: Record<string, unknown>;
 };
 
 /** A workflow is its steps. Any step may send the work back to an earlier one. */
@@ -59,7 +63,15 @@ export type Definition = {
   id: string;
   scope: Scope;
   steps: Step[];
+  /** The file's other top-level keys, which go back out unchanged. */
+  carried?: Record<string, unknown>;
 };
+
+/** What opening a file answers: its definition, or the reason it cannot be drawn. */
+export type Read = { ok: true; def: Definition } | { ok: false; said: string };
+
+/** What a save answers. `exists` is Fleet's refusal that a definition is already there, which a second press may replace. */
+export type Saved = { ok: true } | { ok: false; said: string; exists?: true };
 
 /** One row of the list: a file Fleet found, and what became of it. */
 export type Entry = {
@@ -102,35 +114,29 @@ export type Refusal = {
   field: string;
 };
 
-const NAME = /^[a-z][a-z0-9_]*$/;
-
 /**
- * The refusals the loader would give this definition. `taken` is the ids of the
- * other files in the place it would be written to: a repository's own is
- * strict about a shared id, and Kit sets both aside.
+ * The refusals Fleet's loader gives that need no Fleet to know. `taken` is gone
+ * and so is the lowercase rule on ids: whether an id is already a file in the
+ * place it is written, and what a file may be called, are Fleet's to say.
  */
-export function refusalsOf(def: Definition, taken: readonly string[]): Refusal[] {
+export function refusalsOf(def: Definition): Refusal[] {
   const out: Refusal[] = [];
   if (def.id === "") out.push({ where: "id", why: "Empty", field: "Workflow id" });
-  else if (!NAME.test(def.id)) out.push({ where: "id", why: "Lowercase letters, digits and underscores, starting with a letter", field: "Workflow id" });
-  else if (taken.includes(def.id)) {
-    out.push({ where: "id", why: def.scope === KIT ? "Another Kit file has this id" : "Another file in .armada/workflows has this id", field: "Workflow id" });
-  }
   if (def.steps.length === 0) out.push({ where: "steps", why: "At least one step", field: "Add step" });
 
   const seen = new Set<string>();
   def.steps.forEach((step, at) => {
     const n = at + 1;
     if (step.id === "") out.push({ where: `steps[${n}].id`, why: "Empty", step: at, field: "Step id" });
-    else if (!NAME.test(step.id)) out.push({ where: `steps[${n}].id`, why: "Lowercase letters, digits and underscores", step: at, field: "Step id" });
     else if (seen.has(step.id)) out.push({ where: `steps[${n}].id`, why: `Duplicate step name ${step.id}`, step: at, field: "Step id" });
     seen.add(step.id);
 
-    if (step.gate.checks && step.check === "none") {
-      out.push({ where: `steps[${n}].gate`, why: "Checks ticked and the step names no check", step: at, field: "Check" });
-    }
-    if (step.gate.judge && step.judge.trim() === "") {
+    // A Judge gate with no question reads as no Judge at all, and the loader refuses a gate that names one without the other.
+    if (step.gate.judge && !step.gate.you && !step.gate.repository && step.judge.trim() === "") {
       out.push({ where: `steps[${n}].judge_checks`, why: "Judge ticked and the step names no question", step: at, field: "Judge question" });
+    }
+    if (!Number.isInteger(step.retryLimit) || step.retryLimit < 0) {
+      out.push({ where: `steps[${n}].retry_limit`, why: "A whole number, 0 or more", step: at, field: "Retries" });
     }
     if (step.returnsTo !== "") {
       const to = def.steps.findIndex((one) => one.id === step.returnsTo);
@@ -139,8 +145,8 @@ export function refusalsOf(def: Definition, taken: readonly string[]): Refusal[]
       } else if (to >= at) {
         out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not before ${displayId(step, n)}`, step: at, field: "Sends work back to" });
       }
-      if (!Number.isInteger(step.iterationCap) || step.iterationCap < 1) {
-        out.push({ where: `steps[${n}].iteration_cap`, why: "At least 1", step: at, field: "Passes" });
+      if (!Number.isInteger(step.iterationCap) || step.iterationCap < 0) {
+        out.push({ where: `steps[${n}].iteration_cap`, why: "A whole number, 0 or more", step: at, field: "Passes" });
       }
     }
   });
@@ -156,27 +162,6 @@ export function fileOf(def: Pick<Definition, "id" | "scope">, current: string): 
   const name = def.id === "" ? "…" : def.id;
   if (def.scope === KIT) return `${SOURCE_DIR.kit}/${name}.json`;
   return `${def.scope === current ? "" : `${def.scope}/`}${SOURCE_DIR.repository}/${name}.json`;
-}
-
-/** The draft as plain text, for Helm to read. */
-export function textOf(def: Definition): string {
-  return JSON.stringify(
-    {
-      workflow_id: def.id,
-      steps: def.steps.map((step, at) => ({
-        id: step.id,
-        order: at + 1,
-        evidence: { submitted: { type: step.evidence } },
-        mechanical_checks: step.check === "none" ? [] : [{ type: step.check }],
-        judge_checks: step.judge === "" ? [] : [{ enabled: true, question: step.judge }],
-        gate: step.gate,
-        retry_limit: step.retryLimit,
-        ...(step.returnsTo === "" ? {} : { verdict_routing: step.returnsTo, iteration_cap: step.iterationCap }),
-      })),
-    },
-    null,
-    2,
-  );
 }
 
 export function blankStep(): Step {

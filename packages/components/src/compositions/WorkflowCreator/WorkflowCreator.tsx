@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,15 +21,17 @@ import {
   refusalsOf,
   resolve,
   SOURCE_RANK,
-  textOf,
   type Definition,
   type Entry,
   type Gate,
+  type Read,
   type Refusal,
   type Resolved,
+  type Saved,
   type Source,
   type Step,
 } from "./def";
+import { writeDefinition } from "./json";
 
 /**
  * The Workflow creator: the workflows Fleet resolved for this repository as a
@@ -37,8 +39,8 @@ import {
  * on the Job's own canvas, a step that sends work back as a back edge. A step
  * or the workflow's own settings open in the app's one overlay panel.
  *
- * **A mock.** It reads nothing and writes nothing: `entries` and `definitions`
- * are the whole of what it knows.
+ * It reads and writes nothing itself: `onRead` answers a row's definition and
+ * `onSave` writes one, and what Fleet says of a save is shown as it said it.
  */
 export type WorkflowCreatorProps = {
   /** The Manifest the window is in: where a new definition is written until another is picked. */
@@ -46,8 +48,10 @@ export type WorkflowCreatorProps = {
   /** Every Manifest a definition may be written to, beside Kit. */
   manifests: readonly string[];
   entries: readonly Entry[];
-  /** The definition behind each editable entry, by its key. */
-  definitions: Readonly<Record<string, Definition>>;
+  /** One file's definition, for a row's graph and for opening it. */
+  onRead: (entry: Entry) => Promise<Read>;
+  /** Write the draft. `overwrite` is sent only once Fleet has said a definition is already there. */
+  onSave: (def: Definition, overwrite: boolean) => Promise<Saved>;
   /** Hand the draft to Helm, which can author one too. */
   onDiscuss?: (draft: string) => void;
 };
@@ -61,6 +65,8 @@ type Open = {
   standing: Standing;
   refusals: Refusal[];
   handed: boolean;
+  /** Fleet said a definition of this id is there, so the next Save replaces it. */
+  replaces?: true;
 };
 
 /** What is open in the panel: the workflow's own settings, or one step. */
@@ -112,7 +118,7 @@ export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
 /** What the step is, a labelled line each: its evidence, then every way it advances. */
 export function detailsOf(step: Step): WorkflowStepDetail[] {
   const g = step.gate;
-  const rows: WorkflowStepDetail[] = [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
+  const rows: WorkflowStepDetail[] = step.evidence === "" ? [] : [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
   if (g.repository) return [...rows, { icon: GATE.repository.icon, label: GATE.repository.said }];
   if (g.checks) rows.push({ icon: GATE.checks.icon, label: GATE.checks.said, value: step.check === "none" ? "none named" : step.check });
   if (g.judge) rows.push({ icon: GATE.judge.icon, label: GATE.judge.said, value: step.judge.trim() === "" ? "no question" : step.judge });
@@ -169,71 +175,89 @@ function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: 
   return { nodes, edges };
 }
 
-export function WorkflowCreator({
-  repository,
-  manifests,
-  entries: given,
-  definitions: known,
-  onDiscuss,
-}: WorkflowCreatorProps) {
-  const [entries, setEntries] = useState<readonly Entry[]>(given);
-  const [definitions, setDefinitions] = useState<Readonly<Record<string, Definition>>>(known);
+export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss }: WorkflowCreatorProps) {
+  const [definitions, setDefinitions] = useState<Readonly<Record<string, Definition>>>({});
   const [open, setOpen] = useState<Open | null>(null);
   const [picked, setPicked] = useState<Entry | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
+  const asked = useRef(new Set<string>());
+  const opening = useRef(0);
+
+  // Every row draws its graph, so every definition is read once, as the list arrives.
+  useEffect(() => {
+    for (const entry of entries) {
+      if (entry.leftOut !== undefined || asked.current.has(entry.key)) continue;
+      asked.current.add(entry.key);
+      void onRead(entry).then((read) => {
+        if (read.ok) setDefinitions((was) => ({ ...was, [entry.key]: read.def }));
+      });
+    }
+  }, [entries, onRead]);
 
   const listed: Resolved[] = resolve(entries).sort(
     (a, b) => a.id.localeCompare(b.id) || SOURCE_RANK[b.source] - SOURCE_RANK[a.source],
   );
 
-  function begin(entry: Resolved) {
+  async function begin(entry: Resolved) {
+    const turn = ++opening.current;
     setPicked(entry);
     setPanel(null);
-    const held = definitions[entry.key];
-    if (entry.leftOut !== undefined || held === undefined) {
-      setOpen(null);
+    setOpen(null);
+    if (entry.leftOut !== undefined) return;
+    const read = definitions[entry.key] === undefined ? await onRead(entry) : ({ ok: true, def: definitions[entry.key]! } as const);
+    if (turn !== opening.current) return;
+    // A file Fleet holds and this cannot draw says why, as a left-out one does.
+    if (!read.ok) {
+      setPicked({ ...entry, leftOut: read.said });
       return;
     }
-    const def = copy(held);
+    const def = copy(read.def);
     // A carried definition is edited as a copy, written to the Manifest the window is in.
-    if (entry.source === "carried") def.scope = repository;
-    if (entry.source === "kit") def.scope = KIT;
-    if (entry.source === "repository") def.scope = repository;
+    def.scope = entry.source === "kit" ? KIT : repository;
     setOpen({ from: entry.key, def, standing: "draft", refusals: [], handed: false });
   }
 
   function change(next: (def: Definition) => Definition) {
-    setOpen((was) =>
-      was === null ? was : { ...was, def: next(was.def), standing: "draft", refusals: [], handed: false },
-    );
+    setOpen((was) => {
+      if (was === null) return was;
+      const { replaces: _asked, ...kept } = was;
+      return { ...kept, def: next(was.def), standing: "draft", refusals: [], handed: false };
+    });
   }
 
-  function save() {
+  async function save() {
     if (open === null) return;
     const { def } = open;
     const source: Source = def.scope === KIT ? "kit" : "repository";
     const key = `${source}/${def.id}`;
     const here = def.scope === KIT || def.scope === repository;
-    const taken = entries
-      .filter((one) => here && one.source === source && one.key !== open.from && one.leftOut === undefined)
-      .map((one) => one.id);
-    const refusals = refusalsOf(def, taken);
+    const refusals = refusalsOf(def);
     if (refusals.length > 0) {
       setOpen({ ...open, standing: "refused", refusals });
       return;
     }
+    // Saving the file that was opened replaces it, which is the point; any other id asks first.
+    const answer = await onSave(def, open.from === key || open.replaces === true);
+    if (!answer.ok) {
+      setOpen({
+        ...open,
+        standing: "refused",
+        refusals: [{ where: "save", why: answer.said, field: "" }],
+        handed: open.handed,
+        ...(answer.exists === true ? { replaces: true as const } : {}),
+      });
+      return;
+    }
     if (here) {
-      const entry: Entry = { key, id: def.id, source, file: `${def.id}.json` };
-      setEntries((was) => (was.some((one) => one.key === key) ? was.map((one) => (one.key === key ? entry : one)) : [...was, entry]));
       setDefinitions((was) => ({ ...was, [key]: copy(def) }));
-      setPicked(entry);
+      setPicked({ key, id: def.id, source, file: `${def.id}.json` });
     }
     setOpen({ ...open, from: here ? key : open.from, standing: "saved", refusals: [], handed: open.handed });
   }
 
   function discuss() {
     if (open === null) return;
-    onDiscuss?.(textOf(open.def));
+    onDiscuss?.(writeDefinition(open.def));
     setOpen({ ...open, handed: true });
   }
 
@@ -254,7 +278,7 @@ export function WorkflowCreator({
         </div>
         <ul className="armada-wf-rows" aria-label="Workflow files">
           {listed.map((entry) => (
-            <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => begin(entry)} />
+            <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => void begin(entry)} />
           ))}
         </ul>
       </section>
@@ -272,7 +296,7 @@ export function WorkflowCreator({
           panel={panel}
           onPanel={setPanel}
           onChange={change}
-          onSave={save}
+          onSave={() => void save()}
           onDiscuss={onDiscuss === undefined ? undefined : discuss}
         />
       )}
@@ -457,10 +481,14 @@ function Stage({
           <ul className="armada-wf-refusals" aria-label="Refusals">
             {refusals.map((one, i) => (
               <li key={i}>
-                <button type="button" className="armada-wf-refusal" onClick={() => fix(one)}>
-                  <code>{`${one.step === undefined ? "Workflow" : stepName(def.steps[one.step], one.step)} · ${one.field}`}</code>
-                  <span>{one.why}</span>
-                </button>
+                {one.field === "" ? (
+                  <span className="armada-wf-refusal">{one.why}</span>
+                ) : (
+                  <button type="button" className="armada-wf-refusal" onClick={() => fix(one)}>
+                    <code>{`${one.step === undefined ? "Workflow" : stepName(def.steps[one.step], one.step)} · ${one.field}`}</code>
+                    <span>{one.why}</span>
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -511,6 +539,11 @@ function Stage({
       )}
     </section>
   );
+}
+
+/** The words a select offers, and the one the file holds where it is not among them, so opening a file never changes it. */
+function withHeld(offered: readonly string[], held: string): string[] {
+  return held === "" || offered.includes(held) ? [...offered] : [...offered, held];
 }
 
 function stepName(step: Step | undefined, at: number): string {
@@ -583,15 +616,16 @@ function StepFields({
         invalid={refused && step.id === ""}
         onChange={(event) => onChange({ id: event.target.value })}
       />
-      <Select label="Evidence" value={step.evidence} onChange={(event) => onChange({ evidence: event.target.value as Step["evidence"] })}>
-        {EVIDENCE.map((one) => (
+      <Select label="Evidence" value={step.evidence} onChange={(event) => onChange({ evidence: event.target.value })}>
+        <option value="" />
+        {withHeld(EVIDENCE, step.evidence).map((one) => (
           <option key={one} value={one}>
             {one}
           </option>
         ))}
       </Select>
-      <Select label="Check" value={step.check} onChange={(event) => onChange({ check: event.target.value as Step["check"] })}>
-        {CHECKS.map((one) => (
+      <Select label="Check" value={step.check} onChange={(event) => onChange({ check: event.target.value })}>
+        {withHeld(CHECKS, step.check).map((one) => (
           <option key={one} value={one}>
             {one}
           </option>
@@ -640,7 +674,7 @@ function StepFields({
           label="Passes"
           mono
           type="number"
-          min={1}
+          min={0}
           value={step.iterationCap}
           onChange={(event) => onChange({ iterationCap: event.target.valueAsNumber })}
         />
