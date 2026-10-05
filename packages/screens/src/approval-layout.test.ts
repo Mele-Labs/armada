@@ -1,4 +1,4 @@
-// The approval canvas laid in lanes: a gate on its step's row, a fan under its
+// The approval canvas laid in lanes: a gate's stages under their step, a fan under its
 // step, every lane as tall as the deepest, and an edge across lanes turning in
 // the gutter between them.
 
@@ -33,10 +33,13 @@ const run = () => {
 };
 
 describe("layoutOf", () => {
-  it("hangs a gate on its step's row, beside it", () => {
+  it("stands a gate's stage on the spine under its step, close under it", () => {
     const { places } = run();
-    expect(places.get("plan:checks")?.y).toBe(places.get("plan")?.y);
-    expect(places.get("plan:checks")!.x).toBeGreaterThan(places.get("plan")!.x);
+    // Inset: narrower than the step, on the same spine.
+    expect(places.get("plan:judge")!.x + 216 / 2).toBe(places.get("plan")!.x + 260 / 2);
+    const gap = places.get("plan:judge")!.y - places.get("plan")!.y - 112;
+    expect(gap).toBeGreaterThan(0);
+    expect(gap).toBeLessThan(places.get("implement")!.y - places.get("plan:judge")!.y - 44);
   });
 
   it("fans a step's groups across one row under it, and frames them", () => {
@@ -62,6 +65,6 @@ describe("layoutOf", () => {
     const into = edges.find((edge) => edge.source === "base" && edge.target === "plan");
     expect(into?.via).toBeGreaterThan(setup.x + setup.width);
     expect(into?.via).toBeLessThan(work.x);
-    expect(edges.find((edge) => edge.source === "plan" && edge.target === "plan:checks")?.via).toBeUndefined();
+    expect(edges.find((edge) => edge.source === "plan" && edge.target === "plan:judge")?.via).toBeUndefined();
   });
 });

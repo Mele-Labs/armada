@@ -18,6 +18,7 @@ import type {
   LessonAnswer,
   LessonState,
   LessonsRead,
+  Outcome,
   RecordAct,
   RecordAsked,
   RecordCheck,
@@ -121,6 +122,15 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
     ...(record.notes ?? []).map(said),
   ];
   return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** The record rows these cites name, in the order cited. One the record does not hold is left out. */
+export function citesOf(retro: JobRetro, cites: readonly string[]): RetroCite[] {
+  const rows = rowsOf(retro.record);
+  return cites.flatMap((cite) => {
+    const row = rows.get(cite);
+    return row === undefined ? [] : [row];
+  });
 }
 
 /** A sheet's item with where it stands, which `useAnswers` reads and the sheet does not draw. */
@@ -324,6 +334,50 @@ export function useAnswers(
         ...(why === undefined ? {} : { refusal: why }),
       },
     };
+  };
+}
+
+/** Where one Job's retro stands on the Retros list: out, read, or failed. */
+export type JobRead = { state: "pending" } | { state: "read"; retro: JobRetro } | { state: "failed"; outcome: Outcome };
+
+/**
+ * The retros the Retros list's Evidence controls read, **each Job at most once**
+ * and shared by that Job's items. Held by the screen, not globally, and dropped
+ * when the window comes back to the front, as the list's own read is asked
+ * again then. A failed read is not kept: pressing again asks again.
+ */
+export function useJobRetros(read: ReadRetro): { of: (jobId: string) => JobRead | undefined; ask: (jobId: string) => void } {
+  const [held, setHeld] = useState<Record<string, JobRead>>({});
+  // What is out or answered, and which generation asked: a drop makes earlier answers stale.
+  const asked = useRef(new Set<string>());
+  const generation = useRef(0);
+  const latest = useRef(read);
+  latest.current = read;
+  useEffect(() => {
+    const drop = () => {
+      generation.current += 1;
+      asked.current = new Set();
+      setHeld({});
+    };
+    window.addEventListener("focus", drop);
+    return () => window.removeEventListener("focus", drop);
+  }, []);
+  return {
+    of: (jobId) => held[jobId],
+    ask: (jobId) => {
+      if (asked.current.has(jobId)) return;
+      asked.current.add(jobId);
+      const mine = generation.current;
+      setHeld((was) => ({ ...was, [jobId]: { state: "pending" } }));
+      void latest.current(jobId).then((answer) => {
+        if (mine !== generation.current) return;
+        if (!answer.ok) asked.current.delete(jobId);
+        setHeld((was) => ({
+          ...was,
+          [jobId]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
+        }));
+      });
+    },
   };
 }
 

@@ -59,10 +59,12 @@ import type {
   HeldWorktrees,
   JobSummary,
   Outcome,
+  RescueSlot,
   WorktreeReclaimed,
 } from "@armada/protocol";
 import { said } from "./copy";
 import { SlotPools } from "./SlotPools";
+import type { RescueOutcome } from "./slot-rescue";
 import {
   choiceOf,
   chosenRows,
@@ -146,7 +148,12 @@ export type WorktreesProps = {
   onOpenJob: (jobId: string) => void;
   /** Add, remove, close or reopen one slot of a repository's pool. Absent draws no acts. */
   onChangeSlotPool?: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
+  /** Start or stop a rescue of a stranded slot, or Scrap or Stash it. Absent draws none of its acts. */
+  onRescueSlot?: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
 };
+
+/** How often the pool is read again while a Scout reads a slot, so its files arrive as it goes. */
+const RESCUE_READ_MS = 1_000;
 
 /**
  * Every worktree fleet is holding, grouped by what can be done about it.
@@ -170,11 +177,21 @@ export function Worktrees({
   actions,
   onOpenJob,
   onChangeSlotPool,
+  onRescueSlot,
 }: WorktreesProps) {
   useEffect(() => {
     onWant(true);
     return () => onWant(false);
   }, []);
+
+  const scouting =
+    held.state === "read" && (held.held.slots ?? []).some((one) => one.rescue?.state === "reading");
+  // Fleet sends nothing when a Scout reads another file, so the surface asks.
+  useEffect(() => {
+    if (!scouting) return;
+    const timer = setInterval(() => onWant(true), RESCUE_READ_MS);
+    return () => clearInterval(timer);
+  }, [scouting]);
 
   /** What is chosen for each of a row's three acts, by job id. */
   const [choices, setChoices] = useState<Record<string, RowChoice>>({});
@@ -307,6 +324,7 @@ export function Worktrees({
         now={now}
         onOpenJob={onOpenJob}
         {...(onChangeSlotPool === undefined ? {} : { onChange: onChangeSlotPool })}
+        {...(onRescueSlot === undefined ? {} : { onRescue: onRescueSlot })}
       />
 
       {/* Nothing waiting on a person draws nothing: an empty slot stays empty. */}

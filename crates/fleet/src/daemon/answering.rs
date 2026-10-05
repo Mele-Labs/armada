@@ -75,6 +75,7 @@ where
         self.reconciled_checkout_ports().await;
         // A scout does not outlive the Fleet reading it. `crate::scouting`.
         self.scouts_left_gathering().await;
+        self.rescues_left_reading().await;
         // Before any Studio is read: the Links this build reads as an Issue, a
         // Pull request or an Epic. `crate::recognising`.
         let recognised = self.links_recognised().await;

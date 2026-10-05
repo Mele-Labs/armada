@@ -18,7 +18,8 @@
 //! rather than assumed: see [`SETTLE`] for the shapes, and [`watch_every`] for
 //! why the comparison is of contents and not of metadata.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::time::Duration;
 
 use config::{Adopted, LoadError, Moved, Reloads};
@@ -63,8 +64,10 @@ const LATEST: Duration = Duration::from_secs(10);
 /// why the composition root holds it for as long as it serves.
 pub struct Watching {
     /// Held only to keep it alive. Dropping the watcher closes the channel,
-    /// which is what ends [`settling`].
-    _watcher: PollWatcher,
+    /// which is what ends [`settling`]. Behind a lock and an `Arc` so that
+    /// [`arming`] can add a folder that was not there at the start, and ends
+    /// when this is the last holder.
+    _watcher: Arc<Mutex<PollWatcher>>,
     _settling: tokio::task::JoinHandle<()>,
 }
 
@@ -123,8 +126,111 @@ pub(crate) fn watch_every(
         said(reloads.reread())
     }));
     Ok(Watching {
+        _watcher: Arc::new(Mutex::new(watcher)),
+        _settling: settling,
+    })
+}
+
+/// Watch the folders workflow definitions are read from, and call `changed`
+/// once a burst of writes in any of them has settled.
+///
+/// **The same poll, settle and ceiling as the Manifest's**, and for the same
+/// reasons — see [`SETTLE`] for what a save looks like. A folder need not exist
+/// yet: the poller re-resolves the path each round, so a repository's first
+/// definition, which makes `.armada/workflows/`, is seen like any other.
+pub fn watch_folders(
+    folders: Vec<PathBuf>,
+    changed: impl FnMut() + Send + 'static,
+) -> Result<Watching, notify::Error> {
+    watch_folders_every(folders, POLL, SETTLE, changed)
+}
+
+/// The same, at stated intervals — [`watch_every`]'s seam, for the same reason.
+pub(crate) fn watch_folders_every(
+    folders: Vec<PathBuf>,
+    poll: Duration,
+    settle: Duration,
+    changed: impl FnMut() + Send + 'static,
+) -> Result<Watching, notify::Error> {
+    let (arrived_in, arrived) = mpsc::unbounded_channel();
+    let arrived_in_again = arrived_in.clone();
+    let mut watcher = PollWatcher::new(
+        move |event: notify::Result<notify::Event>| {
+            // A stat error is not a change, for `watch_every`'s reason.
+            if event.as_ref().map(carries_a_definition).unwrap_or(false) {
+                let _ = arrived_in.send(());
+            }
+        },
+        Config::default()
+            .with_poll_interval(poll)
+            .with_compare_contents(true),
+    )?;
+    // **A poller will not watch a path that is not there**, so a folder that
+    // does not exist yet waits for [`arming`] and is not an error: a repository
+    // with no `.armada/workflows/` is the ordinary case, and its first
+    // definition is the one most worth noticing.
+    let (here, waiting): (Vec<PathBuf>, Vec<PathBuf>) =
+        folders.into_iter().partition(|folder| folder.is_dir());
+    for folder in &here {
+        watcher.watch(folder, RecursiveMode::NonRecursive)?;
+    }
+    let watcher = Arc::new(Mutex::new(watcher));
+    if !waiting.is_empty() {
+        tokio::spawn(arming(
+            Arc::downgrade(&watcher),
+            waiting,
+            poll,
+            arrived_in_again,
+        ));
+    }
+    let settling = tokio::spawn(settling(arrived, settle, LATEST, changed));
+    Ok(Watching {
         _watcher: watcher,
         _settling: settling,
+    })
+}
+
+/// Start watching each folder as it appears, and say so when it does.
+///
+/// **Appearing is itself a change**: the poller's first look at a folder is a
+/// scan and not a set of events, so a definition already inside it would
+/// otherwise go unnoticed until it was next written. Ends when every folder is
+/// watched, or when the [`Watching`] is dropped.
+async fn arming(
+    watcher: Weak<Mutex<PollWatcher>>,
+    mut waiting: Vec<PathBuf>,
+    poll: Duration,
+    told: mpsc::UnboundedSender<()>,
+) {
+    while !waiting.is_empty() {
+        tokio::time::sleep(poll).await;
+        let Some(watcher) = watcher.upgrade() else {
+            return;
+        };
+        let mut watcher = watcher.lock().unwrap_or_else(PoisonError::into_inner);
+        waiting.retain(|folder| {
+            if !folder.is_dir() {
+                return true;
+            }
+            match watcher.watch(folder, RecursiveMode::NonRecursive) {
+                Ok(()) => {
+                    let _ = told.send(());
+                    false
+                }
+                Err(_) => true,
+            }
+        });
+    }
+}
+
+/// Whether an event is about a file a definition may be in. **By extension**,
+/// the set `setup` reads: a file saved beside and renamed over passes through
+/// a name that is not one, and that is not a change.
+fn carries_a_definition(event: &notify::Event) -> bool {
+    event.paths.iter().any(|path| {
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| crate::setup::DEFINITION_EXTS.contains(&ext))
     })
 }
 

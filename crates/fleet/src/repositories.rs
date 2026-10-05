@@ -24,12 +24,32 @@ mod cloning;
 pub use cloning::{folder_named_by, CLONE_BUDGET};
 
 /// A repository's `armada.yml` and the workflows resolved against it.
+///
+/// **The workflows are the one part that moves while Fleet runs.** A definition
+/// saved or edited under `.armada/workflows/` or Kit's folder is read again and
+/// laid over what was held ([`SetUp::catalogued`]), and a reader takes the whole
+/// set it saw as one value — [`Served::workflows`] — so a Job being created is
+/// never resolved against half of a re-read. The Manifest stays what Fleet
+/// started with: `config::live` is the only thing that moves it.
 #[derive(Clone, Debug)]
 pub struct SetUp {
     manifest: Manifest,
-    workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
-    /// The Kit and carried definitions that would not resolve here.
-    left_out: Vec<ipc::LeftOutWorkflow>,
+    held: Arc<RwLock<Held>>,
+}
+
+/// The workflows a repository runs and the definitions it runs without.
+#[derive(Clone, Debug, Default)]
+struct Held {
+    workflows: Arc<BTreeMap<WorkflowId, ResolvedWorkflow>>,
+    left_out: Arc<Vec<ipc::LeftOutWorkflow>>,
+}
+
+/// What reading the workflow folders again came to, for a Fleet that is
+/// already serving: every definition that fits, and every one set aside.
+#[derive(Debug, Default)]
+pub struct Catalogued {
+    pub workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
+    pub left_out: Vec<ipc::LeftOutWorkflow>,
 }
 
 impl SetUp {
@@ -38,22 +58,44 @@ impl SetUp {
     pub fn of(manifest: Manifest, workflows: BTreeMap<WorkflowId, ResolvedWorkflow>) -> SetUp {
         SetUp {
             manifest,
-            workflows,
-            left_out: Vec::new(),
+            held: Arc::new(RwLock::new(Held {
+                workflows: Arc::new(workflows),
+                left_out: Arc::new(Vec::new()),
+            })),
         }
     }
 
     /// What this repository's catalogue left out, as the wire carries it.
     pub fn leaving_out(self, left_out: Vec<ipc::LeftOutWorkflow>) -> SetUp {
-        SetUp { left_out, ..self }
+        self.held
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .left_out = Arc::new(left_out);
+        self
     }
 
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
 
-    pub fn workflows(&self) -> &BTreeMap<WorkflowId, ResolvedWorkflow> {
-        &self.workflows
+    pub fn workflows(&self) -> Arc<BTreeMap<WorkflowId, ResolvedWorkflow>> {
+        Arc::clone(&self.held().workflows)
+    }
+
+    /// The workflows this repository runs as of a re-read, replacing every one
+    /// held. **Whole, never merged**: a definition whose file is gone is gone.
+    pub(crate) fn catalogued(&self, read: Catalogued) {
+        *self.held.write().unwrap_or_else(PoisonError::into_inner) = Held {
+            workflows: Arc::new(read.workflows),
+            left_out: Arc::new(read.left_out),
+        };
+    }
+
+    fn held(&self) -> Held {
+        self.held
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 }
 
@@ -104,9 +146,45 @@ impl NotLocated {
     }
 }
 
+/// Why a definition was not saved. **Nothing was written** in any of these.
+#[derive(Debug)]
+pub enum WorkflowNotSaved {
+    /// It does not fit this repository: it will not parse, names a model this
+    /// machine does not offer, or names a Check the Manifest does not declare.
+    /// The sentence is the loader's own, with every fault.
+    Unfit { why: String },
+    /// Its `workflow_id` cannot be a file's name.
+    NotAName { id: String },
+    /// This scope already holds `id`, and `overwrite` was not set.
+    Exists { id: String, file: String },
+    /// The folder or the file could not be written.
+    Unwritable { file: String, cause: std::io::Error },
+}
+
+/// A definition written.
+#[derive(Debug)]
+pub struct SavedWorkflow {
+    pub id: WorkflowId,
+    pub file: String,
+    pub replaced: bool,
+}
+
 /// Reading a folder into a repository. **A seam**, because what reads one —
 /// git, `armada.yml`, Kit's workflows — is the composition root's.
 pub trait Locating: Send + Sync {
+    /// Check one definition against `manifest` and this machine's models, and
+    /// write it in `asked.scope` only if it fits. **Checked before anything is
+    /// written**, with the loader's own rules, so what is saved is what would
+    /// load.
+    fn save_workflow(
+        &self,
+        root: &Path,
+        manifest: &Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<SavedWorkflow, WorkflowNotSaved>;
+    /// Read the three places again, leniently: a definition that does not fit
+    /// is set aside with its reason and the rest stand.
+    fn workflows(&self, root: &Path, manifest: &Manifest) -> Catalogued;
     /// Read `folder`. **No side effects**: Fleet may still refuse what comes back.
     fn located(&self, folder: &Path) -> Result<Located, NotLocated>;
     /// Fleet now serves the Manifest at `root`: watch it, and publish what a
@@ -202,12 +280,19 @@ impl Served {
         self.set_up().manifest()
     }
 
-    pub fn workflows(&self) -> &BTreeMap<WorkflowId, ResolvedWorkflow> {
+    /// Every workflow this repository runs, **as one snapshot**: a re-read
+    /// after this call is not seen by it.
+    pub fn workflows(&self) -> Arc<BTreeMap<WorkflowId, ResolvedWorkflow>> {
         self.set_up().workflows()
     }
 
-    pub fn left_out(&self) -> &[ipc::LeftOutWorkflow] {
-        &self.set_up().left_out
+    pub fn left_out(&self) -> Arc<Vec<ipc::LeftOutWorkflow>> {
+        Arc::clone(&self.set_up().held().left_out)
+    }
+
+    /// Lay a re-read of the workflow folders over what this repository holds.
+    pub fn catalogued(&self, read: Catalogued) {
+        self.set_up().catalogued(read);
     }
 
     pub fn repository(&self) -> &Arc<Repository> {

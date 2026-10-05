@@ -808,6 +808,7 @@ where
                 one.workflows()
                     .values()
                     .map(|workflow| workflow_summary(workflow, one.manifest().id()))
+                    .collect::<Vec<_>>()
             })
             .collect())
     }

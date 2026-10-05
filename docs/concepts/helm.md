@@ -20,6 +20,7 @@ Helm is additive to Bridge, not a replacement: Bridge is state-monitoring (what'
 | --- | --- |
 | Cross-Job pattern reasoning | "Why do all my stalled Jobs this week share a cause?" |
 | Natural-language control surface | Talk to it instead of clicking through Bridge / Debug / Pilot UI |
+| Authoring a workflow | Work out with it what a Job should be held to, and end with the definition saved in this repository or in Kit |
 | Planning / dispatch help | Describe a goal, Helm breaks it into candidate Jobs to review and queue |
 
 Cross-Job reasoning covers every Job in the selected Manifest, not one Job at a time. The control surface is for exploratory questions.
@@ -54,6 +55,8 @@ Helm's advantage is not more access than you have. It is reasoning over results 
 
 **Helm gets every query, and of the commands, every one but a person's own.** `../contracts/system-architecture.md`, section 6 carries the inventory of queries, commands and events. `fleet::helm::may` is the line: every read is Helm's, and a command is Helm's when the machine's authority setting allows acting at all and the act is not `undo_run`, the one command reserved to a person regardless of the ask. With action authority set to read-only, Helm is refused every command.
 
+**Helm authors a workflow with the schema in its brief and saves it through the door.** A session opens in a repository that does not carry Armada's own files, so the brief holds what a definition declares, read off `crates/core-model/domain/workflowdef-fields.toml`, and one definition that loads — `../contracts/agent-prompt.md`, section 5a. The write is `save_workflow` and not the built-in `Write`. Fleet checks the definition against this repository's Checks and this machine's models with the loader's own rules, refuses with the reason and writes nothing where it does not fit, and writes it where it does. The person chooses the place: the repository's own `.armada/workflows/`, or Kit's `~/.armada/workflows/` for every repository on the machine. It is an ordinary command on Helm's ask and has no unasked use. [Workflow](workflow.md), *Where a definition comes from*, owns which place wins.
+
 **On a Studio, a few commands are Helm's without an ask**: adding a node that starts proposed, proposing an edge, and naming an untitled Studio — `fleet::helm::reach::UNASKED`, named in the brief. The door cannot tell an ask from its absence, so that line is drawn in the brief and not at the door. See [Studio](studio.md), Helm on a Studio.
 
 **The 8 WebSocket events are Bridge-only.** Why: an agent cannot be interrupted mid-turn.
@@ -82,9 +85,11 @@ Helm may call any command it is offered once you ask it to, in this conversation
 
 | Class | What it is | What it looks like |
 |---|---|---|
-| Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `kill_drone`, `kill_one_drone`, `kill_process`, `delete_branch`, `edit_manifest` |
+| Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `kill_drone`, `kill_one_drone`, `kill_process`, `delete_branch`, `edit_manifest`, `save_workflow` where the call says `overwrite` |
 | Pushes to shared | It sends code where other people read it | `git push`, `gh pr merge`, `cargo publish`, `scp`, `merge_pull_request`, `approve_dispatch` |
 | Writes off this machine | It writes to something that is not this machine | `curl -X POST`, `gh issue create`, `kubectl apply`, `file_finding_issue`, `clone_repository` |
+
+**`save_workflow` is destructive only where it replaces a definition.** Fleet refuses a save that would replace one unless the call carries `overwrite`, so the word is the whole line: a first save is not put to you, and a save that replaces one is. Replacing a definition that a Job has already frozen does not move that Job.
 
 **Auto *unless*, which is why there is no allowlist.** A command Armada does not recognise runs. An allowlist would put you back at a card the first time you ran something nobody had listed, which is the state this exists to end, and the safety is in recognising the risky set rather than enumerating the safe one.
 

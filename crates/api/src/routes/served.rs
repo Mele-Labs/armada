@@ -458,6 +458,13 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/workflows/left_out",
     },
+    // The act in the last segment, beside `/manifest/save_file`'s. Under
+    // `/workflows` with the reads, since what it writes is what they list.
+    Route {
+        operation: "save_workflow",
+        method: "POST",
+        path: "/workflows/save",
+    },
     Route {
         operation: "list_manifests",
         method: "GET",
@@ -482,6 +489,13 @@ const ROUTES: &[Route] = &[
         operation: "change_slot_pool",
         method: "POST",
         path: "/worktrees/slots",
+    },
+    // An act on a stranded slot of that pool: the Scout that reads it, and
+    // what a person then does with the work.
+    Route {
+        operation: "rescue_slot",
+        method: "POST",
+        path: "/worktrees/slots/rescue",
     },
     Route {
         operation: "propose_job",

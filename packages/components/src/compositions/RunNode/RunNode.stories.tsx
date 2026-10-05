@@ -64,3 +64,96 @@ export const Narrow: Story = {
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
   },
 };
+
+/**
+ * A gate stage is a capsule on the spine, not a card: one line, the kind's
+ * glyph, then marks. State is the border and the glyphs' colour.
+ */
+const gate: Story["args"] = { kind: "gate", name: "Checks", id: undefined, traits: [], meta: [] };
+
+/** Checks running: a failed command named inline, the live one's last line under the capsule. */
+export const ChecksRunning: Story = {
+  args: {
+    ...gate,
+    activity: "running",
+    said: "running",
+    state: "live",
+    gate: {
+      kind: "checks",
+      commands: [
+        { name: "build", outcome: "passed" },
+        { name: "typecheck", outcome: "failed" },
+        { name: "test", outcome: "running" },
+        { name: "format", outcome: "waiting" },
+      ],
+      elapsed: "4m 3s",
+      output: "test screens::approval_life::marks_a_gate ... ok",
+    },
+  },
+};
+
+/** Checks passed: a thin, quiet capsule. */
+export const ChecksPassed: Story = {
+  args: {
+    ...gate,
+    activity: "advanced",
+    said: "advanced",
+    state: "done",
+    gate: { kind: "checks", commands: [{ name: "build", outcome: "passed" }, { name: "test", outcome: "passed" }] },
+  },
+};
+
+/** A Judge part-way through a panel of three. */
+export const JudgePartWay: Story = {
+  args: {
+    ...gate,
+    name: "Judge",
+    activity: "running",
+    said: "running",
+    state: "live",
+    gate: { kind: "judge", panel: ["met", "met", "judging"] },
+  },
+};
+
+/** A refusal: the first line beside the marks, on a flat tint. */
+export const JudgeRefused: Story = {
+  args: {
+    ...gate,
+    name: "Judge",
+    activity: "failed",
+    said: "failed",
+    state: "ahead",
+    gate: { kind: "judge", panel: ["met", "not_met", "met"], refusal: "The change adds a second retry loop" },
+  },
+};
+
+/** A human gate, held, and how long it has waited. */
+export const YouHeld: Story = {
+  args: {
+    ...gate,
+    name: "You",
+    activity: "awaiting_human",
+    said: "needs review",
+    state: "ahead",
+    gate: { kind: "you", asking: "Review the change", waited: "23m 3s" },
+  },
+};
+
+/** At the gate, nothing run yet: the setup. */
+export const GateSetUp: Story = {
+  args: {
+    ...gate,
+    name: "You",
+    gate: { kind: "you", asking: "I review it" },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const node = canvas.getByRole("button", { name: "You, not started" });
+    await userEvent.click(node);
+    await expect(args.onOpen).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Before the plan has made its groups: Plan, and when the groups are drawn. */
+export const PlanPlaceholder: Story = {
+  args: { kind: "stack", name: "Plan", line: "Groups drawn once the plan exists", id: undefined, traits: [], onOpen: undefined },
+};
