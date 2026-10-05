@@ -13,11 +13,11 @@ import type { ApprovalNode, Lane } from "./approval-canvas";
 const CARD = { height: 112, width: 260, narrow: 196 };
 
 /** A gate stage, the lighter card between two steps (`RUN_NODE_GATE_HEIGHT`, `RUN_NODE_GATE_WIDTH`). */
-const GATE = { height: 104, width: 228 };
+const GATE = { height: 44, width: 216 };
 
-/** Spine to spine (`--space-12` and `--space-2`), a step to its gate and gate stage to stage (`--space-6`), and the room a way back takes beside the spine (`--space-12`). */
+/** Spine to spine (`--space-12` and `--space-2`), a step to its gate and gate stage to stage (`--space-4`), and the room a way back takes beside the spine (`--space-12`). */
 const ROW_GAP = 56;
-const CHAIN_GAP = 24;
+const CHAIN_GAP = 16;
 const LOOP_ROOM = 64;
 
 /** Across a fan, member to member (`--space-6`). */
