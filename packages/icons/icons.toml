@@ -1251,3 +1251,11 @@
   status = "Proposed"
   reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
   notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."
+
+[icons.anchor]
+  means = "An anchor - a Job that ended and still holds its slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
+  notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."

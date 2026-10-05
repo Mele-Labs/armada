@@ -1,6 +1,6 @@
 // The worktree pool Cleanup draws, one slot in each state: a Job's, a
-// session's, free, two stranded, not made yet, warm and cold, and one behind
-// main. A stranded one can be rescued: a Scout reads it a file at a time.
+// session's, free, two stranded, a killed Job's that kept its slot, not made yet, warm and cold, and one behind
+// main. A stranded or kept one can be rescued: a Scout reads it a file at a time.
 
 import type {
   ChangeSlotPool,
@@ -67,6 +67,33 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
             { sha: "e08c4d1a77", subject: "Write the lease record before the checkout" },
             { sha: "71f29b3d08", subject: "Name the holder in the record" },
             { sha: "c5a6e0f912", subject: "Read the record on start" },
+          ],
+          unpushed: 2,
+        },
+      }),
+      // A killed Job whose release was refused: its work is still in the slot.
+      slot(8, {
+        held: {
+          state: "job",
+          job_id: "01KEPTJOB",
+          job_title: "Retry the manifest read",
+          job_status: "killed",
+          kept: "5 uncommitted, first crates/api/src/routes.rs",
+        },
+        branch: "armada/14-retry-the-manifest-read",
+        since: ago(26 * 60),
+        behind: 3,
+        stranded: {
+          uncommitted: [
+            "crates/api/src/routes.rs",
+            "crates/api/src/routes/served.rs",
+            "crates/fleet/src/manifest.rs",
+            "crates/fleet/src/tests/manifest.rs",
+            "docs/notes/retry.md",
+          ],
+          commits: [
+            { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer" },
+            { sha: "28c7f5d1a3", subject: "Name the manifest in the read error" },
           ],
           unpushed: 2,
         },
@@ -143,6 +170,14 @@ export function reshaped(
 type Scouted = Pick<SlotFinding, "commit" | "uncommitted" | "read" | "searched" | "summary">;
 
 const SCOUTED: Record<number, Scouted> = {
+  8: {
+    commit: "b61d3a0e94",
+    uncommitted: true,
+    read: ["crates/fleet/src/manifest.rs", "crates/api/src/routes.rs"],
+    searched: ["read_manifest in crates/"],
+    summary:
+      "The manifest read retried on a short answer, committed. The route and its test are edited and not committed; the test asserts a retry count the read does not return yet.",
+  },
   4: {
     commit: "9d41e07b2c",
     uncommitted: true,
@@ -186,7 +221,9 @@ export function rescued(
   const refuse = (code: string, message: string) => ({ held, outcome: refusedAs(code, message) as RescueOutcome });
   if (target === undefined) return refuse("fleet.no_such_slot", `no slot-${rescue.slot}`);
   if (target.held.state === "busy") return refuse("fleet.slot_busy", "a lease is under way");
-  if (target.held.state !== "stranded") return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
+  // A Job that ended and kept its slot is rescued as a stranded one is.
+  const holds = target.held.state === "stranded" || (target.held.state === "job" && target.held.kept !== undefined);
+  if (!holds) return refuse("fleet.slot_not_stranded", `slot-${target.slot} is not stranded`);
   const reading = target.rescue?.state === "reading";
   const receipt = { manifest_id: manifestId, slot: target.slot };
   switch (rescue.act) {

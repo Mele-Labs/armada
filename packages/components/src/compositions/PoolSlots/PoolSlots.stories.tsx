@@ -443,3 +443,79 @@ export const RescueNotWired: Story = {
     await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop|Scrap|Stash/ })).toBeNull();
   },
 };
+
+const KEPT: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {
+  held: {
+    state: "job",
+    job_id: "01KEPT",
+    job_title: "Retry the manifest read",
+    job_status: "killed",
+    kept: "5 uncommitted, first crates/api/src/routes.rs",
+  },
+  branch: "armada/14-retry-the-manifest-read",
+  behind: 3,
+  stranded: {
+    uncommitted: ["crates/api/src/routes.rs", "docs/notes/retry.md"],
+    commits: [
+      { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer" },
+      { sha: "28c7f5d1a3", subject: "Name the manifest in the read error" },
+    ],
+    unpushed: 1,
+  },
+};
+
+/**
+ * A Job that ended and kept its slot is its own bay, apart from a live hold and
+ * from a stranded slot: it says Kept and why, as a bare fact, and keeps its
+ * Job's title as a link. A Job still holding with nothing kept stays Held.
+ */
+export const KeptJob: Story = {
+  name: "Kept Job",
+  args: {
+    rows: [
+      { slot: slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" } }) },
+      { slot: slot(8, KEPT), heldFor: "26 hours" },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+    onOpenJob: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(bay(canvas, 1).getByRole("img", { name: "Held" })).toBeInTheDocument();
+    const kept = bay(canvas, 8);
+    await expect(kept.getByRole("img", { name: "Kept: 5 uncommitted, first crates/api/src/routes.rs" })).toBeInTheDocument();
+    await expect(kept.getByText("5 uncommitted, first crates/api/src/routes.rs")).toBeInTheDocument();
+    await expect(kept.queryByRole("img", { name: "Held" })).toBeNull();
+    await userEvent.click(kept.getByRole("button", { name: "Retry the manifest read" }));
+    await expect(args.onOpenJob).toHaveBeenCalledWith("01KEPT");
+    // Rescue is offered on the kept bay alone: the live hold has no work to rescue.
+    await expect(bay(canvas, 1).queryByRole("button", { name: "Rescue" })).toBeNull();
+    await userEvent.click(kept.getByRole("button", { name: "Rescue" }));
+    await expect(args.onRescue).toHaveBeenCalledWith("start", 8);
+  },
+};
+
+/**
+ * The kept bay's rescue is a stranded bay's: its Finding opens on it, Stash
+ * acts at once, and Scrap confirms by naming the files and the unpushed commit.
+ */
+export const KeptJobFinding: Story = {
+  name: "Kept Job finding",
+  args: {
+    rows: [{ slot: slot(8, { ...KEPT, rescue: { ...FOUND, state: "answered", summary: "Route edited, test not." } }) }],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(bay(canvas, 8).getByRole("region", { name: "Finding" })).toHaveTextContent("Route edited, test not.");
+    await userEvent.click(bay(canvas, 8).getByRole("button", { name: "Stash" }));
+    await expect(args.onRescue).toHaveBeenLastCalledWith("stash", 8);
+    await userEvent.click(bay(canvas, 8).getByRole("button", { name: "Scrap" }));
+    const confirm = within(canvas.getByRole("group", { name: "Scrap slot-8" }));
+    await expect(confirm.getByRole("list", { name: "Uncommitted" })).toHaveTextContent("docs/notes/retry.md");
+    await expect(confirm.getByRole("list", { name: "Unpushed" })).toHaveTextContent("Retry the manifest read on a short answer");
+    await expect(confirm.getByRole("list", { name: "Unpushed" })).not.toHaveTextContent("Name the manifest");
+    await userEvent.click(confirm.getByRole("button", { name: "Scrap" }));
+    await expect(args.onRescue).toHaveBeenLastCalledWith("scrap", 8);
+  },
+};

@@ -6,6 +6,7 @@ import {
   FolderPlus,
   FolderX,
   Ghost,
+  Anchor,
   KeyRound,
   LifeBuoy,
   LoaderCircle,
@@ -67,7 +68,7 @@ export type PoolSlotRow = {
 };
 
 /** How a bay is drawn. */
-type Bay = "held" | "busy" | "stranded" | "free" | "ghost";
+type Bay = "held" | "kept" | "busy" | "stranded" | "free" | "ghost";
 
 type State = { bay: Bay; Glyph: LucideIcon; word: string; said: string };
 
@@ -75,6 +76,10 @@ function stateOf(slot: WorktreeSlot): State {
   const held = slot.held;
   switch (held.state) {
     case "job":
+      if (held.kept !== undefined) {
+        return { bay: "kept", Glyph: Anchor, word: "Kept", said: `Kept: ${held.kept}` };
+      }
+      return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
     case "session":
       return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held" };
     case "busy":
@@ -124,10 +129,13 @@ function Holder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob: (jobId: st
   const held = slot.held;
   if (held.state === "job") {
     return (
-      <button type="button" className="armada-bay__job" onClick={() => onOpenJob(held.job_id)}>
-        <Box size={12} strokeWidth={2} aria-hidden />
-        <span>{held.job_title ?? held.job_id}</span>
-      </button>
+      <>
+        <button type="button" className="armada-bay__job" onClick={() => onOpenJob(held.job_id)}>
+          <Box size={12} strokeWidth={2} aria-hidden />
+          <span>{held.job_title ?? held.job_id}</span>
+        </button>
+        {held.kept === undefined ? null : <span className="armada-bay__why">{held.kept}</span>}
+      </>
     );
   }
   if (held.state === "session") return <span className="armada-bay__session">{held.holder}</span>;
@@ -160,6 +168,11 @@ function Act({
       </button>
     </Tooltip>
   );
+}
+
+/** A stranded slot, or a Job's that ended and kept its slot: both hold work a person can rescue. */
+function rescuable(slot: WorktreeSlot): boolean {
+  return slot.held.state === "stranded" || (slot.held.state === "job" && slot.held.kept !== undefined);
 }
 
 /** What a stranded bay offers by where its rescue is: Rescue, Stop, or Scrap and Stash. */
@@ -211,7 +224,7 @@ function Acts({
   const removable = slot.held.state === "free" || slot.held.state === "unmade";
   return (
     <span className="armada-bay__acts">
-      {onRescue === undefined || slot.held.state !== "stranded" ? null : (
+      {onRescue === undefined || !rescuable(slot) ? null : (
         <RescueActs slot={slot} waiting={waiting} onRescue={onRescue} onScrap={onScrap} />
       )}
       {onAct === undefined ? null : slot.closed === true ? (
@@ -267,7 +280,7 @@ function BayTile({
   const { slot, heldFor } = row;
   /** The Scrap's confirm is open on this bay. */
   const [scrapping, setScrapping] = useState(false);
-  const rescue = slot.held.state === "stranded" ? slot.rescue : undefined;
+  const rescue = rescuable(slot) ? slot.rescue : undefined;
   const scrappable = rescue !== undefined && rescue.state !== "reading";
   const acts = (state: State) => (
     <Acts

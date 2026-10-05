@@ -140,7 +140,17 @@ export type SlotHolding =
   | { state: "busy" }
   | { state: "free" }
   /** One of Fleet's jobs. The title is absent where the store no longer has the job. */
-  | { state: "job"; job_id: string; job_title?: string }
+  | {
+      state: "job";
+      job_id: string;
+      job_title?: string;
+      /** Where the Job ended, for a Job that has. Since 23.19. */
+      job_status?: string;
+      /** Why the Job's release was refused after it ended: its work is still in the slot. Since 23.19. */
+      kept?: string;
+      /** The Job completed and holds the slot until a person clears it. Since 23.19. */
+      completed?: boolean;
+    }
   /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
   | { state: "session"; holder: string }
   /** Its holder is gone and it still holds work. */

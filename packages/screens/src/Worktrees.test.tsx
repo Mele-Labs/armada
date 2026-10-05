@@ -502,6 +502,25 @@ test("a scrap that kept its branch says so, after its confirm", async () => {
   await expect.element(page.getByRole("status")).toHaveTextContent("fleet/an-old-try kept");
 });
 
+/** A Job's kept slot is rescued from the screen as a stranded one is: the start reaches Fleet with its number. */
+test("a kept Job's slot offers Rescue, and the press is sent", async () => {
+  const sent: string[] = [];
+  rescuing(
+    {
+      ...stranded(),
+      slot: 8,
+      held: { state: "job", job_id: "01KEPT", job_title: "Retry the read", kept: "2 uncommitted, first a.rs" },
+    },
+    (_manifest, rescue) => {
+      sent.push(`${rescue.act} ${rescue.slot}`);
+      return Promise.resolve({ ok: true, rescued: { manifest_id: "armada", slot: 8 } });
+    },
+  );
+  await expect.element(page.getByRole("img", { name: "Kept: 2 uncommitted, first a.rs" })).toBeInTheDocument();
+  await userEvent.click(page.getByRole("button", { name: "Rescue" }));
+  expect(sent).toEqual(["start 8"]);
+});
+
 // Only referenced for their types, so the answer functions above stay honest
 // about what they hand back.
 void (null as unknown as BranchDeleted);

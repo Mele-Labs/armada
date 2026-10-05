@@ -52,6 +52,14 @@
   border-color: var(--slot-stranded);
 }
 
+/* A Job that ended and kept its slot: a solid card in the warning hue, so it
+   reads as needing a person without the stranded bay's hatch. */
+.armada-bay[data-bay="kept"] {
+  --bay-hue: var(--slot-stranded);
+  background: color-mix(in srgb, var(--slot-stranded) var(--row-tint), var(--bg-raised));
+  border-color: var(--slot-stranded);
+}
+
 .armada-bay__band {
   display: flex;
   align-items: center;
