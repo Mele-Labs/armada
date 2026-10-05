@@ -407,7 +407,7 @@ export function approvalNodesOf({
     // recorded them, and each group once it has.
     if (perTask(step)) {
       if (life?.groups === undefined || life.groups.length === 0) {
-        put({ id: "groups", kind: "groups", name: "Groups", traits: [], meta: [], inert: true });
+        put({ id: "groups", kind: "groups", name: "Plan", line: "Groups drawn once the plan exists", traits: [], meta: [], inert: true });
       } else {
         for (const [at, group] of life.groups.entries()) {
           nodes.push({

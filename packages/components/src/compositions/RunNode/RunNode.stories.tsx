@@ -152,3 +152,8 @@ export const GateSetUp: Story = {
     await expect(args.onOpen).toHaveBeenCalledTimes(1);
   },
 };
+
+/** Before the plan has made its groups: Plan, and when the groups are drawn. */
+export const PlanPlaceholder: Story = {
+  args: { kind: "stack", name: "Plan", line: "Groups drawn once the plan exists", id: undefined, traits: [], onOpen: undefined },
+};

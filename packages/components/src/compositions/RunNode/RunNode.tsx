@@ -112,7 +112,7 @@ const KIND: Record<RunNodeKind, string> = {
   base: "Base",
   step: "Step",
   gate: "Checks",
-  stack: "Groups",
+  stack: "Plan",
   fan: "Jobs",
   group: "Group",
   job: "Job",
@@ -302,7 +302,10 @@ export function RunNode({
   const body = gate !== undefined ? (
     <GateLine gate={gate} named={named} meta={meta} />
   ) : ghost ? (
-    <span className="armada-run-node__ghost">{KIND[kind]}</span>
+    <>
+      <span className="armada-run-node__ghost">{KIND[kind]}</span>
+      {line === undefined ? null : <span className="armada-run-node__ghost-line">{line}</span>}
+    </>
   ) : (
     <>
       <span className="armada-run-node__band">

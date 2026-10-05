@@ -380,6 +380,14 @@ button.armada-run-node {
   background: transparent;
 }
 
+.armada-run-node__ghost-line {
+  padding-inline: var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  text-align: center;
+}
+
 .armada-run-node__ghost {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
