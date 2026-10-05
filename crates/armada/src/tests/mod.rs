@@ -11,6 +11,7 @@
 //! framing, none of which needs a Fleet to be running.
 
 mod agent;
+mod authoring;
 mod clean;
 mod clean_slots;
 mod cli;
