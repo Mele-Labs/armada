@@ -3,7 +3,7 @@
 // one at fault, a single branch told at once, and a Check red on main too. The Job's own log has
 // the failure as a line. Each `later` is time passing: the scenario publishes its next moment.
 
-import { button, inside, region, role, tab, text, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 const ARMADA = region("Merge line, armada");
 const NOTES = region("Merge line, notes");
@@ -15,6 +15,9 @@ const CARRIER = role("listitem", "worktree-agent-aef3c24792026e2c3");
 
 export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { look: inside(ARMADA, role("list", "Batch")), say: "A batch of three, one turn" },
+  { press: inside(ARMADA, button(/^Open guide 22/)), say: "The ? beside the heading opens the guide" },
+  { look: dialog(/^Guide 22/), say: "What the line is, what the number and bracket mean, and each waiting mark" },
+  { press: inside(dialog(/^Guide 22/), button("Close")), say: "Put the guide away" },
   { later: inside(CARRIER, button("screens_test, running")), say: "screens_test running, the rest waiting" },
   { look: inside(CARRIER, button("screens_test, failed")), say: "screens_test failed and its rerun failed: desktop_test runs on behind it" },
   { look: inside(ARMADA, role("status")), say: "One alert for the batch, before the split names the branch at fault" },

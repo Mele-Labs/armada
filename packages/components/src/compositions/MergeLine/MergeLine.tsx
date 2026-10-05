@@ -7,6 +7,8 @@ import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { GUIDE_MERGE_LINE } from "../../guides";
+import { GuideMark } from "../GuideMark/GuideMark";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
 
 /**
@@ -149,14 +151,17 @@ export function MergeLine(props: MergeLineProps) {
   return (
     <section className="armada-merge-line" id={id} aria-label={named}>
       <header className="armada-merge-line__head">
-        <h2 className="armada-merge-line__heading">
-          {HEADING}
-          {name === undefined ? null : (
-            <Tooltip label="Repository" asChild>
-              <span className="armada-merge-line__repository">{name}</span>
-            </Tooltip>
-          )}
-        </h2>
+        <div className="armada-merge-line__title">
+          <h2 className="armada-merge-line__heading">
+            {HEADING}
+            {name === undefined ? null : (
+              <Tooltip label="Repository" asChild>
+                <span className="armada-merge-line__repository">{name}</span>
+              </Tooltip>
+            )}
+          </h2>
+          <GuideMark guide={GUIDE_MERGE_LINE} />
+        </div>
         <button
           type="button"
           className="armada-merge-line__fold"

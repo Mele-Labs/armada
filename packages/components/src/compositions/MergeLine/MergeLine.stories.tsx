@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import { GuidanceProvider } from "../../guidance";
+import { GUIDE_MERGE_LINE } from "../../guides";
 import { MergeLine, type MergeLineEntry, type MergeLineNotice } from "./MergeLine";
 
 /**
@@ -236,12 +238,13 @@ const noticed = (notice: MergeLineNotice): Story => ({
 export const FailedBatch: Story = {
   name: "A Check failed, batch not split",
   ...noticed({ kind: "batch", check: "screens_test", branch: AT, branches: [FIRST, AT] }),
-  play: async ({ canvas, args }) => {
+  play: async (context) => {
+    const { canvas } = context;
     // Every branch the Check failed for.
     const alert = within(canvas.getByRole("status"));
     await expect(alert.getByText(FIRST)).toBeVisible();
     await expect(alert.getByText(AT)).toBeVisible();
-    await noticedPlay({ canvas, args });
+    await noticedPlay(context);
   },
 };
 
@@ -280,6 +283,29 @@ export const FailedSent: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole("status")).toHaveLength(1);
     await expect(canvas.getByRole("status")).toHaveTextContent(AT);
+  },
+};
+
+/** The `?` beside the heading opens the guide. Wrapped in a provider that remembers nothing. */
+export const HeadingGuide: Story = {
+  name: "The heading's guide",
+  args: { line: FAILING },
+  render: (args) => (
+    <GuidanceProvider remembered={false}>
+      <MergeLine {...args} />
+    </GuidanceProvider>
+  ),
+  play: async ({ canvas }) => {
+    const body = within(document.body);
+    const dialog = `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`;
+    // First contact may have raised the card by itself: close it, then ask for it.
+    const raised = body.queryByRole("dialog", { name: dialog });
+    if (raised !== null) await userEvent.click(within(raised).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(body.queryByRole("dialog", { name: dialog })).toBeNull());
+    await userEvent.click(canvas.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }));
+    const card = body.getByRole("dialog", { name: dialog });
+    await waitFor(() => expect(card).toBeVisible());
+    await expect(within(card).getByText(GUIDE_MERGE_LINE.steps[0] as string)).toBeVisible();
   },
 };
 
