@@ -58,8 +58,8 @@ pub struct WorktreeSlot {
     /// holder keeps it until its lease ends. Since 23.17.
     #[serde(default)]
     pub closed: bool,
-    /// What a stranded slot holds, which a Scrap would lose. Present only where
-    /// `held` is `stranded`. Since 23.19.
+    /// What a slot holds that a Scrap would lose. Present where `held` is
+    /// `stranded`, and where it is a Job's with `kept`. Since 23.19.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stranded: Option<SlotStranded>,
     /// What a rescue Scout read of a stranded slot, while it reads and after.
@@ -209,6 +209,17 @@ pub enum SlotHolding {
         job_id: JobId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_title: Option<String>,
+        /// Where the Job ended, for a Job that has. Since 23.19.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        job_status: Option<JobStatus>,
+        /// Why the Job's release was refused after it ended: its work is in
+        /// the slot, which it still holds. Since 23.19.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kept: Option<String>,
+        /// The Job completed and holds the slot until a person clears it.
+        /// Since 23.19.
+        #[serde(default)]
+        completed: bool,
     },
     /// A process outside Fleet, as `ps` names it: `zsh (pid 4120)`.
     Session {

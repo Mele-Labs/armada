@@ -211,6 +211,12 @@ impl FakeSlots {
                         warm: false,
                         behind: None,
                         closed: slot.closed,
+                        kept: slot
+                            .held_by
+                            .as_ref()
+                            .and(slot.stranded.as_ref())
+                            .map(|(work, _)| format!("{} uncommitted", work.uncommitted.len())),
+                        completed: false,
                     }
                 })
                 .collect()
@@ -297,6 +303,15 @@ impl FakeSlots {
         });
     }
 
+    /// Leave slot `slot` at `root` held by a Job that ended, which could not
+    /// give it back because it holds `work`.
+    pub(super) fn keep(&self, root: &str, slot: u32, job: &str, work: StrandedWork, diff: &str) {
+        self.strand(root, slot, work, diff);
+        self.at(root, slot, |slots| {
+            slots[slot as usize - 1].held_by = Some(job.to_string());
+        });
+    }
+
     fn stranded_in(
         &self,
         pool: &SlotPool,
@@ -362,7 +377,11 @@ impl FakeSlots {
                 }
             }
         };
-        self.with(pool, |slots| slots[slot as usize - 1].stranded = None);
+        self.with(pool, |slots| {
+            let freed = &mut slots[slot as usize - 1];
+            freed.stranded = None;
+            freed.held_by = None;
+        });
         self.rescued
             .lock()
             .expect("not poisoned")
@@ -432,6 +451,12 @@ impl FakeVcs {
     /// its change against the base.
     pub fn strand_slot(&self, root: &str, slot: u32, work: StrandedWork, diff: &str) {
         self.slots.strand(root, slot, work, diff);
+    }
+
+    /// Leave slot `slot` at `root` held by `job`, which ended and could not
+    /// give the slot back because of `work`.
+    pub fn keep_slot(&self, root: &str, slot: u32, job: &str, work: StrandedWork, diff: &str) {
+        self.slots.keep(root, slot, job, work, diff);
     }
 
     /// Every stranded slot rescued, and how, in order.

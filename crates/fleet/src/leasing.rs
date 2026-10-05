@@ -95,6 +95,8 @@ pub(crate) struct PoolSlot {
     pub(crate) base: String,
     pub(crate) reading: SlotReading,
     pub(crate) job_title: Option<String>,
+    /// Where the Job holding it is, where the store still has the Job.
+    pub(crate) job_status: Option<JobStatus>,
     /// What it holds, where it is stranded.
     pub(crate) stranded: Option<adapter_traits::StrandedWork>,
     /// What a rescue Scout read of it, where one has.
@@ -182,25 +184,25 @@ where
     /// draws, read the way `armada worktree --status` reads it.
     pub(crate) async fn pool_slots(&self) -> Result<Vec<PoolSlot>, Adrift> {
         let (loaded, _) = self.every_job().await?;
-        let title = |id: &str| {
-            loaded
-                .jobs
-                .iter()
-                .find(|job| job.id().as_str() == id)
-                .map(|job| job.title().as_str().to_string())
-        };
+        let job_of = |id: &str| loaded.jobs.iter().find(|job| job.id().as_str() == id);
         let mut kept = self.store().lock().await.rescues().unwrap_or_default();
         let mut slots = Vec::new();
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
             let pool = pool_of(&served);
             for reading in self.vcs().slot_pool(&pool) {
-                let job_title = match &reading.held {
-                    SlotHeld::Job(id) => title(id),
+                let job = match &reading.held {
+                    SlotHeld::Job(id) => job_of(id),
                     _ => None,
                 };
-                let stranded = match &reading.held {
-                    SlotHeld::Stranded(_) => self.vcs().stranded_work(&pool, reading.slot).ok(),
+                let job_title = job.map(|job| job.title().as_str().to_string());
+                let job_status = job.map(|job| job.status());
+                // A Job's slot is rescued as a stranded one where its release
+                // was refused, so what it holds is read the same way.
+                let stranded = match (&reading.held, &reading.kept) {
+                    (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
+                        self.vcs().stranded_work(&pool, reading.slot).ok()
+                    }
                     _ => None,
                 };
                 // **A Finding is of the commit it read.** One whose slot has
@@ -218,6 +220,7 @@ where
                     base: pool.base().to_string(),
                     reading,
                     job_title,
+                    job_status,
                     stranded,
                     rescue,
                 });

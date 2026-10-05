@@ -801,6 +801,9 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
             SlotHeld::Job(id) => ipc::SlotHolding::Job {
                 job_id: ipc::JobId::carried(id.clone()),
                 job_title: one.job_title.clone(),
+                job_status: one.job_status.map(Into::into),
+                kept: reading.kept.clone(),
+                completed: reading.completed,
             },
             SlotHeld::Session(holder) => ipc::SlotHolding::Session {
                 holder: holder.clone(),

@@ -99,6 +99,12 @@ pub struct SlotReading {
     /// A person closed it: never leased until reopened. A holder keeps it
     /// until its lease ends.
     pub closed: bool,
+    /// Why a Job's release was refused, for a slot a Job still holds after it
+    /// ended. Its work is in the slot, so a person rescues it like a stranded
+    /// one.
+    pub kept: Option<String>,
+    /// The Job holding it completed, and holds it until a person clears it.
+    pub completed: bool,
 }
 
 /// Who holds a slot, or why nothing can.
