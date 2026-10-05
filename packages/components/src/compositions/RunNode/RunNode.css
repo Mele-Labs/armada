@@ -133,6 +133,87 @@ button.armada-run-node {
   color: var(--accent);
 }
 
+/* --- A gate stage's face: one per kind of gate. -------------------------
+
+   The same three body lines. A command that failed takes the failure state's
+   hue and glyph; the rest stay muted. Nothing glows. */
+.armada-run-node__commands {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.armada-run-node__command {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  color: var(--fg-default);
+}
+
+.armada-run-node__command[data-outcome="waiting"] {
+  color: var(--fg-muted);
+}
+
+.armada-run-node__command[data-outcome="failed"] {
+  color: var(--step-failed);
+}
+
+.armada-run-node__counts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-run-node__count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-run-node__count[data-outcome="failed"] {
+  color: var(--step-failed);
+}
+
+.armada-run-node__output {
+  color: var(--fg-subtle);
+}
+
+.armada-run-node__panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-run-node__judge {
+  display: inline-flex;
+  color: var(--fg-subtle);
+}
+
+.armada-run-node__judge[data-verdict="judging"] {
+  color: var(--step-running);
+}
+
+.armada-run-node__judge[data-verdict="met"] {
+  color: var(--step-advanced);
+}
+
+.armada-run-node__judge[data-verdict="not_met"],
+.armada-run-node__refusal {
+  color: var(--step-failed);
+}
+
+.armada-run-node__held {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--step-waiting);
+}
+
 /* --- State, through the frame. ------------------------------------------- */
 
 /* --- Kind, through a tint and an edge. ----------------------------------

@@ -1,6 +1,6 @@
 // Where each node of the approval canvas sits: three lanes left to right —
-// setup, the work, delivery — each its own spine top to bottom, a gate on its
-// node's row beside it, and a fan under the node it falls from (the owner,
+// setup, the work, delivery — each its own spine top to bottom, a step's gate
+// stages on the spine below it, and a fan under the node it falls from (the owner,
 // 4 Oct 2026). Numbers, because React Flow places by number; each names the
 // token it is read off.
 
@@ -12,9 +12,10 @@ import type { ApprovalNode, Lane } from "./approval-canvas";
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
 const CARD = { height: 112, width: 260, narrow: 196 };
 
-/** Spine to spine (`--space-12` and `--space-2`), and a gate off its node (`--space-8`). */
+/** Spine to spine (`--space-12` and `--space-2`), a step to its gate and gate stage to stage (`--space-6`), and the room a way back takes beside the spine (`--space-12`). */
 const ROW_GAP = 56;
-const SIDE_GAP = 32;
+const CHAIN_GAP = 24;
+const LOOP_ROOM = 64;
 
 /** Across a fan, member to member (`--space-6`). */
 const ACROSS = 24;
@@ -53,9 +54,8 @@ export type Layout = {
 /** What a lane is called on its head. */
 const LANE_NAME: Record<Lane, string> = { setup: "Setup", work: "Work", delivery: "Delivery" };
 
-/** Whether a node is drawn narrow: a gate beside its node, a plan group in a fan. */
-export const narrowOf = (node: ApprovalNode): boolean =>
-  node.side !== undefined || node.kind === "group" || node.lane === "setup";
+/** Whether a node is drawn narrow: a plan group in a fan, the setup lane. */
+export const narrowOf = (node: ApprovalNode): boolean => node.kind === "group" || node.lane === "setup";
 
 const widthOf = (node: ApprovalNode): number => (narrowOf(node) ? CARD.narrow : CARD.width);
 
@@ -95,20 +95,20 @@ export function layoutOf(
     for (const node of inLane) {
       if (node.from !== undefined) fans.set(node.from, [...(fans.get(node.from) ?? []), node]);
     }
-    // How far the lane reaches either side of its spine: a card, a gate beside it, the widest fan row.
-    const hasSide = inLane.some((node) => node.side !== undefined);
+    // How far the lane reaches either side of its spine: a card, a way back beside it, the widest fan row.
+    const hasLoop = edges.some((edge) => edge.kind === "returns" && laneOfId.get(edge.source) === lane);
     const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map(rowWidth)));
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
     const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
     const left = Math.max(half, fanHalf);
-    const right = Math.max(half + (hasSide ? SIDE_GAP + CARD.narrow : 0), fanHalf);
+    const right = Math.max(half + (hasLoop ? LOOP_ROOM : 0), fanHalf);
     const spine = x + ZONE_PAD + left;
     const spineCard = lane === "setup" ? CARD.narrow : CARD.width;
     laneLeft.set(lane, x);
 
     let y = LANE_TOP;
-    for (const node of inLane) {
-      if (node.side !== undefined || node.from !== undefined) continue;
+    for (const [at, node] of inLane.entries()) {
+      if (node.from !== undefined) continue;
       if (labelled.has(node.id)) y += LABELLED;
       places.set(node.id, { x: spine - spineCard / 2, y });
       y += CARD.height;
@@ -139,13 +139,9 @@ export function layoutOf(
         });
         y = bottom;
       }
-      y += ROW_GAP;
-    }
-    // Each gate on its node's row, beside it.
-    for (const node of inLane) {
-      if (node.side === undefined) continue;
-      const on = places.get(node.side);
-      if (on !== undefined) places.set(node.id, { x: on.x + spineCard + SIDE_GAP, y: on.y });
+      // A gate's stages stand close under their step, and close to each other: one stage, not three.
+      const next = inLane.slice(at + 1).find((one) => one.from === undefined);
+      y += next?.kind === "checks" && next.stepId === node.stepId ? CHAIN_GAP : ROW_GAP;
     }
     // Room under the last card for an edge leaving the lane to turn inside it.
     deepest = Math.max(deepest, y - ROW_GAP + ZONE_FOOT);

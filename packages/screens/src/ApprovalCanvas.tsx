@@ -52,7 +52,7 @@ import type {
   WorkflowCanvasNode,
 } from "@armada/components";
 
-import { NOT_STARTED, approvalNodesOf, checksOf, perTask, stepsReadOf } from "./approval-canvas";
+import { NOT_STARTED, approvalNodesOf, checksOf, gateKindsOf, perTask, stepsReadOf } from "./approval-canvas";
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
@@ -101,10 +101,10 @@ function runKindOf(node: ApprovalNode): RunNodeKind {
   }
 }
 
-/** What a node's card is called: its own name, and a gate's step beside it. */
+/** What a node's card is called: its own name, and a gate stage's step beside it. */
 function dialogNameOf(node: ApprovalNode, steps: readonly StepRead[]): string {
   const step = steps.find((one) => one.id === node.stepId);
-  return node.kind === "checks" && step !== undefined ? `Checks on ${step.label}` : node.name;
+  return node.kind === "checks" && step !== undefined ? `${node.name} on ${step.label}` : node.name;
 }
 
 /**
@@ -122,13 +122,13 @@ function opensOnOf(nodes: readonly ApprovalNode[], places: ReadonlyMap<string, {
   const from = live === undefined ? 0 : Math.max(0, (places.get(live.id)?.y ?? 0) - RUN_NODE_HEIGHT);
   const yOf = (node: ApprovalNode) => places.get(node.id)?.y ?? 0;
   const band = nodes.filter((node) => yOf(node) >= from && yOf(node) <= from + RUN_NODE_HEIGHT * 3);
-  // Every lane's whole width, gates beside included: the node nearest the band
-  // in each lane, and what hangs beside it — so no lane opens cut off.
+  // Every lane's whole width: the node nearest the band in each lane, so no
+  // lane opens cut off.
   const middle = from + (RUN_NODE_HEIGHT * 3) / 2;
   const reach = LANES.flatMap((lane) => {
-    const inLane = nodes.filter((node) => node.lane === lane && node.side === undefined);
+    const inLane = nodes.filter((node) => node.lane === lane);
     const nearest = inLane.sort((a, b) => Math.abs(yOf(a) - middle) - Math.abs(yOf(b) - middle))[0];
-    return nearest === undefined ? [] : [nearest, ...nodes.filter((node) => node.side === nearest.id)];
+    return nearest === undefined ? [] : [nearest];
   });
   return [...new Set([...band, ...reach].map((node) => node.id))];
 }
@@ -350,6 +350,7 @@ export function ApprovalCanvas({
           traits={node.traits}
           meta={node.meta}
           {...(node.items === undefined ? {} : { items: node.items })}
+          {...(node.gateFace === undefined ? {} : { gate: node.gateFace })}
           activity={node.life?.activity ?? "not_started"}
           said={said}
           {...(node.life?.mark === undefined ? {} : { mark: node.life.mark })}
@@ -725,8 +726,8 @@ function StepCard({ step, edits, tuning, tuned, moved, models, harnesses, machin
               })}
         />
       ) : null}
-      {/* A step whose gate is no node of its own carries its row here. */}
-      {step.checks.length === 0 && step.judges.length === 0 ? (
+      {/* A step with no stage of its own for its gate carries its row here. */}
+      {gateKindsOf(step, edits.proposal.gates.find((one) => one.step_id === step.id)).length === 0 ? (
         <GateRow step={step} edits={edits} moved={moved} {...rest} />
       ) : null}
     </>

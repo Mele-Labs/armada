@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { CHECK_OUTCOME, CRITERION_VERDICT_JUDGE, STEP_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 
@@ -28,6 +29,41 @@ export type RunNodeTrait = { key: string; value: string; tuned?: boolean };
 /** `ahead` is the gate, where nothing has run; `upcoming` is a running Job's node not reached yet. */
 export type RunNodeState = "ahead" | "upcoming" | "live" | "done";
 
+/** Where one command of a gate's Checks is. `off` is one this Job does not run. */
+export type GateCommandOutcome = "passed" | "failed" | "running" | "waiting" | "off";
+
+/** One judge of a panel: its verdict once it landed, `judging` while it reads, `pending` before. */
+export type PanelMark = "met" | "not_met" | "judging" | "pending";
+
+/**
+ * A gate stage's face, one per kind of gate. Opt-in: a node with no `gate` is
+ * the card it always was. State is the frame (`activity`, `state`), never a
+ * field here.
+ */
+export type RunNodeGate =
+  | {
+      kind: "checks";
+      commands: readonly { name: string; outcome: GateCommandOutcome }[];
+      /** How long they have run, once running. */
+      elapsed?: string;
+      /** The last line a live command printed. */
+      output?: string;
+    }
+  | {
+      kind: "judge";
+      /** One mark per judge, `panel_size` of them. */
+      panel: readonly PanelMark[];
+      /** A refusal's first line. */
+      refusal?: string;
+    }
+  | {
+      kind: "you";
+      /** What it asks of the person. */
+      asking?: string;
+      /** How long it has waited. */
+      waited?: string;
+    };
+
 export type RunNodeProps = {
   kind: RunNodeKind;
   /** The node's name, which it is read by. */
@@ -52,6 +88,8 @@ export type RunNodeProps = {
   /** A registry row's own glyph and token, in place of the step mark. */
   mark?: { icon: LucideIcon; token: string };
   state: RunNodeState;
+  /** A gate stage's face, in place of the title and the lines. */
+  gate?: RunNodeGate;
   /** Drawn at `--w-workflow-task-node`: a gate or a group beside or under the step it belongs to. */
   narrow?: boolean;
   selected?: boolean;
@@ -92,6 +130,131 @@ function toneOf(state: RunNodeState, activity: StepActivity): string {
   return "neutral";
 }
 
+/** The band's word for each kind of gate. */
+const GATE_WORD = { checks: "Checks", judge: "Judge", you: "You" } as const;
+
+const OUTCOME_ICON = {
+  passed: CHECK_OUTCOME["passed"]?.icon,
+  failed: CHECK_OUTCOME["failed"]?.icon,
+  running: STEP_STATE["running"]?.icon,
+  waiting: STEP_STATE["not_started"]?.icon,
+  off: CHECK_OUTCOME["skipped"]?.icon,
+} as const;
+
+const OUTCOME_SAID = { passed: "passed", failed: "failed", running: "running", waiting: "waiting", off: "off" } as const;
+
+const JUDGE_ICON = {
+  met: CRITERION_VERDICT_JUDGE["met"]?.icon,
+  not_met: CRITERION_VERDICT_JUDGE["not_met"]?.icon,
+  judging: STEP_STATE["running"]?.icon,
+  pending: STEP_STATE["not_started"]?.icon,
+} as const;
+
+const JUDGE_SAID = {
+  met: CRITERION_VERDICT_JUDGE["met"]?.verb ?? "met",
+  not_met: CRITERION_VERDICT_JUDGE["not_met"]?.verb ?? "not met",
+  judging: STEP_STATE["running"]?.verb ?? "running",
+  pending: STEP_STATE["not_started"]?.verb ?? "not started",
+} as const;
+
+/** A gate's three body lines, by its kind. An empty slot draws nothing. */
+function GateBody({ gate, face, meta }: { gate: RunNodeGate; face: string | undefined; meta: readonly RunNodeTrait[] }) {
+  const tail = meta.length === 0 ? null : <Values of={meta} className="armada-run-node__meta" />;
+  if (gate.kind === "checks") {
+    const on = gate.commands.filter((one) => one.outcome !== "off");
+    // What failed first, so a long list cuts off what passed.
+    const names = [...on].sort((a, b) => Number(b.outcome === "failed") - Number(a.outcome === "failed"));
+    const passed = on.filter((one) => one.outcome === "passed").length;
+    const failed = on.filter((one) => one.outcome === "failed").length;
+    const started = on.some((one) => one.outcome !== "waiting");
+    const Passed = OUTCOME_ICON.passed;
+    const Failed = OUTCOME_ICON.failed;
+    return (
+      <>
+        <span className="armada-run-node__title armada-run-node__commands">
+          {names.length === 0
+            ? (face ?? "")
+            : names.map((one, at) => {
+                const Icon = one.outcome === "failed" ? (OUTCOME_ICON.failed ?? undefined) : undefined;
+                return (
+                  <Tooltip key={one.name} label={`${one.name}, ${OUTCOME_SAID[one.outcome]}`}>
+                    <span className="armada-run-node__command" data-outcome={one.outcome}>
+                      {at === 0 ? null : <span className="armada-run-node__sep" aria-hidden>{" · "}</span>}
+                      {Icon === undefined ? null : <Icon size={12} strokeWidth={2} aria-hidden />}
+                      {one.name}
+                    </span>
+                  </Tooltip>
+                );
+              })}
+        </span>
+        {!started ? null : (
+          <span className="armada-run-node__counts">
+            {Passed === undefined || Passed === null ? null : (
+              <Tooltip label="Passed">
+                <span className="armada-run-node__count" data-outcome="passed">
+                  <Passed size={12} strokeWidth={2} aria-hidden />
+                  {passed}
+                </span>
+              </Tooltip>
+            )}
+            {Failed === undefined || Failed === null || failed === 0 ? null : (
+              <Tooltip label="Failed">
+                <span className="armada-run-node__count" data-outcome="failed">
+                  <Failed size={12} strokeWidth={2} aria-hidden />
+                  {failed}
+                </span>
+              </Tooltip>
+            )}
+            {gate.elapsed === undefined ? null : (
+              <Tooltip label="Running for">
+                <span className="armada-run-node__count">{gate.elapsed}</span>
+              </Tooltip>
+            )}
+          </span>
+        )}
+        {gate.output !== undefined ? <span className="armada-run-node__meta armada-run-node__output">{gate.output}</span> : tail}
+      </>
+    );
+  }
+  if (gate.kind === "judge") {
+    return (
+      <>
+        <span className="armada-run-node__title armada-run-node__panel">
+          {gate.panel.map((mark, at) => {
+            const Icon = JUDGE_ICON[mark];
+            return (
+              <Tooltip key={at} label={`Judge ${at + 1}, ${JUDGE_SAID[mark]}`}>
+                <span className="armada-run-node__judge" data-verdict={mark} role="img" aria-label={`Judge ${at + 1}, ${JUDGE_SAID[mark]}`}>
+                  {Icon === undefined || Icon === null ? null : <Icon size={16} strokeWidth={2} aria-hidden />}
+                </span>
+              </Tooltip>
+            );
+          })}
+        </span>
+        {gate.refusal === undefined ? null : (
+          <span className="armada-run-node__line armada-run-node__refusal">{gate.refusal}</span>
+        )}
+        {tail}
+      </>
+    );
+  }
+  const Eye = STEP_STATE["awaiting_human"]?.icon;
+  return (
+    <>
+      <span className="armada-run-node__title">{gate.asking ?? face ?? ""}</span>
+      {gate.waited === undefined ? null : (
+        <Tooltip label="Waiting for you">
+          <span className="armada-run-node__line armada-run-node__held">
+            {Eye === undefined || Eye === null ? null : <Eye size={12} strokeWidth={2} aria-hidden />}
+            {gate.waited}
+          </span>
+        </Tooltip>
+      )}
+      {tail}
+    </>
+  );
+}
+
 function Values({ of, className }: { of: readonly RunNodeTrait[]; className: string }) {
   return (
     <span className={className}>
@@ -127,6 +290,7 @@ export function RunNode({
   activity,
   said,
   mark,
+  gate,
   state,
   narrow = false,
   selected = false,
@@ -140,6 +304,7 @@ export function RunNode({
     "data-kind": kind,
     "data-tone": ghost ? "ghost" : toneOf(state, activity),
     "data-narrow": narrow || undefined,
+    "data-gate": gate?.kind,
   };
   const glyph =
     mark === undefined ? (
@@ -159,13 +324,15 @@ export function RunNode({
       <span className="armada-run-node__band">
         {glyph}
         <span className="armada-run-node__kind" aria-hidden>
-          {KIND[kind]}
+          {gate === undefined ? KIND[kind] : GATE_WORD[gate.kind]}
         </span>
         {id === undefined ? null : <span className="armada-run-node__id">{id}</span>}
       </span>
       <span className="armada-run-node__body">
         {/* A node with items is its items: the band already names it. */}
-        {items.length > 0 ? null : (
+        {gate !== undefined ? (
+          <GateBody gate={gate} face={face} meta={meta} />
+        ) : items.length > 0 ? null : (
           <span
             className="armada-run-node__title"
             data-mono={faceMono || undefined}
@@ -174,7 +341,7 @@ export function RunNode({
             {face ?? name}
           </span>
         )}
-        {items.length > 0 ? (
+        {gate !== undefined ? null : items.length > 0 ? (
           items.slice(0, 3).map((item) => (
             <span key={item} className="armada-run-node__item">
               {item}
