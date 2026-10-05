@@ -215,21 +215,45 @@ const FAILING: MergeLineEntry[] = [
 ];
 
 const AT = "worktree-agent-aef3c24792026e2c3";
+const FIRST = "docs/wire-lock-signed";
+
+const noticedPlay: NonNullable<Story["play"]> = async ({ canvas, args }) => {
+  // One alert, whichever reading: a later one replaces it.
+  await expect(canvas.getAllByRole("status")).toHaveLength(1);
+  const open = canvas.getByRole("button", { name: "Open log" });
+  // A button reads as one: it has a fill, which a bare text link does not.
+  await expect(getComputedStyle(open).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  await open.click();
+  await expect(args.onOpenCheck).toHaveBeenCalledWith(AT, "screens_test");
+};
 
 const noticed = (notice: MergeLineNotice): Story => ({
   args: { line: FAILING, notice, onOpenCheck: fn() },
-  play: async ({ canvas, args }) => {
-    // One alert, whichever reading: a later one replaces it.
-    await expect(canvas.getAllByRole("status")).toHaveLength(1);
-    await canvas.getByRole("button", { name: "Open log" }).click();
-    await expect(args.onOpenCheck).toHaveBeenCalledWith(AT, "screens_test");
-  },
+  play: noticedPlay,
 });
 
 /** Before the split names the one at fault: a heads-up to the whole batch, once. */
 export const FailedBatch: Story = {
   name: "A Check failed, batch not split",
-  ...noticed({ kind: "batch", check: "screens_test", branch: AT }),
+  ...noticed({ kind: "batch", check: "screens_test", branch: AT, branches: [FIRST, AT] }),
+  play: async ({ canvas, args }) => {
+    // Every branch the Check failed for.
+    const alert = within(canvas.getByRole("status"));
+    await expect(alert.getByText(FIRST)).toBeVisible();
+    await expect(alert.getByText(AT)).toBeVisible();
+    await noticedPlay({ canvas, args });
+  },
+};
+
+/** One of several lines: the alert says which repository it is in. */
+export const FailedBranchInRepository: Story = {
+  name: "A Check failed, in a named repository",
+  args: { name: "armada", line: FAILING, notice: { kind: "branch", check: "screens_test", branch: AT }, onOpenCheck: fn() },
+  play: async ({ canvas }) => {
+    const alert = within(canvas.getByRole("status"));
+    await expect(alert.getByText("armada")).toBeVisible();
+    await expect(alert.getByText(AT)).toBeVisible();
+  },
 };
 
 /** The split named the branch at fault while the turn runs on. */

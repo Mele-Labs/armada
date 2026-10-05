@@ -74,7 +74,7 @@ const MOMENTS: Moment[] = [
   {
     armada: {
       line: batch(["passed", "passed", "failed", "running", "waiting"]),
-      notice: { kind: "batch", check: SCREENS, branch: CARRIER },
+      notice: { kind: "batch", check: SCREENS, branch: CARRIER, branches: [FIRST, CARRIER, AT_FAULT] },
     },
     notes: {
       line: [alone(ALONE, ["passed", "failed", "running"], "notes_test")],

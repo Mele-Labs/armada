@@ -4,6 +4,7 @@ import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizo
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
+import { Button } from "../../primitives/Button/Button";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
@@ -90,8 +91,13 @@ export type MergeLineNotice = {
   kind: "batch" | "branch" | "main" | "sent";
   /** The Check that failed. */
   check: string;
-  /** The branch whose turn wrote the Check's log. Named on the notice only where a batch has more than one. */
+  /** The branch whose turn wrote the Check's log. */
   branch: string;
+  /**
+   * Every branch the Check failed for: a `batch` heads-up lists the turn's members. Absent is the
+   * one `branch`.
+   */
+  branches?: readonly string[];
 };
 
 export type MergeLineProps = {
@@ -172,7 +178,7 @@ export function MergeLine(props: MergeLineProps) {
       ) : (
         <div className="armada-merge-line__body">
           {notice === undefined ? null : (
-            <Notice notice={notice} batched={batched(line).some((run) => run.length > 1)} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+            <Notice notice={notice} {...(name === undefined ? {} : { repository: name })} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
           )}
           {line.length === 0 ? null : (
             <ol className="armada-merge-line__list" aria-label="In line">
@@ -225,11 +231,12 @@ const NOTICE_TONE: Record<MergeLineNotice["kind"], AlertTone> = {
  */
 function Notice({
   notice,
-  batched,
+  repository,
   onOpenCheck,
 }: {
   notice: MergeLineNotice;
-  batched: boolean;
+  /** The repository, where the panel is one of several. */
+  repository?: string;
   onOpenCheck?: (branch: string, check: string) => void;
 }) {
   const failed = CHECK_OUTCOME.failed;
@@ -248,8 +255,7 @@ function Notice({
         </span>
       </Tooltip>
     );
-  // A branch is named where the turn is a batch, and always once it has left the line.
-  const named = notice.kind === "sent" || (notice.kind === "branch" && batched);
+  const branches = notice.branches ?? [notice.branch];
   return (
     <div className="armada-merge-line__notice">
       <Alert
@@ -265,19 +271,31 @@ function Notice({
           ? {}
           : {
               action: (
-                <button
-                  type="button"
-                  className="armada-alert__button"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  ground="sunken"
                   onClick={() => onOpenCheck(notice.branch, notice.check)}
                 >
                   Open log
-                </button>
+                </Button>
               ),
               actionOn: "title" as const,
             })}
       >
+        <span className="armada-merge-line__failed">
+          {repository === undefined ? null : (
+            <Tooltip label="Repository" asChild>
+              <span>{repository}</span>
+            </Tooltip>
+          )}
+          {branches.map((one) => (
+            <Tooltip key={one} label="Branch" asChild>
+              <span className="mono">{one}</span>
+            </Tooltip>
+          ))}
+        </span>
         <span className="armada-merge-line__facts">
-          {named ? <span className="mono">{notice.branch}</span> : null}
           {notice.kind === "sent" ? <span>sent back</span> : null}
           {notice.kind === "batch" || notice.kind === "branch" ? (
             <>

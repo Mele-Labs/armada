@@ -293,6 +293,14 @@
   margin: var(--space-2) 0;
 }
 
+/* The repository, then each branch the Check failed for, one to a line. */
+.armada-merge-line__failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: var(--space-1);
+}
+
 /* Bare facts, side by side and set back from the title. */
 .armada-merge-line__facts {
   display: flex;

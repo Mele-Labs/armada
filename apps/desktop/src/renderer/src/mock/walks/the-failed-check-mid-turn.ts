@@ -9,6 +9,8 @@ const ARMADA = region("Merge line, armada");
 const NOTES = region("Merge line, notes");
 const SCRATCH = region("Merge line, scratch");
 const BRIDGE = region("Merge line, bridge");
+const ARMADA_ALERT = inside(ARMADA, role("status"));
+const NOTES_ALERT = inside(NOTES, role("status"));
 const CARRIER = role("listitem", "worktree-agent-aef3c24792026e2c3");
 
 export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
@@ -16,7 +18,13 @@ export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { later: inside(CARRIER, button("screens_test, running")), say: "screens_test running, the rest waiting" },
   { look: inside(CARRIER, button("screens_test, failed")), say: "screens_test failed and its rerun failed: desktop_test runs on behind it" },
   { look: inside(ARMADA, role("status")), say: "One alert for the batch, before the split names the branch at fault" },
+  { look: inside(ARMADA_ALERT, text("armada")), say: "It says which repository it is in: there is more than one" },
+  { look: inside(ARMADA_ALERT, text("docs/wire-lock-signed")), say: "Every branch the Check failed for: the batch's first member" },
+  { look: inside(ARMADA_ALERT, text("worktree-agent-aef3c24792026e2c3")), say: "The second member" },
+  { look: inside(ARMADA_ALERT, text("fleet/gate-policy-every-run")), say: "The third" },
+  { look: inside(ARMADA_ALERT, button("Open log")), say: "Open log is a button, filled and bordered" },
   { look: inside(NOTES, role("status")), say: "One branch: told at once" },
+  { look: inside(NOTES_ALERT, text("notes/reading-list-tags")), say: "A single branch is named too, batched or not" },
   { look: inside(SCRATCH, role("status")), say: "Another branch, told the same way" },
   { press: text("Cache the manifest read between dispatches"), say: "A Job in the batch" },
   { press: tab("Pulse"), say: "Its Pulse" },
