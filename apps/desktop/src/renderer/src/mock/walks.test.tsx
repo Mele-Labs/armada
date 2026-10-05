@@ -7,6 +7,7 @@
 
 import { expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
+import { setPlanLayout } from "@armada/screens/src/plan-layout";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
@@ -40,6 +41,8 @@ test("there is a walk to play", () => {
 for (const [name, script] of WALKS) {
   test(`the walk ${name} plays to its last step`, async () => {
     const heard = thrown();
+    setPlanLayout(script.plan);
+    onTestFinished(() => setPlanLayout(undefined));
     mount(script.scenario);
     await onScreen();
     await walkThrough(script.steps);

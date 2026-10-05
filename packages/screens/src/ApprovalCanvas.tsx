@@ -341,6 +341,36 @@ export function ApprovalCanvas({
             ? undefined
             : () => setOpen(node.id === open ? null : node.id);
     const said = node.life?.said ?? NOT_STARTED;
+    const size = node.kind === "group" ? layout.sizes.get(node.id) : undefined;
+    if (size !== undefined) {
+      // The clusters layout: the group is the frame its tasks sit in, and its head opens the group.
+      const mark = node.life?.mark;
+      return {
+        id: node.id,
+        position: layout.places.get(node.id) ?? { x: 0, y: 0 },
+        backdrop: true,
+        card: { kind: "group", name: node.name, activity: node.life?.activity ?? "not_started", said },
+        drawn: (
+          <div className="armada-approval-canvas__frame" style={{ width: size.width, height: size.height }}>
+            <StudioFrame
+              kind="cluster"
+              {...(node.life?.activity === "running" ? { tone: "live" as const } : node.life?.activity === "advanced" ? { tone: "done" as const } : {})}
+              head={
+                <button
+                  type="button"
+                  className="armada-approval-canvas__cluster-head nodrag nopan"
+                  aria-label={`${node.name}, ${said}`}
+                  {...(panel === undefined ? {} : { onClick: panel })}
+                >
+                  {mark === undefined ? null : <mark.icon size={12} strokeWidth={2} aria-hidden />}
+                  {node.name}
+                </button>
+              }
+            />
+          </div>
+        ),
+      };
+    }
     return {
       id: node.id,
       position: layout.places.get(node.id) ?? { x: 0, y: 0 },

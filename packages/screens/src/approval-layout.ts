@@ -8,6 +8,7 @@ import type { WorkflowCanvasEdge } from "@armada/components";
 
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, Lane } from "./approval-canvas";
+import { planLayout } from "./plan-layout";
 
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
 const CARD = { height: 112, width: 260, narrow: 196 };
@@ -53,6 +54,8 @@ export type Frame = { id: string; kind: "zone" | "cluster"; name?: string; title
 export type Layout = {
   places: ReadonlyMap<string, Place>;
   frames: readonly Frame[];
+  /** A node drawn as a frame, by id: a plan group as a Cluster. */
+  sizes: ReadonlyMap<string, { width: number; height: number }>;
   /** Each edge as drawn: one crossing between lanes turns in the gutter between them. */
   edges: readonly WorkflowCanvasEdge[];
 };
@@ -116,7 +119,47 @@ const waveWidth = (wave: readonly ApprovalNode[]): number =>
 
 /** How wide a group's column is: its card, or its widest wave of tasks. */
 const columnOf = (group: ApprovalNode, nodes: readonly ApprovalNode[]): number =>
-  Math.max(widthOf(group), ...wavesOfChain(nodes.filter((one) => one.chain?.group === group.id)).map(waveWidth));
+  Math.max(widthOf(group), ...wavesOfChain(nodes.filter((one) => one.chain?.group === group.id)).map(waveWidth)) +
+  (clustered(group) ? CLUSTER_PAD * 2 : 0);
+
+/** Whether a plan group is drawn as a Cluster holding its tasks, rather than a card with a chain under it. */
+const clustered = (node: ApprovalNode): boolean => node.kind === "group" && planLayout() === "clusters";
+
+/**
+ * **The clusters layout, the other place a group's tasks are put.** Each group
+ * is a Cluster side by side with its neighbours: a head, then its waves as
+ * rows inside. The group's own node is the frame, so an edge enters its top
+ * and leaves its bottom. Returns where the row ends.
+ */
+function clustersUnder(
+  fan: readonly ApprovalNode[],
+  nodes: readonly ApprovalNode[],
+  places: Map<string, Place>,
+  sizes: Map<string, { width: number; height: number }>,
+  spine: number,
+  top: number,
+): number {
+  let x = spine - rowWidth(fan, nodes) / 2;
+  let tallest = 0;
+  for (const group of fan) {
+    const width = columnOf(group, nodes);
+    const waves = wavesOfChain(nodes.filter((one) => one.chain?.group === group.id));
+    const body = waves.length === 0 ? 0 : waves.length * (TASK.height + TASK.gap) - TASK.gap + CLUSTER_PAD;
+    const height = CLUSTER_HEAD + CLUSTER_PAD + body;
+    places.set(group.id, { x, y: top });
+    sizes.set(group.id, { width, height });
+    for (const [n, wave] of waves.entries()) {
+      let at = x + width / 2 - waveWidth(wave) / 2;
+      for (const task of wave) {
+        places.set(task.id, { x: at, y: top + CLUSTER_HEAD + CLUSTER_PAD + n * (TASK.height + TASK.gap) });
+        at += widthOf(task) + ACROSS;
+      }
+    }
+    tallest = Math.max(tallest, height);
+    x += width + ACROSS;
+  }
+  return top + tallest;
+}
 
 /** Where chains of any length rejoin: one line, half a row above the node they rejoin at. */
 const joinOf = (nodes: ReadonlyMap<string, ApprovalNode>, edge: WorkflowCanvasEdge, places: ReadonlyMap<string, Place>): number | undefined => {
@@ -136,6 +179,7 @@ export function layoutOf(
 ): Layout {
   const places = new Map<string, Place>();
   const frames: Frame[] = [];
+  const sizes = new Map<string, { width: number; height: number }>();
   const labelled = new Set(edges.filter((edge) => edge.label !== undefined).map((edge) => edge.target));
   const laneOfId = new Map(nodes.map((node) => [node.id, node.lane]));
   /** Where each lane's left edge is, for the gutters. */
@@ -174,8 +218,11 @@ export function layoutOf(
       y += gate ? GATE.height : CARD.height;
       const fan = fans.get(node.id);
       if (fan !== undefined) {
-        // The fan's Cluster: a head, then its rows centred on the spine.
         const top = y + ROW_GAP;
+        if (fan[0] !== undefined && clustered(fan[0])) {
+          y = clustersUnder(fan, nodes, places, sizes, spine, top);
+        } else {
+        // The fan's Cluster: a head, then its rows centred on the spine.
         let rowY = top + CLUSTER_HEAD + CLUSTER_PAD;
         const rows = rowsOf(fan);
         const across = Math.max(...rows.map((row) => rowWidth(row, nodes)));
@@ -199,6 +246,7 @@ export function layoutOf(
           height: bottom - top,
         });
         y = bottom;
+        }
       }
       // A gate's stages stand close under their step, and close to each other: one stage, not three.
       const next = inLane.slice(at + 1).find((one) => one.from === undefined);
@@ -240,5 +288,5 @@ export function layoutOf(
     const enters = laneLeft.get(into);
     return enters === undefined ? edge : { ...edge, via: enters - LANE_GAP / 2, intoSide: true };
   });
-  return { places, frames, edges: drawn };
+  return { places, frames, sizes, edges: drawn };
 }

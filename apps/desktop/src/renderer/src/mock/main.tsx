@@ -3,6 +3,8 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { setPlanLayout } from "@armada/screens/src/plan-layout";
+
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -21,6 +23,8 @@ const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIO
 if (asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
+
+if (script?.plan !== undefined) setPlanLayout(script.plan);
 
 // A walk starts from the window its test starts from, so what it shows is what CI ran.
 if (script !== undefined) {

@@ -21,6 +21,7 @@ import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, S
 import type { GateView } from "./draft/proposal";
 import type { TaskView } from "./draft/task";
 import { TASK_ACTIVITY, taskNodeId } from "./plan-canvas";
+import { planLayout } from "./plan-layout";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 
@@ -591,6 +592,8 @@ export function approvalNodesOf({
   for (const node of nodes) {
     if (node.chain === undefined) continue;
     const { group, wave } = node.chain;
+    // In a cluster the group is the frame the first wave sits in: no edge into it.
+    if (wave === 0 && planLayout() === "clusters") continue;
     const before = wave === 0 ? [byId.get(group)] : nodes.filter((one) => one.chain?.group === group && one.chain.wave === wave - 1);
     for (const above of before) if (above !== undefined) lead(above, node);
   }
@@ -634,7 +637,8 @@ export function approvalNodesOf({
       // A group with tasks rejoins from the foot of its chain.
       const chain = nodes.filter((one) => one.chain?.group === member.id);
       const last = Math.max(-1, ...chain.map((one) => one.chain!.wave));
-      for (const foot of last < 0 ? [member] : chain.filter((one) => one.chain!.wave === last)) lead(foot, node);
+      // A cluster leaves from its own bottom, a chain from the foot of its last wave.
+      for (const foot of last < 0 || planLayout() === "clusters" ? [member] : chain.filter((one) => one.chain!.wave === last)) lead(foot, node);
     }
   }
   return { nodes, edges };
