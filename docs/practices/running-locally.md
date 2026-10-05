@@ -263,8 +263,12 @@ where the column is at its rail, with the scenario in its tooltip. Pressing it
 opens the list over the content, and only then: type to narrow it, which is a
 fuzzy search, so `arcex` reaches `arc/executing-concurrent`; the arrows walk
 what is left, Enter takes the top row and Esc gives up. Every row is a link to
-this page on `?scenario=`, which is the reload that puts the window on it. Every
-walk follows the scenarios, under *Walks*, as a link on `?walk=`.
+this page on `?scenario=`, which is the reload that puts the window on it. The
+walks come first, under *Walks*, above the scenarios, each as a link on `?walk=`
+named in words (`back from a drone` for `backFromADrone`, and the search matches
+those words), so Enter on an empty query plays the first walk. The picker stays
+on a walk page, resting on the walk that is playing, so you can switch walks or
+return to a scenario without editing the address.
 
 | Scenario | What the window holds |
 |---|---|
