@@ -61,7 +61,8 @@ where
         Ok(ipc::ProposedPlan { jobs })
     }
 
-    /// Send the Job back, read it again and answer with every Job it became.
+    /// Send the Job back, with the split it belongs to, read it again once and
+    /// answer with every Job the group became.
     pub(crate) async fn reproposed(
         &self,
         job_id: &JobId,
@@ -79,22 +80,78 @@ where
         if job.status() != JobStatus::AwaitingApproval {
             return Err(refused(Refused::Frozen(job.status())));
         }
-        if job.dispatched_by().is_some() || self.was_split(&job).await? {
-            return Err(refused(Refused::SplitAlready));
-        }
+        // **The whole split goes back together, or none of it does.** Every
+        // Job of it is read before any moves, so a sibling that is past its
+        // gate is named and nothing is half-applied.
+        let group = self.group_of(&job).await?;
         // What the person sent is read against the proposal they are looking
         // at, before it is given up.
         self.tuning_honourable(&job, body).map_err(refused)?;
-        let served = self.served_by(&job)?;
+        let head = &group[0];
+        let served = self.served_by(head)?;
         let proposing = self.proposing().map_err(Adrift::NotProposable)?;
-        let Some(proposal_id) = job.proposal_id().cloned() else {
+        let Some(proposal_id) = head.proposal_id().cloned() else {
             return Err(Adrift::NothingToPropose);
         };
-
-        let origin = job
+        let origin = head
             .origin()
             .top_level()
             .unwrap_or(core_model::TopLevelOrigin::Manual);
+
+        let mut sent_back: Vec<Job> = Vec::with_capacity(group.len());
+        for member in &group {
+            match self.sent_back(member).await {
+                Ok(back) => sent_back.push(back),
+                Err(cause) => {
+                    self.restored(&sent_back, &group).await;
+                    return Err(cause);
+                }
+            }
+        }
+
+        let titles: Vec<String> = group
+            .iter()
+            .map(|member| format!("\"{}\"", member.title().as_str()))
+            .collect();
+        let request = format!(
+            "{}\n\nA person read the proposal for this ({}) and sent it back with this note:\n\n{note}",
+            head.facts().as_str(),
+            titles.join(", "),
+        );
+        let (read, _settled) = proposed(
+            &request,
+            served.workflows(),
+            &proposing,
+            self.making(Actor::Human).for_job(&proposal_id, head.id()),
+            None,
+            served.records_root(),
+        )
+        .await;
+        let cause = match read {
+            Ok((_, Proposal::Resolved(plan))) if !plan.is_empty() => {
+                return self
+                    .group_answered(&group, sent_back, plan, body, &served, origin, proposal_id)
+                    .await;
+            }
+            Ok((_, Proposal::Unresolved(Unresolved::ModelNotHeld { named, held }))) => {
+                Adrift::ModelNotHeld {
+                    request,
+                    named,
+                    held,
+                }
+            }
+            Ok((_, Proposal::Unresolved(why))) => Adrift::NoWorkflowFits { request, why },
+            Ok(_) => Adrift::NotProposed {
+                request,
+                cause: NotProposed::NamesNoWorkflow,
+            },
+            Err(cause) => Adrift::NotProposed { request, cause },
+        };
+        Err(self.put_back(&sent_back, &group, cause).await)
+    }
+
+    /// One Job sent back, written and published.
+    async fn sent_back(&self, job: &Job) -> Result<Job, Adrift> {
         let back = job
             .sent_back_to_the_proposer(Actor::Human, self.now())
             .map_err(Adrift::IllegalMove)?;
@@ -104,85 +161,80 @@ where
             .record_transition(&back)
             .map_err(Adrift::Writing)?;
         self.publish(ipc::Event::JobStateChanged((&back.event).into()));
+        Ok(back.job)
+    }
 
-        let request = format!(
-            "{}\n\nA person read the proposal \"{}\" for this and sent it back with this note:\n\n{note}",
-            job.facts().as_str(),
-            job.title().as_str(),
-        );
-        let (read, _settled) = proposed(
-            &request,
-            served.workflows(),
-            &proposing,
-            self.making(Actor::Human).for_job(&proposal_id, job.id()),
-            None,
-            served.records_root(),
-        )
-        .await;
-        let plan = match read {
-            Ok((_, Proposal::Resolved(plan))) if !plan.is_empty() => plan,
-            Ok((_, Proposal::Unresolved(Unresolved::ModelNotHeld { named, held }))) => {
-                let cause = Adrift::ModelNotHeld {
-                    request,
-                    named,
-                    held,
-                };
-                return Err(self.put_back(&back.job, &job, cause).await);
-            }
-            Ok((_, Proposal::Unresolved(why))) => {
-                let cause = Adrift::NoWorkflowFits { request, why };
-                return Err(self.put_back(&back.job, &job, cause).await);
-            }
-            Ok(_) => {
-                let cause = Adrift::NotProposed {
-                    request,
-                    cause: NotProposed::NamesNoWorkflow,
-                };
-                return Err(self.put_back(&back.job, &job, cause).await);
-            }
-            Err(cause) => {
-                let cause = Adrift::NotProposed { request, cause };
-                return Err(self.put_back(&back.job, &job, cause).await);
-            }
-        };
-        let Some((first, extras)) = plan.split_first() else {
-            unreachable!("a plan with no Job in it was refused above");
-        };
-        // The rewrite, whole. **Its facts are the proposer's**: the request was
-        // already the brief, and the note is what moved it.
-        let answered = self
-            .drafted(
-                self.as_proposal(&served, first, Vec::new(), Vec::new(), origin),
-                stated_by(first, false),
-                &self.now(),
-                Some(proposal_id.clone()),
-                job.number(),
-            )
-            .map(|(new, _)| new.into_answer());
-        let head = match answered {
-            Ok(answer) => self.head_answered(&back.job, answer, &served).await,
-            Err(cause) => Err(cause),
-        };
-        let head = match head {
-            Ok(head) => head,
-            Err(cause) => return Err(self.put_back(&back.job, &job, cause).await),
-        };
-        let mut made: Vec<Job> = Vec::with_capacity(plan.len());
-        made.push(head);
-        for extra in extras {
-            let waits_on = extra
+    /// The proposer's one answer, laid over the group. **The answer replaces
+    /// the group**: its Jobs, in order, are the head and then the old extras,
+    /// each kept as the same Job and rewritten whole; an answer with more Jobs
+    /// than the group had makes the rest as new extras; an answer with fewer
+    /// ends the old extras it has no place for, killed and said in their logs
+    /// as replaced. Every rewrite is read before any is written.
+    #[allow(clippy::too_many_arguments)]
+    async fn group_answered(
+        &self,
+        group: &[Job],
+        sent_back: Vec<Job>,
+        plan: Vec<crate::proposing::ProposedJob>,
+        body: &ipc::ToProposer,
+        served: &crate::repositories::Served,
+        origin: core_model::TopLevelOrigin,
+        proposal_id: core_model::ProposalId,
+    ) -> Result<Vec<Job>, Adrift> {
+        let reused = plan.len().min(group.len());
+        // Ids are known for the reused Jobs, so an edge can name them before
+        // they are written; the new extras are made after and named by order.
+        let mut answers = Vec::with_capacity(reused);
+        for (at, entry) in plan.iter().enumerate().take(reused) {
+            let waits_on = entry
                 .after
                 .iter()
-                .map(|&at| ipc::DependencyEdge {
+                .filter_map(|&earlier| group.get(earlier - 1))
+                .map(|peer| ipc::DependencyEdge {
                     direction: ipc::DependencyDirection::from(
                         core_model::DependencyDirection::DependsOn,
                     ),
-                    peer: ipc::JobId::from(made[at - 1].id()),
+                    peer: ipc::JobId::from(peer.id()),
+                })
+                .collect();
+            let drafted = self.drafted(
+                self.as_proposal(served, entry, waits_on, Vec::new(), origin),
+                stated_by(entry, false),
+                &self.now(),
+                Some(proposal_id.clone()),
+                group[at].number(),
+            );
+            match drafted {
+                Ok((new, _)) => answers.push(new.into_answer()),
+                Err(cause) => return Err(self.put_back(&sent_back, group, cause).await),
+            }
+        }
+        let mut made: Vec<Job> = Vec::with_capacity(plan.len());
+        for (at, answer) in answers.into_iter().enumerate() {
+            match self.head_answered(&sent_back[at], answer, served).await {
+                Ok(job) => made.push(job),
+                Err(cause) => {
+                    // What was already rewritten stays; what was not goes back.
+                    self.restored(&sent_back[at..], &group[at..]).await;
+                    return Err(cause);
+                }
+            }
+        }
+        for extra in &plan[reused..] {
+            let waits_on = extra
+                .after
+                .iter()
+                .filter_map(|&earlier| made.get(earlier - 1))
+                .map(|peer| ipc::DependencyEdge {
+                    direction: ipc::DependencyDirection::from(
+                        core_model::DependencyDirection::DependsOn,
+                    ),
+                    peer: ipc::JobId::from(peer.id()),
                 })
                 .collect();
             let minted = self
                 .proposed_split(
-                    self.as_proposal(&served, extra, waits_on, Vec::new(), origin),
+                    self.as_proposal(served, extra, waits_on, Vec::new(), origin),
                     stated_by(extra, false),
                     proposal_id.clone(),
                     Actor::Human,
@@ -191,6 +243,9 @@ where
                 .await?;
             made.push(minted);
         }
+        for surplus in &sent_back[reused..] {
+            self.replaced(surplus).await;
+        }
         let mut carried = Vec::with_capacity(made.len());
         for rewritten in made {
             carried.push(self.carried_over(rewritten, body).await);
@@ -198,14 +253,74 @@ where
         Ok(carried)
     }
 
-    /// Whether other Jobs name this one as the head of a split or an Epic.
-    async fn was_split(&self, job: &Job) -> Result<bool, Adrift> {
+    /// An old extra the answer had no place for, ended as replaced.
+    async fn replaced(&self, job: &Job) {
+        let envelope = Envelope::new(
+            self.now(),
+            Level::Info,
+            Component::Fleet,
+            self.run().clone(),
+            "the proposer's answer to a note on this split has fewer Jobs, so this one was \
+             replaced by the revised proposal and ended",
+        )
+        .in_job(job.id().as_ulid().clone());
+        self.noted_in_the_log(job.id(), &envelope);
+        let _ = self
+            .move_job(job, core_model::Target::Killed, Actor::Human)
+            .await;
+    }
+
+    /// Every Job of the split `job` belongs to, the head first and the extras
+    /// by number, **each at its gate**: or the one that is not, and why.
+    ///
+    /// A Job that was dispatched by an Epic's plan step is a wave member, not
+    /// a split's, and the Epic's plan owns it. A Job whose `dispatched_by` has
+    /// no step is an extra of a split, and its head is the Job it names.
+    async fn group_of(&self, job: &Job) -> Result<Vec<Job>, Adrift> {
+        let refused = |why| Adrift::ProposalRefused {
+            job: job.id().clone(),
+            why,
+        };
+        let head_id = match job.dispatched_by() {
+            Some(origin) if origin.step_id.is_some() => return Err(refused(Refused::WaveMember)),
+            Some(origin) => origin.job_id.clone(),
+            None => job.id().clone(),
+        };
         let (loaded, _) = self.every_job().await?;
-        Ok(loaded.jobs.iter().any(|other| {
+        let mut extras: Vec<&Job> = loaded
+            .jobs
+            .iter()
+            .filter(|other| {
+                other
+                    .dispatched_by()
+                    .is_some_and(|origin| origin.job_id == head_id)
+            })
+            .collect();
+        if extras.iter().any(|other| {
             other
                 .dispatched_by()
-                .is_some_and(|origin| origin.job_id == *job.id())
-        }))
+                .is_some_and(|origin| origin.step_id.is_some())
+        }) {
+            return Err(refused(Refused::WaveMember));
+        }
+        extras.sort_by_key(|other| other.number());
+        let head = loaded
+            .jobs
+            .iter()
+            .find(|other| *other.id() == head_id)
+            .ok_or_else(|| refused(Refused::WaveMember))?;
+        let group: Vec<Job> = std::iter::once(head).chain(extras).cloned().collect();
+        match group
+            .iter()
+            .find(|member| member.status() != JobStatus::AwaitingApproval)
+        {
+            Some(member) => Err(refused(Refused::SiblingPastItsGate {
+                sibling: member.id().as_str().to_string(),
+                title: member.title().as_str().to_string(),
+                status: member.status(),
+            })),
+            None => Ok(group),
+        }
     }
 
     /// The tuning and landing a person sent, read against the Job as it
@@ -222,41 +337,53 @@ where
         crate::approving::landing_of(body.landing.as_ref()).map(|_| ())
     }
 
-    /// Put the proposal back as it was, after a call that could not be read,
-    /// and answer with the proposer's own refusal.
-    async fn put_back(&self, sent_back: &Job, was: &Job, cause: Adrift) -> Adrift {
-        let restored = sent_back.answered(was.as_answered(), Actor::Fleet, self.now());
-        let written = match restored {
-            Ok(restored) => {
-                let written = self.store().lock().await.record_answered(&restored);
-                if written.is_ok() {
-                    self.publish(ipc::Event::JobStateChanged((&restored.event).into()));
-                }
-                written.map(|_| ()).map_err(Adrift::Writing)
-            }
-            Err(illegal) => Err(Adrift::IllegalMove(illegal)),
-        };
-        let (said, level) = match written {
-            Ok(()) => (
+    /// Put the proposals back as they were, after a call that could not be
+    /// read, and answer with the proposer's own refusal.
+    async fn put_back(&self, sent_back: &[Job], was: &[Job], cause: Adrift) -> Adrift {
+        let put = self.restored(sent_back, was).await;
+        let (said, level) = match put {
+            true => (
                 "the proposer could not read the note, so the proposal is as it was",
                 Level::Warn,
             ),
-            Err(_) => (
+            false => (
                 "the proposer could not read the note and the proposal could not be put back",
                 Level::Error,
             ),
         };
-        let envelope = Envelope::new(
-            self.now(),
-            level,
-            Component::Fleet,
-            self.run().clone(),
-            said,
-        )
-        .in_job(was.id().as_ulid().clone())
-        .with_field("cause", FieldValue::Str(cause.to_string()));
-        self.noted_in_the_log(was.id(), &envelope);
+        for job in was {
+            let envelope = Envelope::new(
+                self.now(),
+                level,
+                Component::Fleet,
+                self.run().clone(),
+                said,
+            )
+            .in_job(job.id().as_ulid().clone())
+            .with_field("cause", FieldValue::Str(cause.to_string()));
+            self.noted_in_the_log(job.id(), &envelope);
+        }
         cause
+    }
+
+    /// Each Job sent back, answered with what it held. Whether all were.
+    async fn restored(&self, sent_back: &[Job], was: &[Job]) -> bool {
+        let mut all = true;
+        for (back, old) in sent_back.iter().zip(was) {
+            let restored = back.answered(old.as_answered(), Actor::Fleet, self.now());
+            let written = match restored {
+                Ok(restored) => {
+                    let written = self.store().lock().await.record_answered(&restored);
+                    if written.is_ok() {
+                        self.publish(ipc::Event::JobStateChanged((&restored.event).into()));
+                    }
+                    written.is_ok()
+                }
+                Err(_) => false,
+            };
+            all &= written;
+        }
+        all
     }
 
     /// Lay what the person set on a rewritten Job: their tuning for each step
