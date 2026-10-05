@@ -184,6 +184,19 @@ pub struct StrandedWork {
 pub struct SlotCommit {
     pub sha: String,
     pub subject: String,
+    /// Where else it exists.
+    pub home: CommitHome,
+}
+
+/// Whether a commit exists anywhere but the slot holding it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CommitHome {
+    /// On no remote branch and not on the local base.
+    OnlyHere,
+    /// On a remote branch.
+    OnRemote,
+    /// On the local base, pushed or not.
+    OnMain,
 }
 
 /// What a person chose to do with a stranded slot's work. Each frees the slot.

@@ -2696,7 +2696,7 @@ reads neither field and sees exactly what it did.
 | Change | Where | Carries | Absent |
 | --- | --- | --- | --- |
 | `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
-| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose | A slot that is not stranded |
+| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose. Each commit is `{ sha, subject, home }`, `home` being `only_here` (on no remote branch and not on the local base), `on_remote` or `on_main` | A slot that is not stranded |
 | `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed` | No Scout has read it, or it has moved off the commit read |
 
 **A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains

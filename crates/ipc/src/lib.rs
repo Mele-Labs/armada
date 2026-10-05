@@ -258,7 +258,7 @@ pub use helm_call::{
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
 pub use holding::{
-    ChangeSlotPool, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit, SlotFinding,
+    ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit, SlotFinding,
     SlotFindingState, SlotHolding, SlotPoolChanged, SlotRescued, SlotStranded, WorktreeHeld,
     WorktreeSlot, WorktreesHeld,
 };

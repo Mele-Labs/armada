@@ -48,8 +48,8 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
         stranded: {
           uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
           commits: [
-            { sha: "9d41e07b2c", subject: "Retry a short read once" },
-            { sha: "3b7a1c9e55", subject: "Split the reader from the parser" },
+            { sha: "9d41e07b2c", subject: "Retry a short read once", home: "only_here" },
+            { sha: "3b7a1c9e55", subject: "Split the reader from the parser", home: "on_remote" },
           ],
           unpushed: 1,
         },
@@ -64,9 +64,9 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
         stranded: {
           uncommitted: ["crates/fleet/src/slots.rs", "crates/fleet/src/leasing.rs", "notes/lease.md"],
           commits: [
-            { sha: "e08c4d1a77", subject: "Write the lease record before the checkout" },
-            { sha: "71f29b3d08", subject: "Name the holder in the record" },
-            { sha: "c5a6e0f912", subject: "Read the record on start" },
+            { sha: "e08c4d1a77", subject: "Write the lease record before the checkout", home: "only_here" },
+            { sha: "71f29b3d08", subject: "Name the holder in the record", home: "only_here" },
+            { sha: "c5a6e0f912", subject: "Read the record on start", home: "on_remote" },
           ],
           unpushed: 2,
         },
@@ -92,8 +92,9 @@ export function slotsHeld(job: JobSummary, now: number): WorktreesHeld {
             "docs/notes/retry.md",
           ],
           commits: [
-            { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer" },
-            { sha: "28c7f5d1a3", subject: "Name the manifest in the read error" },
+            { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer", home: "only_here" },
+            { sha: "28c7f5d1a3", subject: "Name the manifest in the read error", home: "only_here" },
+            { sha: "0f4e8b2c61", subject: "Bump the retry limit", home: "on_main" },
           ],
           unpushed: 2,
         },

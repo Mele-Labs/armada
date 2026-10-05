@@ -84,6 +84,20 @@ pub struct SlotStranded {
 pub struct SlotCommit {
     pub sha: String,
     pub subject: String,
+    /// Whether it exists anywhere but this slot. Since 23.19.
+    pub home: CommitHome,
+}
+
+/// Where else a commit on a stranded slot exists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitHome {
+    /// On no remote branch and not on the local base.
+    OnlyHere,
+    /// On a remote branch.
+    OnRemote,
+    /// On the local base.
+    OnMain,
 }
 
 /// Where a rescue Scout is.

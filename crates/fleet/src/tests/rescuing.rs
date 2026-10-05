@@ -98,10 +98,18 @@ fn work(branch: Option<&str>) -> StrandedWork {
         branch: branch.map(str::to_string),
         commit: String::from("abc1234def"),
         uncommitted: vec![String::from("src/parser.rs")],
-        commits: vec![adapter_traits::SlotCommit {
-            sha: String::from("0123456789abcdef"),
-            subject: String::from("Start the parser"),
-        }],
+        commits: vec![
+            adapter_traits::SlotCommit {
+                sha: String::from("0123456789abcdef"),
+                subject: String::from("Start the parser"),
+                home: adapter_traits::CommitHome::OnlyHere,
+            },
+            adapter_traits::SlotCommit {
+                sha: String::from("fedcba9876543210"),
+                subject: String::from("Add the lexer"),
+                home: adapter_traits::CommitHome::OnRemote,
+            },
+        ],
         unpushed: 1,
     }
 }
@@ -184,6 +192,8 @@ async fn a_rescue_reads_the_slot_and_the_finding_stays_on_it() {
     let stranded = slot.stranded.expect("what the slot holds is served");
     assert_eq!(stranded.uncommitted, ["src/parser.rs"]);
     assert_eq!(stranded.unpushed, 1);
+    let homes: Vec<_> = stranded.commits.iter().map(|one| one.home).collect();
+    assert_eq!(homes, [ipc::CommitHome::OnlyHere, ipc::CommitHome::OnRemote]);
 
     let turns = std::fs::read_to_string(home.path().join("stand-in/turns.log")).expect("told");
     assert!(

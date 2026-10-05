@@ -238,8 +238,8 @@ const STRANDED: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = 
   stranded: {
     uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
     commits: [
-      { sha: "9d41e07b2c", subject: "Retry a short read once" },
-      { sha: "3b7a1c9e55", subject: "Split the reader from the parser" },
+      { sha: "9d41e07b2c", subject: "Retry a short read once", home: "only_here" },
+      { sha: "3b7a1c9e55", subject: "Split the reader from the parser", home: "on_remote" },
     ],
     unpushed: 1,
   },
@@ -368,6 +368,52 @@ export const FindingAnswered: Story = {
     await expect(args.onRescue).toHaveBeenCalledTimes(1);
     await expect(args.onRescue).toHaveBeenCalledWith("stash", 4);
     await expect(canvas.queryByRole("dialog")).toBeNull();
+  },
+};
+
+/**
+ * Each commit is tagged with where else it exists, and **the ones that exist
+ * only here come first**, the rest in the order they came. The Scrap's confirm
+ * names only those.
+ */
+export const CommitHomes: Story = {
+  name: "Commit homes",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          base: "develop",
+          stranded: {
+            uncommitted: [],
+            commits: [
+              { sha: "1111111aaa", subject: "Merge develop", home: "on_main" },
+              { sha: "2222222bbb", subject: "Pushed elsewhere", home: "on_remote" },
+              { sha: "3333333ccc", subject: "Only in the slot", home: "only_here" },
+            ],
+            unpushed: 1,
+          },
+          rescue: { ...FOUND, state: "answered" },
+        }),
+      },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    const finding = await opened(canvas, userEvent, 4);
+    const rows = within(finding.getByRole("list", { name: "Commits" })).getAllByRole("listitem");
+    await expect(rows).toHaveLength(3);
+    await expect(rows[0]).toHaveTextContent("3333333 Only in the slot");
+    await expect(within(rows[0]!).getByText("Only here")).toBeInTheDocument();
+    await expect(rows[1]).toHaveTextContent("1111111 Merge develop");
+    await expect(within(rows[1]!).getByText("On develop")).toBeInTheDocument();
+    await expect(rows[2]).toHaveTextContent("2222222 Pushed elsewhere");
+    await expect(within(rows[2]!).getByText("On the remote")).toBeInTheDocument();
+    await userEvent.click(finding.getByRole("button", { name: "Scrap" }));
+    const unpushed = within(canvas.getByRole("group", { name: "Scrap slot-4" })).getByRole("list", { name: "Unpushed" });
+    await expect(unpushed).toHaveTextContent("Only in the slot");
+    await expect(unpushed).not.toHaveTextContent("Pushed elsewhere");
   },
 };
 
@@ -550,8 +596,8 @@ const KEPT: Pick<WorktreeSlot, "held" | "branch" | "behind" | "stranded"> = {
   stranded: {
     uncommitted: ["crates/api/src/routes.rs", "docs/notes/retry.md"],
     commits: [
-      { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer" },
-      { sha: "28c7f5d1a3", subject: "Name the manifest in the read error" },
+      { sha: "b61d3a0e94", subject: "Retry the manifest read on a short answer", home: "only_here" },
+      { sha: "28c7f5d1a3", subject: "Name the manifest in the read error", home: "on_remote" },
     ],
     unpushed: 1,
   },

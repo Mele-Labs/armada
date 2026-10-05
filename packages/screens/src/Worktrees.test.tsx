@@ -427,7 +427,7 @@ const stranded = (rescue?: WorktreeSlot["rescue"]): WorktreeSlot => ({
   branch: "fleet/an-old-try",
   stranded: {
     uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
-    commits: [{ sha: "9d41e07b2c", subject: "Retry a short read once" }],
+    commits: [{ sha: "9d41e07b2c", subject: "Retry a short read once", home: "only_here" }],
     unpushed: 1,
   },
   ...(rescue === undefined ? {} : { rescue }),

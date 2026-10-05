@@ -828,6 +828,11 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
                 .map(|commit| ipc::SlotCommit {
                     sha: commit.sha.clone(),
                     subject: commit.subject.clone(),
+                    home: match commit.home {
+                        adapter_traits::CommitHome::OnlyHere => ipc::CommitHome::OnlyHere,
+                        adapter_traits::CommitHome::OnRemote => ipc::CommitHome::OnRemote,
+                        adapter_traits::CommitHome::OnMain => ipc::CommitHome::OnMain,
+                    },
                 })
                 .collect(),
             unpushed: work.unpushed,

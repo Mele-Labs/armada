@@ -97,6 +97,45 @@ fn a_stranded_slot_says_what_it_holds_and_its_change_against_the_base() {
     assert!(diff.contains("+fn kept() { 1 }"), "{diff}");
 }
 
+/// **Each commit says where else it exists**: on a remote branch, on the local
+/// base, or only in the slot, which is what a Scrap would lose. The base here
+/// is `origin/main`, so a commit local `main` has and the remote does not is
+/// the slot's and the base's both.
+#[test]
+fn each_commit_says_whether_it_exists_anywhere_but_the_slot() {
+    use adapter_traits::CommitHome::{OnMain, OnRemote, OnlyHere};
+
+    let repo = a_repository();
+    let pool = Pool::at(repo.root(), 1, "main", Vec::new());
+    let slot = match pool.try_lease("half-done", &gone(), 0, &no_seed) {
+        Ok(Leased::Took(lease)) => lease.path().to_path_buf(),
+        other => panic!("no slot taken: {other:?}"),
+    };
+    let commit = |file: &str, message: &str| {
+        std::fs::write(slot.join(file), message).unwrap();
+        git(&slot, &["add", file]);
+        git(&slot, &["commit", "-q", "-m", message]);
+    };
+    commit("pushed.rs", "Pushed elsewhere");
+    git(&slot, &["push", "-q", "origin", "HEAD:refs/heads/someone-elses"]);
+    repo.commit_one("landed.rs", "fn landed() {}\n", "Landed here only");
+    git(&slot, &["merge", "-q", "--no-edit", "main"]);
+    commit("mine.rs", "Only in the slot");
+
+    let work = pool.stranded_work(1).expect("stranded");
+    let home = |subject: &str| {
+        work.commits
+            .iter()
+            .find(|one| one.subject == subject)
+            .unwrap_or_else(|| panic!("no commit {subject:?} in {:?}", work.commits))
+            .home
+    };
+    assert_eq!(home("Only in the slot"), OnlyHere);
+    assert_eq!(home("Pushed elsewhere"), OnRemote);
+    assert_eq!(home("Landed here only"), OnMain);
+    assert!(work.commits[0].home == OnlyHere, "newest first, and it is the slot's");
+}
+
 #[test]
 fn a_slot_that_is_not_stranded_is_neither_read_nor_acted_on() {
     let repo = a_repository();

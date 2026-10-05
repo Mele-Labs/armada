@@ -1,6 +1,6 @@
 import { FilePenLine, GitCommitHorizontal, Power, ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
-import type { WorktreeSlot } from "@armada/protocol";
+import type { CommitHome, SlotCommit, WorktreeSlot } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -19,6 +19,45 @@ function Names({ label, items, mono = true }: { label: string; items: readonly s
         {items.map((one, at) => (
           <li key={`${at}/${one}`}>{one}</li>
         ))}
+      </ul>
+    </div>
+  );
+}
+
+/** What a commit's tag says, and what its tooltip adds. Tags name the base, which is the bay's own. */
+const HOMES: Record<CommitHome, (base: string) => { tag: string; said: string }> = {
+  only_here: (base) => ({ tag: "Only here", said: `On no remote branch and not on ${base}` }),
+  on_remote: () => ({ tag: "On the remote", said: "On a remote branch" }),
+  on_main: (base) => ({ tag: `On ${base}`, said: `On local ${base}, not pushed` }),
+};
+
+/**
+ * The slot's commits, the ones that exist only here first and the rest in the
+ * order they came. Each is tagged with where else it exists.
+ */
+function Commits({ commits, base }: { commits: readonly SlotCommit[]; base: string }) {
+  if (commits.length === 0) return null;
+  const only = (one: SlotCommit) => one.home === "only_here";
+  const sorted = [...commits.filter(only), ...commits.filter((one) => !only(one))];
+  return (
+    <div className="armada-finding__group">
+      <span className="armada-finding__label" aria-hidden>
+        Commits
+      </span>
+      <ul className="armada-finding__names" aria-label="Commits">
+        {sorted.map((one) => {
+          const { tag, said } = HOMES[one.home](base);
+          return (
+            <li key={one.sha} className="armada-finding__commitrow">
+              <span>{`${short(one.sha)} ${one.subject}`}</span>
+              <Tooltip label={said}>
+                <span className="armada-finding__home" data-home={one.home}>
+                  {tag}
+                </span>
+              </Tooltip>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -44,7 +83,6 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
   const rescue = slot.rescue;
   if (rescue === undefined) return null;
   const reading = rescue.state === "reading";
-  const commits = (slot.stranded?.commits ?? []).map((one) => `${short(one.sha)} ${one.subject}`);
   return (
     <section className="armada-finding" aria-label="Finding" aria-busy={reading || undefined}>
       <div className="armada-finding__meta">
@@ -87,7 +125,7 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
       <div className="armada-finding__lists">
         <Names label="Read" items={rescue.read} />
         <Names label="Searched" items={rescue.searched} />
-        <Names label="Commits" items={commits} mono={false} />
+        <Commits commits={slot.stranded?.commits ?? []} base={slot.base} />
       </div>
     </section>
   );
@@ -95,8 +133,7 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
 
 /**
  * The Scrap's confirm, which names what goes with the checkout: every
- * uncommitted path, and the unpushed commits, the newest `unpushed` of
- * `stranded.commits`.
+ * uncommitted path, and the commits that exist only here.
  */
 export function ScrapConfirm({
   slot,
@@ -108,7 +145,7 @@ export function ScrapConfirm({
   onCancel: () => void;
 }) {
   const stranded = slot.stranded;
-  const unpushed = (stranded?.commits ?? []).slice(0, stranded?.unpushed ?? 0);
+  const unpushed = (stranded?.commits ?? []).filter((one) => one.home === "only_here");
   return (
     <div className="armada-finding armada-finding--confirm" role="group" aria-label={`Scrap slot-${slot.slot}`}>
       <div className="armada-finding__lists">

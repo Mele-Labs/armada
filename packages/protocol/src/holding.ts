@@ -74,7 +74,19 @@ export type SlotStranded = {
 };
 
 /** One commit on a stranded slot's branch. */
-export type SlotCommit = { sha: string; subject: string };
+export type SlotCommit = {
+  sha: string;
+  subject: string;
+  /** Whether it exists anywhere but this slot. Since 23.19. */
+  home: CommitHome;
+};
+
+/**
+ * Where else a commit on a stranded slot exists: `only_here` on no remote branch
+ * and not on the local base, `on_remote` on a remote branch, `on_main` on the
+ * local base.
+ */
+export type CommitHome = "only_here" | "on_remote" | "on_main";
 
 /** Where a rescue Scout is. */
 export type SlotFindingState = "reading" | "answered" | "stopped" | "failed";

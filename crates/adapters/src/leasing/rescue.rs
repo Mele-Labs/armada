@@ -7,7 +7,9 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{RescueRefused, SlotCommit, SlotRescue, SlotRescued, StrandedWork};
+use adapter_traits::{
+    CommitHome, RescueRefused, SlotCommit, SlotRescue, SlotRescued, StrandedWork,
+};
 
 use super::git::{count, dirty, git, git_ok};
 use super::{Pool, Record, SlotState};
@@ -32,6 +34,7 @@ impl Pool {
             .map(|(sha, subject)| SlotCommit {
                 sha: sha.to_string(),
                 subject: subject.to_string(),
+                home: self.home_of(&path, sha),
             })
             .collect();
         Ok(StrandedWork {
@@ -41,6 +44,21 @@ impl Pool {
             commits,
             unpushed: self.unlanded(&path, "HEAD") as u32,
         })
+    }
+
+    /// Where else `sha` exists, asked the way `unlanded` counts: a remote
+    /// branch first, then the local base. A question git cannot answer reads
+    /// as only here, because unknown is not landed.
+    fn home_of(&self, at: &Path, sha: &str) -> CommitHome {
+        if git(at, &["branch", "--remotes", "--contains", sha]).is_ok_and(|named| !named.is_empty())
+        {
+            return CommitHome::OnRemote;
+        }
+        let local = format!("refs/heads/{}", self.base);
+        if git_ok(at, &["merge-base", "--is-ancestor", sha, &local]) {
+            return CommitHome::OnMain;
+        }
+        CommitHome::OnlyHere
     }
 
     /// Stranded slot `number`'s change against where it left the base,

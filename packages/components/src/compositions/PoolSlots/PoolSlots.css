@@ -446,6 +446,30 @@
   overflow-wrap: anywhere;
 }
 
+/* A commit, and the tag saying whether it exists anywhere but this slot. */
+.armada-finding__names > .armada-finding__commitrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-finding__home {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+/* The one that matters: what a Scrap would lose. */
+.armada-finding__home[data-home="only_here"] {
+  border-color: var(--slot-stranded);
+  color: var(--fg-default);
+}
+
 .armada-finding__choice {
   display: flex;
   align-items: center;
