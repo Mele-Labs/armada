@@ -124,4 +124,22 @@ describe("a handed-in task's node", () => {
     expect(card.activity).not.toBe("running");
     expect(nodeOf("working").activity).toBe("running");
   });
+
+  // The line wraps to two rows, so the node is taller than a plain task's;
+  // the next one down must clear it, and so must the group below.
+  // Measured off the walk's picture: the wrapped node is 138 tall, a plain one 90.
+  const NODE_HEIGHT = 138;
+  const PLAIN_HEIGHT = 90;
+  it("leaves room under it for the wrapped line, for the task and the group below", () => {
+    const base = [...everyTaskState().draft.groups!];
+    const handed = base.flatMap((group) => group.tasks).find((one) => one.state === "handed_in")!;
+    const open = base.flatMap((group) => group.tasks).find((one) => one.state === "open")!;
+    const first = { ...base[0]!, tasks: [handed, { ...open, id: "T-next" }] };
+    const second = { ...base[0]!, id: "g-next", tasks: [{ ...open, id: "T-last" }] };
+    const nodes = planGraphOf({ groups: [first, second] }).nodes;
+    const y = (id: string) => nodes.find((node) => node.id === id)!.position.y;
+    expect(y(taskNodeId("T-next")) - y(taskNodeId(handed.id))).toBeGreaterThanOrEqual(NODE_HEIGHT);
+    expect(y(taskNodeId("T-last")) - y(taskNodeId("T-next"))).toBeGreaterThanOrEqual(PLAIN_HEIGHT);
+    expect(y(groupNodeId("g-next"))).toBeGreaterThan(y(taskNodeId("T-next")) + PLAIN_HEIGHT);
+  });
 });

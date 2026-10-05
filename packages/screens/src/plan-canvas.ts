@@ -39,6 +39,14 @@ import type { TaskState, TaskView } from "./draft/task";
 const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
+/**
+ * What a task carrying the awaiting line adds to its pitch. The line wraps
+ * rather than clips ("Submitted · awaiting checks" is the fact), so the node
+ * is taller by the wrapped lines: `--leading-xs` (20) each, and the sentence
+ * takes up to two beyond the one a task's facts already draw — 40, so nothing
+ * below overlaps. React Flow places by number, so it is a number here.
+ */
+const LINE_EXTRA = 40;
 /** A group holding no task still takes a row of its own. */
 const GROUP_APART = 104;
 
@@ -179,14 +187,16 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
       card: group.id === openGroup ? { ...card, selected: true } : card,
     });
 
-    group.tasks.forEach((task, at) => {
+    let under = down;
+    group.tasks.forEach((task) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);
       const card = taskCard(task, open);
       nodes.push({
         id: taskNodeId(task.id),
-        position: { x: TASK_ACROSS, y: down + at * TASK_APART },
+        position: { x: TASK_ACROSS, y: under },
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
+      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA);
       edges.push({
         id: `${groupId}>${taskNodeId(task.id)}`,
         source: groupId,
@@ -194,7 +204,7 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
         kind: "holds",
       });
     });
-    down += Math.max(GROUP_APART, group.tasks.length * TASK_APART + AFTER_GROUP);
+    down = Math.max(down + GROUP_APART, under + AFTER_GROUP);
   }
 
   return { nodes, edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };
