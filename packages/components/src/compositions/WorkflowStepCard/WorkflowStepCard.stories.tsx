@@ -130,7 +130,7 @@ export const WaitingOnYou: Story = {
     kind: "step",
     name: "Review the change",
     activity: "awaiting_human",
-    said: "awaiting review",
+    said: "needs review",
     ordinal: 4,
     current: true,
     needs: [{ says: "Waiting on you", tone: "waiting" }],
