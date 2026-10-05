@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, Pause, type LucideIcon } from "lucide-react";
+import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
@@ -24,10 +24,14 @@ import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } 
  * all three empty the panel draws a picture and no words, the owner's one
  * exception to the empty-state rule, 2 Oct 2026.
  */
-/** `preparing` is Bridge's own: a `gating` turn that has run no Check yet. */
+/**
+ * `preparing` and `held` are Bridge's own: a `gating` turn that has run no Check yet, and a turn
+ * whose failed Check is red on main too.
+ */
 export type MergeLineState =
   | "waiting"
   | "preparing"
+  | "held"
   | "gating"
   | "merging"
   | "landed"
@@ -246,11 +250,13 @@ function Notice({
 }) {
   const failed = CHECK_OUTCOME.failed;
   const Shield = failed?.icon ?? null;
+  // The row's own mark for the same state, so the two read as one.
+  const Held = LAND_STATE.held?.icon ?? null;
   const glyph =
-    notice.kind === "main" ? (
+    notice.kind === "main" && Held !== null ? (
       <Tooltip label="Held" asChild>
         <span role="img" aria-label="Held">
-          <Pause size={16} strokeWidth={2} aria-hidden />
+          <Held size={16} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
     ) : notice.kind === "batch" || Shield === null ? undefined : (
@@ -457,7 +463,8 @@ function Detail({
       </Tooltip>
     );
   }
-  if (LIVE.has(entry.state)) {
+  // A held turn stops, and still shows what it was doing and where its Checks stand.
+  if (LIVE.has(entry.state) || entry.state === "held") {
     return (
       <>
         {entry.doing === undefined ? null : <span>{entry.doing}</span>}

@@ -286,6 +286,35 @@ export const FailedSent: Story = {
   },
 };
 
+/** The turn held because its Check is red on main too: its rows keep still and carry the Alert's pause. */
+export const HeldTurn: Story = {
+  name: "A turn held, red on main",
+  parameters: { motion: "on" },
+  args: {
+    line: [{ place: 1, branch: AT, state: "held", checks: FAILING[1]!.checks! }],
+    notice: { kind: "main", check: "screens_test", branch: AT },
+  },
+  render: (args) => (
+    <>
+      <MergeLine {...args} name="scratch" />
+      <MergeLine {...args} name="armada" line={[{ place: 1, branch: FIRST, state: "gating", checks: FAILING[1]!.checks! }]} notice={undefined} />
+    </>
+  ),
+  play: async ({ canvas }) => {
+    const moving = (mark: HTMLElement) =>
+      [...mark.querySelectorAll("*")].some((one) => getComputedStyle(one).animationName !== "none");
+    const held = canvas.getByRole("img", { name: "Held, red on main" });
+    const running = canvas.getByRole("img", { name: "Running Checks before landing" });
+    // The control: a running row's mark does move, so a held one standing still is a fact.
+    await expect(moving(running)).toBe(true);
+    await expect(moving(held)).toBe(false);
+    // The Alert's glyph is the same state, by name.
+    const alert = canvas.getByRole("img", { name: "Held" });
+    await expect(alert).toBeVisible();
+    await expect(held.querySelector("svg")!.innerHTML).toBe(alert.querySelector("svg")!.innerHTML);
+  },
+};
+
 /** The `?` beside the heading opens the guide. Wrapped in a provider that remembers nothing. */
 export const HeadingGuide: Story = {
   name: "The heading's guide",

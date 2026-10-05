@@ -71,9 +71,9 @@ export function mergeLineViews(
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: inOrder(one.line).map(entryOf),
-    landed: one.landed.map(entryOf),
-    sentBack: one.sent_back.map(entryOf),
+    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
+    landed: one.landed.map((row) => entryOf(row)),
+    sentBack: one.sent_back.map((row) => entryOf(row)),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
   }));
 }
@@ -87,8 +87,11 @@ function nameOf(root: string, repositories: readonly RepositorySummary[]): strin
 /**
  * The state a row draws. **A turn that has run no Check yet is `preparing`**, Bridge's own: Fleet
  * serves `gating` for the whole turn, and its Check list is what tells the two parts apart.
+ * **A turn whose notice is `main` is `held`**, also Bridge's own: its failed Check is red on main
+ * too, so the running rows stop rather than run on.
  */
-function stateOf(row: MergeLineRow): MergeLineState {
+function stateOf(row: MergeLineRow, held: boolean): MergeLineState {
+  if (held && (row.state === "gating" || row.state === "merging")) return "held";
   if (row.state === "gating" && (row.checks ?? []).length === 0) return "preparing";
   return row.state as MergeLineState;
 }
@@ -102,12 +105,12 @@ function pullRequestOf(pr: NonNullable<MergeLineRow["pull_request"]>): NonNullab
   return { number: pr.number, url: pr.url, ...(settled === undefined ? {} : { settled }) };
 }
 
-function entryOf(row: MergeLineRow): MergeLineEntry {
+function entryOf(row: MergeLineRow, held = false): MergeLineEntry {
   return {
     branch: row.branch,
     place: row.place,
     pr: row.pull_request === undefined ? undefined : pullRequestOf(row.pull_request),
-    state: stateOf(row),
+    state: stateOf(row, held),
     why: (row as ReasonedRow).why,
     doing: row.doing,
     batch: row.batch,

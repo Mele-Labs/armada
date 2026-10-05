@@ -38,6 +38,8 @@ export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { press: button("Overview", { exact: true }), say: "Back to the lines" },
   { look: inside(ARMADA, role("status")), say: "The same alert now names the branch" },
   { later: inside(SCRATCH, text("ports_test red on main")), say: "Red on main too: nobody's, and the turn holds" },
+  { look: inside(SCRATCH, role("listitem", "scratch/try-ports, Held, red on main")), say: "The row's mark stops pulsing and shows the same pause as the alert" },
+  { look: inside(SCRATCH, role("img", "Held")), say: "The alert's pause: row and alert are one state" },
   { look: inside(ARMADA, role("list", "Sent back")), say: "The turn ends and the branch is sent back" },
   { look: inside(ARMADA, text("sent back")), say: "The alert became the verdict, in the same place" },
   { look: inside(NOTES, role("list", "Sent back")), say: "The single branch, sent back" },

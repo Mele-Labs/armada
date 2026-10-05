@@ -100,6 +100,14 @@ describe("the merge line Fleet serves", () => {
     ]);
   });
 
+  test("a turn whose Check is red on main too is held, and what waits behind it still waits", () => {
+    const noticed = {
+      lines: SERVED.lines.map((one) => ({ ...one, notice: { kind: "main", check: "screens_test", branch: "worktree-agent-a" } })),
+    } as MergeLines;
+    const [one] = views(noticed, "/repo");
+    expect(one?.line.map((row) => row.state)).toEqual(["held", "held", "held", "held", "waiting", "waiting"]);
+  });
+
   test("the line is ordered by what merges next, and the number is the position in that order", () => {
     const kept: MergeLines = {
       lines: [
