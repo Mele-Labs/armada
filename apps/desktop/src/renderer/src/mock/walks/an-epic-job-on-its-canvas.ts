@@ -13,7 +13,7 @@ export const anEpicJobOnItsCanvas = walk("epic/wave", [
   { look: card("Plan the wave"), say: "Its plan split the work" },
   { look: job("Refuse an unknown code at the seam", "done"), say: "into Jobs: the seam first, done" },
   { look: job("Name the fault in the toast", "done"), say: "two waiting on it, side by side" },
-  { hover: inside(job("Carry the code into the journal"), text("awaiting review")), say: "one waiting on you" },
+  { hover: inside(job("Carry the code into the journal"), text("needs review")), say: "one waiting on you" },
   { hover: inside(job("Say which half refused"), text("needs you")), say: "one escalated" },
   { look: job("Drop the second error shape", "running"), say: "the last, waiting on both, running" },
   { look: card("Roll up the wave"), say: "then the roll-up, in delivery" },
