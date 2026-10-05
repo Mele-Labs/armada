@@ -171,18 +171,18 @@ pub struct WorkflowSummary {
     pub for_requests: Option<String>,
     /// The file this definition was read from, as Fleet read it: a path, or a
     /// bracketed name where Armada carries it. Empty from a Fleet older than
-    /// 23.29.
+    /// 23.30.
     #[serde(default)]
     pub file: String,
     /// **The definitions of this id a more specific place replaced**, one per
     /// place, so a list can draw each as a row of its own beside the one that
-    /// runs. Absent where nothing is replaced. Since 23.29.
+    /// runs. Absent where nothing is replaced. Since 23.30.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<OverriddenWorkflow>,
 }
 
 /// A definition of a workflow id that a more specific place replaced (protocol
-/// 23.29). It does not run; it can still be read with `get_workflow`.
+/// 23.30). It does not run; it can still be read with `get_workflow`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverriddenWorkflow {
     /// `armada` or `kit`; a repository's own is never replaced.
@@ -191,7 +191,7 @@ pub struct OverriddenWorkflow {
     pub file: String,
 }
 
-/// One definition as `get_workflow` answers it (protocol 23.29): the file's
+/// One definition as `get_workflow` answers it (protocol 23.30): the file's
 /// text, in the shape `save_workflow` takes back.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkflowDefinition {
@@ -217,7 +217,7 @@ pub struct LeftOutWorkflow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<WorkflowId>,
     /// `armada`, `kit` or `repository`. A repository's own is left out the way
-    /// Kit's is; before 23.29 one that did not fit refused Fleet's start.
+    /// Kit's is; before 23.30 one that did not fit refused Fleet's start.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,

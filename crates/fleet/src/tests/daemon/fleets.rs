@@ -26,7 +26,7 @@ use super::workflows::{
 // suite reaches these four by.
 use super::{Counted, Ticking, NEVER_QUIET, UNTRIPPABLE};
 use crate::allowance::{Allowance, Micros};
-use crate::commanding::CommandBudget;
+use crate::budget::CommandBudget;
 use crate::daemon::{Fittings, Fleet, Host, StartingIn};
 use crate::dry_run::DryRuns;
 use crate::gate::CheckBudget;

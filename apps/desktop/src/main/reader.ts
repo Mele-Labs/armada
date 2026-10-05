@@ -41,6 +41,14 @@ export type Reads<Read> = {
    * and says so either way. Resources joined the detail in #438.
    */
   keepsLastGood?: boolean;
+  /**
+   * How long after a failed read to take it again, for as long as it is still
+   * the failure on screen. **The open Job's detail only.** An event re-takes
+   * it, but a Job waiting on a person has none coming: one read lost at the
+   * moment the Job opened left every card saying *Fleet did not answer* until
+   * somebody navigated away and back.
+   */
+  retryMs?: number;
 };
 
 /**
@@ -54,6 +62,8 @@ export class JobReader<Read> {
   private readonly reads: Reads<Read>;
   /** The Job this read is for. `null` is no read. */
   private open: string | null = null;
+  /** The retry waiting to run, so a second failure never stacks a second one. */
+  private retry: ReturnType<typeof setTimeout> | null = null;
   /** The last state published, which is what a kept answer is kept from. */
   private last: JobRead<Read> = { state: "none" };
   /**
@@ -94,6 +104,7 @@ export class JobReader<Read> {
   /** Read one Job, or `null` to stop. Nothing connected is a failure to draw. */
   async want(port: number | null, jobId: string | null): Promise<void> {
     this.open = jobId;
+    this.stopRetrying();
     if (jobId === null) {
       this.say({ state: "none" });
       return;
@@ -141,6 +152,7 @@ export class JobReader<Read> {
         return;
       }
       this.say({ state: "failed", jobId, outcome: answer.outcome });
+      this.retryLater(port, jobId);
       return;
     }
     this.say({ state: "read", jobId, ...this.reads.keeps(answer.body) });
@@ -149,6 +161,20 @@ export class JobReader<Read> {
   /** The read ends with the window. Nothing is published: the surface is gone. */
   close(): void {
     this.open = null;
+    this.stopRetrying();
+  }
+
+  private retryLater(port: number, jobId: string): void {
+    if (this.reads.retryMs === undefined || this.retry !== null) return;
+    this.retry = setTimeout(() => {
+      this.retry = null;
+      if (this.open === jobId && this.last.state === "failed") void this.again(port);
+    }, this.reads.retryMs);
+  }
+
+  private stopRetrying(): void {
+    if (this.retry !== null) clearTimeout(this.retry);
+    this.retry = null;
   }
 
   private say(state: JobRead<Read>): void {

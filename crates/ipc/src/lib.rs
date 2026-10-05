@@ -160,6 +160,7 @@ mod showing;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
+mod slot_found;
 /// A Studio, its nodes and edges, and the acts a client asks of one. `#1285`.
 mod studio;
 /// What `add_studio_node` carries: any content, a Picture staged rather than kept.
@@ -259,8 +260,9 @@ pub use helm_call::{
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
 pub use holding::{
-    ChangeSlotPool, HeldReason, SlotAct, SlotHolding, SlotPoolChanged, WorktreeHeld, WorktreeSlot,
-    WorktreesHeld,
+    ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit,
+    SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotRescued, SlotStranded,
+    SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -349,6 +351,7 @@ pub use setup::{
 };
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};
+pub use slot_found::{what_a_scout_found_in_a_slot, SlotFound, MOST_ITEMS, MOST_ITEM_CHARACTERS};
 pub use studio::{
     AddStudioNode, ContradictionSettled, CreateStudio, DecideStudioEdge, DeferOnStudio,
     DispatchStudioDraft, EditStudioDraft, EditStudioLink, EpicRead, EpicTake, ForgeState,

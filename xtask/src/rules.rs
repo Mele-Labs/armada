@@ -254,6 +254,31 @@ const VENDOR_LITERALS: &[&str] = &[
 /// Bridge's registry of unbuilt Fleet routes. Exempt from the rule above, by name.
 const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 
+/// `lower` with every identifier imported from `lucide-react` blanked out.
+///
+/// **Why the rule yields to these, and only these.** A glyph's component name
+/// is its icon library's, not ours: `FolderGit2` is the drawing of a folder with
+/// a branch, and a vendor literal inside it says nothing about whose API the
+/// code talks to. The registry (`packages/icons/icons.toml`) already decides
+/// which of those names may be imported. The exemption is the imported
+/// identifiers and nothing else, so `git2` written anywhere else in the same
+/// file still fails.
+fn without_lucide_names(lower: &str, original: &str) -> String {
+    let mut out = lower.to_string();
+    for (at, _) in original.match_indices("from \"lucide-react\"") {
+        let Some(start) = original[..at].rfind("import") else { continue };
+        let names = &original[start..at];
+        let (Some(open), Some(close)) = (names.find('{'), names.rfind('}')) else { continue };
+        for name in names[open + 1..close].split(',') {
+            let name = name.split(" as ").next().unwrap_or("").trim().to_lowercase();
+            if !name.is_empty() && VENDOR_LITERALS.iter().any(|vendor| name.contains(vendor)) {
+                out = out.replace(&name, &" ".repeat(name.len()));
+            }
+        }
+    }
+    out
+}
+
 pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
     let mut report = Report::new("no vendor literal outside adapters");
     for source_root in SOURCE_ROOTS {
@@ -273,7 +298,7 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
             let Ok(text) = fs::read_to_string(root.join(&path)) else {
                 continue;
             };
-            let lower = text.to_lowercase();
+            let lower = without_lucide_names(&text.to_lowercase(), &text);
             for vendor in VENDOR_LITERALS {
                 if lower.contains(vendor) {
                     let line = lower

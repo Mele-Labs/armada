@@ -244,9 +244,9 @@ pub struct Fittings<H, V, W> {
     /// can end it themselves.
     pub proposer_budget: JudgeBudget,
     /// How long a plain command may take before Fleet answers a refusal in
-    /// its own words. See [`crate::commanding::CommandBudget`], which has no
+    /// its own words. See [`crate::budget::CommandBudget`], which has no
     /// default for [`JudgeBudget`]'s reason.
-    pub command_budget: crate::commanding::CommandBudget,
+    pub command_budget: crate::budget::CommandBudget,
     /// How long one permission question is held open inside the Drone's call
     /// before the Drone is told to wait for the answer as a turn. See
     /// [`crate::permitting::PermissionHold`], which has no default for

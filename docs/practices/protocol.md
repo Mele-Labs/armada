@@ -2919,11 +2919,42 @@ The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating
 
 **No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again. The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
 
-## Protocol 23.29: where a workflow came from, one read whole, and a start that leaves out
+## Protocol 23.29: a Scout reads a stranded slot
+
+The owner, 4 Oct 2026: when a worktree slot is stranded, send an agent to look at the work, then
+choose to scrap it or stash it. `../concepts/scout.md`, *Starting from a stranded slot*, and
+`../concepts/fleet.md`, *Rescuing a stranded slot*.
+
+**Additive only.** One command, six DTOs and two optional fields on `WorktreeSlot`; a 23.18 Bridge
+reads neither field and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
+| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose. Each commit is `{ sha, subject, home }`, `home` being `only_here` (on no remote branch and not on the local base), `on_remote` or `on_main` | A slot that is not stranded |
+| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, verdict?, items?, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed`. `verdict` is `unfinished` or `scraps`; `items` is what is left to do under the first and one line of leftovers under the second. `summary` is the Scout's own words, kept only where its answer was not that shape | No Scout has read it, or it has moved off the commit read |
+
+**A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains
+`job_status` (where the Job ended), `kept` (why its release was refused, so its work is still in
+the slot) and `completed`, all optional or defaulted. A kept slot carries `stranded` too, and
+`rescue_slot` acts on it as on a stranded one; each act ends the Job's claim, so the slot is free
+after.
+
+**Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
+`fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
+`fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.
+
+**Bridge re-reads `GET /worktrees` while a Finding is `reading`.** No event carries it.
+
+**Store V104 and V105**, `slot_rescues` (V105 adds `verdict` and `items`): one row per slot, keyed by Manifest and slot number, replaced as
+the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
+`failed` when Fleet starts.
+
+## Protocol 23.30: where a workflow came from, one read whole, and a start that leaves out
 
 The Workflow creator needs to draw each definition's place, the ones a more specific place replaced, and the one it is editing. A workflow file that does not fit stops refusing Fleet's start.
 
-**Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none). A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back. `source` is optional and absent means the one that runs; 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. `FleetHealth` gains `workflows_left_out`, a boolean and never a count, true where any served repository left a definition out. A 23.28 Bridge ignores all of it, and a 23.29 Bridge behind it is refused, which is the skew rule's own direction.
+**Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none). A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back. `source` is optional and absent means the one that runs; 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. `FleetHealth` gains `workflows_left_out`, a boolean and never a count, true where any served repository left a definition out. A 23.28 Bridge ignores all of it, and a 23.30 Bridge behind it is refused, which is the skew rule's own direction.
 
 | What | How |
 |---|---|
@@ -2936,11 +2967,11 @@ The Workflow creator needs to draw each definition's place, the ones a more spec
 
 **No migration, no store change, and no event.**
 
-## Protocol 23.30: Helm is told when a person is on Workflows
+## Protocol 23.31: Helm is told when a person is on Workflows
 
 The Workflow creator hands its draft to Helm, and Helm has to know which screen the person is on to read it as a workflow under edit.
 
-**Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflow creator is the screen. Fleet's screen phrase for it is *Workflows*. A 23.29 Fleet refuses the value as an unknown variant, and a 23.30 Bridge behind it is refused by the skew rule's own direction, so no Bridge sends it to a Fleet that cannot read it.
+**Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflow creator is the screen. Fleet's screen phrase for it is *Workflows*. A 23.30 Fleet refuses the value as an unknown variant, and a 23.31 Bridge behind it is refused by the skew rule's own direction, so no Bridge sends it to a Fleet that cannot read it.
 
 **No migration, no store change, and no event.**
 

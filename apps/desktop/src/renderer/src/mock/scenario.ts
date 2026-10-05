@@ -62,6 +62,7 @@ import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { featureAtApproval } from "./feature-at-approval";
 import { featureRunning } from "./feature-running";
+import { featureGates } from "./feature-gates";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -579,6 +580,8 @@ export const SCENARIOS: readonly Scenario[] = [
   }),
   // The same canvas past the gate, on a Job mid-Implement: the Overview every Job draws.
   holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),
+  // The same canvas with a gate stage in every kind and state, staged for the owner's walk (5 Oct 2026).
+  holding("proto/gates-on-the-spine", featureGates().name, [featureGates()], { opens: featureGates().job.id }),
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
   // A Judge refusal he agreed with: the step stopped and the Job escalated,

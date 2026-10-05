@@ -133,6 +133,165 @@ button.armada-run-node {
   color: var(--accent);
 }
 
+/* --- A gate stage: a valve in the line, not a card. -----------------------
+
+   A pill on the spine, one line, no band and no body. State is the border and
+   the glyphs' colour, with a flat tint behind a failed or held one; a passed
+   gate is a thin muted capsule, so the line reads as steps joined by quiet
+   checkpoints. The kind is a thin leading accent. Nothing glows. */
+.armada-run-node[data-gate][data-kind] {
+  position: relative;
+  overflow: visible;
+  width: calc(var(--w-workflow-node) - var(--space-8) - var(--space-3));
+  height: calc(var(--space-8) + var(--space-3));
+  border: none;
+  border-radius: var(--space-8);
+  background: none;
+}
+
+.armada-run-node[data-gate][data-kind][data-tone] {
+  border: none;
+  background: none;
+}
+
+.armada-run-node[data-gate] .armada-run-node__capsule {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  padding-inline: var(--space-3);
+  overflow: hidden;
+  border: var(--border-width) solid var(--armada-run-node-hue);
+  /* The kind, a thin accent on the leading end. */
+  border-inline-start: var(--space-1) solid var(--armada-run-node-kind);
+  border-radius: var(--space-8);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+
+.armada-run-node[data-gate][data-tone="neutral"] .armada-run-node__capsule,
+.armada-run-node[data-gate][data-tone="upcoming"] .armada-run-node__capsule {
+  border-color: var(--border-default);
+}
+
+.armada-run-node[data-gate][data-tone="upcoming"] .armada-run-node__capsule {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* Settled: thin and quiet. */
+.armada-run-node[data-gate][data-tone="done"] .armada-run-node__capsule {
+  border-width: var(--border-width);
+  border-inline-start-width: var(--space-1);
+  border-color: color-mix(in srgb, var(--armada-run-node-hue) 45%, var(--border-default));
+  opacity: 0.75;
+}
+
+.armada-run-node[data-gate][data-tone="live"] .armada-run-node__capsule {
+  background: color-mix(in srgb, var(--step-running) var(--row-tint), var(--bg-raised));
+}
+
+.armada-run-node[data-gate]:is([data-tone="failed"], [data-tone="waiting"], [data-tone="blocked"]) .armada-run-node__capsule {
+  border-width: var(--edge-active);
+  border-inline-start-width: var(--space-1);
+  background: color-mix(in srgb, var(--armada-run-node-hue) var(--row-tint), var(--bg-raised));
+}
+
+.armada-run-node__kind-glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--armada-run-node-hue);
+}
+
+.armada-run-node[data-gate][data-tone="neutral"] .armada-run-node__kind-glyph,
+.armada-run-node[data-gate][data-tone="upcoming"] .armada-run-node__kind-glyph {
+  color: var(--fg-subtle);
+}
+
+.armada-run-node__marks {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.armada-run-node__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  color: var(--fg-subtle);
+}
+
+.armada-run-node__mark[data-outcome="running"],
+.armada-run-node__mark[data-verdict="judging"] {
+  color: var(--step-running);
+}
+
+.armada-run-node__mark[data-outcome="passed"],
+.armada-run-node__mark[data-verdict="met"] {
+  color: var(--step-advanced);
+}
+
+.armada-run-node__mark[data-outcome="failed"],
+.armada-run-node__mark[data-verdict="not_met"] {
+  color: var(--step-failed);
+}
+
+.armada-run-node__mark-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--step-failed);
+}
+
+.armada-run-node__mark-name--quiet {
+  font-family: var(--font-sans);
+  color: var(--fg-muted);
+}
+
+.armada-run-node__elapsed {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-run-node__elapsed[data-held] {
+  color: var(--step-waiting);
+}
+
+.armada-run-node__tuned {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* What a live command last printed, under the capsule in the gap before the next stage. */
+.armada-run-node__strip {
+  position: absolute;
+  /* Clear of the line, which runs through the middle on its way to the next stage. */
+  inset-inline: calc(50% + var(--space-2)) 0;
+  top: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
 /* --- State, through the frame. ------------------------------------------- */
 
 /* --- Kind, through a tint and an edge. ----------------------------------
@@ -219,6 +378,14 @@ button.armada-run-node {
   justify-content: center;
   border-style: dashed;
   background: transparent;
+}
+
+.armada-run-node__ghost-line {
+  padding-inline: var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  text-align: center;
 }
 
 .armada-run-node__ghost {

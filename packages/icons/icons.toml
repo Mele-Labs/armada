@@ -359,6 +359,13 @@
   size = "12px"
   status = "Specified"
 
+  [[icons.git-commit-horizontal.usage]]
+    means = "The commit a rescue Scout read a stranded slot at, on its Finding"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot. The one existing glyph for a commit, before its short hash in mono. Tooltip `Commit it read`."
+
 [icons.git-pull-request]
   means = "pull request"
   group = "Git and config"
@@ -567,6 +574,13 @@
     group = "Action"
     size = "16px"
     notes = "Added 2026-09-29 with Pulse's Processes card (#1647): a kill on each row and one in the card's head, icon-only with `Hold to kill` as the tooltip. Kill's own glyph, for the reason the server stop above borrows it — a process ended on purpose. 16px, the button size, as is the head's `rotate-cw` Refresh beside it."
+
+  [[icons.power.usage]]
+    means = "Stop the Scout reading a stranded worktree slot, and the mark on a Finding it was stopped on"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person ending a read on purpose, which is what the silhouette is for. Tooltip `Stop`, and `Stopped` on the Finding. Refused: `octagon-alert` and `x`, both reserved elsewhere and neither about a process."
 
 [icons.presentation]
   means = "Studios — a whiteboard on its stand, which is what a Studio is drawn as"
@@ -935,7 +949,7 @@
   group = "Canvas rail"
   size = "16px"
   status = "Specified"
-  reserved = "Run on a Studio only: the rail's press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking, and the command palette's row that opens the same menu. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
+  reserved = "Two uses, both the owner's: Run on a Studio, and a workflow step that advances on its submission alone. Run on a Studio is the rail's press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking, and the command palette's row that opens the same menu. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
   notes = "Minted 2026-10-02, when the owner moved Run off the whiteboard's top-right corner and onto the rail's place group (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`). A bolt is an object standing for its verb, the construction `pin`, `stamp` and `wrench` already use, so P1 is not crossed. Against the rail it joins it collides with nothing: `sticky-note` is a square with a peeled corner, `link` a chain, `shapes` three figures, and the view group's `maximize` four corners; a zigzag is no closed outline at all. It reads against `power`, the node bar's Stop the server, as the start to that stop, which is the pair a person meets on one Run node. Refused: `play`, the obvious mark, because `rocket`'s and `flask-conical`'s rows both refused it as a triangle beside `triangle-alert`, Doctor's, and this row does not reopen that; `circle-play`, since `circle-*` is the Judge's; `square-play`, a third square in a rail that already holds `sticky-note`; `terminal` and `square-terminal`, Pilot's; `rocket`, reserved to sending a node through the proposer, which waits at the approval gate where Run starts at once."
 
   [[icons.zap.usage]]
@@ -943,7 +957,7 @@
     group = "Workflows"
     size = "12px"
     status = "Specified"
-    notes = "Added 5 Oct 2026 with the Workflow creator, which the owner walked and passed. This sits against the reservation above, which names Run on a Studio only and no automation. It is recorded here as drawn and as the owner's to confirm."
+    notes = "Added 5 Oct 2026 with the Workflow creator, and kept by the owner the same day against the Run reservation above: a submission-only step is its own use of the bolt, drawn on a workflow definition and never on a Studio. The two never share a surface."
 
 [icons.chevron-down]
   means = "Disclosure — the caret segment of a split button"
@@ -1262,6 +1276,38 @@
   status = "Specified"
   reserved = "A cold worktree slot only."
   paired_with = "flame"
+
+[icons.life-buoy]
+  means = "A life ring - a stranded slot a person can rescue"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Rescuing a stranded worktree slot, the act on its bay. Never help, support or a Job's recovery."
+  notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. The stranded bay is a ghost left holding work; a ring thrown to it is the one drawing that says the work can be got back, and no glyph in the set claims it. Refused: `undo-2`, which is a reversal of a change; `rotate-cw`, which is Refresh; `ghost`, the state itself. Tooltip `Rescue`."
+
+[icons.scan-search]
+  means = "Corner brackets round a magnifier - a Scout reading a stranded slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
+  notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."
+
+[icons.file-pen-line]
+  means = "A page with a pen writing a line - changes on top of the commit that nobody committed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
+  notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."
+
+[icons.anchor]
+  means = "An anchor - a Job that ended and still holds its slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
+  notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."
 
 [icons.workflow]
   means = "Two small squares and a larger one joined by a routed line — steps connected into a flow"

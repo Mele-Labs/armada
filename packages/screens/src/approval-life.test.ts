@@ -9,7 +9,7 @@ import { lifeOf } from "./approval-life";
 const whole = {
   job: { current_step_id: "implement" },
   steps: [
-    { step_id: "plan", state: "advanced" },
+    { step_id: "plan", state: "advanced", judge_checks: [{ criteria: 1, gaming_check: false }] },
     { step_id: "implement", state: "running" },
     { step_id: "handoff", state: "not_started" },
   ],
@@ -20,7 +20,7 @@ describe("lifeOf", () => {
     const { nodes, groups } = lifeOf(whole);
     expect(nodes["brief"]?.activity).toBe("advanced");
     expect(nodes["plan"]?.activity).toBe("advanced");
-    expect(nodes["plan:checks"]?.activity).toBe("advanced");
+    expect(nodes["plan:judge"]?.activity).toBe("advanced");
     expect(nodes["implement"]).toMatchObject({ activity: "running", said: "running", current: true });
     expect(nodes["implement:checks"]).toBeUndefined();
     expect(nodes["handoff"]?.current).toBeUndefined();

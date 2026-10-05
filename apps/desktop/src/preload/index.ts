@@ -7,8 +7,9 @@ import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened } from "@armada/protocol";
-import type { ChangeSlotPool, SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
+import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import type { Pattern } from "../shared/haptics";
 import type {
   CheckOutputRead,
@@ -186,6 +187,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.reclaimWorktree, jobId),
   changeSlotPool: (manifestId: string, change: ChangeSlotPool): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.changeSlotPool, manifestId, change),
+  rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
+    ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
   // A force, unlike the reclaim above — Fleet's 409 is the safety net a
   // stale confirmation needs.

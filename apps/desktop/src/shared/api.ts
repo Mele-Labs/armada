@@ -47,11 +47,12 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
-import type { ChangeSlotPool, LandCheckAt } from "@armada/protocol";
+import type { ChangeSlotPool, LandCheckAt, RescueSlot } from "@armada/protocol";
 import type { BridgeState, Summons } from "./bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "./capture-window";
 import type { Pattern } from "./haptics";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
+import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type { SketchToKeep } from "@armada/protocol";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
@@ -251,6 +252,12 @@ export type BridgeApi = {
    * this machine. Cleanup is read again after, whatever came back.
    */
   changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
+  /**
+   * Start or stop a rescue Scout on a stranded slot, or Scrap or Stash what it
+   * holds. Cleanup is read again after, whatever came back; the receipt is the
+   * one thing that read cannot carry.
+   */
+  rescueSlot: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
   /**
    * Delete one terminal Job's branch, sending the tip a person confirmed. **A
    * force** — Fleet refuses with 409 where the Job is not terminal, the
