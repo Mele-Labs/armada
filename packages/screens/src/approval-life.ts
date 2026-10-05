@@ -13,6 +13,7 @@ import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import type { ChangedSince, GateRun, LifeRead, MemberRead, NodeLife, PlanGroupRead } from "./approval-canvas";
 import { WHEN_BLOCKED_LABEL, WHEN_REFUSED_LABEL } from "./copy";
+import { onlyCurrentAttempt } from "./facts";
 import { REFUSED_STARTS_AT, STARTS_AT } from "./settings";
 import { taskGroupsOf } from "./draft/group";
 import type { GroupState } from "./draft/group";
@@ -137,7 +138,10 @@ function gatesOf(step: StepDetail, now: number): Record<string, NodeLife> {
   const attempts = step.attempts ?? [];
   const latest = attempts.reduce((most, one) => Math.max(most, one.attempt), 1);
   const started = attempts.find((one) => one.attempt === latest)?.started_at;
-  const runs = (step.check_runs ?? []).filter((one) => one.attempt === latest);
+  // The latest attempt with Check rows, not the step's latest attempt: asking
+  // the gate again records an attempt without re-running the Checks, and the
+  // Checks box would otherwise read as never run beside a panel that says passed.
+  const runs = onlyCurrentAttempt(step.check_runs ?? []);
   const declared = step.checks ?? [];
   let checksPassed = declared.length === 0 || advanced;
   if (declared.length > 0) {

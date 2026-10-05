@@ -538,11 +538,10 @@ pub trait Commands: Send + Sync + 'static {
     /// no appeal is worse than no verdict, because a verifier a person cannot
     /// overrule is one they route around.
     ///
-    /// **It is not an approve-anything.** Only `gate_failure` is liftable — the
-    /// Judge refusing a criterion, which is a matter of opinion. A step stopped
-    /// on `gate_undecided` was never weighed and one stopped on
-    /// `evidence_suspect` is a claim about the Drone's honesty; both are
-    /// [`Refusal::IllegalMove`]. A failed mechanical Check is out of reach twice
+    /// **It is not an approve-anything.** `gate_failure`, `evidence_suspect`
+    /// and `gate_undecided` are liftable: a machine ruled, flagged, or could
+    /// not read the work, and a person must be able to move the step. Any
+    /// other trigger is [`Refusal::IllegalMove`]. A failed mechanical Check is out of reach twice
     /// over: it ends the Job at `completed_failed`, which is terminal and stops
     /// no step, and the recorded Check runs are read again before anything moves.
     ///
@@ -552,8 +551,9 @@ pub trait Commands: Send + Sync + 'static {
     /// trigger it overruled, so the row still says `failed` beside a state that
     /// says `advanced`, and [`ipc::StepDetail::overridden`] is that pair read
     /// once here rather than by every surface. A blank reason is
-    /// [`Refusal::Unacceptable`]: an override that says nothing is how this
-    /// becomes the way somebody quiets a gate.
+    /// [`Refusal::Unacceptable`] on a `gate_failure`, where it is the only
+    /// account of why the Judge was wrong; `evidence_suspect` and
+    /// `gate_undecided` take none.
     fn override_verdict(
         self: std::sync::Arc<Self>,
         job_id: JobId,
@@ -563,12 +563,11 @@ pub trait Commands: Send + Sync + 'static {
     /// `rerun_gate` — the gate could not decide, and a person asks it again on
     /// the evidence the step already submitted.
     ///
-    /// **The act [`Commands::override_verdict`] is deliberately not.** A step
-    /// stopped on `gate_undecided` was never weighed: `Ruling::CouldNotDecide`
-    /// exists so that a machine unable to answer produces no verdict in either
-    /// direction, and advancing on one would pass work nothing ruled on. There
-    /// is no decision to disagree with, so what is owed is the question, asked
-    /// again.
+    /// **The act beside [`Commands::override_verdict`], not instead of it.** A
+    /// step stopped on `gate_undecided` was never weighed:
+    /// `Ruling::CouldNotDecide` exists so that a machine unable to answer
+    /// produces no verdict in either direction. A person may advance it with an
+    /// override, or ask the question again with this.
     ///
     /// # It re-runs once, takes no body, and spends no retry budget
     ///
@@ -582,7 +581,7 @@ pub trait Commands: Send + Sync + 'static {
     ///
     /// [`Refusal::IllegalMove`] on a Job that is not `escalated`, on an
     /// escalation that stopped no step, on a step stopped on any other trigger
-    /// — that one is an override, or nothing — and on a Job the daemon is no
+    /// and on a Job the daemon is no
     /// longer standing at, where the baseline the first reading used is gone
     /// and [`Commands::restart_step`] is what applies.
     fn rerun_gate(&self, job_id: JobId)

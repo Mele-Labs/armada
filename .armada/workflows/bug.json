@@ -67,6 +67,7 @@
     {
       "id": "plan",
       "label": "Plan the change",
+      "about": "Reads the report and the code, finds the cause, and writes down the fix as tasks. Nothing is changed yet. The tasks are what Implement works from.",
       "evidence": {
         "submitted": { "type": "plan" }
       },
@@ -101,6 +102,7 @@
     {
       "id": "implement",
       "label": "Implement",
+      "about": "Makes the fix from the plan, one Drone per task, and runs the repository's checks on the result. The change is held in the Job's branch.",
       "evidence": {
         "submitted": { "type": "diff" }
       },
@@ -165,6 +167,7 @@
     {
       "id": "handoff",
       "label": "Review the change",
+      "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
       "evidence": {
         "submitted": { "type": "review" }
       },

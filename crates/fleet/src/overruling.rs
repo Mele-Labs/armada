@@ -32,7 +32,8 @@ use verification::OutcomeTurn;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
-/// Why a person says the verdict is wrong. **Never empty.**
+/// Why a person says the verdict is wrong. **Never empty**, except where
+/// [`Fleet::override_verdict`] takes none.
 ///
 /// A type of its own rather than `resume::Redirection`, which is structurally
 /// the same string: that one is delivered to a Drone as a turn and this one
@@ -44,7 +45,8 @@ use crate::daemon::Fleet;
 /// count of overrides with no reasons beside it gives the rate and never the
 /// cause. An override that says nothing is also how the act this module keeps
 /// visible becomes the one somebody reaches for to quiet a gate. **A gaming
-/// flag is overruled with or without one**: see [`Fleet::override_verdict`].
+/// flag, or a gate that could not decide, is overruled with or without one**:
+/// see [`Fleet::override_verdict`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Overruling(String);
 
@@ -104,11 +106,17 @@ where
         let mut working = slot.lock().await;
         let job = self.load(job_id).await?;
         let (step, overruled) = self.overridable(&job).await?;
-        // **Blank is refused on a refusal and taken on a gaming flag.** A flag's
-        // record already names the pattern, the question and the brief a person
-        // disagreed with; a refusal overruled in silence leaves nothing saying
-        // why the Judge was wrong.
-        if overruling.is_none() && overruled.trigger() != EscalationTrigger::EvidenceSuspect {
+        // **Blank is refused on a refusal and taken on a gaming flag or an
+        // undecided gate.** A flag's record already names the pattern, the
+        // question and the brief a person disagreed with; an undecided gate
+        // has no Judge opinion to learn from. A refusal overruled in silence
+        // leaves nothing saying why the Judge was wrong.
+        if overruling.is_none()
+            && !matches!(
+                overruled.trigger(),
+                EscalationTrigger::EvidenceSuspect | EscalationTrigger::GateUndecided
+            )
+        {
             return Err(Adrift::Unreasoned {
                 job: job_id.clone(),
             });
@@ -176,8 +184,7 @@ where
     /// Four things have to hold, and each refusal names a different act as the
     /// one that applies. The Job is escalated; a step of it stopped; the
     /// trigger that stopped it is one [`StepLevelTrigger::overrulable`] admits,
-    /// which is a machine having ruled rather than a machine having been unable
-    /// to; and no
+    /// which includes a machine having been unable to rule; and no
     /// Check the gate ran on that step failed.
     ///
     /// **The last is read out of the store and not inferred.** A refusal
