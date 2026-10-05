@@ -2511,17 +2511,21 @@ had no answer but discarding correct work or repeating it, and **a verdict that
 cannot be appealed is worse than no Judge** — a verifier a person cannot overrule
 is one they route around, by weakening criteria or by not dispatching.
 
-**It lifts `gate_failure` and `evidence_suspect`, and nothing else.** Both are a
-machine's decision, which is the owner's rule for what a person may overrule. The
+**It lifts `gate_failure`, `evidence_suspect` and `gate_undecided`, and nothing
+else.** The first two are a machine's decision, which is the owner's rule for what
+a person may overrule. The
 first is the Judge refusing a criterion, a judgement about the work. The second is
 the gaming check saying the evidence is not to be trusted — a claim about how the
 step was satisfied rather than about whether it was, and a machine reading a diff
 to infer intent, which is the call a person is most likely to be right about.
 `last_verdict.trigger` is what tells an overruled flag from an overruled refusal
 afterwards, and Bridge chooses its words off the same field. `gate_undecided` is
-the gate never having weighed the work at all, so advancing on it would pass a
-step nothing ruled on; whether that wants an act of its own is open. The
-mechanical tier is unreachable by the check, and `build` failing is not a matter
+the gate never having weighed the work at all — the Judge call failed, so no
+verdict exists — and the owner decided on 2026-10-05 that a person must be able to
+move a step the machine could not read: an engineer who deems the step did what it
+needs can advance it, and the record keeps `failed(gate_undecided)` beside
+`advanced`. That one takes no reason, as a gaming flag takes none, because there is
+no Judge opinion to learn from. The mechanical tier is unreachable by the check, and `build` failing is not a matter
 of opinion. It stopped being unreachable *by construction* when #208 landed: a
 Job whose gate-failure attempts are spent now holds at `awaiting_repair` with a
 stopped step, which is a step an act could land on. The refusal is the check
@@ -2574,15 +2578,14 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person asks the gate again, on the evidence a step already submitted, where the first reading could not decide"
 notes = """
-The sixth act that reaches an escalated Job, and **the one `override_verdict` is
-deliberately not**. `gate_undecided` says Fleet could not derive a gating
+The sixth act that reaches an escalated Job, and **the one beside
+`override_verdict`** on a `gate_undecided` step. That trigger says Fleet could not derive a gating
 artifact — a worktree it could not read, a Judge it could not hand a patch to —
 so `Ruling::CouldNotDecide` is the machine declining to produce a verdict in
-either direction. There is nothing ruled to overrule, and advancing on it would
-pass a step nothing ever weighed. `overrulable()` in
-`crates/fleet/src/overruling.rs` refuses the trigger for that reason and keeps
-refusing it; this admits exactly what that refuses, so the two acts partition the
-triggers rather than overlapping.
+either direction. There is nothing ruled to disagree with, so a person may ask again with this or,
+since 2026-10-05, advance the step with `override_verdict`. `overrulable()` in
+`core-model` admits the trigger, so the two acts overlap on it and are no longer
+a partition; this one is refused wherever a machine ruled.
 
 **It re-runs, it does not retry.** The cause is usually transient and sometimes
 permanent, and #156 recorded that the two arrive as the same value and are not
@@ -2605,7 +2608,7 @@ that same run.
 
 **Refused four ways, and each names the act that applies instead.** A Job that is
 not `escalated`, an escalation that stopped no step, a step stopped on any trigger
-but `gate_undecided` — that one is an override or nothing — and a Job Fleet is no
+but `gate_undecided` and a Job Fleet is no
 longer standing at. The last is the one that is not obvious: the baseline
 `diff_nonempty` is decided against is what the worktree held when the step began,
 it lives in the working slot, and a Fleet restarted since the escalation has none.
