@@ -52,6 +52,8 @@ export function said(outcome: Outcome): string {
       return "That worktree is already being reclaimed. It was not sent twice.";
     case "already_redirecting":
       return "That redirect is already in flight. It was not sent twice.";
+    case "already_answering_lesson":
+      return "That answer is already in flight. It was not sent twice.";
     case "already_restarting":
       return "That restart is already in flight. It was not sent twice.";
     case "already_overruling":

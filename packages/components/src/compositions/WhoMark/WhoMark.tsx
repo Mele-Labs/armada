@@ -26,6 +26,11 @@ export function WhoMark({ who }: { who: Who }) {
   );
 }
 
+/** Whose way, as a word, for the label a mark sits beside. */
+export function whoWord(who: Who): string {
+  return MARKS[who].says;
+}
+
 const MARKS: Record<Who, { Glyph: typeof Bot; says: string }> = {
   drone: { Glyph: Bot, says: "Drone" },
   owner: { Glyph: UserCheck, says: "You" },

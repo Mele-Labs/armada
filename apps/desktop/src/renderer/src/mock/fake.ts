@@ -6,7 +6,7 @@
 // *Bridge on a mock Fleet*.
 
 import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
-import type { JobSummary, Outcome, WorkPlan } from "@armada/protocol";
+import type { JobSummary, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -17,6 +17,7 @@ import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
 import { reshaped } from "./slots-fleet";
+import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
@@ -33,7 +34,6 @@ import {
 } from "./plan-fleet";
 
 const OK: Outcome = { ok: true };
-
 /**
  * How far apart a fixture's `arriving` rows land. Long enough that a walk has
  * opened a transcript's panel before the first one, short enough that the
@@ -111,6 +111,17 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       queueMicrotask(() => drafters.forEach((onDraft) => onDraft()));
     }
     return { ok: true, plan: now };
+  }
+
+  /** The retro items as answers left them. */
+  let lessons = scenario.lessons ?? [];
+
+  /** One answer to one item. An agreed Armada or Manifest item puts its Job on the Board at the gate. */
+  function answerLesson(id: string, answer: "agree" | "disagree"): LessonAnswer {
+    const taken = answered(lessons, id, answer, state.jobs, new Date().toISOString());
+    lessons = taken.lessons;
+    if (taken.job !== undefined) publish({ jobs: [...state.jobs, taken.job] });
+    return taken.answer;
   }
 
   function forget(jobIds: readonly string[]): void {
@@ -431,12 +442,20 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
     readRetro: async (jobId) => {
       const retro = scenario.retros?.[jobId];
-      if (retro !== undefined) return { ok: true, retro };
+      // Each item stands as the answers left it, as Fleet's `state` says. An old item has none.
+      const standing = (item: RetroItem): RetroItem => {
+        const now = item.state === undefined ? undefined : lessons.find((one) => one.id === item.id);
+        if (now === undefined) return item;
+        return { ...item, state: now.state, ...(now.job_proposed === undefined ? {} : { job_proposed: now.job_proposed }) };
+      };
+      if (retro !== undefined) return { ok: true, retro: { ...retro, items: retro.items?.map(standing) } };
       return readsOf(jobId) === undefined
         ? refused(path(jobId, "/retro"))
         : { ok: true, retro: { job_id: jobId, state: "pending", record: {} } };
     },
-    readLessons: async () => ({ ok: true, lessons: scenario.lessons ?? [] }),
+    readLessons: async (view) => ({ ok: true, lessons: listed(lessons, view) }),
+    agreeLesson: async (id) => answerLesson(id, "agree"),
+    disagreeLesson: async (id) => answerLesson(id, "disagree"),
     readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
     readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
     // The app's own spelling, which a browser has no handler for — `props.ts`' reason.

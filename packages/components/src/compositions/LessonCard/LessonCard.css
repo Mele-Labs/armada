@@ -1,0 +1,214 @@
+/* One retro item, read top to bottom. The Lessons list and the retro sheet draw
+   it, so it is one rule set.
+
+   Learned from the places that already scan well: `HeldWorktree`'s card (a raised
+   surface, `--edge-card`, a title line over a well holding the reading) and the
+   Overview lead (a leading edge, the headline one size above its line). The edge
+   is neutral: where a fix lands is a word, never a hue. */
+.armada-lesson {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--pad-card);
+  border: var(--border-width) solid var(--edge-card);
+  border-inline-start: var(--edge-active) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  list-style: none;
+}
+
+/* Whose way, where the fix lands, and the Job it came from at the far end. */
+.armada-lesson__labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Who, an arrow, where. One thing to read, so the three sit together. */
+.armada-lesson__route {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-lesson__arrow {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Each end takes its own hue, from `--hue`. **Never a status hue**: hard rule 3
+   keeps those for the Job state machine. The six are the tool families, the
+   accent and the diff pair, which alias no status (see the data-hue rules). The
+   word is drawn in the hue and the tag is a tint of it, so the pair reads
+   apart before either word is read. */
+.armada-lesson__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue, var(--fg-muted)) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hue, var(--fg-muted)) 12%, var(--surface-well));
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--hue, var(--text-label));
+  white-space: nowrap;
+}
+
+.armada-lesson__label .armada-who-mark,
+.armada-lesson__label .armada-lands-mark {
+  color: inherit;
+}
+
+/* Whose way. Drone, You, Fleet. */
+.armada-lesson__label[data-hue="drone"] {
+  --hue: var(--tool-change);
+}
+.armada-lesson__label[data-hue="you"] {
+  --hue: var(--tool-look);
+}
+.armada-lesson__label[data-hue="fleet"] {
+  --hue: var(--tool-run);
+}
+
+/* Where the fix lands. Armada, Kit, Manifest. */
+.armada-lesson__label[data-hue="armada"] {
+  --hue: var(--accent);
+}
+.armada-lesson__label[data-hue="kit"] {
+  --hue: var(--diff-add-fg);
+}
+.armada-lesson__label[data-hue="manifest"] {
+  --hue: var(--diff-del-fg);
+}
+
+.armada-lesson__from,
+.armada-lesson__job {
+  margin-inline-start: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--text-meta);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.armada-lesson__from:hover,
+.armada-lesson__job:hover {
+  color: var(--accent);
+}
+
+.armada-lesson__from:focus-visible,
+.armada-lesson__job:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The headline: one step up the ladder, as the lead's is, and the first thing found. */
+.armada-lesson__headline {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+/* What happened. Without a headline it is the whole item, at body colour. */
+.armada-lesson__what {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.armada-lesson__what[data-headed] {
+  color: var(--fg-muted);
+}
+
+/* The fix, set apart: a well with its own leading edge, so it is the second
+   thing the eye finds. */
+.armada-lesson__fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-self: stretch;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: var(--edge-active) solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-well);
+}
+
+.armada-lesson__fix-label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  font-weight: var(--weight-medium);
+  color: var(--fg-subtle);
+}
+
+.armada-lesson__fix-said {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.armada-lesson__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-2);
+}
+
+.armada-lesson__settled {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-label);
+}
+
+/* The link is a word here, not a Job's handle, so it takes the label's face. */
+.armada-lesson__settled .armada-lesson__job {
+  margin-inline-start: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--accent);
+}
+
+.armada-lesson__evidence-toggle {
+  margin-inline-start: auto;
+}
+
+/* The cited rows, a well under the item so they read as backing for it. */
+.armada-lesson > .armada-retro__cites {
+  align-self: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-well);
+}

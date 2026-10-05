@@ -78,7 +78,7 @@ pub use job::{
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };
-pub use retro::{LandsIn, Via, Whose};
+pub use retro::{LandsIn, LessonState, Via, Whose};
 pub use studio::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureWindow,
     ContradictionOutcome, Drawing, EdgeRefused, EndedFinding, EpicRead, EpicTake, ForgeFacts,

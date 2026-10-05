@@ -125,6 +125,7 @@ pub struct Fleet<H, V, W> {
     judge_model: Model,
     second_opinion_model: Model,
     proposer_model: Model,
+    retro_model: Model,
     links: Arc<dyn LinkLookup + Send + Sync>,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,

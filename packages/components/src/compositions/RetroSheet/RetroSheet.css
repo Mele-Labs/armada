@@ -28,36 +28,11 @@
 }
 
 .armada-retro__items {
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .armada-retro__cites {
   gap: var(--space-1);
-}
-
-/* The mark leads, on the statement's first line; everything else hangs under
-   the statement rather than under the mark. */
-.armada-retro__item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* Whose way, then where the fix lands, on the statement's first line. */
-.armada-retro__marks {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  padding-block-start: var(--space-1);
-}
-
-.armada-retro__said {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
 }
 
 .armada-retro__statement {

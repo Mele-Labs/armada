@@ -510,8 +510,8 @@ export class FleetConnection {
     return await this.jobReads.readRetro(jobId);
   }
 
-  async readLessons(picked: Picked): Promise<LessonsRead> {
-    return await this.jobReads.readLessons(picked);
+  async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {
+    return await this.jobReads.readLessons(picked, state);
   }
 
   /** `leftOut` and the Manifest reading for the repository New job's ask answered, on All — #959.

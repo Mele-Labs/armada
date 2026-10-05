@@ -27,6 +27,7 @@ mod gaming;
 mod helm_sessions;
 mod iteration;
 mod kit;
+mod lessons;
 mod limits;
 mod lineage;
 mod manifest_allowed;

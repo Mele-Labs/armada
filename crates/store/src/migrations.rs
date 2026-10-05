@@ -133,6 +133,7 @@ pub const MIGRATIONS: &[&str] = &[
     crate::retro::V102,
     crate::walk_notes::V103,
     crate::approval::V104,
+    crate::retro::V105,
 ];
 
 /// Every table whose rows belong to one Job, asked of the file rather than
