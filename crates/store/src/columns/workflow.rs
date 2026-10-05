@@ -41,6 +41,10 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             // that asks to be read rather than looked at, and every row written
             // before the key existed.
             "captured": step.captured().then_some(true),
+            // Absent rather than `false`, for `captured`'s reason. **Without
+            // it a step asking to be walked reads back as one that does not**,
+            // and Fleet, which loads the Job at the stop, starts nothing.
+            "walked": step.walked().then_some(true),
             // Absent rather than `false`, for `captured`'s reason: every row
             // frozen before a step could work a plan reads back as one that did not.
             "follows_plan": step.follows_plan().then_some(true),
@@ -323,6 +327,7 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
         read_step_model(entry)?,
     )
     .capturing(captured)
+    .walking(read_walked(entry)?)
     .dispatching(read_may_dispatch_jobs(entry)?)
     // **False where the key is absent, and `read_workflow` is what corrects a
     // row where every step is.** A step alone cannot tell "this step does not
@@ -338,6 +343,16 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
     .in_phase(read_phase(entry)?)
     .as_tuned(read_effort(entry)?, read_context(entry)?)
     .also_recording_the_plan(read_records_plan(entry)?))
+}
+
+/// Whether the step asks to be walked. **Absent and null read as no**, which is
+/// every row frozen before the key existed.
+fn read_walked(entry: &Map<String, Value>) -> Result<bool, Malformed> {
+    match entry.get("walked") {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(set)) => Ok(*set),
+        Some(other) => Err(format!("`walked` is {}", kind(other))),
+    }
 }
 
 /// Whether the step works its tasks a Drone each. **Absent and null read as

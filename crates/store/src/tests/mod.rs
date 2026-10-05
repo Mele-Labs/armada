@@ -266,7 +266,13 @@ pub fn workflow() -> FrozenWorkflow {
             // is what the shipped definitions do and what the roundtrip has to
             // carry: a `false` read back over a `true` is a Job whose branch
             // never goes.
-            .delivering(true),
+            .delivering(true)
+            // One step asks to be walked and one does not, so every round trip
+            // in this crate walks the flag and its absence. **It was lost here
+            // once**: a hand-built step carried it, a Job's frozen row did not,
+            // and a Prototype stopped at Build with nothing served — the
+            // owner's first real run, 5 Oct 2026.
+            .walking(true),
         ],
     )
 }
