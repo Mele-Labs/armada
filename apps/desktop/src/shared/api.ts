@@ -390,20 +390,20 @@ export type BridgeApi = {
    * Legal on an escalated Job whose step stopped on `gate_failure` — the Judge
    * refusing a criterion — or on `evidence_suspect`, the gaming check calling
    * the evidence untrustworthy. Both are a machine's decision, which is what a
-   * person may overrule. Fleet refuses 409 for `gate_undecided`, where nothing
-   * weighed the work, and for a step that stopped on anything else; 422 for a
-   * blank reason except on `evidence_suspect`. Whether the Drone is still there
+   * person may overrule, and on `gate_undecided`, where the Judge did not answer
+   * and the person accepts the step themselves (the owner's call, 5 Oct 2026).
+   * Fleet refuses 409 for a step that stopped on anything else; 422 for a
+   * blank reason except on `evidence_suspect` and `gate_undecided`. Whether the Drone is still there
    * decides only how the Job carries on.
    */
   overrideVerdict: (jobId: string, reason: string) => Promise<Outcome>;
   /**
-   * Ask the gate again, on the evidence the step already submitted.
+   * Ask the judge again, on the evidence the step already submitted.
    *
-   * **Not an override and not a widening of one.** `overrideVerdict` lifts a
-   * decision a machine made; `gate_undecided` is a gate that made none — it
-   * could not derive what it needed to read — so there is nothing to disagree
-   * with and nothing to lift. This asks the question that failed to be asked,
-   * which is why it carries no reason: nothing is being disputed, so there is
+   * **Not an override.** `overrideVerdict` advances the step; `gate_undecided`
+   * is a gate that made no decision — it could not derive what it needed to
+   * read — so this asks the question that failed to be asked and moves nothing
+   * by itself, which is why it carries no reason: nothing is being disputed, so there is
    * no sentence to record that the second reading will not say for itself.
    *
    * Legal on an escalated Job whose stopped step carries `gate_undecided`.

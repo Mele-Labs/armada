@@ -360,9 +360,11 @@ impl StepLevelTrigger {
     /// distinction is real and is not the one that decides this: the owner's
     /// rule is that anything a machine decides, a person can overrule.
     ///
-    /// **`gate_undecided` in particular is not among them.** It is the machine
-    /// saying it could not read the artifact, so there is nothing ruled to
-    /// disagree with; `Recourse::RerunGate` answers that one. The rest are
+    /// **`gate_undecided` is among them since 2026-10-05**, on the owner's
+    /// reversal of the earlier refusal. The machine could not read the
+    /// artifact, so there is no ruling to disagree with — and a person must
+    /// still be able to move a step the machine could not read.
+    /// `Recourse::RerunGate` is offered beside it, not instead. The rest are
     /// refused because nothing weighed the work at all, and the Job-level
     /// triggers cannot reach here at all — [`StepLevelTrigger::of`] refuses
     /// them. They are listed rather than caught by a wildcard so that the
@@ -374,9 +376,10 @@ impl StepLevelTrigger {
     /// sentence beside it come to disagree.
     pub fn overrulable(&self) -> bool {
         match self.0 {
-            EscalationTrigger::GateFailure | EscalationTrigger::EvidenceSuspect => true,
+            EscalationTrigger::GateFailure
+            | EscalationTrigger::EvidenceSuspect
+            | EscalationTrigger::GateUndecided => true,
             EscalationTrigger::AskUnanswered
-            | EscalationTrigger::GateUndecided
             | EscalationTrigger::BlockedByPolicy
             | EscalationTrigger::CheckTimeout
             | EscalationTrigger::DroneGone

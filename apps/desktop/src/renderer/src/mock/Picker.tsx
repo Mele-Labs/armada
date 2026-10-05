@@ -76,7 +76,15 @@ function score(at: number[]): number {
 }
 
 /** A scenario or a walk that matched, and where — the marks the row draws it with. */
-type Hit = { name: string; says: string; at: number[]; walk: boolean };
+type Hit = { name: string; label: string; says: string; at: number[]; walk: boolean };
+
+/** A walk's export name in words: `backFromADrone` reads `back from a drone`. */
+function words(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .toLowerCase();
+}
 
 /**
  * Every walk, as a row: **the list is how one is played from a window that
@@ -85,10 +93,11 @@ type Hit = { name: string; says: string; at: number[]; walk: boolean };
  */
 const WALK_ROWS = [...EVERY_WALK].map(([name, one]) => ({
   name,
+  label: words(name),
   says: `A walk of ${one.steps.length} steps over ${one.scenario}`,
   walk: true,
 }));
-const SCENARIO_ROWS = SCENARIOS.map((one) => ({ name: one.name, says: one.says, walk: false }));
+const SCENARIO_ROWS = SCENARIOS.map((one) => ({ name: one.name, label: one.name, says: one.says, walk: false }));
 
 /** Each group the query reaches, best first within it. The empty query is all of them, in roster order. */
 function hits(query: string, rows: readonly Omit<Hit, "at">[]): Hit[] {
@@ -96,10 +105,10 @@ function hits(query: string, rows: readonly Omit<Hit, "at">[]): Hit[] {
   if (wanted === "") return rows.map((one) => ({ ...one, at: [] }));
   return rows
     .flatMap((one) => {
-      const at = fuzzy(one.name.toLowerCase(), wanted);
+      const at = fuzzy(one.label.toLowerCase(), wanted);
       return at === null ? [] : [{ ...one, at }];
     })
-    .sort((a, b) => score(a.at) - score(b.at) || a.name.length - b.name.length);
+    .sort((a, b) => score(a.at) - score(b.at) || a.label.length - b.label.length);
 }
 
 /** The name with the matched characters marked, so a fuzzy hit reads as one. */
@@ -146,7 +155,7 @@ function to(hit: Pick<Hit, "name" | "walk">): string {
  * and the `<select>` this replaces made finding one a scroll. Typing narrows,
  * the arrows walk what is left, Enter takes the top row, Esc gives up.
  */
-export function Picker({ current }: { current: string }) {
+export function Picker({ current, walk = false }: { current: string; walk?: boolean }) {
   const column = useColumn();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -155,8 +164,10 @@ export function Picker({ current }: { current: string }) {
   const field = useRef<HTMLInputElement>(null);
   const top = useRef<HTMLAnchorElement>(null);
 
-  // Scenarios first and then walks, so Enter on a query both reach is a scenario.
-  const found = useMemo(() => [...hits(query, SCENARIO_ROWS), ...hits(query, WALK_ROWS)], [query]);
+  // Walks first and then scenarios: the walks are the few things worth demoing, and a hundred
+  // scenarios ahead of them hid them. Enter on a query both reach is a walk.
+  const found = useMemo(() => [...hits(query, WALK_ROWS), ...hits(query, SCENARIO_ROWS)], [query]);
+  const shown = walk ? words(current) : current;
   // The first row is always the one Enter takes, so a query narrowed to one
   // scenario is a two-key act. Reset with the query rather than clamped: a
   // cursor left at row nine of a list that now has two is nowhere he put it.
@@ -207,12 +218,12 @@ export function Picker({ current }: { current: string }) {
         size="sm"
         data-said
         aria-expanded={open}
-        aria-label={`Mock scenario — ${current}`}
-        title={`Mock scenario — ${current}`}
+        aria-label={`Mock scenario — ${shown}`}
+        title={`Mock scenario — ${shown}`}
         onClick={() => setOpen((held) => !held)}
       >
         <FlaskConical size={16} strokeWidth={2} aria-hidden />
-        <span className="armada-mock-picker__current">{current}</span>
+        <span className="armada-mock-picker__current">{shown}</span>
       </Button>
       {open ? (
         <div className="armada-mock-picker__layer" role="dialog" aria-label="Mock scenario">
@@ -234,13 +245,13 @@ export function Picker({ current }: { current: string }) {
                   ref={i === at ? top : undefined}
                   className="armada-mock-picker__row"
                   href={to(one)}
-                  aria-current={!one.walk && one.name === current ? "true" : undefined}
+                  aria-current={one.walk === walk && one.name === current ? "true" : undefined}
                   data-at={i === at || undefined}
-                  data-current={(!one.walk && one.name === current) || undefined}
+                  data-current={(one.walk === walk && one.name === current) || undefined}
                   data-walk={one.walk || undefined}
                   title={one.says}
                 >
-                  {marked(one.name, one.at)}
+                  {marked(one.label, one.at)}
                 </a>
               </Fragment>
             ))}
@@ -257,11 +268,11 @@ export function Picker({ current }: { current: string }) {
  * a test put up the same control with the same stylesheet behind it. What it
  * draws goes into the app's left column from there, so `host` stays empty.
  */
-export function mountPicker(current: string, host: HTMLElement): () => void {
+export function mountPicker(current: string, host: HTMLElement, walk = false): () => void {
   const root = createRoot(host);
   root.render(
     <StrictMode>
-      <Picker current={current} />
+      <Picker current={current} walk={walk} />
     </StrictMode>,
   );
   return () => root.unmount();

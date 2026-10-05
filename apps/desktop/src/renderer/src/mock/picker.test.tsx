@@ -159,8 +159,8 @@ test("a walk is a row too, and choosing one plays it — the reload `?walk=` is 
   const went = intercept();
 
   await said().click();
-  await find("backFromADrone");
-  await page.getByRole("link", { name: "backFromADrone" }).click();
+  await find("back from a drone");
+  await page.getByRole("link", { name: "back from a drone" }).click();
 
   expect(went).toHaveLength(1);
   const asked = new URL(went[0]!).searchParams;
@@ -188,4 +188,32 @@ test("Esc gives it up, and the scenario is still readable", async () => {
   await userEvent.keyboard("{Escape}");
   expect(field().query()).toBeNull();
   await expect.element(said()).toHaveTextContent(SCENARIO);
+});
+
+test("walks are listed first, in words, above the scenarios", async () => {
+  await show();
+  await said().click();
+  await expect.element(field()).toBeVisible();
+
+  const all = rows();
+  expect(all.slice(0, EVERY_WALK.size).every((row) => row.dataset.walk !== undefined)).toBe(true);
+  expect(all[EVERY_WALK.size]?.dataset.walk).toBeUndefined();
+  expect(names()).toContain("back from a drone");
+  expect(names()).not.toContain("backFromADrone");
+});
+
+test("on a walk page the picker names the walk and marks its row", async () => {
+  mount("every-state");
+  await onScreen();
+  host = document.createElement("div");
+  document.body.append(host);
+  takePicker = mountPicker("backFromADrone", host, true);
+  const said2 = page.getByRole("button", { name: "Mock scenario — back from a drone" });
+  await expect.element(said2).toBeVisible();
+
+  await said2.click();
+  const current = document.querySelectorAll<HTMLAnchorElement>(".armada-mock-picker__row[data-current]");
+  expect(current).toHaveLength(1);
+  expect(current[0]?.textContent).toBe("back from a drone");
+  expect(current[0]?.href).toContain("walk=backFromADrone");
 });

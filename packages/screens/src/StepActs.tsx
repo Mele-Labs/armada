@@ -30,7 +30,7 @@ import { steeringOf } from "./steering";
  *
  * **They were rendered at Job level and five of the eleven do not act on the
  * Job.** Redirecting a Drone, restarting a step, overruling the verdict on a
- * step, asking a step's gate again and running its Checks again all leave the
+ * step, asking a step's judge again and running its Checks again all leave the
  * Job exactly where it is — only the step moves. Drawn in the Job header they
  * read as peers of the two kills, which is the reading job detail was
  * redrawn to end.
@@ -107,7 +107,7 @@ export function StepActs({
    */
   onOverrule: (jobId: string, reason: string) => void;
   /**
-   * Ask the gate again on a step it could not decide. **Straight through like a
+   * Ask the judge again on a step it did not answer. **Straight through like a
    * redirect, and for a different reason** — that one already confirmed in its
    * own dialog, and this one has nothing to confirm.
    */
@@ -136,8 +136,8 @@ export function StepActs({
         : undefined;
   const canRestart = recourse?.act === "restart_step";
   // Beside the two rather than instead of one: which trigger stopped the step
-  // decides these, and whether a Drone is there decides those. **Never both**,
-  // because the two triggers partition — `recovery.ts` says so.
+  // decides these, and whether a Drone is there decides those. `gate_undecided`
+  // draws both the accept and the re-ask.
   const overrule = recourse?.overrule;
   const reread = recourse?.reread;
   const rerunChecks = recourse?.rerunChecks;
@@ -164,8 +164,7 @@ export function StepActs({
           />
         </Tooltip>
       )}
-      {/* Where nothing ruled, in the place the override would be: the two are
-          mutually exclusive, and both keep the step's work. **No dialog and no
+      {/* Where nothing ruled, beside the accept: both keep the step's work. **No dialog and no
           confirmation** — a re-run destroys nothing, overrules nothing and
           commits nothing, so stopping to ask would claim a cost Fleet does not
           charge. */}
@@ -250,7 +249,7 @@ const RUNNING_CHECKS = "Running Checks";
 const CHECKS_RUNNING = "The Checks are running now. This can take a few minutes.";
 
 /** `ACT_LABEL.rerun_gate`'s verb, in flight. #1117. */
-const ASKING_AGAIN = "Asking the gate again…";
+const ASKING_AGAIN = "Asking the Judge again…";
 
 /** `ACT_LABEL.restart_step`'s verb, in flight. #1117. */
 const RESTARTING = "Restarting the step…";

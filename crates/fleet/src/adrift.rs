@@ -452,13 +452,11 @@ pub enum Adrift {
     /// An override was asked for on a step stopped by something no machine
     /// ruled on.
     ///
-    /// **A person may overrule a decision and not the absence of one.** A step
-    /// stopped on `gate_failure` or on `evidence_suspect` is a step a machine
-    /// weighed and called wrong, and either is a call a person can disagree
-    /// with. A step stopped on `gate_undecided` was never weighed at all, so
-    /// advancing it would pass work nothing ruled on; the rest — a Check that
-    /// hit its bound, evidence too large to read, a loop that did not
-    /// converge — say the same thing in their own way. `overrulable` in
+    /// **A person may overrule what a machine decided or could not decide.**
+    /// A step stopped on `gate_failure`, `evidence_suspect` or `gate_undecided`
+    /// can be advanced by a person. The rest — a Check that hit its bound,
+    /// evidence too large to read, a loop that did not converge — were never
+    /// weighed and say so in their own way. `overrulable` in
     /// `crate::overruling` is the list, arm by arm.
     NotTheJudges {
         job: JobId,
@@ -483,10 +481,10 @@ pub enum Adrift {
     },
     /// The gate was asked again on a step it had already ruled on.
     ///
-    /// **[`NotTheJudges`](Adrift::NotTheJudges) from the other side**, and the
-    /// two partition the triggers: an override lifts a decision, a re-run
-    /// answers the absence of one, and no trigger reaches both. Asking a gate
-    /// that ruled the same question draws the same answer.
+    /// **[`NotTheJudges`](Adrift::NotTheJudges) from the other side**, though
+    /// the two no longer partition the triggers: `gate_undecided` admits both
+    /// an override and a re-run. Asking a gate that ruled the same question
+    /// draws the same answer.
     NotUndecided {
         job: JobId,
         step: StepId,

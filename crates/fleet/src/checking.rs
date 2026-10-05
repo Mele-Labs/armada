@@ -297,7 +297,20 @@ pub(crate) fn narrows_at_the_gate(checks: &[ResolvedCheck], touched: &[String]) 
 pub(crate) fn by_its_runner(check: &ResolvedCheck, touched: &[String]) -> Option<String> {
     let runner = check.runner()?;
     let described = config::shipped(runner.name())?;
-    checks_runner::run_changed(described.run_changed()?, runner.dir(), touched)
+    let Some(dir) = runner.dir() else {
+        return checks_runner::run_changed(described.run_changed()?, None, touched);
+    };
+    // The template runs from `dir`, so `{files}` must be dir-relative. A covered
+    // path outside it cannot be named, and dropping it would narrow to a subset
+    // nobody was told about, so the Check runs whole.
+    let (inside, outside) = checks_runner::relative_to_dir(dir, touched);
+    if outside
+        .iter()
+        .any(|path| check.covers(std::slice::from_ref(path)))
+    {
+        return None;
+    }
+    checks_runner::run_changed(described.run_changed()?, Some(dir), &inside)
 }
 
 /// What was observed of one declared Check, and what it printed.
