@@ -9,7 +9,7 @@ import { LessonList, type LessonRow } from "./LessonList";
  * retro.
  */
 const meta: Meta<typeof LessonList> = {
-  title: "Compositions/Retro list",
+  title: "Compositions/Lesson list",
   component: LessonList,
   args: { onOpen: fn() },
   decorators: [
