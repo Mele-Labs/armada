@@ -258,3 +258,26 @@ export const FailedSent: Story = {
     await expect(canvas.getByRole("status")).toHaveTextContent(AT);
   },
 };
+
+/** Waiting branches in merge order, each with the reason it is not in the running turn. */
+export const WaitingWhy: Story = {
+  name: "Waiting, with the reason",
+  args: {
+    line: [
+      { place: 1, branch: "canvas/gates-on-the-spine", state: "gating", batch: "t", checks: [{ name: "build", state: "running" }] },
+      { place: 2, branch: "fix/overview-fallback-and-reads", state: "preparing", batch: "t", doing: "reading verify-foundations against main" },
+      { place: 3, branch: "fleet/stranded-slot-rescue", state: "waiting", why: "kept" },
+      { place: 4, branch: "fix/dispatch-did-not-answer", state: "waiting" },
+      { place: 5, branch: "fix/pulse-log-clash", state: "waiting", why: "member" },
+      { place: 6, branch: "fix/stale-base-read", state: "waiting", why: "main" },
+      { place: 7, branch: "bridge/late-joiner", state: "waiting", why: "late" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const queued = canvas.getByRole("listitem", { name: "fix/dispatch-did-not-answer, waiting" });
+    // Queued behind with no reason: a clock for the state and nothing else.
+    await expect(within(queued).getAllByRole("img")).toHaveLength(1);
+    const kept = canvas.getByRole("listitem", { name: "fleet/stranded-slot-rescue, waiting" });
+    await expect(within(kept).getByRole("img", { name: /Kept its place/ })).toBeVisible();
+  },
+};

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { ChevronRight, ChevronUp, Pause, type LucideIcon } from "lucide-react";
+import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, Pause, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
@@ -32,6 +32,17 @@ export type MergeLineState =
   | "conflict"
   | "stopped";
 
+/**
+ * Why a waiting branch is not in the turn that is running, where there is a reason. A branch with
+ * none is queued behind, and draws nothing.
+ *
+ * - `member`: left out because it clashes with another member of the turn.
+ * - `main`: left out because it clashes with main. Its own `conflict` outcome is a different mark.
+ * - `kept`: kept its place after a red, and is next up.
+ * - `late`: joined after the running turn began.
+ */
+export type MergeLineWaiting = "member" | "main" | "kept" | "late";
+
 export type MergeLineEntry = {
   branch: string;
   /** 1-based place in line. Absent once the branch has left the line. */
@@ -44,6 +55,8 @@ export type MergeLineEntry = {
     settled?: { status: string; icon: LucideIcon; label: string };
   };
   state: MergeLineState;
+  /** Waiting only: why it is not in the running turn. Absent draws nothing. */
+  why?: MergeLineWaiting;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
   doing?: string;
   /** The turn's batch, by key. Consecutive entries with one key gate together. */
@@ -323,7 +336,7 @@ function Entry({
       {entry.place === undefined ? (
         <span className="armada-merge-line__place" />
       ) : (
-        <Tooltip label="Place in line" asChild>
+        <Tooltip label="Order to merge in" asChild>
           <span className="armada-merge-line__place mono">{entry.place}</span>
         </Tooltip>
       )}
@@ -367,6 +380,14 @@ function Entry({
   );
 }
 
+/** A waiting branch's reason as a registry glyph and the tooltip that names it. */
+const WHY: Record<MergeLineWaiting, { Glyph: LucideIcon; says: string }> = {
+  member: { Glyph: GitBranch, says: "Left out of this turn: clashes with another branch in it" },
+  main: { Glyph: Ban, says: "Left out of this turn: clashes with main" },
+  kept: { Glyph: ArrowUpToLine, says: "Kept its place after a red, next up" },
+  late: { Glyph: GitCommitHorizontal, says: "Joined after the turn began" },
+};
+
 /** A Check of the turn on the boundary strip's own readings. A timeout is a failure there, and says so. */
 const READS: Record<MergeLineCheck["state"], GroupBoundaryCheckReads> = {
   waiting: "not run",
@@ -403,6 +424,16 @@ function Detail({
     entry.checks === undefined || entry.checks.length === 0 ? null : (
       <GroupBoundary checks={entry.checks.map((check) => boundaryCheck(check, onOpen))} />
     );
+  if (entry.state === "waiting" && entry.why !== undefined) {
+    const { Glyph, says } = WHY[entry.why];
+    return (
+      <Tooltip label={says} asChild>
+        <span className="armada-merge-line__why" role="img" aria-label={says}>
+          <Glyph size={MARK} strokeWidth={STROKE} aria-hidden />
+        </span>
+      </Tooltip>
+    );
+  }
   if (LIVE.has(entry.state)) {
     return (
       <>

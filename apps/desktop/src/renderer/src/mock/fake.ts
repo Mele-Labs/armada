@@ -17,6 +17,7 @@ import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
 import { reshaped } from "./slots-fleet";
+import { onTimePassing } from "./time-passes";
 import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
@@ -543,6 +544,15 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     tap: () => undefined,
   };
   const fake = { ...api, ...scenario.behaves?.({ state: () => state, publish }) };
+  let passed = 0;
+  onTimePassing(
+    scenario.later === undefined
+      ? undefined
+      : () => {
+          const change = scenario.later?.[passed++];
+          if (change !== undefined) publish(change);
+        },
+  );
   DRAFTS.set(fake, {
     current: () => draft,
     subscribe: (onDraft) => {

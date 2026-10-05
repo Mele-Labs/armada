@@ -300,3 +300,9 @@
   align-items: center;
   gap: var(--space-1) var(--space-3);
 }
+
+/* A waiting branch's reason: a mark alone, set back like the place. */
+.armada-merge-line__why {
+  display: inline-flex;
+  color: var(--fg-muted);
+}

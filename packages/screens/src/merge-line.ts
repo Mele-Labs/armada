@@ -5,7 +5,7 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState } from "@armada/components";
+import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
 import type { MergeLine, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
@@ -33,6 +33,22 @@ export type MergeLineView = {
  */
 type NoticedLine = MergeLine & { notice?: MergeLineNotice };
 
+/** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
+type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
+
+/**
+ * The line in the order it will merge: the turn that is running first, in place order, then what
+ * waits, in place order, which is the order the next turn takes. **Each row's number is its
+ * position here**, not the place it joined at, which a branch keeps after a red.
+ */
+function inOrder(rows: readonly MergeLineRow[]): MergeLineRow[] {
+  const ahead = (row: MergeLineRow) => (row.state === "waiting" ? 1 : 0);
+  return rows
+    .map((row, at) => ({ row, at }))
+    .sort((a, b) => ahead(a.row) - ahead(b.row) || a.at - b.at)
+    .map(({ row }, at) => ({ ...row, place: at + 1 }));
+}
+
 /** How much of a merge commit a row shows. */
 const SHORT = 10;
 
@@ -55,7 +71,7 @@ export function mergeLineViews(
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: one.line.map(entryOf),
+    line: inOrder(one.line).map(entryOf),
     landed: one.landed.map(entryOf),
     sentBack: one.sent_back.map(entryOf),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
@@ -92,6 +108,7 @@ function entryOf(row: MergeLineRow): MergeLineEntry {
     place: row.place,
     pr: row.pull_request === undefined ? undefined : pullRequestOf(row.pull_request),
     state: stateOf(row),
+    why: (row as ReasonedRow).why,
     doing: row.doing,
     batch: row.batch,
     merge: row.merge_commit?.slice(0, SHORT),
