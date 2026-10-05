@@ -23,6 +23,46 @@ import { readingOf } from "./reading";
 
 export type OverviewSection = { id: BoardSection; label: string; jobs: JobSummary[] };
 
+/** A row in a section, and how far under the Job it waits on it sits. */
+export type NestedJob = {
+  job: JobSummary;
+  /** 0 for a row that waits on nothing in its section. */
+  depth: number;
+  /** Waits on more than the one it is drawn under, or on one drawn elsewhere. */
+  alsoWaits: boolean;
+};
+
+/**
+ * A section's Jobs with each dependent beneath the Job it waits on.
+ *
+ * **A Job with several parents is drawn once, under the first of them that
+ * this section holds**, and marked. A parent in another section leaves the
+ * dependent a root here: nesting never moves a Job out of the section its
+ * state puts it in. A cycle stops where it closes, leaving the rest roots.
+ */
+export function nestedOf(jobs: readonly JobSummary[]): NestedJob[] {
+  const held = new Set(jobs.map((job) => job.id));
+  const parentOf = (job: JobSummary): string | undefined =>
+    (job.waits_on ?? []).find((id) => held.has(id) && id !== job.id);
+  const children = new Map<string, JobSummary[]>();
+  for (const job of jobs) {
+    const parent = parentOf(job);
+    if (parent !== undefined) children.set(parent, [...(children.get(parent) ?? []), job]);
+  }
+  const out: NestedJob[] = [];
+  const drawn = new Set<string>();
+  const place = (job: JobSummary, depth: number) => {
+    if (drawn.has(job.id)) return;
+    drawn.add(job.id);
+    out.push({ job, depth, alsoWaits: (job.waits_on ?? []).length > (depth === 0 ? 0 : 1) });
+    for (const child of children.get(job.id) ?? []) place(child, depth + 1);
+  };
+  for (const job of jobs) if (parentOf(job) === undefined) place(job, 0);
+  // Only a cycle leaves any undrawn.
+  for (const job of jobs) place(job, 0);
+  return out;
+}
+
 export type OverviewListsRead = {
   /**
    * Every section `sectionsOf` carries, and one with nothing in it left off.

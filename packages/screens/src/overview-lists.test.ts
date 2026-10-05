@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { RepositorySummary } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { overviewListsOf } from "./overview-lists";
+import { nestedOf, overviewListsOf } from "./overview-lists";
 
 const manifest = (id: string) => ({ id, repository: id, path: `${id}/armada.yml`, records_root: `/records/${id}`, version: 1, checks: [] });
 const SHOP: RepositorySummary = { root: "/Users/user/shop", records_root: "/records/shop", manifest: manifest("shop") };
@@ -88,5 +88,31 @@ describe("overviewListsOf", () => {
       job("running", { id: "older", created_at: "2026-09-01T00:00:00Z" }),
     ];
     expect(overviewListsOf(jobs, null).sections[0]?.jobs.map((one) => one.id)).toEqual(["older", "newer"]);
+  });
+});
+
+describe("nestedOf", () => {
+  const at = (id: string, waits_on: string[] = []) => job("queued", { id, waits_on });
+  const shape = (jobs: ReturnType<typeof at>[]) =>
+    nestedOf(jobs).map((one) => `${one.depth}:${one.job.id}${one.alsoWaits ? "+" : ""}`);
+
+  it("nests a chain one level per step", () => {
+    expect(shape([at("c", ["b"]), at("b", ["a"]), at("a")])).toEqual(["0:a", "1:b", "2:c"]);
+  });
+
+  it("draws a fan-out's children under their parent, in list order", () => {
+    expect(shape([at("a"), at("x", ["a"]), at("y", ["a"])])).toEqual(["0:a", "1:x", "1:y"]);
+  });
+
+  it("draws a join once, under its first parent, and marks it", () => {
+    expect(shape([at("a"), at("b"), at("j", ["a", "b"])])).toEqual(["0:a", "1:j+", "0:b"]);
+  });
+
+  it("leaves a Job whose parent is in another section a marked root", () => {
+    expect(shape([at("k", ["elsewhere"])])).toEqual(["0:k+"]);
+  });
+
+  it("draws every Job of a cycle once", () => {
+    expect(shape([at("a", ["b"]), at("b", ["a"])])).toEqual(["0:a+", "1:b"]);
   });
 });

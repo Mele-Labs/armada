@@ -75,9 +75,9 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, JobRowStacked, SettlingMark, SplitButton, StepBar } from "@armada/components";
+import { Button, JobRowStacked, SettlingMark, SplitButton, StepBar, Tooltip } from "@armada/components";
 import type { JobRowField } from "@armada/components";
-import { GitMerge, GitPullRequestClosed, ScrollText } from "lucide-react";
+import { GitMerge, GitPullRequestClosed, Link, ScrollText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { JOB_LIFECYCLE } from "@armada/components";
@@ -151,6 +151,8 @@ export function Row({
   selected,
   focused,
   recent,
+  depth,
+  alsoWaits,
   onOpen,
   onKill,
   onRedispatch,
@@ -158,6 +160,10 @@ export function Row({
   onCopied,
 }: {
   job: JobSummary;
+  /** How many Jobs deep it sits under the one it waits on, where the list nests. */
+  depth?: number;
+  /** It waits on more than the one it is drawn under. `link` is the registry's *something upstream is unfinished*. */
+  alsoWaits?: boolean;
   /** Which repository, by the picker's label. Absent unless the Board is on All with more than one served. */
   repository?: string;
   /** The title, plus which dispatch of the work this is where there is more than one. */
@@ -385,6 +391,14 @@ export function Row({
       // running row without moving onto it. A stale row claims nothing live.
       pulsing={job.status === "running" && !stale}
       dimmed={stale}
+      depth={depth}
+      mark={
+        alsoWaits ? (
+          <Tooltip label="Waits on other jobs">
+            <Link size={12} strokeWidth={2} aria-label="Waits on other jobs" role="img" />
+          </Tooltip>
+        ) : undefined
+      }
       focused={focused || undefined}
       // The badge's own word, so the note names the state the row now reads and invents no verb.
       changed={

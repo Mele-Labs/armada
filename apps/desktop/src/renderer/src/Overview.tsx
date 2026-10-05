@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import type { BoardSection } from "@armada/screens";
+import type { BoardSection, OverviewView } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
@@ -99,6 +99,7 @@ export function Overview({
     other: otherOpen,
   };
   const onSectionOpenChange = (section: BoardSection, open: boolean) => setters[section](open);
+  const [view, setView] = useState<OverviewView>("list");
 
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
@@ -145,6 +146,8 @@ export function Overview({
           onCompose={onCompose}
           onCopied={onCopied}
           onCursor={onCursor}
+          view={view}
+          onView={setView}
         />
         <MergeLinePanel state={state} onOpenLink={onOpenLink} />
       </div>

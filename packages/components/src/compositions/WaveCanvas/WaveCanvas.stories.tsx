@@ -109,3 +109,18 @@ export const OpensOnWhatIsStillOut: Story = {
     });
   },
 };
+
+/**
+ * Cards carrying the list row's acts. A card with acts is a group holding the
+ * open control and one button per act, since a button may not hold a button.
+ */
+export const CardsWithActs: Story = {
+  args: {
+    nodes: nodes.map((node) => ({ ...node, card: { ...node.card, acts: [{ label: "Kill", onPress: fn() }] } })),
+    edges,
+    label: "The wave",
+  },
+  play: async ({ canvas }) => {
+    await waitFor(() => expect(canvas.getAllByRole("button", { name: "Kill" }).length).toBeGreaterThan(0));
+  },
+};

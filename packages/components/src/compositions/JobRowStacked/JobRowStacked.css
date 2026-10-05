@@ -146,7 +146,7 @@
      Reserved and subtracted, so the row still never moves and the column still
      starts where the heading does. */
   padding: var(--pad-row-stacked) var(--space-4) var(--pad-row-stacked)
-    calc(var(--space-4) - var(--border-width));
+    calc(var(--space-4) - var(--border-width) + var(--armada-row-depth, 0) * var(--space-6));
   border-bottom: var(--border-width) solid var(--border-subtle);
   /* The left edge is --row-focus-bar with its colour dropped to transparent at
      rest, so focus adds no width and no row shifts when the cursor lands. */
@@ -836,3 +836,10 @@
 
 /* The longest badge in the registry, past the point `--armada-track-badge`'s
    own growth can rescue: `JobRowStacked.narrow.css` (#984). */
+
+.armada-job-row__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}

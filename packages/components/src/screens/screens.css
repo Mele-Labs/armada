@@ -483,6 +483,19 @@
   min-width: 0;
 }
 
+/* The list/graph toggle sits at the end of its own line above the panels. */
+.armada-screen__overview-view {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The graph takes the height a canvas needs; React Flow draws nothing in a box with none. */
+.armada-screen__overview-graph {
+  height: 70vh;
+  min-height: 24rem;
+  min-width: 0;
+}
+
 /* ---- job detail --------------------------------------------------------- */
 
 /* Mounted in the shell, the mount already keeps the gap under the title bar

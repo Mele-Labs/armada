@@ -82,6 +82,7 @@ import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
 import { slotsHeld } from "./slots-fleet";
+import { DEPENDENCY_BOARD } from "./dependency-board";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
@@ -598,6 +599,7 @@ export const SCENARIOS: readonly Scenario[] = [
   retros("retro/lessons", "Two Jobs' retros written, on Overview"),
   retros("retro/job-3", "Job 3, its retro written", { opensJob3: true }),
   pooled(),
+  DEPENDENCY_BOARD,
 ];
 
 /** Cleanup over the worktree pool, one slot in each state; the first is a running Job's. */

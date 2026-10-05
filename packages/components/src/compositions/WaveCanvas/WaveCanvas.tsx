@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo } from "react";
 
 import { Badge } from "../../primitives/Badge/Badge";
+import { Button } from "../../primitives/Button/Button";
 import { JOB_STATUS } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip } from "../FactChip/FactChip";
@@ -54,6 +55,12 @@ export type WaveCanvasCard = {
   facts?: readonly WaveCanvasFact[];
   /** Open the Job. Absent draws a card that is not a control. */
   onOpen?: () => void;
+  /**
+   * What else a person may do to the Job from its card — the list row's own
+   * acts. Each asks; none acts. Present, the card is a group holding the open
+   * control and these, since a button may not hold a button.
+   */
+  acts?: readonly { label: string; onPress: () => void }[];
 };
 
 export type WaveCanvasNode = {
@@ -135,6 +142,22 @@ function JobCard({ card }: { card: WaveCanvasCard }) {
   );
   const attributes = { className: "armada-wave-card", "data-status": card.status };
   const name = `${card.title}, ${said ?? card.status}`;
+  if (card.acts !== undefined && card.acts.length > 0) {
+    return (
+      <span {...attributes} role="group" aria-label={name}>
+        <button type="button" className="armada-wave-card__open" aria-label={`Open ${name}`} onClick={card.onOpen}>
+          {body}
+        </button>
+        <span className="armada-wave-card__acts">
+          {card.acts.map((act) => (
+            <Button key={act.label} variant="ghost" size="sm" onClick={act.onPress}>
+              {act.label}
+            </Button>
+          ))}
+        </span>
+      </span>
+    );
+  }
   return card.onOpen === undefined ? (
     <span {...attributes} role="group" aria-label={name}>
       {body}
