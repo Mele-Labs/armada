@@ -197,6 +197,10 @@ async fn a_new_job_on_the_same_manifest_runs_the_rule_without_asking() {
     worktree_directory(&home, &first);
     dispatched(&fleet, first.id()).await.unwrap();
     let first = first.id().clone();
+    fleet
+        .set_when_blocked(&first, WhenBlocked::AskMe)
+        .await
+        .unwrap();
 
     let asking = asked("Bash", THE_COMMAND, "c1");
     let (answer, answered) = tokio::join!(fleet.permission(&first, &asking), async {
@@ -319,5 +323,46 @@ async fn a_destructive_command_stays_withheld_even_with_a_row_for_it() {
     assert!(
         matches!(answer, api::PermissionAnswer::Deny(_)),
         "declared destructive, still withheld: {answer:?}"
+    );
+}
+
+/// **A new Job is at allow all, and that still stops where it always did.** The
+/// setting is never touched here: the default alone withholds a command
+/// `armada.yml` declares destructive while a plain command passes. The harness
+/// refusing a command is `first`'s own case, since the fake grants everything.
+#[tokio::test]
+async fn a_new_jobs_default_still_withholds_a_destructive_command() {
+    let home = TempDir::new();
+    let mut fittings = the_fittings(&home, a_drone_that_reached_for("c1"));
+    fittings.starting().manifest = config::Manifest::parse(
+        std::path::Path::new("armada.yml"),
+        "version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  publish:\n    run: \"npm publish\"\n    destructive: true\n",
+    )
+    .expect("a manifest that parses");
+    let fleet = Fleet::assembled(fittings);
+    let job = fleet
+        .propose(a_proposal("publish the package"))
+        .await
+        .unwrap();
+    worktree_directory(&home, &job);
+    dispatched(&fleet, job.id()).await.unwrap();
+    let job = job.id().clone();
+
+    assert_eq!(
+        fleet.store().lock().await.when_blocked(&job).unwrap(),
+        WhenBlocked::AllowAll,
+        "the default"
+    );
+    assert_eq!(
+        fleet.permission(&job, &asked("Bash", "ls -la", "c1")).await,
+        api::PermissionAnswer::Allow,
+        "a plain command is not held"
+    );
+    let destructive = fleet
+        .permission(&job, &asked("Bash", "npm publish", "c2"))
+        .await;
+    assert!(
+        matches!(destructive, api::PermissionAnswer::Deny(_)),
+        "destructive: {destructive:?}"
     );
 }
