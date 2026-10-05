@@ -42,6 +42,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("colors.css", Source::Tokens),
     ("status.css", Source::Tokens),
     ("tools.css", Source::Tokens),
+    ("kinds.css", Source::Tokens),
     ("typography.css", Source::Tokens),
     ("spacing.css", Source::Tokens),
     ("motion.css", Source::Tokens),
@@ -198,6 +199,8 @@ pub const THEME: &[(&str, Slot)] = &[
     // What a call DOES, from tools.css. Its own family and never a status —
     // see that file for why it is not declared beside the eight above.
     ("--tool-", Slot::NsFull("color")),
+    // What a node on the approval canvas IS, from kinds.css. A tint or an edge, never a status.
+    ("--kind-", Slot::NsFull("color")),
     ("--verdict-", Slot::NsFull("color")),
     ("--run-", Slot::NsFull("color")),
     // A worktree slot's bay, aliased in status.css below Job level.

@@ -1,6 +1,7 @@
 import { Button } from "../../primitives/Button/Button";
 import { DroneMessageBox, type DroneMessageBoxProps } from "../DroneMessageBox/DroneMessageBox";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
+import { FigureList, type Figure } from "../FigureList/FigureList";
 import { HoldButton, type HoldButtonProps } from "../../primitives/HoldButton/HoldButton";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet, type SheetBack } from "../../primitives/Sheet/Sheet";
@@ -164,6 +165,12 @@ export type WorkflowInspectorProps = {
     /** Opens one. Absent draws the rows as facts rather than presses. */
     onOpen?: (id: string) => void;
   };
+  /**
+   * What the Job is running and taking while this step is the one at work —
+   * Pulse's own figures, the Overview's Pulse card's until the canvas folded
+   * it (the owner, 4 Oct 2026). Absent on a step not running, and draws nothing.
+   */
+  pulse?: readonly Figure[];
   /** Hold to stop what is running here. Absent where nothing is running. */
   stop?: Pick<HoldButtonProps, "children" | "askLabel" | "description" | "onCommit" | "onAsk" | "disabled" | "pending">;
   /**
@@ -256,6 +263,7 @@ export function WorkflowInspector({
   track,
   redirect,
   running,
+  pulse,
   stop,
   onClose,
   sheet,
@@ -354,6 +362,12 @@ export function WorkflowInspector({
               </li>
             ))}
           </ul>
+        </Region>
+      )}
+
+      {pulse === undefined || pulse.length === 0 ? null : (
+        <Region name="Pulse">
+          <FigureList figures={[...pulse]} column="fit" />
         </Region>
       )}
 

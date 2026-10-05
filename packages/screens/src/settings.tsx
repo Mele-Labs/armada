@@ -39,10 +39,10 @@ import { cap, RaiseCapControl } from "./RaiseCap";
 import { RaiseTurnCapControl } from "./RaiseTurnCap";
 
 /** How a new Job meets a command it was not given. The count reads against it. */
-const STARTS_AT: WhenBlocked = "ask_me";
+export const STARTS_AT: WhenBlocked = "ask_me";
 
 /** How a new Job meets a judge criterion that refuses. The count reads against it. */
-const REFUSED_STARTS_AT: WhenRefused = "per_criterion";
+export const REFUSED_STARTS_AT: WhenRefused = "per_criterion";
 
 /**
  * Whether this Job has settings to change.

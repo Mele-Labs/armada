@@ -156,6 +156,11 @@ export type PlanReviewProps = {
    * sheet. Read once, when the region mounts; after that the panel is the person's.
    */
   opensTask?: string;
+  /**
+   * The group to land on with its panel open — a group pressed on the run's
+   * canvas past the gate. Read once, on `opensTask`'s terms.
+   */
+  opensGroup?: string;
   /** Open a Drone in the Drones destination, with its sheet open. Absent, the peek draws no Open. */
   onOpenDrone?: (droneId: string) => void;
   /**
@@ -240,6 +245,7 @@ export function usePlanReview({
   onSaid,
   diff,
   opensTask,
+  opensGroup,
   onOpenDrone,
   drones,
   now,
@@ -268,7 +274,7 @@ export function usePlanReview({
   const [openFile, setOpenFile] = useState<string | null>(null);
   // The group whose panel is open, pressed on the graph. **One panel at a
   // time**: opening a task closes it, and opening it closes the task.
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(opensTask === undefined ? (opensGroup ?? null) : null);
   // The group whose panel the open task was pressed in, so Close and Back on
   // the task land on that group again (owner, 30 Sep 2026). **This region's
   // own one step back**, not the trail: the trail is for a jump between
@@ -377,7 +383,18 @@ export function usePlanReview({
           disabled: stale,
         };
   const reading = openTask === null ? undefined : taskSheetOf(openTask, groups, cases);
-  useEffect(() => trail?.onHere(reading === undefined ? null : { id: reading.id, label: reading.id }), [reading?.id]);
+  // What is open here, task or group, so the trail keeps its way back while either is.
+  useEffect(
+    () =>
+      trail?.onHere(
+        reading !== undefined
+          ? { id: reading.id, label: reading.id }
+          : group !== undefined
+            ? { id: group.id, label: `Group ${group.ordinal}` }
+            : null,
+      ),
+    [reading?.id, group?.id],
+  );
   // What it runs beside, as the graph's own card off the same groups, so each
   // reads the task's state now. Pressing one opens it here.
   const beside =
@@ -670,7 +687,9 @@ export function usePlanReview({
             : { add: { label: ADD_TASK_LABEL, onAdd: addInto, disabled: stale } })}
           floor={floor}
           under={adding !== null}
-          onClose={() => setOpenGroup(null)}
+          // Jumped to from another destination — the run's canvas — back there, as a task's panel goes.
+          back={trail?.back}
+          onClose={trail?.close ?? (() => setOpenGroup(null))}
         />
       )}
       {onAddTask === undefined ? null : (

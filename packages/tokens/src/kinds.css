@@ -1,0 +1,15 @@
+/* Node kinds — what a node on the approval canvas IS, in four soft hues.
+   docs/contracts/design-system.md, Node kinds. Their own file for the reason
+   tools.css is its own: they alias no status and must never carry one. A kind
+   is always a tint or a leading edge, never a solid band; a status is always
+   the solid band, so the two never share a slot. Canvas only. */
+:root {
+  /* Setting the Job up: the brief and its base branch. */
+  --kind-setup: #7DB8AE;
+  /* The work: a Drone step, and the groups or Jobs it fans into. */
+  --kind-step: #8B95E8;
+  /* A gate the work passes: Checks, a Judge, a person. */
+  --kind-gate: #D2A6C8;
+  /* Delivering it: Done when, the pull request, Land. */
+  --kind-delivery: #A8C07F;
+}

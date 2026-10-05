@@ -176,6 +176,14 @@ export async function arrive(step: Step, patience = PATIENCE_MS): Promise<HTMLEl
     held = now.x === was.x && now.y === was.y && now.width === was.width ? held + 1 : 0;
     was = now;
   }
+  // **Gone while it was being waited on**: the surface it was found in was
+  // replaced — a tab the last press switched — and one of the same name may
+  // be on the one that replaced it. A press on the old one reaches nothing,
+  // so look again, in what patience is left.
+  if (!found.isConnected) {
+    const left = until - Date.now();
+    return left <= 0 ? null : arrive(step, left);
+  }
   if ("hover" in step) await pointAt(found);
   return found;
 }

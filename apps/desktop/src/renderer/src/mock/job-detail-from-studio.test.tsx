@@ -88,26 +88,24 @@ test("one press on the header's sentence leaves the job and lands on that Studio
     .toBeVisible();
 });
 
-/** Overview's Brief card. */
-const theBrief = () => page.getByRole("region", { name: "Brief", exact: true });
-
-/** The Studio's name in the head of Overview's Brief card, as a control. */
-const fromTheBrief = () => theBrief().getByRole("button", { name: EVERY_KIND_NAME });
+/** The canvas's Studio node: the first in Setup, where the work came from. */
+const theStudioNode = () => page.getByRole("button", { name: /^Studio, / });
 
 /**
- * Overview's Brief once the Job's own read has drawn it — the moment a Studio
+ * Overview's canvas once the Job's own read has drawn it — the moment a Studio
  * could be named there, so an absence read before it would prove nothing.
  */
-async function briefRead(): Promise<void> {
-  await expect.element(theBrief().getByText("selectColumnOrder")).toBeVisible();
+async function canvasRead(): Promise<void> {
+  await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Brief, / })).toBeInTheDocument();
 }
 
-// The owner's second place, 2 Oct 2026: the Brief card names the Studio, in
-// one line and with one press, and the press is the header's.
-test("one press on the Studio named in the Brief leaves the job and lands on that Studio, with the job's node picked", async () => {
+// The owner's second place, 2 Oct 2026, on the canvas since 4 Oct: the
+// Studio is a node of its own, first, named, and one press, the header's.
+test("one press on the canvas's Studio node leaves the job and lands on that Studio, with the job's node picked", async () => {
   mount(dispatchedFromAStudio());
-  await expect.element(fromTheBrief()).toHaveAccessibleDescription(`Open ${EVERY_KIND_NAME}`);
-  await fromTheBrief().click();
+  await expect.element(theStudioNode()).toHaveTextContent(EVERY_KIND_NAME);
+  (theStudioNode().element() as HTMLElement).click();
   await openHelm();
   await expect
     .element(page.getByText(`Studios · ${EVERY_KIND_NAME} · Job ${running().job.title} selected`))
@@ -118,8 +116,8 @@ test("a job whose Studio has been deleted says so, and offers no press", async (
   mount(dispatchedFromAStudio({ still: false }));
   await expect.element(page.getByText("That Studio has been deleted").first()).toBeVisible();
   expect(fromTheHeader().query()).toBeNull();
-  await briefRead();
-  expect(theBrief().getByRole("button").query()).toBeNull();
+  await canvasRead();
+  expect(theStudioNode().query()).toBeNull();
 });
 
 test("a job nothing dispatched from a Studio says nothing extra, and draws no way to one", async () => {
@@ -130,7 +128,7 @@ test("a job nothing dispatched from a Studio says nothing extra, and draws no wa
   const said = originReading(running().job)!;
   await expect.element(page.getByText(said, { exact: true }).first()).toBeVisible();
   expect(page.getByRole("button", { name: said, exact: true }).query()).toBeNull();
-  // And the Brief's head draws nothing in the Studio's place.
-  await briefRead();
-  expect(theBrief().getByRole("button").query()).toBeNull();
+  // And the canvas draws no Studio node, and nothing in its place.
+  await canvasRead();
+  expect(theStudioNode().query()).toBeNull();
 });

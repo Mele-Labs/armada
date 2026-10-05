@@ -13,9 +13,9 @@ import { Input } from "../../primitives/Input/Input";
  * (the composer, `packages/screens/src/draft/branches.ts`); where the work
  * lands may be a branch nobody has cut yet either way.
  *
- * **`offerNew` is the one difference between the two fields it draws.** Where
- * the work starts has to exist already; where it lands may not, and naming a
- * branch that is not there is how one gets made.
+ * **`offerNew` makes a typed name a branch to make.** Both fields offer it
+ * since 23.21: a base that is not there is cut from the repository's own
+ * (`LandingChoice.start_point`), and where the work lands may not exist either.
  */
 export type BranchOption = {
   name: string;
@@ -44,6 +44,12 @@ export type BranchPickerProps = {
    * to a screen reader and draws no label of its own — `ProposalField`'s rows.
    */
   labelledByRow?: boolean;
+  /**
+   * The field must name a branch: empty, its border takes the failed hue and
+   * nothing else is said. Where a Manifest names no base, a person picks one
+   * (the owner, 4 Oct 2026) rather than reading that none is named.
+   */
+  required?: boolean;
 };
 
 /** What a row says about a branch nothing has cut yet. */
@@ -60,8 +66,12 @@ export function BranchPicker({
   offerNew = false,
   disabled = false,
   labelledByRow = false,
+  required = false,
 }: BranchPickerProps) {
-  const labelled = labelledByRow ? { "aria-label": label } : { label };
+  const labelled = {
+    ...(labelledByRow ? { "aria-label": label } : { label }),
+    ...(required ? { required: true, invalid: value.trim() === "" } : {}),
+  };
   const listId = useId();
   const optionId = (index: number): string => `${listId}-${index}`;
   const [open, setOpen] = useState(false);

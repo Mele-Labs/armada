@@ -42,5 +42,6 @@ export * from "./revision";
 export * from "./sketch";
 export * from "./sketch-png";
 export * from "./task";
+export * from "./tuning";
 export * from "./wave";
 export * from "./words";
