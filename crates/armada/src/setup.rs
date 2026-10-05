@@ -282,7 +282,9 @@ pub fn workflows_again(
         &root.join(WORKFLOWS),
         Written::in_repository,
     ));
-    Catalogue::of(written, roster).resolve(manifest).into_parts()
+    Catalogue::of(written, roster)
+        .resolve(manifest)
+        .into_parts()
 }
 
 /// Why a repository's setup could not be read.

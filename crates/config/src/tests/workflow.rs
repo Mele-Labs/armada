@@ -189,7 +189,10 @@ fn a_structure_key_is_refused_as_one_the_schema_does_not_have() {
     let refused = refusals(parse(
         "version: 1\nworkflow_id: fixture\nname: fixture\nstructure: linear\nsteps:\n  - id: draft\n    label: Draft\n    delivers: false\n    advance_gate: auto\n",
     ));
-    assert!(refused.iter().any(|one| one.key == "structure"), "{refused:?}");
+    assert!(
+        refused.iter().any(|one| one.key == "structure"),
+        "{refused:?}"
+    );
 }
 
 #[test]

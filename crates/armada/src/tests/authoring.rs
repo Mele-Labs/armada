@@ -399,7 +399,10 @@ fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
     let setup = Setup::at(repository.path(), kit.path(), &roster())
         .expect("start leaves a repository's own bad file out rather than refusing");
     assert_eq!(setup.left_out().len(), 2);
-    assert_eq!(label(setup.workflows(), "fine").1, WorkflowSource::Repository);
+    assert_eq!(
+        label(setup.workflows(), "fine").1,
+        WorkflowSource::Repository
+    );
 }
 
 /// Waits for the watch to say something, or fails naming the wait.

@@ -48,8 +48,8 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRunner, NotAmended, PortEdit, Unplaceable,
 };
 pub use catalogue::{
-    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile,
-    Written, CARRIED_AT,
+    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
+    CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
 pub use fields::{workflow_fields, Field};

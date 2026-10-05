@@ -40,9 +40,7 @@ fn plain_manifest() -> Manifest {
 fn parsed(steps: &str) -> Result<WorkflowDef, LoadError> {
     WorkflowDef::parse(
         &named("workflows/design-plan.yml"),
-        &format!(
-            "version: 1\nworkflow_id: design_plan\nname: design_plan\nsteps:{steps}"
-        ),
+        &format!("version: 1\nworkflow_id: design_plan\nname: design_plan\nsteps:{steps}"),
         &roster(),
     )
 }
@@ -82,7 +80,8 @@ fn a_step_that_emits_no_verdict_routes_nowhere() {
 /// Job written where nobody reading the workflow would find it.
 #[test]
 fn a_loop_may_declare_an_edge_and_no_cap() {
-    let def = parsed("
+    let def = parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -105,7 +104,8 @@ fn a_loop_may_declare_an_edge_and_no_cap() {
 /// `request_changes` is its last is a sentence an author is entitled to write.
 #[test]
 fn a_cap_of_zero_is_a_sentence_an_author_may_write() {
-    let def = parsed("
+    let def = parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -130,7 +130,8 @@ fn a_cap_of_zero_is_a_sentence_an_author_may_write() {
 /// deciding how long a Job may go round.
 #[test]
 fn a_cap_that_is_not_a_number_is_refused() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -158,7 +159,8 @@ fn a_cap_that_is_not_a_number_is_refused() {
 /// no `evidence_scope`.
 #[test]
 fn a_cap_on_a_step_with_no_edge_is_refused() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -186,7 +188,8 @@ fn a_cap_on_a_step_with_no_edge_is_refused() {
 /// silently routing on a word nothing emits.
 #[test]
 fn a_verdict_that_is_not_a_loop_return_is_refused() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -213,7 +216,8 @@ fn a_verdict_that_is_not_a_loop_return_is_refused() {
 /// wiring check with an edge that goes nowhere.
 #[test]
 fn an_empty_routing_map_is_refused() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -239,7 +243,8 @@ fn an_empty_routing_map_is_refused() {
 /// person standing at a gate with nowhere to send the work back to.
 #[test]
 fn an_edge_that_names_no_step_is_refused() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -270,7 +275,8 @@ fn an_edge_that_names_no_step_is_refused() {
 /// would be the parser making that conflation on the author's behalf.
 #[test]
 fn a_step_that_routes_at_itself_is_refused_as_a_retry() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -301,7 +307,8 @@ fn a_step_that_routes_at_itself_is_refused_as_a_retry() {
 /// rather than left to the step machine.
 #[test]
 fn a_step_that_routes_forward_is_refused_and_not_deferred() {
-    let refused = refusals(parsed("
+    let refused = refusals(parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}
@@ -373,7 +380,8 @@ fn the_loop_reaches_the_resolved_step_a_job_freezes() {
 /// and that guard is the passes cap now that nothing else declares a loop.
 #[test]
 fn a_route_with_no_cap_freezes_with_the_default_cap() {
-    let def = parsed("
+    let def = parsed(
+        "
   - id: draft
     label: Draft
     evidence: {submitted: {type: document}}

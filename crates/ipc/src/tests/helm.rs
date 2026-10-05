@@ -91,7 +91,10 @@ fn the_workflows_screen_round_trips() {
         br#"{"text":"add a step","context":{"screen":"workflows","picked":"armada"}}"#,
     )
     .expect("the workflows screen decodes");
-    assert_eq!(asked.context.expect("a context").screen, HelmScreen::Workflows);
+    assert_eq!(
+        asked.context.expect("a context").screen,
+        HelmScreen::Workflows
+    );
 }
 
 #[test]

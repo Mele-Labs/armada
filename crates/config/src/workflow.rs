@@ -42,13 +42,7 @@ use crate::roster::Roster;
 use crate::yaml::{self, Table};
 
 /// The keys M1 reads at the top level of a WorkflowDef.
-const TOP_LEVEL: &[&str] = &[
-    "version",
-    "workflow_id",
-    "name",
-    "for_requests",
-    "steps",
-];
+const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "steps"];
 
 /// A workflow definition, parsed and validated against nothing but itself.
 ///

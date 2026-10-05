@@ -143,7 +143,8 @@ fn one_step(id: &str, label: &str) -> String {
 /// What the catalogue keeps of a re-read: Kit's `bug` under the repository's,
 /// Kit's own `solo`, and one repository file that will not parse.
 fn read_three_places() -> Catalogued {
-    let at = |place: &str, file: &str| std::path::PathBuf::from(format!("/{place}/workflows/{file}"));
+    let at =
+        |place: &str, file: &str| std::path::PathBuf::from(format!("/{place}/workflows/{file}"));
     let manifest = crate::tests::daemon::manifest();
     let (workflows, left_out, files) = config::Catalogue::of(
         vec![
@@ -158,7 +159,10 @@ fn read_three_places() -> Catalogued {
     .into_parts();
     Catalogued {
         workflows,
-        left_out: left_out.iter().map(crate::wire::left_out_workflow).collect(),
+        left_out: left_out
+            .iter()
+            .map(crate::wire::left_out_workflow)
+            .collect(),
         files,
     }
 }
@@ -186,7 +190,10 @@ async fn the_list_says_what_a_workflow_replaced_and_each_file_can_be_read() {
             file: "/kit/workflows/bug.json".to_string()
         }]
     );
-    let solo = listed.iter().find(|w| w.id.as_str() == "solo").expect("solo");
+    let solo = listed
+        .iter()
+        .find(|w| w.id.as_str() == "solo")
+        .expect("solo");
     assert!(solo.overrides.is_empty());
 
     let (status, body) = call(

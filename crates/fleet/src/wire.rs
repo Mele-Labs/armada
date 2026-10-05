@@ -296,7 +296,9 @@ pub(crate) fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowD
         source: file.source().as_wire().to_string(),
         file: file.path().to_string_lossy().to_string(),
         definition: file.text().to_string(),
-        overridden_by: file.overridden_by().map(|place| place.as_wire().to_string()),
+        overridden_by: file
+            .overridden_by()
+            .map(|place| place.as_wire().to_string()),
     }
 }
 

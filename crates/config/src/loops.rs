@@ -43,10 +43,7 @@ pub(crate) struct Looping {
 /// [`None`] means recorded, the same as everywhere else in this crate: the
 /// refusal is already in `out` and the step is dropped with it.
 ///
-pub(crate) fn looping(
-    table: &mut Table<'_>,
-    out: &mut Vec<Refusal>,
-) -> Option<Looping> {
+pub(crate) fn looping(table: &mut Table<'_>, out: &mut Vec<Refusal>) -> Option<Looping> {
     // Asked before the key is taken, and asked of the file rather than of what
     // parsed: a `verdict_routing` whose own value was refused still means the
     // author wrote a loop edge here, and the cap below must not then be

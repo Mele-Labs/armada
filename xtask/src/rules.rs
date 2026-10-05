@@ -266,11 +266,20 @@ const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 fn without_lucide_names(lower: &str, original: &str) -> String {
     let mut out = lower.to_string();
     for (at, _) in original.match_indices("from \"lucide-react\"") {
-        let Some(start) = original[..at].rfind("import") else { continue };
+        let Some(start) = original[..at].rfind("import") else {
+            continue;
+        };
         let names = &original[start..at];
-        let (Some(open), Some(close)) = (names.find('{'), names.rfind('}')) else { continue };
+        let (Some(open), Some(close)) = (names.find('{'), names.rfind('}')) else {
+            continue;
+        };
         for name in names[open + 1..close].split(',') {
-            let name = name.split(" as ").next().unwrap_or("").trim().to_lowercase();
+            let name = name
+                .split(" as ")
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_lowercase();
             if !name.is_empty() && VENDOR_LITERALS.iter().any(|vendor| name.contains(vendor)) {
                 out = out.replace(&name, &" ".repeat(name.len()));
             }

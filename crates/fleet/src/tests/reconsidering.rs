@@ -30,9 +30,7 @@ fn a_catalogue() -> Vec<config::ResolvedWorkflow> {
             .collect();
         let def = config::WorkflowDef::parse(
             std::path::Path::new("fixture.yml"),
-            &format!(
-                "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n{body}"
-            ),
+            &format!("version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n{body}"),
             &config::Roster::offering_nothing(),
         )
         .expect("a workflow");

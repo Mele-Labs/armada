@@ -845,11 +845,15 @@ where
                     ),
                 };
                 Err(Refusal::Unacceptable(
-                    ipc::WireError::raised("fleet.no_such_workflow_definition", said, self.run_id())
-                        .with_field(
-                            "workflow_id",
-                            ipc::WireValue::Str(workflow_id.as_str().to_string()),
-                        ),
+                    ipc::WireError::raised(
+                        "fleet.no_such_workflow_definition",
+                        said,
+                        self.run_id(),
+                    )
+                    .with_field(
+                        "workflow_id",
+                        ipc::WireValue::Str(workflow_id.as_str().to_string()),
+                    ),
                 ))
             }
         }
