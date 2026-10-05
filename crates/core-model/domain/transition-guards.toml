@@ -50,7 +50,7 @@ The inner machine is frozen everywhere but `running` and `awaiting_review`, so a
 
 [guards.no_step_running]
 asserts = "No step is still being worked"
-holds_steps = ["advanced", "awaiting_human", "not_started", "retrying", "stopped"]
+holds_steps = ["advanced", "awaiting_human", "not_started", "retrying", "skipped", "stopped"]
 on_edges = ["running -> awaiting_repair"]
 refused_as = "GuardRefused"
 in_code = "Yes"

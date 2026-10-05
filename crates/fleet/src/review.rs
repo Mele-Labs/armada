@@ -332,6 +332,7 @@ fn said(state: StepState) -> &'static str {
         StepState::NotStarted => "has not been reached",
         StepState::Retrying => "is being reattempted",
         StepState::Running => "is being worked — the branch went out as it was entered",
+        StepState::Skipped => "was skipped for this job",
         StepState::Stopped => "stopped with its retries spent",
     }
 }

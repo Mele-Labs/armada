@@ -273,6 +273,9 @@ pub enum StepState {
     Retrying,
     /// The step is being worked.
     Running,
+    /// A person chose that this Job does not run the step. No Drone, no gate,
+    /// no Checks; reached from `not_started` alone.
+    Skipped,
     /// Retries spent. Neither retrying nor waiting on a person — folding it
     /// into either would make a designed human gate and a dead stop render
     /// alike.
@@ -287,6 +290,7 @@ impl StepState {
         StepState::NotStarted,
         StepState::Retrying,
         StepState::Running,
+        StepState::Skipped,
         StepState::Stopped,
     ];
 
@@ -298,6 +302,7 @@ impl StepState {
             StepState::NotStarted => "not_started",
             StepState::Retrying => "retrying",
             StepState::Running => "running",
+            StepState::Skipped => "skipped",
             StepState::Stopped => "stopped",
         }
     }
@@ -345,6 +350,7 @@ impl StepState {
             StepState::NotStarted => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::Retrying => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::Running => NOT_UNDER_A_SPENT_BUDGET,
+            StepState::Skipped => EVERY_STATUS,
             StepState::Stopped => NOT_UNDER_COMPLETED_SUCCESS,
         }
     }

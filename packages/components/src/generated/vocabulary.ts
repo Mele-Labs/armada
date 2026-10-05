@@ -139,6 +139,7 @@ export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "not_started": { verb: "not started", icon: CircleDashed, badgeStatus: null, statusToken: null, hint: null },
   "retrying": { verb: "retrying", icon: RotateCw, badgeStatus: null, statusToken: null, hint: null },
   "running": { verb: "running", icon: CircleDot, badgeStatus: null, statusToken: null, hint: null },
+  "skipped": { verb: "skipped", icon: Minus, badgeStatus: null, statusToken: null, hint: null },
   "stopped": { verb: "stopped", icon: Flag, badgeStatus: null, statusToken: null, hint: null },
 };
 
@@ -342,6 +343,7 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "step_state", variant: "not_started", missing: ["token"] },
   { vocabulary: "step_state", variant: "retrying", missing: ["token"] },
   { vocabulary: "step_state", variant: "running", missing: ["token"] },
+  { vocabulary: "step_state", variant: "skipped", missing: ["token"] },
   { vocabulary: "step_state", variant: "stopped", missing: ["token"] },
   { vocabulary: "queued_reason", variant: "over_budget", missing: ["icon"] },
   { vocabulary: "admission_hold", variant: "concurrency_bound", missing: ["icon"] },

@@ -486,7 +486,7 @@
   group = "Step and Verdict"
   size = "12px"
   status = "Specified"
-  reserved = "Two uses, told apart by which record it marks. A verdict-sheet row where no Judge and no Check beyond artifact_exists ruled; a Plan region's dropped task, below. Never a Check outcome (shield-*) or a Judge outcome (circle-*)."
+  reserved = "Two uses, told apart by which record it marks. A verdict-sheet row where no Judge and no Check beyond artifact_exists ruled; a Plan region's dropped task, and a step skipped for one Job, below. Never a Check outcome (shield-*) or a Judge outcome (circle-*)."
 
   [[icons.minus.usage]]
     means = "A dropped plan task"
@@ -495,6 +495,14 @@
     status = "Specified"
     reserved = "TaskMark's (packages/components) dropped state only, docs/concepts/plan.md. Never a verdict-sheet row, which is the table above."
     notes = "Added 2026-09-13 for #896/#898. A dropped task stays on the list struck through rather than being removed, and minus's own claim — nothing checked this — reads the same one level below a Job: nobody's ruled on whether it still stands, which is why a person's add is what brings the work back rather than a Drone's own retry."
+
+  [[icons.minus.usage]]
+    means = "A skipped step"
+    group = "Step and Verdict"
+    size = "12px"
+    status = "Specified"
+    reserved = "The step_state `skipped` only. Never a verdict-sheet row or a dropped task."
+    notes = "A person chose that this Job does not run the step, so nothing ran and nothing was ruled: the dash says what it says on a dropped task, one level up."
 
 [icons.octagon-alert]
   means = "An octagon with an exclamation mark — the only octagon in the system"

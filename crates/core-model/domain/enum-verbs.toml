@@ -299,6 +299,14 @@ vocabulary = "Step state"
 in_code = ""
 notes = "The Job glyph one level down, from `[conventions.step_activity_borrowing]`. No token, for `advanced`'s reason: the hue is `--step-running`."
 
+[verbs.step_state.skipped]
+verb = "skipped"
+icon = "minus"
+status_token = ""
+vocabulary = "Step state"
+in_code = ""
+notes = "A person chose, at approval, that this Job does not run the step: no Drone, no gate, no Checks. The enum's own spelling, since it is plain English. `minus` for the reason a dropped task wears it: nothing was done and nothing was ruled. No token; the hue is `--step-advanced`, because a skipped step lets the Job pass it."
+
 [verbs.step_state.stopped]
 verb = "stopped"
 icon = "flag"

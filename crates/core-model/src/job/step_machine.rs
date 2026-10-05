@@ -66,6 +66,10 @@ pub struct StepEdge {
 /// running` already spells the second.
 pub static STEP_EDGES: &[StepEdge] = &[
     step_edge(StepState::NotStarted, StepState::Running),
+    // **A person chose this step out for the Job**, at the approval press. No
+    // Drone, no gate and no Checks, so it never passes through `running`.
+    // Walked by [`StepTarget::Skipped`] alone.
+    step_edge(StepState::NotStarted, StepState::Skipped),
     step_edge(StepState::Running, StepState::Advanced),
     step_edge(StepState::Running, StepState::Stopped),
     step_edge(StepState::Running, StepState::Retrying),
@@ -347,6 +351,12 @@ pub enum StepTarget {
     /// so no retry is spent (#1105). The ruling's own move out of `running`
     /// follows it in the same call.
     Rechecking(StepLevelTrigger),
+    /// A person tuned the step to be skipped, and the Job passes it by.
+    ///
+    /// **It arrives at `skipped` and not `advanced`**: nothing ran and no gate
+    /// ruled, so the state must not say the step passed one. It carries nothing,
+    /// for [`Advanced`](StepTarget::Advanced)'s reason, and begins no run.
+    Skipped,
 }
 
 impl StepTarget {
@@ -362,6 +372,7 @@ impl StepTarget {
             StepTarget::Stopped(_) => StepState::Stopped,
             StepTarget::Retrying(_) => StepState::Retrying,
             StepTarget::HeldForReview => StepState::AwaitingHuman,
+            StepTarget::Skipped => StepState::Skipped,
         }
     }
 
@@ -392,7 +403,8 @@ impl StepTarget {
             | StepTarget::Returned(_)
             | StepTarget::Revisited
             | StepTarget::Retraced
-            | StepTarget::HeldForReview => None,
+            | StepTarget::HeldForReview
+            | StepTarget::Skipped => None,
             StepTarget::Stopped(why)
             | StepTarget::Overridden(why)
             | StepTarget::Retrying(why)
@@ -414,6 +426,7 @@ impl StepTarget {
             | StepTarget::Revisited
             | StepTarget::Retraced
             | StepTarget::HeldForReview
+            | StepTarget::Skipped
             | StepTarget::Stopped(_)
             | StepTarget::Overridden(_)
             | StepTarget::Retrying(_)
@@ -480,6 +493,7 @@ impl StepTarget {
             // `awaiting_human` is reached one way.
             (StepState::AwaitingHuman, None) => Some(StepTarget::HeldForReview),
             (StepState::Running, None) => Some(StepTarget::Running),
+            (StepState::Skipped, None) => Some(StepTarget::Skipped),
             (StepState::Advanced, None) => Some(StepTarget::Advanced),
             // The trigger is what tells the two arrivals at `advanced` apart,
             // which is why an override stores one on a destination that

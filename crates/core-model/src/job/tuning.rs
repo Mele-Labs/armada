@@ -51,4 +51,6 @@ pub struct StepTuning {
     pub judges: Option<u32>,
     /// Manifest Checks this Job does not run on the step, by name.
     pub checks_off: Vec<String>,
+    /// This Job does not run the step at all: no Drone, no gate, no Checks.
+    pub skip: bool,
 }

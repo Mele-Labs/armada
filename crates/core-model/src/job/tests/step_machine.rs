@@ -99,8 +99,11 @@ fn every_edge_in_the_table_is_admitted() {
                 &first(),
                 StepTarget::HeldForReview,
             ),
+            // One move past the start. No edge leaves it, but the arm stays so
+            // the match below has no catch-all.
+            StepState::Skipped => step(&running(), &first(), StepTarget::Skipped),
             // No catch-all, and the absence is the assertion. Every state is
-            // walked to above, so a seventh added to `StepState` fails to
+            // walked to above, so an eighth added to `StepState` fails to
             // compile here rather than passing through an arm that panics at
             // runtime — and #522 is what made the sixth reachable at all.
         };
@@ -777,4 +780,31 @@ fn a_step_move_records_the_status_it_happened_under() {
         fields.get("job_status"),
         Some(&FieldValue::Str("running".into()))
     );
+}
+
+// ------------------------------------------------------------ a skipped step
+
+#[test]
+fn a_skipped_step_leaves_not_started_without_running_and_the_next_becomes_current() {
+    let job = running();
+    let skipped = step(&job, &first(), StepTarget::Skipped);
+    let row = &skipped.steps()[0];
+    assert_eq!(row.state(), StepState::Skipped);
+    assert_eq!(row.last_verdict(), None, "nothing ruled on a skipped step");
+    assert_eq!(skipped.current_step_id(), None, "skipping begins no run");
+
+    let next = step(&skipped, &second(), StepTarget::Running);
+    assert_eq!(next.current_step_id(), Some(&second()));
+}
+
+#[test]
+fn only_a_step_that_has_not_started_can_be_skipped() {
+    let started = step(&running(), &first(), StepTarget::Running);
+    match started.transition_step(&first(), StepTarget::Skipped, Actor::Fleet, when()) {
+        Err(IllegalStepTransition::NoSuchEdge { from, to, .. }) => {
+            assert_eq!(from, StepState::Running);
+            assert_eq!(to, StepState::Skipped);
+        }
+        other => panic!("a running step was skipped: {other:?}"),
+    }
 }

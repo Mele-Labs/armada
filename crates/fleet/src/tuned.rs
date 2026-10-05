@@ -161,6 +161,7 @@ pub(crate) fn tuned(
                 context,
                 judges: sent.judges,
                 checks_off: sent.checks_off.clone(),
+                skip: false,
             },
         );
     }

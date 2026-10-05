@@ -67,6 +67,14 @@ seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_review", "c
 in_code = "Not yet"
 notes = "**The one row narrowed by a guard other than `every_step_advanced`.** `running -> awaiting_repair` is admitted only where no step is being worked, so a Job held for repair never holds a `running` step — the gate stops it first, which is #179's finding and #208's edge."
 
+[states.skipped]
+meaning = "A person chose that this Job does not run the step"
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "completed_success", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
+in_code = "Not yet"
+notes = """
+Reached from `not_started` alone, by `StepTarget::Skipped`, with no Drone spawned, no gate ruled and no Check run. **It is not `advanced`**: that state says the step passed its advance gate, and a skipped step never faced one, so a surface cannot tell the two apart unless the state does. It counts as passed for the Job, so `completed_success` admits it beside `advanced`.
+"""
+
 [states.stopped]
 meaning = "Retries spent"
 seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]

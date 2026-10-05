@@ -182,7 +182,10 @@ impl JobStep {
                 // A re-run of the Checks has ruled nothing yet; the ruling
                 // that follows it writes the verdict.
                 | StepTarget::Rechecking(_)
-                | StepTarget::HeldForReview => self.last_verdict,
+                | StepTarget::HeldForReview
+                // **A skipped step was never ruled on**, so it carries no
+                // verdict: `passed` would say a gate cleared it.
+                | StepTarget::Skipped => self.last_verdict,
                 StepTarget::Advanced => Some(StepVerdict::Passed),
                 // **The verdict does not move on an override**, which is the
                 // whole difference between this and `Advanced`. The gate ruled
@@ -225,7 +228,9 @@ impl JobStep {
                 | StepTarget::Overridden(_)
                 | StepTarget::Retrying(_)
                 | StepTarget::Rechecking(_)
-                | StepTarget::HeldForReview => self.entered_at.clone(),
+                | StepTarget::HeldForReview
+                // Nothing is entered: no run ever began.
+                | StepTarget::Skipped => self.entered_at.clone(),
             },
             updated_at: at,
         }

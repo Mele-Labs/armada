@@ -79,7 +79,7 @@ impl Guard {
     /// something a reader learns from.
     pub const fn holds(&self) -> &'static [StepState] {
         match self {
-            Guard::EveryStepAdvanced => &[StepState::Advanced],
+            Guard::EveryStepAdvanced => &[StepState::Advanced, StepState::Skipped],
             // Every state but `running`, written out rather than derived: the
             // gate reads these arms out of the source text, so a set built by
             // filtering `StepState::ALL` would be a set it could not read. The
@@ -91,6 +91,7 @@ impl Guard {
                 StepState::AwaitingHuman,
                 StepState::NotStarted,
                 StepState::Retrying,
+                StepState::Skipped,
                 StepState::Stopped,
             ],
         }
