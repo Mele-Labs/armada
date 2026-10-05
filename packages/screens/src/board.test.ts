@@ -290,6 +290,16 @@ describe("a Board row's tasks", () => {
     ]);
   });
 
+  it("draws a handed-in task as its own segment, between done and working", () => {
+    expect(taskBarSegmentsOf({ done: 1, working: 1, open: 1, dropped: 0, handed_in: 2 })).toEqual([
+      "done",
+      "handed_in",
+      "handed_in",
+      "working",
+      "open",
+    ]);
+  });
+
   it("counts done over tasks not dropped", () => {
     expect(taskFigureOf({ done: 1, working: 1, open: 1, dropped: 1 })).toBe("1 of 3");
   });

@@ -326,10 +326,10 @@ notes = "`circle-dot`, `job_status.running`'s glyph two levels down, as `TaskMar
 [verbs.task_state.handed_in]
 verb = "handed in"
 icon = "file-check"
-status_token = "--status-running"
+status_token = "--status-handed-in"
 vocabulary = "Task state"
 in_code = ""
-notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-running` because the work is in flight, `group_state.checking`'s reason. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
+notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-handed-in`, its own green-teal between running and completed-success: submitted reads settled, and not yet done. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
 
 [verbs.task_state.done]
 verb = "done"

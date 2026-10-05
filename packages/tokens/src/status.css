@@ -117,6 +117,18 @@
   --status-awaiting-approval-bg: var(--status-awaiting-review-bg);
 }
 
+/* task_state.handed_in — the agent submitted and the step's Checks have not
+   answered. A NEW hue, the owner's call: it drew as running's cyan and read
+   as pending, and done's green would claim a verdict nobody has given. Derived
+   as the channel-wise midpoint of --status-running (#4FB8D9) and
+   --status-completed-success (#4FAF7C): #4FB4AA, green-teal, between the two.
+   Both neighbours clear 4.5:1 on their 12% tint and the midpoint's luminance
+   lies between theirs, so it holds the same floor. */
+:root {
+  --status-handed-in: #4FB4AA;          /* submitted, checks to answer */
+  --status-handed-in-bg: color-mix(in srgb, var(--status-handed-in) 12%, transparent);
+}
+
 /* awaiting_repair — a step spent its retry budget and the work is unfinished.
    Aliased from escalated, not from the other awaiting_* statuses, and the two
    comments at the top of this file are what decide it: awaiting_review is

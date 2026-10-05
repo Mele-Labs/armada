@@ -106,3 +106,28 @@ export function workingAPlan(): JobFixture {
     }),
   });
 }
+
+/**
+ * `workingAPlan()` with its first task handed in: the Drone has submitted and
+ * its Checks have not answered, while the second task is still being worked.
+ * **The state a group's Checks read off the gate in, and a task row says
+ * submitted in** — neither was on any screen the mock could open.
+ */
+export function handedInATask(): JobFixture {
+  const fixture = workingAPlan();
+  if (fixture.watched.state !== "read") return fixture;
+  const plan = fixture.watched.detail.work_plan;
+  if (plan === undefined) return fixture;
+  const work_plan: WorkPlan = {
+    ...plan,
+    tasks: plan.tasks.map((task) => (task.id === "T1" ? { ...task, state: "handed_in" } : task)),
+  };
+  const tasks: TaskCounts = { ...TASKS_MID_PLAN, done: 0, handed_in: 1 };
+  const job = { ...fixture.job, tasks };
+  return {
+    ...fixture,
+    job,
+    name: "running — the plan's first task handed in, the second still worked",
+    watched: watchedRead({ ...fixture.watched.detail, job, work_plan }),
+  };
+}

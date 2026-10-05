@@ -80,6 +80,7 @@ export const Status: Story = {
   "status-completed-failed",
   "status-rejected",
   "status-killed",
+  "status-handed-in",
   "status-piloted",
   "status-awaiting-attestation",
   "status-superseded",
