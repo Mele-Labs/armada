@@ -16,6 +16,7 @@
 //! Every refusal a fake can honestly raise is here, beside the `Vec` it reads
 //! to raise it. There are two, and the modules below hold none of their own.
 
+mod authoring;
 mod commands;
 mod conversing;
 mod queries;

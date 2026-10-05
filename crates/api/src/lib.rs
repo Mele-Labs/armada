@@ -99,8 +99,8 @@ mod tests;
 pub use acting::{carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
-    offerable, Admitting, Commands, Conversations, Daemon, FramePart, FrameSpan, HelmReach,
-    PermissionAnswer, Queries, Redirector, Refusal, Retros, Studios, Tools,
+    offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
+    HelmReach, PermissionAnswer, Queries, Redirector, Refusal, Retros, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

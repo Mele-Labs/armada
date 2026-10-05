@@ -10,16 +10,20 @@ import json
 import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
 
 HOOK = pathlib.Path(__file__).with_name("guard_merge.py")
 
 
-def decide(command: str) -> str | None:
+def decide(command: str, cwd: str | None = None) -> str | None:
     """The hook's decision on one Bash command, or None where it stayed silent."""
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}}
+    if cwd:
+        payload["cwd"] = cwd
     run = subprocess.run(
         [sys.executable, str(HOOK)],
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
+        input=json.dumps(payload),
         capture_output=True,
         text=True,
         check=True,
@@ -85,6 +89,75 @@ class Refuses(unittest.TestCase):
         reason = json.loads(run.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn("scripts/land preflight", reason)
         self.assertIn("docs/capabilities/merge-line.md", reason)
+
+
+def checkout(root: pathlib.Path, name: str, branch: str) -> str:
+    """A directory whose `.git/HEAD` says `branch` is checked out."""
+    git = root / name / ".git"
+    git.mkdir(parents=True)
+    (git / "HEAD").write_text(f"ref: refs/heads/{branch}\n")
+    (root / name / "crates").mkdir()
+    return str(root / name)
+
+
+class MergesByHand(unittest.TestCase):
+    """A `git merge` is the line's business only where `main` is checked out."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        self.main = checkout(root, "main-checkout", "main")
+        self.feature = checkout(root, "feature-checkout", "feature")
+        # A linked worktree keeps a `.git` file pointing at its own git directory.
+        gitdir = root / "gitdir"
+        gitdir.mkdir()
+        (gitdir / "HEAD").write_text("ref: refs/heads/main\n")
+        (root / "linked").mkdir()
+        (root / "linked" / ".git").write_text(f"gitdir: {gitdir}\n")
+        self.linked = str(root / "linked")
+
+    def test_refuses_a_merge_in_the_checkout_at_main(self) -> None:
+        for command in (
+            "git merge --no-ff worktree-agent-a3a1662de3faa7bc2",
+            "git merge feature",
+            "git merge origin/main",
+            'sh -c "git merge feature"',
+            "GIT_AUTHOR_NAME=x git merge feature",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(decide(command, self.main), "deny")
+
+    def test_refuses_it_from_below_the_root_and_in_a_linked_worktree(self) -> None:
+        self.assertEqual(decide("git merge feature", self.main + "/crates"), "deny")
+        self.assertEqual(decide("git merge feature", self.linked), "deny")
+
+    def test_refuses_it_where_the_command_points_at_main(self) -> None:
+        self.assertEqual(decide(f"git -C {self.main} merge feature", self.feature), "deny")
+        self.assertEqual(decide(f"cd {self.main} && git merge feature", self.feature), "deny")
+
+    def test_lets_a_feature_branch_catch_up_with_main(self) -> None:
+        for command in (
+            "git merge origin/main",
+            "git merge --no-ff main",
+            "git fetch && git merge origin/main",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, self.feature))
+
+    def test_lets_a_checkout_at_main_follow_the_remote(self) -> None:
+        for command in (
+            "git merge --ff-only origin/main",
+            "git merge --abort",
+            "git merge --continue",
+            "git log --oneline merge",
+            "git branch merge",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, self.main))
+
+    def test_stays_silent_where_it_cannot_tell(self) -> None:
+        self.assertIsNone(decide("git merge feature", "/nonexistent/place"))
 
 
 class Allows(unittest.TestCase):

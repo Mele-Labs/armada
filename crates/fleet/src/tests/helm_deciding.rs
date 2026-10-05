@@ -263,6 +263,35 @@ fn the_doors_reads_run_and_only_some_of_its_acts_ask() {
     }
 }
 
+/// **Replacing a workflow asks and saving a first one does not.** The wire says
+/// which: a save that would replace one is refused by Fleet without
+/// `overwrite`, so the word is the whole line, and the card is on the call that
+/// carries it.
+#[test]
+fn saving_a_workflow_asks_only_where_it_says_overwrite() {
+    let named = format!("mcp__{}__save_workflow", ipc::door::SERVER);
+    let saving = |body: &str| {
+        asking(&format!(
+            "{{\"tool_name\":{},\"input\":{{\"body\":{body}}}}}",
+            quoted(&named)
+        ))
+    };
+    assert_eq!(because(&saving("{\"scope\":\"kit\"}")), None);
+    assert_eq!(
+        because(&saving("{\"scope\":\"kit\",\"overwrite\":false}")),
+        None
+    );
+    assert_eq!(
+        because(&saving("{\"scope\":\"kit\",\"overwrite\":true}")),
+        Some(Because::Destructive)
+    );
+    assert_eq!(
+        because(&tool(&named)),
+        None,
+        "no body, nothing to replace with"
+    );
+}
+
 /// A tool from a server Armada knows nothing about, read by its name — the only
 /// thing there is to read. **Under *auto unless*, a name carrying none of the
 /// verbs runs.**
