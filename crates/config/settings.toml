@@ -818,6 +818,23 @@ notes = """
 Added with the Job proposer. Its own row rather than a second reading of judge-model: the two are the same shape of call and are raised for opposite reasons, and a machine that raised one by raising the other would pay the raise on every dispatch as well as on every criterion. One turn, no tools, no directory — the shape a Judge call had until it was let read the repository on 2 Oct 2026. Overridden by ARMADA_PROPOSER_MODEL, resolved at the composition root, and nothing below Fleet reads it. Carries no value yet, so the default is the adapter's own stand-in. judge-model was in the same arrangement until 28 Aug 2026 and is now decided; this row was left where it was rather than being carried along, because the two are raised for different reasons and the proposer's own reasons have not been worked through.
 """
 
+[settings.retro-model]
+name = "Retro model"
+scope = "Kit → Manifest"
+default = "sonnet"
+lifetime = "Read at render"
+merge_strategy = "REPLACE"
+peer_polarity = "Member of the Kit set"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+DECIDED 4 Oct 2026 (owner): sonnet. A Job's retro is written on the middle tier and no longer on the Judge's cheap one, after Job 3's retro, written on the cheap tier, was rejected as unreadable and wrong about whose fault each thing was. Its own row rather than a second reading of judge-model, for job-proposer-model's reason: a machine that raised the Judge to raise the retro would pay the raise on every criterion of every gate, and the retro is one call per ended Job.
+
+The model is a stronger writer, and the prompt does the rest: it names no cause the record does not show, and the record hands it, as a fact, whether a Drone's own tool calls name a file a gate failure is about. A stronger model does not make the cause visible where the record has none.
+
+Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and above the Judge's. The call goes through the Judge's client and budget, so it counts against nothing: an unwatched call emits no cost readout, which is why judge-cost-cap-per-check is open, and it is not part of a Job's spend. It is one call per Job that had a Drone, made after the Job ended, so no Job waits on it.
+"""
+
 [settings.judge-confidence-threshold]
 name = "Judge confidence threshold"
 scope = "Kit → Manifest"

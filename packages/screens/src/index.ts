@@ -24,7 +24,7 @@ export * from "./Redirect";
 export * from "./Report";
 export * from "./Reports";
 export * from "./Lessons";
-export type { LessonsTab, ReadLessons, ReadRetro } from "./retro";
+export type { AnswerLesson, LessonsTab, LessonsView, ReadLessons, ReadRetro } from "./retro";
 export { lessonsTabNamed } from "./retro";
 export * from "./Row";
 export * from "./Taken";

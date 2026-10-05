@@ -46,8 +46,8 @@ use ipc::PROTOCOL_VERSION;
 use store::Store;
 
 use crate::{
-    agent_binary, judge_model, model_choices, proposer_model, second_opinion_model, AGENT_BINARY,
-    JUDGE_MODEL, MODEL, PROPOSER_MODEL,
+    agent_binary, judge_model, model_choices, proposer_model, retro_model, second_opinion_model,
+    AGENT_BINARY, JUDGE_MODEL, MODEL, PROPOSER_MODEL, RETRO_MODEL,
 };
 
 /// The store, beside the runtime file rather than inside the repository.
@@ -756,6 +756,8 @@ fn assemble(
         judge_model(std::env::var(JUDGE_MODEL).ok()).map_err(|refused| refused.said())?;
     let proposer_model =
         proposer_model(std::env::var(PROPOSER_MODEL).ok()).map_err(|refused| refused.said())?;
+    let retro_model =
+        retro_model(std::env::var(RETRO_MODEL).ok()).map_err(|refused| refused.said())?;
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -831,6 +833,7 @@ fn assemble(
         unanswered_ask_limit: UnansweredAskLimit::of(PROVISIONAL_UNANSWERED_ASK_LIMIT),
         judge_model,
         proposer_model,
+        retro_model,
         second_opinion_model: second_opinion_model().map_err(|refused| refused.said())?,
         // The one link shape resolved before dispatch. See
         // `adapters::IssueLookup` for why it is the only one.

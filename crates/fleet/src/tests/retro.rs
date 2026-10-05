@@ -16,9 +16,9 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::{fittings, worktree_directory_named};
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
-const A_PROPOSAL: &str = r#"{
+pub(super) const A_PROPOSAL: &str = r#"{
     "title": "fix the off-by-one in the log reader",
     "workflow_id": "fixture-workflow",
     "owner_manifest_id": "01FIXTUREMANIFEST",
@@ -31,12 +31,12 @@ const A_PROPOSAL: &str = r#"{
 
 /// Who is asking: Bridge names itself, and anything else does not.
 #[derive(Clone, Copy)]
-enum From {
+pub(super) enum From {
     Bridge,
     Anyone,
 }
 
-async fn sent(
+pub(super) async fn sent(
     app: &Router,
     method: &str,
     uri: &str,
@@ -77,9 +77,16 @@ async fn sent(
 
 /// A Fleet whose model calls `judge` answers, with one Job approved from
 /// Bridge and its Drone on the first step.
-async fn running(home: &TempDir, judge: Arc<FakeJudge>) -> (Arc<Fixture>, Router, String) {
+pub(super) async fn running(
+    home: &TempDir,
+    judge: Arc<FakeJudge>,
+) -> (Arc<Fixture>, Router, String) {
     let mut fitted = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     fitted.judge = judge;
+    // A second workflow to choose from, which only a Job proposed from a
+    // request reads: the fixture's own Job names the one it runs.
+    let bug = crate::tests::daemon::workflow_named("bug");
+    fitted.starting().workflows.insert(bug.id().clone(), bug);
     let fleet = Arc::new(Fleet::assembled(fitted));
     let events = fleet.events();
     let app = api::router(api::Served::sharing(
@@ -105,13 +112,13 @@ async fn running(home: &TempDir, judge: Arc<FakeJudge>) -> (Arc<Fixture>, Router
     (fleet, app, id)
 }
 
-async fn retro_of(app: &Router, id: &str) -> JobRetro {
+pub(super) async fn retro_of(app: &Router, id: &str) -> JobRetro {
     let (status, body) = sent(app, "GET", &format!("/jobs/{id}/retro"), "", From::Bridge).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     ipc::decode("a retro", &body).expect("a JobRetro")
 }
 
-async fn killed(app: &Router, id: &str, from: From) {
+pub(super) async fn killed(app: &Router, id: &str, from: From) {
     let (status, body) = sent(app, "POST", &format!("/jobs/{id}/kill_job"), "", from).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
 }
@@ -190,9 +197,12 @@ async fn an_ended_job_gets_one_retro_and_its_items_are_listed() {
     let judge = Arc::new(FakeJudge::saying(
         "Here it is:\n```json\n{\"items\":[\
          {\"who\":\"owner\",\"lands_in\":\"armada\",\
-          \"statement\":\"The Job waited on its approval.\",\
+          \"title\":\"The Job waited on its approval\",\
+          \"what\":\"The Job waited on its approval.\",\
+          \"fix\":\"Show the wait on the Board.\",\
           \"evidence\":[\"act:1\",\"act:99\"]},\
-         {\"who\":\"drone\",\"lands_in\":\"kit\",\"statement\":\"Invented.\",\
+         {\"who\":\"drone\",\"lands_in\":\"kit\",\"title\":\"Invented\",\
+          \"what\":\"Invented.\",\"fix\":\"Invent less.\",\
           \"evidence\":[\"refusal:7\"]}]}\n```",
     ));
     let (fleet, app, id) = running(&home, Arc::clone(&judge)).await;
@@ -216,6 +226,22 @@ async fn an_ended_job_gets_one_retro_and_its_items_are_listed() {
     };
     assert_eq!(item.who.as_wire(), "owner");
     assert_eq!(item.evidence, vec!["act:1".to_string()]);
+    assert_eq!(item.id, format!("{id}-0"));
+    assert_eq!(
+        item.title.as_deref(),
+        Some("The Job waited on its approval")
+    );
+    assert_eq!(
+        item.what.as_deref(),
+        Some("The Job waited on its approval.")
+    );
+    assert_eq!(item.fix.as_deref(), Some("Show the wait on the Board."));
+    assert_eq!(item.statement, "The Job waited on its approval.");
+    assert_eq!(
+        judge.models(),
+        vec!["the-retro-model".to_string()],
+        "a retro is written on its own model, never the Judge's"
+    );
     let asked = judge.asked();
     let [question] = asked.as_slice() else {
         panic!("one call: {asked:?}");
@@ -234,6 +260,13 @@ async fn an_ended_job_gets_one_retro_and_its_items_are_listed() {
     assert_eq!(lesson.job_id.as_str(), id);
     assert!(lesson.handle.starts_with('1'), "{}", lesson.handle);
     assert_eq!(lesson.statement, "The Job waited on its approval.");
+    assert_eq!(lesson.id, format!("{id}-0"));
+    assert_eq!(
+        lesson.title.as_deref(),
+        Some("The Job waited on its approval")
+    );
+    assert_eq!(lesson.state.as_wire(), "open");
+    assert_eq!(lesson.job_proposed, None);
 }
 
 /// **A call that fails is kept as failed and not made again**: a quota that is
@@ -289,12 +322,16 @@ async fn an_item_that_names_no_place_its_fix_lands_is_dropped_and_lessons_narrow
     let home = TempDir::new();
     let judge = Arc::new(FakeJudge::saying(
         "{\"items\":[\
-         {\"who\":\"owner\",\"lands_in\":\"armada\",\"statement\":\"Shown running.\",\
+         {\"who\":\"owner\",\"lands_in\":\"armada\",\"title\":\"Shown running\",\
+          \"what\":\"Shown running.\",\"fix\":\"Stop showing it.\",\
           \"evidence\":[\"act:1\"]},\
-         {\"who\":\"drone\",\"lands_in\":\"kit\",\"statement\":\"Refused grep.\",\
+         {\"who\":\"drone\",\"lands_in\":\"kit\",\"title\":\"Refused grep\",\
+          \"what\":\"Refused grep.\",\"fix\":\"Allow grep.\",\
           \"evidence\":[\"act:1\"]},\
-         {\"who\":\"owner\",\"statement\":\"Named no place.\",\"evidence\":[\"act:1\"]},\
-         {\"who\":\"fleet\",\"lands_in\":\"bridge\",\"statement\":\"Named a wrong one.\",\
+         {\"who\":\"owner\",\"title\":\"No place\",\"what\":\"Named no place.\",\
+          \"fix\":\"Name one.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"bridge\",\"title\":\"Wrong place\",\
+          \"what\":\"Named a wrong one.\",\"fix\":\"Name a right one.\",\
           \"evidence\":[\"act:1\"]}]}",
     ));
     let (fleet, app, id) = running(&home, judge).await;
@@ -337,4 +374,78 @@ async fn an_item_that_names_no_place_its_fix_lands_is_dropped_and_lessons_narrow
 
     let (status, _) = sent(&app, "GET", "/lessons?lands_in=bridge", "", From::Bridge).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "a place that is not one");
+}
+
+/// **Items are read one at a time, and only a whole one is kept.** A `fix` with
+/// a dash, a missing `title`, a `what` that is blank, an item citing nothing
+/// the record holds and a stray string in the list are each dropped alone, and
+/// the one good item beside them is kept with every part.
+#[tokio::test]
+async fn an_item_with_a_dash_or_a_missing_part_is_dropped_and_the_good_one_kept() {
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::saying(
+        "{\"items\":[\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"A dash in the fix\",\
+          \"what\":\"The gate ran against a stale main.\",\
+          \"fix\":\"Fetch main \\u2014 then measure.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"A dash in the what\",\
+          \"what\":\"The gate ran against a stale main -- twice.\",\
+          \"fix\":\"Fetch main first.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\
+          \"what\":\"No title came with it.\",\"fix\":\"Add one.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"Blank what\",\"what\":\"  \",\
+          \"fix\":\"Say it.\",\"evidence\":[\"act:1\"]},\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"Cites nothing\",\
+          \"what\":\"Nothing backs this.\",\"fix\":\"Cite a row.\",\"evidence\":[]},\
+         \"a stray string\",\
+         {\"who\":\"fleet\",\"lands_in\":\"armada\",\"title\":\"Gate measured a stale main\",\
+          \"what\":\"Two upstream commits counted as the Drone's work.\",\
+          \"fix\":\"Fetch main before the gate measures.\",\"evidence\":[\"act:1\"]}]}",
+    ));
+    let (fleet, app, id) = running(&home, judge).await;
+    killed(&app, &id, From::Anyone).await;
+    fleet.reflect_next().await.expect("written");
+
+    let retro = retro_of(&app, &id).await;
+    assert_eq!(retro.state, RetroState::Written, "{:?}", retro.why);
+    let [item] = retro.items.as_slice() else {
+        panic!("one item survives: {:?}", retro.items);
+    };
+    assert_eq!(item.title.as_deref(), Some("Gate measured a stale main"));
+    assert_eq!(
+        item.what.as_deref(),
+        Some("Two upstream commits counted as the Drone's work.")
+    );
+    assert_eq!(
+        item.fix.as_deref(),
+        Some("Fetch main before the gate measures.")
+    );
+}
+
+/// The instructions say what the owner decided: no cause the record does not
+/// show, Armada's own faults to `fleet` and `armada`, and a plain style with no
+/// dashes. And a retro is not asked about a file the Drone never named without
+/// the fact that says so.
+#[tokio::test]
+async fn the_retro_call_is_told_to_name_no_cause_the_record_does_not_show() {
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::saying("{\"items\":[]}"));
+    let (fleet, app, id) = running(&home, Arc::clone(&judge)).await;
+    killed(&app, &id, From::Anyone).await;
+    fleet.reflect_next().await.expect("written");
+
+    let asked = judge.asked();
+    let [question] = asked.as_slice() else {
+        panic!("one call: {asked:?}");
+    };
+    for told in [
+        "Name a cause only where the record shows one",
+        "named_in_drone_calls: false",
+        "`who: fleet`, `lands_in: armada`",
+        "No dashes of any kind",
+        "`title`",
+        "`fix`",
+    ] {
+        assert!(question.contains(told), "{told}: {question}");
+    }
 }

@@ -62,6 +62,10 @@ pub const THE_OUTPUT: &str = "implement.1.0.log";
 /// a Judge's: step, attempt, criterion.
 pub const THE_BRIEF: &str = "implement.1.tests_pass.txt";
 
+/// The one retro item this fake knows, which it answers with a refusal that is
+/// not a 404, so the routed-operations walk can tell the route is there.
+pub const THE_LESSON: &str = "01JOB0-0";
+
 /// The one kept frame this fake's record holds, spelled the way a frame is
 /// named: the run's directory and the harness's own file name, joined.
 ///

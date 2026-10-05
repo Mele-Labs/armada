@@ -2714,7 +2714,7 @@ read plausibly under a different job has failed.
   Check output, the Check results.
 - **Retro** what got in the way while one Job ran, written once it ends.
   Never the post-mortem, the review — a review is of the change. What the
-  retros' items make together is **Lessons**, the page that lists them.
+  retros' items make together is read on **Retros**, the page that lists them.
 - **Lands in** where a retro item's fix lands: Armada, Kit or Manifest,
   exactly one. Never the owner, the area, the component — whose way it got
   in is a separate question.

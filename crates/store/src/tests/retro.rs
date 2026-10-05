@@ -2,7 +2,7 @@
 //! said got in the way, and the retro itself once one is written.
 //! `docs/concepts/retro.md`.
 
-use core_model::{Actor, Job, LandsIn, StepId, Target, Via, Whose};
+use core_model::{Actor, Job, LandsIn, LessonState, StepId, Target, Via, Whose};
 use rusqlite::Connection;
 
 use crate::migrations::{MIGRATIONS, SCHEMA_VERSION_KEY};
@@ -26,6 +26,9 @@ fn ended(store: &mut Store, id: &str, when: &str) -> Job {
 fn line(whose: Whose, said: &str, evidence: &[&str]) -> RetroLine {
     RetroLine {
         whose,
+        title: None,
+        what: None,
+        fix: None,
         said: said.to_string(),
         evidence: evidence.iter().map(|one| one.to_string()).collect(),
         lands_in: Some(LandsIn::Armada),
@@ -142,7 +145,7 @@ fn an_ended_job_is_owed_a_retro_until_one_is_kept() {
         }
     );
     let newest: Vec<(String, &str)> = store
-        .lessons(10, None)
+        .lessons(10, None, None)
         .expect("read")
         .iter()
         .map(|lesson| {
@@ -181,7 +184,7 @@ fn a_retro_that_could_not_be_written_is_not_owed_again() {
         .expect("kept");
 
     assert!(store.retros_owed().expect("read").is_empty());
-    assert!(store.lessons(10, None).expect("read").is_empty());
+    assert!(store.lessons(10, None, None).expect("read").is_empty());
 }
 
 /// **A Job that ended before retros existed is owed none.** Without this, the
@@ -282,13 +285,13 @@ fn the_lessons_narrow_to_where_a_fix_lands() {
         .expect("kept");
 
     let narrowed: Vec<RetroLine> = store
-        .lessons(10, Some(LandsIn::Kit))
+        .lessons(10, Some(LandsIn::Kit), None)
         .expect("read")
         .into_iter()
         .map(|lesson| lesson.line)
         .collect();
     assert_eq!(narrowed, vec![kit.clone()]);
-    assert_eq!(store.lessons(10, None).expect("read").len(), 2);
+    assert_eq!(store.lessons(10, None, None).expect("read").len(), 2);
 }
 
 /// **An item kept before V102 reads with `lands_in` absent**, never guessed,
@@ -335,7 +338,7 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
         }
     );
     let all: Vec<RetroLine> = store
-        .lessons(10, None)
+        .lessons(10, None, None)
         .expect("read")
         .into_iter()
         .map(|lesson| lesson.line)
@@ -343,8 +346,22 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
     assert_eq!(all, vec![old]);
     for place in LandsIn::ALL {
         assert!(
-            store.lessons(10, Some(*place)).expect("read").is_empty(),
+            store
+                .lessons(10, Some(*place), None)
+                .expect("read")
+                .is_empty(),
             "an old item is under no place: {place:?}"
         );
     }
+    let old = store
+        .lesson(&job_id("01RETROOLD"), 0)
+        .expect("read")
+        .expect("held");
+    assert_eq!(
+        old.state,
+        LessonState::Open,
+        "an item kept before V105 is open"
+    );
+    assert_eq!(old.job_proposed, None);
+    assert_eq!(old.line.title, None);
 }

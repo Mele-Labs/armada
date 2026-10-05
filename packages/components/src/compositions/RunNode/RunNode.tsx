@@ -7,7 +7,7 @@ import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepAct
 
 // One node of a Job's run on the approval canvas: a band naming its kind in
 // its state's hue, then a body of three lines (the owner's worktree-slot card,
-// 4 Oct 2026). Prototype: no story until he has walked it.
+// 4 Oct 2026).
 
 export type RunNodeKind =
   | "studio"

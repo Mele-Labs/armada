@@ -765,7 +765,7 @@ description = "What got in the way while one Job ran, whose way, and the record 
 notes = """
 Since 23.12. `docs/concepts/retro.md` is the concept.
 
-**Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`.
+**Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`. Since 23.26 each has an `id`, a `title`, `what` and `fix` beside `statement`, which `agree_lesson` and `disagree_lesson` act on, and a gate failure in `record` that names a file carries `paths`, each with whether a tool call of the Drone's names it. **Since 23.27 each item carries `state` and `job_proposed`**, read from the rows `list_lessons` reads, so a sheet that offers Agree and Disagree can see an item already answered: `state` is `open`, `agreed`, `accepted` or `discarded`, and `job_proposed` is the Job agreeing proposed. Both are absent only on an item whose row has no answer record.
 
 `state` is `pending` until a Job has ended and its retro is written, then `written`, `failed` or `skipped`. A failed retro is not tried again, and a Job that ended before Fleet wrote retros is `skipped`.
 
@@ -778,13 +778,45 @@ Its own route rather than a field on `get_job`, for `get_job_events`' reason: th
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Every written retro's items across Jobs, newest retro first, each with its Job, whose way it got in, where its fix lands, one sentence and the record rows that show it"
+description = "Every written retro's items across Jobs in one state, newest retro first, each with its Job, whose way it got in, where its fix lands, its title, what happened, the fix and the record rows that show it"
 notes = """
 Since 23.12. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
 
 **`?lands_in=` narrows it to where each fix lands**, since 23.15: `armada`, `kit` or `manifest`, and absent is all three. Any other value is a 400. An item kept before 23.15 carries no `lands_in` and is listed only where nothing narrows.
 
-**Nothing here is filed, proposed or put into a brief.** It is read, and a person decides what each item is worth. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves.
+**`?state=` narrows it to where each item stands with the person**, since 23.26: `open`, `agreed`, `accepted` or `discarded`, and absent is `open`. Any other value is a 400. A person's saved Kit items are `?state=accepted`. Every row carries its `id` and `state`, and `job_proposed` once agreeing proposed a Job for it. An item written since 23.26 carries `title`, `what` and `fix` beside `statement`; one kept before has `statement` alone.
+
+**Listing proposes nothing.** It is read. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves, and a person's answer is `agree_lesson` or `disagree_lesson`.
+"""
+
+[operations.agree_lesson]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Agree with one retro item: propose a Job for it at the approval gate, or keep it where its fix lands in Kit"
+notes = """
+Since 23.26. `POST /lessons/:lesson_id/agree`, no body. Answers with the `Lesson` as it now stands.
+
+**By where the fix lands.** `manifest`: a Job is proposed on the repository the item's own Job worked on. `armada`: a Job is proposed on Armada's own repository, the Manifest named `armada`, and where this Fleet does not serve it the answer is a 422 `fleet.lesson_armada_not_served` and the item stays open. `kit`: no Job, the state becomes `accepted`.
+
+**The request is the item**: its title, what happened, the fix, and a line naming the source Job's handle. It goes through the same call as `propose_from_request`, so the Job stands at `awaiting_approval` and a person approves it where any other proposal is approved. The Job's id is `job_proposed` on the answer. A call that could not be made, or a request no workflow fits, is that call's own refusal, and the item is open again.
+
+**Agreeing twice proposes once.** An item that is not `open` answers with the state it stands in, and nothing else happens. The write that moves it off `open` is the claim, so two presses at once make one Job.
+
+An item kept before 23.15 names no place its fix lands, so it is a 422 `fleet.lesson_names_no_place`: where its Job would go is not Fleet's to guess. An id that names no item is a 404 `fleet.no_such_lesson`.
+
+**A person's act.** `agent_access` is `Helm only`, `propose_from_request`'s door: a Helm session may call it when a person asks, and its Job's origin reads *Drafted in Helm* where it did. A person in Bridge presses it and the Job reads *Dispatched by you*.
+"""
+
+[operations.disagree_lesson]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Disagree with one retro item: its state becomes discarded and the row stays"
+notes = """
+Since 23.26. `POST /lessons/:lesson_id/disagree`, no body. Answers with the `Lesson` as it now stands.
+
+The row is kept, so the owner's evidence is not lost, and the default listing omits it: `?state=discarded` lists it. An item that is not `open` answers with the state it stands in. **A Job already proposed for an agreed item is never taken back by this**, because disagreeing with an item has no say over a Job a person may already have approved. An id that names no item is a 404 `fleet.no_such_lesson`.
 """
 
 [operations.get_job_log]
@@ -1427,7 +1459,7 @@ notes = """
 
 **The Job goes `awaiting_approval -> proposing` and back.** The proposer reads the request and the note, and its answer replaces the title, words, workflow and criteria whole. Each Job the answer makes is at `awaiting_approval` on its own, carrying the person's tuning for every step whose id the new workflow still has and the landing as it stands; what cannot carry is dropped, with a warning in the Job's log naming it. A call that cannot be read puts the proposal back as it was and refuses with the proposer's own code (`fleet.no_workflow_fits`, `fleet.proposer_unreadable` and the like). A Fleet that restarts mid-call escalates the Job as `proposer_failed`, as it does a first dispatch.
 
-409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. 422 `fleet.unacceptable_proposal` on a blank note, a Job that is one of a split or was split, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
+409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. **A split goes back whole**: from any Job of it, every Job of the split is sent back, the proposer answers once and its answer replaces the group, the old Jobs kept in order and rewritten, more made, fewer ended as replaced. 422 `fleet.unacceptable_proposal` on a blank note, a Job of the group not at its gate (named, with its status, and nothing moves), a Job an Epic's plan dispatched, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
 
 `agent_access` is `Helm only`, `approve_dispatch`'s reason.
 """

@@ -378,6 +378,7 @@
 /* Whose way a retro item got in, the Lessons list and one Job's retro. 23.12. */
 @import "./compositions/WhoMark/WhoMark.css";
 @import "./compositions/LandsMark/LandsMark.css";
+@import "./compositions/LessonCard/LessonCard.css";
 @import "./compositions/LessonList/LessonList.css";
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";

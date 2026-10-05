@@ -1,7 +1,7 @@
 // What a person tunes per node on the approval canvas. Every field is on the
 // wire: `StepTuning` since 23.20 and its `harness` since 23.23
-// (`ApproveDispatch.tuning`), delivery since 23.24 (`LandingChoice.local` and
-// `.auto_merge`, held on `LandingRule`), and the note back to the proposer since
+// (`ApproveDispatch.tuning`), delivery since 23.24 (the local-only and auto-merge
+// fields of `LandingChoice`, held on `LandingRule`), and the note back to the proposer since
 // 23.25 (`to_proposer`). `approvalOf` sends them.
 //
 // Each default below is read off what Fleet already serves where it can be
@@ -32,7 +32,7 @@ export type StepTuning = {
 
 /**
  * How the work leaves the worktree, as the canvas's one control offers it.
- * `draft` and `ready` are `LandingRule.pr_mode`; `local` is `LandingRule.local`
+ * `draft` and `ready` are `LandingRule.pr_mode`; `local` is the local-only field
  * — no pull request, no merge and no push: the work is held on its own branch.
  * **Read, never held**: `deliveryOf` derives it, so the two fields cannot
  * disagree with a third.
