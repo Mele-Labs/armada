@@ -134,6 +134,27 @@ fn every_path(worktree: &Worktree, commit: &str) -> Result<Vec<String>, NotDeliv
         .collect())
 }
 
+/// See [`adapter_traits::Delivery::settle_worktree`].
+pub(crate) fn settle_worktree(worktree: &Worktree) -> Result<(), NotDelivered> {
+    if !merge_in_progress(worktree) {
+        return Ok(());
+    }
+    // `--abort` refuses where it cannot rebuild the tree it began with, and a
+    // killed merge may leave exactly that; the committed branch is what counts.
+    let aborted = git(worktree, &["merge", "--abort"])?;
+    if aborted.status.success() {
+        return Ok(());
+    }
+    let reset = git(worktree, &["reset", "--quiet", "--hard", "HEAD"])?;
+    match reset.status.success() {
+        true => Ok(()),
+        false => Err(NotDelivered::of(
+            "clearing a merge left part-way through",
+            said(&reset),
+        )),
+    }
+}
+
 /// See [`adapter_traits::Delivery::put_back`].
 pub(crate) fn put_back(worktree: &Worktree, merged: &BaseMergedIn) -> Result<(), NotDelivered> {
     if rev_parsed(worktree, "HEAD").as_deref() != Some(merged.head.as_str()) {

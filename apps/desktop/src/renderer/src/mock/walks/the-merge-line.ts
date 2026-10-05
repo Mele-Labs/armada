@@ -12,8 +12,8 @@ const SCRATCH = region("Merge line, scratch");
 export const theMergeLine = walk("merge-line", [
   { look: ARMADA, say: "On All, one panel for each repository with a line" },
   { look: inside(ARMADA, text("armada")), say: "Named by its repository" },
-  { look: inside(ARMADA, role("img", "waiting")), say: "Waiting: its place, the mark, the branch" },
-  { look: inside(ARMADA, role("list", "Batch")), say: "Places 2 to 5 gate as one batch" },
+  { look: inside(ARMADA, role("img", "waiting")), say: "Waiting: its order, the mark, the branch" },
+  { look: inside(ARMADA, role("list", "Batch")), say: "Places 1 to 4 gate as one batch" },
   {
     look: inside(ARMADA, role("img", "Preparing to land")),
     say: "Preparing to land: no Check has run yet; hover names it",

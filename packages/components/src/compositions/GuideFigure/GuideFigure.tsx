@@ -33,8 +33,8 @@ const READING: Record<GuideFigureId, string> = {
     "Two groups of a plan, one after the other. The first group's tasks are done and the group " +
     "has passed its checks; the second group and its tasks have not started.",
   "workflow-steps":
-    "The four steps of a workflow, in order: plan the change, implement, write tests, review " +
-    "the change. The last one waits for a person.",
+    "The three steps of a workflow, in order: plan the change, implement, review the change. " +
+    "The last one waits for a person.",
 };
 
 export function GuideFigure({ figure, scale }: GuideFigureProps) {
@@ -90,7 +90,7 @@ function Arriving({ at, children }: { at: number; children: ReactNode }) {
 const said = (state: string): string => STEP_STATE[state]?.verb ?? state;
 
 /**
- * The four steps of the `feature` workflow, as `WorkflowCanvas` draws them —
+ * The three steps of the `feature` workflow, as `WorkflowCanvas` draws them —
  * the same `WorkflowStepCard`, the same facts, the same gate sentence.
  *
  * The labels and gates are `featureWorkflow()`'s, the fixture every arc
@@ -98,23 +98,22 @@ const said = (state: string): string => STEP_STATE[state]?.verb ?? state;
  */
 const WORKFLOW_STEPS: readonly WorkflowStepCardProps[] = [
   { kind: "step", name: "Plan the change", activity: "advanced", said: said("advanced"), ordinal: 1 },
+  // `current` is off, and that is the rule rather than the fixture: it pulses
+  // the step's mark on a loop, and a loop says *still working*.
   {
     kind: "step",
     name: "Implement",
-    activity: "advanced",
-    said: said("advanced"),
+    activity: "running",
+    said: said("running"),
     ordinal: 2,
     facts: [{ value: "2 groups" }],
   },
-  // `current` is off, and that is the rule rather than the fixture: it pulses
-  // the step's mark on a loop, and a loop says *still working*.
-  { kind: "step", name: "Write tests", activity: "running", said: said("running"), ordinal: 3 },
   {
     kind: "step",
     name: "Review the change",
     activity: "not_started",
     said: said("not_started"),
-    ordinal: 4,
+    ordinal: 3,
     facts: [{ value: "delivers" }],
     gate: ADVANCE_GATE["human_always"]?.verb ?? "a person answers",
   },

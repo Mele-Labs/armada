@@ -547,6 +547,7 @@ fn the_setting_and_the_waiting_command_are_absent_until_fleet_fills_them() {
     detail.command_waiting = Some(crate::CommandInFlight {
         call: String::from("toolu_01"),
         step_id: crate::StepId::carried("repro"),
+        drone_id: None,
         asked_at: crate::Instant::carried("2026-09-11T09:00:00.000Z"),
         tool: String::from("Bash"),
         detail: String::from("touch x"),

@@ -126,6 +126,13 @@ replays them against their merged copies. Confirmed 14 Sep 2026: #1071, stacked
 on #1070, conflicted in `checking.rs` on one of #1070's own commits; `git rebase
 --onto origin/main <the base's old head>` replayed #1071's three with none.
 
+**Brief every child to declare a need before it picks a migration number or a
+protocol minor** (`armada need <path> "<what>"`, `work-issue` step 3), and to use
+the number the answer gives. The line then lands them in the order they declared,
+so nothing is renumbered. A child that stalls holds the ones behind it: give its
+need back with `armada need --release <path>` from its branch, or delete the
+branch. Nothing expires on its own.
+
 **Re-read `main`'s protocol minor after every rebase.** Two branches bumping to
 the same number merge without a conflict. Confirmed 13 Sep 2026: #993 took 13.36
 while the agent door's branch also bumped to 13.36, and the rebase dropped the

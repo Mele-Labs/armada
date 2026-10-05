@@ -319,6 +319,8 @@ impl ResolvedCheck {
 pub struct ResolvedStep {
     id: StepId,
     label: String,
+    /// What the step does for the Job, for a person reading it. `None` draws nothing.
+    about: Option<String>,
     evidence_type: Option<EvidenceType>,
     checks: Vec<ResolvedCheck>,
     advance_gate: AdvanceGate,
@@ -514,6 +516,7 @@ impl ResolvedStep {
             // eleventh and a twelfth a zero and an empty map on every step of
             // every linear workflow, and the last two a `None` about a dial
             // almost no step touches.
+            about: None,
             may_dispatch_jobs: false,
             delivers: false,
             captured: false,
@@ -600,6 +603,18 @@ impl ResolvedStep {
     /// converge here rather than being told apart by a caller.
     pub fn records_plan(&self) -> bool {
         self.records_plan
+    }
+
+    /// What the step does for the Job, for the reason [`frozen`](Self::frozen)
+    /// is not given it: most steps of a hand-built workflow say nothing.
+    pub fn describing(mut self, about: Option<String>) -> ResolvedStep {
+        self.about = about;
+        self
+    }
+
+    /// What the step does for the Job, as its definition wrote it. `None` where it wrote none.
+    pub fn about(&self) -> Option<&str> {
+        self.about.as_deref()
     }
 
     /// The dispatch grant, for the reason [`frozen`](Self::frozen) is not

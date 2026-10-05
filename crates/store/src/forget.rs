@@ -133,6 +133,8 @@ pub struct Forgotten {
     /// What a person said while walking the Job's served mock, one row each.
     /// The kept frames are files under the machine directory, not rows.
     pub walk_notes: usize,
+    /// The Job's places in its repository's merge line, one row each.
+    pub merge_line_entries: usize,
     /// Rows removed from a table this build has no field for.
     ///
     /// Always zero today, and a test says so. It exists because the delete is
@@ -202,6 +204,7 @@ impl Forgotten {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,
+            "merge_line_entries" => &mut self.merge_line_entries,
             _ => return None,
         })
     }

@@ -23,6 +23,7 @@ mod list_files;
 mod locating;
 mod loopback;
 mod mcp;
+mod need;
 mod reaching;
 mod setup;
 mod watching;

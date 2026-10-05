@@ -17,7 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::enums::Actor;
-use crate::ids::{Instant, StepId};
+use crate::ids::{DroneId, Instant, StepId};
 
 /// What a Job does when its Drone reaches for a command it was not given.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +87,12 @@ pub struct CommandInFlight {
     pub call: String,
     /// Which step's Drone is waiting. A Job runs one step at a time.
     pub step_id: StepId,
+    /// Which Drone asked. **A step can run several at once** (a Drone per
+    /// task), so `step_id` alone cannot say whose panel to open. Absent where
+    /// Fleet could not identify the asker — never guessed — and from a Fleet
+    /// older than the field. **Since 23.32.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone_id: Option<DroneId>,
     /// When the harness asked, by Fleet's clock.
     pub asked_at: Instant,
     /// The tool reached for, in the harness's own spelling — a string for
