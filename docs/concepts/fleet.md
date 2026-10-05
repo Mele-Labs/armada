@@ -391,16 +391,16 @@ on the slot's bay, and `change_slot_pool` is the act on the wire.
 
 **A stranded slot is work its holder left and nobody has looked at.** Rescue
 sends a [Scout](scout.md) to read it, and the bay offers a way into what it
-found, which opens in Bridge's trailing sheet. Scrap and Stash are in that
+found, which opens in Bridge's trailing sheet. Scrap, Stash and Pick up are in that
 sheet, and are Fleet's acts, run on the press that asks. The Scout has no tool
-that writes, so it never does either.
+that writes, so it never does any of them.
 
 > **Rule.** A Scout reads a stranded slot only on a person's press, and its
 > Finding is kept against the slot, not a Studio.
 > Why: a stranded slot's holder is gone, so nothing else owns the Finding, and
 > it has to survive a Bridge reload to be there when the person decides.
 
-> **Rule.** Neither act runs while a Scout is reading the slot, and a Finding
+> **Rule.** No act runs while a Scout is reading the slot, and a Finding
 > is of the commit the slot was at. A slot that has moved off it shows none.
 > Why: the Finding describes one state of the work, and an act on another
 > would be decided on a description of something else.
@@ -415,9 +415,21 @@ killed or failed with work only in its slot cannot give the slot back, and the p
 The bay shows that reason, Rescue reads the slot as it does a stranded one, and Scrap and Stash
 each end the Job's claim on it, so the slot is free after.
 
-**Pick up is not built.** It would propose a Job that continues from the
-slot's branch, and a proposal cannot name the branch its worktree is cut from;
-a person chooses that at approval.
+**Pick up proposes the work again.** It stashes as Stash does, which commits the
+uncommitted files to the slot's branch and pushes it, and frees the slot. Fleet then
+sends the proposer a request of the branch and the Finding's items, and the Job it
+proposes waits at the approval gate with its worktree cut from that branch, not the
+base. The person approves it as any other.
+
+> **Rule.** Pick up is offered on an Unfinished Finding, or one with no verdict, and
+> Fleet refuses it on Scraps.
+> Why: leftovers have nothing to continue, and a Finding with no verdict is one the
+> person cannot tell.
+
+> **Rule.** A Job proposed from a branch keeps it as where its worktree starts, and
+> the approval can change it.
+> Why: it is the landing's `from_ref`, which the approval already sets, so the branch
+> is a starting value and never a lock.
 
 `armada worktree` and its forms are in `../practices/running-locally.md`,
 *Leasing a worktree*.

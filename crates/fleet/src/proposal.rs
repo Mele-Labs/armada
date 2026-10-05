@@ -353,6 +353,33 @@ where
         by: api::Redirector,
         dispatched_as: core_model::TopLevelOrigin,
     ) -> Result<Vec<Job>, Adrift> {
+        self.proposing_from(
+            request,
+            client_ref,
+            attachments,
+            served,
+            by,
+            dispatched_as,
+            None,
+        )
+        .await
+    }
+
+    /// `propose_from_with_attachments`, the head of the plan cut from
+    /// `continue_from` where one is named. **Kept as soon as the head exists**,
+    /// before the proposer is asked, so no approval can find it without. The
+    /// extras are cut from the base: they wait on the head, which lands first.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn proposing_from(
+        &self,
+        request: &str,
+        client_ref: Option<String>,
+        attachments: Vec<ipc::AttachmentRef>,
+        served: &crate::repositories::Served,
+        by: api::Redirector,
+        dispatched_as: core_model::TopLevelOrigin,
+        continue_from: Option<&str>,
+    ) -> Result<Vec<Job>, Adrift> {
         let request = request.trim();
         if request.is_empty() {
             return Err(Adrift::NothingToPropose);
@@ -379,6 +406,14 @@ where
                 actor,
             )
             .await?;
+        let kept = crate::approved::continuing_from(
+            &mut *self.store().lock().await,
+            head.id(),
+            continue_from,
+        );
+        if let Err(cause) = kept {
+            return Err(self.proposal_ended(&head, None, cause, actor).await);
+        }
         let outcome = enrich(request, self.links().as_ref()).await;
         if let Enriched::Failed(cause) = &outcome {
             self.noted_lookup_failed(head.id(), cause);
@@ -595,6 +630,7 @@ where
             subject: None,
             facts: job.brief.clone(),
             attachments,
+            continue_from: None,
         }
     }
 }

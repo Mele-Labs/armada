@@ -208,14 +208,15 @@ function freed(one: WorktreeSlot): WorktreeSlot {
 
 /**
  * `rescue_slot` on the mock's pool, by Fleet's rules: start and stop move the
- * Scout, scrap and stash free the slot. A Scrap keeps the branch where it holds
- * commits nothing else has; a Stash commits the uncommitted work to its branch.
+ * Scout, scrap, stash and pick up free the slot. A Scrap keeps the branch where
+ * it holds commits nothing else has; a Stash commits the uncommitted work to its
+ * branch; a Pick up does that and answers the request Fleet proposes a Job from.
  */
 export function rescued(
   held: WorktreesHeld,
   manifestId: string,
   rescue: RescueSlot,
-): { held: WorktreesHeld; outcome: RescueOutcome } {
+): { held: WorktreesHeld; outcome: RescueOutcome; proposed?: string } {
   const slots = held.slots ?? [];
   const target = slots.find((one) => one.manifest_id === manifestId && one.slot === rescue.slot);
   const answer = (change: WorktreeSlot, outcome: RescueOutcome) => ({
@@ -248,8 +249,18 @@ export function rescued(
       if (!reading || target.rescue === undefined) return refuse("fleet.rescue_not_running", "no Scout is reading it");
       return answer({ ...target, rescue: { ...target.rescue, state: "stopped" } }, { ok: true, rescued: receipt });
     case "scrap":
-    case "stash": {
+    case "stash":
+    case "pick_up": {
       if (reading) return refuse("fleet.rescue_reading", "a Scout is reading it");
+      const found = target.rescue;
+      if (rescue.act === "pick_up") {
+        if (found === undefined || ((found.items ?? []).length === 0 && found.summary === undefined)) {
+          return refuse("fleet.rescue_unread", `no Finding of slot-${target.slot} to continue from`);
+        }
+        if (found.verdict === "scraps") {
+          return refuse("fleet.rescue_nothing_left", `the Finding on slot-${target.slot} says nothing is left to do`);
+        }
+      }
       if (target.branch === undefined) return refuse("fleet.rescue_on_no_branch", "no branch");
       if (target.branch === target.base) return refuse("fleet.rescue_on_the_base", `on ${target.base}`);
       const { branch } = target;
@@ -257,7 +268,10 @@ export function rescued(
         rescue.act === "scrap"
           ? { ok: true, rescued: { ...receipt, branch, branch_kept: (target.stranded?.unpushed ?? 0) > 0 } }
           : { ok: true, rescued: { ...receipt, branch, committed: "c0ffee1a4d" } };
-      return answer(freed(target), outcome);
+      const freedSlot = answer(freed(target), outcome);
+      if (rescue.act !== "pick_up") return freedSlot;
+      const left = (target.rescue?.items ?? []).map((one) => `\n- ${one}`).join("");
+      return { ...freedSlot, proposed: `Continue the work on branch ${branch}.${left === "" ? "" : `\n\nLeft to do:${left}`}` };
     }
   }
 }

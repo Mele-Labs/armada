@@ -852,7 +852,7 @@ export type StepDetail = {
   drone_per_task?: boolean;
   /** `WorkflowStep.phase`, off the frozen workflow. Absent where Fleet cannot say. Since 23.19. */
   phase?: StepPhase;
-  /** `WorkflowStep.about`, off the frozen workflow. Absent where the workflow wrote none. Since 23.30. */
+  /** `WorkflowStep.about`, off the frozen workflow. Absent where the workflow wrote none. Since 23.31. */
   about?: string;
   /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
   may_dispatch_jobs?: boolean;

@@ -496,5 +496,6 @@ fn proposal(fix: &DraftFix, repository: &ManifestId) -> ipc::ProposeJob {
         subject: None,
         facts: fix.brief.clone(),
         attachments: Vec::new(),
+        continue_from: None,
     }
 }
