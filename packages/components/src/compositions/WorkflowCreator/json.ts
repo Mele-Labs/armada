@@ -29,7 +29,8 @@ const text = (value: unknown): string | undefined => (typeof value === "string" 
 export const SOURCE_OF_WIRE: Readonly<Record<string, Source>> = { armada: "carried", kit: "kit", repository: "repository" };
 export const WIRE_OF_SOURCE: Readonly<Record<Source, string>> = { carried: "armada", kit: "kit", repository: "repository" };
 
-function parse(source: string): unknown {
+/** A definition file's text as a tree: JSON, or YAML where it is not JSON. */
+export function parse(source: string): unknown {
   try {
     return JSON.parse(source);
   } catch {
