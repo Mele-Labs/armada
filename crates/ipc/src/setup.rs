@@ -112,6 +112,10 @@ pub struct WorkflowStep {
     /// delivery where it delivers and the work otherwise. **Resolved by
     /// Fleet**, so the fallback is spelled once. Since 23.19.
     pub phase: StepPhase,
+    /// What the step does for the Job, a line or two for a person deciding
+    /// whether to approve it. Absent where the workflow wrote none. Since 23.31.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
     /// Whether this step's Drone may create Jobs. Absent is false. Since 23.19.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub may_dispatch_jobs: bool,
