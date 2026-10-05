@@ -701,6 +701,20 @@ combination nothing checked. The line's own push of `main` is made by its
 runner, outside the Bash tool, so the hook never sees it. `armada check
 hooks_test` proves the hook, and needs nothing built.
 
+**A branch that declared a need waits behind the ones ahead of it.**
+`armada need <path> "<what>"` records what the branch needs on a path
+(`crates/store/src/migrations.rs`, "a new migration"; `protocol-version.toml`,
+"a minor"), says which branches are ahead and what they took, and the first to
+declare goes first. `armada need --took <path> "<value>"` records the value
+chosen, `--status` lists the needs by path, `--release <path>` gives one back.
+`armada land` keeps a branch with a need queued until every need ahead of it on
+the same path has landed or been given back, and `--status` says what it waits
+behind. A need is spent when its branch lands and given back when the branch no
+longer exists here. **Nothing expires by time**: a stalled need holds the
+branches behind it until a person runs `armada need --release <path>` from its
+branch, or deletes the branch. The state is under the git common directory, in
+`armada-needs/`.
+
 **What it needs:** a clean tree with commits ahead of `main`, push access to
 `origin`, and an `armada` on `PATH` that knows the `land` verb — `scripts/land`
 is a shim that execs into `armada land`. The branch need not be pushed and

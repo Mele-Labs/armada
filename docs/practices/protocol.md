@@ -87,8 +87,13 @@ harmless in review.
 
 1. Change the DTOs in `crates/ipc` (add a field, add a variant, whatever the
    change is).
-2. Decide which number moves, from the table below, and move it in
-   `protocol-version.toml`. Additive-only moves `minor`; anything else moves
+2. Decide which number moves, from the table below. **Declare a need before
+   choosing the value, never "the next minor" off `main`:**
+   `armada need protocol-version.toml "a minor"` says which branch is ahead and
+   what it took, and you take the minor after it
+   (`armada need --took protocol-version.toml "23.5"`). `armada land` holds the
+   branch until those ahead have landed, so the numbers arrive in order and none
+   is renumbered. Then move it in `protocol-version.toml`. Additive-only moves `minor`; anything else moves
    `major` and resets `minor` to zero. **The table is the decision, not a
    guideline** — a minor bump that removes or retypes a field makes Bridge's
    banner a lie and breaks it while a Job runs.
