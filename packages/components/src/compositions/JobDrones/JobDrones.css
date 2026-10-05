@@ -84,3 +84,9 @@
   flex: 1;
   min-width: 0;
 }
+
+/* What a held Drone waits on, over its transcript in the sheet. */
+.armada-drones__asking {
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}

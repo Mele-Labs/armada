@@ -38,6 +38,8 @@ import { isWorking, type DroneView } from "./draft/drone";
 import { taskGroupsOf, type GroupView } from "./draft/group";
 import { elapsedSince } from "./duration";
 import { droneLabelOf, droneSays } from "./tab-drones-read";
+import { NEEDS_YOU, type HeldCommand } from "./drone-held";
+import { waitingOf } from "./step";
 import type { TrailProps } from "./trail";
 import { STEP_STOP } from "./copy";
 import { steeringOf } from "./steering";
@@ -92,6 +94,8 @@ export type WorkflowTabProps = {
   groups?: readonly GroupView[];
   /** Every Drone the Job has had, as the Drones tab lists them. */
   drones: readonly DroneView[];
+  /** The command a Drone is held on, where one is — drawn on that Drone's row. */
+  heldCommand?: HeldCommand | undefined;
   /** Every control is refused while what is shown is not live. */
   stale: boolean;
   /** A press is out and Fleet has not answered. */
@@ -161,6 +165,7 @@ export function WorkflowTab({
   onView,
   groups: given,
   drones,
+  heldCommand,
   stale,
   acting,
   actingAct,
@@ -317,6 +322,7 @@ export function WorkflowTab({
   const here = drones
     .filter((one) => one.step === openStepId)
     .sort((a, b) => Number(isWorking(b)) - Number(isWorking(a)));
+  const held = (one: DroneView): boolean => heldCommand?.droneId === one.id;
   const ranFor = (one: DroneView): string | undefined =>
     one.ended_at !== undefined
       ? elapsedSince(one.since, one.ended_at)
@@ -341,6 +347,41 @@ export function WorkflowTab({
     !judgeAskedOn(whole, openedStep) &&
     !flagHeld;
   const why = stoppedHere ? refusedOn(openedStep, whole.acceptance_criteria) : undefined;
+  const judgeAsk = judgeAskedOn(whole, openedStep) ? (
+    <JudgeAsked
+      jobId={job.id}
+      whole={whole}
+      step={openedStep}
+      stale={stale}
+      acting={acting}
+      actingAct={actingAct}
+      onAnswerJudge={onAnswerJudge}
+    />
+  ) : flagHeld ? (
+    // Overview's own block for a step the gaming check holds, with the same
+    // handlers (owner, 2 Oct 2026, #1672).
+    <GamingHeld
+      job={job}
+      whole={whole}
+      step={openedStep}
+      diff={diff}
+      opens={opens}
+      stale={stale}
+      acting={acting}
+      actingAct={actingAct}
+      onOverrule={onOverrule}
+      onSendBack={onSendBack}
+      onRedirect={onRedirect}
+    />
+  ) : undefined;
+  // **A command held on this step with no one Drone to put it on** — the wire
+  // names the step and not the Drone — is the step's to ask, where several
+  // work at once. One Drone at work takes it on its own row instead.
+  const stepHeld =
+    heldCommand !== undefined && heldCommand.droneId === undefined && heldCommand.stepId === openedStep?.step_id
+      ? heldCommand.node
+      : undefined;
+  const asks = waitingOf(judgeAsk, stepHeld);
   const layer =
     reading === undefined ? null : (
       <WorkflowInspector
@@ -371,41 +412,7 @@ export function WorkflowTab({
                 ),
               },
             })}
-        {...(judgeAskedOn(whole, openedStep)
-          ? {
-              asks: (
-                <JudgeAsked
-                  jobId={job.id}
-                  whole={whole}
-                  step={openedStep}
-                  stale={stale}
-                  acting={acting}
-                  actingAct={actingAct}
-                  onAnswerJudge={onAnswerJudge}
-                />
-              ),
-            }
-          : flagHeld
-            ? {
-                // Overview's own block for a step the gaming check holds,
-                // with the same handlers (owner, 2 Oct 2026, #1672).
-                asks: (
-                  <GamingHeld
-                    job={job}
-                    whole={whole}
-                    step={openedStep}
-                    diff={diff}
-                    opens={opens}
-                    stale={stale}
-                    acting={acting}
-                    actingAct={actingAct}
-                    onOverrule={onOverrule}
-                    onSendBack={onSendBack}
-                    onRedirect={onRedirect}
-                  />
-                ),
-              }
-            : {})}
+        {...(asks === undefined ? {} : { asks })}
         sheet={{ back: trail?.back }}
         // After a jump here, Close goes back, as Plan's, Drones' and Record's
         // do (owner, 30 Sep 2026); otherwise it closes the step.
@@ -418,8 +425,9 @@ export function WorkflowTab({
             label: droneLabelOf(one, whole),
             // The Drones tab's own mark for the state, named on hover — a
             // mark, never a word (owner, 2 Oct 2026).
-            activity: DRONE_ACTIVITY[one.state],
-            said: droneSays(one),
+            activity: held(one) ? "awaiting_human" : DRONE_ACTIVITY[one.state],
+            said: held(one) ? NEEDS_YOU : droneSays(one),
+            ...(held(one) ? { asking: heldCommand?.node } : {}),
             says: [one.task, ranFor(one), ...spentOf(one)].filter((part) => part !== undefined).join(" · "),
           })),
           ...(onOpenDrone === undefined ? {} : { onOpen: onOpenDrone }),

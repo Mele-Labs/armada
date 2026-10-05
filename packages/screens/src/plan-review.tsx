@@ -64,6 +64,7 @@ import type { TrailProps } from "./trail";
 import { ADD_TASK_LABEL } from "./copy";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import { AddTaskDialog, refusalSaid } from "./PlanWell";
+import { NEEDS_YOU, type HeldCommand } from "./drone-held";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
 const PLAN_RECORDED = "plan_recorded";
@@ -169,6 +170,12 @@ export type PlanReviewProps = {
    * draft's**, and then the working task's from the plan alone.
    */
   drones?: readonly DroneView[];
+  /**
+   * The command a Drone is held on, where one is. **Drawn on that Drone** — its
+   * card, and its row in the task's list — so the ask is answered where the
+   * Drone is read, not only on Overview.
+   */
+  holding?: HeldCommand | undefined;
   /** Now, injected, so a running Drone's run time moves with the header's. */
   now?: number;
   /**
@@ -248,6 +255,7 @@ export function usePlanReview({
   opensGroup,
   onOpenDrone,
   drones,
+  holding,
   now,
   onOpenCheckLog,
   trail,
@@ -484,7 +492,8 @@ export function usePlanReview({
               id: one.id,
               label: droneOfTask(whole, { ...open, drone_id: one.id })?.label ?? `Drone on ${open.id}`,
               state: one.state,
-              stateSays: droneSays(one),
+              stateSays: holding?.droneId === one.id ? NEEDS_YOU : droneSays(one),
+              ...(holding?.droneId === one.id ? { needsYou: true } : {}),
               ...(one.model === undefined ? {} : { model: one.model }),
               ...(spent === "" ? {} : { spent }),
               ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(one.id) }),
@@ -506,7 +515,8 @@ export function usePlanReview({
       : {
           title: droneOfTask(whole, { ...open, drone_id: own.id })?.label ?? `Drone on ${open.id}`,
           state: own.state,
-          stateSays: droneSays(own),
+          stateSays: holding?.droneId === own.id ? NEEDS_YOU : droneSays(own),
+          ...(holding?.droneId === own.id ? { needsYou: true, asking: holding.node } : {}),
           ...(ran === undefined ? {} : { ranFor: ran }),
           turns: peekTurns,
           live: own.state === "running",

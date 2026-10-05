@@ -46,6 +46,7 @@ import { stepNodeId, workflowRunOf } from "./workflow-canvas";
 import type { DroneView } from "./draft/drone";
 import { taskGroupsOf } from "./draft/group";
 import { DronesTab } from "./tab-drones";
+import { heldCommandOf } from "./drone-held";
 import { droneViewsOf } from "./draft/drone";
 import { whyNotWatching } from "./story";
 import { PlanTab } from "./tab-plan";
@@ -247,6 +248,20 @@ function OneJob(props: JobDetailProps) {
   const drones = useMemo(
     () => props.draft?.drones ?? droneViewsOf(listed, whole ?? undefined, turns),
     [props.draft?.drones, listed, whole, turns],
+  );
+
+  // The command a Drone is held on, drawn on that Drone wherever it is read.
+  const holding = heldCommandOf(
+    whole,
+    drones,
+    job.id,
+    props.stale,
+    props.acting,
+    props.onAnswerCommand,
+    props.actingAct,
+    props.onExplainCommand === undefined
+      ? undefined
+      : (call: string) => props.onExplainCommand!(job.id, call),
   );
 
   // Stable across a tick of `now`, which is what keeps the wave's canvas from
@@ -485,6 +500,7 @@ function OneJob(props: JobDetailProps) {
           onSendBack={props.onSendBack}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           drones={drones}
+          heldCommand={holding}
           onRedirect={props.onRedirect}
           onAct={props.onAct}
           onActHeld={props.onActHeld}
@@ -542,6 +558,7 @@ function OneJob(props: JobDetailProps) {
           {...(opensGroup === undefined ? {} : { opensGroup })}
           now={props.now}
           drones={drones}
+          holding={holding}
           onOpenDrone={(droneId) => {
             trail.push("plan");
             setOpensDrone(droneId);
@@ -609,6 +626,7 @@ function OneJob(props: JobDetailProps) {
           whole={whole}
           reading={unread !== undefined}
           drones={drones}
+          holding={holding}
           turnsNote={whyNotWatching(props.observed)}
           {...(props.draft?.groups === undefined ? {} : { groups: props.draft.groups })}
           now={props.now}
