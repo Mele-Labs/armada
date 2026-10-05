@@ -115,6 +115,8 @@
   --color-slot-stranded-bg: var(--slot-stranded-bg);
   --color-slot-warm: var(--slot-warm);
   --color-slot-cold: var(--slot-cold);
+  --color-slot-closed: var(--slot-closed);
+  --color-slot-closed-bg: var(--slot-closed-bg);
   --color-error: var(--error);
   --color-degraded: var(--degraded);
   --color-degraded-dot: var(--degraded-dot);

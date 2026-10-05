@@ -1220,7 +1220,7 @@ notes = """
 
 **`last_moved_at` is a floor and says so.** It is when Armada last moved the Job, which is the closest true answer to *how long has this been sitting* that this seam can give: the dirty reading is `git status --porcelain`, which answers names and not times. It is carried for the uncommitted reason, where the act ends something and a checkout abandoned twenty minutes ago and one abandoned four days ago are answered differently.
 
-**`slots` is the worktree pool beside them**, since 23.16: one row per slot of each served repository, read the way `armada worktree --status` reads it, with the Job or the session holding it, its branch, since when, whether every `setup.seed.paths` entry is on disk in it, and how many commits the base has that it does not. A slot held by a piloted Job is in it as held by that Job; a slot row offers no act.
+**`slots` is the worktree pool beside them**, since 23.16: one row per slot of each served repository, read the way `armada worktree --status` reads it, with the Job or the session holding it, its branch, since when, whether every `setup.seed.paths` entry is on disk in it, and how many commits the base has that it does not. A slot held by a piloted Job is in it as held by that Job; a held slot offers no reclaim. Since 23.17 each slot says whether a person `closed` it, and `change_slot_pool` is the act on the pool.
 
 It is not scoped to a Job. What is held is read across every Job at once, which is the reading a per-Job field cannot give: the question is which of these to give back, and that is asked of the set.
 
@@ -1417,6 +1417,19 @@ Refused with a 409, and nothing kept, where any model in the map is one `list_mo
 `agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
+[operations.set_landing_target]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose the branch an approved Job lands in, where it lands in the base and its work has not gone out"
+notes = """
+`POST /jobs/:job_id/set_landing_target`, protocol 23.22, for the approval canvas: a Job approved landing in the Manifest's base may be aimed at another branch once. The body is `SetLandingTarget`: `target`, a branch the repository holds. The answer is the Job's summary; `JobDetail.landing.target` reads it back, and the delivering step opens its pull request against it.
+
+**Only once, and only before the work goes out**, since the pull request opens against it. 409 `fleet.landing_target_settled` on a Job still at `awaiting_approval`, where the approval sets it, on one ended, on one already landing somewhere a person chose, and on one whose work was committed or opened for review. 422 `fleet.landing_target_blank` on a blank branch and `fleet.no_such_branch` on one the repository does not hold. The worktree keeps what it was cut from.
+
+`agent_access` is `Helm only`, `set_model`'s reason.
+"""
+
 [operations.set_model]
 kind = "command"
 transport = "HTTP"
@@ -1577,6 +1590,8 @@ The primary autonomy control.
 **Kept whole or refused whole, before anything moves.** The title, facts, workflow, each step's gate and the criteria are rewritten on the record, and freeze at this press (#1581); the tier map, the Drone cap, the landing and the policy overrides are kept beside the Job. Then `awaiting_approval -> queued`, as before. A criterion with an id is that line, reworded or not, and keeps its origin and how it is answered; one without is new, minted the next `c<n>`, the person's, and answered by the Judge or a person, never a Check. An overridden step keeps deferring on the record and the override wins at every gate however the repository's rule moves (answer 4): `auto_merge` reads `never` with `you`, else `checks-pass`; `review_gate` reads `human_always` with `you`, else `auto_if_judge_passes` with `judge`. The Drone cap is kept and enforced from slice 5.
 
 409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.13), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
+
+**Since 23.20 a step may be tuned**: `tuning?`, a `StepTuning` per step (`step_id`, `model?`, `effort?`, `context?`, `judges?`, `checks_off?`), frozen into the step after its gate. 422 `fleet.unacceptable_proposal` on a step the workflow lacks or tuned twice, a blank model, `judges` of zero or on a step with no Judge, and a Check the step does not run or one of Fleet's own; an unknown field, `harness` among them, does not decode. **Since 23.21 `LandingChoice` takes `start_point?`**: a `from_ref` the repository lacks is made there at the press, and 422 `fleet.no_such_branch` names a `start_point` it lacks.
 """
 
 [operations.edit_job]
@@ -1869,6 +1884,25 @@ should not also have to think about a directory.
 before the record goes: a lease held for a Job nobody can name again would
 never be given back. A completed Job holds its slot until this or
 `reclaim_worktree`.
+"""
+
+[operations.change_slot_pool]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Adds a slot to a repository's worktree pool, removes one, or closes or reopens one, on this machine only"
+notes = """
+`POST /worktrees/slots?manifest_id=`, body `ChangeSlotPool`: `act` is `add`, `remove`, `close` or `open`, and `slot` names the slot for all but `add`. Since 23.17. The answer, `SlotPoolChanged`, names the slot changed, the new one for `add`.
+
+**This machine only.** The pool writes it at `.armada/slots/pool`, beside each slot's lease record, so it outlives Fleet, is never committed, and `armada worktree lease` honours it exactly as Fleet does. `setup.worktrees` stays the size a fresh machine starts at; once a person adds or removes a slot here, this machine's list of slots stands in for it.
+
+**Slots are numbers, not a count.** Removing slot 3 of 5 takes slot 3, the one pressed, and leaves 1, 2, 4 and 5 where they are. `add` takes the lowest number unused, and its slot is not made until a lease makes it.
+
+**`remove` gives a made slot's checkout back with `git worktree remove`**, and only a free or unmade one. A held, stranded or busy slot, a directory that is not a checkout, uncommitted files, and the last slot are each a 409 with its own code — `fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`, `fleet.slot_dirty`, `fleet.slot_last` — so Bridge says why on the slot. A slot the pool does not have is a 422, `fleet.no_such_slot`.
+
+**`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
+
+`Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
 """
 
 [operations.reclaim_worktree]
@@ -2294,6 +2328,32 @@ notes = """
 `agent_access` is `Helm only`: a Drone never rules on its own review, and dismissing one is still a person's judgment on it — Helm carries it out only where that person has just made the call.
 """
 
+[operations.capture_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep what a person pointed at while walking a Job's served work as a walk note on the Job, keeping its frame under the machine directory, and answer with every note on the Job"
+notes = """
+**A person's act and nobody else's**, so `agent_access` is `No`: pointing at something wrong is done with a pointer, and no agent has one. Since 23.18. `POST /jobs/:job_id/walk_notes`, body `CaptureWalkNote` — `capture_studio_note`'s body without `position` or `produced_by`, neither of which a Job has.
+
+**On the Job, never in the worktree.** A Prototype stops at Build with its mock served and the worktree is throwaway, so the note is a row beside the Job's record and its frame is copied from `frame.staged_path` into `<machine>/walks/<job_id>/<note_id>.png`. Reclaiming the worktree takes neither. The note names the kept file by its absolute path as `frame`, and the element it was pointed at as one line a person reads, `button “Save”`. `get_job` carries every note under `walk_notes`, sent ones included, oldest first.
+
+**Fixed at capture.** Nothing edits a walk note; `remove_walk_note` takes one back while unsent, and `sent` flips once, when `request_changes` with `with_walk_notes` hands it to a Drone. It moves nothing: the Job stays where it stands.
+
+A blank `said` is refused as `fleet.walk_note_blank`, a 422. A frame over 4 MiB is `fleet.walk_frame_too_large` and one Fleet cannot read `fleet.walk_frame_unreadable`, both 422 — refused rather than dropped, for `capture_studio_note`'s reason. A Job that has ended is refused as `fleet.walk_notes_job_ended`, a 409.
+"""
+
+[operations.remove_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take back a walk note no Drone has been handed yet, and answer with every note left on the Job"
+notes = """
+`POST /jobs/:job_id/walk_notes/remove`, body `{"id": "..."}`. Since 23.18. The row goes and so does its kept frame. `agent_access` is `No`, for `capture_walk_note`'s reason.
+
+**A sent note stays**, refused as `fleet.walk_note_sent`, a 409: a Drone already worked against it, so it is part of the record of what the work was asked to be. An id the Job has no note by is `fleet.no_such_walk_note`, a 422, and a Job that has ended `fleet.walk_notes_job_ended`, a 409.
+"""
+
 [operations.queue_after_finding]
 kind = "command"
 transport = "HTTP"
@@ -2339,6 +2399,8 @@ The third answer at a human gate, between taking the work and ending the Job. Th
 **409 where the Job's worktree has been reclaimed.** There is then no Drone to put the note on and none possible, which is the only case left where it has nowhere to go. What is being asked for there is a redispatch.
 
 The body carries the person's own words and is a type of its own rather than a redirect's — a redirect steers a Drone whose step stopped, and this answers a gate. Blank is refused.
+
+**`with_walk_notes: true` carries the Job's walk notes with it.** Since 23.18. Every walk note not yet sent — what `capture_walk_note` kept while the person walked the served work — is appended to the note, under a heading saying these are what the person pointed at, one item per note naming the element, its location, its selector and what was said, oldest first. Those notes are marked `sent` once the act lands, so a refused send leaves them to go with the next one and none is told twice. A blank `note` is then taken where at least one unsent walk note exists; with none, blank is refused as before.
 """
 
 [operations.restart_step]

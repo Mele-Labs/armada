@@ -37,6 +37,31 @@ export const Serving: Story = {
   },
 };
 
+/**
+ * A Job's server, opened from its run sheet to be walked: no Studio, so the bar
+ * says what it is and offers no Capture — a Note would have nowhere to land.
+ */
+export const Walking: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Walking a Job's server")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Capture" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Reload" })).toBeEnabled();
+  },
+};
+
+/**
+ * A Job's server, walked: notes go to the Job, and wait there until it is sent
+ * back. ⌥⌘A arms it as well as the registry's binding.
+ */
+export const WalkingAJob: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Notes go to 44-try-a-stacked-run-beside-the-canvas")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Capture" })).toBeEnabled();
+  },
+};
+
 /** Armed: a press on the page points rather than acts. */
 export const Capturing: Story = {
   args: { armed: true },

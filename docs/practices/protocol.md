@@ -2639,6 +2639,139 @@ Bridge lists it under All alone.
 
 **Store V102** adds the nullable `lands_in` column to `job_retro_items`.
 
+## Protocol 23.17: a person reshapes the slot pool
+
+The owner, 4 Oct 2026: from Cleanup's bay grid, add a slot, remove one, or close one for a while.
+`../concepts/fleet.md`, *Worktree slots*, is the concept.
+
+**One field and one command, both additive.** `WorktreeSlot` gains `closed`. `change_slot_pool`
+is `POST /worktrees/slots?manifest_id=` with `ChangeSlotPool` (`act`, and `slot` for all but
+`add`), answered by `SlotPoolChanged`.
+
+| Field | On | Absent |
+| --- | --- | --- |
+| `closed` | `WorktreeSlot` | A Fleet before 23.17, which closes nothing: read as open |
+
+**Each refusal has its own code**, so Bridge says on the slot why it cannot go:
+`fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`,
+`fleet.slot_dirty` and `fleet.slot_last` are 409s, and `fleet.no_such_slot` a 422.
+
+**No store change.** The pool's shape is written beside its slots at `.armada/slots/pool`, which
+the CLI reads too.
+
+## Protocol 23.18: walk notes, kept on the Job, and a server started for review
+
+What a person points at while walking a Prototype's served mock in a Bridge window, kept by Fleet
+on the Job so it outlives the throwaway worktree, and handed to the next Drone when the Job is sent
+back.
+
+**Additive only.** Two new routes, four new DTOs and three optional fields; a 23.17 Bridge sends no
+`with_walk_notes` and reads no `walk_notes`, and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+|---|---|---|---|
+| `capture_walk_note` | `POST /jobs/:job_id/walk_notes` | `CaptureWalkNote { said, capture, frame? }` in, `WalkNotes { notes }` out | — |
+| `remove_walk_note` | `POST /jobs/:job_id/walk_notes/remove` | `RemoveWalkNote { id }` in, `WalkNotes { notes }` out | — |
+| `walk_notes` | `JobDetail` | `WalkNote { id, said, at, element, selector, location, served?, frame?, sent }` per note, oldest first, sent ones included | A Job with no walk notes |
+| `for_review` | `ServerState` | Fleet started it because a step with `evidence.walked` stopped for a person, on the Manifest's `walk` server; Bridge opens it when that Job is opened | Started by anything else |
+| `with_walk_notes` | `ChangesRequested` | Append every unsent walk note to the note delivered, and mark them sent | False |
+
+**The frame is a path under the machine directory**, `<machine>/walks/<job_id>/<note_id>.png`,
+never the worktree. **A blank `note` is taken with `with_walk_notes`** where at least one unsent
+note exists, because the notes are then what the Drone is told; otherwise blank is refused as it
+was. The notes are marked sent only once the send lands, so a refused one leaves them unsent.
+
+**Store V103**, `job_walk_notes`: one row per note, keyed to the Job so `forget_job` takes it. A
+trigger refuses any update but `sent_at` moving once from null.
+
+## Protocol 23.19: a step's phase, and the grants a canvas draws
+
+The owner, 4 Oct 2026: the approval canvas lays its lanes by phase. #1768 waits on it too.
+
+**Optional fields and one enum, all additive.** `WorkflowStep` gains `phase`, `may_dispatch_jobs`
+and `drone_per_task`; `StepDetail` gains `phase` and `may_dispatch_jobs`, `drone_per_task` being
+there since 23.1. `StepPhase` is `setup`, `work` or `delivery`, a plain closed set Bridge lays a
+lane per value of rather than matching on.
+
+**Fleet serves the phase resolved.** A step's own `phase:` where it declares one, else `delivery`
+where it `delivers` and `work` otherwise: `core_model::StepPhase::of` spells it once. Design Plan's
+`present` and Epic's `roll_up` declare `delivery`, since neither sends anything out. On
+`StepDetail` it is absent where Fleet cannot say, as `delivers` is. The two booleans are absent at
+false.
+
+**The workflow file gains `phase:`**, a word refused outside the three. **No store migration**:
+the frozen workflow column carries `phase` beside `model`, null where the step declared none, and
+a row frozen before it reads as none. The event stream is untouched.
+
+## Protocol 23.20: a step tuned at the press
+
+The owner, 4 Oct 2026: the approval canvas tunes each step, and lands only once Fleet takes what
+it draws.
+
+**One optional field, one DTO and one enum, all additive.** `ApproveDispatch` gains `tuning`, a
+`StepTuning` per step a person tuned, `gates`' shape: `step_id`, and `model?`, `effort?`
+(`Effort`: `low`, `medium`, `high`), `context?`, `judges?` and `checks_off?`. A field left out is
+the step as declared, so a 23.19 Bridge approves as before.
+
+**Frozen into the step, after its gate**, as `gates` is, so the Job keeps it for its life and each
+reader finds it where it already reads the step. `model` is the step's model in
+`Job::model_spawned_for`'s order, under a task's pick, a tier and `set_model`. `effort` goes to the
+harness at the spawn; absent sends nothing, the harness's own default. `context` is the Drone's
+FOR THIS PART block (`../contracts/agent-prompt.md`). `judges` sets every judge check's
+`panel_size`. `checks_off` drops Manifest Checks by name and refuses Fleet's own looks, as the gate
+box does.
+
+**Refused, keeping nothing**, with 422 `fleet.unacceptable_proposal`: a step the workflow lacks,
+one tuned twice, a blank model, `judges: 0`, `judges` on a step with no Judge, a Check the step
+does not run, and a built-in. A model `list_models` does not offer is refused as `tiers`' is.
+**`StepTuning` refuses an unknown field**, so the canvas's `harness` is refused rather than
+dropped: one harness runs, and a per-step one is not built.
+
+**No store migration**: the frozen workflow column carries `effort` and `context` beside
+`model`. `get_job` reads `checks` and `judge_checks` off the frozen step as before; the effort and
+the words are not served back. The event stream is untouched.
+
+## Protocol 23.21: a branch that does not exist yet
+
+The owner, 4 Oct 2026: a Job may start from a branch a person names on the canvas before it exists.
+
+**One optional field, additive.** `LandingChoice` gains `start_point`, a branch the repository
+holds. Where `from_ref` names a branch the repository does not hold, Fleet makes it at
+`start_point`'s commit at the press, a local branch, and the worktree is cut from it as from any
+`from_ref`. `target` may name the same new branch. **Read only then**: beside a `from_ref` the
+repository holds, or none, it is not used. A 23.20 Bridge sends none and is refused an unknown
+`from_ref` as before.
+
+**Refused before anything is kept**: a `from_ref` the repository lacks with no `start_point`, and
+a `start_point` it lacks, are 422 `fleet.no_such_branch` naming the branch. git refusing to make
+the branch is a `fleet.fault` naming both. The branch is made before the proposal is written, so
+an approval refused after it, by the machine, leaves the branch at its start point.
+
+**`Vcs` gains `create_branch`**, which refuses a name already a branch. No store change: the
+landing row keeps `from_ref` as before, and `start_point` is not kept. The event stream is
+untouched.
+
+## Protocol 23.22: where an approved Job lands, set once
+
+The owner, 4 Oct 2026: a Job approved landing in the base may be aimed at another branch after
+the press.
+
+**A route and a body, additive.** `POST /jobs/:job_id/set_landing_target`, `set_landing_target`,
+takes `SetLandingTarget { target }` and answers the Job's `JobSummary`. `JobDetail.landing.target`
+reads it back, and the delivering step opens its pull request against it, as against a target the
+approval set. A 23.21 Fleet has no such route, so a 23.22 Bridge behind it is refused, which is the
+skew rule's own direction.
+
+| Refused | Code |
+|---|---|
+| At `awaiting_approval`, where the approval sets it; ended; already landing where a person chose; its work committed or opened for review | 409 `fleet.landing_target_settled` |
+| A blank branch | 422 `fleet.landing_target_blank` |
+| A branch the repository does not hold | 422 `fleet.no_such_branch` |
+
+**Once, and before the work goes out**, because the pull request opens against it: a target moved
+after that is a record the forge disagrees with. **The worktree keeps what it was cut from.** No
+store migration: the landing row takes the target. The event stream is untouched.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

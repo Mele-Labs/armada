@@ -176,6 +176,9 @@ mod usage;
 mod version;
 /// What is outstanding on a live Drone, and what a person sends it back.
 mod waiting;
+/// What a person said while walking a Prototype's mock, kept on the Job.
+/// Since 23.18.
+mod walk_notes;
 /// The material a reviewing person reads, and what their note carries.
 mod work;
 /// A Job's plan and its tasks. **Not `work`'s `DeclaredPlan`**, which is where a
@@ -194,8 +197,8 @@ pub use amending::{
 pub use approval_ask::AskedApproval;
 pub use approving::{
     moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
-    CriterionWritten, DispatchSettings, EditJob, GateChoice, LandingChoice, LandingRule,
-    LandingUnit, LandsWhen, PolicyOverrides,
+    CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
+    LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning,
 };
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
@@ -254,7 +257,10 @@ pub use helm_call::{
 };
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
-pub use holding::{HeldReason, SlotHolding, WorktreeHeld, WorktreeSlot, WorktreesHeld};
+pub use holding::{
+    ChangeSlotPool, HeldReason, SlotAct, SlotHolding, SlotPoolChanged, WorktreeHeld, WorktreeSlot,
+    WorktreesHeld,
+};
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
@@ -336,7 +342,9 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use setup::{LeftOutWorkflow, ManifestSummary, ModelChoices, WorkflowStep, WorkflowSummary};
+pub use setup::{
+    LeftOutWorkflow, ManifestSummary, ModelChoices, StepPhase, WorkflowStep, WorkflowSummary,
+};
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};
 pub use studio::{
@@ -364,6 +372,7 @@ pub use underway::{
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
 pub use version::{ProtocolVersion, Skew, PROTOCOL_VERSION};
 pub use waiting::{AskedOption, ChosenAnswer, QuestionInFlight, RedirectInFlight, RedirectWaiting};
+pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,
     Submitted, TouchedFile, Work,

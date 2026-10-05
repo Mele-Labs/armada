@@ -283,6 +283,14 @@ pub enum Fault {
     /// **A `requires` entry naming a server.** A server never exits, so what
     /// was meant to run after it would wait forever.
     RequiresAServer { value: String },
+    /// **`walk` naming nothing that declares `serve`.** It names the server a
+    /// person walks a Job's work on, so a Command that exits or a name nothing
+    /// declares is a stop where nothing comes up — found at load rather than
+    /// at the first stop.
+    NotADeclaredServer {
+        value: String,
+        declared: Vec<String>,
+    },
     /// **A second step that records the plan.** A step records it either by
     /// declaring `plan` as its whole product or by declaring
     /// `records_plan: true` beside another — and Fleet holds one plan per
@@ -560,6 +568,15 @@ impl fmt::Display for Fault {
                  declares `run` alone, so it exits and there is nothing to wait \
                  for or open — add `serve`, or delete the key",
             ),
+            Fault::NotADeclaredServer { value, declared } => {
+                let names: Vec<&str> = declared.iter().map(String::as_str).collect();
+                write!(
+                    f,
+                    "is `{value}`, which this file declares no server by — a Command \
+                     with `serve`. It declares {}",
+                    Listed(&names, "none")
+                )
+            }
             Fault::RequiresAServer { value } => write!(
                 f,
                 "is `{value}`, which declares `serve` and stays running. \

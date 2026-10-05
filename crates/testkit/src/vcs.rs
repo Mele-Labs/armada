@@ -409,14 +409,6 @@ impl FakeVcs {
         self
     }
 
-    /// Move a ref after the Fleet holding this fake exists.
-    pub fn move_ref_to(&self, r#ref: impl Into<String>, commit: impl Into<String>) {
-        self.refs
-            .lock()
-            .expect("not poisoned")
-            .insert(r#ref.into(), commit.into());
-    }
-
     /// Every base checkout this fake is holding, by commit, with whether it has
     /// been marked prepared.
     pub fn bases(&self) -> BTreeMap<String, bool> {
@@ -1096,6 +1088,10 @@ impl Vcs for FakeVcs {
         Ok(listed)
     }
 
+    fn create_branch(&self, _repo_root: &str, name: &str, start: &str) -> Result<(), Self::Error> {
+        commit::cut_branch(self, name, start)
+    }
+
     /// **Answers the same checkout every time it is asked for one commit**,
     /// which is the sharing the real one promises. The `prepared` flag comes
     /// back as it was left, so a second Job on one base is told it need not
@@ -1184,6 +1180,14 @@ impl Vcs for FakeVcs {
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
         self.slots.readings(pool)
+    }
+
+    fn change_slot_pool(
+        &self,
+        pool: &SlotPool,
+        change: adapter_traits::SlotChange,
+    ) -> Result<u32, adapter_traits::SlotRefused> {
+        self.slots.change(pool, change)
     }
 }
 

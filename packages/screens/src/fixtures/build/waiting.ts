@@ -4,7 +4,7 @@
 // Check outputs — just enough of `JobDetail` for `renderFor` to land on the
 // right render and for the panel to draw without a step to say anything about.
 
-import type { JobResources, StepDetail } from "@armada/protocol";
+import type { CheckRun, DeclaredCheck, JobResources, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "../fixture";
 import {
   advancedStep,
@@ -150,6 +150,62 @@ export function awaitingRepair(): JobFixture {
     checkOutputs: {},
     frames: {},
     now: NOW,
+  };
+}
+
+/** The four Checks the owner's Job 3 ran again on 4 Oct 2026, by their Manifest names. */
+const RERUN: [name: string, run: string][] = [
+  ["bridge_build", "pnpm -C apps/desktop build"],
+  ["storybook", "pnpm -C packages/components build-storybook"],
+  ["typecheck", "pnpm typecheck"],
+  ["desktop_test", "pnpm --dir apps/desktop exec vitest run"],
+];
+
+/**
+ * `awaitingRepair` after a person pressed Run Checks again, as the owner's Job 3
+ * served it on 4 Oct 2026: the status and the step's `stopped` unchanged, Fleet
+ * offering nothing while the run is out, and the gate's live set on the stopped
+ * step — three Checks passed this time and `desktop_test` running.
+ *
+ * **Not in `FIXTURES`**: it is a moment of `awaitingRepair`, not a state a Job
+ * can be listed in.
+ */
+export function awaitingRepairChecksAgain(): JobFixture {
+  const base = awaitingRepair();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const checks: DeclaredCheck[] = RERUN.map(([name, run]) => ({ kind: "manifest_check", name, run, expect_exit_code: 0 }));
+  const ran = (attempt: number, name: string): CheckRun =>
+    name === "desktop_test" ? { attempt, name, outcome: "failed", produced: "exit 1" } : { attempt, name, outcome: "passed" };
+  const passed = (name: string, started_at: string, took_ms: number) => ({
+    name,
+    started_at,
+    took_ms,
+    ran: { attempt: 2, name, outcome: "passed" },
+  });
+  const steps = whole.steps.map(
+    (step): StepDetail =>
+      step.step_id !== "regression_verify"
+        ? step
+        : {
+            ...step,
+            checks,
+            check_runs: [1, 2].flatMap((attempt) => RERUN.map(([name]) => ran(attempt, name))),
+            checking: {
+              attempt: 2,
+              checks: [
+                passed("bridge_build", "2026-09-10T14:28:00Z", 41_000),
+                passed("storybook", "2026-09-10T14:28:41Z", 52_000),
+                passed("typecheck", "2026-09-10T14:29:33Z", 37_000),
+                { name: "desktop_test", started_at: "2026-09-10T14:30:10Z" },
+              ],
+            },
+          },
+  );
+  return {
+    ...base,
+    name: "awaiting_repair — its Checks running again",
+    watched: watchedRead({ ...whole, steps, stuck: { ...whole.stuck!, recourse: [] } }),
   };
 }
 

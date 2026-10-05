@@ -536,6 +536,7 @@ pub fn a_server_that_fell_over() -> ipc::ServerState {
             name: Some(String::from("Storybook")),
         }],
         started_by: ipc::StartedBy::Person,
+        for_review: false,
         started_at: ipc::Instant::carried("2026-09-17T09:01:00.000Z"),
         serving_since: Some(ipc::Instant::carried("2026-09-17T09:01:12.000Z")),
         ended_at: Some(ipc::Instant::carried("2026-09-17T09:05:00.000Z")),

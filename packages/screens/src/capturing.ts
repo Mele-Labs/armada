@@ -41,6 +41,28 @@ export function whyNotCaptured(opened: CaptureOpened): string | null {
   }
 }
 
+/**
+ * Why a Job's server did not open in Bridge's own window, or `null` because it
+ * did. **Its own four sentences**, because the moves differ: a Job's server is
+ * started again from its run sheet, never from a Studio, and walking one lands
+ * nothing anywhere, so there is no Studio to be missing.
+ */
+export function whyNotWalked(opened: CaptureOpened): string | null {
+  if (opened.ok) return null;
+  switch (opened.why) {
+    case "not_serving":
+      return "This server is no longer serving, so there is nothing to open. Start it again from the run sheet.";
+    case "no_address":
+    case "no_studio":
+      return "This server is no longer on the reading Bridge is holding. Close the run sheet, open it and try again.";
+    case "not_loopback":
+      return (
+        `This server's link is ${opened.address}, and Bridge only opens a server running on this ` +
+        "machine. Open it in the browser instead."
+      );
+  }
+}
+
 /** Asking main to open the capture window — a server id and one of its own links. */
 export type OpenCaptureWindow = (serverId: string, url: string) => Promise<CaptureOpened>;
 

@@ -45,8 +45,9 @@ import {
 import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
-import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
+import { KIND_FIXTURES, prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
+import { awaitingRepairChecksAgain } from "@armada/screens/src/fixtures/build/waiting";
 import { waveOffTheWire } from "@armada/screens/src/fixtures/build/wave-off-the-wire";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
@@ -76,6 +77,7 @@ import { retroFixtures } from "./job-3-retro";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
+import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
 import { slotsHeld } from "./slots-fleet";
@@ -510,6 +512,8 @@ export const SCENARIOS: readonly Scenario[] = [
   ),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
+  // A Prototype held at Build, its mock up for review and opened in Bridge's window on the Job.
+  walkedPrototype(onJob(evidenceRead(prototypeKind()))),
   // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
   // the merge line's turn, each writing a log as it runs. Not an arc moment, so named here.
   lined({
@@ -579,6 +583,11 @@ export const SCENARIOS: readonly Scenario[] = [
   // with Fleet's recourse in the lead and the step panel (Job 3, 2 Oct 2026).
   holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
     opens: featureAfterAgreeing().job.id,
+  }),
+  // Run Checks again pressed on a Job out of retries: the step still stopped,
+  // Fleet offering nothing, and its Checks running (Job 3, 4 Oct 2026).
+  holding("repair/checks-again", awaitingRepairChecksAgain().name, [awaitingRepairChecksAgain()], {
+    opens: awaitingRepairChecksAgain().job.id,
   }),
   // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
   holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),

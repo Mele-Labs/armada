@@ -18,6 +18,7 @@
 
 mod admitted;
 mod adopting;
+mod aiming;
 mod allowance;
 mod always_allow;
 mod amending;
@@ -128,6 +129,7 @@ mod peer;
 mod peers;
 mod pending_evidence;
 mod permitting;
+mod phases;
 mod places;
 mod plan_person;
 mod plan_person_told;
@@ -196,6 +198,7 @@ mod settling;
 mod showing;
 mod showing_again;
 mod silence;
+mod slot_pool;
 mod snapshotting;
 mod standing_rules;
 mod starting;
@@ -210,6 +213,8 @@ mod studios;
 mod sub_dispatch;
 mod superseding;
 mod terms;
+mod walk_notes;
+mod walking;
 mod work_plan;
 // `pub(crate)`, not `mod`: `crate::records::migrating`'s own tests are not a
 // descendant of this module and need the same temporary directory every
@@ -217,6 +222,7 @@ mod work_plan;
 pub(crate) mod tmp;
 mod tools;
 mod transcript;
+mod tuning;
 mod unattended;
 mod under_review;
 mod underway;

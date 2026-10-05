@@ -27,7 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { LandCheckAt, SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -122,6 +122,8 @@ export const startStudioServer = (studioId: string, name: string, position: Stud
 export const openStudioNode = (studioId: string, nodeId: string) =>
   window.armada.openStudioNode(studioId, nodeId);
 export const reclaimOne = (jobId: string) => window.armada.reclaimWorktree(jobId);
+export const changeSlotPool = (manifestId: string, change: ChangeSlotPool) =>
+  window.armada.changeSlotPool(manifestId, change);
 export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
 export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
@@ -237,6 +239,13 @@ export const openLink = (address: string) => window.armada.openLink(address);
 // window then does is its own bar's.
 export const openCaptureWindow = (serverId: string, url: string) =>
   window.armada.openCaptureWindow(serverId, url);
+/** A Job's servers as its run sheet acts on them, the capture window opened to walk one. */
+export const runSheetServers = {
+  onStartServer: startServer,
+  onStopServer: stopServer,
+  onOpenServerLink: openServerLink,
+  onWalkInBridge: openCaptureWindow,
+};
 export const stageAttachment = (bytes: ArrayBuffer, filename: string, mimeType: string) =>
   window.armada.stageAttachment(bytes, filename, mimeType);
 /** Paths under the checkout narrowed against typed text, for the `@` mention popup. */
@@ -795,6 +804,7 @@ export function useCommands(sending: Sending) {
     jobId: string,
     what: "approve" | "changes" | "reject" | "merge",
     note = "",
+    withWalkNotes = false,
   ): Promise<void> {
     return decided(jobId, what, async () => {
       const answer =
@@ -803,7 +813,7 @@ export function useCommands(sending: Sending) {
           : what === "approve"
             ? await window.armada.approveReview(jobId)
             : what === "changes"
-              ? await window.armada.requestChanges(jobId, note)
+              ? await window.armada.requestChanges(jobId, note, withWalkNotes)
               : await window.armada.rejectWork(jobId);
       heard(jobId, what, answer);
       if (what === "merge" || what === "approve") took(jobId, what, answer);

@@ -551,6 +551,7 @@ impl Studios for FakeDaemon {
                     ports: Vec::new(),
                     links: Vec::new(),
                     started_by: ipc::StartedBy::Person,
+                    for_review: false,
                     started_at: Instant::carried(AT),
                     serving_since: Some(Instant::carried(AT)),
                     ended_at: None,

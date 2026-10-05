@@ -17,6 +17,7 @@ import type {
   RunSheetServerStatus,
 } from "@armada/components";
 import type {
+  CaptureOpened,
   Followed,
   Outcome,
   RunEntry,
@@ -31,6 +32,7 @@ import type {
   ServerState,
   StartRun,
 } from "@armada/protocol";
+import { whyNotWalked } from "./capturing";
 import { absoluteOf, span } from "./duration";
 import { openServerLink } from "./opening";
 import { seedingSaid } from "./seed";
@@ -240,6 +242,8 @@ export type RunSheetSlice = {
   onStartServer: (name: string, jobId: string) => Promise<Outcome>;
   onStopServer: (serverId: string) => Promise<Outcome>;
   onOpenServerLink: (serverId: string, url: string) => Promise<Followed>;
+  /** Opens a server in Bridge's own window, on one of its links. Absent: the sheet offers none. */
+  onWalkInBridge?: (serverId: string, url: string) => Promise<CaptureOpened>;
 };
 
 /**
@@ -288,6 +292,7 @@ export function useRunSheet(
     onStartServer,
     onStopServer,
     onOpenServerLink,
+    onWalkInBridge,
   } = slice;
   const [selected, setSelected] = useState<string | null>(null);
   const [wide, setWide] = useState<ReadonlySet<string>>(new Set());
@@ -426,6 +431,18 @@ export function useRunSheet(
           if (because !== null) onSaid(because);
         });
       },
+      ...(onWalkInBridge === undefined
+        ? {}
+        : {
+            onWalkInBridge: (url: string) => {
+              const instanceId = serverInstanceIdOf(data, selected ?? undefined);
+              if (instanceId === undefined) return;
+              void onWalkInBridge(instanceId, url).then((opened) => {
+                const because = whyNotWalked(opened);
+                if (because !== null) onSaid(because);
+              });
+            },
+          }),
     },
   };
 

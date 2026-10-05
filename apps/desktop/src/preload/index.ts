@@ -7,7 +7,7 @@ import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened } from "@armada/protocol";
-import type { SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { Pattern } from "../shared/haptics";
 import type {
@@ -85,6 +85,13 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.changed, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.changed, handler);
+    };
+  },
+  onWalkFocus: (onFocus: (focused: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, focused: unknown): void => onFocus(focused === true);
+    ipcRenderer.on(CHANNELS.walkFocused, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.walkFocused, handler);
     };
   },
 
@@ -171,6 +178,8 @@ const api: BridgeApi = {
   // because clearing a board is a set.
   reclaimWorktree: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.reclaimWorktree, jobId),
+  changeSlotPool: (manifestId: string, change: ChangeSlotPool): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeSlotPool, manifestId, change),
 
   // A force, unlike the reclaim above — Fleet's 409 is the safety net a
   // stale confirmation needs.
@@ -635,8 +644,10 @@ const api: BridgeApi = {
   openFindingIssue: (jobId: string, finding: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openFindingIssue, jobId, finding),
 
-  requestChanges: (jobId: string, note: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note),
+  requestChanges: (jobId: string, note: string, withWalkNotes?: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.requestChanges, jobId, note, withWalkNotes === true),
+  removeWalkNote: (jobId: string, noteId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.removeWalkNote, jobId, noteId),
 
   rejectWork: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.rejectWork, jobId),

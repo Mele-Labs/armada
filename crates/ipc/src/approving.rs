@@ -46,6 +46,57 @@ pub struct ApproveDispatch {
     pub drone_cap: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landing: Option<LandingChoice>,
+    /// One per step a person tuned, `gates`' shape. A step left out runs as
+    /// its workflow declares it. Since 23.20.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tuning: Option<Vec<StepTuning>>,
+}
+
+/// What a person tuned on one step at the approval press, frozen with the Job
+/// and read where the step runs. **Each field left out is the step as its
+/// workflow declares it.** Since 23.20.
+///
+/// **An unknown field is refused, not dropped**, `EditJob`'s rule: a harness
+/// picked on the canvas and silently lost would read as running.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StepTuning {
+    pub step_id: StepId,
+    /// The model the step's Drone runs. Refused unless `list_models` offers it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Left out is Armada picking.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Effort>,
+    /// Words handed to the step's Drone beside its brief. Blank is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+    /// How many Judges answer each criterion: every judge check's
+    /// `panel_size`. Refused at zero, and on a step that asks the Judge nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judges: Option<u32>,
+    /// Manifest Checks the step declares that this Job does not run, by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks_off: Vec<String>,
+}
+
+/// How hard a step's Drone thinks. Since 23.20.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Effort {
+    Low,
+    Medium,
+    High,
+}
+
+impl Effort {
+    pub fn domain(self) -> core_model::Effort {
+        match self {
+            Effort::Low => core_model::Effort::Low,
+            Effort::Medium => core_model::Effort::Medium,
+            Effort::High => core_model::Effort::High,
+        }
+    }
 }
 
 /// `edit_job`'s body (#1699): a proposal's words, saved without releasing it.
@@ -126,9 +177,15 @@ pub struct LandingChoice {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
     /// The branch the worktree is cut from. Left out is `target`'s reading.
-    /// Refused unless the repository holds it.
+    /// Refused unless the repository holds it, or `start_point` says where to
+    /// make it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ref: Option<String>,
+    /// A branch the repository holds, that Fleet makes `from_ref` at when the
+    /// repository holds no `from_ref` yet. **Read only then.** `target` may
+    /// name the new branch too. Since 23.21.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_point: Option<String>,
     /// Refused at `group`: one branch per Job is all Fleet runs.
     #[serde(default)]
     pub branching: LandingUnit,
@@ -174,6 +231,14 @@ impl From<core_model::CompleteWhen> for CompleteWhen {
             core_model::CompleteWhen::AllMembersLanded => CompleteWhen::AllMembersLanded,
         }
     }
+}
+
+/// `set_landing_target`'s body (23.22): the branch an approved Job that lands
+/// in the Manifest's base is to land in instead. Refused unless the repository
+/// holds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetLandingTarget {
+    pub target: String,
 }
 
 /// What Approve the plan sends at an Epic's plan gate (#1694): **every Job of

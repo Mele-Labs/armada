@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use core_model::{
-    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, StepId,
+    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, StepId, StepPhase,
 };
 use serde_yaml_ng::Value;
 
@@ -50,6 +50,7 @@ const STEP_KEYS: &[&str] = &[
     "follows_plan",
     "records_plan",
     "drone_per_task",
+    "phase",
 ];
 
 /// **The schema's whole set, spelled out rather than sketched.** This held
@@ -96,8 +97,16 @@ const EVIDENCE_LEGAL: &[&str] = &[
     "review",
 ];
 
+/// `phase`'s words, all carried.
+const PHASE_CARRIED: &[(&str, StepPhase)] = &[
+    ("setup", StepPhase::Setup),
+    ("work", StepPhase::Work),
+    ("delivery", StepPhase::Delivery),
+];
+const PHASE_LEGAL: &[&str] = &["setup", "work", "delivery"];
+
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
-const EVIDENCE_KEYS: &[&str] = &["submitted", "captured"];
+const EVIDENCE_KEYS: &[&str] = &["submitted", "captured", "walked"];
 const SUBMITTED_KEYS: &[&str] = &["type"];
 
 /// One step of a workflow.
@@ -107,6 +116,7 @@ pub struct Step {
     label: String,
     evidence_type: Option<EvidenceType>,
     captured: bool,
+    walked: bool,
     mechanical_checks: Vec<MechanicalCheck>,
     judge_checks: Vec<JudgeCheck>,
     advance_gate: AdvanceGate,
@@ -122,6 +132,7 @@ pub struct Step {
     follows_plan: bool,
     records_plan: bool,
     drone_per_task: bool,
+    phase: Option<StepPhase>,
 }
 
 impl Step {
@@ -147,6 +158,13 @@ impl Step {
     /// be read rather than looked at.
     pub fn captured(&self) -> bool {
         self.captured
+    }
+
+    /// Whether Fleet serves the repository's `walk:` server when this step
+    /// stops for a person, so they walk the work rather than read about it.
+    /// **False where the block says nothing.**
+    pub fn walked(&self) -> bool {
+        self.walked
     }
 
     /// All entries must pass. **Routinely empty** — a gateless step is the
@@ -280,6 +298,12 @@ impl Step {
     pub fn drone_per_task(&self) -> bool {
         self.drone_per_task
     }
+
+    /// The phase the step declared. **`None` where the file leaves the key
+    /// out**, which `core_model::StepPhase::of` reads off `delivers`.
+    pub fn phase(&self) -> Option<StepPhase> {
+        self.phase
+    }
 }
 
 /// One step, or [`None`] where something on it was refused.
@@ -306,7 +330,7 @@ pub(super) fn read(
     let label = table
         .required("label", out)
         .and_then(|value| yaml::text(&table.at("label"), value, out));
-    let (evidence_type, captured) = evidence(&mut table, out);
+    let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `may_dispatch_jobs`'s rule, for its reason: a value read as absent
     // would be a step written to record the plan beside its own product that
@@ -400,6 +424,19 @@ pub(super) fn read(
         None => Some(false),
         Some(value) => yaml::flag(&each_key, value, out),
     };
+    // **Absent is none, and a word outside the three is a refusal**, so a
+    // misspelt phase is not drawn in the lane its fallback picks.
+    let phase_key = table.at("phase");
+    let phase = table.optional("phase").and_then(|value| {
+        yaml::word(
+            &phase_key,
+            value,
+            PHASE_CARRIED,
+            PHASE_LEGAL,
+            PHASE_LEGAL,
+            out,
+        )
+    });
     // **Required, and there is no default to fall back to.** A file that does
     // not say whether a step sends the work out has two readings and neither is
     // safe: taken as delivering, a workflow that produces a document opens a
@@ -518,6 +555,7 @@ pub(super) fn read(
         label: label?,
         evidence_type,
         captured: captured?,
+        walked: walked?,
         mechanical_checks,
         judge_checks,
         advance_gate: advance_gate?,
@@ -533,6 +571,7 @@ pub(super) fn read(
         follows_plan: follows_plan?,
         records_plan: records_plan?,
         drone_per_task: drone_per_task?,
+        phase,
     })
 }
 
@@ -545,13 +584,16 @@ pub(super) fn read(
 ///
 /// **Absent is neither**, which is every step that produces nothing a Judge
 /// reads. A block present but empty is the same answer said out loud.
-fn evidence(table: &mut Table<'_>, out: &mut Vec<Refusal>) -> (Option<EvidenceType>, Option<bool>) {
+fn evidence(
+    table: &mut Table<'_>,
+    out: &mut Vec<Refusal>,
+) -> (Option<EvidenceType>, Option<bool>, Option<bool>) {
     let at = table.at("evidence");
     let Some(value) = table.optional("evidence") else {
-        return (None, Some(false));
+        return (None, Some(false), Some(false));
     };
     let Some(mut block) = Table::open(&at, value, out) else {
-        return (None, None);
+        return (None, None, None);
     };
     let submitted_at = block.at("submitted");
     let submitted = block.optional("submitted").and_then(|value| {
@@ -580,8 +622,16 @@ fn evidence(table: &mut Table<'_>, out: &mut Vec<Refusal>) -> (Option<EvidenceTy
         None => Some(false),
         Some(value) => yaml::flag(&captured_at, value, out),
     };
+    // `captured`'s rule, for its reason. An instruction to Fleet beside it,
+    // and like it gating nothing: a server that will not start has
+    // established nothing about the work.
+    let walked_at = block.at("walked");
+    let walked = match block.optional("walked") {
+        None => Some(false),
+        Some(value) => yaml::flag(&walked_at, value, out),
+    };
     block.close(EVIDENCE_KEYS, out);
-    (submitted, captured)
+    (submitted, captured, walked)
 }
 
 /// `advance_gate` has its own reader because one of the schema's four forms is

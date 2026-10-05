@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { Outcome } from "@armada/protocol";
+import type { ChangeSlotPool, Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -140,10 +140,22 @@ const UNSENT: Outcome = { ok: false, why: "not_connected" };
  * Bridge's own bar above it; the Studio a Note lands on is read off the Studio
  * main is holding, never off a name a renderer sent.
  */
+/** The walk windows with focus right now: Bridge's own windows dim while any does. */
+const walkFocused = new Set<string>();
 const captureWindows = new CaptureWindows({
   capture: async (studioId, said, capture, frame) =>
     (await connection?.studios.captureNote(studioId, said, capture, frame)) ?? UNSENT,
+  walkNote: async (jobId, said, capture, frame) =>
+    (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
+    UNSENT,
   stage: stagePng,
+  focused: (serverId, on) => {
+    if (on) walkFocused.add(serverId);
+    else walkFocused.delete(serverId);
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
+    }
+  },
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -554,6 +566,13 @@ void app.whenReady().then(() => {
     await connection?.rereadHeld();
     return outcome;
   });
+  // The pool reshaped from Cleanup's bay grid, and read again after for the
+  // reclaim's reason: whether a slot went is Fleet's reading.
+  ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
+    const outcome = await connection?.commands.changeSlotPool(manifestId, change);
+    await connection?.rereadHeld();
+    return outcome;
+  });
   // A force, unlike the reclaim above. The re-read afterwards is the same
   // reason: whether the branch still stands is Fleet's reading, and a delete
   // that refused has to stay on the list exactly as it was.
@@ -848,8 +867,13 @@ void app.whenReady().then(() => {
     (_event, jobId: string, finding: string, title: string, body: string) =>
       connection?.commands.fileFindingIssue(jobId, finding, title, body),
   );
-  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string) =>
-    connection?.commands.requestChanges(jobId, note),
+  ipcMain.handle(CHANNELS.requestChanges, (_event, jobId: string, note: string, walk: unknown) =>
+    connection?.commands.requestChanges(jobId, note, walk === true),
+  );
+  ipcMain.handle(CHANNELS.removeWalkNote, (_event, jobId: unknown, noteId: unknown) =>
+    typeof jobId === "string" && typeof noteId === "string"
+      ? connection?.commands.removeWalkNote(jobId, noteId)
+      : undefined,
   );
   ipcMain.handle(CHANNELS.rejectWork, (_event, jobId: string) =>
     connection?.commands.rejectWork(jobId),

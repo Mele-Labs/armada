@@ -46,6 +46,7 @@ import { placeOf, stepNodeId, stepThatWorksTheGroups, workflowRunOf } from "./wo
 import { spentOf, workflowReadingOf } from "./workflow-inspector";
 import { JudgeAsked, judgeAskedOn } from "./judge-asked";
 import { heldByAFlag } from "./gaming";
+import { checksAgain } from "./gates";
 import { GamingHeld } from "./gaming-held";
 import type { Opens } from "./phases";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
@@ -329,11 +330,14 @@ export function WorkflowTab({
   // a jump here. So a second step is read by closing this one first.
   // **The step Fleet's stop names, and nothing already asking on it.** A
   // question or a held flag carries its own answers in `asks`; otherwise the
-  // panel says why it stopped and offers what Overview's lead does.
+  // panel says why it stopped and offers what Overview's lead does. **Nothing
+  // while its Checks run again**, as the lead offers nothing: Fleet withholds
+  // its recourse for that span, and the track in the header says what is on.
   const stoppedHere =
     render === "stopped" &&
     openedStep !== undefined &&
     whole.stuck?.step_id === openedStep.step_id &&
+    !checksAgain(openedStep) &&
     !judgeAskedOn(whole, openedStep) &&
     !flagHeld;
   const why = stoppedHere ? refusedOn(openedStep, whole.acceptance_criteria) : undefined;

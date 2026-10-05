@@ -69,6 +69,8 @@ pub struct Slot {
     pub number: usize,
     pub path: PathBuf,
     pub state: SlotState,
+    /// A person closed it, so no lease takes it until it is reopened.
+    pub closed: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

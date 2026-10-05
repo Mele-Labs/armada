@@ -94,6 +94,15 @@ impl Vcs for GitVcs {
         crate::basing::branches(repo_root, declared)
     }
 
+    fn create_branch(
+        &self,
+        repo_root: &str,
+        name: &str,
+        start_point: &str,
+    ) -> Result<(), Self::Error> {
+        crate::basing::create_branch(repo_root, name, start_point)
+    }
+
     fn base_checkout(&self, spec: &BaseSpec) -> Result<BaseCheckout, Self::Error> {
         crate::basing::base_checkout(spec)
     }
@@ -168,6 +177,14 @@ impl Vcs for GitVcs {
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
         crate::leasing::jobs::readings(pool)
+    }
+
+    fn change_slot_pool(
+        &self,
+        pool: &SlotPool,
+        change: adapter_traits::SlotChange,
+    ) -> Result<u32, adapter_traits::SlotRefused> {
+        crate::leasing::jobs::change(pool, change)
     }
 }
 

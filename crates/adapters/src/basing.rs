@@ -116,6 +116,40 @@ pub fn branches(
     Ok(listed)
 }
 
+/// `name` at `start_point`'s commit, both local branches. `Vcs::create_branch`.
+pub fn create_branch(
+    repo_root: &str,
+    name: &str,
+    start_point: &str,
+) -> Result<(), CreateWorktreeError> {
+    let repo = open(repo_root)?;
+    let unreadable = |cause| CreateWorktreeError::RepoUnreadable {
+        repo: repo_root.to_string(),
+        cause,
+    };
+    if repo.find_branch(name, BranchType::Local).is_ok() {
+        return Err(CreateWorktreeError::BranchExists {
+            repo: repo_root.to_string(),
+            branch: name.to_string(),
+        });
+    }
+    let start = repo
+        .find_branch(start_point, BranchType::Local)
+        .map_err(|cause| match cause.code() {
+            ErrorCode::NotFound => CreateWorktreeError::RefNotFound {
+                repo: repo_root.to_string(),
+                r#ref: start_point.to_string(),
+            },
+            _ => unreadable(cause),
+        })?;
+    let commit = start
+        .into_reference()
+        .peel_to_commit()
+        .map_err(unreadable)?;
+    repo.branch(name, &commit, false).map_err(unreadable)?;
+    Ok(())
+}
+
 /// The checkout at this commit, made if it is not there.
 pub fn base_checkout(spec: &BaseSpec) -> Result<BaseCheckout, CreateWorktreeError> {
     let path = spec.path();

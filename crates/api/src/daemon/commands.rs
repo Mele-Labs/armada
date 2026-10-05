@@ -19,12 +19,12 @@ use std::future::Future;
 
 use crate::daemon::{Redirector, Refusal};
 use ipc::{
-    AddTask, AnswerCommand, CapRaise, ChangesRequested, CheckoutRunRecord, CheckoutRunUnderway,
-    ChosenAnswer, DropTask, FileReport, FindingDismissed, FindingQueued, IssueFiled, JobExamined,
-    JobForgotten, JobId, JobSummary, JudgeAnswered, ManifestSaved, NamedRun, ProposeJob,
-    Redirection, Redispatched, RemarksTakenUp, Report, RestartRequested, RunRecord, RunUnderway,
-    SaveManifestFile, SetWhenBlocked, SetWhenRefused, StartCheckoutRun, StartRun, TurnRaise,
-    WorktreeReclaimed,
+    AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, CheckoutRunRecord,
+    CheckoutRunUnderway, ChosenAnswer, DropTask, FileReport, FindingDismissed, FindingQueued,
+    IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, JudgeAnswered, ManifestSaved,
+    NamedRun, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote, Report,
+    RestartRequested, RunRecord, RunUnderway, SaveManifestFile, SetWhenBlocked, SetWhenRefused,
+    StartCheckoutRun, StartRun, TurnRaise, WalkNotes, WorktreeReclaimed,
 };
 
 /// Everything a client asks Fleet to do.
@@ -268,6 +268,16 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<WorktreeReclaimed, Refusal>> + Send;
 
+    /// `change_slot_pool` — add a slot to the repository's pool, remove one,
+    /// or close or reopen one, on this machine only: `armada worktree lease`
+    /// honours it as Fleet does. [`Refusal::IllegalMove`] naming why a slot
+    /// cannot go: held, stranded, busy, not a checkout, dirty, or the last.
+    fn change_slot_pool(
+        &self,
+        change: ipc::ChangeSlotPool,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::SlotPoolChanged, Refusal>> + Send;
+
     /// `delete_branch` — deletes a terminal Job's branch, unmerged or not, once
     /// its checkout is gone and only while it stands at the `tip` a person was
     /// shown. [`Refusal::IllegalMove`] otherwise, naming which.
@@ -473,6 +483,25 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         dismissed: FindingDismissed,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `capture_walk_note` — what a person pointed at while walking the Job's
+    /// served mock, kept on the Job with its frame. Since 23.18.
+    ///
+    /// **It moves nothing.** Refused on a blank `said`, on a terminal Job, and
+    /// on a frame over 4 MiB or one Fleet cannot read.
+    fn capture_walk_note(
+        &self,
+        job_id: JobId,
+        capture: CaptureWalkNote,
+    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
+
+    /// `remove_walk_note` — a walk note taken back before any Drone was handed
+    /// it. Refused on a sent note, an unknown id, and a terminal Job.
+    fn remove_walk_note(
+        &self,
+        job_id: JobId,
+        remove: RemoveWalkNote,
+    ) -> impl Future<Output = Result<WalkNotes, Refusal>> + Send;
 
     /// `queue_after_finding` — a person turns a For context finding into a Job that waits on
     /// this one, so it starts when this one lands. #906. The Job itself moves nothing.
@@ -776,6 +805,18 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         tiers: ipc::SetTiers,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `set_landing_target` — where an approved Job that lands in the base is
+    /// to land instead, before its work goes out. 23.22.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job is at its gate, ended, already
+    /// lands somewhere a person chose, or its work went out;
+    /// [`Refusal::Unacceptable`] on a blank or unheld branch.
+    fn set_landing_target(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        target: ipc::SetLandingTarget,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `remove_allowed_command` — take back a command a person allowed for

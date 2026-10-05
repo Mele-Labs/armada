@@ -18,3 +18,14 @@ He asked for *"somewhere in Bridge where I can see the worktrees that are set up
 **Not here:** rescuing a stranded slot, which ships on a later branch. The bay leaves room for it.
 
 **Where it landed:** `fleet/slot-pool-in-cleanup`.
+
+## Reshaping the pool from the grid
+
+**Decided 2026-10-04**, after the grid: *"instead of the number of slots a manifest can have, we can quickly choose to just add a new slot from here, or remove a slot or temporarily restrict the number of slots."*
+
+- **The size is this machine's**, kept in `.armada/slots/pool` beside the lease records and never committed. `setup.worktrees` stays the default for a fresh machine.
+- **A closed bay stays closed until reopened**, across restarts. A held bay finishes its lease first.
+- **Remove only a free or a not-made bay.**
+- `door-closed-locked`, `folder-plus`, and the `door-open` and `trash-2` uses for Reopen and Remove are Specified, accepted on the walk `reshapingTheSlotPool`. `--slot-closed` aliases rejected's violet.
+
+**Where it landed:** `fleet/slot-pool-controls`.

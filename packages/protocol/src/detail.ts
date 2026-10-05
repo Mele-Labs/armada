@@ -21,6 +21,7 @@
 // The header rules there hold here: these are hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
 import type { JobFootprint } from "./footprint";
 import type { Flagged, Judged, KeptDeliverable } from "./judged";
@@ -46,6 +47,7 @@ import type {
 import type { JudgeQuestion, WhenRefused } from "./asking";
 import type { TierModels, WorkPlan } from "./work-plan";
 import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving";
+import type { StepPhase } from "./setup";
 
 /**
  * One Job, whole. The answer to `GET /jobs/:job_id`. `crates/ipc/src/detail.rs`.
@@ -61,6 +63,8 @@ import type { CriterionOrigin, LandingRule, PolicyOverrides } from "./approving"
 export type JobDetail = {
   /** The board row, unchanged. A field added to the row reaches here for free. */
   job: JobSummary;
+  /** What a person pointed at walking this Job's work, oldest first, sent ones too. Since 23.18. */
+  walk_notes?: WalkNote[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */
@@ -846,6 +850,10 @@ export type StepDetail = {
    * the step a Job's tasks are worked at. **Absent is false.** Since 23.1.
    */
   drone_per_task?: boolean;
+  /** `WorkflowStep.phase`, off the frozen workflow. Absent where Fleet cannot say. Since 23.19. */
+  phase?: StepPhase;
+  /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
+  may_dispatch_jobs?: boolean;
   /**
    * Which pass this step is on, where it closes a loop. Since protocol 13.20.
    * **On the step that sends the work back, not the step it is sent to.**

@@ -39,10 +39,12 @@ use crate::job::gaming::GamingCheck;
 use crate::job::ids::{ModelName, StepId, WorkflowId};
 use crate::job::judge::JudgeCheck;
 use crate::job::narrowing::Narrowing;
+use crate::job::phase::StepPhase;
 use crate::job::prerequisite::Prerequisite;
 use crate::job::runs_at::RunsAt;
 use crate::job::scope::EvidenceScope;
 use crate::job::source::WorkflowSource;
+use crate::job::tuning::{Effort, StepTuning};
 use crate::job::verdict::GateVerdict;
 use crate::job::Runner;
 
@@ -359,6 +361,11 @@ pub struct ResolvedStep {
     /// is what the Drone hands in and the gate measures. One value holding both
     /// is what stopped a step doing both. `#777`.
     captured: bool,
+    /// Whether Fleet serves the repository's `walk:` server for the Job when
+    /// this step stops for a person. **It names no server**, for `captured`'s
+    /// reason: the workflow ships with the app, and which server shows the
+    /// work is the repository's to say. It gates nothing.
+    walked: bool,
     /// Whether the definition said `every_manifest_check` rather than naming
     /// Checks one at a time.
     ///
@@ -454,6 +461,16 @@ pub struct ResolvedStep {
     /// Drone works the whole plan (spike 022, *which step runs a Drone per
     /// task*). False on every row frozen before the key existed.
     drone_per_task: bool,
+    /// Which phase of the run the step declared itself in. **`None` is a step
+    /// declaring none**, read through [`phase`](Self::phase)'s fallback, and
+    /// every row frozen before the key existed.
+    phase: Option<StepPhase>,
+    /// How hard this step's Drone thinks, as a person set it at the approval
+    /// press. **`None` is Armada picking**, and every step nobody tuned.
+    effort: Option<Effort>,
+    /// Words a person left for this step's Drone at the approval press,
+    /// handed to it beside the brief. **`None` is none.**
+    context: Option<String>,
     /// Whether this step records the Job's plan, and so is given
     /// `record_plan`. **True where `evidence_type` is `plan`**, which
     /// [`frozen`](Self::frozen) sets without being asked, and also true where
@@ -500,6 +517,7 @@ impl ResolvedStep {
             may_dispatch_jobs: false,
             delivers: false,
             captured: false,
+            walked: false,
             gates_on_every_check: false,
             iteration_cap: 0,
             verdict_routing: BTreeMap::new(),
@@ -507,6 +525,9 @@ impl ResolvedStep {
             poke_limit: None,
             follows_plan: false,
             drone_per_task: false,
+            phase: None,
+            effort: None,
+            context: None,
             // Inferred rather than left for a builder: the step's own product
             // being `plan` already settles this, so every caller building one
             // would otherwise have to restate a fact this constructor already
@@ -541,6 +562,23 @@ impl ResolvedStep {
     /// Drones are given neither plan tool: Fleet marks their tasks.
     pub fn drone_per_task(&self) -> bool {
         self.drone_per_task
+    }
+
+    /// The phase the step declared, for [`following_plan`](Self::following_plan)'s reason.
+    pub fn in_phase(mut self, phase: Option<StepPhase>) -> ResolvedStep {
+        self.phase = phase;
+        self
+    }
+
+    /// The phase the definition wrote, or `None`. What is frozen and stored.
+    pub fn phase_declared(&self) -> Option<StepPhase> {
+        self.phase
+    }
+
+    /// The phase the step is drawn in: its own, or [`StepPhase::of`]'s
+    /// fallback off [`delivers`](Self::delivers).
+    pub fn phase(&self) -> StepPhase {
+        StepPhase::of(self.phase, self.delivers)
     }
 
     /// This step also records the Job's plan, beside whatever
@@ -587,6 +625,12 @@ impl ResolvedStep {
         self
     }
 
+    /// Whether Fleet serves this step's work to walk, for `capturing`'s reason.
+    pub fn walking(mut self, walked: bool) -> ResolvedStep {
+        self.walked = walked;
+        self
+    }
+
     /// This step as a person gated it at the approval press. Spike 022, slice 4.
     ///
     /// **A box can take a declaration away and never add one.** `checks: false`
@@ -605,6 +649,63 @@ impl ResolvedStep {
             self.judge_checks.clear();
         }
         self
+    }
+
+    /// This step as a person tuned it at the approval press, read against the
+    /// step by `fleet::approving`. **Like a gate box, `checks_off` only takes a
+    /// Manifest Check away**, never one of Fleet's own looks.
+    pub fn tuned_by_person(mut self, tuning: &StepTuning) -> ResolvedStep {
+        if let Some(model) = &tuning.model {
+            self.model = Some(model.clone());
+        }
+        if tuning.effort.is_some() {
+            self.effort = tuning.effort;
+        }
+        if let Some(context) = &tuning.context {
+            self.context = Some(context.clone());
+        }
+        if let Some(judges) = tuning.judges {
+            self.judge_checks = core::mem::take(&mut self.judge_checks)
+                .into_iter()
+                .map(|judge| judge.with_panel(judges))
+                .collect();
+        }
+        let held = self.checks.len();
+        self.checks.retain(|check| {
+            check.kind() != MANIFEST_CHECK
+                || !tuning.checks_off.iter().any(|off| off == check.label())
+        });
+        // Every Check turned off is `gated_by_person`'s `checks: false`; a
+        // step whose repository declared none keeps saying it asked.
+        let turned_off = self.checks.len() < held;
+        if turned_off
+            && !self
+                .checks
+                .iter()
+                .any(|check| check.kind() == MANIFEST_CHECK)
+        {
+            self.gates_on_every_check = false;
+        }
+        self
+    }
+
+    /// The effort and the words a stored row held, for
+    /// [`following_plan`](Self::following_plan)'s reason.
+    pub fn as_tuned(mut self, effort: Option<Effort>, context: Option<String>) -> ResolvedStep {
+        self.effort = effort;
+        self.context = context;
+        self
+    }
+
+    /// How hard this step's Drone thinks, where a person said. `None` is
+    /// Armada picking.
+    pub fn effort(&self) -> Option<Effort> {
+        self.effort
+    }
+
+    /// The words a person left for this step's Drone, where they left any.
+    pub fn context(&self) -> Option<&str> {
+        self.context.as_deref()
     }
 
     /// Whether the definition said `every_manifest_check`, for
@@ -700,6 +801,12 @@ impl ResolvedStep {
     /// what came back. See [the field](ResolvedStep::captured).
     pub fn captured(&self) -> bool {
         self.captured
+    }
+
+    /// Whether Fleet serves the work when this step stops for a person. See
+    /// [the field](ResolvedStep::walked).
+    pub fn walked(&self) -> bool {
+        self.walked
     }
 
     /// All entries must pass. Empty on the common case of an ungated step.

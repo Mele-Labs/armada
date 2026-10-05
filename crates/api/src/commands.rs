@@ -566,6 +566,27 @@ pub(crate) async fn reclaim_worktree<D: Commands>(
     }
 }
 
+/// Add, remove, close or reopen one slot of the repository's pool. 409
+/// naming why a slot cannot go; 422 for a slot the pool does not have.
+pub(crate) async fn change_slot_pool<D: Commands>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::ChangeSlotPool = match ipc::decode("a change to the slot pool", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .change_slot_pool(asked, scope.manifest())
+        .await
+    {
+        Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Delete the Job's branch, guarded by the tip in the body. 409 where the Job
 /// is not terminal, its checkout still stands, the branch is gone, or the tip
 /// moved.
@@ -866,6 +887,23 @@ pub(crate) async fn set_tiers<D: Commands>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().set_tiers(job.id(), tiers).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Land an approved Job somewhere other than the base, before its work goes
+/// out. 23.22.
+pub(crate) async fn set_landing_target<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let target: ipc::SetLandingTarget = match ipc::decode("a landing target", &body) {
+        Ok(target) => target,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_landing_target(job.id(), target).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -104,6 +104,19 @@ function ranOf(live: CheckUnderway): CheckRun | undefined {
   return live.output_path === undefined ? live.ran : { ...live.ran, output_path: live.output_path };
 }
 
+/**
+ * A stopped step whose Checks a person sent to run again, while they run.
+ *
+ * **Read off the gate's live set and nothing else.** `checking` stands from
+ * the moment a gate starts until its ruling is written down, and it is Fleet's
+ * memory, never the record — so on a step that stopped it is that run and
+ * cannot be a stale one. Fleet withholds `stuck.recourse` for the same span
+ * (`checks_rerunning`), which is not on the wire. The owner's Job 3, 4 Oct 2026.
+ */
+export function checksAgain(step: StepDetail): boolean {
+  return step.state === "stopped" && step.checking !== undefined;
+}
+
 /** Started, and not finished: the gate is running it right now. */
 export function isRunning(read: CheckRead): boolean {
   return read.live?.started_at !== undefined && read.live.ran === undefined;

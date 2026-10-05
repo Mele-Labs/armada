@@ -119,12 +119,24 @@ checks:
     # time, measured 2 Oct 2026. The merge line narrows through this too, over
     # the crates a turn touches and every crate depending on one:
     # `docs/capabilities/merge-line.md`, *What a narrowed Check runs*.
+    #
+    # `outside` is what that `-p xtask` already measures on its own: `apps/`
+    # and `packages/`, which `when` below covers only because xtask's tests
+    # read them. No other member reads either tree, by test or `include_str!`
+    # — checked 4 Oct 2026. So a change there runs xtask alone rather than
+    # every test in the workspace after a cold compile, which is what Job 3's
+    # Bridge-only change paid. Owner, 4 Oct 2026. A path a member other than
+    # xtask reads does not belong here: it would run without the tests that
+    # read it.
     narrow:
       run: cargo nextest run --test-threads ${width} -p xtask
       each: "-p {}"
       under: crates
       except:
         - acceptance
+      outside:
+        - "apps/**"
+        - "packages/**"
     # One test by name, which Fleet runs against a checkout of main before a
     # Drone's `draft_fix` drafts anything. The whole run's exclusion stays, so a
     # test this Check never runs cannot be named. #999.
@@ -533,6 +545,11 @@ evidence:
     # Armada enforces none of this and says so — it is read by whoever writes
     # the spec, and by whoever reviews it.
     - /__notes
+
+# What a step asking to be walked is served on, when it stops for a person —
+# Prototype's Build. Bridge on a mock Fleet, in the Job's own worktree, and its
+# picker plays this repository's walks.
+walk: mock
 
 # How patient Fleet is with a Drone working here. Both keys are optional and
 # each falls back on its own: what is not written is what Fleet was started

@@ -70,7 +70,7 @@ const NO_FRAME_KEPT: &str = "fleet.studio_frame_not_kept";
 /// The most one frame may weigh. A window at twice its CSS pixels is under a
 /// megabyte and a half of PNG; four leaves room for a large display without
 /// letting a Studio grow without bound, since nothing expires one.
-const MOST_A_FRAME_MAY_WEIGH: u64 = 4 * 1024 * 1024;
+pub(crate) const MOST_A_FRAME_MAY_WEIGH: u64 = 4 * 1024 * 1024;
 /// Who is kept as having acted: the transport's word, never the body's.
 pub(crate) fn author(by: Redirector) -> StudioAuthor {
     match by {

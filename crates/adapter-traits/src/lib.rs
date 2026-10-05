@@ -62,8 +62,8 @@ pub use delivery::{
 };
 pub use event::{CallDetail, DroneEvent, Speaker};
 pub use harness::{
-    AmbientServers, DroneHandle, DroneSpawnConfig, Environment, Grant, Launch, McpConfig, Model,
-    Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
+    AmbientServers, DroneHandle, DroneSpawnConfig, Effort, Environment, Grant, Launch, McpConfig,
+    Model, Prompt, Prompting, SpawnConfigRefused, Toolbelt, PERMISSION_WAIT,
 };
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
@@ -72,7 +72,9 @@ pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
-pub use slots::{SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding};
+pub use slots::{
+    SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused, SlotStanding,
+};
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
     WhatPeopleSaid, WhatTheForgeRan,
@@ -249,6 +251,17 @@ pub trait Vcs {
         declared: Option<&str>,
     ) -> Result<alloc::vec::Vec<BranchListed>, Self::Error>;
 
+    /// Make the local branch `name` at the commit the local branch
+    /// `start_point` is at, for a Job approved to start from a branch that
+    /// does not exist yet. **Refused where `name` is already a branch**, so
+    /// nothing a person made is moved.
+    fn create_branch(
+        &self,
+        repo_root: &str,
+        name: &str,
+        start_point: &str,
+    ) -> Result<(), Self::Error>;
+
     /// Check the repository out at one commit, detached, for every Job on that
     /// commit to share.
     ///
@@ -365,6 +378,10 @@ pub trait Vcs {
 
     /// Every slot in the pool, as `armada worktree --status` reads it.
     fn slot_pool(&self, pool: &SlotPool) -> alloc::vec::Vec<SlotReading>;
+
+    /// Add, remove, close or reopen a slot on this machine, answering the
+    /// slot it changed. The CLI's lease honours it as Fleet's does.
+    fn change_slot_pool(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused>;
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

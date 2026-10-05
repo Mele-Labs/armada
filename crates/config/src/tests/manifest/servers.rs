@@ -112,3 +112,28 @@ fn a_server_named_like_a_check_is_in_both_registries() {
         &Fault::DeclaredInBothRegistries
     );
 }
+
+/// `walk` names the server a person walks a Job's work on, and a repository
+/// that says nothing walks nothing.
+#[test]
+fn walk_names_a_declared_server() {
+    let manifest = parse(&format!("{STORYBOOK}walk: storybook\n")).expect("walk parses");
+    assert_eq!(manifest.walk(), Some("storybook"));
+    assert_eq!(parse(STORYBOOK).expect("no walk").walk(), None);
+}
+
+/// A Command that exits, or a name nothing declares, would be a stop where
+/// nothing comes up — refused at load, naming what is declared.
+#[test]
+fn walk_naming_anything_but_a_server_is_refused() {
+    for named in ["fmt", "storyboook"] {
+        let refused = refusals(parse(&format!("{STORYBOOK}walk: {named}\n")));
+        assert_eq!(
+            fault_at(&refused, "walk"),
+            &Fault::NotADeclaredServer {
+                value: String::from(named),
+                declared: vec![String::from("storybook")],
+            }
+        );
+    }
+}

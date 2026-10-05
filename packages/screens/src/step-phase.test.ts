@@ -8,6 +8,7 @@ import type { JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 import type { DroneView } from "./draft/drone";
 import { arcMoment } from "./fixtures/build/index";
 import { groupChecking } from "./fixtures/build/arc-checking";
+import { awaitingRepairChecksAgain } from "./fixtures/build/waiting";
 import { detailOf } from "./mine";
 import { trackOf, type TrackPart } from "./step-phase";
 
@@ -93,6 +94,24 @@ describe("the phase track of a running step", () => {
     const { whole, step } = at("executingSequential");
     const bare = { ...step, checking: undefined, checks: [], judge_checks: [] };
     expect(states(trackOf(whole, bare, "running", [drone({ step: step.step_id })]))).toEqual(["Drones:now"]);
+  });
+
+  it("a stopped step whose Checks are running again draws them as the part now", () => {
+    // The owner's Job 3, 4 Oct 2026: Run Checks again, and nothing on the
+    // stopped step said its Checks were running.
+    const one = awaitingRepairChecksAgain();
+    const whole = detailOf(one.watched, one.job.id)!;
+    const step = whole.steps.find((s) => s.state === "stopped")!;
+    const track = trackOf(whole, step, "stopped", []);
+    expect(states(track)).toEqual(["Drones:done", "Checks:now"]);
+    expect(now(track)).toBe("Checks running");
+  });
+
+  it("a stopped step with no Check live has no track", () => {
+    const one = awaitingRepairChecksAgain();
+    const whole = detailOf(one.watched, one.job.id)!;
+    const step = whole.steps.find((s) => s.state === "stopped")!;
+    expect(trackOf(whole, { ...step, checking: undefined }, "stopped", [])).toBeUndefined();
   });
 
   it("a step that is not running has no track", () => {

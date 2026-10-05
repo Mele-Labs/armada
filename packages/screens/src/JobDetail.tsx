@@ -70,6 +70,7 @@ import { useTrail } from "./trail";
 import { JobRetroSheet } from "./Lessons";
 import { jobOf } from "./retro";
 import { OPEN_JOB_ATTRIBUTE } from "./open-job";
+import { useWalkedOnOpen } from "./walked";
 
 export type { ConfirmableAct, HeldAct, JobAct } from "./Acts";
 export type { FoldedReads } from "./mine";
@@ -180,6 +181,7 @@ function OneJob(props: JobDetailProps) {
   // arrived it stands in for the board row the prop carries, which can lag a
   // `job.state_changed` event that missed or has not yet applied.
   const job = whole?.job ?? props.job;
+  useWalkedOnOpen(props.job.id, props.rehearsal.servers, props.rehearsal.onWalkInBridge, props.onSaid);
   // Read once: the proposal and the frozen reading both draw a gate that
   // defers to this repository's policies.
   const manifest = props.manifests.find((one) => one.id === job.owner_manifest_id);

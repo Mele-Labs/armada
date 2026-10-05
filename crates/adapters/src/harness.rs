@@ -30,7 +30,7 @@ use std::error::Error;
 use std::fmt;
 
 use adapter_traits::{
-    AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Grant, Launch, Prompting,
+    AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Effort, Grant, Launch, Prompting,
 };
 
 use crate::git_guard;
@@ -244,6 +244,18 @@ impl AgentHarness for HeadlessAgent {
             "--model".into(),
             config.model().as_str().into(),
         ];
+        // Only where a person set one: absent is the CLI's own default.
+        if let Some(effort) = config.model().effort() {
+            args.push("--effort".into());
+            args.push(
+                match effort {
+                    Effort::Low => "low",
+                    Effort::Medium => "medium",
+                    Effort::High => "high",
+                }
+                .into(),
+            );
+        }
 
         // The asking mode, with Armada as the one asked. `dontAsk` never
         // consults a prompt tool, so a Job holding a question for a person
