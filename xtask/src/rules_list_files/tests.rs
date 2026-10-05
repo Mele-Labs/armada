@@ -1,0 +1,64 @@
+//! The pure halves: which paths `.gitattributes` declares, and whether a
+//! file's text holds entries and nothing else.
+
+use super::*;
+
+#[test]
+fn a_union_line_declares_its_path() {
+    let text = "# why\npackages/a/index.ts merge=union\n\n*.png binary\n";
+    assert_eq!(declared(text), vec!["packages/a/index.ts".to_string()]);
+}
+
+#[test]
+fn a_line_that_is_not_union_declares_nothing() {
+    assert!(declared("docs/x.md merge=ours\n*.png binary\n").is_empty());
+}
+
+#[test]
+fn exports_and_comments_are_entries() {
+    let text = "// header\n\nexport * from \"./a/A\";\nexport * from \"./b/B\";\n";
+    assert_eq!(not_entries("index.ts", text), Vec::<usize>::new());
+}
+
+#[test]
+fn code_among_exports_is_named_by_line() {
+    let text = "export * from \"./a/A\";\nconst x = 1;\nexport * from \"./b/B\";\n";
+    assert_eq!(not_entries("index.ts", text), vec![2]);
+}
+
+#[test]
+fn imports_and_block_comments_are_entries_in_a_stylesheet() {
+    let text = "/* one\n   two */\n@import \"./a.css\";\n@import \"./b.css\";\n";
+    assert_eq!(not_entries("index.css", text), Vec::<usize>::new());
+}
+
+#[test]
+fn a_rule_in_an_import_list_is_named() {
+    let text = "@import \"./a.css\";\n.x { color: red; }\n";
+    assert_eq!(not_entries("index.css", text), vec![2]);
+}
+
+#[test]
+fn tables_are_entries_and_a_root_key_ahead_of_them_is_not() {
+    assert!(not_entries("o.toml", "# h\n\n[a.b]\nk = 1\n\n[a.c]\nk = 2\n").is_empty());
+    assert_eq!(
+        not_entries("o.toml", "version = 1\n[a.b]\nk = 1\n"),
+        vec![1]
+    );
+}
+
+#[test]
+fn a_mod_list_holds_mods_and_comments_only() {
+    let text = "//! head\nmod a;\n/// doc\npub(crate) mod b;\n";
+    assert!(not_entries("mod.rs", text).is_empty());
+    assert_eq!(
+        not_entries("mod.rs", "mod a;\n#[cfg(test)]\nmod b;\n"),
+        vec![2]
+    );
+    assert_eq!(not_entries("mod.rs", "mod a;\npub use a::A;\n"), vec![2]);
+}
+
+#[test]
+fn a_kind_with_no_entry_rule_is_refused_whole() {
+    assert_eq!(not_entries("x.py", "a = 1\n"), vec![0]);
+}
