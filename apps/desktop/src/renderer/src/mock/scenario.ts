@@ -256,7 +256,7 @@ type Builder = keyof typeof BUILDERS;
 const EVERY_STATE_TITLES: Record<Builder, string> = {
   running: "Cache the manifest read between dispatches",
   workingAPlan: "Extract the column order selector into its own module",
-  handedInATask: "Extract the column order selector into its own module",
+  handedInATask: "Keep the plan board's selection when a task is handed in",
   runningWaitingOnACommand: "Reuse one HTTP client across every query",
   review: "Fold the two notification routes into one",
   escalatedGateFailure: "Shorten the reconnect backoff to two seconds",
