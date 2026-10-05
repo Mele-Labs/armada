@@ -313,7 +313,7 @@ const HELD: JobRetro = {
   state: "written",
   record: {
     failed_checks: [{ cite: "check:1", name: "out_of_bounds", run: "gate", produced: "armada.yml changed" }],
-    refusals: [{ cite: "refusal:1", tool: "grep", tried: "grep on a check log", because: "not allowed" }],
+    refusals: [{ cite: "refusal:1", at: "2026-10-03T03:51:40.028Z", tool: "grep", tried: "grep on a check log", because: "not allowed" }],
   },
 };
 const WITH_CHECK = { ...ARMADA, evidence: ["check:1", "check:9"] };
