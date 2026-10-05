@@ -5,8 +5,8 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineCheck, MergeLineEntry, MergeLineState } from "@armada/components";
-import type { MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState } from "@armada/components";
+import type { MergeLine, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -23,7 +23,15 @@ export type MergeLineView = {
   landed: readonly MergeLineEntry[];
   /** Red, conflict or stopped and not back in line, newest first. */
   sentBack: readonly MergeLineEntry[];
+  /** The turn's failed Check, while it runs on. */
+  notice?: MergeLineNotice;
 };
+
+/**
+ * A line as the mock serves it ahead of the wire: `notice` is not a field of protocol 23 yet, so a
+ * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
+ */
+type NoticedLine = MergeLine & { notice?: MergeLineNotice };
 
 /** How much of a merge commit a row shows. */
 const SHORT = 10;
@@ -50,6 +58,7 @@ export function mergeLineViews(
     line: one.line.map(entryOf),
     landed: one.landed.map(entryOf),
     sentBack: one.sent_back.map(entryOf),
+    ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
   }));
 }
 
