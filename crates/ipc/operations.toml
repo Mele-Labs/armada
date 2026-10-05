@@ -2047,6 +2047,8 @@ agent_access = "Drafts only"
 description = "Drafts a Job onto the approval gate"
 notes = """
 The gate is unchanged.
+
+`continue_from` (since 23.30) is optional: a branch the Job's worktree is cut from in place of the base, kept as the proposal's landing `from_ref`. The approval shows it, and refuses it there unless the repository holds the branch. Blank or absent is a proposal as before.
 """
 
 [operations.propose_from_request]
@@ -3464,13 +3466,15 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Starts the Scout that reads a stranded worktree slot, stops it, or scraps or stashes the slot's work and frees it, on this machine only"
 notes = """
-`POST /worktrees/slots/rescue?manifest_id=`, body `RescueSlot`: `act` is `start`, `stop`, `scrap` or `stash`, and `slot` names the stranded slot. Since 23.29. The answer, `SlotRescued`, names the branch and what the act did.
+`POST /worktrees/slots/rescue?manifest_id=`, body `RescueSlot`: `act` is `start`, `stop`, `scrap`, `stash` or `pick_up` (`pick_up` since 23.30), and `slot` names the stranded slot. Since 23.29. The answer, `SlotRescued`, names the branch and what the act did.
 
 **`start` is a Scout, and a Scout only reads.** It reads that slot's checkout, handed the change git said of it, and its Finding is kept against the slot in `slot_rescues`, so it outlives a Bridge reload and a Fleet restart. The Finding shows on the slot in `GET /worktrees`, as `WorktreeSlot.rescue`, with `state` `reading` until it ends. A Finding left reading across a Fleet restart ends as failed, keeping what it read. `docs/concepts/scout.md`, *Starting from a stranded slot*.
 
 **`scrap` and `stash` are Fleet's, never the Scout's**, and each frees the slot. `scrap` discards the uncommitted files, puts the checkout back at the base, and deletes the branch only where the base holds every commit on it; otherwise it keeps the branch and `branch_kept` says so. `stash` commits the uncommitted files to the slot's branch and pushes the branch to `origin` under its own name.
 
-**Refusals, each its own code.** All 409: `fleet.slot_not_stranded`, `fleet.slot_busy`, `fleet.rescue_reading` (a Scout is reading it, so neither a second start nor an act), `fleet.rescue_not_running` (a stop with nothing reading), `fleet.rescue_on_no_branch`, `fleet.rescue_on_the_base` and `fleet.rescue_no_remote`, the last three for a stash. A slot the pool does not have is a 422, `fleet.no_such_slot`.
+**`pick_up` is a stash, then a proposal.** It stashes as above and frees the slot, then has the Job proposer read a request made of the branch and the Finding's items, and proposes a Job whose worktree is cut from that branch (`ProposeJob.continue_from`'s landing). The answer is the stash's; the Job arrives as any dispatched request does, `job.created` and then its gate. Refused before anything changes where no Finding of the slot has items or words to carry (`fleet.rescue_unread`) or its verdict is `scraps` (`fleet.rescue_nothing_left`). Where the proposer finds no workflow that fits, the proposal fails as a dispatched request does, with the branch kept and the slot free.
+
+**Refusals, each its own code.** All 409: `fleet.slot_not_stranded`, `fleet.slot_busy`, `fleet.rescue_reading` (a Scout is reading it, so neither a second start nor an act), `fleet.rescue_not_running` (a stop with nothing reading), `fleet.rescue_on_no_branch`, `fleet.rescue_on_the_base` and `fleet.rescue_no_remote`, the last three for a stash or a pick up, and `fleet.rescue_unread` and `fleet.rescue_nothing_left` for a pick up. A slot the pool does not have is a 422, `fleet.no_such_slot`.
 
 A slot a Job still holds after it ended, because the pool refused its release (`WorktreeSlot.held.kept`), is acted on the same way, and each act ends the Job's claim on it.
 

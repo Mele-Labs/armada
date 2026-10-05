@@ -43,6 +43,7 @@ pub fn a_proposal(title: &str) -> ipc::ProposeJob {
         facts: "the reader is off by one".to_string(),
         write_targets: None,
         attachments: Vec::new(),
+        continue_from: None,
     }
 }
 

@@ -455,6 +455,11 @@ export type ProposeJob = {
    * `staged_path`, on the same machine — nothing here carries a payload.
    */
   attachments?: AttachmentRef[];
+  /**
+   * A branch the repository holds, that the Job's worktree is cut from in
+   * place of the base. Since 23.30; absent is every proposal before it.
+   */
+  continue_from?: string;
 };
 
 /**

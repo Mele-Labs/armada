@@ -76,6 +76,23 @@ fn a_proposal_with_no_attachments_key_still_decodes() {
     assert!(proposal.attachments.is_empty());
 }
 
+/// `continue_from` is 23.30's: an older caller sends none and decodes as it
+/// did, and the key is not written back where there is none.
+#[test]
+fn a_proposal_continues_from_a_branch_only_where_it_says_so() {
+    let body = br#"{"title":"fix the parser","workflow_id":"01WF","owner_manifest_id":"01MF",
+        "origin":"manual","urgency":"normal","atomic":false}"#;
+    let plain = decode::<ProposeJob>("proposal", body).expect("no key decodes");
+    assert_eq!(plain.continue_from, None);
+    let sent = serde_json::to_string(&plain).expect("encodes");
+    assert!(!sent.contains("continue_from"), "{sent}");
+
+    let body = br#"{"title":"fix the parser","workflow_id":"01WF","owner_manifest_id":"01MF",
+        "origin":"manual","urgency":"normal","atomic":false,"continue_from":"fleet/half-done"}"#;
+    let named = decode::<ProposeJob>("proposal", body).expect("the key decodes");
+    assert_eq!(named.continue_from.as_deref(), Some("fleet/half-done"));
+}
+
 /// A staged file crosses as a path, never as bytes — the same same-machine
 /// assumption `write_targets` already rests on.
 #[test]

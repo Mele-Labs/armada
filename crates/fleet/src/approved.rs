@@ -451,3 +451,22 @@ fn refused(job: &JobId, why: Refused) -> Adrift {
         why,
     }
 }
+
+/// A proposal's `continue_from`, kept as where its worktree is cut from. The
+/// approval shows it as the landing's `from_ref` and is where a branch the
+/// repository does not hold is refused, so nothing is checked here. Blank is
+/// none, and the landing is otherwise every Job's before slice 4.
+pub(crate) fn continuing_from(
+    store: &mut store::Store,
+    job: &JobId,
+    from: Option<&str>,
+) -> Result<(), Adrift> {
+    let Some(from_ref) = core_model::branch_named(from) else {
+        return Ok(());
+    };
+    let landing = Landing {
+        from_ref: Some(from_ref),
+        ..Landing::as_ever()
+    };
+    store.set_landing(job, &landing).map_err(Adrift::Writing)
+}

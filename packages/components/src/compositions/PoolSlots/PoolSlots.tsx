@@ -37,7 +37,7 @@ import { SlotSheet } from "./SlotSheet";
  *
  * A stranded bay can be rescued: a Scout reads it, and the bay offers a way
  * into its Finding, which opens in the trailing sheet where the owner Scraps or
- * Stashes it. The bay itself says only its state. Pick up is not here.
+ * Stashes it, or picks it up. The bay itself says only its state.
  */
 export type PoolSlotsProps = {
   rows: readonly PoolSlotRow[];
@@ -49,8 +49,8 @@ export type PoolSlotsProps = {
    */
   onAct?: (act: SlotAct, slot?: number) => void;
   /**
-   * Rescue a stranded slot: start or stop its Scout, or Scrap or Stash what it
-   * holds. A Scrap is sent only from its confirm, in the Finding's sheet. Absent
+   * Rescue a stranded slot: start or stop its Scout, or Scrap, Stash or Pick up what
+   * it holds. A Scrap is sent only from its confirm, in the Finding's sheet. Absent
    * draws none of the acts.
    */
   onRescue?: (act: RescueAct, slot: number) => void;
