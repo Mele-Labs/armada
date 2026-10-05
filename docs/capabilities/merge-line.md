@@ -33,6 +33,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | Nothing lands on a `main` it was not gated against | The runner's own push, never forced; a refusal gates again |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
+| A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 
 ## One turn
 
@@ -220,6 +221,31 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 **A pull request that is open is closed as merged by the push.** GitHub marks a pull request merged once its head commit is in the base branch, and the head is an ancestor of the merge. The runner waits up to `ARMADA_LAND_PR_WAIT` seconds (30) for `gh pr view` to say so, then closes it with `gh pr close` and a comment naming the merge. It waits before deleting the remote branch, because deleting the head branch of an open pull request closes it unmerged.
 
 **The remote branch is deleted only where everything on it landed**, with `git push --delete`. One holding a commit that did not land is kept, and so is its pull request, and the outcome says so.
+
+## Needs: numbers land in the order they were declared
+
+Two branches that each add a migration pick the same number, and whichever lands
+second renumbers. `armada need <path> "<what>"` (#1059,
+`.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
+the number is chosen. Each need is a file under `armada-needs/` in the git common
+directory, with its branch, path, what was said, what the branch took, and when.
+
+- **First to declare goes first.** The declarer is told which needs are ahead and
+  what each took, and picks the value after. A branch that already changes the
+  path when it declares is told to search comments and docs for its old number.
+- **The line holds a branch behind its needs.** A turn takes only entries with no
+  unspent need ahead of them; a held one stays queued with `waiting behind ...` in
+  its outcome. A runner left with only held entries ends, and the next `land`,
+  `--status` or `need --release` starts one that looks again.
+- **Spent on landing, given back when the branch is gone.** A landed branch's needs
+  are removed as it is reported landed; a need whose branch no longer exists
+  locally is removed the next time anything reads the needs.
+- **Nothing expires by time.** Whether a stalled need should is open, so a person
+  gives it back with `armada need --release <path>`, and a stalled one holds the
+  branches behind it until then. This is the cost the owner took.
+
+This is the half for agents outside Fleet. Fleet's own plan tasks, the store and
+the protocol are the other half and do not exist yet.
 
 ## Where each part goes in Fleet
 
