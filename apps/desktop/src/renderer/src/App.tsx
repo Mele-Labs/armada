@@ -137,6 +137,7 @@ import {
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
+import { WorkflowCreatorSurface, WORKFLOWS_WARNED } from "./workflow-creator";
 import { showingOf } from "./showing";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -224,6 +225,7 @@ export function App({ draft }: AppProps = {}) {
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); // Lessons, every Job's retro items. `lessons.tsx`.
+  const [workflowing, setWorkflowing] = useState(false); // The Workflow creator. `workflow-creator.tsx`.
   const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
@@ -509,6 +511,7 @@ export function App({ draft }: AppProps = {}) {
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
     setLearning(surfaceId === SURFACE.lessons);
+    setWorkflowing(surfaceId === SURFACE.workflows);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -618,6 +621,7 @@ export function App({ draft }: AppProps = {}) {
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
         <Shell
           hidden={hidden}
+          warned={WORKFLOWS_WARNED}
           connection={state.connection}
           repositories={repositories}
           listed={listed}
@@ -687,7 +691,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning,
+            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing,
           })}
           onSurface={goTo}
         >
@@ -892,7 +896,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : workflowing ? (<WorkflowCreatorSurface {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
