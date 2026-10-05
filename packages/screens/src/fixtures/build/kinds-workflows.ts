@@ -12,6 +12,7 @@
 
 import type { DeclaredCheck, WorkflowSummary } from "@armada/protocol";
 import { MANIFEST_ID } from "./base";
+import { aboutOf } from "./step-about";
 import type { StepPhase } from "@armada/protocol";
 
 type Step = WorkflowSummary["steps"][number];
@@ -37,7 +38,13 @@ function step(
 }
 
 function summary(id: string, name: string, steps: Step[]): WorkflowSummary {
-  return { id, name, version: 1, manifest_id: MANIFEST_ID, steps };
+  return {
+    id,
+    name,
+    version: 1,
+    manifest_id: MANIFEST_ID,
+    steps: steps.map((one) => ({ ...one, ...aboutOf(id, one.step_id) })),
+  };
 }
 
 export function bugWorkflow(checks: DeclaredCheck[]): WorkflowSummary {

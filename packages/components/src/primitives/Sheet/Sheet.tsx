@@ -157,6 +157,13 @@ export type SheetProps = SheetWidth & {
    */
   beside?: string;
   /**
+   * The ground behind stays pressable: the scrim dims nothing and takes no
+   * press, so a press on the surface it covers still lands there. The approval
+   * canvas's, where pressing another node swaps the open panel to that node.
+   * Close and `Esc` still close it. Absent is every other sheet.
+   */
+  through?: boolean;
+  /**
    * Another layer lies over this one and takes `Esc` first. Both bind on
    * `window` in the capture phase, where the first one opened runs first, so
    * the one underneath has to be told to wait.
@@ -206,6 +213,7 @@ export function Sheet({
   bodyRef,
   contained = false,
   beside,
+  through = false,
   kind,
   width,
   onResize,
@@ -329,6 +337,7 @@ export function Sheet({
       data-contained={(contained && !floating) || undefined}
       data-floating={floating || undefined}
       data-beside={(floating && beside !== undefined) || undefined}
+      data-through={through || undefined}
     >
       {resizes && side === "right" ? handle : null}
       <div
@@ -342,7 +351,7 @@ export function Sheet({
         role="dialog"
         // Beside another sheet, the pair is the one modal layer: marking both
         // modal would hide each from the other.
-        aria-modal={floating && beside !== undefined ? undefined : "true"}
+        aria-modal={(floating && beside !== undefined) || through ? undefined : "true"}
         aria-label={title}
       >
         <div className="armada-sheet__head">

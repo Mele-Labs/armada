@@ -889,7 +889,7 @@ The most of the file `armada.yml`'s `standing_rules` names that one Judge brief 
 [settings.judge-read-turns]
 name = "Judge read turns"
 scope = "Machine"
-default = "8"
+default = "16"
 lifetime = "Daemon start"
 merge_strategy = "n/a — single layer"
 peer_polarity = "Lower is stricter"
@@ -897,6 +897,8 @@ owner = "Judge"
 read_by = "fleet"
 notes = """
 How many turns one Judge call may take, its reads of the repository's checkout and its answer together — `--max-turns` on the call. Decided 2 Oct 2026, when the Judge was let read the repository so it learns what a repository requires of a change the way a Drone does. `JUDGE_READ_TURNS` in `crates/fleet/src/judging.rs`.
+
+**Sixteen, raised from eight on 5 Oct 2026.** A Judge on a plan step ran out at eight (`Reached max turns (8)`), the call failed, and the step stopped on `gate_undecided` with the work never judged. The reasoning below was the first judgement and it was too tight; the cap still bounds a Judge that explores instead of looking something up.
 
 **Eight, a judgement and not a measurement.** A lookup is reading the repository's instructions for agents, a search or two for the doc it points at, reading one to three of them, and answering: five to seven turns, and reads asked together in one turn count once. Eight leaves one spare. Fewer would cut a Judge off mid-lookup, and a call that runs out of turns fails rather than answers — `CallFailed::Refused`, which is never a verdict. More is a Judge exploring rather than looking something up, and every turn is paid on every criterion times `panel_size` at a gate a person is waiting behind, under `PROVISIONAL_JUDGE_BUDGET`'s 120 seconds.
 

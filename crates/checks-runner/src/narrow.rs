@@ -301,9 +301,30 @@ pub fn run_changed(template: &str, dir: Option<&str>, files: &[String]) -> Optio
     Some(command.replace("{files}", &spelled))
 }
 
+/// Repository-root paths made relative to the `dir` a runner's template runs
+/// from, and the ones that are not under it, unchanged.
+///
+/// `run_changed` takes dir-relative files; this is the one conversion.
+pub fn relative_to_dir(dir: &str, touched: &[String]) -> (Vec<String>, Vec<String>) {
+    let dir = dir.trim_end_matches('/');
+    let mut inside = Vec::new();
+    let mut outside = Vec::new();
+    for path in touched {
+        match path
+            .trim()
+            .strip_prefix(dir)
+            .and_then(|r| r.strip_prefix('/'))
+        {
+            Some(rest) if !rest.is_empty() => inside.push(rest.to_string()),
+            _ => outside.push(path.clone()),
+        }
+    }
+    (inside, outside)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::run_changed;
+    use super::{relative_to_dir, run_changed};
 
     const VITEST: &str = "pnpm --dir {dir} exec vitest related {files} --run";
 
@@ -369,6 +390,28 @@ mod tests {
         assert_eq!(
             run_changed("pytest {files}", None, &paths(&["t/a.py"])),
             Some("pytest t/a.py".to_string())
+        );
+    }
+
+    #[test]
+    fn paths_are_made_relative_to_the_dir_at_a_segment_boundary() {
+        let touched = paths(&["apps/desktop/src/a.tsx", "apps/desktop-x/b.ts", "docs/c.md"]);
+        assert_eq!(
+            relative_to_dir("apps/desktop/", &touched),
+            (
+                paths(&["src/a.tsx"]),
+                paths(&["apps/desktop-x/b.ts", "docs/c.md"])
+            )
+        );
+    }
+
+    #[test]
+    fn a_dir_with_a_space_stays_one_quoted_argument() {
+        let (inside, _) = relative_to_dir("my apps/desk", &paths(&["my apps/desk/src/a.ts"]));
+        let made = run_changed(VITEST, Some("my apps/desk"), &inside).expect("it narrows");
+        assert_eq!(
+            made,
+            "pnpm --dir \"my apps/desk\" exec vitest related src/a.ts --run"
         );
     }
 }

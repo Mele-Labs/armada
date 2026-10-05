@@ -600,12 +600,12 @@ notes = "Read `failed a check` on `shield-x` until the Judge existed, then `refu
 in_code = "In code"
 
 [verbs.escalation_reason.gate_undecided]
-verb = "the gate could not decide"
+verb = "the Judge did not answer"
 icon = "circle-minus"
 status_token = "--status-escalated"
 vocabulary = "Escalation reason"
 in_code = ""
-notes = "The verb says the gate could not decide rather than that the work failed, which is the whole distinction the trigger carries: `stopped at the gate` is `gate_failure`'s and says the opposite about the same step: that one ran and answered. What could not be read is on the Job's log as `artifact`, and the badge does not try to hold it. `circle-minus`, registered for this trigger on 2026-08-31 and wired here. The shield-* family is reserved to gates and Checks, so the natural candidate sat there — `packages/icons/icons.toml` took the circle-* name back into the Judge family instead, where this is a third outcome beside met and not_met: the Judge could not read the artifact at all, which is neither verdict rendered badly. Drawn in `--fg-subtle` rather than either verdict hue, because the criterion went unjudged rather than judged. `in_code` is empty because there is no source value to carry: the row was authored here."
+notes = "The verb says the Judge did not answer rather than that the work failed, which is the whole distinction the trigger carries: `stopped at the gate` is `gate_failure`'s and says the opposite about the same step: that one ran and answered. What could not be read is on the Job's log as `artifact`, and the badge does not try to hold it. `circle-minus`, registered for this trigger on 2026-08-31 and wired here. The shield-* family is reserved to gates and Checks, so the natural candidate sat there — `packages/icons/icons.toml` took the circle-* name back into the Judge family instead, where this is a third outcome beside met and not_met: the Judge could not read the artifact at all, which is neither verdict rendered badly. Drawn in `--fg-subtle` rather than either verdict hue, because the criterion went unjudged rather than judged. `in_code` is empty because there is no source value to carry: the row was authored here."
 
 [verbs.escalation_reason.hatch_unbidden]
 verb = "stalled"

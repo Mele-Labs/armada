@@ -371,14 +371,15 @@ fn going_quiet_offers_exactly_what_churning_offers() {
     );
 }
 
-/// A gate that could not decide is asked again, and is never overruled: there
-/// is no ruling to disagree with.
+/// A gate that could not decide is offered both: asked again, or overruled by
+/// a person who deems the step did what it needs. The owner reversed the old
+/// refusal on 2026-10-05.
 #[test]
-fn an_undecided_gate_is_rerun_and_not_overruled() {
+fn an_undecided_gate_is_rerun_or_overruled() {
     let stuck = classify(&stopped_on(EscalationTrigger::GateUndecided), all_there());
 
     assert!(stuck.admits(Recourse::RerunGate));
-    assert!(!stuck.admits(Recourse::OverrideVerdict));
+    assert!(stuck.admits(Recourse::OverrideVerdict));
 }
 
 /// The re-run needs the slot Fleet is standing in, because the baseline the
@@ -390,7 +391,12 @@ fn a_gate_rerun_needs_the_slot_that_holds_the_baseline() {
     assert!(!stuck.admits(Recourse::RerunGate));
     assert_eq!(
         stuck.recourse(),
-        [Recourse::RestartStep, Recourse::Redispatch]
+        [
+            Recourse::OverrideVerdict,
+            Recourse::RestartStep,
+            Recourse::Redispatch
+        ],
+        "an override needs no Drone, so it stays when the re-run goes"
     );
 }
 
