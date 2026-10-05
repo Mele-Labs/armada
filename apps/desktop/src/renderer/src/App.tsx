@@ -103,6 +103,8 @@ import {
   readCheckOutput,
   readBrief,
   readRetro,
+  agreeLesson,
+  disagreeLesson,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -747,6 +749,8 @@ export function App({ draft }: AppProps = {}) {
                   onReadCheckOutput={readCheckOutput}
                   onReadBrief={readBrief}
                   onReadRetro={readRetro}
+                  onAgreeLesson={agreeLesson}
+                  onDisagreeLesson={disagreeLesson}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}
@@ -837,7 +841,7 @@ export function App({ draft }: AppProps = {}) {
                   onAddTask={commands.addTask}
                   onDropTask={commands.dropTask}
                   onMovePlan={commands.movePlan}
-                  onEditJob={commands.editJob}
+                  onEditJob={commands.editJob} onSetLandingTarget={commands.setLandingTarget} onToProposer={commands.toProposer}
                   onShowAgain={showAgain}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
@@ -893,7 +897,7 @@ export function App({ draft }: AppProps = {}) {
                 />
               </Boundary>
             ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : workflowing ? (<WorkflowCreatorSurface {...guarded} />) : learning ? (
-              <LessonsSurface repository={state.repository} {...guarded} />
+              <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has

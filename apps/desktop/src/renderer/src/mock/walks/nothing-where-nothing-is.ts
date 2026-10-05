@@ -4,12 +4,12 @@
 // been recorded.", "No Drone has submitted evidence on this Job.", "Reading the machine.",
 // "Ask Helm about this repository.") now draws nothing. Facts and failures still speak.
 
-import { button, region, role, tab, walk } from "../walk";
+import { button, card, region, role, tab, walk } from "../walk";
 
 export const nothingWhereNothingIs = walk("arc/proposing-reading", [
-  { look: region("Brief"), say: "Brief: nothing written yet, and no sentence saying so" },
-  { look: region("Workflow"), say: "Workflow: none chosen yet, so the head alone" },
-  { look: region("Plan"), say: "Plan: none recorded yet, the head alone again" },
+  // On the canvas, the whole Overview since 4 Oct 2026.
+  { look: card("Brief"), say: "Brief: nothing written yet, and no sentence saying so" },
+  { look: region("This Job's run"), say: "No workflow chosen, no plan recorded: no steps, and nothing standing in" },
   { press: tab("Workflow"), say: "The Workflow tab" },
   { look: role("tabpanel", "Workflow"), say: "No steps to draw, and nothing standing in for them" },
   { press: tab("Record"), say: "The Record" },

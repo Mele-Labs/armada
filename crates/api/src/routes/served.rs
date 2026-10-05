@@ -330,6 +330,19 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/lessons",
     },
+    // A person's answer to one item. Under `/lessons`, by the item's own id,
+    // because the item is what is acted on and its Job is only where it came
+    // from.
+    Route {
+        operation: "agree_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/agree",
+    },
+    Route {
+        operation: "disagree_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/disagree",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the
@@ -444,6 +457,13 @@ const ROUTES: &[Route] = &[
         operation: "list_left_out_workflows",
         method: "GET",
         path: "/workflows/left_out",
+    },
+    // The act in the last segment, beside `/manifest/save_file`'s. Under
+    // `/workflows` with the reads, since what it writes is what they list.
+    Route {
+        operation: "save_workflow",
+        method: "POST",
+        path: "/workflows/save",
     },
     Route {
         operation: "list_manifests",

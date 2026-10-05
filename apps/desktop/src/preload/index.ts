@@ -13,6 +13,7 @@ import type { Pattern } from "../shared/haptics";
 import type {
   CheckOutputRead,
   BriefRead,
+  LessonAnswer,
   LessonsRead,
   RetroRead,
   FrameRead,
@@ -27,7 +28,7 @@ import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
-import type { ApproveDispatch, BranchesRead } from "@armada/protocol";
+import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
 import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
@@ -158,6 +159,10 @@ const api: BridgeApi = {
 
   editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
+  toProposer: (jobId: string, body: ToProposer): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.toProposer, jobId, body),
+  setLandingTarget: (jobId: string, target: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.setLandingTarget, jobId, target),
 
   // The disk, never the record — every row this reaches stays on the board,
   // under `Cleared`. One entry taking every id rather than a loop of
@@ -512,12 +517,15 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
-  // A Job's retro and the Lessons listing, read when a surface opens and on focus. Read-only:
-  // nothing here files, proposes or writes a retro, and nothing anywhere does.
+  // A Job's retro and the Lessons listing, read when a surface opens and on focus.
   readRetro: (jobId: string): Promise<RetroRead> =>
     ipcRenderer.invoke(CHANNELS.readRetro, jobId),
-  readLessons: (): Promise<LessonsRead> =>
-    ipcRenderer.invoke(CHANNELS.readLessons),
+  readLessons: (state: "open" | "accepted"): Promise<LessonsRead> =>
+    ipcRenderer.invoke(CHANNELS.readLessons, state),
+  // The owner's answer to one retro item, by its id. Each is one operation, not a channel.
+  agreeLesson: (lessonId: string): Promise<LessonAnswer> => ipcRenderer.invoke(CHANNELS.agreeLesson, lessonId),
+  disagreeLesson: (lessonId: string): Promise<LessonAnswer> =>
+    ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for

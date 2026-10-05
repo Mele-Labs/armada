@@ -59,6 +59,12 @@ const NOT_THE_WORK: &str = "Read(./.armada/**)";
 /// row was decided.
 const PROPOSER_MODEL: &str = "haiku";
 
+/// The model a Job's retro is written on. **Named rather than derived**, and
+/// held to the roster by a test: the owner chose the middle tier over the cheap
+/// one on 4 Oct 2026, after the cheap one wrote a retro he rejected. It is
+/// `crates/config/settings.toml`'s `retro-model` row.
+const RETRO_MODEL: &str = "sonnet";
+
 /// The model a judged gaming flag is read a second time on. **Named rather than
 /// derived**, and held to the roster by a test: stronger than the first look's,
 /// and paid only where a flag was raised.
@@ -94,6 +100,11 @@ impl HeadlessAgent {
     /// The model a dispatch request is read by when nothing names one.
     pub fn proposer_model() -> &'static str {
         PROPOSER_MODEL
+    }
+
+    /// The model a Job's retro is written on.
+    pub fn retro_model() -> &'static str {
+        RETRO_MODEL
     }
 
     /// The model a judged gaming flag is read a second time on.

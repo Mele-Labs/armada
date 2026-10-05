@@ -319,6 +319,19 @@ where
         })
     }
 
+    /// What writing a Job's retro needs: [`Fleet::explaining`]'s client,
+    /// budget and environment, on the retro's own dial.
+    ///
+    /// **Not the Judge's model.** A retro is read by a person, once per ended
+    /// Job, and the cheap tier's was rejected, so it is `retro_model` and a
+    /// machine can raise or lower it without moving a Judge's.
+    pub(crate) fn writing_retros(&self) -> Result<Explaining, SpawnConfigRefused> {
+        Ok(Explaining {
+            model: self.retro_model.clone(),
+            ..self.explaining()?
+        })
+    }
+
     /// What the dispatch path needs in order to be watched while it asks.
     ///
     /// **Beside `proposing` rather than inside it**, because the two answer

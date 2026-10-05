@@ -18,6 +18,7 @@
 
 mod admitted;
 mod adopting;
+mod agreeing;
 mod aiming;
 mod allowance;
 mod always_allow;
@@ -28,6 +29,7 @@ mod asking;
 mod at_once;
 mod attachments;
 mod attribution;
+mod authoring;
 mod auto_merging;
 mod basing;
 mod boundary;

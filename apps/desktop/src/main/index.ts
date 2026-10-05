@@ -8,7 +8,7 @@ import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { ChangeSlotPool, Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch } from "@armada/protocol";
 import type {
   Artifact,
@@ -536,6 +536,12 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
     connection?.commands.editJob(jobId, edit),
   );
+  ipcMain.handle(CHANNELS.toProposer, (_event, jobId: string, body: ToProposer) =>
+    connection?.commands.toProposer(jobId, body),
+  );
+  ipcMain.handle(CHANNELS.setLandingTarget, (_event, jobId: string, target: string) =>
+    connection?.commands.setLandingTarget(jobId, target),
+  );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person
   // wants the space back. Every row stays on the board afterwards, under
@@ -656,6 +662,11 @@ void app.whenReady().then(() => {
         instruction,
         typeof droneId === "string" ? droneId : undefined,
       ),
+  );
+  // The owner's answer to one retro item. Both are acts on the item and not on a Job.
+  ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
+  ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
+    connection?.commands.disagreeLesson(lessonId),
   );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),
@@ -821,8 +832,11 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
   // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
   ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
-  ipcMain.handle(CHANNELS.readLessons, (event) =>
-    connection?.readLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
+    connection?.readLessons(
+      connection.repositories.pickedByWindow.of(windowIdOf(event)),
+      state === "accepted" ? "accepted" : "open",
+    ),
   );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>

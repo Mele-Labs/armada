@@ -267,6 +267,10 @@ pub struct Fittings<H, V, W> {
     /// — this call fires on every dispatch rather than on every criterion, so
     /// the two are raised for different reasons and at different prices.
     pub proposer_model: Model,
+    /// What a Job's retro is written on. **Its own dial**: a retro is one call
+    /// per ended Job, read by a person, and raised for neither of the others'
+    /// reasons.
+    pub retro_model: Model,
     /// What a request's own link resolves to, before it becomes a Job's
     /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
     /// reason: rendering cannot fail, so nothing about it needs to be generic.
@@ -363,6 +367,7 @@ where
             judge_model: fittings.judge_model,
             second_opinion_model: fittings.second_opinion_model,
             proposer_model: fittings.proposer_model,
+            retro_model: fittings.retro_model,
             links: fittings.links,
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,

@@ -21,11 +21,22 @@ const NOT_SET_UP: RepositorySummary = { root: "/Users/user/scratch", records_roo
 const RETRO: JobRetro = {
   job_id: "01K6JOB",
   state: "written",
-  items: [{ who: "drone", statement: "The armada.yml edit was refused.", evidence: ["refusal:1"] }],
+  items: [{ id: "01K7I", who: "drone", statement: "The armada.yml edit was refused.", evidence: ["refusal:1"] }],
   record: { refusals: [{ cite: "refusal:1", at: "2026-10-02T10:00:00Z", tool: "write_file" }] },
 };
 const LESSONS: Lessons = {
-  lessons: [{ job_id: "01K6JOB", handle: "fix", at: "2026-10-02T11:00:00Z", who: "owner", statement: "Waited.", evidence: [] }],
+  lessons: [
+    {
+      id: "01K7L",
+      job_id: "01K6JOB",
+      handle: "fix",
+      at: "2026-10-02T11:00:00Z",
+      who: "owner",
+      statement: "Waited.",
+      evidence: [],
+      state: "open",
+    },
+  ],
 };
 
 let listening: Server | null = null;
@@ -76,6 +87,19 @@ describe("retro and lessons reads", () => {
     expect(await lessonsOf(port, pickedAt(null))).toEqual({ ok: true, lessons: LESSONS.lessons });
     expect(await lessonsOf(port, pickedAt(SET_UP.root))).toEqual({ ok: true, lessons: LESSONS.lessons });
     expect(asked).toEqual(["/lessons bridge", "/lessons?manifest_id=store-01 bridge"]);
+  });
+
+  it("asks for the saved items with state=accepted, and for the open ones with no state at all", async () => {
+    const asked: string[] = [];
+    const port = await fleet(asked, LESSONS);
+    await lessonsOf(port, pickedAt(null), "open");
+    await lessonsOf(port, pickedAt(null), "accepted");
+    await lessonsOf(port, pickedAt(SET_UP.root), "accepted");
+    expect(asked).toEqual([
+      "/lessons bridge",
+      "/lessons?state=accepted bridge",
+      "/lessons?manifest_id=store-01&state=accepted bridge",
+    ]);
   });
 
   it("asks nothing for a repository with no Manifest, which has no Jobs to have lessons", async () => {

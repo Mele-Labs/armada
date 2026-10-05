@@ -43,6 +43,8 @@ pub mod asking;
 pub mod at_step;
 /// The four narrowings of the board, and the one rule each is.
 mod attention;
+/// Saving a workflow definition, and reading the workflow folders again.
+mod authoring;
 pub mod basing;
 mod boundary;
 pub mod briefing;

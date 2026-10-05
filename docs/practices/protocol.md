@@ -2823,15 +2823,101 @@ refused, which is the skew rule's own direction.
 | What the answer replaces | Title, workflow, steps, criteria, urgency and the rest `Job::answered` freezes, whole |
 | The person's tuning | Carried to every step whose id the new workflow has; the rest is dropped and logged |
 | The person's landing | Carried as it stands; one the repository will not take is dropped and logged |
-| A split | Each Job comes to the gate on its own with the matching tuning; the extras name the head |
+| A split | **The whole split goes back together**, from any one of its Jobs. The proposer answers once and its answer replaces the group (below); each Job comes to the gate on its own with the matching tuning |
 | A call that fails | The proposal is put back as it was, and the refusal is the proposer's |
 
+**A split goes back whole, so no sibling is stranded.** The group is the head and every extra
+naming it, by number. The answer is laid over it in order: the head and the old extras are kept as
+the same Jobs and rewritten whole, an answer with more Jobs makes the rest as new extras of the
+head, and an answer with fewer ends the old extras it has no place for, killed with a line in their
+logs saying the revised proposal replaced them. Every rewrite is read before any is written. A call
+that cannot be read puts every Job of the group back as it was.
+
 **Refused, moving nothing:** 409 `fleet.proposal_frozen` off the gate; 422
-`fleet.unacceptable_proposal` on a blank note, on a Job that is one of a split or was split (its
-siblings would be left behind), and on a tuning or landing the proposal in front of the person cannot
-take. **Store**: no migration. `record_answered` clears the step and write-target rows a revised
+`fleet.unacceptable_proposal` on a blank note, on a Job of the group that is not at its gate (the
+message names it and its status, and nothing goes back), on a Job dispatched by an Epic's plan step,
+which the Epic's plan owns, and on a tuning or landing the proposal in front of the person cannot
+take. The tuning and landing in the body are laid on every Job the answer makes. **Store**: no migration. `record_answered` clears the step and write-target rows a revised
 answer replaces, and the rebuild replays `awaiting_approval -> proposing` and the answer back
 through the machine, from the columns the last answer wrote.
+## Protocol 23.27: a retro item says where it stands
+
+The owner, 5 Oct 2026. The Retro sheet in Bridge offered Agree and Disagree on an item already
+answered from the Lessons list, because `get_job_retro` carried no answer state.
+
+**Additive.** Two optional fields, with the names and types `Lesson` already has.
+
+| Change | Where | Absent or older |
+| --- | --- | --- |
+| `state` | `RetroItem` | Only on an item whose row has no answer record, read as before |
+| `job_proposed` | `RetroItem` | Absent until agreeing proposed a Job for the item |
+
+Both are read from the rows `list_lessons` reads. A 23.26 Bridge ignores them.
+
+## Protocol 23.26: a retro item has parts, and a person answers it
+
+The owner, 4 Oct 2026, after Job 3's retro was rejected as prose nobody could act on and wrong
+about whose fault it was. `../concepts/retro.md`, *Items* and *Agree and disagree*, is the concept.
+
+**All additive.** Two routes, one query parameter and a handful of optional fields.
+
+| Change | Where | Absent or older |
+| --- | --- | --- |
+| `id` | `RetroItem`, `Lesson` | Always present: the Job's id, a hyphen and the item's place in its retro |
+| `title`, `what`, `fix` | `RetroItem`, `Lesson` | An item kept before 23.26, which has `statement` alone |
+| `state` | `Lesson` | Always present: `open`, `agreed`, `accepted` or `discarded`. Every item kept before starts `open` |
+| `job_proposed` | `Lesson` | Absent until agreeing proposed a Job for the item |
+| `paths` | `RecordCheck` | A failure that names no file, or one the Drone ran itself |
+| `GET /lessons?state=` | `list_lessons` | Absent is `open`; any other word than the four is a 400 |
+| `POST /lessons/:lesson_id/agree` | `agree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
+| `POST /lessons/:lesson_id/disagree` | `disagree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
+
+**`statement` stays**, and on an item written since 23.26 it repeats `what`, so a Bridge that
+predates the parts still has a sentence to draw. **The listing's default changed in meaning, not in
+shape**: before 23.26 it listed every item, and it now lists the `open` ones. A 23.22 Bridge
+never answers an item, so every item it reads is open and it sees no difference.
+
+**Agreeing**, by where the fix lands. `manifest` proposes a Job at the approval gate on the
+repository the item's own Job worked on, and `armada` on Armada's own repository, the Manifest
+named `armada`. Both go through `propose_from_request`, with the item as the request. `kit`
+proposes nothing and the state becomes `accepted`. An item that is not `open` answers with the
+state it stands in and proposes nothing, so agreeing twice makes one Job.
+
+| Refused | Code |
+|---|---|
+| No item has that id | 404 `fleet.no_such_lesson` |
+| An item kept before 23.15, which names no place its fix lands | 422 `fleet.lesson_names_no_place` |
+| A fix in Armada, where this Fleet does not serve the Manifest `armada` | 422 `fleet.lesson_armada_not_served` |
+
+A refusal from the proposer itself is returned as it is, and the item is open again.
+**Disagreeing** keeps the row as `discarded` and never takes back a Job already proposed.
+
+**Store V105** adds `title`, `what`, `fix`, `state` and `job_proposed` to `job_retro_items`. Existing
+rows read `open`.
+
+**The record gains a fact.** A gate failure that names a file carries `paths`, each file with
+`named_in_drone_calls`: whether a tool call of the step's Drones names it. `false` says the failure
+did not come from the Drone's own calls. It is handed to the retro call and drawn nowhere.
+
+**The retro is written on its own model.** `ARMADA_RETRO_MODEL` overrides it and the default is
+`sonnet`, from `crates/config/settings.toml`'s `retro-model`. The Judge's dial is not moved.
+
+## Protocol 23.28: a workflow definition saved, and the folders read again
+
+The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating it, in the repository or in Kit.
+
+**A route and its types, additive.** `POST /workflows/save`, `save_workflow`, takes `SaveWorkflow { scope, definition, overwrite? }` and answers `WorkflowSaved { workflow_id, scope, file, replaced, runs_from? }`, `scope` being `repository` or `kit`. `LeftOutWorkflow.source` may now read `repository`, where it read only `armada` or `kit`: a Fleet that was already running set a repository's own file aside. A 23.27 Bridge has no such route, and a 23.28 Bridge behind it is refused, which is the skew rule's own direction.
+
+| What | How |
+|---|---|
+| The definition is checked | `config::fit`: parsed against the machine's models, resolved against the Manifest |
+| A definition that does not fit | 422 `fleet.workflow_unfit` with the loader's sentence; nothing is written |
+| An id that cannot be a file's name | 422 `fleet.workflow_id_not_a_name` |
+| An id the scope already holds, no `overwrite` | 422 `fleet.workflow_exists`, naming the file |
+| A file that cannot be written | 500 `fleet.workflow_unwritable` |
+| Held | Before the answer, and again after any hand edit to either folder, by a watch on both folders, with `armada.yml`'s settle window |
+
+**No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again. The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
 
 ## Open questions
 

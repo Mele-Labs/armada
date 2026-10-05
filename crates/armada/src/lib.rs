@@ -37,6 +37,7 @@
 //! shim over it.
 
 pub mod agent;
+pub mod authoring;
 pub mod clean;
 pub mod cli;
 pub mod declared;
@@ -55,7 +56,7 @@ pub mod watching;
 mod tests;
 
 pub use agent::{
-    agent_binary, judge_model, model_choices, proposer_model, second_opinion_model, NoSuchAgent,
-    AGENT_BINARY, JUDGE_MODEL, MODEL, PROPOSER_MODEL,
+    agent_binary, judge_model, model_choices, proposer_model, retro_model, second_opinion_model,
+    NoSuchAgent, AGENT_BINARY, JUDGE_MODEL, MODEL, PROPOSER_MODEL, RETRO_MODEL,
 };
 pub use setup::{Setup, SetupRefused};

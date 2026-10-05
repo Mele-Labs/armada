@@ -21,7 +21,7 @@ import {
   BookOpen,
   Briefcase,
   FileCog,
-  GraduationCap,
+  Rewind,
   HardDrive,
   LayoutDashboard,
   Merge,
@@ -188,12 +188,12 @@ export const SURFACES: readonly PaletteSurface[] = [
   },
   {
     id: SURFACE.lessons,
-    label: "Lessons",
+    label: "Retros",
     // Past the ninth, so no key; reached by the rail and by name.
     shortcut: digitOf(SURFACE.lessons),
     // What each item is, in `docs/concepts/retro.md`'s word.
-    aliases: ["retro", "retros"],
-    icon: GraduationCap,
+    aliases: ["retro"],
+    icon: Rewind,
   },
   {
     id: SURFACE.workflows,

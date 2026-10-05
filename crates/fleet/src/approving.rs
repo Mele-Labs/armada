@@ -90,9 +90,15 @@ pub enum Refused {
     BlankModel,
     /// A note for the proposer that says nothing.
     NoNote,
-    /// The Job is one of a split, or was split: its siblings are at their own
-    /// gates, and a rewrite would leave them behind.
-    SplitAlready,
+    /// The Job was dispatched by an Epic's plan step, whose plan owns it.
+    WaveMember,
+    /// A Job of the same split is not at its gate, so the split cannot go back
+    /// to the proposer together, and none of it does.
+    SiblingPastItsGate {
+        sibling: String,
+        title: String,
+        status: JobStatus,
+    },
     /// `local` with `auto_merge`: nothing opens a pull request to merge.
     NothingToAutoMerge,
     /// A step's tuning nothing could honour.
@@ -165,10 +171,20 @@ impl fmt::Display for Refused {
             Refused::NoCap => write!(out, "a drone cap of zero lets the job run nothing"),
             Refused::BlankModel => write!(out, "a tier names a blank model"),
             Refused::NoNote => write!(out, "a note for the proposer says nothing"),
-            Refused::SplitAlready => write!(
+            Refused::WaveMember => write!(
                 out,
-                "this job is one of a split, or was split, and its siblings are at their own \
-                 gates, so a rewrite would leave them behind"
+                "this job belongs to an Epic's wave, which the Epic's plan owns, so it is not \
+                 sent back on its own"
+            ),
+            Refused::SiblingPastItsGate {
+                sibling,
+                title,
+                status,
+            } => write!(
+                out,
+                "`{title}` ({sibling}), which was proposed together with this one, is {} and not \
+                 awaiting_approval, so the split cannot go back to the proposer together",
+                status.as_wire()
             ),
             Refused::NothingToAutoMerge => write!(
                 out,

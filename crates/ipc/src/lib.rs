@@ -231,10 +231,11 @@ pub use drones::{DroneDetail, DroneList, DroneState, DroneSummary, JobDrone, Job
 pub use editing::{ManifestFile, ManifestSaved, SaveManifestFile};
 pub use enums::{
     Actor, AdvanceGate, BudgetHold, CheckOutcome, CriterionSource, DependencyDirection,
-    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, ManifestReach,
-    Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption, ScoutSourceKind, Side,
-    StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding, StudioNodeKind, StudioNodeState,
-    StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency, Via, Whose,
+    DronePresence, EvidenceType, GroupState, JobStatus, JudgeVerdict, LandsIn, LessonState,
+    ManifestReach, Origin, PrMode, QueuedReason, ReachesDrones, Recourse, Resumption,
+    ScoutSourceKind, Side, StepState, StudioAuthor, StudioEdgeKind, StudioEdgeStanding,
+    StudioNodeKind, StudioNodeState, StudioRelation, TaskState, TaskTier, TopLevelOrigin, Urgency,
+    Via, Whose,
 };
 pub use error::{RunId, WireError, WireValue};
 pub use event::{
@@ -325,8 +326,8 @@ pub use resources::{
 };
 pub use retro::{
     AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
-    RecordAsked, RecordCheck, RecordNotMet, RecordRefusal, RecordSaid, RecordWaited, RetroItem,
-    RetroRecord, RetroState, RetroWritten,
+    RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
+    RetroAnswered, RetroItem, RetroRecord, RetroState, RetroWritten,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
@@ -343,7 +344,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, StepPhase, WorkflowStep, WorkflowSummary,
+    LeftOutWorkflow, ManifestSummary, ModelChoices, SaveWorkflow, StepPhase, WorkflowSaved,
+    WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};

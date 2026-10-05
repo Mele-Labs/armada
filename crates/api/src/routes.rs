@@ -113,6 +113,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/workflows/left_out",
             get(crate::repositories::list_left_out_workflows::<D>),
         )
+        .route(
+            "/workflows/save",
+            post(crate::repositories::save_workflow::<D>),
+        )
         .route("/manifests", get(list_manifests::<D>))
         .route("/repositories", get(list_repositories::<D>))
         .route("/repositories/add", post(add_repository::<D>))
@@ -192,6 +196,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_job_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/agree",
+            post(crate::retros::agree_lesson::<D>),
+        )
+        .route(
+            "/lessons/:lesson_id/disagree",
+            post(crate::retros::disagree_lesson::<D>),
+        )
         .route("/jobs/:job_id/evidence", get(get_evidence::<D>))
         .route("/jobs/:job_id/diff", get(get_diff::<D>))
         .route("/jobs/:job_id/remarks", get(get_remarks::<D>))

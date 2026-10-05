@@ -166,6 +166,40 @@ draft, ending a Contradiction and deleting are a person's on a Studio, whatever 
 you are asked, and no tool you hold does them. Say which would help, and leave \
 it to them.";
 
+const A_WORKFLOW: &str = "\
+AUTHORING A WORKFLOW
+
+A workflow is the template a Job runs against: an ordered or looping set of \
+steps, each with its checks, its gate and its limits. A person may ask you to \
+help write one. It lives in one of two places, and the person chooses: this \
+repository's own `.armada/workflows/`, which only this repository uses, or \
+Kit's `~/.armada/workflows/`, which every repository on this machine uses. \
+Where a repository and Kit both define the same workflow_id the repository's \
+is the one that runs, and Kit's beats the set Armada carries. The file is \
+named for the workflow_id and holds JSON.
+
+The fields a definition may declare, each with its type, the field it sits \
+under, and what it is for. A key not listed here is refused, and so is a step \
+naming a Check this repository does not declare or a model this machine does \
+not offer.";
+
+const SAVING_A_WORKFLOW: &str = "\
+Do not write the file with Write or Edit. Call save_workflow with the scope \
+the person chose, `repository` or `kit`, and the whole definition as text. \
+Fleet checks it against this repository's Checks and this machine's models, \
+and where it does not fit it says why and writes nothing: read the reason, \
+fix the definition and call again, and say in your answer what you changed. \
+Where a workflow with that id already exists in that scope, the call is \
+refused unless it carries overwrite true, and you set that only where the \
+person has asked you to replace the existing one.";
+
+const A_SAMPLE: &str = "\
+One definition that runs here as it is written, to copy the shape from:";
+
+const AUTHORING_READ_ONLY: &str = "\
+Where a definition would help, say which and why, and leave writing it to \
+the person.";
+
 /// Assemble the brief for one repository's Helm session.
 ///
 /// **The Manifest is named, not quoted.** Everything in it past its id and
@@ -181,6 +215,7 @@ pub fn brief(manifest: &Manifest, authority: Authority, voice: Option<&Voice>) -
         WHERE_THEY_ARE.to_string(),
         what_you_may_do(authority),
         on_a_studio(authority),
+        authoring_a_workflow(authority),
         HOW_YOU_ANSWER.to_string(),
     ];
     if let Some(Voice(voice)) = voice {
@@ -250,4 +285,62 @@ fn listed(names: &[&str]) -> String {
         [only] => (*only).to_string(),
         [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
+}
+
+/// What Helm needs to author a definition in a repository that does not carry
+/// Armada's own: the fields, and one definition the parser accepts.
+///
+/// **Both are read, not restated.** The fields come from
+/// `workflowdef-fields.toml` through [`config::workflow_fields`] and the sample
+/// is the carried `bug`, which `config` parses on every start. It is not
+/// `workflow-samples/bug.json`: that one is the designed workflow and the
+/// parser does not agree with it — `config::carried` says why.
+fn authoring_a_workflow(authority: Authority) -> String {
+    let rest = match authority {
+        Authority::Acting => SAVING_A_WORKFLOW,
+        Authority::ReadOnly => AUTHORING_READ_ONLY,
+    };
+    format!(
+        "{A_WORKFLOW}\n\n{}\n\n{rest}\n\n{A_SAMPLE}\n\n{}",
+        field_list(),
+        sample()
+    )
+}
+
+fn field_list() -> String {
+    config::workflow_fields()
+        .iter()
+        .map(|field| {
+            let under = field
+                .parent
+                .as_deref()
+                .map(|parent| format!(", under {parent}"))
+                .unwrap_or_default();
+            let values = if field.values.is_empty() {
+                String::new()
+            } else {
+                format!(" One of: {}.", field.values.join(", "))
+            };
+            format!(
+                "{} ({}{under}): {}{values}",
+                field.name, field.kind, field.purpose
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The carried `bug` without the comment block its file opens with, which is
+/// for a person reading the repository and not for the model writing a copy.
+fn sample() -> String {
+    let carried = config::carried();
+    let bug = carried
+        .iter()
+        .find(|written| written.path().ends_with("bug.json"))
+        .expect("Armada carries `bug`");
+    bug.text()
+        .lines()
+        .skip_while(|line| line.starts_with('#') || line.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }

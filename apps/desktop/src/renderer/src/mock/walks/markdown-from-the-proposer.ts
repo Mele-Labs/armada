@@ -3,7 +3,7 @@
 // owner's note of 1 Oct 2026 on the Brief card; `markdownFromAReviewer` is the
 // other half, on a Job a reviewer has commented on.
 
-import { inside, region, text, walk } from "../walk";
+import { card, dialog, inside, text, walk } from "../walk";
 
 export const markdownFromTheProposer = walk("arc/proposing-done-when-landed", [
   { press: text("Say which of the two a clear gave back"), say: "A Job the Proposer is still writing" },
@@ -11,8 +11,9 @@ export const markdownFromTheProposer = walk("arc/proposing-done-when-landed", [
     look: text("does not say it twice"),
     say: "A done-when line the model wrote, with branch drawn as code",
   },
+  { press: card("Brief"), say: "The request, on the canvas's Brief" },
   {
-    look: inside(region("Brief"), text("the branch as well")),
-    say: "The request on the Brief card: a list, with bold and code in it",
+    look: inside(dialog("Brief"), text("the branch as well")),
+    say: "The request on the Brief: a list, with bold and code in it",
   },
 ]);

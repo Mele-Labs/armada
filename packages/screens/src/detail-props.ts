@@ -26,6 +26,7 @@ import type {
   CommandAnswer,
   CommandExplainedRead,
   EditJob,
+  ToProposer,
   ApproveDispatch,
   Branches,
   EditTask,
@@ -59,7 +60,7 @@ import type { FoldedReads } from "./mine";
 import type { OpenArtifact, OpenPullRequest } from "./opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
 import type { ReadBrief } from "./pulse-brief";
-import type { ReadRetro } from "./retro";
+import type { AnswerLesson, ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import type { RunSheetSlice } from "./rehearsal";
 import type { OpenStudioFrom } from "./work";
@@ -132,6 +133,10 @@ export type JobDetailProps = {
    * changed — `edit_job`, served since 23.8.
    */
   onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  /** Give a frozen Job with no landing target one, once — `set_landing_target`, since 23.22. */
+  /** Send the proposal back to the proposer with a note — `to_proposer`, since 23.25. */
+  onToProposer?: (jobId: string, body: ToProposer) => Promise<Outcome>;
+  onSetLandingTarget?: (jobId: string, target: string) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *
@@ -274,6 +279,9 @@ export type JobDetailProps = {
   onReadBrief: ReadBrief;
   /** Read this Job's retro, for the Record's Retro sheet — on open and on focus. `retro.ts`. */
   onReadRetro: ReadRetro;
+  /** Agree and disagree with an item on that sheet. `retro.ts`. */
+  onAgreeLesson: AnswerLesson;
+  onDisagreeLesson: AnswerLesson;
   /**
    * Read one frame a step's harness produced. **`onReadCheckOutput`'s shape one
    * record over** — the bytes come from the process that can reach Fleet, and

@@ -456,9 +456,15 @@ export async function retroOf(port: number, jobId: string): Promise<RetroRead> {
  * The Lessons listing, `GET /lessons` (23.12): every repository on All and the pick's alone on a
  * pick — `Picked.narrowed`. A repository with no Manifest has no Jobs, so nothing is asked.
  */
-export async function lessonsOf(port: number, picked: Picked): Promise<LessonsRead> {
-  const path = picked.narrowed("/lessons");
-  if (path === null) return { ok: true, lessons: [] };
+export async function lessonsOf(
+  port: number,
+  picked: Picked,
+  state: "open" | "accepted" = "open",
+): Promise<LessonsRead> {
+  const narrowed = picked.narrowed("/lessons");
+  if (narrowed === null) return { ok: true, lessons: [] };
+  // `open` is what Fleet answers where `state` is not sent, so it is not sent.
+  const path = state === "open" ? narrowed : `${narrowed}${narrowed.includes("?") ? "&" : "?"}state=${state}`;
   const answer = await ask(port, "GET", path);
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
   return { ok: true, lessons: (answer.body as Lessons).lessons };

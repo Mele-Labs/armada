@@ -60,6 +60,8 @@ import { NOTHING_YET } from "../../../shared/bridge";
 import { brokenOnMain, FIX_TITLE, heldByTheGamingCheck, withBreakages } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
+import { featureAtApproval } from "./feature-at-approval";
+import { featureRunning } from "./feature-running";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -569,6 +571,12 @@ export const SCENARIOS: readonly Scenario[] = [
   holding("real/proposal-from-an-issue", proposalFromAnIssue().name, [proposalFromAnIssue()], {
     opens: proposalFromAnIssue().job.id,
   }),
+  // The same gate on a feature Job, for the approval canvas (prototype).
+  holding("proto/feature-at-approval", featureAtApproval().name, [featureAtApproval()], {
+    opens: featureAtApproval().job.id,
+  }),
+  // The same canvas past the gate, on a Job mid-Implement: the Overview every Job draws.
+  holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),
   // A Check failed on a test another Job is already fixing, and that Job (#1673).
   fixedElsewhere(),
   // A Judge refusal he agreed with: the step stopped and the Job escalated,

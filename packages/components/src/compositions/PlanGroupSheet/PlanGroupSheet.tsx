@@ -1,6 +1,7 @@
 import { Button } from "../../primitives/Button/Button";
 import { CardContent } from "../../primitives/Card/Card";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import type { SheetBack } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
 import {
@@ -48,6 +49,8 @@ export type PlanGroupSheetProps = {
   floor?: boolean;
   /** Another layer — the add dialog — lies over this one and takes `Esc` first. */
   under?: boolean;
+  /** The way back, where a press elsewhere opened this panel — the task sheet's slot, `Sheet`'s own. */
+  back?: SheetBack | undefined;
   onClose?: () => void;
 };
 
@@ -63,6 +66,7 @@ export function PlanGroupSheet({
   propose,
   floor = false,
   under = false,
+  back,
   onClose,
 }: PlanGroupSheetProps) {
   const mover = usePlanMover(groups ?? [group], move);
@@ -102,6 +106,7 @@ export function PlanGroupSheet({
       closeLabel="Close"
       closeBinding="Esc"
       under={under}
+      {...(back === undefined ? {} : { back })}
       onClose={onClose}
     >
       <CardContent className="armada-plan-group-sheet__body">
