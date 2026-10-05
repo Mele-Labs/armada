@@ -160,7 +160,7 @@ icon = "user-check"
 status_token = "--status-awaiting-approval"
 vocabulary = "Job status"
 in_code = ""
-notes = "Carried over from needs_approval when the approval axis became a status. The verb did not move to awaiting approval for symmetry with awaiting review: the badge means a person must act, not that time is passing, and needs is the word that says so."
+notes = "Carried over from needs_approval when the approval axis became a status. The verb did not move to awaiting approval for symmetry with `awaiting_review`, which read awaiting review until 4 Oct 2026: the badge means a person must act, not that time is passing, and needs is the word that says so."
 
 [verbs.job_status.awaiting_attestation]
 verb = "awaiting attestation"
@@ -179,11 +179,12 @@ in_code = ""
 notes = "**`needs` for `awaiting_approval`'s reason, and the enum name keeps `awaiting_` for a different one.** The badge means a person must act rather than that time is passing, which is the word that row settled; the key belongs to the family whose axis is *waited on, by a person*, and the two questions have different answers here exactly as they do there. What needs repair is the work, not the Job — the Job is unfinished, which is the reading `failed` was getting wrong. `needs fixing` was refused as the register a person uses about a machine that is broken, and the Drone is not; `stalled` is a Drone gone silent and `stopped` is the step-level word. `wrench` is minted in `packages/icons/icons.toml` rather than borrowed, and its own row carries what was refused."
 
 [verbs.job_status.awaiting_review]
-verb = "awaiting review"
+verb = "needs review"
 icon = "eye"
 status_token = "--status-awaiting-review"
 vocabulary = "Job status"
 in_code = ""
+notes = "Read `awaiting review` until 4 Oct 2026, when the owner asked for `needs review` on seeing it beside a Judge question waiting for him: the badge means a person must act, which is the reading `awaiting_approval` and `awaiting_repair` already settled on. Only the display word moved; the wire status keeps its spelling."
 
 [verbs.job_status.completed_failed]
 verb = "failed"
@@ -267,12 +268,12 @@ in_code = ""
 notes = "The inner machine's word for what the outer one calls `done`, and it stays the enum's own spelling because the enum's own spelling is already plain English — the same reason `running` and `rejected` keep theirs. `check` is the borrowing `packages/icons/icons.toml` sanctions under `[conventions.step_activity_borrowing]`: the Job glyph that means the same thing one level down, and a rail row that showed a different mark from the badge above it is the collision that convention exists to prevent. No token: the hue is `--step-advanced` in `packages/tokens/src/status.css`, which is its own axis and not a `--status-` stem, so it lands in GAPS the way the two Judge verdicts do. `in_code` is empty because there is no source value to carry: the row was authored here."
 
 [verbs.step_state.awaiting_human]
-verb = "awaiting review"
+verb = "needs review"
 icon = "eye"
 status_token = ""
 vocabulary = "Step state"
 in_code = ""
-notes = "The same words as `job_status.awaiting_review`, because it is the same claim one level down: `step-states.toml` sees this state beneath that status and beneath no other. `awaiting a human` would be a second phrase for one fact, and `waiting on you` would be a third. `eye` for the same reason the words are the same, and it is one of the five glyphs `[conventions.step_activity_borrowing]` names. Iconography's prose says `waiting (clock)` in the paragraph above the one that defers to that convention for the full mapping — `clock` is `queued`'s and the convention does not list it, so the convention is read as the authority and the prose as stale. Settled that way by `#347`, and Iconography now says the same. No token, for `advanced`'s reason: the hue is `--step-waiting`."
+notes = "The same words as `job_status.awaiting_review` (`needs review`, since 4 Oct 2026), because it is the same claim one level down: `step-states.toml` sees this state beneath that status and beneath no other. `awaiting a human` would be a second phrase for one fact, and `waiting on you` would be a third. `eye` for the same reason the words are the same, and it is one of the five glyphs `[conventions.step_activity_borrowing]` names. Iconography's prose says `waiting (clock)` in the paragraph above the one that defers to that convention for the full mapping — `clock` is `queued`'s and the convention does not list it, so the convention is read as the authority and the prose as stale. Settled that way by `#347`, and Iconography now says the same. No token, for `advanced`'s reason: the hue is `--step-waiting`."
 
 [verbs.step_state.not_started]
 verb = "not started"

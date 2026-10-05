@@ -51,7 +51,7 @@ const NEW_ROSTERS: JobSummary[] = [
 /**
  * Every word a status reads as: the wire value as it is spelled on screen, and
  * the verb the registry renders it with. Both, because a title could carry
- * either — `awaiting_review` and "awaiting review" are the same claim.
+ * either — `awaiting_review` and "needs review" are the same claim.
  */
 const STATUS_WORDS: string[] = [
   ...Object.keys(JOB_STATUS).map((status) => status.replace(/_/g, " ")),

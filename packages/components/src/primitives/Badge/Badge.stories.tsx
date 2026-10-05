@@ -98,7 +98,7 @@ export const Piloted: Story = {
 };
 
 export const AwaitingReview: Story = {
-  args: { status: "awaiting-review", icon: Eye, children: "Awaiting review" },
+  args: { status: "awaiting-review", icon: Eye, children: "Needs review" },
 };
 
 export const AwaitingAttestation: Story = {

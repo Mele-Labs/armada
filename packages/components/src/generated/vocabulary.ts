@@ -36,7 +36,7 @@ export const JOB_STATUS: Readonly<Record<string, Rendering | undefined>> = {
   "awaiting_approval": { verb: "needs approval", icon: UserCheck, badgeStatus: "awaiting-approval", statusToken: "--status-awaiting-approval", hint: null },
   "awaiting_attestation": { verb: "awaiting attestation", icon: Stamp, badgeStatus: "awaiting-attestation", statusToken: "--status-awaiting-attestation", hint: null },
   "awaiting_repair": { verb: "needs repair", icon: Wrench, badgeStatus: "awaiting-repair", statusToken: "--status-awaiting-repair", hint: null },
-  "awaiting_review": { verb: "awaiting review", icon: Eye, badgeStatus: "awaiting-review", statusToken: "--status-awaiting-review", hint: null },
+  "awaiting_review": { verb: "needs review", icon: Eye, badgeStatus: "awaiting-review", statusToken: "--status-awaiting-review", hint: null },
   "completed_failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "completed_success": { verb: "done", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "escalated": { verb: "needs you", icon: Megaphone, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
@@ -135,7 +135,7 @@ export const CRITERION_VERDICT_JUDGE: Readonly<Record<string, Rendering | undefi
 /** `step_state`, keyed by the wire value. */
 export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "advanced": { verb: "advanced", icon: Check, badgeStatus: null, statusToken: null, hint: null },
-  "awaiting_human": { verb: "awaiting review", icon: Eye, badgeStatus: null, statusToken: null, hint: null },
+  "awaiting_human": { verb: "needs review", icon: Eye, badgeStatus: null, statusToken: null, hint: null },
   "not_started": { verb: "not started", icon: CircleDashed, badgeStatus: null, statusToken: null, hint: null },
   "retrying": { verb: "retrying", icon: RotateCw, badgeStatus: null, statusToken: null, hint: null },
   "running": { verb: "running", icon: CircleDot, badgeStatus: null, statusToken: null, hint: null },
