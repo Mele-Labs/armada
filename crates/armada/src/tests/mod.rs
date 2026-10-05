@@ -19,6 +19,7 @@ mod declared;
 mod kit;
 mod land;
 mod leasing;
+mod list_files;
 mod locating;
 mod loopback;
 mod mcp;
