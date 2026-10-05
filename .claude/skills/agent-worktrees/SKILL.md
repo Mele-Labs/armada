@@ -39,11 +39,18 @@ The lease is held for the session that ran the command, so lease from the
 session that will release it.
 
 **Release at the merge, never remove.** A release refuses while anything is
-uncommitted or on neither the remote nor the base, so it is the dirty check and
-the unmerged check in one. It detaches the slot and leaves its `target/`; the
-branch stays until you delete it. A slot whose session ended without releasing
-is taken back by the next lease only when it is clean and landed — otherwise it
-reads `stranded` in `--status` and stays held.
+uncommitted, because an untracked or modified file does not survive the detach.
+A commit on the slot's branch is enough: the branch keeps it, so a push is
+optional and an unmerged branch releases. It detaches the slot and leaves its
+`target/`; the branch stays until you delete it, so do not `git branch -D` one
+whose commits are not landed. A slot whose session ended without releasing is
+taken back by the next lease when it is clean and its commits are on its branch
+— otherwise it reads `stranded` in `--status` and stays held.
+
+**To free a slot with work half done**, commit it on the branch and release. The
+pool can also do the commit: a parked slot's work is committed with a `WIP:`
+message and the slot freed, with no push. `armada worktree lease --existing
+<branch>` puts a slot back on that branch at its tip.
 
 **Only where `armada` does not know the verb**, because the installed binary
 predates it, fall back to `isolation: "worktree"` and everything below.

@@ -154,6 +154,9 @@ impl Vcs for GitVcs {
                          nor the base, and a lease would reset it"
                     ),
                     LeaseRefused::Vcs(why) => why,
+                    // A Job's lease cuts a new branch; these are the other
+                    // lease's, said the same way.
+                    other => other.said(),
                 },
             }
         })

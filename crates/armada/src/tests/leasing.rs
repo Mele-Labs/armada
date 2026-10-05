@@ -78,7 +78,25 @@ fn the_clis_lease_honours_a_closed_slot_and_this_machines_size() {
     );
 
     assert_eq!(pool().add().expect("added"), 2);
-    assert_eq!(crate::leasing::lease(repo.path(), "one"), 0);
+    assert_eq!(crate::leasing::lease(repo.path(), "one", false), 0);
     assert!(pool().path_of(2).is_dir(), "the added slot was made");
     assert!(!pool().path_of(1).exists(), "the closed one was not");
+}
+
+/// `--existing` leases a branch a release left behind, and refuses one that
+/// does not exist, each with its own sentence and a nonzero exit.
+#[test]
+fn the_clis_lease_can_take_an_existing_branch() {
+    use super::clean::a_repository;
+
+    let repo = a_repository();
+    let manifest = repo.path().join("armada.yml");
+    let declared = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, format!("{declared}setup:\n  worktrees: 1\n")).unwrap();
+    assert_eq!(crate::leasing::lease(repo.path(), "feature", false), 0);
+    let slot = crate::leasing::pool_of(repo.path()).unwrap().path_of(1);
+    assert_eq!(crate::leasing::release(repo.path(), Some(slot)), 0);
+
+    assert_ne!(crate::leasing::lease(repo.path(), "nope", true), 0);
+    assert_eq!(crate::leasing::lease(repo.path(), "feature", true), 0);
 }
