@@ -52,7 +52,7 @@ import type {
   WorkflowCanvasNode,
 } from "@armada/components";
 
-import { NOT_STARTED, approvalNodesOf, checksOf, gateKindsOf, perTask, stepsReadOf } from "./approval-canvas";
+import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask, stepsReadOf } from "./approval-canvas";
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
@@ -289,10 +289,7 @@ export function ApprovalCanvas({
       : frame.name === "Groups"
         ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
         : undefined;
-  const drawnEdges = layout.edges.map((edge) => {
-    const into = nodes.find((node) => node.id === edge.target);
-    return into?.life?.current === true ? { ...edge, flowing: true } : edge;
-  });
+  const drawnEdges = flowingOf(nodes, layout.edges, steps);
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,

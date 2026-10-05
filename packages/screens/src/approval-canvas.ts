@@ -603,6 +603,26 @@ export function approvalNodesOf({
   return { nodes, edges };
 }
 
+/**
+ * The edge the Job is moving along: the one into the node it is at. **On a
+ * retry that is the way back**, not the forward edge into the step, which was
+ * passed this attempt before it was entered by the loop.
+ */
+export function flowingOf(
+  nodes: readonly ApprovalNode[],
+  edges: readonly WorkflowCanvasEdge[],
+  steps: readonly StepRead[],
+): WorkflowCanvasEdge[] {
+  return edges.map((edge) => {
+    const into = nodes.find((node) => node.id === edge.target);
+    if (into?.life?.current !== true) return edge;
+    const retrying = into.kind === "step" && (steps.find((one) => one.id === into.stepId)?.returns?.pass?.number ?? 1) > 1;
+    // Only one way into a step moves: the loop on a retry, the forward edge otherwise.
+    const loop = edge.kind === "returns";
+    return into.kind === "step" && loop !== retrying ? edge : { ...edge, flowing: true };
+  });
+}
+
 /** The declared Checks of a step by name, each with whether this Job runs it. */
 export function checksOf(step: StepRead, off: readonly string[]): { name: string; runs: boolean }[] {
   return step.checks.map((check) => {

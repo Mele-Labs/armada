@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { approvalNodesOf, stepsReadOf } from "./approval-canvas";
+import { approvalNodesOf, flowingOf, stepsReadOf } from "./approval-canvas";
 import type { StepRead } from "./approval-canvas";
 import { tuningOf } from "./draft/tuning";
 
@@ -211,5 +211,26 @@ describe("stepsReadOf", () => {
   it("reads the catalog at the gate, and the Job's own step past it", () => {
     expect(stepsReadOf(gates, whole, catalog)[0]?.judges).toEqual([]);
     expect(stepsReadOf(gates, whole, catalog, true)[0]?.judges).toHaveLength(1);
+  });
+});
+
+describe("flowingOf", () => {
+  const at = { activity: "running" as const, said: "running", current: true };
+  const run = (pass?: { number: number; of: number }) => {
+    const steps = STEPS.map((step) => (step.id === "implement" ? { ...step, returns: { to: "implement", ...(pass === undefined ? {} : { pass }) } } : step));
+    const { nodes, edges } = approvalNodesOf({
+      title: "T", from: "main", steps, gates: GATES, tuning: tuningOf([]), prMode: "ready", target: "main",
+      life: { nodes: { implement: at } },
+    });
+    const flowing = flowingOf(nodes, edges, steps).filter((edge) => edge.flowing === true);
+    return flowing.map((edge) => `${edge.kind}:${edge.source}>${edge.target}`);
+  };
+
+  it("flows the forward edge into the step on its first attempt", () => {
+    expect(run({ number: 1, of: 3 })).toEqual(["leads:plan:judge>implement"]);
+  });
+
+  it("flows the way back, and not the forward edge, once the step is on another attempt", () => {
+    expect(run({ number: 2, of: 3 })).toEqual(["returns:implement:checks>implement"]);
   });
 });
