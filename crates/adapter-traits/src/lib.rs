@@ -73,8 +73,8 @@ pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading,
-    SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork,
+    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased, SlotPool,
+    SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,

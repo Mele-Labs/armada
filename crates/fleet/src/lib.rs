@@ -46,7 +46,7 @@ mod attention;
 pub mod basing;
 mod boundary;
 pub mod briefing;
-/// Racing a plain command's work against [`commanding::CommandBudget`],
+/// Racing a plain command's work against [`budget::CommandBudget`],
 /// split out of `commanding` at the 900-line refusal, `#897`.
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
@@ -330,8 +330,8 @@ pub use adrift::Adrift;
 pub use allowance::{Allowance, Micros, Overspent};
 pub use asked::Asked;
 pub use at_step::AtStep;
+pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
-pub use commanding::CommandBudget;
 pub use confirming::{Confirmed, ONE_BY_ONE};
 pub use converging::{NoReport, ReportNow, Stage, StepNorms, Tripwire, Wandering, FORCED_REPORT};
 pub use crossing::{Cleared, Crossed, Dispatched, Produced, Reconciling, Redirected, ThePlan};

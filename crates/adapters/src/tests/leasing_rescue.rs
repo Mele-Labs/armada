@@ -117,7 +117,10 @@ fn each_commit_says_whether_it_exists_anywhere_but_the_slot() {
         git(&slot, &["commit", "-q", "-m", message]);
     };
     commit("pushed.rs", "Pushed elsewhere");
-    git(&slot, &["push", "-q", "origin", "HEAD:refs/heads/someone-elses"]);
+    git(
+        &slot,
+        &["push", "-q", "origin", "HEAD:refs/heads/someone-elses"],
+    );
     repo.commit_one("landed.rs", "fn landed() {}\n", "Landed here only");
     git(&slot, &["merge", "-q", "--no-edit", "main"]);
     commit("mine.rs", "Only in the slot");
@@ -133,7 +136,10 @@ fn each_commit_says_whether_it_exists_anywhere_but_the_slot() {
     assert_eq!(home("Only in the slot"), OnlyHere);
     assert_eq!(home("Pushed elsewhere"), OnRemote);
     assert_eq!(home("Landed here only"), OnMain);
-    assert!(work.commits[0].home == OnlyHere, "newest first, and it is the slot's");
+    assert!(
+        work.commits[0].home == OnlyHere,
+        "newest first, and it is the slot's"
+    );
 }
 
 #[test]

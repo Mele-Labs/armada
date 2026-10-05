@@ -11,7 +11,6 @@
 //! a delegating line into whichever module already holds its Job's logic.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Commands, Refusal};
@@ -32,22 +31,6 @@ use crate::overruling::Overruling;
 use crate::reporting::Filed;
 use crate::resume::Redirection as Instruction;
 use crate::wire::reported;
-
-/// How long Fleet gives a plain command before answering
-/// [`Adrift::CommandTimedOut`]. Paired with Bridge's `COMMAND_MS` — see
-/// `PROVISIONAL_COMMAND_BUDGET` in `crates/armada/src/serve.rs`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CommandBudget(Duration);
-
-impl CommandBudget {
-    pub fn of(budget: Duration) -> CommandBudget {
-        CommandBudget(budget)
-    }
-
-    pub fn duration(&self) -> Duration {
-        self.0
-    }
-}
 
 impl<H, V, W> Commands for Fleet<H, V, W>
 where

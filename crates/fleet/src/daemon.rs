@@ -100,8 +100,8 @@ pub struct Fleet<H, V, W> {
     proposer_budget: JudgeBudget,
     /// How long a plain command may take before Fleet answers a refusal in
     /// its own words rather than leaving Bridge's wait as the only account of
-    /// who gave up. See [`crate::commanding::CommandBudget`].
-    command_budget: crate::commanding::CommandBudget,
+    /// who gave up. See [`crate::budget::CommandBudget`].
+    command_budget: crate::budget::CommandBudget,
     /// How long a permission question is held inside the Drone's call before
     /// the Drone is told to wait for a turn. See
     /// [`crate::permitting::PermissionHold`].

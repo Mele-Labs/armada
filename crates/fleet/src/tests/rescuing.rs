@@ -191,7 +191,10 @@ async fn a_rescue_reads_the_slot_and_the_finding_stays_on_it() {
     assert_eq!(finding.verdict, Some(ipc::SlotVerdict::Unfinished));
     assert_eq!(
         finding.items,
-        ["src/parser.rs has no parse_expr", "The lexer test is not written"]
+        [
+            "src/parser.rs has no parse_expr",
+            "The lexer test is not written"
+        ]
     );
     assert_eq!(finding.summary, None);
     assert_eq!(finding.cost_micros, Some(12_300));
@@ -201,7 +204,10 @@ async fn a_rescue_reads_the_slot_and_the_finding_stays_on_it() {
     assert_eq!(stranded.uncommitted, ["src/parser.rs"]);
     assert_eq!(stranded.unpushed, 1);
     let homes: Vec<_> = stranded.commits.iter().map(|one| one.home).collect();
-    assert_eq!(homes, [ipc::CommitHome::OnlyHere, ipc::CommitHome::OnRemote]);
+    assert_eq!(
+        homes,
+        [ipc::CommitHome::OnlyHere, ipc::CommitHome::OnRemote]
+    );
 
     let turns = std::fs::read_to_string(home.path().join("stand-in/turns.log")).expect("told");
     assert!(

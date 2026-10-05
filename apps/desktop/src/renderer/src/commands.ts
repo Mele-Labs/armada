@@ -126,6 +126,11 @@ export const changeSlotPool = (manifestId: string, change: ChangeSlotPool) =>
   window.armada.changeSlotPool(manifestId, change);
 export const rescueSlot = (manifestId: string, rescue: RescueSlot) =>
   window.armada.rescueSlot(manifestId, rescue);
+/** A worktree slot's pool reshaped or rescued, as Cleanup's bays act on them. */
+export const slotActs = {
+  onChangeSlotPool: changeSlotPool,
+  onRescueSlot: rescueSlot,
+};
 export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
 export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
