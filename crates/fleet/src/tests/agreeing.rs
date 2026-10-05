@@ -288,6 +288,10 @@ async fn the_job_retro_carries_each_items_answer() {
         .collect();
     assert_eq!(
         states,
-        vec![("agreed", Some(proposed)), ("open", None), ("discarded", None)]
+        vec![
+            ("agreed", Some(proposed)),
+            ("open", None),
+            ("discarded", None)
+        ]
     );
 }
