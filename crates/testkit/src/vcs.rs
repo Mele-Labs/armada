@@ -207,6 +207,8 @@ pub enum Delivered {
     /// The branch was pushed `--force-with-lease`, over history this fake was
     /// told had been rewritten.
     PushedForcing { branch: String },
+    /// Auto-merge was turned on for this pull request.
+    AutoMerge { pull_request: String },
     /// A pull request was opened, carrying this.
     OpenedForReview { base: String, review: Review },
     /// The forge was asked what became of the branch's pull request. **Counted
@@ -272,6 +274,8 @@ pub struct Delivering {
     pub rebase: Option<BroughtUpToDate>,
     pub push: Pushed,
     pub review: Opened,
+    /// The forge's reply to turning auto-merge on: `Err` is its own sentence.
+    pub auto_merge: Result<(), String>,
     /// What the forge says became of the pull request afterwards. `Unknown` by
     /// default, which is the answer on a machine with no forge and the one a
     /// test gets unless it says a merge happened.
@@ -330,6 +334,7 @@ impl Default for Delivering {
             review: Opened::PullRequest {
                 url: String::from("https://forge.invalid/armada/pull/1"),
             },
+            auto_merge: Ok(()),
             // Nobody has merged it. A default that said `Merged` would have
             // every existing test's Job land the moment anything asked.
             landed: Landing::Unknown,
@@ -407,30 +412,6 @@ impl FakeVcs {
             .expect("not poisoned")
             .insert(r#ref.into(), commit.into());
         self
-    }
-
-    /// Every base checkout this fake is holding, by commit, with whether it has
-    /// been marked prepared.
-    pub fn bases(&self) -> BTreeMap<String, bool> {
-        self.bases.lock().expect("not poisoned").clone()
-    }
-
-    /// The commits this fake has been asked to drop a base checkout for.
-    pub fn dropped_bases(&self) -> Vec<String> {
-        self.dropped_bases.lock().expect("not poisoned").clone()
-    }
-
-    /// Say a base checkout has finished `setup.requires`, the way writing the
-    /// marker into a real one does.
-    ///
-    /// **On the fake rather than inferred from a `prepare` call**, because
-    /// nothing here runs a command: preparation is Fleet's, and what this fake
-    /// owes it is somewhere to record that it happened.
-    pub fn base_is_prepared(&self, commit: &str) {
-        self.bases
-            .lock()
-            .expect("not poisoned")
-            .insert(commit.to_string(), true);
     }
 
     /// Script what the repository looks like from the delivery side.
@@ -839,6 +820,10 @@ impl Delivery for FakeVcs {
                 title: title.to_string(),
             });
         self.delivery.lock().expect("not poisoned").filed.clone()
+    }
+
+    fn enable_auto_merge(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
+        commit::auto_merge(self, pull_request)
     }
 
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {

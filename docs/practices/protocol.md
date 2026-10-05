@@ -2772,6 +2772,66 @@ skew rule's own direction.
 after that is a record the forge disagrees with. **The worktree keeps what it was cut from.** No
 store migration: the landing row takes the target. The event stream is untouched.
 
+## Protocol 23.23: the harness a step runs under
+
+The owner, 4 Oct 2026: the card shows the one harness Fleet runs, and any other is refused.
+
+**Two optional fields, additive.** `ModelChoices` gains `harnesses`, the harness names a Drone may
+run under, one today and absent from a Fleet before 23.23. `StepTuning` gains `harness`. A name
+`harnesses` does not list is 422 `fleet.unacceptable_proposal`, and the message names the ones that
+do. The one name is spelled in `adapters` (`HeadlessAgent::harness_name`). The tuning keeps no
+harness, since there is one to run, so nothing about it is frozen or served back.
+
+## Protocol 23.24: how the work leaves the worktree, as approved
+
+The owner, 4 Oct 2026: the canvas offers stop at the branch, and a pull request that merges itself.
+
+**Two optional booleans on two shapes, additive.** `LandingChoice` and `LandingRule` gain `local`
+and `auto_merge`, each absent at false.
+
+| Setting | What Fleet does |
+|---|---|
+| `local` | **Stop at the branch.** On entering the delivering step the work is committed on the Job's own branch, with no push, no pull request and no merge. The step then runs as any other, and the branch outlives the Job: reclaiming keeps unmerged work. |
+| `auto_merge` | When the pull request opens, Fleet runs `gh pr merge --auto --merge` on it, so the forge merges once its required checks pass. A forge that will not, usually a repository that does not allow auto-merge, is said in the Job's log as a warning carrying the forge's own sentence, and the pull request stays open for a person. |
+
+**One source of truth with `pr_mode`.** `local` wins: `pr_mode` is stored `ready` while it holds, so
+`LandingRule` never reads `draft` beside `local`. `local` with `auto_merge` is 422
+`fleet.unacceptable_proposal`, since a branch with no pull request has nothing to merge.
+`policy_overrides.auto_merge` is untouched: it answers a `manifest_rule:auto_merge` gate, which is
+the repository deciding, and this is one Job's forge setting.
+
+**Store V104** adds `local` and `auto_merge` to `job_landing`, false on every row kept before. `Delivery`
+gains `enable_auto_merge`. The refusal is a log line and not a wire error, because the approval
+cannot know the forge's answer until the pull request exists.
+
+## Protocol 23.25: a note sent back to the proposer
+
+The owner, 4 Oct 2026: from the approval gate a person can send the proposal back with a note, and
+the proposer rewrites it.
+
+**A route, a body and the one new edge, additive.** `POST /jobs/:job_id/to_proposer`, `to_proposer`,
+takes `ToProposer { note, tuning?, landing? }` and answers a `ProposedPlan`. The transition registry
+gains `awaiting_approval -> proposing`, a person's act, crossed by `Job::sent_back_to_the_proposer`
+alone; `proposing -> awaiting_approval` is still `Job::answered`'s. The first `job.state_changed`
+carries the move out, and the answer's the move back, so a Bridge that reads the stream sees the Job
+leave its gate and return. A 23.24 Bridge has no such route, and a 23.25 Bridge behind it is
+refused, which is the skew rule's own direction.
+
+| What | How |
+|---|---|
+| The proposer is asked | The Job's request, the proposal's title, and the note |
+| What the answer replaces | Title, workflow, steps, criteria, urgency and the rest `Job::answered` freezes, whole |
+| The person's tuning | Carried to every step whose id the new workflow has; the rest is dropped and logged |
+| The person's landing | Carried as it stands; one the repository will not take is dropped and logged |
+| A split | Each Job comes to the gate on its own with the matching tuning; the extras name the head |
+| A call that fails | The proposal is put back as it was, and the refusal is the proposer's |
+
+**Refused, moving nothing:** 409 `fleet.proposal_frozen` off the gate; 422
+`fleet.unacceptable_proposal` on a blank note, on a Job that is one of a split or was split (its
+siblings would be left behind), and on a tuning or landing the proposal in front of the person cannot
+take. **Store**: no migration. `record_answered` clears the step and write-target rows a revised
+answer replaces, and the rebuild replays `awaiting_approval -> proposing` and the answer back
+through the machine, from the columns the last answer wrote.
 ## Protocol 23.27: a retro item says where it stands
 
 The owner, 5 Oct 2026. The Retro sheet in Bridge offered Agree and Disagree on an item already

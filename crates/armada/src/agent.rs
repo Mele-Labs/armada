@@ -167,7 +167,11 @@ pub fn model_choices(named: Option<String>) -> ipc::ModelChoices {
         }
         _ => HeadlessAgent::default_model().to_string(),
     };
-    ipc::ModelChoices { models, default }
+    ipc::ModelChoices {
+        models,
+        default,
+        harnesses: vec![HeadlessAgent::harness_name().to_string()],
+    }
 }
 
 /// Whether something runnable is there under that name.

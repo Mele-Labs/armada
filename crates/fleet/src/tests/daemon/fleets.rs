@@ -223,6 +223,7 @@ pub fn fitted_over<V>(
         models: ipc::ModelChoices {
             models: vec!["a-model".to_string(), "another-model".to_string()],
             default: "a-model".to_string(),
+            harnesses: vec!["a-harness".to_string()],
         },
         events: api::Broadcaster::new(),
     }

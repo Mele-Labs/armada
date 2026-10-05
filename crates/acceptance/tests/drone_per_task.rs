@@ -1016,6 +1016,8 @@ fn a_proposal_runs_as_it_was_approved_and_a_criterion_from_an_issue_says_when_it
             from_ref: core_model::branch_named(Some("reader/bound")),
             pr_mode: core_model::PrMode::Draft,
             complete_when: core_model::CompleteWhen::Delivered,
+            local: false,
+            auto_merge: false,
         }
     );
 

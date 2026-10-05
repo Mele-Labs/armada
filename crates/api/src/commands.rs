@@ -892,6 +892,22 @@ pub(crate) async fn set_tiers<D: Commands>(
     }
 }
 
+/// Send a proposal back to the proposer with a note. 23.25.
+pub(crate) async fn to_proposer<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let note: ipc::ToProposer = match ipc::decode("a note for the proposer", &body) {
+        Ok(note) => note,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().to_proposer(job.id(), note).await {
+        Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Land an approved Job somewhere other than the base, before its work goes
 /// out. 23.22.
 pub(crate) async fn set_landing_target<D: Commands>(

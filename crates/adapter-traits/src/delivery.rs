@@ -770,6 +770,15 @@ pub trait Delivery {
     /// reclaimed long before anybody merges its work.
     fn merge(&self, in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged>;
 
+    /// Turn on the forge's auto-merge for a pull request Fleet just opened, so
+    /// the forge merges it once its required checks pass. 23.24.
+    ///
+    /// **Merges nothing itself**, so it is not [`merge`](Delivery::merge)'s
+    /// press. The refusal is the forge's own sentence, because the usual one
+    /// is a repository that does not allow auto-merge, and the person has to
+    /// read that rather than a code.
+    fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
+
     /// Land a Job's branch by making the `--no-ff` merge commit here and
     /// pushing the base, never forced — `merge_by: push`, and the same code
     /// `armada land` lands through.

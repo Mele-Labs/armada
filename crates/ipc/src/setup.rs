@@ -249,4 +249,9 @@ pub struct ModelChoices {
     /// The one a proposal that names none is given. Always a member of
     /// `models`, so a picker can select it without a lookup that can miss.
     pub default: String,
+    /// The agent harnesses a Drone may run under, in the harness's own name.
+    /// **One today.** A step's tuning naming any other is refused, naming
+    /// these. Absent from a Fleet before 23.23. Since 23.23.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub harnesses: Vec<String>,
 }

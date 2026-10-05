@@ -94,6 +94,23 @@ fn what_finishes_a_job_is_kept_with_its_landing() {
 }
 
 #[test]
+fn stopping_at_the_branch_and_auto_merge_are_kept_with_the_landing() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = crate::tests::top_level("01LOCALJOB");
+    store.insert_job(&job, &created_at()).expect("inserted");
+    for (local, auto_merge) in [(true, false), (false, true), (false, false)] {
+        let landing = Landing {
+            local,
+            auto_merge,
+            ..Landing::as_ever()
+        };
+        store.set_landing(job.id(), &landing).expect("kept");
+        assert_eq!(store.landing(job.id()).expect("read"), Some(landing));
+    }
+}
+
+#[test]
 fn a_step_nothing_returned_to_is_on_its_first_pass() {
     let dir = TempDir::new();
     let mut store = open(&dir);

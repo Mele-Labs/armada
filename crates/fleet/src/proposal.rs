@@ -267,7 +267,7 @@ pub(crate) async fn resolved(call: &LookupCall) -> Result<String, String> {
 
 /// Who settled a proposed Job's scope: the proposer, in its own words where it
 /// gave a reason.
-fn stated_by(job: &ProposedJob, read_an_issue: bool) -> StatedBy {
+pub(crate) fn stated_by(job: &ProposedJob, read_an_issue: bool) -> StatedBy {
     StatedBy::TheProposer {
         said: job.because.clone().unwrap_or_else(|| {
             format!(
@@ -546,7 +546,7 @@ where
     /// of it either way: each Job gets its own Drone and its own worktree, and
     /// one briefed from a title alone is one the description was thrown away
     /// for.
-    fn as_proposal(
+    pub(crate) fn as_proposal(
         &self,
         served: &crate::repositories::Served,
         job: &ProposedJob,
