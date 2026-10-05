@@ -2,8 +2,8 @@
 //! `--force`, and otherwise left held and named.
 //!
 //! **A slot is never removed here.** The pool reuses it, so the only way out is
-//! a release, which refuses a dirty tree or commits on neither the remote nor
-//! the base — `docs/concepts/fleet.md`, *A Job's slot*.
+//! a release, which refuses a dirty tree, and `--force` also refuses commits on
+//! neither the remote nor the base — `docs/concepts/fleet.md`, *A Job's slot*.
 
 use std::path::Path;
 
@@ -68,9 +68,17 @@ pub(super) fn give_back(
     Some(match (completed || kept.is_some(), unmerged) {
         (false, _) => Err(Holding::Live),
         (true, UnmergedWork::Keep) => Err(kept.map_or(Holding::Completed, Holding::Kept)),
-        (true, UnmergedWork::Delete) => pool
-            .release_held(slot as usize, &holder)
-            .map(|_| ())
-            .map_err(|refused| Holding::Refused(refused.said())),
+        // A release rests on the branch, but `--force` deletes the branch next,
+        // so a commit only the branch has would be gone with it.
+        (true, UnmergedWork::Delete) => match pool.unlanded_in(slot as usize) {
+            0 => pool
+                .release_held(slot as usize, &holder)
+                .map(|_| ())
+                .map_err(|refused| Holding::Refused(refused.said())),
+            commits => Err(Holding::Refused(format!(
+                "{commits} commits on neither the remote nor the base, and --force would delete \
+                 their branch. Land or push them first"
+            ))),
+        },
     })
 }

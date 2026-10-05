@@ -612,7 +612,8 @@ already a file read away.
 
 ```sh
 armada worktree lease <branch>      # a warm slot on a new branch; prints its path
-armada worktree release [<path>]    # give it back; the slot you stand in by default
+armada worktree lease --existing <branch>   # a warm slot on a branch that exists, at its tip
+armada worktree release [<path>]    # give it back once everything is committed on its branch; the slot you stand in by default
 armada worktree --status            # every slot, who holds it, and for how long
 armada worktree add                 # one more slot on this machine; the next lease makes it
 armada worktree remove <n>          # slot n gone, if it is free or not made
@@ -641,10 +642,12 @@ and cuts from what was last fetched.
 | Said | Meaning |
 |---|---|
 | `waiting for a worktree slot: 8 of 8 held` | Every slot is held. It waits, looking every 200 ms, and takes the first released |
-| `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with nothing unlanded |
+| `slot-3 was taken back from <branch>, whose holder is gone` | The session that held it ended without releasing, and the tree was clean with every commit on its branch, the remote or the base |
 | `stranded` in `--status`, or under a wait | Its holder is gone and it still holds work. It stays held; land the branch, or commit and push, then release it by path. Bridge's Cleanup also offers Rescue on its bay: a Scout reads it, then Scrap or Stash |
 | `<branch> already exists with N commits on neither the remote nor the base` | A lease cuts fresh, so it refuses to reset a branch holding work. Lease a new name |
-| A release refused as uncommitted or unlanded | Nothing was given back. Commit, push or land, and release again |
+| A release refused as uncommitted | Nothing was given back. Commit the files onto the branch, and release again. A push is not needed |
+| A release refused for commits the branch lacks | HEAD was off its branch, so a detach would leave them on none. Put them on the branch, and release again |
+| `<branch> is already checked out at <path>` | `lease --existing` found another checkout on it. Give that one back first |
 | `held ... by job <id>` in `--status` | One of Fleet's Jobs holds it, and gives it back when the Job ends. Never reclaimed for a dead process |
 | `done` in `--status` | A Job completed and holds its slot until it is cleared. Clear it on the Board, release it by path, or `armada clean --force` |
 | `slot-3 closed` in `--status` | A person closed it. No lease takes it until `armada worktree open 3`, or Reopen on its bay in Cleanup |
@@ -863,7 +866,8 @@ and names the slot, the Job holding it, and why:
 | `kept` — the Job ended and its release was refused | Named with the reason | Released, then its branch deleted |
 
 **`--force` releases a slot under the pool's usual refusals**: a tree holding
-uncommitted files, or commits on neither the remote nor the base. It names the
+uncommitted files. It also refuses commits on neither the remote nor the base,
+which a plain release lets go, because it deletes the branch next. It names the
 file or the count and leaves the slot held, which is narrower than what
 `--force` does to a branch outside the pool. Commit and land the work, or
 discard it in the slot, then run it again.

@@ -90,7 +90,7 @@ fn worktree_verb(act: WorktreeAct) -> ExitCode {
         return ExitCode::FAILURE;
     };
     ExitCode::from(match act {
-        WorktreeAct::Lease { branch } => leasing::lease(&cwd, &branch),
+        WorktreeAct::Lease { branch, existing } => leasing::lease(&cwd, &branch, existing),
         WorktreeAct::Release { path } => leasing::release(&cwd, path),
         WorktreeAct::Status => leasing::status(&cwd),
         WorktreeAct::Add => leasing::reshape(&cwd, |pool| {

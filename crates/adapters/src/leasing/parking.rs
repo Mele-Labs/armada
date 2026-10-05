@@ -24,6 +24,13 @@ impl Pool {
         count(at, &args)
     }
 
+    /// Commits on slot `number`'s checkout that are on no remote and not on the
+    /// base, whatever its own branch holds. A caller about to delete that
+    /// branch asks this, because a release no longer does.
+    pub fn unlanded_in(&self, number: usize) -> usize {
+        self.unlanded(&self.path_of(number), "HEAD")
+    }
+
     /// Commit all of slot `number`'s uncommitted work, untracked files
     /// included and ignored ones not, to the branch it is on, and give the
     /// slot back. `holder` must hold it. A clean slot is only released. Nothing
