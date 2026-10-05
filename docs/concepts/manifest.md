@@ -158,6 +158,8 @@ commands:
 
 An end-to-end Check that needs `migrate` and `seed` to have run first has no other way to say so: `setup.requires` (see Root `armada.yml`) is per *worktree* and runs once, so it cannot express per-Check ordering.
 
+A re-run is where a red the contention made is cleared by a person's press. When it passes, the group's tasks that the red run had marked `failed` are marked `done` and the Judge is told so (4 Oct 2026, Job 3; `plan.md`, *failed*).
+
 Rules that follow:
 
 - **Names, never command strings.** A prerequisite points at a Commands entry, so what actually runs is written in exactly one place and stays in step when the Command is edited.
