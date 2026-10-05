@@ -464,6 +464,8 @@ export function approvalNodesOf({
   function putGate(step: StepRead, gate: GateView | undefined, tuned: ApprovalTuning["steps"][string] | undefined, kind: GateKind) {
     const id = `${step.id}:${kind}`;
     const run = life?.nodes[id]?.run;
+    // A stage the Job is past, with nothing served of it, passed whole.
+    const past = life?.nodes[id]?.activity === "advanced" && run === undefined;
     const meta: RunNodeTrait[] = [];
     let gateFace: RunNodeGate;
     if (kind === "checks") {
@@ -474,7 +476,10 @@ export function approvalNodesOf({
         kind,
         commands: checksOf(step, off).map((one) => ({
           name: one.name,
-          outcome: !one.runs || gate?.checks !== true ? "off" : (run?.commands?.find((had) => had.name === one.name)?.outcome ?? "waiting"),
+          outcome:
+            !one.runs || gate?.checks !== true
+              ? "off"
+              : (run?.commands?.find((had) => had.name === one.name)?.outcome ?? (past ? "passed" : "waiting")),
         })),
         ...(run?.elapsed === undefined ? {} : { elapsed: run.elapsed }),
         ...(run?.output === undefined ? {} : { output: run.output }),
@@ -490,7 +495,7 @@ export function approvalNodesOf({
       }
       gateFace = {
         kind,
-        panel: gate?.judge !== true ? [] : (run?.panel ?? Array.from({ length: judges }, (): PanelMark => "pending")),
+        panel: gate?.judge !== true ? [] : (run?.panel ?? Array.from({ length: judges }, (): PanelMark => (past ? "met" : "pending"))),
         ...(run?.refusal === undefined ? {} : { refusal: run.refusal }),
       };
     } else {

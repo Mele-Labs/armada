@@ -84,6 +84,7 @@ export function layoutOf(
   const laneOfId = new Map(nodes.map((node) => [node.id, node.lane]));
   /** Where each lane's left edge is, for the gutters. */
   const laneLeft = new Map<Lane, number>();
+  const laneLoop = new Map<Lane, number>();
   let x = 0;
   let deepest = 0;
   const laneFrames: { lane: Lane; x: number; width: number }[] = [];
@@ -101,10 +102,12 @@ export function layoutOf(
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
     const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
     const left = Math.max(half, fanHalf);
-    const right = Math.max(half + (hasLoop ? LOOP_ROOM : 0), fanHalf);
+    const right = Math.max(half, fanHalf) + (hasLoop ? LOOP_ROOM : 0);
     const spine = x + ZONE_PAD + left;
     const spineCard = lane === "setup" ? CARD.narrow : CARD.width;
     laneLeft.set(lane, x);
+    // Where a way back turns: past the widest thing on the spine, so it never runs through a card.
+    laneLoop.set(lane, spine + Math.max(half, fanHalf) + LOOP_ROOM / 2);
 
     let y = LANE_TOP;
     for (const [at, node] of inLane.entries()) {
@@ -167,6 +170,10 @@ export function layoutOf(
   const drawn = edges.map((edge) => {
     const from = laneOfId.get(edge.source);
     const into = laneOfId.get(edge.target);
+    if (edge.kind === "returns" && from !== undefined) {
+      const turns = laneLoop.get(from);
+      return turns === undefined ? edge : { ...edge, via: turns };
+    }
     if (from === undefined || into === undefined || from === into) return edge;
     // Across lanes: down out of the last, one bend in the gutter left of the lane it enters, into the first's side.
     const enters = laneLeft.get(into);
