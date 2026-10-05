@@ -49,7 +49,7 @@ export const WithHeader: Story = {
       <CardHeader>
         <span className="caps">Evidence</span>
         <Badge status="awaiting-review" icon={Eye}>
-          Awaiting review
+          Needs review
         </Badge>
       </CardHeader>
       <CardTitle>Evidence accepted at step 4 of 5</CardTitle>

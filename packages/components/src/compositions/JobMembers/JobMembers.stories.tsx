@@ -55,7 +55,7 @@ const AWAITING: JobMemberRow = {
   id: "b",
   ordinal: 2,
   title: "Read the store through selectors",
-  state: { as: "badge", status: "awaiting-review", icon: Eye, label: "awaiting review" },
+  state: { as: "badge", status: "awaiting-review", icon: Eye, label: "needs review" },
   link: "published",
   targets: "main",
   pullRequest: "https://git.example/armada/pull/1598",

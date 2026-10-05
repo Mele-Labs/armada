@@ -213,7 +213,7 @@ describe("a member's own facts", () => {
     const state = props?.train.members[0]?.state;
 
     expect(state?.as).toBe("badge");
-    expect(state).toMatchObject({ status: "awaiting-review", label: "awaiting review" });
+    expect(state).toMatchObject({ status: "awaiting-review", label: "needs review" });
   });
 });
 

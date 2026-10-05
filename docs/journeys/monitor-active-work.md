@@ -240,7 +240,7 @@ Two tiers, and drawing them as one row of chips risks reading as one kind of thi
 
 **The Job header carries one split button.** Its lead is the act the state calls for, its divided segment is the caret and nothing else, and every other Job-level act sits behind it — so the control's width stops depending on how many acts the state offers, and the title keeps the row. Three side-by-side buttons collapsed the title's column and wrapped a seven-word title to three lines.
 
-**The fill is the state, not the act.** Accent where the Job is waiting on a person — escalated, awaiting review, evidence disputed. Secondary where it is not, which is a running Job and a finished one. Same height in both cases.
+**The fill is the state, not the act.** Accent where the Job is waiting on a person — escalated, needs review, evidence disputed. Secondary where it is not, which is a running Job and a finished one. Same height in both cases.
 
 **The lead is never destructive.** Kill sits in the menu on every state that offers it, because the lead segment is what a stray `Enter` hits. It keeps `x`.
 
@@ -248,7 +248,7 @@ Two tiers, and drawing them as one row of chips risks reading as one kind of thi
 | --- | --- |
 | Running | Pilot |
 | Escalated | Pilot, accent |
-| Awaiting review | Review, accent |
+| Needs review | Review, accent |
 | Evidence disputed | Redispatch as a new job, accent |
 | Killed, failed | Redispatch as a new job |
 
