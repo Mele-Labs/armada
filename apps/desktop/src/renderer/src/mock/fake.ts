@@ -313,7 +313,10 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       if (held === undefined) return unanswered(`/worktrees/slots/rescue?manifest_id=${manifestId}`) as RescueOutcome;
       const after = rescued(held, manifestId, rescue);
       held = after.held;
-      if (state.held.state === "read") publish({ held: { state: "read", held } });
+      // A Pick up proposes a Job from the press, as a dispatched request does.
+      const proposing =
+        after.proposed === undefined ? {} : { jobs: [...state.jobs, proposingRow(after.proposed.split("\n")[0] ?? "", new Date().toISOString(), state.jobs)] };
+      publish(state.held.state === "read" ? { ...proposing, held: { state: "read", held } } : proposing);
       return after.outcome;
     },
     deleteBranch: async () => OK,

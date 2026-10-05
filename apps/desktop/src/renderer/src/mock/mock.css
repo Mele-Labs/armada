@@ -50,7 +50,8 @@
   /* Clear of the control, so the scenario it says is still readable while the
      list is up — the one thing the picker has to draw at all times. */
   bottom: calc(var(--space-6) + var(--h-control-sm) + var(--space-2));
-  z-index: var(--z-menu);
+  /* Above a walk's card, which can cross to this corner and would sit over the list. */
+  z-index: calc(var(--z-palette) + 2);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -107,7 +108,7 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* The walks follow the scenarios under their own label, `Picker.tsx`'s
+/* The walks lead the scenarios under their own label, `Picker.tsx`'s
    `WALK_ROWS`, so a walk's camelCase name is not read as a scenario. */
 .armada-mock-picker__group {
   flex: none;

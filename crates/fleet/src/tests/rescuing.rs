@@ -20,7 +20,7 @@ use crate::scout::ScoutHost;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Rescued = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Rescued = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 /// The agent CLI as a scout meets it. A brief naming `slowly` (the branch
 /// does) reads one file and waits, bounded, to be interrupted; one naming
@@ -65,12 +65,23 @@ case "$turn" in
 esac
 "##;
 
-fn root(home: &TempDir) -> String {
+pub(super) fn root(home: &TempDir) -> String {
     home.path().to_string_lossy().to_string()
 }
 
 /// A Fleet whose Scouts are the stand-in, reading slot 2 of the pool.
 fn rescued(home: &TempDir) -> Arc<Rescued> {
+    Arc::new(rescuing_on(
+        home,
+        fittings(home, FakeWorkProduct::changed(&[])),
+    ))
+}
+
+/// `rescued`, over fittings a case has set its own way.
+pub(super) fn rescuing_on(
+    home: &TempDir,
+    fittings: crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>,
+) -> Rescued {
     let dir = home.path();
     let state = dir.join("stand-in");
     std::fs::create_dir_all(&state).expect("a state directory");
@@ -96,10 +107,10 @@ fn rescued(home: &TempDir) -> Arc<Rescued> {
             user: "someone",
         },
     );
-    Arc::new(Fleet::assembled(fittings(home, FakeWorkProduct::changed(&[]))).scouting_on(host))
+    Fleet::assembled(fittings).scouting_on(host)
 }
 
-fn work(branch: Option<&str>) -> StrandedWork {
+pub(super) fn work(branch: Option<&str>) -> StrandedWork {
     StrandedWork {
         branch: branch.map(str::to_string),
         commit: String::from("abc1234def"),
@@ -121,7 +132,7 @@ fn work(branch: Option<&str>) -> StrandedWork {
 }
 
 /// Slot 2 stranded on `branch`, with a file to read in it.
-fn stranded(home: &TempDir, fleet: &Rescued, branch: Option<&str>) {
+pub(super) fn stranded(home: &TempDir, fleet: &Rescued, branch: Option<&str>) {
     fleet
         .vcs()
         .strand_slot(&root(home), 2, work(branch), "+fn parse() {}\n");
@@ -131,11 +142,11 @@ fn stranded(home: &TempDir, fleet: &Rescued, branch: Option<&str>) {
     std::fs::write(src.join("lexer.rs"), "fn lex() {}\n").expect("written");
 }
 
-fn press(act: RescueAct) -> RescueSlot {
+pub(super) fn press(act: RescueAct) -> RescueSlot {
     RescueSlot { act, slot: 2 }
 }
 
-fn code(refusal: &Refusal) -> &str {
+pub(super) fn code(refusal: &Refusal) -> &str {
     match refusal {
         Refusal::NoSuchJob(e)
         | Refusal::IllegalMove(e)
@@ -145,7 +156,7 @@ fn code(refusal: &Refusal) -> &str {
 }
 
 /// Slot 2 as `GET /worktrees` serves it.
-async fn on_the_wire(fleet: &Rescued) -> ipc::WorktreeSlot {
+pub(super) async fn on_the_wire(fleet: &Rescued) -> ipc::WorktreeSlot {
     let slots = fleet.pool_slots().await.expect("read");
     slots
         .iter()
@@ -155,7 +166,7 @@ async fn on_the_wire(fleet: &Rescued) -> ipc::WorktreeSlot {
 }
 
 /// The Finding once its Scout has ended.
-async fn ended(fleet: &Rescued) -> ipc::SlotFinding {
+pub(super) async fn ended(fleet: &Rescued) -> ipc::SlotFinding {
     for _ in 0..1000 {
         if let Some(finding) = on_the_wire(fleet).await.rescue {
             if finding.state != SlotFindingState::Reading {
@@ -345,7 +356,12 @@ async fn a_stop_ends_the_scout_and_nothing_acts_while_it_reads() {
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    for act in [RescueAct::Start, RescueAct::Scrap, RescueAct::Stash] {
+    for act in [
+        RescueAct::Start,
+        RescueAct::Scrap,
+        RescueAct::Stash,
+        RescueAct::PickUp,
+    ] {
         let refused = Arc::clone(&fleet)
             .rescue_slot(press(act), None)
             .await
