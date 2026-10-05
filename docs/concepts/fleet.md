@@ -404,6 +404,11 @@ has no tool that writes, so it never does either.
 > Why: the Finding describes one state of the work, and an act on another
 > would be decided on a description of something else.
 
+**A Job's slot that the pool would not take back is rescued the same way.** A Job that was
+killed or failed with work only in its slot cannot give the slot back, and the pool records why.
+The bay shows that reason, Rescue reads the slot as it does a stranded one, and Scrap and Stash
+each end the Job's claim on it, so the slot is free after.
+
 **Pick up is not built.** It would propose a Job that continues from the
 slot's branch, and a proposal cannot name the branch its worktree is cut from;
 a person chooses that at approval.

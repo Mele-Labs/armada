@@ -2699,6 +2699,12 @@ reads neither field and sees exactly what it did.
 | `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose | A slot that is not stranded |
 | `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed` | No Scout has read it, or it has moved off the commit read |
 
+**A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains
+`job_status` (where the Job ended), `kept` (why its release was refused, so its work is still in
+the slot) and `completed`, all optional or defaulted. A kept slot carries `stranded` too, and
+`rescue_slot` acts on it as on a stranded one; each act ends the Job's claim, so the slot is free
+after.
+
 **Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
 `fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
 `fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.

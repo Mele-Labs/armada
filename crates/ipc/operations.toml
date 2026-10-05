@@ -3390,5 +3390,7 @@ notes = """
 
 **Refusals, each its own code.** All 409: `fleet.slot_not_stranded`, `fleet.slot_busy`, `fleet.rescue_reading` (a Scout is reading it, so neither a second start nor an act), `fleet.rescue_not_running` (a stop with nothing reading), `fleet.rescue_on_no_branch`, `fleet.rescue_on_the_base` and `fleet.rescue_no_remote`, the last three for a stash. A slot the pool does not have is a 422, `fleet.no_such_slot`.
 
+A slot a Job still holds after it ended, because the pool refused its release (`WorktreeSlot.held.kept`), is acted on the same way, and each act ends the Job's claim on it.
+
 `Helm only` for `change_slot_pool`'s reason: it spends money and changes what this machine holds, and a person asks for it.
 """
