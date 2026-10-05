@@ -304,5 +304,7 @@
 /* A waiting branch's reason: a mark alone, set back like the place. */
 .armada-merge-line__why {
   display: inline-flex;
+  align-items: center;
+  height: var(--leading-sm);
   color: var(--fg-muted);
 }
