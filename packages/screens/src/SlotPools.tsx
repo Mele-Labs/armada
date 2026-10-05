@@ -46,6 +46,7 @@ const NOT_RESCUED: Record<RescueAct, string> = {
   stop: "Not stopped",
   scrap: "Not scrapped",
   stash: "Not stashed",
+  pick_up: "Not picked up",
 };
 
 function refusal(lead: string, outcome: Outcome): string {
@@ -53,10 +54,10 @@ function refusal(lead: string, outcome: Outcome): string {
   return `${lead}: ${why}`;
 }
 
-/** What a Scrap or a Stash did, as bare facts. The branch a Scrap kept; the commit a Stash made. */
+/** What a Scrap, a Stash or a Pick up did, as bare facts. The branch a Scrap kept; the commit a Stash or a Pick up made. */
 function receipt(act: RescueAct, got: SlotRescued): string | undefined {
   if (act === "scrap") return got.branch_kept === true && got.branch !== undefined ? `${got.branch} kept` : undefined;
-  if (act !== "stash") return undefined;
+  if (act !== "stash" && act !== "pick_up") return undefined;
   const on = got.branch === undefined ? "" : ` on ${got.branch}`;
   return got.committed === undefined ? undefined : `${got.committed.slice(0, 7)}${on}`;
 }

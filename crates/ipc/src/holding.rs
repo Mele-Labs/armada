@@ -177,6 +177,8 @@ pub enum RescueAct {
     Scrap,
     /// Commit the uncommitted work, push the branch and free the slot.
     Stash,
+    /// Stash, then propose a Job that continues from the branch. Since 23.30.
+    PickUp,
 }
 
 /// What `rescue_slot` did.

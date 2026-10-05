@@ -568,6 +568,13 @@ pub struct ProposeJob {
     /// does not exist is refused rather than silently dropped.
     #[serde(default)]
     pub attachments: Vec<AttachmentRef>,
+    /// A branch the repository holds, that this Job's worktree is cut from in
+    /// place of the base. **Additive, like `model`**, and since 23.30: absent
+    /// is every proposal before it. Kept as the proposal's `landing.from_ref`,
+    /// which the approval shows and may change, and which is refused there
+    /// unless the repository still holds it. Blank is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continue_from: Option<String>,
 }
 
 /// What a person described, before anything has decided what it is. The request
