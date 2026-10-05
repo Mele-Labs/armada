@@ -41,6 +41,7 @@ mod checkout_runs;
 mod checkouts_apart;
 mod checks;
 mod checks_at_once;
+mod choosing_delivery;
 mod cloning;
 mod code_review;
 mod coming_to_rest;

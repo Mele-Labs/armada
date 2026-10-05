@@ -199,6 +199,18 @@ pub struct LandingChoice {
     pub pr_mode: Option<crate::PrMode>,
     #[serde(default)]
     pub complete_when: CompleteWhen,
+    /// Stop at the branch: commit the work on the Job's own branch and open
+    /// no pull request, merge nothing and push nothing. The branch is kept for
+    /// the person to act on. **`pr_mode` is ignored while it holds**, so one
+    /// answer says how the work leaves the worktree. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local: bool,
+    /// Turn on the forge's auto-merge for the pull request when it opens, so the
+    /// forge merges once its required checks pass. Refused with `local`, which
+    /// opens none. Where the repository does not allow auto-merge, the Job's
+    /// log says so when the pull request opens. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_merge: bool,
 }
 
 /// How one Job lands, frozen at approval, on `JobDetail.landing`. **Absent is
@@ -216,6 +228,14 @@ pub struct LandingRule {
     /// Fleet runs; absent is a Fleet before it, whose Jobs finished delivered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub complete_when: Option<CompleteWhen>,
+    /// The work stops at the Job's branch: no pull request. `pr_mode` reads
+    /// `ready` while it holds. Absent is false. Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local: bool,
+    /// The pull request is set to merge itself on the forge. Absent is false.
+    /// Since 23.24.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_merge: bool,
 }
 
 impl From<&core_model::Landing> for LandingRule {
@@ -225,6 +245,8 @@ impl From<&core_model::Landing> for LandingRule {
             from_ref: landing.from_ref.as_ref().map(|b| b.as_str().to_string()),
             pr_mode: landing.pr_mode.into(),
             complete_when: Some(CompleteWhen::from(landing.complete_when)),
+            local: landing.local,
+            auto_merge: landing.auto_merge,
         }
     }
 }

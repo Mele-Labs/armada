@@ -88,6 +88,8 @@ pub enum Refused {
     /// A Drone cap of zero.
     NoCap,
     BlankModel,
+    /// `local` with `auto_merge`: nothing opens a pull request to merge.
+    NothingToAutoMerge,
     /// A step's tuning nothing could honour.
     Untuned(crate::tuned::Untunable),
 }
@@ -157,6 +159,11 @@ impl fmt::Display for Refused {
             ),
             Refused::NoCap => write!(out, "a drone cap of zero lets the job run nothing"),
             Refused::BlankModel => write!(out, "a tier names a blank model"),
+            Refused::NothingToAutoMerge => write!(
+                out,
+                "local keeps the work on its branch and opens no pull request, so there is \
+                 nothing to auto-merge"
+            ),
             Refused::Untuned(why) => write!(out, "{why}"),
         }
     }
@@ -482,14 +489,23 @@ fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
         ipc::CompleteWhen::PrMerged => return refused("pr_merged"),
         ipc::CompleteWhen::PrOpened => return refused("pr_opened"),
     };
+    if choice.local && choice.auto_merge {
+        return Err(Refused::NothingToAutoMerge);
+    }
     Ok(Landing {
+        local: choice.local,
+        auto_merge: choice.auto_merge,
         complete_when,
         target: core_model::branch_named(choice.target.as_deref()),
         from_ref: core_model::branch_named(choice.from_ref.as_deref()),
-        pr_mode: choice
-            .pr_mode
-            .map(|mode| mode.domain())
-            .unwrap_or(PrMode::Ready),
+        // Ignored while `local` holds: one answer, not two.
+        pr_mode: match choice.local {
+            true => PrMode::Ready,
+            false => choice
+                .pr_mode
+                .map(|mode| mode.domain())
+                .unwrap_or(PrMode::Ready),
+        },
     })
 }
 

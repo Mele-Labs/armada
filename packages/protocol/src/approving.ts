@@ -100,6 +100,16 @@ export type LandingChoice = {
   pr_mode?: string;
   /** Only `delivered` is run; the other three are refused. */
   complete_when?: string;
+  /**
+   * Stop at the branch: commit on the Job's own branch, with no pull request,
+   * merge or push, and keep it. `pr_mode` is ignored while it holds. Since 23.24.
+   */
+  local?: boolean;
+  /**
+   * Turn on the forge's auto-merge for the pull request when it opens. Refused with
+   * `local`. Since 23.24.
+   */
+  auto_merge?: boolean;
 };
 
 /**
@@ -123,6 +133,10 @@ export type LandingRule = {
    * absent from a Fleet before it, whose Jobs finished delivered.
    */
   complete_when?: string;
+  /** The work stops at the Job's branch: no pull request. Absent is false. Since 23.24. */
+  local?: boolean;
+  /** The pull request is set to merge itself on the forge. Absent is false. Since 23.24. */
+  auto_merge?: boolean;
 };
 
 /**
