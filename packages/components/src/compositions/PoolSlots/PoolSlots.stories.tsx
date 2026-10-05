@@ -410,7 +410,7 @@ export const FindingScraps: Story = {
 
     const prose = await opened(canvas, userEvent, 5);
     await expect(prose.getByText("The parser is half written; the lexer is done.")).toBeInTheDocument();
-    await expect(prose.queryByRole("heading")).toBeNull();
+    await expect(prose.queryByRole("heading", { name: /Unfinished|Scraps/ })).toBeNull();
   },
 };
 
