@@ -38,13 +38,47 @@ export type WorkflowSummary = {
    * 21.1.
    */
   for_requests?: string;
+  /**
+   * The file this definition was read from, as Fleet read it: a path, or a
+   * bracketed name where Armada carries it. Absent from a Fleet older than 23.29.
+   */
+  file?: string;
+  /**
+   * The definitions of this id that a more specific place replaced, one per
+   * place. Absent where nothing is replaced, and from a Fleet older than 23.29.
+   */
+  overrides?: OverriddenWorkflow[];
 };
 
-/** `GET /workflows/left_out`: a Kit or carried definition Fleet runs without. `crates/ipc/src/setup.rs`. */
+/** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.29. */
+export type OverriddenWorkflow = {
+  /** `armada` or `kit`; a repository's own is never replaced. */
+  source: string;
+  file: string;
+};
+
+/**
+ * `GET /workflows/definition?workflow_id=&source=&manifest_id=`: one definition
+ * as its file holds it. `source` is optional and names the place; absent is the
+ * one that runs. 422 `fleet.no_such_workflow_definition` where none is held.
+ * Since 23.29. `crates/ipc/src/setup.rs`.
+ */
+export type WorkflowDefinition = {
+  workflow_id: string;
+  /** `armada`, `kit` or `repository`. */
+  source: string;
+  file: string;
+  /** The definition whole, as text: what `POST /workflows/save` takes as `definition`. */
+  definition: string;
+  /** The place whose definition of this id runs instead. Absent where this one runs. */
+  overridden_by?: string;
+};
+
+/** `GET /workflows/left_out`: a definition Fleet runs without. `crates/ipc/src/setup.rs`. */
 export type LeftOutWorkflow = {
   /** Absent where the file did not parse far enough to say. */
   id?: string;
-  /** `armada` or `kit`. */
+  /** `armada`, `kit` or `repository`. */
   source: string;
   file: string;
   /** Fleet's own sentence. Rendered, never matched on. */
@@ -211,4 +245,27 @@ export type ModelChoices = {
   default: string;
   /** The harnesses a Drone may run under. One today. Absent from a Fleet before 23.23. */
   harnesses?: string[];
+};
+
+/** Where a saved definition lives. Since 23.28. */
+export type WorkflowScope = "repository" | "kit";
+
+/** `POST /workflows/save?manifest_id=`'s body. Since 23.28. `crates/ipc/src/setup.rs`. */
+export type SaveWorkflow = {
+  scope: WorkflowScope;
+  /** The definition whole, as text: what `GET /workflows/definition` answers. */
+  definition: string;
+  /** Required to replace a definition already there. Absent is false. */
+  overwrite?: boolean;
+};
+
+/** What `POST /workflows/save` wrote. Since 23.28. */
+export type WorkflowSaved = {
+  workflow_id: string;
+  scope: WorkflowScope;
+  /** The file as written, absolute. */
+  file: string;
+  replaced: boolean;
+  /** Whose definition of this id runs now: `armada`, `kit` or `repository`. */
+  runs_from?: string;
 };

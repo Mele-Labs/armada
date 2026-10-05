@@ -48,4 +48,10 @@ export type FleetHealth = {
    * resolved once when Fleet started. `#1127`.
    */
   helm_action_authority: HelmActionAuthority;
+  /**
+   * Whether any served repository left a workflow definition out, so a rail can
+   * warn without counting. A boolean and never a number: the list is
+   * `GET /workflows/left_out`. Absent from a Fleet older than 23.29.
+   */
+  workflows_left_out?: boolean;
 };
