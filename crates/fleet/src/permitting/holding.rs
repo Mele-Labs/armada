@@ -197,6 +197,7 @@ fn in_flight(waiting: &Waiting) -> ipc::CommandInFlight {
     ipc::CommandInFlight {
         call: waiting.call.clone(),
         step_id: ipc::StepId::from(&waiting.step),
+        drone_id: Some(ipc::DroneId::from(&waiting.drone)),
         asked_at: (&waiting.asked_at).into(),
         tool: waiting.tool.clone(),
         detail: String::from(detail.shown()),
@@ -233,6 +234,7 @@ where
             return PermissionAnswer::Deny(Refusing::NotGranted.to_the_drone(&what));
         };
         let (job, step, _) = at_work.standing();
+        let drone = at_work.drone().2;
         let refusing = match self.first_answer(&job, asked).await {
             First::Allowed => return PermissionAnswer::Allow,
             // **It is not granted as typed, and the question it asked is
@@ -292,6 +294,7 @@ where
                 let waiting = Waiting {
                     call: asked.call.clone(),
                     step: step.clone(),
+                    drone,
                     asked_at: now.clone(),
                     tool: asked.tool.clone(),
                     command: what.clone(),
