@@ -120,7 +120,7 @@ describe("a handed-in task's node", () => {
 
   it("draws the registry's mark and does not sweep as a working task does", () => {
     const card = nodeOf("handed_in");
-    expect(card.mark).toEqual({ icon: TASK_STATE.handed_in!.icon, token: "--status-running" });
+    expect(card.mark).toEqual({ icon: TASK_STATE.handed_in!.icon, token: "--status-handed-in" });
     expect(card.activity).not.toBe("running");
     expect(nodeOf("working").activity).toBe("running");
   });
