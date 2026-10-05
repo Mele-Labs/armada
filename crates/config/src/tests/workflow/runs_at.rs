@@ -114,7 +114,7 @@ fn a_drones_run_leaves_out_gate_and_handoff_checks() {
 /// its last step gating on every Check.
 #[test]
 fn a_workflow_that_delivers_nothing_runs_it_on_its_last_sweeping_step() {
-    let text = "version: 1\nworkflow_id: read\nname: read\nstructure: linear\nsteps:\n\
+    let text = "version: 1\nworkflow_id: read\nname: read\nsteps:\n\
                 - id: first\n  label: First\n  delivers: false\n  advance_gate: auto\n  \
                 mechanical_checks: [{ type: every_manifest_check }]\n\
                 - id: second\n  label: Second\n  delivers: false\n  advance_gate: auto\n  \

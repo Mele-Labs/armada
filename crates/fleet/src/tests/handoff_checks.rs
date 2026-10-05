@@ -25,7 +25,7 @@ use crate::tests::tools::submitted_by_the_one;
 /// `e2e` as a handoff-only Check that leaves `marker` behind.
 fn declared(steps: &str, suite: &str, marker: &Path) -> ResolvedWorkflow {
     let workflow = format!(
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\nsteps:\n{steps}"
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n{steps}"
     );
     let manifest = format!(
         "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  suite:\n    run: \"{suite}\"\n  \

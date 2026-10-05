@@ -20,14 +20,13 @@ use core_model::{AdvanceGate, EvidenceType};
 use crate::error::{Fault, LoadError};
 use crate::manifest::Manifest;
 use crate::tests::{fault_at, named, refusals, refused, roster};
-use crate::workflow::{MechanicalCheck, Step, Structure, WorkflowDef};
+use crate::workflow::{MechanicalCheck, Step, WorkflowDef};
 
 /// The `bug` workflow as the milestone step writes it, verbatim.
 const BUG: &str = r#"
 version: 1
 workflow_id: bug
 name: bug
-structure: linear
 steps:
   - id: plan
     label: Plan the change
@@ -81,7 +80,6 @@ fn the_worked_example_loads() {
     let def = parse(BUG).expect("the worked example");
     assert_eq!(def.name(), "bug");
     assert_eq!(def.version(), 1);
-    assert_eq!(def.structure(), Structure::Linear);
     assert_eq!(def.steps().len(), 3);
 
     let plan = &def.steps()[0];
@@ -184,41 +182,29 @@ fn two_steps_with_one_id_are_refused_and_the_first_is_named() {
     );
 }
 
-/// A third value is still a value the schema does not have, and the message
-/// says so rather than reading as a milestone that has not arrived.
+/// `structure` is not a key any more: a back edge is `verdict_routing` and
+/// nothing else, so a file still writing it is refused like any unknown key.
 #[test]
-fn a_structure_the_schema_does_not_have_is_refused_as_a_typo() {
+fn a_structure_key_is_refused_as_one_the_schema_does_not_have() {
     let refused = refusals(parse(
-        "version: 1\nworkflow_id: fixture\nname: fixture\nstructure: cycle\nsteps:\n  - id: draft\n    label: Draft\n    delivers: false\n    advance_gate: auto\n",
+        "version: 1\nworkflow_id: fixture\nname: fixture\nstructure: linear\nsteps:\n  - id: draft\n    label: Draft\n    delivers: false\n    advance_gate: auto\n",
     ));
-    assert_eq!(
-        fault_at(&refused, "structure"),
-        &Fault::NotInTheSchema {
-            value: "cycle".to_string(),
-            legal: &["linear", "loop"],
-        }
-    );
+    assert!(refused.iter().any(|one| one.key == "structure"), "{refused:?}");
 }
 
 #[test]
-fn verdict_routing_on_a_linear_workflow_is_refused_and_names_the_step() {
-    // Not reported as an unknown key: on a linear workflow this is wrong at
-    // every milestone, because the declared structure and the wiring disagree.
-    let refused = refusals(bug_with(
+fn verdict_routing_on_any_step_is_the_back_edge_and_needs_no_label() {
+    let def = bug_with(
         "  - id: review\n    label: Review\n    delivers: false\n    advance_gate: auto\n    verdict_routing:\n      request_changes: implement\n",
-    ));
-    assert_eq!(
-        fault_at(&refused, "steps[3].verdict_routing"),
-        &Fault::ContradictsStructure {
-            structure: "linear"
-        }
-    );
+    )
+    .expect("a routing edge to an earlier step");
+    assert_eq!(def.steps()[3].verdict_routing().len(), 1);
 }
 
 #[test]
 fn an_empty_steps_list_is_refused() {
     let refused = refusals(parse(
-        "version: 1\nworkflow_id: fixture\nname: bug\nstructure: linear\nsteps: []\n",
+        "version: 1\nworkflow_id: fixture\nname: bug\nsteps: []\n",
     ));
     assert_eq!(fault_at(&refused, "steps"), &Fault::Empty);
     assert!(!refused_names_a_step(&refused));

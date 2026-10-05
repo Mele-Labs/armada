@@ -32,7 +32,6 @@
   "workflow_id": "revert",
   "name": "revert",
   "for_requests": "Undoing a change that already landed: the commit or Job the request names, taken back out whole and nothing else with it. Keeping the change and fixing what it broke is a bug.",
-  "structure": "linear",
   "steps": [
     {
       "id": "revert",

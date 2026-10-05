@@ -23,7 +23,7 @@ use crate::workflow::WorkflowDef;
 /// A two-step definition: the first names `model`, the second names none.
 fn two_steps(model: &str) -> String {
     format!(
-        "version: 1\nworkflow_id: modelled\nname: modelled\nstructure: linear\nsteps:\n  \
+        "version: 1\nworkflow_id: modelled\nname: modelled\nsteps:\n  \
          - id: decide\n    label: Decide\n    evidence: {{submitted: {{type: diff}}}}\n    delivers: false\n    advance_gate: auto\n  \
          - id: report\n    label: Report\n    evidence: {{submitted: {{type: facts_note}}}}\n    model: \
          {model}\n    delivers: false\n    advance_gate: auto\n"
@@ -117,7 +117,6 @@ fn judged(model: &str) -> String {
         "version: 1",
         "workflow_id: judged",
         "name: judged",
-        "structure: linear",
         "steps:",
         "  - id: review",
         "    label: Review",
@@ -197,7 +196,6 @@ fn the_two_model_keys_are_separate_and_neither_fills_in_for_the_other() {
         "version: 1",
         "workflow_id: judged",
         "name: judged",
-        "structure: linear",
         "steps:",
         "  - id: review",
         "    label: Review",
@@ -235,7 +233,6 @@ fn a_judge_check_that_names_no_model_carries_none() {
         "version: 1",
         "workflow_id: judged",
         "name: judged",
-        "structure: linear",
         "steps:",
         "  - id: review",
         "    label: Review",

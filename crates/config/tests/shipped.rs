@@ -205,7 +205,7 @@ fn the_step_that_creates_the_epic_s_jobs_is_the_one_a_person_answers() {
 /// one file's contents and none of the language.
 #[test]
 fn a_definition_may_grant_the_dispatch_tool() {
-    let text = "version: 1\nworkflow_id: grants\nname: grants\nstructure: linear\n\
+    let text = "version: 1\nworkflow_id: grants\nname: grants\n\
                 steps:\n  - id: split\n    label: \"Split\"\n    \
                 evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: true\n    \
                 delivers: false\n    advance_gate: human_always\n";
@@ -219,7 +219,7 @@ fn a_definition_may_grant_the_dispatch_tool() {
 /// past Jobs nothing can release.
 #[test]
 fn a_dispatch_grant_on_a_step_nobody_answers_is_refused() {
-    let text = "version: 1\nworkflow_id: grants\nname: grants\nstructure: linear\n\
+    let text = "version: 1\nworkflow_id: grants\nname: grants\n\
                 steps:\n  - id: split\n    label: \"Split\"\n    \
                 evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: true\n    \
                 delivers: false\n    advance_gate: auto\n";
@@ -233,7 +233,7 @@ fn a_dispatch_grant_on_a_step_nobody_answers_is_refused() {
 /// is the hardest failure here to see.
 #[test]
 fn a_dispatch_grant_that_is_not_a_boolean_is_refused() {
-    let text = "version: 1\nworkflow_id: grants\nname: grants\nstructure: linear\n\
+    let text = "version: 1\nworkflow_id: grants\nname: grants\n\
                 steps:\n  - id: split\n    label: \"Split\"\n    \
                 evidence: {submitted: {type: facts_note}}\n    may_dispatch_jobs: dispatches\n    \
                 delivers: false\n    advance_gate: auto\n";
@@ -273,7 +273,7 @@ fn each_shipped_step_reads_in_its_phase() {
 fn a_phase_outside_the_three_is_refused() {
     let step = |phase: &str| {
         format!(
-            "version: 1\nworkflow_id: phased\nname: phased\nstructure: linear\n\
+            "version: 1\nworkflow_id: phased\nname: phased\n\
              steps:\n  - id: one\n    label: \"One\"\n    phase: {phase}\n    \
              delivers: false\n    advance_gate: auto\n"
         )

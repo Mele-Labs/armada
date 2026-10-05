@@ -45,7 +45,6 @@
   "workflow_id": "code_review",
   "name": "code_review",
   "for_requests": "A pull request somebody wants reviewed: a link to one, where the code is already written and what is wanted is a judgement on it rather than a change to it.",
-  "structure": "linear",
   "steps": [
     {
       "id": "read",

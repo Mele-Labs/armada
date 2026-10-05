@@ -26,7 +26,7 @@ fn defining(id: &str, label: &str, check: Option<&str>) -> String {
         )
     });
     format!(
-        "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+        "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
          label: \"{label}\"\n    delivers: true\n    advance_gate: auto\n{gate}"
     )
 }

@@ -43,14 +43,8 @@ pub(crate) struct Looping {
 /// [`None`] means recorded, the same as everywhere else in this crate: the
 /// refusal is already in `out` and the step is dropped with it.
 ///
-/// `linear` is the workflow's declared structure, and it is a parameter rather
-/// than something read here because the contradiction it detects is a fact
-/// about the file and not about the step. **On a linear workflow the routing
-/// map is refused unread**: its value cannot be right, whatever it says, so
-/// parsing it would only add refusals underneath the one that matters.
 pub(crate) fn looping(
     table: &mut Table<'_>,
-    linear: bool,
     out: &mut Vec<Refusal>,
 ) -> Option<Looping> {
     // Asked before the key is taken, and asked of the file rather than of what
@@ -59,23 +53,7 @@ pub(crate) fn looping(
     // reported as capping nothing.
     let declares_an_edge = table.present("verdict_routing");
 
-    // **The one deferred key with a refusal of its own.** As an unknown key it
-    // would read as "Armada does not read that", when on a linear workflow it is
-    // wrong at every milestone: the declared structure and the wiring disagree,
-    // and the file says so about itself. `read` holds the other half of the
-    // same rule, where a `loop` declares no edge at all.
-    let routing = if linear && declares_an_edge {
-        table.ignore("verdict_routing");
-        out.push(Refusal::new(
-            table.at("verdict_routing"),
-            Fault::ContradictsStructure {
-                structure: "linear",
-            },
-        ));
-        Some(BTreeMap::new())
-    } else {
-        verdict_routing(table, out)
-    };
+    let routing = verdict_routing(table, out);
 
     let cap_key = table.at("iteration_cap");
     // **Absent is none, and a malformed one is a refusal rather than none** —

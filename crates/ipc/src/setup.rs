@@ -95,10 +95,8 @@ pub struct WorkflowStep {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_for_handoff: Vec<String>,
     /// Where this step goes on a verdict that neither advances nor ends —
-    /// `structure: loop`'s edge. **This is the fact `structure` alone cannot
-    /// give**: a `loop` workflow says a step returns to an earlier one, and
-    /// only `verdict_routing` says which. `None` on every step of a linear
-    /// workflow, which is most steps of most workflows. Since 14.3, #1149.
+    /// the back edge, which `verdict_routing` alone declares. `None` on a step
+    /// that sends the work nowhere, which is most steps. Since 14.3, #1149.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict_routing_target: Option<StepId>,
     /// How many times this step may be returned to before the Job escalates.

@@ -13,7 +13,7 @@ use crate::tests::tmp::TempDir;
 /// `implement` and `tests` each gating on every Check, then `handoff`, against
 /// a Manifest with `suite` everywhere, `slow` gate only and `e2e` handoff only.
 fn declared(slow: &str) -> ResolvedWorkflow {
-    let workflow = "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\nsteps:\n\
+    let workflow = "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n\
          - id: implement\n  label: Implement\n  evidence: {submitted: {type: diff}}\n  \
          delivers: false\n  advance_gate: auto\n  mechanical_checks: [{ type: every_manifest_check }]\n\
          - id: tests\n  label: Tests\n  evidence: {submitted: {type: diff}}\n  \

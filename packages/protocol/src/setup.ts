@@ -109,10 +109,8 @@ export type WorkflowStep = {
   held_for_handoff?: string[];
   /**
    * Where this step goes on a verdict that neither advances nor ends —
-   * `structure: loop`'s edge. **`structure` alone cannot say this**: only
-   * `verdict_routing` names which step a loop returns to. Absent on every step
-   * of a linear workflow, which is most steps of most workflows. Since 14.3,
-   * #1149.
+   * the back edge, which `verdict_routing` alone declares. Absent on a step
+   * that sends the work nowhere, which is most steps. Since 14.3, #1149.
    */
   verdict_routing_target?: string;
   /**

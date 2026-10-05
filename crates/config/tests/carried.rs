@@ -185,7 +185,7 @@ fn armada_carries_every_definition_this_repository_ships_as_written() {
 fn one_file_in_kit_or_the_repository_replaces_a_carried_definition_by_id() {
     let one_step = |id: &str| {
         format!(
-            "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+            "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
              label: Only\n    delivers: true\n    advance_gate: auto\n"
         )
     };

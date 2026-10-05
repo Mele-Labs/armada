@@ -41,7 +41,6 @@
   "workflow_id": "epic",
   "name": "epic",
   "for_requests": "Finishing a milestone or an epic: a link to one, or a list of issues somebody wants done as a whole, which is too much for one change and has to be split into several Jobs that run in turn.",
-  "structure": "loop",
   "steps": [
     {
       "id": "plan",

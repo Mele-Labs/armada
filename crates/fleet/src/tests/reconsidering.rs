@@ -31,7 +31,7 @@ fn a_catalogue() -> Vec<config::ResolvedWorkflow> {
         let def = config::WorkflowDef::parse(
             std::path::Path::new("fixture.yml"),
             &format!(
-                "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n{body}"
+                "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n{body}"
             ),
             &config::Roster::offering_nothing(),
         )

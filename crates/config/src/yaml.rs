@@ -6,7 +6,7 @@
 //! so a file with three mistakes takes three edits to load; its message names
 //! the field and a line but not the file; and the faults that actually matter
 //! here are not field-shaped at all — a name in both `checks` and `commands`, a
-//! duplicate step id, a `verdict_routing` that contradicts `structure`. Those
+//! duplicate step id, a `verdict_routing` that names a step not before it. Those
 //! are cross-key comparisons a derive cannot express, and a
 //! `#[serde(deserialize_with)]` hook can only express by taking the document
 //! apart again.
@@ -120,9 +120,8 @@ impl<'a> Table<'a> {
         }
     }
 
-    /// Whether a key is present, without taking it. Used where the key's whole
-    /// meaning is a contradiction — `verdict_routing` under `structure: linear`
-    /// — so its value is never read and it is still not an unknown key.
+    /// Whether a key is present, without taking it. Used where the key's
+    /// presence is the question and its value is read, or refused, elsewhere.
     pub(crate) fn present(&self, name: &str) -> bool {
         self.entries.iter().any(|(have, _)| have == name)
     }
@@ -342,23 +341,12 @@ pub(crate) fn word<T: Copy>(
     None
 }
 
-/// Whether any mapping in a list writes `name` at all.
-///
-/// **Asked of the file rather than of what parsed.** A step is dropped when
-/// anything on it is refused — a missing `label`, a model this machine does not
-/// offer — so a cross-step check run against the survivors would tell a
-/// workflow it declares no loop edge while the edge is sitting plainly on one
-/// of its steps, and send the author to the wrong line for a fault they do not
-/// have.
-pub(crate) fn any_holds(items: &[(String, &Value)], name: &str) -> bool {
-    items.iter().any(|(_, item)| at_key(item, name).is_some())
-}
-
 /// The text at `name` in each mapping of a list, paired with the item's own
 /// position, skipping any item where the key is absent or is not text.
 ///
-/// For the same cross-step checks, and read off the file for [`any_holds`]'s
-/// reason. **The position is the item's index, not the position in this list**,
+/// For the cross-step checks, and read off the file rather than what parsed:
+/// a step is dropped when anything on it is refused, so a check run against the
+/// survivors would send the author to the wrong line. **The position is the item's index, not the position in this list**,
 /// because a skipped item would otherwise shift every one after it — and what
 /// the caller compares is order in the document.
 pub(crate) fn placed_values<'a>(

@@ -20,7 +20,6 @@ const PLAN_AND_IMPLEMENT: &str = r#"
 version: 1
 workflow_id: fixture-plan
 name: fixture
-structure: linear
 steps:
   - id: plan
     label: Plan the change
@@ -169,7 +168,6 @@ fn follows_plan_on_a_step_before_the_plan_step_is_refused() {
 version: 1
 workflow_id: fixture-plan
 name: fixture
-structure: linear
 steps:
   - id: implement
     label: Implement
@@ -201,7 +199,6 @@ fn follows_plan_with_no_plan_step_in_the_workflow_is_refused() {
 version: 1
 workflow_id: fixture-plan
 name: fixture
-structure: linear
 steps:
   - id: implement
     label: Implement
@@ -228,7 +225,6 @@ const RECORDS_PLAN_BESIDE_A_PRODUCT: &str = r#"
 version: 1
 workflow_id: fixture-records-plan
 name: fixture
-structure: linear
 steps:
   - id: read
     label: Read the diff

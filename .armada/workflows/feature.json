@@ -45,7 +45,6 @@
   "workflow_id": "feature",
   "name": "feature",
   "for_requests": "Adding, removing or changing what the software does or shows: a new screen, option or command, a change to how something behaves, or taking away something people could see or use, meant to land and stay. Fixing something broken is a bug, and moving code around while nothing anyone sees changes is a refactor.",
-  "structure": "linear",
   "steps": [
     {
       "id": "plan",

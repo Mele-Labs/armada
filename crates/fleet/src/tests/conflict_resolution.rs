@@ -61,7 +61,7 @@ fn a_fleet_echoing(home: &TempDir, vcs: FakeVcs) -> Fixture {
 fn judged_then_held_for_a_person() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
          steps:\n  - id: implement\n    label: \"Implement\"\n    \
          evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      \
          - type: diff_nonempty\n    judge_checks:\n      - criteria:\n          - \

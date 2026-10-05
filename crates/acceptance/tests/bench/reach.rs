@@ -171,7 +171,7 @@ pub const OWN_AT: &str = "/repos/storefront/.armada/workflows";
 /// workflow without caring what it did.
 pub fn one_step(id: &str) -> String {
     format!(
-        "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+        "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
          label: Only\n    delivers: true\n    advance_gate: auto\n"
     )
 }
@@ -340,7 +340,6 @@ pub const CARRYABLE: &str = r#"{
   "version": 1,
   "workflow_id": "bug",
   "name": "bug",
-  "structure": "linear",
   "steps": [
     {
       "id": "plan",
@@ -395,7 +394,6 @@ pub const NAMING_ARMADAS_CHECKS: &str = r#"{
   "version": 1,
   "workflow_id": "bug",
   "name": "bug",
-  "structure": "linear",
   "steps": [
     {
       "id": "implement",
