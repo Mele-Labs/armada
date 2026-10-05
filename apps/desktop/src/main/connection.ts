@@ -132,6 +132,8 @@ export class FleetConnection {
    * could read it could claim another window's call.
    */
   private proposalRef: string | null = null;
+  /** The Job `proposalRef`'s call is reading for, once an event has named it. */
+  private proposalJobId: string | null = null;
   private readonly turns: ObserveSocket;
   /** What Fleet did to the open Job — a third socket. See `journal.ts`. */
   private readonly notes: JournalSocket;
@@ -235,6 +237,7 @@ export class FleetConnection {
       publish: (change) => this.publish(change),
       watchProposal: (clientRef) => {
         this.proposalRef = clientRef;
+        if (clientRef !== null) this.proposalJobId = null;
         // A window that starts a proposal has nothing to show until Fleet says
         // the call went out; one that has finished with a proposal shows
         // nothing either. Both are the same clear, and it is here rather than
@@ -243,6 +246,7 @@ export class FleetConnection {
         if (clientRef === null) this.publish({ proposing: null });
       },
       proposalOut: () => this.current.proposing,
+      proposalJob: () => this.proposalJobId,
       rereadCapacity: (port) => readCapacity(port, (change) => this.publish(change)),
     });
     this.jobReads = new JobReads({
@@ -262,6 +266,9 @@ export class FleetConnection {
         this.greeted = value;
       },
       proposalRef: () => this.proposalRef,
+      setProposalJob: (value) => {
+        this.proposalJobId = value;
+      },
       setProposalRef: (value) => {
         this.proposalRef = value;
       },
