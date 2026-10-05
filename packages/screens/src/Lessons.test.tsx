@@ -400,3 +400,20 @@ test("list evidence: the window regaining focus drops what was read, and the nex
   await expect.element(one.getByText("armada.yml changed")).toBeVisible();
   expect(readRetro).toHaveBeenCalledTimes(2);
 });
+
+test("list evidence: the failure's Retry reads again and a second success expands the rows", async () => {
+  let fail = true;
+  const readRetro = vi.fn(async (): Promise<RetroRead> =>
+    fail ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, retro: HELD },
+  );
+  opened([WITH_CHECK], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("Retros could not be read")).toBeVisible();
+  fail = false;
+  await one.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+  expect(readRetro).toHaveBeenCalledTimes(2);
+  expect(one.getByText("Retros could not be read").elements()).toHaveLength(0);
+  expect(one.getByRole("button", { name: "Retry" }).elements()).toHaveLength(0);
+});

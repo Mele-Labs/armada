@@ -145,7 +145,15 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
         </Alert>
       )}
       {evidence?.failure === undefined ? null : (
-        <Alert tone="escalated" title="Retros could not be read">
+        <Alert
+          tone="escalated"
+          title="Retros could not be read"
+          action={
+            <Button size="sm" onClick={evidence.onAsk}>
+              Retry
+            </Button>
+          }
+        >
           {evidence.failure}
         </Alert>
       )}
