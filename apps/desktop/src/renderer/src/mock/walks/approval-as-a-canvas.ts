@@ -20,7 +20,7 @@ export const approvalAsACanvas = walk("proto/feature-at-approval", [
   { press: card("Plan the change"), say: "The Drone that plans" },
   { type: "opus", into: role("combobox", "Model on Plan the change"), say: "Plan runs on opus" },
   { look: inside(card("Plan the change"), text("opus")), say: "and the node says so" },
-  { look: role("group", /^Groups, /), say: "Groups, until Plan has made them" },
+  { look: role("group", /^Plan, /), say: "Plan, with its groups drawn once the plan exists" },
   { press: card("Checks"), say: "Write tests' gate" },
   { type: "3", into: role("spinbutton", "Judges on Write tests"), say: "Three Judges" },
   { press: role("checkbox", "You on Write tests"), say: "and it stops for you" },
