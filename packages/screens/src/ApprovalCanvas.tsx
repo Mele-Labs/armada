@@ -52,10 +52,11 @@ import type {
   WorkflowCanvasNode,
 } from "@armada/components";
 
-import { NOT_STARTED, approvalNodesOf, checksOf, dispatchesFromOf, perTask, stepsReadOf } from "./approval-canvas";
+import { NOT_STARTED, approvalNodesOf, checksOf, perTask, stepsReadOf } from "./approval-canvas";
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
+import type { Outcome } from "@armada/protocol";
 import type { ApprovingProps } from "./approving";
 import { studioName } from "./studio";
 import type { OpenStudioFrom } from "./work";
@@ -155,6 +156,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * Absent is the gate itself. Drawn with no `onEdits`, so every card reads.
    */
   life?: LifeRead;
+  /** Past the gate, a Job frozen with no landing target is given one, once: `set_landing_target` (23.22). */
+  onSetLandingTarget?: (target: string) => Promise<Outcome>;
   /** Open a Job the wave dispatched, as the wave graph did. */
   onOpenJob?: (jobId: string) => void;
   /**
@@ -171,6 +174,7 @@ export type ApprovalCanvasProps = ApprovingProps & {
 export function ApprovalCanvas({
   life,
   onOpenJob,
+  onSetLandingTarget,
   onOpenStep,
   onOpenGroup,
   onOpenStudio,
@@ -191,8 +195,8 @@ export function ApprovalCanvas({
   const base = baseBranch(branches);
   // **Where it lands, picked late.** A Job frozen with no branch to land in
   // has to be given one before it can land (the owner, 4 Oct 2026), so past
-  // the gate that one field stays a picker. Held here: nothing on the wire
-  // takes it yet — `draft/tuning.ts` says what is owed.
+  // the gate that one field stays a picker, sent once as `set_landing_target`
+  // (23.22). Fleet's refusal comes back as the command's own outcome.
   const [late, setLate] = useState("");
   const frozenValue = landingValueOf(landing, base);
   const picksLate = life !== undefined && frozenValue.target === "";
@@ -208,7 +212,7 @@ export function ApprovalCanvas({
   const tuned = (next: ApprovalTuning) => moved?.({ tuning: next });
   const landed = (next: ProposalLandingValue) => moved?.({ landing: landingWith(landing, next, base) });
 
-  const dispatchesFrom = dispatchesFromOf(proposal.workflow_id, steps);
+  const dispatchesFrom = steps.find((one) => one.dispatches)?.id;
   const from = onOpenStudio === undefined ? undefined : whole.from_studio;
   // Past the gate the request is the words Fleet holds as approved, which the
   // Brief card read — never a draft's copy of them.
@@ -375,7 +379,12 @@ export function ApprovalCanvas({
                 moved={moved}
                 tuned={onEdits === undefined ? undefined : tuned}
                 landed={onEdits === undefined ? undefined : landed}
-                {...(picksLate ? { landsLate: (target: string) => setLate(target) } : {})}
+                {...(picksLate
+                  ? {
+                      landsLate: (target: string) => setLate(target),
+                      ...(onSetLandingTarget === undefined ? {} : { sendLate: () => void onSetLandingTarget(late.trim()) }),
+                    }
+                  : {})}
                 value={value}
                 branches={branches}
                 models={models}
@@ -426,6 +435,8 @@ type NodeCardProps = {
   forRequests: string | undefined;
   /** Past the gate, where it lands is still to pick: that one field's mover. */
   landsLate?: (target: string) => void;
+  /** Send what `landsLate` holds: `set_landing_target`. */
+  sendLate?: () => void;
 };
 
 /** What one node tunes. */
@@ -835,7 +846,7 @@ function DeliveryFields({
 }
 
 /** Where it lands, and the delivery again: local only is answered here once the pull request node is gone. */
-function LandCard({ value, landed, landsLate, branches, edits, tuning, tuned, moved }: NodeCardProps) {
+function LandCard({ value, landed, landsLate, sendLate, branches, edits, tuning, tuned, moved }: NodeCardProps) {
   const delivery = deliveryOf(tuning.local, edits.landing.pr_mode);
   return (
     <>
@@ -851,6 +862,13 @@ function LandCard({ value, landed, landsLate, branches, edits, tuning, tuned, mo
         // Local only keeps the work on its branch: nothing lands, so nothing names where.
         fields={delivery === "local" ? ["branching", "completeWhen"] : ["target", "branching", "completeWhen"]}
       />
+      {landsLate === undefined || sendLate === undefined ? null : (
+        <div className="armada-approval-canvas__acts">
+          <Button variant="secondary" size="sm" disabled={value.target.trim() === ""} onClick={sendLate}>
+            Set
+          </Button>
+        </div>
+      )}
       <DeliveryFields delivery={delivery} edits={edits} tuning={tuning} tuned={tuned} moved={moved} />
     </>
   );

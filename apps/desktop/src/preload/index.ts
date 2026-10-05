@@ -158,6 +158,8 @@ const api: BridgeApi = {
 
   editJob: (jobId: string, edit: EditJob): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.editJob, jobId, edit),
+  setLandingTarget: (jobId: string, target: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.setLandingTarget, jobId, target),
 
   // The disk, never the record — every row this reaches stays on the board,
   // under `Cleared`. One entry taking every id rather than a loop of

@@ -834,6 +834,7 @@ export function App({ draft }: AppProps = {}) {
                   onDropTask={commands.dropTask}
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob}
+                  onSetLandingTarget={commands.setLandingTarget}
                   onShowAgain={showAgain}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}

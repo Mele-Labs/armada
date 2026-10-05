@@ -15,6 +15,7 @@ import type {
   JobDetail as JobWhole,
   LandingChoice,
   ManifestSummary,
+  StepTuning as WireStepTuning,
   TierModels as WireTiers,
   WorkflowStep,
   WorkflowSummary,
@@ -28,6 +29,9 @@ import {
   originSaidOf,
 } from "./draft/criterion";
 import type { CriterionView } from "./draft/criterion";
+import { baseBranch } from "./draft/branches";
+import type { BranchView } from "./draft/branches";
+import { stepTuningOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 import type { JobDraft } from "./draft/held";
 import { COMPLETE_WHEN_SERVED } from "./draft/landing";
@@ -50,7 +54,8 @@ export type ProposalEdits = {
   criteria: readonly CriterionView[];
   /**
    * What the approval canvas tunes that the wire has no field for — draft,
-   * `draft/tuning.ts`. Absent is nothing tuned; `approvalOf` never sends it.
+   * `draft/tuning.ts`. `approvalOf` sends `steps` as `tuning`; `auto_merge`,
+   * `local` and `to_proposer` have no wire yet and are never sent.
    */
   tuning?: ApprovalTuning;
 };
@@ -126,6 +131,8 @@ export function approvalOf(
   edits: ProposalEdits,
   before: ProposalEdits,
   workflows: readonly WorkflowSummary[],
+  /** The repository's branches, to tell a branch Fleet must make from one it holds. `null` is nobody having listed them. */
+  branches: readonly BranchView[] | null = null,
 ): ApproveDispatch | undefined {
   const { proposal, landing, criteria } = edits;
   const body: ApproveDispatch = {};
@@ -147,8 +154,32 @@ export function approvalOf(
     body.tiers = wireTiersOf(proposal.tiers);
   }
   if (proposal.drone_cap !== undefined) body.drone_cap = proposal.drone_cap;
-  if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing);
+  if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing, branches);
+  const tuning = tuningChoicesOf(edits, workflows);
+  if (tuning.length > 0) body.tuning = tuning;
   return Object.keys(body).length === 0 ? undefined : body;
+}
+
+/**
+ * What a person tuned per step, as `approve_dispatch` takes it (23.20): only
+ * the fields that moved off the step as declared, and only the steps with one.
+ * `judges` is judged against the workflow's own `panel_size`, since a Judge
+ * count nobody moved is what the step already runs.
+ */
+function tuningChoicesOf(edits: ProposalEdits, workflows: readonly WorkflowSummary[]): WireStepTuning[] {
+  const declared = workflows.find((one) => one.id === edits.proposal.workflow_id)?.steps ?? [];
+  const choices: WireStepTuning[] = [];
+  for (const [stepId, tuned] of Object.entries(edits.tuning?.steps ?? {})) {
+    const choice: WireStepTuning = { step_id: stepId };
+    if (tuned.model !== null) choice.model = tuned.model;
+    if (tuned.effort !== null) choice.effort = tuned.effort;
+    if (tuned.context.trim() !== "") choice.context = tuned.context;
+    const was = stepTuningOf(declared.find((one) => one.step_id === stepId)?.judge_checks ?? []).judges;
+    if (tuned.judges !== was) choice.judges = tuned.judges;
+    if (tuned.checks_off.length > 0) choice.checks_off = [...tuned.checks_off];
+    if (Object.keys(choice).length > 1) choices.push(choice);
+  }
+  return choices;
 }
 
 /** The three tiers, in the map's own order. */
@@ -231,8 +262,14 @@ function landingMoved(after: LandingRule, before: LandingRule): boolean {
 }
 
 /** The landing as the approval sets it. A `null` ref is left out, which is the Manifest's base. */
-function landingChoiceOf(landing: LandingRule): LandingChoice {
+function landingChoiceOf(landing: LandingRule, branches: readonly BranchView[] | null): LandingChoice {
+  // Where the work starts, and it is a branch the repository does not hold:
+  // Fleet makes it from the base (`start_point`, 23.21).
+  const starts = landing.from_ref ?? landing.target;
+  const base = baseBranch(branches);
+  const makes = starts !== null && branches !== null && !branches.some((one) => one.name === starts);
   return {
+    ...(makes && base !== null ? { start_point: base } : {}),
     ...(landing.target === null ? {} : { target: landing.target }),
     ...(landing.from_ref === null ? {} : { from_ref: landing.from_ref }),
     branching: landing.branching,

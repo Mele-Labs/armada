@@ -9,8 +9,10 @@ import type {
   EditJob,
   GateChoice,
   JobDetail,
+  Outcome,
   PolicyOverrides,
   StepDetail,
+  StepTuning,
 } from "@armada/protocol";
 import type { WaveJobView } from "@armada/screens/src/draft/wave";
 
@@ -34,6 +36,12 @@ export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined,
     const overrides = overridesOf(detail.steps, gates);
     if (overrides !== undefined) approved.policy_overrides = overrides;
   }
+  if ((body?.tuning ?? []).length > 0) {
+    approved.steps = approved.steps.map((step) => {
+      const tuned = body?.tuning?.find((one) => one.step_id === step.step_id);
+      return tuned === undefined ? step : tunedAs(step, tuned);
+    });
+  }
   if (body?.tiers !== undefined) approved.tiers = body.tiers;
   // The body is the whole proposal, so a cap left out is the machine's.
   if (body?.drone_cap === undefined) delete approved.drone_cap;
@@ -47,6 +55,65 @@ export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined,
     };
   }
   return approved;
+}
+
+/** A refusal, in Fleet's own code and words. */
+const refusedAs = (code: string, message: string): Outcome => ({
+  ok: false,
+  why: "refused",
+  error: { code, message, run_id: "mock", fields: {}, chain: [] },
+});
+
+/**
+ * What Fleet refuses in `tuning` (23.20), keeping nothing: a step the workflow
+ * lacks, one tuned twice, a blank model, `judges: 0`, and `judges` on a step
+ * with no Judge.
+ */
+export function tuningRefusal(detail: JobDetail, body: ApproveDispatch | undefined): Outcome | undefined {
+  const refuse = (why: string): Outcome => refusedAs("fleet.unacceptable_proposal", why);
+  const seen = new Set<string>();
+  for (const tuned of body?.tuning ?? []) {
+    const step = detail.steps.find((one) => one.step_id === tuned.step_id);
+    if (step === undefined) return refuse(`\`${tuned.step_id}\` is not a step of this workflow`);
+    if (seen.has(tuned.step_id)) return refuse(`\`${tuned.step_id}\` is tuned twice`);
+    seen.add(tuned.step_id);
+    if (tuned.model !== undefined && tuned.model.trim() === "") return refuse("a model cannot be blank");
+    if (tuned.judges === 0) return refuse("`judges` cannot be zero");
+    if (tuned.judges !== undefined && (step.judge_checks ?? []).length === 0) {
+      return refuse(`\`${tuned.step_id}\` has no Judge`);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The step as tuned, as `get_job` reads it back: the Judge's panel and the
+ * Checks the step still runs. The model, effort and words are not served back.
+ */
+function tunedAs(step: StepDetail, tuned: StepTuning): StepDetail {
+  const off = tuned.checks_off ?? [];
+  return {
+    ...step,
+    ...(tuned.judges === undefined
+      ? {}
+      : { judge_checks: (step.judge_checks ?? []).map((one) => ({ ...one, panel_size: tuned.judges! })) }),
+    ...(off.length === 0 ? {} : { checks: (step.checks ?? []).filter((one) => !off.includes(one.name ?? one.kind)) }),
+  };
+}
+
+/**
+ * `set_landing_target` (23.22): once, on an approved Job landing in the base.
+ * Refused blank (422) and where the approval set it or the work is out (409).
+ */
+export function landingTargetSet(detail: JobDetail, target: string): JobDetail | Outcome {
+  if (target.trim() === "") return refusedAs("fleet.landing_target_blank", "a landing target cannot be blank");
+  if (detail.job.status === "awaiting_approval" || detail.landing?.target !== undefined) {
+    return refusedAs("fleet.landing_target_settled", "this Job's landing target is already settled");
+  }
+  return {
+    ...detail,
+    landing: { pr_mode: "ready", ...detail.landing, target: target.trim() },
+  };
 }
 
 /** A proposal's words saved without releasing it — `edit_job`. */

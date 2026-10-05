@@ -12,8 +12,7 @@
 
 import type { DeclaredCheck, WorkflowSummary } from "@armada/protocol";
 import { MANIFEST_ID } from "./base";
-import { phased } from "../../draft/phase";
-import type { StepPhase } from "../../draft/phase";
+import type { StepPhase } from "@armada/protocol";
 
 type Step = WorkflowSummary["steps"][number];
 
@@ -22,7 +21,7 @@ function step(
   label: string,
   advance_gate: string,
   over: Partial<Step> = {},
-  /** Its lane on the approval canvas. Draft — `draft/phase.ts`. Absent reads by `delivers`. */
+  /** Its lane on the approval canvas. Absent is Fleet's own reading. */
   phase?: StepPhase,
 ): Step {
   const declared: Step = {
@@ -34,7 +33,7 @@ function step(
     delivers: false,
     ...over,
   };
-  return phase === undefined ? declared : phased(declared, phase);
+  return phase === undefined ? declared : { ...declared, phase };
 }
 
 function summary(id: string, name: string, steps: Step[]): WorkflowSummary {

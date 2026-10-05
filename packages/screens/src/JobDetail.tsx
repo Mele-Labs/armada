@@ -423,6 +423,9 @@ function OneJob(props: JobDetailProps) {
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       onOpenJob={openJob}
+                      {...(props.onSetLandingTarget === undefined
+                        ? {}
+                        : { onSetLandingTarget: (target: string) => props.onSetLandingTarget!(whole.job.id, target) })}
                       // A step, a group or a task opens the panel its own tab
                       // opens, by the jump Record and Drones already make — with
                       // the way back to Overview in its head (`trail.ts`).

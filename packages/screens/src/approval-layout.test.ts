@@ -10,9 +10,9 @@ import { layoutOf } from "./approval-layout";
 import { tuningOf } from "./draft/tuning";
 
 const STEPS: StepRead[] = [
-  { id: "plan", label: "Plan the change", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false, phase: "work" as const, perTask: false },
-  { id: "implement", label: "Implement", checks: [{ kind: "diff_nonempty" }], judges: [], delivers: false, phase: "work" as const, perTask: true },
-  { id: "handoff", label: "Review the change", checks: [], judges: [], delivers: true, phase: "delivery" as const, perTask: false },
+  { id: "plan", label: "Plan the change", checks: [], judges: [{ criteria: 2, gaming_check: false }], delivers: false, phase: "work" as const, perTask: false, dispatches: false },
+  { id: "implement", label: "Implement", checks: [{ kind: "diff_nonempty" }], judges: [], delivers: false, phase: "work" as const, perTask: true, dispatches: false },
+  { id: "handoff", label: "Review the change", checks: [], judges: [], delivers: true, phase: "delivery" as const, perTask: false, dispatches: false },
 ];
 const GATES = [
   { step_id: "plan", checks: false, judge: true, you: false },

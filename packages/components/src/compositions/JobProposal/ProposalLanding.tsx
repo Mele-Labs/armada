@@ -115,6 +115,8 @@ export function ProposalLanding({
               value={landing.from}
               onValue={(from) => moved({ from })}
               branches={branches}
+              // A base nobody has cut is made from the repository's own, since 23.21.
+              offerNew
               required
               disabled={!may("from")}
             />

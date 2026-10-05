@@ -26,7 +26,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, SetLandingTarget } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -975,6 +975,18 @@ export class JobCommands {
   async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
+    );
+  }
+
+  /**
+   * Where an approved Job with no landing target lands, once (23.22). Under
+   * `setting`, as the other changes to a Job's settings; Fleet's refusals
+   * (`landing_target_settled`, `landing_target_blank`) come back as the outcome.
+   */
+  async setLandingTarget(jobId: string, target: string): Promise<Outcome> {
+    const body: SetLandingTarget = { target };
+    return this.act(jobId, this.setting, "already_setting", (port) =>
+      ask(port, "POST", route(jobId, "set_landing_target"), body),
     );
   }
 

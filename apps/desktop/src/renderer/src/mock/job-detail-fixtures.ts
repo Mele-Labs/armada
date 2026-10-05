@@ -17,7 +17,6 @@ import { escalatedEvidenceSuspect, review } from "@armada/screens/src/fixtures/b
 import { awaitingApproval, running } from "@armada/screens/src/fixtures/build/index";
 import { advancedStep, BUILD_CHECK, diffRead, freshStep, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { phased } from "@armada/screens/src/draft/phase";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 
 /**
@@ -380,20 +379,16 @@ export function refactorAtApproval(): JobFixture {
     name: "refactor",
     version: 1,
     manifest_id,
-    // Each step's lane on the approval canvas (draft): the hand-off delivers, the rest is the work.
-    steps: steps.map((one) =>
-      phased(
-        {
+    // Each step's lane on the approval canvas: the hand-off delivers, the rest is the work.
+    steps: steps.map((one) => ({
           step_id: one.step_id,
           label: one.label,
           checks: one.checks ?? [],
           judge_checks: one.judge_checks ?? [],
           advance_gate: one.advance_gate ?? "human_always",
           delivers: one.delivers ?? false,
-        },
-        one.step_id === "handoff" ? "delivery" : "work",
-      ),
-    ),
+          phase: one.step_id === "handoff" ? ("delivery" as const) : ("work" as const),
+    })),
     for_requests,
   });
   return {

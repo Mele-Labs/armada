@@ -17,7 +17,7 @@ import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
 import { reshaped } from "./slots-fleet";
-import { approvedAs, edited, waveJobEdited } from "./approval-fleet";
+import { approvedAs, edited, landingTargetSet, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
   groupsDropping,
@@ -159,11 +159,22 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     approveDispatch: async (jobId, approval) => {
       const watched = state.watched;
       if (watched.state !== "read" || watched.jobId !== jobId) return (move(jobId, { status: "queued" }), OK);
+      const refusal = tuningRefusal(watched.detail, approval);
+      if (refusal !== undefined) return refusal;
       const detail = approvedAs(watched.detail, approval, new Date().toISOString());
       publish({
         jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...detail.job } : job)),
         watched: { ...watched, detail },
       });
+      return OK;
+    },
+    // Where an approved Job lands, once (`set_landing_target`, 23.22).
+    setLandingTarget: async (jobId, target) => {
+      const watched = state.watched;
+      if (watched.state !== "read" || watched.jobId !== jobId) return OK;
+      const set = landingTargetSet(watched.detail, target);
+      if ("ok" in set) return set;
+      publish({ watched: { ...watched, detail: set } });
       return OK;
     },
     // The repository's branches, where a Job of it carries them (#1605).

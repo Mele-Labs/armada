@@ -205,6 +205,8 @@ export type BridgeApi = {
    * the fields a person changed.
    */
   editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  /** Where an approved Job with no landing target lands, once — `set_landing_target`, since 23.22. */
+  setLandingTarget: (jobId: string, target: string) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the

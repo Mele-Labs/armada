@@ -13,9 +13,9 @@ import { Input } from "../../primitives/Input/Input";
  * (the composer, `packages/screens/src/draft/branches.ts`); where the work
  * lands may be a branch nobody has cut yet either way.
  *
- * **`offerNew` is the one difference between the two fields it draws.** Where
- * the work starts has to exist already; where it lands may not, and naming a
- * branch that is not there is how one gets made.
+ * **`offerNew` makes a typed name a branch to make.** Both fields offer it
+ * since 23.21: a base that is not there is cut from the repository's own
+ * (`LandingChoice.start_point`), and where the work lands may not exist either.
  */
 export type BranchOption = {
   name: string;

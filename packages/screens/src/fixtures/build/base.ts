@@ -48,7 +48,6 @@ import type {
   WorkflowSummary,
 } from "@armada/protocol";
 import type { FoldedReads } from "../../JobDetail";
-import { phased } from "../../draft/phase";
 
 /** The Job every fixture is a moment of. Reused across states on purpose. */
 export const JOB_ID = "01M2C1TJ8G0016YK5SPLITSEL";
@@ -131,72 +130,60 @@ export function workflow(): WorkflowSummary {
     version: 3,
     manifest_id: MANIFEST_ID,
     steps: [
-      phased(
-        {
+      {
           step_id: "repro",
           label: "Reproduction",
           checks: [],
           judge_checks: [],
           advance_gate: "auto",
           delivers: false,
+          phase: "work",
         },
-        "work",
-      ),
-      phased(
-        {
+      {
           step_id: "root_cause",
           label: "Root cause",
           checks: [],
           judge_checks: [],
           advance_gate: "auto",
           delivers: false,
+          phase: "work",
         },
-        "work",
-      ),
-      phased(
-        {
+      {
           step_id: "fix",
           label: "Fix",
           checks: [BUILD_CHECK],
           judge_checks: [],
           advance_gate: "auto_if_judge_passes",
           delivers: false,
+          phase: "work",
         },
-        "work",
-      ),
-      phased(
-        {
+      {
           step_id: "regression_verify",
           label: "Regression check",
           checks: [NEXTEST_CHECK],
           judge_checks: [{ criteria: 2, gaming_check: true }],
           advance_gate: "human_always",
           delivers: false,
+          phase: "work",
         },
-        "work",
-      ),
-      phased(
-        {
+      {
           step_id: "consumers",
           label: "Check the consumers still compile",
           checks: [BUILD_CHECK],
           judge_checks: [],
           advance_gate: "auto",
           delivers: false,
+          phase: "work",
         },
-        "work",
-      ),
-      phased(
-        {
+      {
           step_id: "land",
           label: "Land",
           checks: [],
           judge_checks: [],
           advance_gate: "auto",
           delivers: true,
+          phase: "delivery",
         },
-        "delivery",
-      ),
     ],
   };
 }

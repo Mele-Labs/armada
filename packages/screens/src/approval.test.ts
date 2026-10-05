@@ -104,6 +104,37 @@ describe("the approval body", () => {
       landing: { target: "release/2026-10", branching: "job", pr_mode: "ready", complete_when: "delivered" },
     });
   });
+
+  it("sends a base nobody has cut with the repository's base as its start point", () => {
+    const before = read();
+    const branches = [{ name: "main", base: true }, { name: "release/2026-09", base: false }];
+    const drawn = landingValueOf(before.landing, "main");
+    const cut = landingWith(before.landing, { ...drawn, from: "release/2026-10" }, "main");
+    const held = landingWith(before.landing, { ...drawn, from: "release/2026-09" }, "main");
+
+    expect(approvalOf({ ...before, landing: cut }, before, [], branches)?.landing).toMatchObject({
+      from_ref: "release/2026-10",
+      start_point: "main",
+    });
+    expect(approvalOf({ ...before, landing: held }, before, [], branches)?.landing).not.toHaveProperty("start_point");
+  });
+
+  it("sends what a step was tuned to, and only what moved off the step as declared", () => {
+    const before = read();
+    const tuning = {
+      steps: {
+        plan: { model: "opus", effort: "high" as const, context: " Mind the schema ", judges: 3, checks_off: ["build"] },
+        handoff: { model: null, effort: null, context: "", judges: 1, checks_off: [] },
+      },
+      auto_merge: true,
+      local: true,
+      to_proposer: ["tighten the brief"],
+    };
+
+    expect(approvalOf({ ...before, tuning }, before, [])).toEqual({
+      tuning: [{ step_id: "plan", model: "opus", effort: "high", context: " Mind the schema ", judges: 3, checks_off: ["build"] }],
+    });
+  });
 });
 
 describe("a real Job's proposal", () => {

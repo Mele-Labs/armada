@@ -132,6 +132,8 @@ export type JobDetailProps = {
    * changed — `edit_job`, served since 23.8.
    */
   onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
+  /** Give a frozen Job with no landing target one, once — `set_landing_target`, since 23.22. */
+  onSetLandingTarget?: (jobId: string, target: string) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

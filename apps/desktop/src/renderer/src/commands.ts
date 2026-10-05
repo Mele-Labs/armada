@@ -845,6 +845,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Give an approved Job with no landing target one, once. `editJob`'s terms:
+   * the answer is drawn where every command's is, so a refusal reads as the
+   * sentence Fleet returned. `set_landing_target`, since 23.22.
+   */
+  async function setLandingTarget(jobId: string, target: string): Promise<Outcome> {
+    const answer = await window.armada.setLandingTarget(jobId, target);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
    * Hand the comments a person picked off the pull request to a drone.
    *
    * **Under `deciding`, with the four answers at the same gate.** It leaves
@@ -960,6 +972,7 @@ export function useCommands(sending: Sending) {
     movePlan,
     approveWave,
     editJob,
+    setLandingTarget,
     listBranches,
     decide,
     refresh,

@@ -536,6 +536,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
     connection?.commands.editJob(jobId, edit),
   );
+  ipcMain.handle(CHANNELS.setLandingTarget, (_event, jobId: string, target: string) =>
+    connection?.commands.setLandingTarget(jobId, target),
+  );
   // The disk rather than the record, and the one act here `armada clean` could
   // already do — but only with Fleet stopped, which is never when a person
   // wants the space back. Every row stays on the board afterwards, under

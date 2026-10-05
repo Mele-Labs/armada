@@ -1,14 +1,12 @@
-// What a person tunes per node on the approval canvas that the wire carries no
-// field for. Draft, for `crates/ipc/src/approving.rs` (`ApproveDispatch`).
+// What a person tunes per node on the approval canvas. `StepTuning` is on the
+// wire since 23.20 (`ApproveDispatch.tuning`), and `approvalOf` sends it.
 //
-// **Prototype, mocks first** (the Arc practice): the canvas is built against
-// these and nothing sends them. `approvalOf` still sends only what the wire
-// takes — title, facts, workflow, gates, criteria, tiers, cap, landing — and
-// everything here stays on the screen until a DTO exists for it.
+// **Still draft, and never sent**: `auto_merge`, `local` and `to_proposer`,
+// owed to `crates/ipc/src/approving.rs`. The harness is one fixed value.
 //
-// Source of truth today: nothing. Each default below is read off what Fleet
-// already serves where it can be (`JobSummary.model`, a Judge's `panel_size`),
-// and is otherwise Armada picking, which is `null`.
+// Each default below is read off what Fleet already serves where it can be
+// (`JobSummary.model`, a Judge's `panel_size`), and is otherwise Armada
+// picking, which is `null`.
 
 import type { DeclaredCheck, DeclaredJudge } from "@armada/protocol";
 
@@ -48,7 +46,7 @@ export type Delivery = "local" | "draft" | "ready";
 /** The one answer the control draws, from the two fields that hold it. */
 export const deliveryOf = (local: boolean, prMode: "ready" | "draft"): Delivery => (local ? "local" : prMode);
 
-/** Everything the canvas tunes that has no wire. */
+/** Everything the canvas tunes: the steps' on the wire, the rest draft. */
 export type ApprovalTuning = {
   steps: Readonly<Record<string, StepTuning>>;
   /** Whether the pull request merges once it is approved, with no further press. */
