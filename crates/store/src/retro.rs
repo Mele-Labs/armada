@@ -70,7 +70,7 @@ ALTER TABLE job_retro_items ADD COLUMN lands_in TEXT
 ///
 /// **The three texts are null on every item kept before**, which has `said`
 /// alone, and nothing is backfilled. **Every existing item starts `open`.**
-pub(crate) const V104: &str = r#"
+pub(crate) const V105: &str = r#"
 ALTER TABLE job_retro_items ADD COLUMN title TEXT CHECK (title IS NULL OR trim(title) <> '');
 ALTER TABLE job_retro_items ADD COLUMN what TEXT CHECK (what IS NULL OR trim(what) <> '');
 ALTER TABLE job_retro_items ADD COLUMN fix TEXT CHECK (fix IS NULL OR trim(fix) <> '');
@@ -84,7 +84,7 @@ ALTER TABLE job_retro_items ADD COLUMN job_proposed TEXT;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetroLine {
     pub whose: Whose,
-    /// A headline. **`None` only on an item kept before V104**, as `what` and
+    /// A headline. **`None` only on an item kept before V105**, as `what` and
     /// `fix` are.
     pub title: Option<String>,
     pub what: Option<String>,
@@ -559,7 +559,7 @@ impl Store {
 const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
      i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed";
 
-/// The three texts V104 added, which are all absent on an older item.
+/// The three texts V105 added, which are all absent on an older item.
 struct Texts {
     title: Option<String>,
     what: Option<String>,

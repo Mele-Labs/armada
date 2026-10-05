@@ -357,6 +357,6 @@ wire_enum! {
 }
 wire_enum! {
     /// Where a retro item stands with the person: `open`, `agreed`, `accepted`
-    /// or `discarded`. Since 23.23. `docs/concepts/retro.md`.
+    /// or `discarded`. Since 23.26. `docs/concepts/retro.md`.
     LessonState, core_model::LessonState, "a state a retro item is in"
 }

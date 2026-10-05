@@ -55,28 +55,28 @@ pub enum RetroState {
 
 /// One thing that got in the way.
 ///
-/// **`title`, `what` and `fix` are absent on an item kept before 23.23**, which
+/// **`title`, `what` and `fix` are absent on an item kept before 23.26**, which
 /// has `statement` alone. On one written since, `statement` repeats `what`, so
 /// a reader that predates the three still has a sentence to draw.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetroItem {
     /// Names this item in `agree_lesson` and `disagree_lesson`. Stable: it is
     /// the Job's id and the item's place in its retro, and a retro is written
-    /// once. Since 23.23.
+    /// once. Since 23.26.
     pub id: String,
     /// Whose way it got in.
     pub who: Whose,
-    /// A headline of about eight words. Since 23.23.
+    /// A headline of about eight words. Since 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    /// One or two short sentences: what happened, and to whom. Since 23.23.
+    /// One or two short sentences: what happened, and to whom. Since 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub what: Option<String>,
-    /// One sentence naming what to change. Since 23.23.
+    /// One sentence naming what to change. Since 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fix: Option<String>,
     /// What got in the way, as one piece of prose. On an item written since
-    /// 23.23 it is `what`.
+    /// 23.26 it is `what`.
     pub statement: String,
     /// The [`RetroRecord`] rows that show it, by `cite`. Never empty.
     pub evidence: Vec<String>,
@@ -85,10 +85,10 @@ pub struct RetroItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<LandsIn>,
     /// Where it stands with the person, as on [`Lesson`]. **Absent only on an
-    /// item whose row has no answer record**, read as before. Since 23.24.
+    /// item whose row has no answer record**, read as before. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<LessonState>,
-    /// The Job proposed for it, as on [`Lesson`]. Since 23.24.
+    /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
 }
@@ -147,14 +147,14 @@ pub struct Lessons {
 /// One retro item, with the Job it came from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lesson {
-    /// `RetroItem::id`. Since 23.23.
+    /// `RetroItem::id`. Since 23.26.
     pub id: String,
     pub job_id: JobId,
     pub handle: String,
     /// When the retro this item is in was written.
     pub at: Instant,
     pub who: Whose,
-    /// As on [`RetroItem`]: absent on an item kept before 23.23.
+    /// As on [`RetroItem`]: absent on an item kept before 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -169,10 +169,10 @@ pub struct Lesson {
     /// `?lands_in=` never matches.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<LandsIn>,
-    /// Where it stands with the person. Every item starts `open`. Since 23.23.
+    /// Where it stands with the person. Every item starts `open`. Since 23.26.
     pub state: LessonState,
     /// The Job proposed for it, once `agree_lesson` has proposed one. Since
-    /// 23.23.
+    /// 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
 }
@@ -251,7 +251,7 @@ pub struct RecordCheck {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub produced: Option<String>,
     /// Each file the gate's failure names, and whether the step's Drones
-    /// named it in a tool call of their own. Since 23.23, on a gate failure
+    /// named it in a tool call of their own. Since 23.26, on a gate failure
     /// that names a file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paths: Vec<RecordPath>,

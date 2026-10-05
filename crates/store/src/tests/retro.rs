@@ -360,7 +360,7 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
     assert_eq!(
         old.state,
         LessonState::Open,
-        "an item kept before V104 is open"
+        "an item kept before V105 is open"
     );
     assert_eq!(old.job_proposed, None);
     assert_eq!(old.line.title, None);

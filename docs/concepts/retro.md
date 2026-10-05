@@ -248,7 +248,7 @@ the buttons**: Fleet refuses both acts on one with no place.
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
 `docs/practices/protocol.md` *Protocol 23.12* has the change, *Protocol 23.15*
-`lands_in`, *Protocol 23.23* the parts, the two acts and `state`, *Protocol 23.24*
+`lands_in`, *Protocol 23.26* the parts, the two acts and `state`, *Protocol 23.27*
 `state` and `job_proposed` on the items `get_job_retro` serves, so the sheet and the
 Lessons list agree on what has been answered. Both acts are
 Helm only, as `propose_from_request` is: a person presses them in Bridge, and

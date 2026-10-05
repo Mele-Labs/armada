@@ -18,7 +18,7 @@ export type RetroState = "pending" | "written" | "failed" | "skipped";
 /**
  * Where a retro item stands with the person. Every item starts `open`.
  * `agreed` has a Job proposed for it, `accepted` is a Kit item kept as it is,
- * and `discarded` was disagreed with and stays in the store. Since 23.23.
+ * and `discarded` was disagreed with and stays in the store. Since 23.26.
  */
 export type LessonState = "open" | "agreed" | "accepted" | "discarded";
 
@@ -27,12 +27,12 @@ export type LessonState = "open" | "agreed" | "accepted" | "discarded";
  * `lands_in` is on every item written since 23.15, and absent on one kept
  * before, which is shown under All only.
  *
- * Since 23.23 an item has an `id`, and `title` (about eight words), `what` (one
+ * Since 23.26 an item has an `id`, and `title` (about eight words), `what` (one
  * or two short sentences) and `fix` (one sentence). All three are absent on an
  * item kept before, which has `statement` alone. On an item written since,
  * `statement` repeats `what`.
  *
- * Since 23.24 an item carries where it stands with the person, as a `Lesson`
+ * Since 23.27 an item carries where it stands with the person, as a `Lesson`
  * does: `state`, and `job_proposed`, the Job `agree_lesson` proposed for it, a
  * Job id. `state` is absent only on an item whose row has no answer record.
  */
@@ -63,7 +63,7 @@ export type RecordRefusal = {
 /**
  * A file a failed Check names, set against what the Drone did. A fact read off
  * the transcript and never a verdict: `false` says no tool call of the Drone's
- * names the file, and `true` says one does, which may be a read. Since 23.23.
+ * names the file, and `true` says one does, which may be a read. Since 23.26.
  */
 export type RecordPath = {
   path: string;
@@ -80,7 +80,7 @@ export type RecordCheck = {
   run: "gate" | "drone";
   expected?: string;
   produced?: string;
-  /** Each file a gate failure names. Absent where it names none. Since 23.23. */
+  /** Each file a gate failure names. Absent where it names none. Since 23.26. */
   paths?: RecordPath[];
 };
 
@@ -171,7 +171,7 @@ export type JobRetro = {
  * One retro item, with the Job it came from. `id`, `title`, `what`, `fix` and
  * `lands_in` are as on `RetroItem`. `state` is every item's, `open` at the
  * start, and `job_proposed` is the Job `agree_lesson` proposed for it, a Job id.
- * Since 23.23.
+ * Since 23.26.
  */
 export type Lesson = {
   id: string;

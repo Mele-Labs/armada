@@ -2,7 +2,7 @@
 //!
 //! **A seventh surface, for [`Studios`](super::Studios)' reason.** Both reads
 //! are about what a Job's record says once it is over, and neither is a fact
-//! `get_job` or the Board reads. The two acts on an item came with 23.23.
+//! `get_job` or the Board reads. The two acts on an item came with 23.26.
 
 use std::future::Future;
 use std::sync::Arc;

@@ -2772,7 +2772,7 @@ skew rule's own direction.
 after that is a record the forge disagrees with. **The worktree keeps what it was cut from.** No
 store migration: the landing row takes the target. The event stream is untouched.
 
-## Protocol 23.24: a retro item says where it stands
+## Protocol 23.27: a retro item says where it stands
 
 The owner, 5 Oct 2026. The Retro sheet in Bridge offered Agree and Disagree on an item already
 answered from the Lessons list, because `get_job_retro` carried no answer state.
@@ -2784,9 +2784,9 @@ answered from the Lessons list, because `get_job_retro` carried no answer state.
 | `state` | `RetroItem` | Only on an item whose row has no answer record, read as before |
 | `job_proposed` | `RetroItem` | Absent until agreeing proposed a Job for the item |
 
-Both are read from the rows `list_lessons` reads. A 23.23 Bridge ignores them.
+Both are read from the rows `list_lessons` reads. A 23.26 Bridge ignores them.
 
-## Protocol 23.23: a retro item has parts, and a person answers it
+## Protocol 23.26: a retro item has parts, and a person answers it
 
 The owner, 4 Oct 2026, after Job 3's retro was rejected as prose nobody could act on and wrong
 about whose fault it was. `../concepts/retro.md`, *Items* and *Agree and disagree*, is the concept.
@@ -2796,7 +2796,7 @@ about whose fault it was. `../concepts/retro.md`, *Items* and *Agree and disagre
 | Change | Where | Absent or older |
 | --- | --- | --- |
 | `id` | `RetroItem`, `Lesson` | Always present: the Job's id, a hyphen and the item's place in its retro |
-| `title`, `what`, `fix` | `RetroItem`, `Lesson` | An item kept before 23.23, which has `statement` alone |
+| `title`, `what`, `fix` | `RetroItem`, `Lesson` | An item kept before 23.26, which has `statement` alone |
 | `state` | `Lesson` | Always present: `open`, `agreed`, `accepted` or `discarded`. Every item kept before starts `open` |
 | `job_proposed` | `Lesson` | Absent until agreeing proposed a Job for the item |
 | `paths` | `RecordCheck` | A failure that names no file, or one the Drone ran itself |
@@ -2804,9 +2804,9 @@ about whose fault it was. `../concepts/retro.md`, *Items* and *Agree and disagre
 | `POST /lessons/:lesson_id/agree` | `agree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
 | `POST /lessons/:lesson_id/disagree` | `disagree_lesson` | New. Answers the `Lesson`. `agent_access` is `Helm only` |
 
-**`statement` stays**, and on an item written since 23.23 it repeats `what`, so a Bridge that
+**`statement` stays**, and on an item written since 23.26 it repeats `what`, so a Bridge that
 predates the parts still has a sentence to draw. **The listing's default changed in meaning, not in
-shape**: before 23.23 it listed every item, and it now lists the `open` ones. A 23.22 Bridge
+shape**: before 23.26 it listed every item, and it now lists the `open` ones. A 23.22 Bridge
 never answers an item, so every item it reads is open and it sees no difference.
 
 **Agreeing**, by where the fix lands. `manifest` proposes a Job at the approval gate on the
@@ -2824,7 +2824,7 @@ state it stands in and proposes nothing, so agreeing twice makes one Job.
 A refusal from the proposer itself is returned as it is, and the item is open again.
 **Disagreeing** keeps the row as `discarded` and never takes back a Job already proposed.
 
-**Store V104** adds `title`, `what`, `fix`, `state` and `job_proposed` to `job_retro_items`. Existing
+**Store V105** adds `title`, `what`, `fix`, `state` and `job_proposed` to `job_retro_items`. Existing
 rows read `open`.
 
 **The record gains a fact.** A gate failure that names a file carries `paths`, each file with

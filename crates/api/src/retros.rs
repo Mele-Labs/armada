@@ -1,5 +1,5 @@
 //! `get_job_retro`, `list_lessons`, and the two acts on a Lesson. Since 23.12;
-//! the acts and `?state=` since 23.23. `docs/concepts/retro.md`.
+//! the acts and `?state=` since 23.26. `docs/concepts/retro.md`.
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
