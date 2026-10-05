@@ -153,7 +153,7 @@ where
 
     /// [`approve_as_left`](Fleet::approve_as_left) up to the press: read,
     /// refused or kept whole, and the Job left at its gate.
-    async fn kept_as_left(
+    pub(crate) async fn kept_as_left(
         &self,
         job_id: &JobId,
         body: &ipc::ApproveDispatch,

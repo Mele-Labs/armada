@@ -135,3 +135,80 @@ fn a_splits_extra_keeps_the_head_it_names() {
     assert_eq!(by.job_id, job_id("01HEAD"));
     assert_eq!(by.step_id, None);
 }
+
+/// **A proposal sent back and answered again survives a reload**, whether the
+/// Job was born at `proposing` or at the gate: the log holds the round trip, the
+/// columns hold the last answer, and the rebuild replays the first through the
+/// machine and reads the second from the columns.
+#[test]
+fn a_proposal_sent_back_and_answered_again_reads_back_with_the_last_answer() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = proposing("01REVISED", 9005);
+    store.insert_job(&job, &created_at()).expect("stored");
+    let first = job
+        .answered(
+            full_new_job("01REVISED").into_answer(),
+            Actor::Fleet,
+            at("2026-08-26T09:05:00.000Z"),
+        )
+        .expect("answered");
+    store.record_answered(&first).expect("answered");
+    let back = first
+        .job
+        .sent_back_to_the_proposer(Actor::Human, at("2026-08-26T09:06:00.000Z"))
+        .expect("sent back");
+    store.record_transition(&back).expect("recorded");
+    assert_eq!(
+        open_status(&mut store, "01REVISED"),
+        JobStatus::Proposing,
+        "mid-call it reloads as the Job it is"
+    );
+
+    let mut revised = full_new_job("01REVISED").into_answer();
+    revised.title = title("a revised title");
+    let second = back
+        .job
+        .answered(revised, Actor::Fleet, at("2026-08-26T09:07:00.000Z"))
+        .expect("answered again");
+    store.record_answered(&second).expect("answered again");
+    drop(store);
+
+    let loaded = open(&dir).load_job(&job_id("01REVISED")).expect("loads");
+    assert_eq!(loaded.status(), JobStatus::AwaitingApproval);
+    assert_eq!(loaded.title().as_str(), "a revised title");
+    assert_eq!(
+        loaded.steps().len(),
+        2,
+        "the rows were replaced, not doubled"
+    );
+}
+
+fn open_status(store: &mut crate::Store, id: &str) -> JobStatus {
+    store.load_job(&job_id(id)).expect("loads").status()
+}
+
+#[test]
+fn a_job_created_at_the_gate_and_sent_back_reads_back() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = crate::tests::top_level("01GATEBORN");
+    store.insert_job(&job, &created_at()).expect("stored");
+    let back = job
+        .sent_back_to_the_proposer(Actor::Human, at("2026-08-26T09:06:00.000Z"))
+        .expect("sent back");
+    store.record_transition(&back).expect("recorded");
+    let again = back
+        .job
+        .answered(
+            back.job.as_answered(),
+            Actor::Fleet,
+            at("2026-08-26T09:07:00.000Z"),
+        )
+        .expect("answered");
+    store.record_answered(&again).expect("answered");
+    drop(store);
+    let loaded = open(&dir).load_job(&job_id("01GATEBORN")).expect("loads");
+    assert_eq!(loaded.status(), JobStatus::AwaitingApproval);
+    assert_eq!(loaded.steps().len(), job.steps().len());
+}

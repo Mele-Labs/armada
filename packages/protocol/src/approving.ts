@@ -113,6 +113,21 @@ export type LandingChoice = {
 };
 
 /**
+ * `to_proposer`'s body, `POST /jobs/{job_id}/to_proposer`: a note sent back to
+ * the proposer from the approval gate, with what the person has set so far.
+ * The proposer rewrites the proposal whole and the answer is a `ProposedPlan`,
+ * since it may split. Fleet carries `tuning` onto each rewritten Job wherever a
+ * step id still matches, and `landing` as it stands; what cannot carry is
+ * dropped and said in the Job's log. Since 23.25.
+ */
+export type ToProposer = {
+  /** What the person wants different. Never blank. */
+  note: string;
+  tuning?: StepTuning[];
+  landing?: LandingChoice;
+};
+
+/**
  * `set_landing_target`'s body, `POST /jobs/{job_id}/set_landing_target`: the
  * branch an approved Job landing in the base lands in instead, once, before its
  * work goes out. Since 23.22.

@@ -2804,6 +2804,35 @@ the repository deciding, and this is one Job's forge setting.
 gains `enable_auto_merge`. The refusal is a log line and not a wire error, because the approval
 cannot know the forge's answer until the pull request exists.
 
+## Protocol 23.25: a note sent back to the proposer
+
+The owner, 4 Oct 2026: from the approval gate a person can send the proposal back with a note, and
+the proposer rewrites it.
+
+**A route, a body and the one new edge, additive.** `POST /jobs/:job_id/to_proposer`, `to_proposer`,
+takes `ToProposer { note, tuning?, landing? }` and answers a `ProposedPlan`. The transition registry
+gains `awaiting_approval -> proposing`, a person's act, crossed by `Job::sent_back_to_the_proposer`
+alone; `proposing -> awaiting_approval` is still `Job::answered`'s. The first `job.state_changed`
+carries the move out, and the answer's the move back, so a Bridge that reads the stream sees the Job
+leave its gate and return. A 23.24 Bridge has no such route, and a 23.25 Bridge behind it is
+refused, which is the skew rule's own direction.
+
+| What | How |
+|---|---|
+| The proposer is asked | The Job's request, the proposal's title, and the note |
+| What the answer replaces | Title, workflow, steps, criteria, urgency and the rest `Job::answered` freezes, whole |
+| The person's tuning | Carried to every step whose id the new workflow has; the rest is dropped and logged |
+| The person's landing | Carried as it stands; one the repository will not take is dropped and logged |
+| A split | Each Job comes to the gate on its own with the matching tuning; the extras name the head |
+| A call that fails | The proposal is put back as it was, and the refusal is the proposer's |
+
+**Refused, moving nothing:** 409 `fleet.proposal_frozen` off the gate; 422
+`fleet.unacceptable_proposal` on a blank note, on a Job that is one of a split or was split (its
+siblings would be left behind), and on a tuning or landing the proposal in front of the person cannot
+take. **Store**: no migration. `record_answered` clears the step and write-target rows a revised
+answer replaces, and the rebuild replays `awaiting_approval -> proposing` and the answer back
+through the machine, from the columns the last answer wrote.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

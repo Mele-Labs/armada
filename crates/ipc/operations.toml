@@ -1417,6 +1417,21 @@ Refused with a 409, and nothing kept, where any model in the map is one `list_mo
 `agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
+[operations.to_proposer]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Send a proposal back to the proposer with a note, and bring what it rewrites to the gate"
+notes = """
+`POST /jobs/:job_id/to_proposer`, protocol 23.25, for the approval canvas. The body is `ToProposer`: `note`, and optionally the `tuning` and `landing` the person has set so far, in `ApproveDispatch`'s shapes. The answer is a `ProposedPlan`, as `propose_from_request`'s, because the rewrite may split.
+
+**The Job goes `awaiting_approval -> proposing` and back.** The proposer reads the request and the note, and its answer replaces the title, words, workflow and criteria whole. Each Job the answer makes is at `awaiting_approval` on its own, carrying the person's tuning for every step whose id the new workflow still has and the landing as it stands; what cannot carry is dropped, with a warning in the Job's log naming it. A call that cannot be read puts the proposal back as it was and refuses with the proposer's own code (`fleet.no_workflow_fits`, `fleet.proposer_unreadable` and the like). A Fleet that restarts mid-call escalates the Job as `proposer_failed`, as it does a first dispatch.
+
+409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. 422 `fleet.unacceptable_proposal` on a blank note, a Job that is one of a split or was split, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason.
+"""
+
 [operations.set_landing_target]
 kind = "command"
 transport = "HTTP"

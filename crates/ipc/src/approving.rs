@@ -260,6 +260,21 @@ impl From<core_model::CompleteWhen> for CompleteWhen {
     }
 }
 
+/// `to_proposer`'s body (23.25): a note sent back to the proposer from the
+/// approval gate, with what the person has set on the canvas so far. **The
+/// proposer rewrites the proposal whole**, so `tuning` and `landing` are what
+/// Fleet carries onto the rewrite: `tuning` wherever a step's id still matches,
+/// `landing` as it stands. Both are in the shapes `ApproveDispatch` takes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToProposer {
+    /// What the person wants different. Never blank.
+    pub note: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tuning: Option<Vec<StepTuning>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub landing: Option<LandingChoice>,
+}
+
 /// `set_landing_target`'s body (23.22): the branch an approved Job that lands
 /// in the Manifest's base is to land in instead. Refused unless the repository
 /// holds it.

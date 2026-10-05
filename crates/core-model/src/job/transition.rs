@@ -59,6 +59,9 @@ use JobStatus::*;
 /// The edges of `domain/job-transitions.toml`, in that file's order. Nothing
 /// else in this crate decides what is legal.
 pub static EDGES: &[Edge] = &[
+    // Crossed by `Job::sent_back_to_the_proposer` alone: no `Target` names
+    // `proposing`, since a Job is never moved into it any other way.
+    edge(AwaitingApproval, Proposing),
     edge(AwaitingApproval, Killed),
     edge(AwaitingApproval, Queued),
     edge(AwaitingApproval, Rejected),
@@ -374,6 +377,8 @@ pub enum IllegalTransition {
     OnlyAnAnswerCrosses,
     /// An answer handed to a Job not at `proposing`, whose workflow is frozen.
     NothingToAnswer { from: JobStatus },
+    /// A note for the proposer, sent from a Job not at `awaiting_approval`.
+    NothingToReconsider { from: JobStatus },
 }
 
 impl fmt::Display for IllegalTransition {
@@ -390,6 +395,11 @@ impl fmt::Display for IllegalTransition {
                 f,
                 "proposing -> awaiting_approval is crossed by the proposer's answer, \
                  which freezes the workflow, and by nothing else"
+            ),
+            IllegalTransition::NothingToReconsider { from } => write!(
+                f,
+                "a note goes back to the proposer from awaiting_approval, and the Job is at {}",
+                from.as_wire()
             ),
             IllegalTransition::NothingToAnswer { from } => write!(
                 f,
