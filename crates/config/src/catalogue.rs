@@ -131,6 +131,9 @@ pub fn carried() -> Vec<Written> {
 pub struct Catalogue {
     held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource)>>,
     left_out: Vec<LeftOut>,
+    /// Whether the repository's own definitions refuse the set. `true` at
+    /// start, `false` when a running Fleet reads the folders again.
+    strict: bool,
 }
 
 impl Catalogue {
@@ -145,12 +148,37 @@ impl Catalogue {
         written: impl IntoIterator<Item = Written>,
         roster: &Roster,
     ) -> Result<Catalogue, CatalogueRefused> {
+        Catalogue::read(written, roster, true)
+    }
+
+    /// The same merge, **with the repository's own definitions held to the rule
+    /// Kit's are**: one that will not parse, will not resolve or shares an id is
+    /// left out and named, and the others stand.
+    ///
+    /// For a Fleet that is already running. A file saved while Jobs are in
+    /// flight cannot be grounds for refusing the repository they run in, and the
+    /// person who saved it is owed the reason where they look for the workflow,
+    /// which is `left_out`. Start stays [`Catalogue::of`]: the repository
+    /// declared its own, and the owner's decision is that it is not quietly
+    /// run without them.
+    pub fn leniently(written: impl IntoIterator<Item = Written>, roster: &Roster) -> Catalogue {
+        match Catalogue::read(written, roster, false) {
+            Ok(catalogue) => catalogue,
+            Err(_) => unreachable!("a lenient read refuses nothing"),
+        }
+    }
+
+    fn read(
+        written: impl IntoIterator<Item = Written>,
+        roster: &Roster,
+        strict: bool,
+    ) -> Result<Catalogue, CatalogueRefused> {
         let mut placed: BTreeMap<(WorkflowSource, WorkflowId), Vec<WorkflowDef>> = BTreeMap::new();
         let mut left_out = Vec::new();
         for one in written {
             let def = match WorkflowDef::parse(&one.path, &one.text, roster) {
                 Ok(def) => def,
-                Err(why) if one.source == WorkflowSource::Repository => {
+                Err(why) if strict && one.source == WorkflowSource::Repository => {
                     return Err(CatalogueRefused::Refused(why))
                 }
                 Err(why) => {
@@ -164,7 +192,9 @@ impl Catalogue {
                 }
             };
             let same = placed.entry((one.source, def.id().clone())).or_default();
-            if let (WorkflowSource::Repository, Some(first)) = (one.source, same.first()) {
+            if let (true, WorkflowSource::Repository, Some(first)) =
+                (strict, one.source, same.first())
+            {
                 return Err(CatalogueRefused::DuplicateWorkflowId {
                     id: def.id().as_str().to_string(),
                     first: first.path().to_path_buf(),
@@ -189,7 +219,11 @@ impl Catalogue {
             let def = defs.remove(0);
             held.entry(id).or_default().push((def, source));
         }
-        Ok(Catalogue { held, left_out })
+        Ok(Catalogue {
+            held,
+            left_out,
+            strict,
+        })
     }
 
     /// Resolve the most specific definition for each id against the
@@ -200,6 +234,7 @@ impl Catalogue {
     /// Armada's in its place would be running something nobody there chose.
     pub fn resolve(self, manifest: &Manifest) -> Result<ResolvedCatalogue, ResolveError> {
         let mut workflows: BTreeMap<WorkflowId, ResolvedWorkflow> = BTreeMap::new();
+        let strict = self.strict;
         let mut left_out = self.left_out;
         for (id, mut candidates) in self.held {
             candidates.sort_by(|a, b| b.1.cmp(&a.1));
@@ -209,7 +244,9 @@ impl Catalogue {
                         workflows.insert(id.clone(), resolved.read_from(source));
                         break;
                     }
-                    Err(why) if source == WorkflowSource::Repository => return Err(why),
+                    Err(why) if strict && source == WorkflowSource::Repository => {
+                        return Err(why)
+                    }
                     Err(why) => left_out.push(LeftOut::of(
                         Some(id.clone()),
                         source,
@@ -374,6 +411,42 @@ fn whose_capital(source: WorkflowSource) -> &'static str {
         WorkflowSource::Repository => "The repository's",
         other => whose(other),
     }
+}
+
+/// Why one definition does not fit the repository it is for.
+#[derive(Debug)]
+pub enum Unfit {
+    /// It will not parse, or names a model this machine does not offer.
+    Unparsed(LoadError),
+    /// It parses, and names what the repository does not declare, or says
+    /// something else about what it does.
+    Unresolved(ResolveError),
+}
+
+impl fmt::Display for Unfit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Unfit::Unparsed(why) => write!(f, "{why}"),
+            Unfit::Unresolved(why) => write!(f, "{why}"),
+        }
+    }
+}
+
+/// Whether one definition would be held for `manifest`, and under which id.
+///
+/// **The two steps a catalogue takes, for one file** — [`WorkflowDef::parse`]
+/// against the roster, then [`ResolvedWorkflow::resolve`] against the
+/// Manifest — so what is saved is judged by what would load it. Nothing is
+/// merged: whether another place already holds the id is the caller's to say.
+pub fn fit(
+    path: &Path,
+    text: &str,
+    roster: &Roster,
+    manifest: &Manifest,
+) -> Result<WorkflowId, Unfit> {
+    let def = WorkflowDef::parse(path, text, roster).map_err(Unfit::Unparsed)?;
+    ResolvedWorkflow::resolve(&def, manifest).map_err(Unfit::Unresolved)?;
+    Ok(def.id().clone())
 }
 
 /// Why a set of definitions could not become a catalogue.
