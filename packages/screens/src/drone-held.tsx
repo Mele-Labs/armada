@@ -24,6 +24,8 @@ export type HeldCommand = {
   stepId: string;
   /** The one Drone at work on that step. Absent where the wire cannot say which. */
   droneId?: string;
+  /** The task that Drone works, where it works one. */
+  taskId?: string;
   /** Overview's own box, with the command named over the answers. */
   node: ReactNode;
 };
@@ -53,6 +55,7 @@ export function heldCommandOf(
   return {
     stepId: waiting.step_id,
     ...(holder === undefined ? {} : { droneId: holder.id }),
+    ...(holder?.task === undefined ? {} : { taskId: holder.task }),
     node: commandOf(whole, answering, explain, true),
   };
 }

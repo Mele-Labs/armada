@@ -5,7 +5,8 @@ import { button, card, inside, role, tab, text, walk } from "../walk";
 
 export const aDroneHeldOnACommand = walk("arc/executing-held", [
   { press: tab("Plan"), say: "The plan, as its groups and tasks" },
-  { press: card("Draw what is running, in four lists"), say: "T5 is the task being worked" },
+  { look: inside(card("Draw what is running, in four lists"), text("Command to allow")), say: "On the graph, T5's card says a command waits for you" },
+  { press: card("Draw what is running, in four lists"), say: "Open it: T5 is the task being worked" },
   { look: role("group", "Drone on T5"), say: "Its Drone's card, with the log and a box to reply" },
   { look: inside(role("group", "Drone on T5"), text("pnpm add -D reselect@5.1.1")), say: "The command it reached for, asked right here" },
   { look: inside(role("group", "Drone on T5"), button("Send this answer")), say: "The same answers Overview offers" },

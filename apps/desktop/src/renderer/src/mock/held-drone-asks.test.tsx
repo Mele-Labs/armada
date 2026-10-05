@@ -81,4 +81,26 @@ describe("a Drone held on a command", () => {
     expect(panel.getByRole("radio", { name: "Allow for this job" }).query()).toBeNull();
     await expect.element(panel.getByRole("group", { name: "Drone on T5" })).not.toHaveTextContent("Needs you");
   });
+
+  test("the plan graph's task and group cards say a command waits, and the task opens on the prompt", async () => {
+    mount("arc/executing-held");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    const task = page.getByRole("button", { name: new RegExp(`^${T5}, `) });
+    await expect.element(task).toHaveTextContent("Command to allow");
+    await expect.element(page.getByRole("button", { name: /^Group 3, / })).toHaveTextContent("Command to allow");
+    await task.click();
+    await expect.element(page.getByRole("radio", { name: "Allow for this job" })).toBeInTheDocument();
+  });
+
+  test("the Workflow tab's step card says it too, and a Job not held says nothing", async () => {
+    mount("arc/executing-held");
+    await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+    await expect.element(page.getByRole("button", { name: /^Implement, / }).last()).toHaveTextContent("Command to allow");
+  });
+
+  test("the plan graph of a Job not held draws no such line", async () => {
+    mount("arc/executing-sequential");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).not.toHaveTextContent("Command to allow");
+  });
 });

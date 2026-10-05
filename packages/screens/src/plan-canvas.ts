@@ -17,6 +17,7 @@ import {
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
   type WorkflowStepCardProps,
+  type WorkflowStepNeed,
   type StepActivity,
 } from "@armada/components";
 
@@ -38,6 +39,11 @@ import type { TaskState, TaskView } from "./draft/task";
 const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
+/** The row a need adds under a card's name, as `workflow-canvas.ts`'s `ROW`. */
+const NEED_ROW = 28;
+
+/** What a Drone held on a command shows on its task, and on the group holding it. */
+const HELD_NEED: WorkflowStepNeed = { says: "Command to allow", tone: "waiting" };
 /** A group holding no task still takes a row of its own. */
 const GROUP_APART = 104;
 
@@ -78,7 +84,11 @@ const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
 };
 
 /** One group's card. Its registry row's glyph, hue and verb — what the list says. */
-function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+function groupCard(
+  group: GroupView,
+  onOpen: (() => void) | undefined,
+  held = false,
+): WorkflowStepCardProps {
   const row = GROUP_STATE[group.state];
   const facts: { value: string; hint?: string }[] = [{ value: plural(group.tasks.length, "task") }];
   if (group.checks_selected.length > 0) facts.push({ value: plural(group.checks_selected.length, "check") });
@@ -91,6 +101,7 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
     ...(row?.icon && row.statusToken ? { mark: { icon: row.icon, token: row.statusToken } } : {}),
     said: row?.verb ?? group.state,
     facts,
+    ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
   };
 }
@@ -104,7 +115,11 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
  * what there is to say before, and what it has taken is what there is to say
  * after.
  */
-export function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+export function taskCard(
+  task: TaskView,
+  onOpen: (() => void) | undefined,
+  held = false,
+): WorkflowStepCardProps {
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
@@ -114,6 +129,7 @@ export function taskCard(task: TaskView, onOpen: (() => void) | undefined): Work
     activity: TASK_ACTIVITY[task.state],
     said: TASK_STATE[task.state]?.verb ?? task.state,
     facts,
+    ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
   };
 }
@@ -137,6 +153,8 @@ export type PlanGraphReading = {
   onOpenGroup?: (groupId: string) => void;
   /** The group a person has open, drawn selected the way an open task is. */
   openGroup?: string | null;
+  /** The task whose Drone is held on a command, where the wire can say which. Its card and its group's ask. */
+  heldTask?: string;
 };
 
 export type PlanGraph = {
@@ -157,26 +175,37 @@ export type PlanGraph = {
  * it; on this tab there is no step to hang from, so the plan is as many small
  * trees as it has groups.
  */
-export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGroup }: PlanGraphReading): PlanGraph {
+export function planGraphOf({
+  groups,
+  onOpenTask,
+  openTask,
+  onOpenGroup,
+  openGroup,
+  heldTask,
+}: PlanGraphReading): PlanGraph {
   const nodes: WorkflowCanvasNode[] = [];
   const edges: WorkflowCanvasEdge[] = [];
 
   let down = 0;
   for (const group of groups) {
     const groupId = groupNodeId(group.id);
-    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id));
+    const holds = heldTask !== undefined && group.tasks.some((task) => task.id === heldTask);
+    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id), holds);
     nodes.push({
       id: groupId,
       position: { x: 0, y: down },
       card: group.id === openGroup ? { ...card, selected: true } : card,
     });
 
-    group.tasks.forEach((task, at) => {
+    // The held task's card draws a row more, so what is under it moves down.
+    let column = 0;
+    group.tasks.forEach((task) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);
-      const card = taskCard(task, open);
+      const isHeld = task.id === heldTask;
+      const card = taskCard(task, open, isHeld);
       nodes.push({
         id: taskNodeId(task.id),
-        position: { x: TASK_ACROSS, y: down + at * TASK_APART },
+        position: { x: TASK_ACROSS, y: down + column },
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
       edges.push({
@@ -185,8 +214,9 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
         target: taskNodeId(task.id),
         kind: "holds",
       });
+      column += TASK_APART + (isHeld ? NEED_ROW : 0);
     });
-    down += Math.max(GROUP_APART, group.tasks.length * TASK_APART + AFTER_GROUP);
+    down += Math.max(GROUP_APART, column + AFTER_GROUP);
   }
 
   return { nodes, edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };

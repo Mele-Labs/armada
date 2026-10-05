@@ -335,7 +335,14 @@ export function usePlanReview({
   const board = read === undefined || moving === null ? read : { ...read, groups: movedGroups(read.groups, moving) };
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
-  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask, onOpenGroup: openGroupAt, openGroup });
+  const graph = planGraphOf({
+    groups,
+    onOpenTask: openTaskAt,
+    openTask,
+    onOpenGroup: openGroupAt,
+    openGroup,
+    ...(holding?.taskId === undefined ? {} : { heldTask: holding.taskId }),
+  });
   const group = openGroup === null ? undefined : board?.groups.find((one) => one.id === openGroup);
   const cameFrom = fromGroup === null ? undefined : board?.groups.find((one) => one.id === fromGroup);
   const toGroup =
@@ -410,7 +417,7 @@ export function usePlanReview({
       ? []
       : tasksOf(groups)
           .filter((one) => reading.beside.includes(one.id))
-          .map((one) => taskCard(one, () => openTaskAt(one.id)));
+          .map((one) => taskCard(one, () => openTaskAt(one.id), one.id === holding?.taskId));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
   // below, these two, and Edit this task, each ahead of its route. A done task
   // in a group the Judge refused offers Restart alone (owner, 2 Oct 2026).

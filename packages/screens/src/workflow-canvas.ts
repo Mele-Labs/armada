@@ -172,7 +172,8 @@ function needsOf(
   } else if (activity === "awaiting_human") {
     needs.push({ says: "Waiting on you", tone: "waiting" });
   }
-  if (here && whole.command_waiting !== undefined) needs.push({ says: "Command to allow", tone: "waiting" });
+  // The wire names the step it is held on, so the card says it wherever that is.
+  if (whole.command_waiting?.step_id === step.step_id) needs.push({ says: "Command to allow", tone: "waiting" });
   for (const read of checksOf(step)) {
     if (!isRunning(read) && read.run?.outcome === "failed") needs.push({ says: `${read.name} failed`, tone: "failed" });
   }
