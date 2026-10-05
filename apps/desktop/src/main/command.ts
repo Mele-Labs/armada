@@ -97,6 +97,13 @@ export type Board = {
    * this way round rather than off the id Fleet mints.
    */
   watchProposal: (clientRef: string | null) => void;
+  /**
+   * The Job the proposal this window is waiting on is reading for, as the
+   * stream last named it. **What a send that lost its answer is reconciled
+   * against**: the Job exists from the first `proposal.moved`, so a response
+   * that never arrived is not a Job that was never made.
+   */
+  proposalJob?: () => string | null;
   /** The proposal this window is waiting on, as Fleet last described it. */
   proposalOut: () => ProposalInFlight | null;
   /**
