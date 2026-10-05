@@ -341,7 +341,7 @@ export function usePlanReview({
     openTask,
     onOpenGroup: openGroupAt,
     openGroup,
-    ...(holding?.taskId === undefined ? {} : { heldTask: holding.taskId }),
+    ...(holding === undefined ? {} : { held: holding }),
   });
   const group = openGroup === null ? undefined : board?.groups.find((one) => one.id === openGroup);
   const cameFrom = fromGroup === null ? undefined : board?.groups.find((one) => one.id === fromGroup);

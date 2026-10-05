@@ -442,6 +442,7 @@ function OneJob(props: JobDetailProps) {
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       onOpenJob={openJob}
+                      {...(holding === undefined ? {} : { held: holding })}
                       {...(props.onSetLandingTarget === undefined
                         ? {}
                         : { onSetLandingTarget: (target: string) => props.onSetLandingTarget!(whole.job.id, target) })}

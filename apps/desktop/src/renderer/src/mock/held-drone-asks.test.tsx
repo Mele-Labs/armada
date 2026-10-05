@@ -86,21 +86,52 @@ describe("a Drone held on a command", () => {
     mount("arc/executing-held");
     await page.getByRole("tab", { name: /^Plan/ }).last().click();
     const task = page.getByRole("button", { name: new RegExp(`^${T5}, `) });
-    await expect.element(task).toHaveTextContent("Command to allow");
-    await expect.element(page.getByRole("button", { name: /^Group 3, / })).toHaveTextContent("Command to allow");
+    await expect.element(task).toHaveTextContent("Needs you");
+    await expect.element(page.getByRole("button", { name: /^Group 3, / })).toHaveTextContent("Needs you");
     await task.click();
-    await expect.element(page.getByRole("radio", { name: "Allow for this job" })).toBeInTheDocument();
+    await expect
+      .element(page.getByRole("dialog", { name: T5 }).getByRole("radio", { name: "Allow for this job" }))
+      .toBeInTheDocument();
   });
 
   test("the Workflow tab's step card says it too, and a Job not held says nothing", async () => {
     mount("arc/executing-held");
     await page.getByRole("tab", { name: /^Workflow/ }).last().click();
-    await expect.element(page.getByRole("button", { name: /^Implement, / }).last()).toHaveTextContent("Command to allow");
+    await expect.element(page.getByRole("button", { name: /^Implement, / }).last()).toHaveTextContent("Needs you");
   });
 
   test("the plan graph of a Job not held draws no such line", async () => {
     mount("arc/executing-sequential");
     await page.getByRole("tab", { name: /^Plan/ }).last().click();
-    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).not.toHaveTextContent("Command to allow");
+    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).not.toHaveTextContent("Needs you");
+  });
+
+  test("the graph hangs a card beside the held task, and answering from it sends the same call and removes it", async () => {
+    const app = mount("arc/executing-held");
+    const answerCommand = vi.spyOn(app.api, "answerCommand");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    const ask = page.getByRole("group", { name: "Needs you" });
+    await expect.element(ask).toHaveTextContent("A Drone wants to run a command");
+    await expect.element(ask).toHaveTextContent("pnpm add -D reselect@5.1.1");
+    (ask.getByRole("radio", { name: "Allow for this job" }).element() as HTMLElement).click();
+    await ask.getByRole("button", { name: "Send this answer" }).click();
+    await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+    expect(answerCommand).toHaveBeenCalledWith(ARC_JOB_ID, HELD_CALL, "allow_for_job", undefined, undefined);
+    await expect.poll(() => page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+  });
+
+  test("the Workflow tab's canvas hangs it beside the held step", async () => {
+    mount("arc/executing-held");
+    await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+    await expect
+      .element(page.getByRole("group", { name: "Needs you" }))
+      .toHaveTextContent("pnpm add -D reselect@5.1.1");
+  });
+
+  test("no card hangs on the canvas where nothing is held", async () => {
+    mount("arc/executing-sequential");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).toBeVisible();
+    expect(page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
   });
 });

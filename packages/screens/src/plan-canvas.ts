@@ -24,6 +24,8 @@ import {
 import type { GroupState, GroupView } from "./draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
 import type { TaskState, TaskView } from "./draft/task";
+import type { HeldCommand } from "./drone-held";
+import { withAsk } from "./held-card";
 
 /**
  * The layout, in the canvas's own coordinates.
@@ -43,7 +45,7 @@ const AFTER_GROUP = 24;
 const NEED_ROW = 28;
 
 /** What a Drone held on a command shows on its task, and on the group holding it. */
-const HELD_NEED: WorkflowStepNeed = { says: "Command to allow", tone: "waiting" };
+const HELD_NEED: WorkflowStepNeed = { says: "Needs you", tone: "waiting" };
 /** A group holding no task still takes a row of its own. */
 const GROUP_APART = 104;
 
@@ -153,8 +155,8 @@ export type PlanGraphReading = {
   onOpenGroup?: (groupId: string) => void;
   /** The group a person has open, drawn selected the way an open task is. */
   openGroup?: string | null;
-  /** The task whose Drone is held on a command, where the wire can say which. Its card and its group's ask. */
-  heldTask?: string;
+  /** The command a Drone is held on. Its task's card and its group's say so, and a card beside the task asks. */
+  held?: HeldCommand;
 };
 
 export type PlanGraph = {
@@ -181,7 +183,7 @@ export function planGraphOf({
   openTask,
   onOpenGroup,
   openGroup,
-  heldTask,
+  held,
 }: PlanGraphReading): PlanGraph {
   const nodes: WorkflowCanvasNode[] = [];
   const edges: WorkflowCanvasEdge[] = [];
@@ -189,6 +191,7 @@ export function planGraphOf({
   let down = 0;
   for (const group of groups) {
     const groupId = groupNodeId(group.id);
+    const heldTask = held?.taskId;
     const holds = heldTask !== undefined && group.tasks.some((task) => task.id === heldTask);
     const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id), holds);
     nodes.push({
@@ -219,5 +222,6 @@ export function planGraphOf({
     down += Math.max(GROUP_APART, column + AFTER_GROUP);
   }
 
-  return { nodes, edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };
+  const asked = withAsk(nodes, edges, held?.taskId === undefined ? undefined : taskNodeId(held.taskId), held);
+  return { nodes: asked.nodes, edges: asked.edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };
 }

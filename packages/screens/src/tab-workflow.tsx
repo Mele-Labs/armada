@@ -299,7 +299,14 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({ whole, groups, drones, selected: open, onOpen: openStep });
+  const run = workflowRunOf({
+    whole,
+    groups,
+    drones,
+    selected: open,
+    onOpen: openStep,
+    ...(heldCommand === undefined ? {} : { held: heldCommand }),
+  });
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was

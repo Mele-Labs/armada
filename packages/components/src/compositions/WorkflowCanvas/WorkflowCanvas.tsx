@@ -53,13 +53,14 @@ export type WorkflowCanvasNode = {
  * told apart by what they join, which is the reading itself, and a second dash
  * pattern would be a vocabulary nobody asked for.
  */
-export type WorkflowCanvasEdgeKind = "leads" | "returns" | "holds";
+export type WorkflowCanvasEdgeKind = "leads" | "returns" | "holds" | "asks";
 
 /** What each kind is read as to somebody who cannot see the line. */
 const SAYS: Record<WorkflowCanvasEdgeKind, string> = {
   leads: "leads to",
   returns: "returns to",
   holds: "holds",
+  asks: "is asked in",
 };
 
 export type WorkflowCanvasEdge = {

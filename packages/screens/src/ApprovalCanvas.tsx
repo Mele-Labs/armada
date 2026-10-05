@@ -13,6 +13,8 @@
 // node owns: `ProposalGates` one step's row, `ProposalLanding` the landing
 // fields, `ProposalTiers` the tiers and cap, `ProposalDoneWhen` the criteria.
 
+import type { HeldCommand } from "./drone-held";
+import { withAsk } from "./held-card";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
@@ -170,6 +172,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * area — in place of its card. A gate opens its step's. Absent is the card.
    */
   onOpenStep?: (stepId: string) => void;
+  /** The command a Drone is held on: a card beside the step it is held at asks. */
+  held?: HeldCommand;
   /** Past the gate, a plan group's panel — the one Plan opens, its tasks reached from it. */
   onOpenGroup?: (groupId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
@@ -193,6 +197,7 @@ export function ApprovalCanvas({
   branches,
   models,
   machineCap,
+  held,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const { proposal, landing } = edits;
@@ -416,14 +421,21 @@ export function ApprovalCanvas({
           ),
         };
 
+  const withHeld = withAsk(
+    [...backdrops, ...placed],
+    drawnEdges,
+    held === undefined ? undefined : nodes.find((node) => node.kind === "step" && node.stepId === held.stepId)?.id,
+    held,
+  );
+
   return (
     <section
       className="armada-approval-canvas armada-glass"
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed]}
-        edges={drawnEdges}
+        nodes={withHeld.nodes}
+        edges={withHeld.edges}
         label="Run"
         runsDown
         downOnly
