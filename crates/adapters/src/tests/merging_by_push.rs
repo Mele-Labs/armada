@@ -11,11 +11,11 @@ use adapter_traits::{
 use crate::tests::repo::TempRepo;
 use crate::worktree::GitVcs;
 
-const JOB: &str = "01K9PUSHED000000000000001";
+pub(super) const JOB: &str = "01K9PUSHED000000000000001";
 
 /// A repository whose `main` is on its remote, and a Job's branch delivered on
 /// top of it — what a pull request is open over when a person presses.
-fn delivered(repo: &TempRepo) -> std::path::PathBuf {
+pub(super) fn delivered(repo: &TempRepo) -> std::path::PathBuf {
     let bare = repo.with_a_bare_remote();
     repo.git(&["config", "user.name", "armada"]);
     repo.git(&["config", "user.email", "armada@example.invalid"]);
@@ -60,11 +60,11 @@ fn delivered_in_a_slot(repo: &TempRepo) -> std::path::PathBuf {
 }
 
 /// The tree the Job's branch carries, standing in for the one its gate passed.
-fn gated(repo: &TempRepo) -> String {
+pub(super) fn gated(repo: &TempRepo) -> String {
     repo.git(&["rev-parse", &format!("armada/{JOB}^{{tree}}")])
 }
 
-fn in_bare(bare: &Path, args: &[&str]) -> String {
+pub(super) fn in_bare(bare: &Path, args: &[&str]) -> String {
     let run = std::process::Command::new("git")
         .arg("-C")
         .arg(bare)
@@ -168,7 +168,7 @@ fn a_base_the_branch_does_not_hold_is_refused_and_nothing_is_pushed() {
     assert_eq!(in_bare(&bare, &["rev-parse", "main"]), moved);
 }
 
-fn the_jobs_worktree(repo: &TempRepo) -> Worktree {
+pub(super) fn the_jobs_worktree(repo: &TempRepo) -> Worktree {
     let spec = WorktreeSpec::for_job(&repo.root_str(), JOB).expect("a legal spec");
     Worktree::at(spec.worktree_path(), spec.branch())
 }
@@ -197,7 +197,7 @@ fn a_slotted_jobs_branch_lands_onto_the_base() {
 }
 
 /// The base on the remote moves on in a file the Job did not touch.
-fn base_moved_elsewhere(repo: &TempRepo, bare: &Path) -> String {
+pub(super) fn base_moved_elsewhere(repo: &TempRepo, bare: &Path) -> String {
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
     repo.git(&["push", "origin", "main"]);
     in_bare(bare, &["rev-parse", "main"])

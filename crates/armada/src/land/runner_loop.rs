@@ -7,8 +7,9 @@ use std::process::ExitCode;
 
 use super::dir::StateDir;
 use super::env::Env;
+use super::hold::unheld;
 use super::lock::TurnLock;
-use super::queue::queued;
+use super::queue::{queued, QueueEntry, QueuedError};
 use super::size;
 use super::turn::take_turn;
 use super::worktree::{drop_worktree, main_tree};
@@ -28,7 +29,7 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
     sweep_stale_gates(repo);
 
     loop {
-        let line = match queued(&state) {
+        let line = match ready(&state) {
             Ok(line) => line,
             Err(_) => return ExitCode::FAILURE,
         };
@@ -37,7 +38,7 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
             // last look either shows up now, or found the lock free and
             // started a runner of its own.
             drop(lock);
-            match queued(&state) {
+            match ready(&state) {
                 Ok(line) if line.is_empty() => return ExitCode::SUCCESS,
                 Err(_) => return ExitCode::FAILURE,
                 _ => {}
@@ -55,6 +56,13 @@ pub fn run_runner(common_git_dir: &Path, env: &Env) -> ExitCode {
             size::after(&state, env.batch, went);
         }
     }
+}
+
+/// The line a turn may take: a branch held behind a need stays queued, says
+/// what it waits behind, and is left out. A runner with only held branches
+/// ends; the next `land` or `--status` starts one that looks again.
+fn ready(state: &StateDir) -> Result<Vec<QueueEntry>, QueuedError> {
+    queued(state).map(|line| unheld(state, line))
 }
 
 /// What an older version of this line left behind, taken back on the first

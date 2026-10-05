@@ -218,8 +218,10 @@ describe("a step's card", () => {
     const run = workflowRunOf({ whole, groups });
     expect(run.running).toBe(stepNodeId(whole.job.current_step_id ?? ""));
     const widest = run.opensOn[0]!;
-    // Narrow opens on where you are, which is never the whole run.
-    expect(widest.filter((id) => id.startsWith("step:")).length).toBeLessThan(whole.steps.length);
+    // The widest choice is the step and its neighbours, which on a three-step
+    // run at its middle step is every step; the narrower one is the step alone.
+    expect(widest.filter((id) => id.startsWith("step:")).length).toBeLessThanOrEqual(whole.steps.length);
+    expect(run.opensOn[1]).toEqual([run.running]);
     // Each choice is narrower than the one before it, and each holds the step
     // a person is on.
     for (const [at, choice] of run.opensOn.entries()) {

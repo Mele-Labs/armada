@@ -290,7 +290,8 @@ where
     }
 
     /// Run the Job's Checks over the worktree, announced on the step it holds
-    /// at. `None` is green; `Some` names what went red.
+    /// at. `None` is green; `Some` names what went red, once each red Check has
+    /// been asked of the base — `crate::asking_the_base`.
     async fn gated_again(
         &self,
         job: &Job,
@@ -300,8 +301,33 @@ where
         touched: &[String],
     ) -> Option<String> {
         let checks = gated_on(job);
+        let (ran, printed) = match self.ran_over(job, served, worktree, &checks, touched).await {
+            Ok(ran) => ran,
+            Err(said) => return Some(said),
+        };
+        if ran.advances() {
+            return None;
+        }
+        let kept = kept_for_a_commit(served.records_root(), head, &ran.recorded(), &printed);
+        let reds = kept
+            .into_iter()
+            .filter(|check| !check.outcome.advances())
+            .collect();
+        self.read_the_reds(job, served, worktree, head, touched, &checks, reds)
+            .await
+    }
+
+    /// One run of `checks` over the worktree, on the step the Job holds at.
+    pub(crate) async fn ran_over(
+        &self,
+        job: &Job,
+        served: &Served,
+        worktree: &Worktree,
+        checks: &[ResolvedCheck],
+        touched: &[String],
+    ) -> Result<(Ran, Vec<(String, checks_runner::Output)>), String> {
         let Some(step) = job.current_step_id() else {
-            return Some(String::from(
+            return Err(String::from(
                 "the Job stands at no step to run its Checks on",
             ));
         };
@@ -313,7 +339,7 @@ where
             .unwrap_or(core_model::Attempt::FIRST);
         let announcing = self.announcing(served, job, step, attempt);
         let completed = checking::ran(
-            &checks,
+            checks,
             touched,
             false,
             checking::Reading::Whole,
@@ -332,27 +358,13 @@ where
         .await;
         drop(announcing);
         let observed: Vec<_> = completed.iter().map(|one| one.observed.clone()).collect();
-        let ran = match Ran::against(&checks, &observed) {
-            Ok(ran) => ran,
-            Err(why) => return Some(format!("its Checks could not be read: {why}")),
-        };
-        if ran.advances() {
-            return None;
-        }
-        let printed: Vec<_> = completed
+        let ran = Ran::against(checks, &observed)
+            .map_err(|why| format!("its Checks could not be read: {why}"))?;
+        let printed = completed
             .into_iter()
             .filter_map(|one| one.printed)
             .collect();
-        let kept = kept_for_a_commit(served.records_root(), head, &ran.recorded(), &printed);
-        let red: Vec<String> = kept
-            .iter()
-            .filter(|check| !check.outcome.advances())
-            .map(|check| match &check.output_path {
-                Some(path) => format!("{} ({path})", check.name),
-                None => check.name.clone(),
-            })
-            .collect();
-        Some(format!("{} did not pass", red.join(", ")))
+        Ok((ran, printed))
     }
 
     /// A line in the Job's log for one round: the merge, or what stopped it.

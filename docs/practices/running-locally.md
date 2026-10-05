@@ -513,6 +513,7 @@ answers on its own and no question reaches the Drone.
 | Not behind | Nothing at all, and nothing is announced |
 | Behind, and it replays | The Drone is told what moved, in its next turn |
 | Behind, and it conflicts | The conflict is handed to the Drone as work, every file named |
+| Behind, and the conflict is lines added to a declared list file | There is none: git keeps both (`.gitattributes`, [list files](list-files.md)) |
 
 **Uncommitted work is never destroyed by this.** Fleet commits only at the last
 step, so mid-Job the worktree is full of uncommitted changes; the rebase carries
@@ -700,6 +701,20 @@ it first: the line is the guard, and the owner reads what landed afterwards.
 combination nothing checked. The line's own push of `main` is made by its
 runner, outside the Bash tool, so the hook never sees it. `armada check
 hooks_test` proves the hook, and needs nothing built.
+
+**A branch that declared a need waits behind the ones ahead of it.**
+`armada need <path> "<what>"` records what the branch needs on a path
+(`crates/store/src/migrations.rs`, "a new migration"; `protocol-version.toml`,
+"a minor"), says which branches are ahead and what they took, and the first to
+declare goes first. `armada need --took <path> "<value>"` records the value
+chosen, `--status` lists the needs by path, `--release <path>` gives one back.
+`armada land` keeps a branch with a need queued until every need ahead of it on
+the same path has landed or been given back, and `--status` says what it waits
+behind. A need is spent when its branch lands and given back when the branch no
+longer exists here. **Nothing expires by time**: a stalled need holds the
+branches behind it until a person runs `armada need --release <path>` from its
+branch, or deletes the branch. The state is under the git common directory, in
+`armada-needs/`.
 
 **What it needs:** a clean tree with commits ahead of `main`, push access to
 `origin`, and an `armada` on `PATH` that knows the `land` verb — `scripts/land`
