@@ -33,6 +33,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | Nothing lands on a `main` it was not gated against | The runner's own push, never forced; a refusal gates again |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
+| A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 
 ## One turn
 
@@ -77,6 +78,7 @@ runner (holds the turn lock) ----------------------+
 - **A new gate line that names a file goes to the member that touched it.** Where every path each new line names was changed by exactly one member, in its own diff from its merge-base, those members go back red with their own lines and the rest are gated again in the same turn, keeping their place. A line naming no path, or a path several members or none touched, splits the batch as a red does. Measured 1 Oct 2026: one `no_file_too_long` line named the only member that touched the file, and the blind split behind it cost two more turns of about eight minutes each.
 - **A red on more than one member splits the batch in half**, first half first, down to a single branch, where a red is reported to that branch's own agent exactly as it was before batching. Three greens and one red cost three gates, not four, and not one each.
 - **Two members that do not merge with each other split the batch too.** That costs merges, never a gate. Alone, the second meets the first on `main` and goes back with the conflict as any branch would.
+- **A conflict confined to a declared list file is not one.** `.gitattributes` gives those files `merge=union`, and the candidate worktree's merge is plain `git merge`, so both sides' lines are kept and nothing goes back to a Drone. `docs/practices/list-files.md`, with what it cannot do: two deletions, and a branch cut before the declaration landed.
 - **A member that does not merge with `main` itself goes back with the conflict, and the rest go on without it.** Whether a clash is with `main` or with a member before it is one extra merge of that branch with `main` alone.
 - **A Check red on `main` itself stops the whole batch as `main`'s**, without splitting: no half of it would pass.
 - **`--status` says who gates together.** Each member's line ends `together with` the others while the batch is in its turn.
@@ -220,6 +222,31 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 **The remote branch is deleted only where everything on it landed**, with `git push --delete`. One holding a commit that did not land is kept, and so is its pull request, and the outcome says so.
 
+## Needs: numbers land in the order they were declared
+
+Two branches that each add a migration pick the same number, and whichever lands
+second renumbers. `armada need <path> "<what>"` (#1059,
+`.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
+the number is chosen. Each need is a file under `armada-needs/` in the git common
+directory, with its branch, path, what was said, what the branch took, and when.
+
+- **First to declare goes first.** The declarer is told which needs are ahead and
+  what each took, and picks the value after. A branch that already changes the
+  path when it declares is told to search comments and docs for its old number.
+- **The line holds a branch behind its needs.** A turn takes only entries with no
+  unspent need ahead of them; a held one stays queued with `waiting behind ...` in
+  its outcome. A runner left with only held entries ends, and the next `land`,
+  `--status` or `need --release` starts one that looks again.
+- **Spent on landing, given back when the branch is gone.** A landed branch's needs
+  are removed as it is reported landed; a need whose branch no longer exists
+  locally is removed the next time anything reads the needs.
+- **Nothing expires by time.** Whether a stalled need should is open, so a person
+  gives it back with `armada need --release <path>`, and a stalled one holds the
+  branches behind it until then. This is the cost the owner took.
+
+This is the half for agents outside Fleet. Fleet's own plan tasks, the store and
+the protocol are the other half and do not exist yet.
+
 ## Where each part goes in Fleet
 
 | `scripts/land` | Fleet | Notes |
@@ -233,7 +260,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 | The merge | `crates/adapters/src/onto_base.rs`, shared | 5 |
 | Outcome file and `--status` | The Job record, served on detail | 7 |
 
-1. `docs/concepts/fleet.md`, *Checks share one limit*. A press to merge joins a line the sweep turns, one landing per repository at a time.
+1. `docs/concepts/fleet.md`, *Checks share one limit*. A press to merge under `merge_by: push` joins a line, one landing per repository at a time. **Built:** the line is rows in the store, so a Fleet restart loses nothing (*Fleet's line*, below). **Not built:** batching, `armada land` enqueuing into it, branches with no Job, and anything in Bridge. Bridge still draws `armada land`'s own files.
 2. Fleet needs no port for this part.
 3. It already merges and never rebases, and leaves conflict markers for a Drone to clear.
 4. The reruns take places like any other Check run.
@@ -247,7 +274,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 | Piece | Why it stays here |
 |---|---|
-| The cross-process turn lock | Fleet is one process; its turn is in-process state |
+| The `runner.lock` file | Fleet's turn is a row in the store instead, and a restart is the case it is built for: the next Fleet takes the turn from a holder whose process is gone |
 | The detached runner | Fleet already outlives the caller |
 | `ARMADA_LAND_SETUP` and `ARMADA_LAND_SEED` | A second copy of `setup:`, which Fleet reads from the Manifest |
 | The `GENERATED by` header as a regeneration recipe, and `ARMADA_LAND_REGENERATE` | Fleet leaves conflicts and stale outputs to a Drone |
@@ -255,6 +282,23 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 | The installed `armada` binary gating | Fleet gates with its own build |
 
 **Gates run the `armada` on `PATH`, not one built from the gated tree.** `armada check` only resolves a name in `armada.yml` and spawns its command, so the binary needs only to read the file. A change to how `armada.yml` is read is the one case it gets wrong.
+
+## Fleet's line
+
+**One line per repository, in the store, so a restart can be at any point.** A press under `merge_by: push` joins it and waits; the sweep drives it too, so entries a restart left are landed with nobody pressing.
+
+| Held in the store | What a restart finds |
+|---|---|
+| An entry per Job pressed: place (its id, never reused), nonce, who pressed, the pull request, its outcome | The entry where it was. A press made again joins the one already waiting and keeps its place |
+| Why a waiting entry is not in the running turn: `clash_member`, `clash_main`, `kept_place_after_red`, `joined_after_turn_began` or `none`, and its position in the order the next turn takes it | Both as the last turn left them. This slice writes `joined_after_turn_began` and `none`; the rest wait for batching |
+| The turn, one row per repository, naming the Fleet run, its pid and when `ps` says that process started | A holder whose process is gone, or started at another time, loses it to the next turn. A holder still running keeps it |
+| How many a turn takes, with the reason | The last value. Written after each turn by the rule above, though a turn takes one entry until batching |
+
+- **A turn killed mid-gate** leaves its entry waiting and its turn held. The next turn takes it over, clears a merge left half-made in the Job's worktree, and goes again.
+- **A turn killed after its push** finds the branch already in the base, which `onto_base` reads as already merged, so the entry lands naming the merge `onto_base::merge_naming` finds, and nothing is pushed twice.
+- **A landing is finished last**: the entry is written landed, then the pull request's record and the Job's approval, then marked finished. A Fleet that dies between finishes it without pushing.
+- **The gate is the one `merge_by: push` already had**, in the Job's own worktree, not a throwaway one: that is where its dependencies are built. A turn first checks the Job is still at its gate and drops the entry as stopped if not.
+- **A red Check is asked of the base before the branch is blamed.** The base is asked once per Check and commit, and a timeout on the base is not remembered. Green on the base: the Job's log names the Check and its log and says the turn goes on, and the Check runs once more on the branch; a failure is real only if that fails too. Red on the base: it is the base's, nothing is rerun. The entry records `branch` or `base`. No Drone is dispatched and nothing is drawn.
 
 ## The guard
 

@@ -211,6 +211,9 @@ pub struct Fleet<H, V, W> {
     /// Which Jobs have their Checks running again. Never written down, for
     /// `pressing`'s reason — `crate::rechecking`.
     rechecking: crate::rechecking::Rechecking,
+    /// The merge lines' in-memory guard and the base's answers: what the line
+    /// keeps nowhere but here, and loses at no cost — `crate::taking_turns`.
+    lines: crate::taking_turns::Lines,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,

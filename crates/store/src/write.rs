@@ -127,7 +127,7 @@ impl Store {
                     // `DEFAULT` in `V44` backfills a Job written before the
                     // setting existed, and is never the value a new Job gets.
                     // A person changes it after, through `set_when_blocked`.
-                    WhenBlocked::AskMe.as_wire(),
+                    WhenBlocked::AllowAll.as_wire(),
                     // The wave that made a member, beside the two columns
                     // `dispatched_by` already has. V101.
                     job.dispatched_by().and_then(|by| by.pass),

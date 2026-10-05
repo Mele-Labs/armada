@@ -253,7 +253,6 @@ function gates(overridden: boolean): GateView[] {
   return [
     { step_id: "plan", checks: false, judge: true, you: false },
     { step_id: "implement", checks: true, judge: true, you: false },
-    { step_id: "tests", checks: true, judge: true, you: false },
     handoff,
   ];
 }

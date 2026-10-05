@@ -47,22 +47,16 @@ import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES, prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
 import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
-import { awaitingRepairChecksAgain } from "@armada/screens/src/fixtures/build/waiting";
 import { waveOffTheWire } from "@armada/screens/src/fixtures/build/wave-off-the-wire";
 import { agentText } from "@armada/screens/src/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
-import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
-import { brokenOnMain, FIX_TITLE, heldByTheGamingCheck, withBreakages } from "./job-detail-fixtures";
 import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
-import { featureAtApproval } from "./feature-at-approval";
-import { featureRunning } from "./feature-running";
-import { featureGates } from "./feature-gates";
 import type { Scenario } from "./moment";
 import { talking } from "./helm-fleet";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
@@ -71,72 +65,53 @@ import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } fro
 import { zoning } from "./studio-read-in";
 import { zoneProposing } from "./studio-zone-proposal";
 import { readingNothing } from "./studio-read-nothing";
-import { job2Landed } from "./job-2-landed";
-import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
-import { featureAfterAgreeing } from "./job-detail-refusal";
-import { featureUndecided } from "./job-detail-undecided";
 import { retroFixtures } from "./job-3-retro";
-import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
-import { featureWithTiers } from "./job-tiers-fixture";
 import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { slotsHeld } from "./slots-fleet";
+import { asRow, holding, servedFrom } from "./holding";
+import * as rows from "./scenario-rows";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
 
-/** One of each, by manifest and id — two fixtures on one workflow list it once. */
-function distinct<T>(items: T[], key: (item: T) => string): T[] {
-  return [...new Map(items.map((item) => [key(item), item])).values()];
-}
-
 /**
- * The repository a Manifest is read from. **Invented where a fixture names only
- * the Manifest**: the root is made up, and nothing a screen draws reads it
- * except the rail's label, which is the Manifest's own `repository`.
+ * The rows `scenario-rows.ts` lists, in the order of their export names. **Sorted
+ * here because a union merge orders the list by merge**, and nothing else says
+ * where a row sits; the names carry a rank for the rows that were here first.
  */
-function servedFrom(manifest: ManifestSummary): RepositorySummary {
-  return manifest.id === repository().manifest?.id
-    ? repository()
-    // Named for its repository, not its id: the recording's Manifest has the
-    // id `armada`, which put it on the base repository's own folder and ticked
-    // both in the picker.
-    : { root: `/Users/user/${manifest.repository}`, records_root: manifest.records_root, manifest };
-}
-
-/**
- * A connected Fleet holding these fixtures' Jobs, each with its own reads.
- *
- * `alsoServed` is served beside what the Manifests imply. **Every repository a
- * fixture reaches is set up by construction** — `servedFrom` builds one per
- * Manifest — so a repository nobody set up can only arrive this way.
- */
-function holding(
-  name: string,
-  says: string,
-  fixtures: JobFixture[],
-  { opens, alsoServed = [] }: { opens?: string; alsoServed?: RepositorySummary[] } = {},
-): Scenario {
-  const manifests = distinct(fixtures.flatMap((one) => one.manifests), (one) => one.id);
-  return {
-    name,
-    says,
-    state: connected(
-      fixtures.map((one) => one.job),
-      distinct(fixtures.flatMap((one) => one.workflows), (one) => `${one.manifest_id}/${one.id}`),
-      [...manifests.map(servedFrom), ...alsoServed],
-    ),
-    reads: Object.fromEntries(fixtures.map((one) => [one.job.id, one])),
-    opens,
-  };
-}
+const LISTED: Scenario[] = Object.entries(rows)
+  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  .map(([, scenario]) => scenario);
 
 /** The same scenario with Fleet serving three lines: `armada land --status`, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
   const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
   return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
+}
+
+/**
+ * Three merge lines mid-turn, a Check failing in each, moment by moment: `later` carries the
+ * three moments after the first, which a walk's `later` step publishes. The Job whose branch is in
+ * the batch has the Check's failure in its own log, and that log moves with the lines.
+ */
+function failingCheck(): Scenario {
+  const rows = EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`)));
+  const base = holding(
+    "merge-line-failed-check",
+    "Three merge lines mid-turn, each with a Check failed and the turn still going",
+    rows,
+    { alsoServed: [NOTES, SCRATCH, BRIDGE] },
+  );
+  const running = rows.find((one) => one.job.handle.endsWith("-running"))!;
+  const { first, later } = failingTurn(
+    { armada: repository().root, notes: NOTES.root, scratch: SCRATCH.root, bridge: BRIDGE.root },
+    running.journalled,
+  );
+  return { ...base, state: { ...base.state, ...first }, later, behaves: writingTheFailedLogs };
 }
 
 /**
@@ -149,49 +124,6 @@ export function onJob(fixture: JobFixture, { whereOpen = false }: { whereOpen?: 
   return {
     ...scenario,
     state: { ...scenario.state, preferences: { ...scenario.state.preferences, where_things_are_open: whereOpen } },
-  };
-}
-
-/**
- * The fixture, moved onto another id, handle and title.
- *
- * **Every `build/` fixture is the same Job** — one narrative at many
- * moments, `base.ts` says why — so on one Board they would be one row. Each
- * read that names its Job is moved with it, or the detail would draw a
- * different Job's reads as "not this one's".
- *
- * **The title is given, never taken from the builder's `name`.** That name is
- * the state the fixture demonstrates, and a row built from it read `running —
- * the drone is waiting for a person to allow a command` where a Job's title
- * reads `Cache the manifest read`. `EVERY_STATE_TITLES` is where the row's own
- * title is written.
- */
-function asRow(fixture: JobFixture, at: number, slug: string, title: string): JobFixture {
-  const id = `01M2C1TJ8G00${String(at).padStart(2, "0")}EVERYSTATE00`;
-  const renamed = { id, handle: `${at}-${slug}`, title };
-  const job = { ...fixture.job, ...renamed };
-  const moved = <Read extends { state: string }>(read: Read): Read =>
-    "jobId" in read ? { ...read, jobId: id } : read;
-  const watched = moved(fixture.watched);
-  return {
-    ...fixture,
-    job,
-    watched:
-      watched.state === "read"
-        ? { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, ...renamed } } }
-        : watched,
-    observed: moved(fixture.observed),
-    journalled: moved(fixture.journalled),
-    resources: moved(fixture.resources),
-    history: fixture.history === undefined ? undefined : moved(fixture.history),
-    jobDrones: fixture.jobDrones === undefined ? undefined : moved(fixture.jobDrones),
-    recorded: {
-      footprint: moved(fixture.recorded.footprint),
-      handed: moved(fixture.recorded.handed),
-      evidence: moved(fixture.recorded.evidence),
-      diff: moved(fixture.recorded.diff),
-      remarks: moved(fixture.recorded.remarks),
-    },
   };
 }
 
@@ -369,6 +301,12 @@ const NOTES: RepositorySummary = {
   records_root: "/Users/user/Library/Application Support/Armada/records/notes",
 };
 
+/** A fourth repository, whose line has waiting branches: `merge-line-failed-check`. */
+const BRIDGE: RepositorySummary = {
+  root: "/Users/user/bridge",
+  records_root: "/Users/user/Library/Application Support/Armada/records/bridge",
+};
+
 /**
  * Repositories served, and not one of them with a Manifest. **The moment every
  * surface that needs a Manifest has nothing to offer**: the rail is on All
@@ -417,29 +355,6 @@ function recordedBoard(): Scenario {
     reads,
   };
 }
-
-/**
- * Three Jobs on one claim, #1673: one fixing a test broken on main, and two
- * parked on the fix — the first because its Check failed on that test.
- * **One claim on every detail**, because Fleet serves one entry to either
- * side: the fix names what it claims, and a parked Job names who is fixing.
- */
-function fixedElsewhere(): Scenario {
-  const fixing = asRow(running(), 90, "fixing", FIX_TITLE);
-  const parked = asRow(retryingCheckFailure(), 91, "parked", "Trim the brief to the files the step touched");
-  const alsoParked = asRow(running(), 92, "parked-too", "Memoise the manifest list");
-  const claim = {
-    ...brokenOnMain(fixing.job.id, parked.job.id),
-    waiting: [parked, alsoParked].map((one) => ({ job_id: one.job.id, title: one.job.title })),
-  };
-  const all = [parked, fixing, alsoParked].map((one) => withBreakages(() => [claim], one));
-  return holding("breakage/fixed-elsewhere", "A Check failed on a test another Job is already fixing", all, {
-    opens: parked.job.id,
-  });
-}
-
-/** The Job `held/gaming-check` opens on, as Fleet serves it with the Drone still there. */
-const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
 
 /**
  * Every scenario, by name. **The first is where the mock opens.**
@@ -495,6 +410,7 @@ export const SCENARIOS: readonly Scenario[] = [
       { alsoServed: [NOTES, SCRATCH] },
     ),
   ),
+  failingCheck(),
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
@@ -547,58 +463,9 @@ export const SCENARIOS: readonly Scenario[] = [
   ...RECORDED.map(([slug, fixture]) =>
     holding(`recorded/${slug}`, fixture.name, [fixture], { opens: fixture.job.id }),
   ),
-  // The owner's Job 2 as `GET /jobs/2` served it: four groups Bridge stood in
-  // for, every task still `open`, and a 40-character commit.
-  holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id }),
-  // The same Job just before it landed, at its review gate: the record the gate draws (#1680).
-  holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id }),
-  // The same, as a Fleet before 23.5 served it: no title and no comment count.
-  holding("real/job-2-at-review-before-23-5", job2AtReviewBefore235().name, [job2AtReviewBefore235()], {
-    opens: job2AtReviewBefore235().job.id,
-  }),
-  // The same, with no title kept but one the live read of the pull request holds.
-  holding("real/job-2-at-review-live-title", job2AtReviewLiveTitle().name, [job2AtReviewLiveTitle()], {
-    opens: job2AtReviewLiveTitle().job.id,
-  }),
-  // A running Job and every Drone it has had, as `list_job_drones` serves them:
-  // one killed, two finished with their cost, and the one running now.
-  holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id }),
-  holding("real/groups-run-by-fleet", "A plan Fleet ran in groups, the last red", [featureRunInGroups()], { opens: featureRunInGroups().job.id }),
-  holding("real/groups-judge-refused", "A plan Fleet ran in groups, the last refused", [featureJudgeRefused()], { opens: featureJudgeRefused().job.id }),
-  // A Job the gaming check holds with its Drone still on the step: a weakened
-  // assertion and three refused commands, answered under the lead (#1672).
-  holding("held/gaming-check", HELD_BY_A_FLAG.name, [HELD_BY_A_FLAG], { opens: HELD_BY_A_FLAG.job.id }),
-  // A Job at its gate whose criteria were read from an issue that has moved
-  // since, as Fleet serves it at 23.8, with its repository's branches (#1765).
-  holding("real/proposal-from-an-issue", proposalFromAnIssue().name, [proposalFromAnIssue()], {
-    opens: proposalFromAnIssue().job.id,
-  }),
-  // The same gate on a feature Job, for the approval canvas (prototype).
-  holding("proto/feature-at-approval", featureAtApproval().name, [featureAtApproval()], {
-    opens: featureAtApproval().job.id,
-  }),
-  // The same canvas past the gate, on a Job mid-Implement: the Overview every Job draws.
-  holding("proto/feature-running", featureRunning().name, [featureRunning()], { opens: featureRunning().job.id }),
-  // The same canvas with a gate stage in every kind and state, staged for the owner's walk (5 Oct 2026).
-  holding("proto/gates-on-the-spine", featureGates().name, [featureGates()], { opens: featureGates().job.id }),
-  // A Check failed on a test another Job is already fixing, and that Job (#1673).
-  fixedElsewhere(),
-  // A Judge refusal he agreed with: the step stopped and the Job escalated,
-  // with Fleet's recourse in the lead and the step panel (Job 3, 2 Oct 2026).
-  holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
-    opens: featureAfterAgreeing().job.id,
-  }),
-  // The Judge did not answer on the plan: both recourses, ask again and accept (Job 3, 5 Oct 2026).
-  holding("judge/undecided", "The Judge did not answer, the step stopped", [featureUndecided()], {
-    opens: featureUndecided().job.id,
-  }),
-  // Run Checks again pressed on a Job out of retries: the step still stopped,
-  // Fleet offering nothing, and its Checks running (Job 3, 4 Oct 2026).
-  holding("repair/checks-again", awaitingRepairChecksAgain().name, [awaitingRepairChecksAgain()], {
-    opens: awaitingRepairChecksAgain().job.id,
-  }),
-  // Each task's tier and the model its Drone ran, as Fleet serves them since 23.6.
-  holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id }),
+  // Every row in `scenarios/`, by export name. **A walk's row is added there and in
+  // `scenario-rows.ts`, never here** — `docs/practices/list-files.md`.
+  ...LISTED,
   // Job 3's retro and Job 2's, and the Lessons page over both (23.12): on Overview, and on Job 3.
   retros("retro/lessons", "Two Jobs' retros written, on Overview"),
   retros("retro/job-3", "Job 3, its retro written", { opensJob3: true }),
