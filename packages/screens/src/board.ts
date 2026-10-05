@@ -177,13 +177,14 @@ export function columnsFor(
 /**
  * A Job's tasks as the bar draws them — done segments first, then those in
  * flight, then the failed, then what is left open. A handed-in task is in
- * flight until its Checks answer, so it takes `working`'s segment. `TaskCounts`
- * carries no order of its own; this is the order the bar reads them in.
+ * flight until its Checks answer and takes a segment of its own, beside the
+ * working ones. `TaskCounts` carries no order of its own; this is the order the
+ * bar reads them in.
  */
 export function taskBarSegmentsOf(counts: TaskCounts): TaskBarSegment[] {
   return [
     ...Array.from({ length: counts.done }, (): TaskBarSegment => "done"),
-    ...Array.from({ length: counts.handed_in ?? 0 }, (): TaskBarSegment => "working"),
+    ...Array.from({ length: counts.handed_in ?? 0 }, (): TaskBarSegment => "handed_in"),
     ...Array.from({ length: counts.working }, (): TaskBarSegment => "working"),
     ...Array.from({ length: counts.failed ?? 0 }, (): TaskBarSegment => "failed"),
     ...Array.from({ length: counts.open }, (): TaskBarSegment => "open"),

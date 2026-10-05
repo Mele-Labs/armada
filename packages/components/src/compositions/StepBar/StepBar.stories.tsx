@@ -87,6 +87,17 @@ export const Tasks: Story = {
   },
 };
 
+/**
+ * A task handed in is in flight with its agent stopped: the running hue as an
+ * outline beside a working task's fill, so the two do not read as one.
+ */
+export const TasksHandedIn: Story = {
+  args: {
+    tasks: ["done", "handed_in", "handed_in", "working", "open"],
+    label: "1 of 5 tasks",
+  },
+};
+
 /** Every task done: no segment is working, so none takes `--step-running`. */
 export const TasksAllDone: Story = {
   args: {

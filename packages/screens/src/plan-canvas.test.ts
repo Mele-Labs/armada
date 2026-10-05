@@ -8,7 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ARC_MOMENTS } from "./fixtures/build/arc";
+import { TASK_STATE } from "@armada/components";
+
+import { ARC_MOMENTS, everyTaskState } from "./fixtures/build/arc";
 import { groupNodeId, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
 
 /** The arc moment by name, with the plan it opens. */
@@ -100,5 +102,26 @@ describe("a press opens a task and nothing else", () => {
   it("reads a task out of a node id, and nothing out of a group's", () => {
     expect(taskOfNodeId(taskNodeId("T3"))).toBe("T3");
     expect(taskOfNodeId(groupNodeId("g1"))).toBeUndefined();
+  });
+});
+
+describe("a handed-in task's node", () => {
+  const nodeOf = (state: "working" | "handed_in") => {
+    const groups = [...everyTaskState().draft.groups!];
+    const task = groups.flatMap((group) => group.tasks).find((one) => one.state === state)!;
+    return planGraphOf({ groups }).nodes.find((node) => node.id === taskNodeId(task.id))!.card;
+  };
+
+  it("says Submitted · awaiting checks, in the card's line and its name", () => {
+    const card = nodeOf("handed_in");
+    expect(card.line).toBe("Submitted · awaiting checks");
+    expect(card.said).toBe("Submitted · awaiting checks");
+  });
+
+  it("draws the registry's mark and does not sweep as a working task does", () => {
+    const card = nodeOf("handed_in");
+    expect(card.mark).toEqual({ icon: TASK_STATE.handed_in!.icon, token: "--status-running" });
+    expect(card.activity).not.toBe("running");
+    expect(nodeOf("working").activity).toBe("running");
   });
 });

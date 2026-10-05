@@ -59,6 +59,14 @@
   background: var(--step-running);
 }
 
+/* A handed-in task: the running hue as an outline, hollow where a working
+   task is filled. Its agent has stopped and its Checks have not answered, so
+   it is in flight without being worked. */
+.armada-step-bar__segment[data-activity="handed_in"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--border-width) var(--step-running);
+}
+
 .armada-step-bar__segment[data-activity="awaiting_human"] {
   background: var(--step-waiting);
 }

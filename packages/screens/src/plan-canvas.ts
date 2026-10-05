@@ -22,6 +22,7 @@ import {
 
 import type { GroupState, GroupView } from "./draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
+import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
 
 /**
@@ -70,8 +71,8 @@ const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "c
 const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   open: "not_started",
   working: "running",
-  // In flight until its Checks answer, `group_state.checking`'s reading.
-  handed_in: "running",
+  // Its agent has stopped, so nothing sweeps; `taskCard` draws its own mark.
+  handed_in: "not_started",
   done: "advanced",
   failed: "failed",
   dropped: "stopped",
@@ -108,11 +109,18 @@ export function taskCard(task: TaskView, onOpen: (() => void) | undefined): Work
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
+  // **A handed-in task is not a working one** (owner, 5 Oct 2026): its own
+  // glyph and hue from the registry, and the sentence under its name.
+  const awaiting = awaitingSaid(task.state);
+  const row = TASK_STATE[task.state];
   return {
     kind: "task",
     name: task.title,
     activity: TASK_ACTIVITY[task.state],
-    said: TASK_STATE[task.state]?.verb ?? task.state,
+    ...(awaiting !== undefined && row?.icon && row.statusToken
+      ? { mark: { icon: row.icon, token: row.statusToken }, line: awaiting }
+      : {}),
+    said: awaiting ?? row?.verb ?? task.state,
     facts,
     ...(onOpen === undefined ? {} : { onOpen }),
   };
