@@ -16,12 +16,35 @@ export type LandsIn = "armada" | "kit" | "manifest";
 export type RetroState = "pending" | "written" | "failed" | "skipped";
 
 /**
+ * Where a retro item stands with the person. Every item starts `open`.
+ * `agreed` has a Job proposed for it, `accepted` is a Kit item kept as it is,
+ * and `discarded` was disagreed with and stays in the store. Since 23.26.
+ */
+export type LessonState = "open" | "agreed" | "accepted" | "discarded";
+
+/**
  * One thing that got in the way. `evidence` names rows of the record by `cite`.
  * `lands_in` is on every item written since 23.15, and absent on one kept
  * before, which is shown under All only.
+ *
+ * Since 23.26 an item has an `id`, and `title` (about eight words), `what` (one
+ * or two short sentences) and `fix` (one sentence). All three are absent on an
+ * item kept before, which has `statement` alone. On an item written since,
+ * `statement` repeats `what`.
+ *
+ * Since 23.27 an item carries where it stands with the person, as a `Lesson`
+ * does: `state`, and `job_proposed`, the Job `agree_lesson` proposed for it, a
+ * Job id. `state` is absent only on an item whose row has no answer record.
  */
 export type RetroItem = {
+  id: string;
+  /** Where the item stands, as on `Lesson`. Absent on an item kept before it was written. */
+  state?: LessonState;
+  job_proposed?: string;
   who: Whose;
+  title?: string;
+  what?: string;
+  fix?: string;
   statement: string;
   evidence: string[];
   lands_in?: LandsIn;
@@ -37,6 +60,16 @@ export type RecordRefusal = {
   because?: string;
 };
 
+/**
+ * A file a failed Check names, set against what the Drone did. A fact read off
+ * the transcript and never a verdict: `false` says no tool call of the Drone's
+ * names the file, and `true` says one does, which may be a read. Since 23.26.
+ */
+export type RecordPath = {
+  path: string;
+  named_in_drone_calls: boolean;
+};
+
 /** A Check that did not pass: the gate's run, or the Drone's own. */
 export type RecordCheck = {
   cite: string;
@@ -47,6 +80,8 @@ export type RecordCheck = {
   run: "gate" | "drone";
   expected?: string;
   produced?: string;
+  /** Each file a gate failure names. Absent where it names none. Since 23.26. */
+  paths?: RecordPath[];
 };
 
 /** A Judge criterion that was not met. */
@@ -132,20 +167,39 @@ export type JobRetro = {
   annotations?: LinkedAnnotation[];
 };
 
-/** One retro item, with the Job it came from. `lands_in` as on `RetroItem`. */
+/**
+ * One retro item, with the Job it came from. `id`, `title`, `what`, `fix` and
+ * `lands_in` are as on `RetroItem`. `state` is every item's, `open` at the
+ * start, and `job_proposed` is the Job `agree_lesson` proposed for it, a Job id.
+ * Since 23.26.
+ */
 export type Lesson = {
+  id: string;
   job_id: string;
   handle: string;
   at: string;
   who: Whose;
+  title?: string;
+  what?: string;
+  fix?: string;
   statement: string;
   evidence: string[];
   lands_in?: LandsIn;
+  state: LessonState;
+  job_proposed?: string;
 };
 
 /**
- * `list_lessons`: `GET /lessons?manifest_id=&lands_in=&most=`, newest retro
- * first. `lands_in` absent is all three, an item kept before 23.15 included.
+ * `list_lessons`: `GET /lessons?manifest_id=&lands_in=&state=&most=`, newest
+ * retro first. `lands_in` absent is all three, an item kept before 23.15
+ * included. `state` absent is `open`; a person's saved Kit items are
+ * `?state=accepted`.
+ *
+ * The two acts answer one `Lesson`, as it now stands: `POST
+ * /lessons/:lesson_id/agree` and `POST /lessons/:lesson_id/disagree`, no body.
+ * Agreeing an item whose fix lands in `armada` or `manifest` proposes a Job at
+ * the approval gate and sets `job_proposed`, and one landing in `kit` becomes
+ * `accepted`. An item that is not `open` answers with the state it stands in.
  */
 export type Lessons = {
   lessons: Lesson[];
@@ -161,3 +215,11 @@ export type RetroRead = { ok: true; retro: JobRetro } | { ok: false; outcome: Ou
 
 /** What the Lessons listing came back as. `RetroRead`'s shape and reasons. */
 export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome: Outcome };
+
+/**
+ * What `POST /lessons/:id/agree` and `POST /lessons/:id/disagree` came back as:
+ * the item as it now stands, or the refusal. Agreeing an Armada or Manifest
+ * item proposes a Job at the approval gate (`agreed`, `job_proposed` set);
+ * agreeing a Kit item saves it (`accepted`); disagreeing discards it.
+ */
+export type LessonAnswer = { ok: true; lesson: Lesson } | { ok: false; outcome: Outcome };

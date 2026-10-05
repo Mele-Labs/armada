@@ -23,6 +23,13 @@ export function LandsMark({ lands }: { lands: Lands }) {
   );
 }
 
+/** The place as a word, for the label a mark sits beside. */
+export function landsWord(lands: Lands): string {
+  return WORDS[lands];
+}
+
+const WORDS: Record<Lands, string> = { armada: "Armada", kit: "Kit", manifest: "Manifest" };
+
 const MARKS: Record<Lands, { Glyph: typeof Briefcase; says: string }> = {
   armada: { Glyph: AppWindow, says: "Lands in Armada" },
   kit: { Glyph: Briefcase, says: "Lands in Kit" },

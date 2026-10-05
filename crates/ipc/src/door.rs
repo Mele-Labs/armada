@@ -550,6 +550,10 @@ fn describe(name: &str) -> String {
         "lands_in" => {
             String::from("Where each fix lands: `armada`, `kit` or `manifest`. Absent is all three")
         }
+        "state" => {
+            String::from("Which items: `open` (the default), `agreed`, `accepted` or `discarded`")
+        }
+        "lesson_id" => String::from("The retro item, as `list_lessons` names it"),
         other => format!("The `{other}` this route names"),
     }
 }

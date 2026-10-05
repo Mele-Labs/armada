@@ -1,41 +1,20 @@
-/* The Lessons page's list. No declared widths, the ledger's rule: the mark, the
-   Job and the date take their content by not wrapping, and the statement takes
-   the slack and wraps. */
-.armada-lessons {
-  min-width: 0;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.armada-lessons .armada-table-row:last-child {
-  border-bottom: 0;
-}
-
-.armada-lessons__row {
-  cursor: pointer;
-}
-
-.armada-lessons__row:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--focus-ring-offset) * -1);
-}
-
-.armada-lessons__who,
-.armada-lessons__job,
-.armada-lessons__when {
-  white-space: nowrap;
-}
-
-/* Whose way, then where the fix lands. A row with no place keeps its who mark
-   where every other row has it. */
-.armada-lessons__marks {
+/* The Lessons page's list: one card per item, `LessonCard`'s rules, a column
+   with the gap a list of cards takes. */
+/* The places on the leading side and Open or Accepted at the far end. */
+.armada-lessons__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
-.armada-lessons__statement {
-  width: 100%;
-  text-wrap: pretty;
-  overflow-wrap: anywhere;
+.armada-lessons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
