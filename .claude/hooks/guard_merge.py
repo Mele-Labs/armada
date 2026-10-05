@@ -4,7 +4,8 @@
 Two green branches can each pass every Check and still leave `main` red, because
 each ran its Checks against a `main` that had moved by the time it merged. That
 is what `scripts/land` exists to stop, and it only holds while every merge goes
-through it — so this refuses the two commands that reach `main` around it.
+through it — so this refuses the three commands that reach `main` around it: a
+push to it, a forge merge, and a `git merge` run in the checkout that has it.
 
 Reads the hook payload on stdin and answers `deny` or nothing at all.
 `docs/capabilities/merge-line.md` is the design.
@@ -15,6 +16,7 @@ here is the runner's, and nothing in one, an environment variable included,
 lets it through.
 """
 import json
+import os
 import shlex
 import sys
 
@@ -90,6 +92,62 @@ def lands_on_base(words: list[str]) -> bool:
     return False
 
 
+def checkout_has_base(path: str) -> bool:
+    """Whether the checkout holding `path` has `main` checked out.
+
+    Read from `.git` rather than asked of git, as `guard_write.py` does. A
+    checkout that cannot be read answers `False`: a hook that cannot tell where
+    it is must not refuse a merge.
+    """
+    here = os.path.abspath(path)
+    while not os.path.exists(os.path.join(here, ".git")):
+        parent = os.path.dirname(here)
+        if parent == here:
+            return False
+        here = parent
+    git = os.path.join(here, ".git")
+    try:
+        if os.path.isfile(git):
+            with open(git, encoding="utf-8") as f:
+                pointer = f.read().strip()
+            if not pointer.startswith("gitdir:"):
+                return False
+            git = pointer.split(":", 1)[1].strip()
+        with open(os.path.join(git, "HEAD"), encoding="utf-8") as f:
+            return f.read().strip() == f"ref: refs/heads/{BASE}"
+    except OSError:
+        return False
+
+
+def git_verb(words: list[str]) -> str:
+    """The subcommand of a `git` command, past the options that take a value."""
+    i = 1
+    while i < len(words):
+        if words[i] in ("-C", "-c"):
+            i += 2
+        elif words[i].startswith("-"):
+            i += 1
+        else:
+            return words[i]
+    return ""
+
+
+def merges_into_base(words: list[str], cwd: str) -> bool:
+    """Whether this `git merge` could make a merge commit on `main` by hand.
+
+    `--ff-only` moves `main` to what the remote already holds, which is how the
+    owner's checkout is brought up to date, and `--abort` and the like end a
+    merge that is already there. Neither adds a commit nobody gated.
+    """
+    if git_verb(words) != "merge":
+        return False
+    if any(w in ("--ff-only", "--abort", "--continue", "--quit") for w in words):
+        return False
+    if "-C" in words[:-1]:
+        cwd = os.path.join(cwd, words[words.index("-C") + 1])
+    return checkout_has_base(cwd)
+
+
 def inner(words: list[str]) -> list[list[str]]:
     """The commands inside a `sh -c '…'`, which are commands like any other.
 
@@ -119,6 +177,7 @@ def main() -> None:
     for words in list(commands):
         commands.extend(inner(words))
 
+    cwd = payload.get("cwd") or os.getcwd()
     for words in commands:
         # `NAME=value git push …` and `env NAME=value git push …` run git with
         # an environment, and the assignments sit where the program name would be.
@@ -128,7 +187,12 @@ def main() -> None:
         ):
             words = words[1:]
         bare = [w for w in words if not w.startswith("-")]
+        if bare[:1] == ["cd"] and len(bare) > 1:
+            # `cd <checkout> && git merge …` runs the merge there.
+            cwd = os.path.join(cwd, os.path.expanduser(bare[1]))
         if len(bare) >= 2 and bare[0].endswith("git"):
+            if merges_into_base(words, cwd):
+                answer(f"This merges into `{BASE}` by hand, in the checkout that has it.\n{SAY}")
             # `-C <path>` puts a path where a verb would be, so the verb is
             # whichever of the first few words git actually knows.
             if "push" in bare[1:4] and lands_on_base(words):
