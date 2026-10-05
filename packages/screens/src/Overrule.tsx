@@ -5,10 +5,10 @@
 // than with it: a redirect asks the drone for something and this tells the
 // record a verifier was wrong, and the two dialogs share only their shape.
 //
-// **Nothing here reaches `gate_undecided`.** That trigger is a gate that ruled
-// on nothing, so there is no decision to disagree with — asking it again is
-// `Acts.tsx`'s plain control, and `recovery.ts` is where the two are
-// partitioned.
+// **`gate_undecided` reaches it too, as accepting rather than overruling.** The
+// Judge ruled on nothing, so there is no decision to disagree with, but the
+// owner's call is that an engineer who deems the step done can advance it;
+// asking again stays beside it as `StepActs.tsx`'s plain control.
 
 import { useState } from "react";
 import { Button, type ButtonAnswer, Dialog, GAMING_PATTERN, GamingFlags, Textarea } from "@armada/components";
@@ -33,6 +33,8 @@ const WHAT_IT_FLAGGED = "What it flagged";
  * readings share. #1117.
  */
 const OVERRULING_UNDERWAY = "Overruling…";
+/** `gate_undecided`'s wait, since nothing is being overruled. */
+const ACCEPTING_UNDERWAY = "Accepting…";
 
 /**
  * The button that opens the override dialog, and the dialog itself.
@@ -41,8 +43,8 @@ const OVERRULING_UNDERWAY = "Overruling…";
  * person is recording that a verifier was wrong and that they took
  * responsibility for going past it, and `#154` will read those reasons to learn
  * whether the Judge or the criterion was at fault — so the send control stays
- * off while the field is blank. A gaming flag's Carry on is the one exception:
- * Fleet takes no reason there, as the flag and its second reading are on record.
+ * off while the field is blank. `gate_undecided` is the exception
+ * (`reasonOptional`): nothing was disputed, so accepting the step needs none.
  *
  * **Neutral tone, not destructive.** Nothing is destroyed: the work the gate
  * refused is exactly what survives. What the dialog owes instead is the cost —
@@ -111,7 +113,7 @@ export function OverruleControl({
   return (
     <>
       <Button variant="secondary" pending={pending} answer={answer} disabled={disabled} onClick={() => setOpen(true)}>
-        {pending ? OVERRULING_UNDERWAY : words.label}
+        {pending ? (overrule.trigger === "gate_undecided" ? ACCEPTING_UNDERWAY : OVERRULING_UNDERWAY) : words.label}
       </Button>
       <Dialog
         open={open}
@@ -122,7 +124,7 @@ export function OverruleControl({
         width="wide"
         title={words.asks}
         confirmLabel={words.label}
-        confirmDisabled={reason.trim() === ""}
+        confirmDisabled={words.reasonOptional !== true && reason.trim() === ""}
         // Pinned, outside the region that scrolls. The reason is what the
         // confirm control is waiting on, so it is reachable at any window
         // height — reading the explanation is optional and reaching the field
