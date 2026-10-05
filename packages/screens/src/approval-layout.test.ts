@@ -42,11 +42,11 @@ describe("layoutOf", () => {
     expect(gap).toBeLessThan(places.get("implement")!.y - places.get("plan:judge")!.y - 44);
   });
 
-  it("fans a step's groups across one row under it, and frames them", () => {
-    const { places, frames } = run();
+  it("fans a step's groups across one row under it, and sizes each as a Cluster", () => {
+    const { places, sizes } = run();
     expect(places.get("group:G1")?.y).toBe(places.get("group:G2")?.y);
     expect(places.get("group:G1")!.y).toBeGreaterThan(places.get("implement")!.y);
-    expect(frames.some((frame) => frame.id === "cluster:implement" && frame.kind === "cluster")).toBe(true);
+    expect(sizes.has("group:G1")).toBe(true);
   });
 
   it("draws the three lanes left to right, each as tall as the deepest", () => {

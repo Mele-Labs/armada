@@ -362,7 +362,12 @@ export function ApprovalCanvas({
                   aria-label={`${node.name}, ${said}`}
                   {...(panel === undefined ? {} : { onClick: panel })}
                 >
-                  {mark === undefined ? null : <mark.icon size={12} strokeWidth={2} aria-hidden />}
+                  {mark === undefined ? null : (
+                    <span className="armada-step-mark">
+                      <mark.icon size={12} strokeWidth={2} aria-hidden />
+                      <span className="armada-step-mark__name">{said}</span>
+                    </span>
+                  )}
                   {node.name}
                 </button>
               }
