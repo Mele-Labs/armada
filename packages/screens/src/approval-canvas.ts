@@ -99,6 +99,8 @@ export type ChangedSince = {
 export type StepRead = {
   id: string;
   label: string;
+  /** What the step does for the Job, as its workflow wrote it. Absent draws nothing. */
+  about?: string;
   checks: readonly DeclaredCheck[];
   judges: readonly DeclaredJudge[];
   delivers: boolean;
@@ -186,6 +188,7 @@ export function stepsReadOf(
     return {
       id: gate.step_id,
       label: step?.label ?? gate.step_id,
+      ...(step?.about === undefined || step.about === "" ? {} : { about: step.about }),
       checks: step?.checks ?? [],
       judges: step?.judge_checks ?? [],
       delivers: step?.delivers ?? false,

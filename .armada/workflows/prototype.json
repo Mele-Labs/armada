@@ -43,7 +43,7 @@
     {
       "id": "frame",
       "label": "Frame",
-      "about": "Writes three lines on what will be tried and how, before any code. They are what Build works from, and where you see what is about to happen.",
+      "about": "Writes three lines on what will be tried and how, before any code. Build works from them.",
       "records_plan": true,
       "evidence": {
         "submitted": { "type": "facts_note" }

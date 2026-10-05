@@ -10,6 +10,7 @@
 import type { StepDetail } from "@armada/protocol";
 import { featureWorkflow } from "@armada/screens/src/fixtures/build/arc-base";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
+import { prototypeWorkflow } from "@armada/screens/src/fixtures/build/kinds-workflows";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
@@ -50,6 +51,11 @@ export function featureAtApproval(): JobFixture {
     name: "awaiting_approval — a feature Job, drawn as the run it will be",
     job,
     watched: watchedRead({ ...base.watched.detail, job, steps }),
-    workflows: [feature, ...base.workflows.filter((one) => one.id !== "feature")],
+    // `prototype` beside them, whose Frame step is one a person meets for the first time.
+    workflows: [
+      feature,
+      ...base.workflows.filter((one) => one.id !== "feature"),
+      { ...prototypeWorkflow(), manifest_id: base.job.owner_manifest_id },
+    ],
   };
 }

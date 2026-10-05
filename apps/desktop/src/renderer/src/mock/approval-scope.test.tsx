@@ -14,7 +14,7 @@ import { page } from "vitest/browser";
 import { REFACTOR_FOR_REQUESTS, refactorAtApproval, withRow } from "./job-detail-fixtures";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { onJob } from "./scenario";
-import { mount, openNode, unmountAfterEach } from "./testing";
+import { closeNode, mount, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -82,6 +82,7 @@ test("the Brief is not drawn at the gate, and reads the request as approved afte
   expect(page.getByRole("region", { name: "Brief", exact: true }).all()).toHaveLength(0);
 
   await asked.fill("Retire guide 8 and refuse a guide with no drawn pieces");
+  await closeNode();
   await page.getByRole("button", { name: "Approve dispatch" }).last().click();
 
   // Past the press the canvas reads the run, and its Brief node carries the approved words.
@@ -136,6 +137,7 @@ test("what a person moved under the lead is what the press sends, and what the J
   await brief.getByRole("textbox", { name: "Criterion 2" }).fill("A rule refuses a guide with no pieces");
   await (await openNode("Checks", 1)).getByRole("checkbox", { name: "You on Restructure" }).click();
   await (await openNode("Land")).getByRole("combobox", { name: "Lands in" }).fill("release/2026-10");
+  await closeNode();
   await page.getByRole("button", { name: "Approve dispatch" }).last().click();
 
   await expect.poll(() => approveDispatch.mock.calls.length).toBe(1);
