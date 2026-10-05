@@ -173,13 +173,18 @@ override**: the step reads `advanced` with `failed(gate_failure)` still on it,
 so what the Judge said stays beside the fact that it did not stand, and an
 override rate is countable off `job_events`.
 
-**It lifts `gate_failure` and `evidence_suspect`, and nothing else.** Both are a
-machine's decision, which is the owner's rule for what a person may overrule —
-one a judgement about the work, one a claim about the evidence, and
-`last_verdict.trigger` is what tells an overruled flag from an overruled
-refusal afterwards. `gate_undecided` stays refused because the gate never
-weighed the work at all, so there is no decision to disagree with; whether that
-wants an act of its own is open. **A failed mechanical Check is handed back to the Drone that
+**It lifts `gate_failure`, `evidence_suspect` and `gate_undecided`, and nothing
+else.** The first two are a machine's decision, which is the owner's rule for
+what a person may overrule — one a judgement about the work, one a claim about
+the evidence — and `last_verdict.trigger` is what tells an overruled flag from
+an overruled refusal afterwards. `gate_undecided` is the Judge call having
+failed, for instance "Reached max turns (8)", so no verdict exists. The owner
+decided on 2026-10-05 that a person must be able to move a step the machine
+could not read: an engineer who deems the step did what it needs advances it,
+and the record keeps `failed(gate_undecided)` beside `advanced`. It takes no
+reason, as a gaming flag takes none, because there is no Judge opinion to
+learn from. `rerun_gate` is offered beside it for the same trigger, so the two
+are alternatives rather than a partition. **A failed mechanical Check is handed back to the Drone that
 produced the work**, with the Check's own output, and the step retries under its
 gate-failure retry limit. A red the gate can confirm is first run again alone,
 and only one that is still red alone reaches the Drone ([Manifest](manifest.md),

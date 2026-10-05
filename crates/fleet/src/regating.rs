@@ -2,11 +2,10 @@
 //!
 //! # It is not an override, and the distinction is the whole act
 //!
-//! `crate::overruling` lifts a decision: a machine weighed the work and a
-//! person disagrees. [`Ruling::CouldNotDecide`] is the machine saying it
-//! weighed nothing, so there is nothing to disagree with — `overrulable`
-//! refuses `gate_undecided` for that, and advancing on it would pass a step
-//! nothing ruled on. This asks the question that failed to be asked. The
+//! `crate::overruling` advances a step on a person's word. [`Ruling::CouldNotDecide`]
+//! is the machine saying it weighed nothing; a person may still overrule
+//! that (the owner's call, 2026-10-05), and the two acts are offered together
+//! rather than as a partition. This asks the question that failed to be asked. The
 //! Drone's work is still on the branch and its evidence still on the record, so
 //! the second reading is the first one made again. Where the cause was
 //! permanent it fails again and says so.
@@ -49,7 +48,8 @@ where
 {
     /// Run the gate again over the evidence the step already submitted.
     ///
-    /// **The act for `gate_undecided`, and the only one.** It takes no reason:
+    /// **The act for `gate_undecided` that asks the Judge again**; an override
+    /// is the other. It takes no reason:
     /// nothing is being disagreed with, so there is nothing a sentence could
     /// record that the second reading will not say for itself.
     ///
@@ -253,13 +253,10 @@ where
     /// The Job is `escalated`; a step of it stopped; that step carries a
     /// verdict; and the verdict is `gate_undecided`.
     ///
-    /// **The last is [`overrulable`]'s refusal read from the other side.** That
-    /// match admits `gate_failure` and `evidence_suspect` because a machine
-    /// ruled, and refuses `gate_undecided` because none did. This admits
-    /// exactly what that refuses, so the two acts partition the triggers rather
-    /// than overlapping — and a trigger belonging to neither is refused by
-    /// both, which is the honest answer for a Check that hit its bound or a
-    /// loop that did not converge.
+    /// **The last is what makes a re-run meaningful.** [`overrulable`] admits
+    /// `gate_undecided` too, since 2026-10-05, so the two acts overlap on that
+    /// one trigger and are no longer a partition: a re-run is refused wherever
+    /// a machine ruled, because asking again would draw the same answer.
     ///
     /// [`overrulable`]: crate::overruling
     fn undecided_step(&self, job: &Job) -> Result<StepId, Adrift> {

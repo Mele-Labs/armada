@@ -516,17 +516,31 @@ async fn a_failed_mechanical_check_cannot_be_overruled() {
     );
 }
 
-/// **A machine that could not decide left nothing to disagree with.**
-///
-/// `gate_undecided` is the gate saying it could not read the artifact. The
-/// owner's rule reaches what a machine decided, and here it decided nothing —
-/// overruling would advance work no tier ever weighed, which is the one thing
-/// `evidence_suspect` moving must not be read as licence for.
-#[tokio::test]
-async fn a_gate_that_could_not_decide_has_no_verdict_to_overrule() {
-    let home = TempDir::new();
-    let fleet = a_fleet_judged_by(
-        &home,
+/// A Job whose step stopped on `gate_undecided`: the Judge failed, so no
+/// verdict exists.
+async fn undecided(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
+    let job = fleet
+        .propose(a_proposal("fix the reader"))
+        .await
+        .expect("a Job at the approval gate");
+    let job_id = job.id().clone();
+    worktree_directory(home, &job);
+    dispatched(fleet, &job_id).await.expect("released to run");
+    submitted_by_the_one(fleet, diff_evidence())
+        .await
+        .expect("the tool took it");
+    let turned = fleet.turn().await.expect("the gate ruled");
+    assert!(
+        matches!(turned.ruled(), Some(Ruling::CouldNotDecide { .. })),
+        "the fixture did not reach an undecided gate: {:?}",
+        turned.ruled()
+    );
+    job_id
+}
+
+fn an_undecided_fleet(home: &TempDir) -> Fixture {
+    a_fleet_judged_by(
+        home,
         FakeWorkProduct::refusing("a worktree that would not read"),
         testkit::resolved(&[Sketch {
             id: "implement",
@@ -538,39 +552,57 @@ async fn a_gate_that_could_not_decide_has_no_verdict_to_overrule() {
             gaming: None,
         }]),
         a_judge_that_refuses(),
-    );
-    let job = fleet
-        .propose(a_proposal("fix the reader"))
+    )
+}
+
+/// **A person can move a step the machine could not read.** The owner reversed
+/// the old refusal on 2026-10-05: an engineer who deems the step did what it
+/// needs advances it, with or without a reason, and the record keeps
+/// `failed(gate_undecided)` beside `advanced`.
+#[tokio::test]
+async fn a_gate_that_could_not_decide_is_overruled_with_a_reason() {
+    let home = TempDir::new();
+    let fleet = an_undecided_fleet(&home);
+    let job_id = undecided(&fleet, &home).await;
+
+    fleet
+        .override_verdict(&job_id, Some(&a_reason()))
         .await
-        .expect("a Job at the approval gate");
-    let job_id = job.id().clone();
-    worktree_directory(&home, &job);
-    dispatched(&fleet, &job_id).await.expect("released to run");
-    submitted_by_the_one(&fleet, diff_evidence())
-        .await
-        .expect("the tool took it");
-    let turned = fleet.turn().await.expect("the gate ruled");
-    assert!(
-        matches!(turned.ruled(), Some(Ruling::CouldNotDecide { .. })),
-        "the fixture did not reach an undecided gate: {:?}",
-        turned.ruled()
+        .expect("a person overrules a gate that never ruled");
+
+    let advanced = fleet.load(&job_id).await.expect("the Job reads");
+    let row = advanced.step(&implement()).expect("the row is there");
+    assert_eq!(row.state(), StepState::Advanced);
+    assert_eq!(
+        row.last_verdict(),
+        StepLevelTrigger::of(EscalationTrigger::GateUndecided).map(StepVerdict::Failed),
+        "the record keeps what stopped the step beside the fact that it advanced"
     );
 
-    match fleet.override_verdict(&job_id, Some(&a_reason())).await {
-        Err(Adrift::NotTheJudges { trigger, .. }) => {
-            assert_eq!(trigger, EscalationTrigger::GateUndecided)
-        }
-        other => panic!("a gate that never ruled was overruled: {other:?}"),
-    }
+    let events = fleet.events();
+    let app = api::router(api::Served::by(fleet, RunId::carried("01RUN"), events));
+    let (_, body) = call(&app, "GET", &format!("/jobs/{}", job_id.as_str()), "").await;
+    let detail: JobDetail = ipc::decode("a Job in full", &body).expect("a JobDetail");
+    assert!(detail.steps[0].overridden, "recorded as overridden");
+}
+
+/// There is no Judge opinion to learn from, so a reason is optional here as it
+/// is on a gaming flag.
+#[tokio::test]
+async fn a_gate_that_could_not_decide_is_overruled_with_no_reason() {
+    let home = TempDir::new();
+    let fleet = an_undecided_fleet(&home);
+    let job_id = undecided(&fleet, &home).await;
+
+    fleet
+        .override_verdict(&job_id, None)
+        .await
+        .expect("no reason is needed where nothing was ruled");
+
+    let advanced = fleet.load(&job_id).await.expect("the Job reads");
     assert_eq!(
-        fleet
-            .load(&job_id)
-            .await
-            .expect("the Job reads")
-            .step(&implement())
-            .map(|step| step.state()),
-        Some(StepState::Stopped),
-        "and the step is still stopped, for a person to answer some other way"
+        advanced.step(&implement()).map(|step| step.state()),
+        Some(StepState::Advanced)
     );
 }
 
