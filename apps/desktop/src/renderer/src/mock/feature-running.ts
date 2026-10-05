@@ -22,13 +22,16 @@ export function featureRunning(): JobFixture {
     const { ended_at: _ended, ...rest } = group;
     return { ...rest, state: "running", attempts: (group.attempts ?? []).slice(0, 1).map(({ verdict: _v, ended_at: _e, ...one }) => one) };
   });
-  // A second task on Group 2 (done) and two on Group 3 (not started): every group draws a chain.
+  // A second task on Group 2 (done) and two on Group 3 (not started): chains and a parallel wave.
   const added: PlanTask[] = [
     { id: "T5", title: "Show a group's attempts on its panel", scope: ["packages/screens/src/plan-review.tsx"], state: "done", group: "G2" },
-    { id: "T6", title: "Draw tasks under their group", scope: ["packages/screens/src/approval-layout.ts"], state: "open", group: "G3" },
-    { id: "T7", title: "Walk the canvas with a task open", scope: ["apps/desktop/src/renderer/src/mock/walks"], state: "open", group: "G3" },
+    { id: "T6", title: "Draw tasks under their group", scope: ["packages/screens/src/approval-layout.ts"], state: "open", group: "G3", concurrent_with: ["T7"] },
+    { id: "T7", title: "Walk the canvas with a task open", scope: ["apps/desktop/src/renderer/src/mock/walks"], state: "open", group: "G3", concurrent_with: ["T6"] },
   ];
+  // T1 and T2 may run at once, as may T6 and T7 (after T4): a wave of two beside plain chains.
+  const parallel: Record<string, string[]> = { T1: ["T2"], T2: ["T1"] };
   const tasks = [...plan.tasks, ...added].map((task) => {
+    if (parallel[task.id] !== undefined) task = { ...task, concurrent_with: parallel[task.id]! };
     if (task.id !== "T4") return task;
     const { failed_reason: _reason, ...rest } = task;
     return { ...rest, state: "working" as const };

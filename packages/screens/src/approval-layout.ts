@@ -76,8 +76,8 @@ function rowsOf(fan: readonly ApprovalNode[]): ApprovalNode[][] {
   return rows.filter((row) => row !== undefined);
 }
 
-const rowWidth = (row: readonly ApprovalNode[]): number =>
-  row.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, row.length - 1);
+const rowWidth = (row: readonly ApprovalNode[], nodes: readonly ApprovalNode[]): number =>
+  row.reduce((sum, one) => sum + columnOf(one, nodes), 0) + ACROSS * Math.max(0, row.length - 1);
 
 /**
  * **The one place a group's tasks are put.** Chains: each group's tasks hang
@@ -90,11 +90,33 @@ function chainsUnder(row: readonly ApprovalNode[], nodes: readonly ApprovalNode[
     const at = places.get(group.id);
     const chain = nodes.filter((one) => one.chain?.group === group.id);
     if (at === undefined || chain.length === 0) continue;
-    for (const [n, task] of chain.entries()) places.set(task.id, { x: at.x, y: top + TASK.gap + n * (TASK.height + TASK.gap) });
-    tallest = Math.max(tallest, chain.length * (TASK.height + TASK.gap));
+    // Each wave a row, centred under the group, so an uneven wave sits on the group's axis.
+    const waves = wavesOfChain(chain);
+    for (const [n, wave] of waves.entries()) {
+      const y = top + TASK.gap + n * (TASK.height + TASK.gap);
+      let x = at.x + widthOf(group) / 2 - waveWidth(wave) / 2;
+      for (const task of wave) {
+        places.set(task.id, { x, y });
+        x += widthOf(task) + ACROSS;
+      }
+    }
+    tallest = Math.max(tallest, waves.length * (TASK.height + TASK.gap));
   }
   return tallest;
 }
+
+const wavesOfChain = (chain: readonly ApprovalNode[]): ApprovalNode[][] => {
+  const waves: ApprovalNode[][] = [];
+  for (const task of chain) (waves[task.chain!.wave] ??= []).push(task);
+  return waves.filter((wave) => wave !== undefined);
+};
+
+const waveWidth = (wave: readonly ApprovalNode[]): number =>
+  wave.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, wave.length - 1);
+
+/** How wide a group's column is: its card, or its widest wave of tasks. */
+const columnOf = (group: ApprovalNode, nodes: readonly ApprovalNode[]): number =>
+  Math.max(widthOf(group), ...wavesOfChain(nodes.filter((one) => one.chain?.group === group.id)).map(waveWidth));
 
 /** Where chains of any length rejoin: one line, half a row above the node they rejoin at. */
 const joinOf = (nodes: ReadonlyMap<string, ApprovalNode>, edge: WorkflowCanvasEdge, places: ReadonlyMap<string, Place>): number | undefined => {
@@ -132,7 +154,7 @@ export function layoutOf(
     }
     // How far the lane reaches either side of its spine: a card, a way back beside it, the widest fan row.
     const hasLoop = edges.some((edge) => edge.kind === "returns" && laneOfId.get(edge.source) === lane);
-    const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map(rowWidth)));
+    const widestRow = Math.max(0, ...[...fans.values()].flatMap((fan) => rowsOf(fan).map((row) => rowWidth(row, nodes))));
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
     const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
     const left = Math.max(half, fanHalf);
@@ -156,12 +178,13 @@ export function layoutOf(
         const top = y + ROW_GAP;
         let rowY = top + CLUSTER_HEAD + CLUSTER_PAD;
         const rows = rowsOf(fan);
-        const across = Math.max(...rows.map(rowWidth));
+        const across = Math.max(...rows.map((row) => rowWidth(row, nodes)));
         for (const row of rows) {
-          let at = spine - rowWidth(row) / 2;
+          let at = spine - rowWidth(row, nodes) / 2;
           for (const member of row) {
-            places.set(member.id, { x: at, y: rowY });
-            at += widthOf(member) + ACROSS;
+            const column = columnOf(member, nodes);
+            places.set(member.id, { x: at + (column - widthOf(member)) / 2, y: rowY });
+            at += column + ACROSS;
           }
           rowY += CARD.height + chainsUnder(row, nodes, places, rowY + CARD.height) + ROW_GAP;
         }
