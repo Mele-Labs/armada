@@ -1459,7 +1459,7 @@ notes = """
 
 **The Job goes `awaiting_approval -> proposing` and back.** The proposer reads the request and the note, and its answer replaces the title, words, workflow and criteria whole. Each Job the answer makes is at `awaiting_approval` on its own, carrying the person's tuning for every step whose id the new workflow still has and the landing as it stands; what cannot carry is dropped, with a warning in the Job's log naming it. A call that cannot be read puts the proposal back as it was and refuses with the proposer's own code (`fleet.no_workflow_fits`, `fleet.proposer_unreadable` and the like). A Fleet that restarts mid-call escalates the Job as `proposer_failed`, as it does a first dispatch.
 
-409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. 422 `fleet.unacceptable_proposal` on a blank note, a Job that is one of a split or was split, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
+409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. **A split goes back whole**: from any Job of it, every Job of the split is sent back, the proposer answers once and its answer replaces the group, the old Jobs kept in order and rewritten, more made, fewer ended as replaced. 422 `fleet.unacceptable_proposal` on a blank note, a Job of the group not at its gate (named, with its status, and nothing moves), a Job an Epic's plan dispatched, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
 
 `agent_access` is `Helm only`, `approve_dispatch`'s reason.
 """

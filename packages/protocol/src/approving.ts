@@ -116,7 +116,8 @@ export type LandingChoice = {
  * `to_proposer`'s body, `POST /jobs/{job_id}/to_proposer`: a note sent back to
  * the proposer from the approval gate, with what the person has set so far.
  * The proposer rewrites the proposal whole and the answer is a `ProposedPlan`,
- * since it may split. Fleet carries `tuning` onto each rewritten Job wherever a
+ * since it may split. **From any Job of a split the whole split goes back and
+ * its one answer replaces the group.** Fleet carries `tuning` onto each rewritten Job wherever a
  * step id still matches, and `landing` as it stands; what cannot carry is
  * dropped and said in the Job's log. Since 23.25.
  */
