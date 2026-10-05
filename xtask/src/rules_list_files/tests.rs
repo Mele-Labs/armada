@@ -62,3 +62,13 @@ fn a_mod_list_holds_mods_and_comments_only() {
 fn a_kind_with_no_entry_rule_is_refused_whole() {
     assert_eq!(not_entries("x.py", "a = 1\n"), vec![0]);
 }
+
+#[test]
+fn a_row_list_holds_one_export_a_row_and_nothing_that_builds_one() {
+    let text = "// header\nexport * from \"./scenarios/a\";\nexport * from \"./scenarios/b-c\";\n";
+    assert!(not_entries("scenario-rows.ts", text).is_empty());
+    // An import and a row built in place are what the file was split to be rid of.
+    let mixed =
+        "import { a } from \"./a\";\nexport * from \"./scenarios/a\";\nholding(\"x\", [a]),\n";
+    assert_eq!(not_entries("scenario-rows.ts", mixed), vec![1, 3]);
+}

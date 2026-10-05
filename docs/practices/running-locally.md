@@ -298,6 +298,10 @@ no other edit. A builder needs its name added to `BUILDERS` in
 `apps/desktop/src/renderer/src/mock/scenario.ts`, and the test beside it fails
 until it is. A moment added to `ARC_MOMENTS` and a Job added to `KIND_FIXTURES`
 are scenarios with no edit at all — both rosters are walked.
+**A row of its own** — one Job, already open, for a walk — is a file in
+`apps/desktop/src/renderer/src/mock/scenarios/` and one line in `mock/scenario-rows.ts`;
+`scenario.ts` is not edited, so two branches adding rows do not conflict.
+`docs/practices/list-files.md`.
 
 **A moment can hold no Job, or four.** The two dispatch moments are before any
 Job exists and draw the Board the work would have joined; the landing orders and
