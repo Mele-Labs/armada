@@ -98,6 +98,8 @@ export type Refusal = {
   why: string;
   /** The step it is about, to mark in the frame. */
   step?: number;
+  /** The field that fixes it, as the panel labels it. */
+  field: string;
 };
 
 const NAME = /^[a-z][a-z0-9_]*$/;
@@ -109,36 +111,36 @@ const NAME = /^[a-z][a-z0-9_]*$/;
  */
 export function refusalsOf(def: Definition, taken: readonly string[]): Refusal[] {
   const out: Refusal[] = [];
-  if (def.id === "") out.push({ where: "id", why: "Empty" });
-  else if (!NAME.test(def.id)) out.push({ where: "id", why: "Lowercase letters, digits and underscores, starting with a letter" });
+  if (def.id === "") out.push({ where: "id", why: "Empty", field: "Workflow id" });
+  else if (!NAME.test(def.id)) out.push({ where: "id", why: "Lowercase letters, digits and underscores, starting with a letter", field: "Workflow id" });
   else if (taken.includes(def.id)) {
-    out.push({ where: "id", why: def.scope === KIT ? "Another Kit file has this id" : "Another file in .armada/workflows has this id" });
+    out.push({ where: "id", why: def.scope === KIT ? "Another Kit file has this id" : "Another file in .armada/workflows has this id", field: "Workflow id" });
   }
-  if (def.steps.length === 0) out.push({ where: "steps", why: "At least one step" });
+  if (def.steps.length === 0) out.push({ where: "steps", why: "At least one step", field: "Add step" });
 
   const seen = new Set<string>();
   def.steps.forEach((step, at) => {
     const n = at + 1;
-    if (step.id === "") out.push({ where: `steps[${n}].id`, why: "Empty", step: at });
-    else if (!NAME.test(step.id)) out.push({ where: `steps[${n}].id`, why: "Lowercase letters, digits and underscores", step: at });
-    else if (seen.has(step.id)) out.push({ where: `steps[${n}].id`, why: `Duplicate step name ${step.id}`, step: at });
+    if (step.id === "") out.push({ where: `steps[${n}].id`, why: "Empty", step: at, field: "Step id" });
+    else if (!NAME.test(step.id)) out.push({ where: `steps[${n}].id`, why: "Lowercase letters, digits and underscores", step: at, field: "Step id" });
+    else if (seen.has(step.id)) out.push({ where: `steps[${n}].id`, why: `Duplicate step name ${step.id}`, step: at, field: "Step id" });
     seen.add(step.id);
 
     if (step.gate.checks && step.check === "none") {
-      out.push({ where: `steps[${n}].gate`, why: "Checks ticked and the step names no check", step: at });
+      out.push({ where: `steps[${n}].gate`, why: "Checks ticked and the step names no check", step: at, field: "Check" });
     }
     if (step.gate.judge && step.judge.trim() === "") {
-      out.push({ where: `steps[${n}].judge_checks`, why: "Judge ticked and the step names no question", step: at });
+      out.push({ where: `steps[${n}].judge_checks`, why: "Judge ticked and the step names no question", step: at, field: "Judge question" });
     }
     if (step.returnsTo !== "") {
       const to = def.steps.findIndex((one) => one.id === step.returnsTo);
       if (to === -1) {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not a step`, step: at });
+        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not a step`, step: at, field: "Sends work back to" });
       } else if (to >= at) {
-        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not before ${displayId(step, n)}`, step: at });
+        out.push({ where: `steps[${n}].verdict_routing`, why: `${step.returnsTo} is not before ${displayId(step, n)}`, step: at, field: "Sends work back to" });
       }
       if (!Number.isInteger(step.iterationCap) || step.iterationCap < 1) {
-        out.push({ where: `steps[${n}].iteration_cap`, why: "At least 1", step: at });
+        out.push({ where: `steps[${n}].iteration_cap`, why: "At least 1", step: at, field: "Passes" });
       }
     }
   });

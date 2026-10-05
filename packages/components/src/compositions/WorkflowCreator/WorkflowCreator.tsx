@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Ban, Briefcase, Check, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Alert } from "../../primitives/Alert/Alert";
@@ -10,7 +10,7 @@ import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { WorkflowCanvas, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "../WorkflowCanvas/WorkflowCanvas";
-import type { WorkflowStepBand } from "../WorkflowStepCard/WorkflowStepCard";
+import type { WorkflowStepBand, WorkflowStepDetail } from "../WorkflowStepCard/WorkflowStepCard";
 import {
   blankDefinition,
   blankStep,
@@ -103,25 +103,22 @@ const GATE: Record<"checks" | "judge" | "you" | "repository" | "auto", { icon: L
 
 export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
   const g = step.gate;
-  type Kind = keyof typeof GATE;
-  const ticked: Kind[] = g.repository ? ["repository"] : [];
-  if (!g.repository) {
-    if (g.checks) ticked.push("checks");
-    if (g.judge) ticked.push("judge");
-    if (g.you) ticked.push("you");
-  }
-  const kinds: Kind[] = ticked.length === 0 ? ["auto"] : ticked;
-  const lead = kinds.includes("you") ? "you" : kinds.includes("judge") ? "judge" : kinds[0]!;
+  const lead = g.repository ? "repository" : g.you ? "you" : g.judge ? "judge" : g.checks ? "checks" : "auto";
   const tag = step.id === "" ? undefined : step.id;
-  const marks = kinds.map((one) => ({ icon: GATE[one].icon, said: GATE[one].said }));
-  if (refused) return { marks, label: "Refused", ...(tag === undefined ? {} : { tag }), token: "--notice-caution", look: "hatched" };
-  return {
-    marks,
-    label: kinds.map((one) => (one === "auto" ? "Auto" : one === "repository" ? "Repository" : GATE[one].said)).join(" · "),
-    ...(tag === undefined ? {} : { tag }),
-    token: GATE[lead].token,
-    look: kinds[0] === "auto" ? "dashed" : "solid",
-  };
+  if (refused) return { ...(tag === undefined ? {} : { tag }), token: "--notice-caution", look: "hatched" };
+  return { ...(tag === undefined ? {} : { tag }), token: GATE[lead].token, look: lead === "auto" ? "dashed" : "solid" };
+}
+
+/** What the step is, a labelled line each: its evidence, then every way it advances. */
+export function detailsOf(step: Step): WorkflowStepDetail[] {
+  const g = step.gate;
+  const rows: WorkflowStepDetail[] = [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
+  if (g.repository) return [...rows, { icon: GATE.repository.icon, label: GATE.repository.said }];
+  if (g.checks) rows.push({ icon: GATE.checks.icon, label: GATE.checks.said, value: step.check === "none" ? "none named" : step.check });
+  if (g.judge) rows.push({ icon: GATE.judge.icon, label: GATE.judge.said, value: step.judge.trim() === "" ? "no question" : step.judge });
+  if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
+  if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
+  return rows;
 }
 
 /** The title a step reads as: its id without the underscores. */
@@ -133,10 +130,10 @@ function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: 
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
     const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
-    const line = [step.evidence, step.check === "none" ? null : step.check].filter((one) => one !== null).join(" · ");
-    const rows = 1 + needs.length + (back ? 1 : 0);
+    const details = detailsOf(step);
+    const rows = details.length + needs.length + (back ? 1 : 0);
     const here = y;
-    y += STEP_APART + BAND + (rows - 1) * ROW;
+    y += STEP_APART + BAND + (rows - 1) * ROW + 8;
     return {
       id: canvasId(at),
       position: { x: 0, y: here },
@@ -146,7 +143,7 @@ function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: 
         activity: "not_started",
         said: `step ${at + 1}`,
         ordinal: at + 1,
-        line,
+        details,
         needs,
         band: bandOf(step, needs.length > 0),
         ...(back ? { action: `returns to ${step.returnsTo}`, returns: true } : {}),
@@ -383,6 +380,26 @@ function Stage({
     for (const one of refusals) if (one.step !== undefined) by.set(one.step, [...(by.get(one.step) ?? []), one.why]);
     return by;
   }, [refusals]);
+  // Pressing a refusal opens the panel it is fixed in and lands on the field.
+  const [focus, setFocus] = useState<{ field: string; n: number } | null>(null);
+  function fix(one: Refusal) {
+    if (one.field === "Add step") {
+      document.querySelector<HTMLElement>(".armada-wf-stage__acts button:nth-of-type(2)")?.focus();
+      return;
+    }
+    onPanel(one.step === undefined ? "workflow" : one.step);
+    setFocus({ field: one.field, n: (focus?.n ?? 0) + 1 });
+  }
+  useEffect(() => {
+    if (focus === null) return;
+    const land = window.setTimeout(() => {
+      const label = [...document.querySelectorAll(".armada-wf-panel label")].find((one) => one.textContent === focus.field);
+      const control =
+        label === undefined ? null : label instanceof HTMLLabelElement && label.htmlFor !== "" ? document.getElementById(label.htmlFor) : label.querySelector("input");
+      control?.focus();
+    }, 120);
+    return () => window.clearTimeout(land);
+  }, [focus]);
   const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel), [def, marked, panel, onPanel]);
   const replaces = entries
     .filter((one) => one.id === def.id && one.leftOut === undefined && SOURCE_RANK[one.source] < SOURCE_RANK[def.scope === KIT ? "kit" : "repository"])
@@ -440,8 +457,10 @@ function Stage({
           <ul className="armada-wf-refusals" aria-label="Refusals">
             {refusals.map((one, i) => (
               <li key={i}>
-                <code>{one.where}</code>
-                <span>{one.why}</span>
+                <button type="button" className="armada-wf-refusal" onClick={() => fix(one)}>
+                  <code>{`${one.step === undefined ? "Workflow" : stepName(def.steps[one.step], one.step)} · ${one.field}`}</code>
+                  <span>{one.why}</span>
+                </button>
               </li>
             ))}
           </ul>

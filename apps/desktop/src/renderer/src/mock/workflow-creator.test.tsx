@@ -46,7 +46,7 @@ test("a workflow is drawn as steps, a step sending work back is a back edge, and
   await expect.element(page.getByRole("button", { name: /^Repro, / })).toBeVisible();
   await expect.element(page.getByText("up to 4 passes").first()).toBeVisible();
   // The band names how the step advances, and the step that sends work back says where.
-  await expect.element(page.getByRole("button", { name: /^Fix, / }).getByRole("img", { name: "Judge" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Fix, / }).getByText("Judge", { exact: true })).toBeVisible();
   await expect.element(page.getByRole("button", { name: /^Review, / }).getByText("returns to fix")).toBeVisible();
   await expect.element(page.getByRole("radio", { name: "Loop" })).not.toBeInTheDocument();
 });
@@ -66,7 +66,10 @@ test("a step opens in the sheet, a Judge with no question is refused on its node
   await expect.element(frame().getByText("Refused", { exact: true }).first()).toBeVisible();
   await expect.element(page.getByRole("button", { name: /^Gather, / }).getByText(/names no question/)).toBeVisible();
 
-  await page.getByRole("button", { name: /^Gather, / }).click();
+  // The reason names the step and the field, and pressing it opens the panel with the field focused.
+  await refusals.getByRole("button", { name: /gather · Judge question/ }).click();
+  const field = page.getByRole("dialog", { name: "gather" }).getByRole("textbox", { name: "Judge question" });
+  await expect.poll(() => document.activeElement === field.element()).toBe(true);
   await page.getByRole("dialog", { name: "gather" }).getByRole("textbox", { name: "Judge question" }).fill("Does it cover every change?");
   await page.getByRole("dialog", { name: "gather" }).getByRole("button", { name: "Close" }).click();
   await expect.element(refusals).not.toBeInTheDocument();

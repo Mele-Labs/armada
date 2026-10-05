@@ -229,8 +229,30 @@
 
 .armada-wf-refusals li {
   display: flex;
+}
+
+/* A reason is the way to its fix: it opens the panel at the field. */
+.armada-wf-refusal {
+  display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-wf-refusal:hover span {
+  text-decoration: underline;
+}
+
+.armada-wf-refusal:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
 }
 
 .armada-wf-refusals code {

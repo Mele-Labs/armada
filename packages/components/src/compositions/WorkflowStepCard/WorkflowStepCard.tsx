@@ -38,22 +38,28 @@ export type WorkflowStepNeed = {
 
 /**
  * A header band over the card, in the bays' language (`PoolSlots`): a solid
- * band in a hue, one mark a part, a CAPS label and a mono tag at the trailing
- * edge. **The band says what the card is and never how a run is going**, so the
- * caller names the hue, and the marks and the label carry the meaning without
- * it. Absent draws the card exactly as before.
+ * band in a hue that carries **the step's name first**, its position before it
+ * and a mono tag at the trailing edge. **The band says what the card is and
+ * never how a run is going**, so the caller names the hue. What the hue stands
+ * for is spelled out in the body's labelled `details`, never left to the colour.
+ * Absent draws the card exactly as before.
  */
 export type WorkflowStepBand = {
-  /** One mark each, 12px, named on hover. */
-  marks: readonly { icon: LucideIcon; said: string }[];
-  /** CAPS by the stylesheet. */
-  label: string;
   /** A mono tag at the trailing edge: the step's id. */
   tag?: string;
   /** The band's hue, a custom property name — `--status-running`. */
   token: string;
   /** `dashed` is an outline with no fill, `hatched` the caution hatch a stranded bay wears. */
   look?: "solid" | "dashed" | "hatched";
+};
+
+/** One labelled line in a banded card's body: a mark, its word, and what it holds. */
+export type WorkflowStepDetail = {
+  icon: LucideIcon;
+  /** The word beside the mark, always drawn. */
+  label: string;
+  /** Mono, clipped to one line and named in full on hover. Absent draws the label alone. */
+  value?: string;
 };
 
 export type WorkflowStepCardProps = {
@@ -117,6 +123,8 @@ export type WorkflowStepCardProps = {
    */
   track?: readonly StepPhasePart[];
   band?: WorkflowStepBand;
+  /** Labelled lines under the band, in order. Read only with `band`. */
+  details?: readonly WorkflowStepDetail[];
   /** A mono line in the accent under the others, the card's own act — where it sends work back to. */
   action?: string;
   /** Takes the accent edge on its leading side: the card sends work back. */
@@ -141,6 +149,7 @@ export function WorkflowStepCard({
   bar,
   track,
   band,
+  details = [],
   action,
   returns = false,
 }: WorkflowStepCardProps) {
@@ -187,18 +196,12 @@ export function WorkflowStepCard({
       {working && track === undefined ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
       {band === undefined ? null : (
         <span className="armada-wf-card__band">
-          {band.marks.map((one) => (
-            <Tooltip key={one.said} asChild label={one.said}>
-              <span className="armada-wf-card__band-mark" role="img" aria-label={one.said}>
-                <one.icon size={12} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          ))}
-          <span className="armada-wf-card__band-label">{band.label}</span>
+          {ordinal === undefined ? null : <span className="armada-wf-card__band-order">{ordinal}</span>}
+          <span className="armada-wf-card__band-name">{name}</span>
           {band.tag === undefined ? null : <span className="armada-wf-card__band-tag">{band.tag}</span>}
         </span>
       )}
-      <span className="armada-wf-card__head">
+      {band !== undefined ? null : <span className="armada-wf-card__head">
         {mark === undefined ? (
           <StepActivityMark
             activity={activity}
@@ -216,7 +219,22 @@ export function WorkflowStepCard({
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
-      </span>
+      </span>}
+      {band === undefined || details.length === 0 ? null : (
+        <span className="armada-wf-card__details">
+          {details.map((one) => (
+            <span key={one.label} className="armada-wf-card__detail">
+              <one.icon size={12} strokeWidth={2} aria-hidden />
+              <span className="armada-wf-card__detail-label">{one.label}</span>
+              {one.value === undefined ? null : (
+                <Tooltip asChild label={one.value}>
+                  <span className="armada-wf-card__detail-value">{one.value}</span>
+                </Tooltip>
+              )}
+            </span>
+          ))}
+        </span>
+      )}
       {below}
       {facts.length === 0 ? null : (
         <span className="armada-wf-card__facts">
