@@ -815,6 +815,18 @@ pub enum Adrift {
     NoSuchBranch { job: JobId, named: String },
     /// git would not list the repository's branches. Carries its words.
     BranchesUnread { job: Option<JobId>, why: String },
+    /// Where an approved Job lands could not be set. 23.22.
+    TargetNotSet {
+        job: JobId,
+        why: crate::aiming::Unaimed,
+    },
+    /// git would not make the branch an approval named to start from. 23.21.
+    BranchNotCut {
+        job: JobId,
+        named: String,
+        from: String,
+        why: String,
+    },
     /// A person's drop named a task already `done` or already `dropped`.
     ///
     /// **Not the plan's own refusal** — `core_model::WorkPlan::after` would

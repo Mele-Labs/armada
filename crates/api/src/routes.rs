@@ -349,6 +349,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::commands::set_tiers::<D>),
         )
         .route(
+            "/jobs/:job_id/set_landing_target",
+            post(crate::commands::set_landing_target::<D>),
+        )
+        .route(
             "/jobs/:job_id/remove_allowed_command",
             post(crate::commands::remove_allowed_command::<D>),
         )

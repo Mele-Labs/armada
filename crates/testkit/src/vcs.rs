@@ -409,14 +409,6 @@ impl FakeVcs {
         self
     }
 
-    /// Move a ref after the Fleet holding this fake exists.
-    pub fn move_ref_to(&self, r#ref: impl Into<String>, commit: impl Into<String>) {
-        self.refs
-            .lock()
-            .expect("not poisoned")
-            .insert(r#ref.into(), commit.into());
-    }
-
     /// Every base checkout this fake is holding, by commit, with whether it has
     /// been marked prepared.
     pub fn bases(&self) -> BTreeMap<String, bool> {
@@ -1094,6 +1086,10 @@ impl Vcs for FakeVcs {
             .collect();
         listed.sort_by_key(|branch| !branch.base);
         Ok(listed)
+    }
+
+    fn create_branch(&self, _repo_root: &str, name: &str, start: &str) -> Result<(), Self::Error> {
+        commit::cut_branch(self, name, start)
     }
 
     /// **Answers the same checkout every time it is asked for one commit**,

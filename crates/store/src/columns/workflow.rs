@@ -15,11 +15,11 @@
 use std::collections::BTreeMap;
 
 use core_model::{
-    AdvanceGate, ContextSource, Covers, CriterionId, DeclarePlanAt, EvidenceRef, EvidenceScope,
-    EvidenceType, FrozenWorkflow, GamingCheck, GamingPattern, GateVerdict, JudgeCheck,
-    JudgeCriterion, ModelName, Narrowing, OnRefusal, PathPattern, Prerequisite, RepoPath,
-    ResolvedCheck, ResolvedStep, StepId, Ulid, WorkflowId, WorkflowSource, ARTIFACT_EXISTS,
-    DIFF_NONEMPTY, MANIFEST_CHECK, PLAN_RECORDED,
+    AdvanceGate, ContextSource, Covers, CriterionId, DeclarePlanAt, Effort, EvidenceRef,
+    EvidenceScope, EvidenceType, FrozenWorkflow, GamingCheck, GamingPattern, GateVerdict,
+    JudgeCheck, JudgeCriterion, ModelName, Narrowing, OnRefusal, PathPattern, Prerequisite,
+    RepoPath, ResolvedCheck, ResolvedStep, StepId, StepPhase, Ulid, WorkflowId, WorkflowSource,
+    ARTIFACT_EXISTS, DIFF_NONEMPTY, MANIFEST_CHECK, PLAN_RECORDED,
 };
 use serde_json::{json, Map, Value};
 
@@ -46,6 +46,13 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             "follows_plan": step.follows_plan().then_some(true),
             // Absent rather than `false`, for `follows_plan`'s reason.
             "drone_per_task": step.drone_per_task().then_some(true),
+            // Null where the step declared none, for `model`'s reason below:
+            // the fallback off `delivers` is read, never frozen.
+            "phase": step.phase_declared().map(|phase| phase.as_wire()),
+            // What a person tuned at the approval press, null where nobody
+            // did, which is every row frozen before either key existed.
+            "effort": step.effort().map(|effort| effort.as_wire()),
+            "context": step.context(),
             // Absent rather than `false`, for `follows_plan`'s reason. The
             // value already folds in a step whose product is `plan` —
             // `ResolvedStep::records_plan` never disagrees with
@@ -328,6 +335,8 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
     .poking(read_patience(entry, "poke_limit")?)
     .following_plan(read_follows_plan(entry)?)
     .a_drone_per_task(read_drone_per_task(entry)?)
+    .in_phase(read_phase(entry)?)
+    .as_tuned(read_effort(entry)?, read_context(entry)?)
     .also_recording_the_plan(read_records_plan(entry)?))
 }
 
@@ -338,6 +347,40 @@ fn read_drone_per_task(entry: &Map<String, Value>) -> Result<bool, Malformed> {
         None | Some(Value::Null) => Ok(false),
         Some(Value::Bool(set)) => Ok(*set),
         Some(other) => Err(format!("`drone_per_task` is {}", kind(other))),
+    }
+}
+
+/// The phase the step declared. **Absent and null are none**, which is every
+/// row frozen before the key existed.
+fn read_phase(entry: &Map<String, Value>) -> Result<Option<StepPhase>, Malformed> {
+    match entry.get("phase") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(word)) => StepPhase::from_wire(word)
+            .map(Some)
+            .ok_or_else(|| format!("`phase` holds `{word}`")),
+        Some(other) => Err(format!("`phase` is {}", kind(other))),
+    }
+}
+
+/// The effort a person set on the step. **Absent and null are none.**
+fn read_effort(entry: &Map<String, Value>) -> Result<Option<Effort>, Malformed> {
+    match entry.get("effort") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(word)) => Effort::from_wire(word)
+            .map(Some)
+            .ok_or_else(|| format!("`effort` holds `{word}`")),
+        Some(other) => Err(format!("`effort` is {}", kind(other))),
+    }
+}
+
+/// The words a person left for the step's Drone. **Absent and null are none**,
+/// and a blank one is malformed: the approval never keeps one.
+fn read_context(entry: &Map<String, Value>) -> Result<Option<String>, Malformed> {
+    match entry.get("context") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(words)) if !words.trim().is_empty() => Ok(Some(words.clone())),
+        Some(Value::String(_)) => Err("`context` is blank".to_string()),
+        Some(other) => Err(format!("`context` is {}", kind(other))),
     }
 }
 

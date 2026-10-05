@@ -27,12 +27,12 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, Delivery, DroneSpawnConfig, Grant, McpConfig, Model, Prompt, SpawnConfigRefused,
-    Toolbelt, Vcs, WorkProduct, Worktree,
+    AgentHarness, Delivery, DroneSpawnConfig, Effort, Grant, McpConfig, Model, Prompt,
+    SpawnConfigRefused, Toolbelt, Vcs, WorkProduct, Worktree,
 };
 use core_model::{
-    Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, PlanTask, StepId,
-    TierModels,
+    Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, PlanTask, ResolvedStep,
+    StepId, TierModels,
 };
 
 use crate::adrift::Adrift;
@@ -452,9 +452,13 @@ where
         };
         Ok(DroneSpawnConfig::spawn_in(
             worktree,
-            Model::named(
+            Model::named_at(
                 job.model_spawned_for(step, chosen.as_ref(), task, &tiers)
                     .as_str(),
+                job.workflow()
+                    .step(step)
+                    .and_then(ResolvedStep::effort)
+                    .map(effort_of),
             )?,
             brief,
             self.mcp_config(job).await?,
@@ -621,5 +625,14 @@ where
             let (_, latest) = evidence.last()?;
             Some(Overtaken::of(peer.title().as_str(), &latest.claimed))
         })
+    }
+}
+
+/// The effort a person set on a step, in the seam's own word for it.
+fn effort_of(effort: core_model::Effort) -> Effort {
+    match effort {
+        core_model::Effort::Low => Effort::Low,
+        core_model::Effort::Medium => Effort::Medium,
+        core_model::Effort::High => Effort::High,
     }
 }

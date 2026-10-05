@@ -119,6 +119,13 @@ the step's Drones get neither plan tool even beside `follows_plan`; the
 step's gate runs once, after the last task is handed in. Feature, Bug and
 Refactor declare it on `implement`. [Plan](plan.md), *A Drone per task*.
 
+**A step says which phase of the run it is in by declaring `phase:`** —
+`setup`, `work` or `delivery`. A step declaring none is `delivery` where it
+`delivers` and `work` otherwise, never read off its id or its place, and Fleet
+serves the resolved phase so no reader spells the fallback again. Design
+Plan's `present` and Epic's `roll_up` declare `delivery`: each delivers what
+its workflow is for and sends nothing out.
+
 **Its Judge reads the plan rendered as text, beside whatever the step
 delivers or changes, labelled apart** — the approach, then every task with
 its id, title, state and a dropped task's reason. `context_paths` is not

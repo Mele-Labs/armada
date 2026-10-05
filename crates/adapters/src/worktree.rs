@@ -94,6 +94,15 @@ impl Vcs for GitVcs {
         crate::basing::branches(repo_root, declared)
     }
 
+    fn create_branch(
+        &self,
+        repo_root: &str,
+        name: &str,
+        start_point: &str,
+    ) -> Result<(), Self::Error> {
+        crate::basing::create_branch(repo_root, name, start_point)
+    }
+
     fn base_checkout(&self, spec: &BaseSpec) -> Result<BaseCheckout, Self::Error> {
         crate::basing::base_checkout(spec)
     }

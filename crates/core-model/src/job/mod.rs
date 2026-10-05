@@ -44,6 +44,7 @@ mod ids;
 mod judge;
 mod narrowing;
 mod note;
+mod phase;
 mod plan_group;
 mod policy;
 mod prerequisite;
@@ -59,6 +60,7 @@ mod step_machine;
 mod stuck;
 mod tiers;
 mod transition;
+mod tuning;
 mod verdict;
 mod work_plan;
 mod workflow;
@@ -100,6 +102,7 @@ pub use ids::{
 pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
+pub use phase::StepPhase;
 pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
@@ -122,6 +125,7 @@ pub use tiers::{TaskEdit, TaskTier, TierModels};
 pub use transition::{
     CriteriaOwed, Edge, IllegalTransition, PilotReason, Target, TransitionReason, EDGES,
 };
+pub use tuning::{Effort, StepTuning};
 pub use verdict::GateVerdict;
 pub use work_plan::{
     Approach, DropReason, FailReason, NewTask, NotAnUpdate, PlanAuthor, PlanChange, PlanEntry,

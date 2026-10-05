@@ -733,3 +733,25 @@ fn what_a_drone_may_never_do_is_refused_by_both() {
         );
     }
 }
+
+/// **The effort a person set reaches argv, and none sends no flag**, so the
+/// CLI's own default stands on every step nobody tuned.
+#[test]
+fn an_effort_is_rendered_only_where_one_was_set() {
+    let toolbelt = Toolbelt::evidence_only;
+    assert_eq!(value_after(&rendered(toolbelt()), "--effort"), None);
+    let config = DroneSpawnConfig::spawn_in(
+        &worktree(),
+        Model::named_at("a-model", Some(adapter_traits::Effort::High)).expect("a named model"),
+        Prompt::assembled(SECRET_LOOKING_TASK).expect("an assembled prompt"),
+        McpConfig::only_these("/var/armada/01AAA/mcp.json").expect("an absolute path"),
+        toolbelt(),
+        environment(),
+    );
+    let args = HeadlessAgent::at("/usr/local/bin/agent")
+        .render(&config)
+        .expect("a legal configuration renders")
+        .args()
+        .to_vec();
+    assert_eq!(value_after(&args, "--effort").as_deref(), Some("high"));
+}

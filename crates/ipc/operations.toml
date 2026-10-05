@@ -1417,6 +1417,19 @@ Refused with a 409, and nothing kept, where any model in the map is one `list_mo
 `agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
+[operations.set_landing_target]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose the branch an approved Job lands in, where it lands in the base and its work has not gone out"
+notes = """
+`POST /jobs/:job_id/set_landing_target`, protocol 23.22, for the approval canvas: a Job approved landing in the Manifest's base may be aimed at another branch once. The body is `SetLandingTarget`: `target`, a branch the repository holds. The answer is the Job's summary; `JobDetail.landing.target` reads it back, and the delivering step opens its pull request against it.
+
+**Only once, and only before the work goes out**, since the pull request opens against it. 409 `fleet.landing_target_settled` on a Job still at `awaiting_approval`, where the approval sets it, on one ended, on one already landing somewhere a person chose, and on one whose work was committed or opened for review. 422 `fleet.landing_target_blank` on a blank branch and `fleet.no_such_branch` on one the repository does not hold. The worktree keeps what it was cut from.
+
+`agent_access` is `Helm only`, `set_model`'s reason.
+"""
+
 [operations.set_model]
 kind = "command"
 transport = "HTTP"
@@ -1577,6 +1590,8 @@ The primary autonomy control.
 **Kept whole or refused whole, before anything moves.** The title, facts, workflow, each step's gate and the criteria are rewritten on the record, and freeze at this press (#1581); the tier map, the Drone cap, the landing and the policy overrides are kept beside the Job. Then `awaiting_approval -> queued`, as before. A criterion with an id is that line, reworded or not, and keeps its origin and how it is answered; one without is new, minted the next `c<n>`, the person's, and answered by the Judge or a person, never a Check. An overridden step keeps deferring on the record and the override wins at every gate however the repository's rule moves (answer 4): `auto_merge` reads `never` with `you`, else `checks-pass`; `review_gate` reads `human_always` with `you`, else `auto_if_judge_passes` with `judge`. The Drone cap is kept and enforced from slice 5.
 
 409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.13), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
+
+**Since 23.20 a step may be tuned**: `tuning?`, a `StepTuning` per step (`step_id`, `model?`, `effort?`, `context?`, `judges?`, `checks_off?`), frozen into the step after its gate. 422 `fleet.unacceptable_proposal` on a step the workflow lacks or tuned twice, a blank model, `judges` of zero or on a step with no Judge, and a Check the step does not run or one of Fleet's own; an unknown field, `harness` among them, does not decode. **Since 23.21 `LandingChoice` takes `start_point?`**: a `from_ref` the repository lacks is made there at the press, and 422 `fleet.no_such_branch` names a `start_point` it lacks.
 """
 
 [operations.edit_job]

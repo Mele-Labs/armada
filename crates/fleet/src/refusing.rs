@@ -57,6 +57,11 @@ const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";
 const PROPOSAL_FROZEN: &str = "fleet.proposal_frozen";
 /// A landing naming a branch the repository does not hold. A 422.
 const NO_SUCH_BRANCH: &str = "fleet.no_such_branch";
+/// An approved Job's landing target is settled: at its gate, ended, chosen
+/// already, or its work went out. 23.22.
+const TARGET_SETTLED: &str = "fleet.landing_target_settled";
+/// A landing target naming no branch at all. 23.22.
+const TARGET_BLANK: &str = "fleet.landing_target_blank";
 /// An act on an Epic's wave that is not where the wave stands: a press naming
 /// another set, a plan or a member approved alone, a parent finishing before
 /// its members merged. A 409 (spike 022, slice 6).
@@ -464,7 +469,17 @@ where
                     .about_job(ipc::JobId::from(job))
                     .with_field("branch", WireValue::Str(named.clone())),
             ),
-            Adrift::BranchesUnread { .. } => {
+            Adrift::TargetNotSet {
+                job,
+                why: crate::aiming::Unaimed::Blank,
+            } => Refusal::Unacceptable(
+                WireError::raised(TARGET_BLANK, said, self.run_id()).about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::TargetNotSet { job, .. } => Refusal::IllegalMove(
+                WireError::raised(TARGET_SETTLED, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::BranchesUnread { .. } | Adrift::BranchNotCut { .. } => {
                 Refusal::Fault(WireError::raised(FAULT, said, self.run_id()))
             }
             // A person's add or drop, refused by the plan itself. `NoPlan` is

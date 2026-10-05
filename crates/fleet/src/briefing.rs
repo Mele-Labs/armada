@@ -756,6 +756,11 @@ fn assemble(
     }
     if let Some(step) = workflow.steps().iter().find(|step| step.id() == at) {
         blocks.headed(&step_block(step), ipc::BlockKind::AboutThisJob);
+        // **Right after the step it is about**, so the words read as this
+        // part's and not the Job's.
+        if let Some(context) = step.context() {
+            blocks.headed(&for_this_part(context), ipc::BlockKind::AboutThisJob);
+        }
         // **Right after the step and before what it delivers.** What a
         // captured step does with `shown_by` is true of the step itself, the
         // same way `step_block` is — a Drone reading only the step and this
@@ -921,5 +926,13 @@ fn step_block(step: &ResolvedStep) -> String {
          you finished. An adjacent problem you notice and leave alone goes \
          under Not claimed.",
         step.label()
+    )
+}
+
+/// What the person who approved the Job left for this part, at the press.
+/// `crossing::Redirected`'s shape, for a note left before the work began.
+fn for_this_part(context: &str) -> String {
+    format!(
+        "FOR THIS PART\n\nThe person who approved this work left this for this part:\n\n  \"{context}\""
     )
 }

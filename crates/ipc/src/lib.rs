@@ -197,8 +197,8 @@ pub use amending::{
 pub use approval_ask::AskedApproval;
 pub use approving::{
     moved_at, ApproveDispatch, ApproveWave, BranchRow, Branches, CompleteWhen, CriterionOrigin,
-    CriterionWritten, DispatchSettings, EditJob, GateChoice, LandingChoice, LandingRule,
-    LandingUnit, LandsWhen, PolicyOverrides,
+    CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
+    LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning,
 };
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
@@ -342,7 +342,9 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use setup::{LeftOutWorkflow, ManifestSummary, ModelChoices, WorkflowStep, WorkflowSummary};
+pub use setup::{
+    LeftOutWorkflow, ManifestSummary, ModelChoices, StepPhase, WorkflowStep, WorkflowSummary,
+};
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};
 pub use studio::{

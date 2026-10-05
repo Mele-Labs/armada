@@ -18,6 +18,7 @@
 
 mod admitted;
 mod adopting;
+mod aiming;
 mod allowance;
 mod always_allow;
 mod amending;
@@ -128,6 +129,7 @@ mod peer;
 mod peers;
 mod pending_evidence;
 mod permitting;
+mod phases;
 mod places;
 mod plan_person;
 mod plan_person_told;
@@ -220,6 +222,7 @@ mod work_plan;
 pub(crate) mod tmp;
 mod tools;
 mod transcript;
+mod tuning;
 mod unattended;
 mod under_review;
 mod underway;

@@ -25,6 +25,9 @@
 # The deliverable stays under `.armada/`. Where one *should* live is
 # `[deliverable-location]` in `docs/OPEN.md`, and is a different question.
 #
+# **`present` declares `phase: delivery`**: it sends nothing out, so the
+# fallback off `delivers` would draw the step the person reads as the work.
+#
 # **`draft` records the plan, `#1006`.** It keeps `draft.md`, and `present`
 # follows. `draft` is also the step a loop returns to, so each round records
 # again — `WorkPlan::after` replaces a `Recorded` change whole, so a second
@@ -59,6 +62,7 @@
     {
       "id": "present",
       "label": "Present",
+      "phase": "delivery",
       "follows_plan": true,
       "evidence": {
         "submitted": { "type": "document" }
