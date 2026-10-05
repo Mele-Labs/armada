@@ -11,7 +11,7 @@
 //! - **A Judge refusal** stops the group for a person, as today (answer 3).
 //!   Its tasks read `done`, and Restart this task answers each of them too.
 
-use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, CommitTime, Committed, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
     Actor, EscalationTrigger, FailReason, GroupId, GroupRuns, Job, JobId, PlanChange, ResolvedStep,
     StepId, StepLevelTrigger, StepState, StepVerdict, TaskId, TaskState, TaskUpdate, WorkPlan,
@@ -325,9 +325,28 @@ where
         job_id: &JobId,
         working: &mut Option<Working>,
     ) -> Result<bool, Adrift> {
-        let commit = match at.follows {
-            true => self.group_commit(job_id, at.group, working).await?,
-            false => None,
+        let worktree = working.as_ref().map(|at_work| at_work.standing().2);
+        self.group_closed(at, job_id, worktree.as_ref()).await?;
+        if !at.follows {
+            return Ok(false);
+        }
+        self.put_next_task_drone(working).await?;
+        Ok(true)
+    }
+
+    /// A green group's end: its one commit where a group follows, its run
+    /// closed as passed, and `job.plan_changed`. **Shared with
+    /// `crate::rechecking`**, whose pass has a worktree and no Drone in the
+    /// slot, and which leaves the next group's Drone to admission. #1792.
+    pub(crate) async fn group_closed(
+        &self,
+        at: AtGroup,
+        job_id: &JobId,
+        worktree: Option<&Worktree>,
+    ) -> Result<(), Adrift> {
+        let commit = match (at.follows, worktree) {
+            (true, Some(worktree)) => self.group_commit(job_id, at.group, worktree).await?,
+            _ => None,
         };
         let runs = self.group_runs_of(job_id).await?;
         if let Some(ended) = runs.closing(at.group, StepVerdict::Passed, commit, self.now()) {
@@ -337,12 +356,7 @@ where
                 .record_group_move(job_id, &ended, None)
                 .map_err(Adrift::Writing)?;
         }
-        self.group_moved(job_id, at.group).await?;
-        if !at.follows {
-            return Ok(false);
-        }
-        self.put_next_task_drone(working).await?;
-        Ok(true)
+        self.group_moved(job_id, at.group).await
     }
 
     /// After the step moved for a red run or a stop: the run's end on the
@@ -454,12 +468,8 @@ where
         &self,
         job_id: &JobId,
         group: GroupId,
-        working: &Option<Working>,
+        worktree: &Worktree,
     ) -> Result<Option<String>, Adrift> {
-        let Some(at_work) = working.as_ref() else {
-            return Ok(None);
-        };
-        let (_, _, worktree) = at_work.standing();
         let job = self.load(job_id).await?;
         let titles: Vec<String> = self
             .plan_of(job_id)
@@ -483,7 +493,7 @@ where
                 .unwrap_or_default()
                 .div_euclid(1_000),
         );
-        match self.vcs().commit_all(&worktree, &message, at) {
+        match self.vcs().commit_all(worktree, &message, at) {
             Ok(Committed::Made { commit }) => Ok(Some(commit)),
             Ok(Committed::NothingToCommit) => Ok(None),
             Err(cause) => Err(Adrift::NotCommitted {

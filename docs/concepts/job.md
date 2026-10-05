@@ -217,7 +217,7 @@ Drone** (#1105): `rerun_checks` asks the stopped step's gate again on the
 worktree as it stands, spends no retry, and takes the Job straight back to
 `running` only where the reading goes somewhere. A Check that still fails moves
 nothing. A pass settles the tasks the red run had marked `failed`, so the Judge
-reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). The act that does *not* reach it is
+reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). **A pass closes the group it ruled on and moves the step only when no group is left** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792): with a group after it the step stays `running` and the Job is `queued`, and admission starts the next group's Drone. The act that does *not* reach it is
 the override: `Stuck` reads whether the step's Checks passed out of the record
 rather than inferring the tier from the trigger, and they did not pass here.
 `build` failing is still not a matter of opinion.
