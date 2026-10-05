@@ -17,7 +17,7 @@ import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
 import { reshaped } from "./slots-fleet";
-import { approvedAs, edited, landingTargetSet, tuningRefusal, waveJobEdited } from "./approval-fleet";
+import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
   groupsDropping,
@@ -159,13 +159,22 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     approveDispatch: async (jobId, approval) => {
       const watched = state.watched;
       if (watched.state !== "read" || watched.jobId !== jobId) return (move(jobId, { status: "queued" }), OK);
-      const refusal = tuningRefusal(watched.detail, approval);
+      const refusal = tuningRefusal(watched.detail, approval) ?? landingRefusal(approval?.landing);
       if (refusal !== undefined) return refusal;
       const detail = approvedAs(watched.detail, approval, new Date().toISOString());
       publish({
         jobs: state.jobs.map((job) => (job.id === jobId ? { ...job, ...detail.job } : job)),
         watched: { ...watched, detail },
       });
+      return OK;
+    },
+    // The proposal back to the proposer with a note (`to_proposer`, 23.25).
+    toProposer: async (jobId, body) => {
+      const watched = state.watched;
+      if (watched.state !== "read" || watched.jobId !== jobId) return OK;
+      const back = sentBack(watched.detail, body);
+      if ("ok" in back) return back;
+      publish({ watched: { ...watched, detail: back } });
       return OK;
     },
     // Where an approved Job lands, once (`set_landing_target`, 23.22).

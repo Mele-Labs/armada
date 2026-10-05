@@ -32,7 +32,7 @@ import {
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
-import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
+import type { FollowedLog, JobDetail as JobWhole, ToProposer } from "@armada/protocol";
 import { openArtifact } from "./opening";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
@@ -406,6 +406,10 @@ function OneJob(props: JobDetailProps) {
                     manifest={manifest}
                     branches={held.branches}
                     models={props.models?.models ?? []}
+                    harnesses={props.models?.harnesses ?? []}
+                    {...(props.onToProposer === undefined || props.stale
+                      ? {}
+                      : { onToProposer: (body: ToProposer) => props.onToProposer!(whole.job.id, body) })}
                     machineCap={props.machineCap ?? null}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                   />
@@ -444,6 +448,7 @@ function OneJob(props: JobDetailProps) {
                       manifest={manifest}
                       branches={held.branches}
                       models={props.models?.models ?? []}
+                      harnesses={props.models?.harnesses ?? []}
                       machineCap={props.machineCap ?? null}
                     />
                   ),

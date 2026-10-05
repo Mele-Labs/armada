@@ -26,7 +26,7 @@
 // swapped the surface for a transcript; the turns are the open step's activity
 // log now, so it tracks which Job is open and nothing presses it.
 
-import type { ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
+import type { ToProposer, ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
 import type { ChangeSlotPool, LandCheckAt, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
@@ -845,6 +845,18 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Send the proposal back to the proposer with a note. `editJob`'s terms: the
+   * answer is drawn where every command's is, so a refusal reads as Fleet's sentence.
+   * `to_proposer`, since 23.25.
+   */
+  async function toProposer(jobId: string, body: ToProposer): Promise<Outcome> {
+    const answer = await window.armada.toProposer(jobId, body);
+    setOutcome(answer);
+    tap(patternFor(answer.ok ? "accepted" : "refused"));
+    return answer;
+  }
+
+  /**
    * Give an approved Job with no landing target one, once. `editJob`'s terms:
    * the answer is drawn where every command's is, so a refusal reads as the
    * sentence Fleet returned. `set_landing_target`, since 23.22.
@@ -973,6 +985,7 @@ export function useCommands(sending: Sending) {
     approveWave,
     editJob,
     setLandingTarget,
+    toProposer,
     listBranches,
     decide,
     refresh,

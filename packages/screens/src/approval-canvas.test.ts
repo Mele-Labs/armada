@@ -19,8 +19,11 @@ const GATES = [
   { step_id: "handoff", checks: false, judge: false, you: true },
 ];
 
-const nodesOf = (tuning = tuningOf(STEPS.map((step) => ({ step_id: step.id }))), prMode: "ready" | "draft" = "ready") =>
-  approvalNodesOf({ title: "T", from: "main", steps: STEPS, gates: GATES, tuning, prMode, target: "main" });
+const nodesOf = (
+  tuning = tuningOf(STEPS.map((step) => ({ step_id: step.id }))),
+  prMode: "ready" | "draft" = "ready",
+  delivery: { local?: boolean; autoMerge?: boolean } = {},
+) => approvalNodesOf({ title: "T", from: "main", steps: STEPS, gates: GATES, tuning, prMode, ...delivery, target: "main" });
 
 describe("approvalNodesOf", () => {
   it("runs brief to land: Groups after Implement, Done when before the pull request", () => {
@@ -40,7 +43,7 @@ describe("approvalNodesOf", () => {
   });
 
   it("puts Done when before Land on the spine where nothing opens a pull request, Review beside it", () => {
-    const { nodes } = nodesOf({ ...tuningOf([]), local: true });
+    const { nodes } = nodesOf(tuningOf([]), "ready", { local: true });
     const spine = nodes.filter((node) => node.side === undefined && node.from === undefined).map((node) => node.id);
     expect(spine.slice(-2)).toEqual(["done", "land"]);
     expect(nodes.find((node) => node.id === "handoff")?.side).toBe("done");
@@ -74,8 +77,7 @@ describe("approvalNodesOf", () => {
   });
 
   it("draws no pull request where it lands locally", () => {
-    const tuning = { ...tuningOf([]), local: true };
-    const { nodes } = nodesOf(tuning);
+    const { nodes } = nodesOf(tuningOf([]), "ready", { local: true });
     expect(nodes.some((node) => node.kind === "pr")).toBe(false);
     // Local only holds the work on its branch: no merge, so none is said.
     expect(nodes.at(-1)?.meta).toEqual([
@@ -85,7 +87,7 @@ describe("approvalNodesOf", () => {
   });
 
   it("says on the edge into Land that it merges on its own", () => {
-    const { edges } = nodesOf({ ...tuningOf([]), auto_merge: true }, "draft");
+    const { edges } = nodesOf(tuningOf([]), "draft", { autoMerge: true });
     expect(edges.at(-1)?.label).toBe("merges on its own");
   });
 });
@@ -194,8 +196,8 @@ describe("a setting moved since the approval", () => {
 describe("Land, local only", () => {
   it("names the branch the work stays on, where the Job has one", () => {
     const { nodes } = approvalNodesOf({
-      title: "T", from: "main", steps: STEPS, gates: GATES, tuning: { ...tuningOf([]), local: true },
-      prMode: "ready", target: "main", branch: "armada/1-retire-guide-8",
+      title: "T", from: "main", steps: STEPS, gates: GATES, tuning: tuningOf([]),
+      prMode: "ready", local: true, target: "main", branch: "armada/1-retire-guide-8",
     });
     expect(nodes.at(-1)).toMatchObject({ id: "land", face: "armada/1-retire-guide-8" });
   });

@@ -1,8 +1,8 @@
-// What a person tunes per node on the approval canvas. `StepTuning` is on the
-// wire since 23.20 (`ApproveDispatch.tuning`), and `approvalOf` sends it.
-//
-// **Still draft, and never sent**: `auto_merge`, `local` and `to_proposer`,
-// owed to `crates/ipc/src/approving.rs`. The harness is one fixed value.
+// What a person tunes per node on the approval canvas. Every field is on the
+// wire: `StepTuning` since 23.20 and its `harness` since 23.23
+// (`ApproveDispatch.tuning`), delivery since 23.24 (`LandingChoice.local` and
+// `.auto_merge`, held on `LandingRule`), and the note back to the proposer since
+// 23.25 (`to_proposer`). `approvalOf` sends them.
 //
 // Each default below is read off what Fleet already serves where it can be
 // (`JobSummary.model`, a Judge's `panel_size`), and is otherwise Armada
@@ -15,17 +15,13 @@ export type Effort = "low" | "medium" | "high";
 
 export const EFFORTS: readonly Effort[] = ["low", "medium", "high"];
 
-/**
- * The agent harness every Drone runs under, in its own name. **One, so it is
- * shown and not chosen** (the owner, 4 Oct 2026): a picker of one offers nothing.
- */
-export const HARNESS = "Claude Code";
-
 /** One workflow step, tuned for this Job. */
 export type StepTuning = {
   /** The model the step's Drone runs. `null` is the Job's own, or the tier's. */
   model: string | null;
   effort: Effort | null;
+  /** The harness the step's Drone runs under, in its own name. `null` is the one Fleet runs by default (`ModelChoices.harnesses`'s first). */
+  harness: string | null;
   /** Words handed to the Drone that picks the step up, beside the brief. Empty is none. */
   context: string;
   /** How many Judges answer each criterion. Read off `panel_size`, absent at one. */
@@ -36,25 +32,19 @@ export type StepTuning = {
 
 /**
  * How the work leaves the worktree, as the canvas's one control offers it.
- * `draft` and `ready` are `LandingRule.pr_mode`, on the wire; `local` is
- * `ApprovalTuning.local`, the draft's — no pull request, no merge and no push:
- * the work is held on its own branch (the owner, 4 Oct 2026). **Read, never held**:
- * `deliveryOf` derives it, so the two fields cannot disagree with a third.
+ * `draft` and `ready` are `LandingRule.pr_mode`; `local` is `LandingRule.local`
+ * — no pull request, no merge and no push: the work is held on its own branch.
+ * **Read, never held**: `deliveryOf` derives it, so the two fields cannot
+ * disagree with a third.
  */
 export type Delivery = "local" | "draft" | "ready";
 
 /** The one answer the control draws, from the two fields that hold it. */
-export const deliveryOf = (local: boolean, prMode: "ready" | "draft"): Delivery => (local ? "local" : prMode);
+export const deliveryOf = (local: boolean | undefined, prMode: "ready" | "draft"): Delivery => (local === true ? "local" : prMode);
 
-/** Everything the canvas tunes: the steps' on the wire, the rest draft. */
+/** Everything the canvas tunes per step. */
 export type ApprovalTuning = {
   steps: Readonly<Record<string, StepTuning>>;
-  /** Whether the pull request merges once it is approved, with no further press. */
-  auto_merge: boolean;
-  /** No pull request, no merge, no push: the work stays on its branch. `pr_mode` is ignored while it holds. */
-  local: boolean;
-  /** Notes sent back to the proposer, oldest first. */
-  to_proposer: readonly string[];
 };
 
 /** A Check's name as a step declares it: a Manifest Check by its name, the rest by kind. */
@@ -65,6 +55,7 @@ export function stepTuningOf(judges: readonly DeclaredJudge[]): StepTuning {
   return {
     model: null,
     effort: null,
+    harness: null,
     context: "",
     judges: judges[0]?.panel_size ?? 1,
     checks_off: [],
@@ -77,9 +68,6 @@ export function tuningOf(
 ): ApprovalTuning {
   return {
     steps: Object.fromEntries(steps.map((step) => [step.step_id, stepTuningOf(step.judge_checks ?? [])])),
-    auto_merge: false,
-    local: false,
-    to_proposer: [],
   };
 }
 

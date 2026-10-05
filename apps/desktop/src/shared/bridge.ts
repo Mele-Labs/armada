@@ -511,6 +511,7 @@ export const CHANNELS = {
   approveWave: "bridge:approve-wave",
   editJob: "bridge:edit-job",
   setLandingTarget: "bridge:set-landing-target",
+  toProposer: "bridge:to-proposer",
   clearTerminalJobs: "bridge:clear-terminal-jobs",
   forgetTerminalJobs: "bridge:forget-terminal-jobs",
   reclaimWorktree: "bridge:reclaim-worktree",

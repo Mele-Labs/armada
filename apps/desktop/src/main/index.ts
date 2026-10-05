@@ -8,7 +8,7 @@ import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { ChangeSlotPool, Outcome } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
+import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch } from "@armada/protocol";
 import type {
   Artifact,
@@ -535,6 +535,9 @@ void app.whenReady().then(() => {
   // A Job at its approval gate, its words saved without releasing it — `edit_job`.
   ipcMain.handle(CHANNELS.editJob, (_event, jobId: string, edit: EditJob) =>
     connection?.commands.editJob(jobId, edit),
+  );
+  ipcMain.handle(CHANNELS.toProposer, (_event, jobId: string, body: ToProposer) =>
+    connection?.commands.toProposer(jobId, body),
   );
   ipcMain.handle(CHANNELS.setLandingTarget, (_event, jobId: string, target: string) =>
     connection?.commands.setLandingTarget(jobId, target),

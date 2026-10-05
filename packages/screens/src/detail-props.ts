@@ -26,6 +26,7 @@ import type {
   CommandAnswer,
   CommandExplainedRead,
   EditJob,
+  ToProposer,
   ApproveDispatch,
   Branches,
   EditTask,
@@ -133,6 +134,8 @@ export type JobDetailProps = {
    */
   onEditJob?: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /** Give a frozen Job with no landing target one, once — `set_landing_target`, since 23.22. */
+  /** Send the proposal back to the proposer with a note — `to_proposer`, since 23.25. */
+  onToProposer?: (jobId: string, body: ToProposer) => Promise<Outcome>;
   onSetLandingTarget?: (jobId: string, target: string) => Promise<Outcome>;
   /**
    * Answer the question this Job's drone asked, by the label picked.

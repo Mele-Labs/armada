@@ -119,20 +119,27 @@ describe("the approval body", () => {
     expect(approvalOf({ ...before, landing: held }, before, [], branches)?.landing).not.toHaveProperty("start_point");
   });
 
+  it("sends local, or auto-merge, and never both", () => {
+    const before = read();
+    const local = { ...before.landing, local: true, auto_merge: true };
+    const merges = { ...before.landing, auto_merge: true };
+
+    expect(approvalOf({ ...before, landing: local }, before, [])?.landing).toMatchObject({ local: true });
+    expect(approvalOf({ ...before, landing: local }, before, [])?.landing).not.toHaveProperty("auto_merge");
+    expect(approvalOf({ ...before, landing: merges }, before, [])?.landing).toMatchObject({ auto_merge: true });
+  });
+
   it("sends what a step was tuned to, and only what moved off the step as declared", () => {
     const before = read();
     const tuning = {
       steps: {
-        plan: { model: "opus", effort: "high" as const, context: " Mind the schema ", judges: 3, checks_off: ["build"] },
-        handoff: { model: null, effort: null, context: "", judges: 1, checks_off: [] },
+        plan: { model: "opus", effort: "high" as const, harness: "codex", context: " Mind the schema ", judges: 3, checks_off: ["build"] },
+        handoff: { model: null, effort: null, harness: null, context: "", judges: 1, checks_off: [] },
       },
-      auto_merge: true,
-      local: true,
-      to_proposer: ["tighten the brief"],
     };
 
     expect(approvalOf({ ...before, tuning }, before, [])).toEqual({
-      tuning: [{ step_id: "plan", model: "opus", effort: "high", context: " Mind the schema ", judges: 3, checks_off: ["build"] }],
+      tuning: [{ step_id: "plan", model: "opus", effort: "high", harness: "codex", context: " Mind the schema ", judges: 3, checks_off: ["build"] }],
     });
   });
 });

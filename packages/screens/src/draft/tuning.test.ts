@@ -14,7 +14,7 @@ describe("tuningOf", () => {
     );
     expect(tuning.steps["plan"]?.judges).toBe(3);
     expect(tuning.steps["handoff"]?.judges).toBe(1);
-    expect(tuning.local).toBe(false);
+    expect(tuning.steps["plan"]?.harness).toBeNull();
   });
 });
 

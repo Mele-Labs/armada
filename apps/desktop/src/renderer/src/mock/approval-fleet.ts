@@ -9,10 +9,13 @@ import type {
   EditJob,
   GateChoice,
   JobDetail,
+  LandingChoice,
+  LandingRule,
   Outcome,
   PolicyOverrides,
   StepDetail,
   StepTuning,
+  ToProposer,
 } from "@armada/protocol";
 import type { WaveJobView } from "@armada/screens/src/draft/wave";
 
@@ -46,16 +49,52 @@ export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined,
   // The body is the whole proposal, so a cap left out is the machine's.
   if (body?.drone_cap === undefined) delete approved.drone_cap;
   else approved.drone_cap = body.drone_cap;
-  const landing = body?.landing;
-  if (landing !== undefined) {
-    approved.landing = {
-      ...(landing.target === undefined ? {} : { target: landing.target }),
-      ...(landing.from_ref === undefined ? {} : { from_ref: landing.from_ref }),
-      pr_mode: landing.pr_mode ?? "ready",
-    };
-  }
+  if (body?.landing !== undefined) approved.landing = landingAs(body.landing);
   return approved;
 }
+
+/** The landing as the approval froze it: `local` wins over `pr_mode`, which is stored `ready` while it holds (23.24). */
+function landingAs(landing: LandingChoice): LandingRule {
+  return {
+    ...(landing.target === undefined ? {} : { target: landing.target }),
+    ...(landing.from_ref === undefined ? {} : { from_ref: landing.from_ref }),
+    pr_mode: landing.local === true ? "ready" : (landing.pr_mode ?? "ready"),
+    ...(landing.local === true ? { local: true } : {}),
+    ...(landing.auto_merge === true ? { auto_merge: true } : {}),
+  };
+}
+
+/** `local` with `auto_merge` is refused: a branch with no pull request has nothing to merge (23.24). */
+export function landingRefusal(landing: LandingChoice | undefined): Outcome | undefined {
+  return landing?.local === true && landing.auto_merge === true
+    ? refusedAs("fleet.unacceptable_proposal", "`local` and `auto_merge` cannot be set together")
+    : undefined;
+}
+
+/**
+ * `to_proposer` (23.25): the Job back at its gate. Refused off the gate (409)
+ * and on a blank note (422). The mock's proposer keeps the proposal and takes
+ * the tuning and landing as they were sent, which is what Fleet carries over.
+ */
+export function sentBack(detail: JobDetail, body: ToProposer): JobDetail | Outcome {
+  if (detail.job.status !== "awaiting_approval") {
+    return refusedAs("fleet.proposal_frozen", "this proposal is past its gate");
+  }
+  if (body.note.trim() === "") return refusedAs("fleet.unacceptable_proposal", "a note cannot be blank");
+  const refusal = tuningRefusal(detail, body) ?? landingRefusal(body.landing);
+  if (refusal !== undefined) return refusal;
+  return {
+    ...detail,
+    steps: detail.steps.map((step) => {
+      const tuned = body.tuning?.find((one) => one.step_id === step.step_id);
+      return tuned === undefined ? step : tunedAs(step, tuned);
+    }),
+    ...(body.landing === undefined ? {} : { landing: landingAs(body.landing) }),
+  };
+}
+
+/** The one harness the mock's Fleet runs, `ModelChoices.harnesses`. */
+export const HARNESS = "claude-code";
 
 /** A refusal, in Fleet's own code and words. */
 const refusedAs = (code: string, message: string): Outcome => ({
@@ -69,7 +108,7 @@ const refusedAs = (code: string, message: string): Outcome => ({
  * lacks, one tuned twice, a blank model, `judges: 0`, and `judges` on a step
  * with no Judge.
  */
-export function tuningRefusal(detail: JobDetail, body: ApproveDispatch | undefined): Outcome | undefined {
+export function tuningRefusal(detail: JobDetail, body: { tuning?: StepTuning[] } | undefined): Outcome | undefined {
   const refuse = (why: string): Outcome => refusedAs("fleet.unacceptable_proposal", why);
   const seen = new Set<string>();
   for (const tuned of body?.tuning ?? []) {
@@ -77,6 +116,9 @@ export function tuningRefusal(detail: JobDetail, body: ApproveDispatch | undefin
     if (step === undefined) return refuse(`\`${tuned.step_id}\` is not a step of this workflow`);
     if (seen.has(tuned.step_id)) return refuse(`\`${tuned.step_id}\` is tuned twice`);
     seen.add(tuned.step_id);
+    if (tuned.harness !== undefined && tuned.harness !== HARNESS) {
+      return refuse(`\`${tuned.harness}\` is not a harness Fleet runs; it runs \`${HARNESS}\``);
+    }
     if (tuned.model !== undefined && tuned.model.trim() === "") return refuse("a model cannot be blank");
     if (tuned.judges === 0) return refuse("`judges` cannot be zero");
     if (tuned.judges !== undefined && (step.judge_checks ?? []).length === 0) {

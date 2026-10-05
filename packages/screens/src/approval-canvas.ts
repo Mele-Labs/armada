@@ -239,6 +239,8 @@ export function approvalNodesOf({
   gates,
   tuning,
   prMode,
+  local = false,
+  autoMerge = false,
   target,
   branch,
   life,
@@ -257,6 +259,10 @@ export function approvalNodesOf({
   gates: readonly GateView[];
   tuning: ApprovalTuning;
   prMode: "ready" | "draft";
+  /** `LandingRule.local`: the work stays on its branch. */
+  local?: boolean;
+  /** `LandingRule.auto_merge`: the pull request merges on its own. */
+  autoMerge?: boolean;
   target: string;
   /** The Job's own branch, once it has one: where local-only work stays. */
   branch?: string;
@@ -276,7 +282,7 @@ export function approvalNodesOf({
   /** The last node on the spine so far: what a gate hung beside the next one hangs from. */
   const spineEnd = (): ApprovalNode | undefined =>
     [...nodes].reverse().find((one) => one.side === undefined && one.from === undefined);
-  const delivery = deliveryOf(tuning.local, prMode);
+  const delivery = deliveryOf(local, prMode);
 
   // Where the work came from, first, and only where it came from a Studio.
   if (studio !== undefined) {
@@ -310,7 +316,7 @@ export function approvalNodesOf({
       // Only what moved off the default: a draft, auto-merge. A ready pull request you merge says nothing.
       meta: movedOnly([
         { key: "Pull request", value: "draft", tuned: delivery === "draft" },
-        { key: "Auto-merge", value: "auto-merge", tuned: tuning.auto_merge },
+        { key: "Auto-merge", value: "auto-merge", tuned: autoMerge },
       ]),
     });
   };
@@ -472,13 +478,13 @@ export function approvalNodesOf({
     traits: [],
     meta: movedOnly([
       { key: "No pull request, no merge, no push: the work stays on its branch", value: "local only", tuned: delivery === "local" },
-      { key: "Merge", value: "merges on its own", tuned: delivery !== "local" && tuning.auto_merge },
+      { key: "Merge", value: "merges on its own", tuned: delivery !== "local" && autoMerge },
     ]),
   });
 
   const edges: WorkflowCanvasEdge[] = [];
   const lead = (source: ApprovalNode, target: ApprovalNode, across = false) => {
-    const own = target.kind === "land" && delivery !== "local" && tuning.auto_merge;
+    const own = target.kind === "land" && delivery !== "local" && autoMerge;
     edges.push({
       id: `${source.id}->${target.id}`,
       source: source.id,

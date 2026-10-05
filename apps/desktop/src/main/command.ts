@@ -26,7 +26,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, SetLandingTarget } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, SetLandingTarget, ToProposer } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -975,6 +975,18 @@ export class JobCommands {
   async editJob(jobId: string, edit: EditJob): Promise<Outcome> {
     return this.act(jobId, this.deciding, "already_deciding", (port) =>
       ask(port, "POST", route(jobId, "edit"), edit),
+    );
+  }
+
+  /**
+   * The proposal sent back to the proposer with a note (23.25). Under
+   * `deciding`, the review's lock, since it leaves the gate and returns to it:
+   * the answer is a `ProposedPlan`, so the Job is read again rather than folded.
+   * Fleet's refusals (`proposal_frozen`, `unacceptable_proposal`) come back as the outcome.
+   */
+  async toProposer(jobId: string, body: ToProposer): Promise<Outcome> {
+    return this.act(jobId, this.deciding, "already_deciding", (port) =>
+      ask(port, "POST", route(jobId, "to_proposer"), body),
     );
   }
 

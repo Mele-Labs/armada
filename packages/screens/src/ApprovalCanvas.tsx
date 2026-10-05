@@ -56,7 +56,8 @@ import { NOT_STARTED, approvalNodesOf, checksOf, perTask, stepsReadOf } from "./
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
-import type { Outcome } from "@armada/protocol";
+import type { Outcome, ToProposer } from "@armada/protocol";
+import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
 import { studioName } from "./studio";
 import type { OpenStudioFrom } from "./work";
@@ -64,7 +65,7 @@ import type { TaskView } from "./draft/task";
 import { taskCard } from "./plan-canvas";
 import { baseBranch } from "./draft/branches";
 import type { ProposalView } from "./draft/proposal";
-import { EFFORTS, HARNESS, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
+import { EFFORTS, checksOffWith, deliveryOf, tunedStep, tuningOf } from "./draft/tuning";
 import type { ApprovalTuning, Delivery, Effort, StepTuning } from "./draft/tuning";
 import {
   completeChoices,
@@ -158,6 +159,10 @@ export type ApprovalCanvasProps = ApprovingProps & {
   life?: LifeRead;
   /** Past the gate, a Job frozen with no landing target is given one, once: `set_landing_target` (23.22). */
   onSetLandingTarget?: (target: string) => Promise<Outcome>;
+  /** The harnesses a Drone may run under, `ModelChoices.harnesses`. The first is the default. Absent draws none. */
+  harnesses?: readonly string[];
+  /** Send the proposal back with a note, and what is set so far — `to_proposer` (23.25). */
+  onToProposer?: (body: ToProposer) => Promise<Outcome>;
   /** Open a Job the wave dispatched, as the wave graph did. */
   onOpenJob?: (jobId: string) => void;
   /**
@@ -175,6 +180,8 @@ export function ApprovalCanvas({
   life,
   onOpenJob,
   onSetLandingTarget,
+  harnesses = [],
+  onToProposer,
   onOpenStep,
   onOpenGroup,
   onOpenStudio,
@@ -228,6 +235,8 @@ export function ApprovalCanvas({
     gates: proposal.gates,
     tuning,
     prMode: landing.pr_mode,
+    local: landing.local === true,
+    autoMerge: landing.auto_merge === true,
     target: value.target,
     ...(whole.job.branch === undefined ? {} : { branch: whole.job.branch }),
     ...(life === undefined ? {} : { life }),
@@ -388,6 +397,17 @@ export function ApprovalCanvas({
                 value={value}
                 branches={branches}
                 models={models}
+                harnesses={harnesses}
+                {...(onToProposer === undefined
+                  ? {}
+                  : {
+                      toProposer: (note: string) =>
+                        onToProposer({
+                          note,
+                          tuning: tuningChoicesOf(edits, workflows),
+                          landing: landingChoiceOf(landing, branches),
+                        }),
+                    })}
                 machineCap={machineCap}
                 workflows={workflows}
                 whole={whole}
@@ -428,6 +448,9 @@ type NodeCardProps = {
   value: ProposalLandingValue;
   branches: ApprovingProps["branches"];
   models: readonly string[];
+  harnesses: readonly string[];
+  /** Send the proposal back with this note, and what is set so far. Absent draws no control. */
+  toProposer?: (note: string) => Promise<Outcome>;
   machineCap: number | null;
   workflows: ApprovingProps["workflows"];
   whole: ApprovingProps["whole"];
@@ -466,7 +489,7 @@ function NodeCard(props: NodeCardProps) {
   }
 }
 
-function BriefCard({ edits, moved, tuning, tuned, whole }: NodeCardProps) {
+function BriefCard({ edits, moved, toProposer, whole }: NodeCardProps) {
   const { proposal } = edits;
   const [note, setNote] = useState("");
   return (
@@ -497,16 +520,9 @@ function BriefCard({ edits, moved, tuning, tuned, whole }: NodeCardProps) {
         </ProposalField>
       </ProposalFields>
       <DoneWhen edits={edits} moved={moved} />
-      {tuned === undefined ? null : (
+      {moved === undefined || toProposer === undefined ? null : (
         <section className="armada-proposal__region" aria-label="To the proposer">
           <h3 className="armada-proposal__heading">To the proposer</h3>
-          {tuning.to_proposer.length === 0 ? null : (
-            <ul className="armada-approval-canvas__sent">
-              {tuning.to_proposer.map((sent, at) => (
-                <li key={at}>{sent}</li>
-              ))}
-            </ul>
-          )}
           <Textarea aria-label="Note to the proposer" value={note} onChange={(event) => setNote(event.target.value)} />
           <div className="armada-approval-canvas__acts">
             <Button
@@ -514,8 +530,9 @@ function BriefCard({ edits, moved, tuning, tuned, whole }: NodeCardProps) {
               size="sm"
               disabled={note.trim() === ""}
               onClick={() => {
-                tuned({ ...tuning, to_proposer: [...tuning.to_proposer, note.trim()] });
-                setNote("");
+                void toProposer(note.trim()).then((answer) => {
+                  if (answer.ok) setNote("");
+                });
               }}
             >
               Send to proposer
@@ -616,8 +633,8 @@ function WorkflowPicker({
   return forRequests === undefined ? select : <Tooltip label={forRequests}>{select}</Tooltip>;
 }
 
-/** A Drone's settings for one step: model, effort, context, and the harness shown — and on the step worked per task, the tiers and the cap. */
-function StepCard({ step, edits, tuning, tuned, moved, models, machineCap, ...rest }: NodeCardProps & { step: StepRead }) {
+/** A Drone's settings for one step: model, effort, context, and the harness — and on the step worked per task, the tiers and the cap. */
+function StepCard({ step, edits, tuning, tuned, moved, models, harnesses, machineCap, ...rest }: NodeCardProps & { step: StepRead }) {
   const mine = tuning.steps[step.id];
   const set = (change: Partial<StepTuning>) => tuned?.(tunedStep(tuning, step.id, change));
   const { proposal } = edits;
@@ -661,8 +678,24 @@ function StepCard({ step, edits, tuning, tuned, moved, models, machineCap, ...re
             </Select>
           )}
         </ProposalField>
-        {/* The one harness, shown: a choice of one is not a choice. */}
-        <ProposalField label="Harness">{HARNESS}</ProposalField>
+        {/* One harness is shown, not chosen: a choice of one is not a choice. */}
+        {harnesses.length === 0 ? null : harnesses.length === 1 || !open ? (
+          <ProposalField label="Harness">{mine?.harness ?? harnesses[0]}</ProposalField>
+        ) : (
+          <ProposalField label="Harness" bare>
+            <Select
+              aria-label={`Harness on ${step.label}`}
+              value={mine?.harness ?? harnesses[0] ?? ""}
+              onChange={(event) => set({ harness: event.target.value === harnesses[0] ? null : event.target.value })}
+            >
+              {harnesses.map((harness) => (
+                <option key={harness} value={harness}>
+                  {harness}
+                </option>
+              ))}
+            </Select>
+          </ProposalField>
+        )}
         <ProposalField label="Context" bare={open}>
           {!open ? (
             (mine?.context ?? "")
@@ -789,22 +822,18 @@ function GateRow({
  * How the work leaves the worktree. **One control for pr_mode and local**, so
  * the end of the run reshapes off one answer — `deliveryOf`.
  */
-function PullRequestCard({ edits, tuning, tuned, moved }: NodeCardProps) {
-  const delivery = deliveryOf(tuning.local, edits.landing.pr_mode);
-  return <DeliveryFields delivery={delivery} edits={edits} tuning={tuning} tuned={tuned} moved={moved} />;
+function PullRequestCard({ edits, moved }: NodeCardProps) {
+  const delivery = deliveryOf(edits.landing.local, edits.landing.pr_mode);
+  return <DeliveryFields delivery={delivery} edits={edits} moved={moved} />;
 }
 
 function DeliveryFields({
   delivery,
   edits,
-  tuning,
-  tuned,
   moved,
 }: {
   delivery: Delivery;
   edits: ProposalEdits;
-  tuning: ApprovalTuning;
-  tuned: NodeCardProps["tuned"];
   moved: NodeCardProps["moved"];
 }) {
   const open = moved !== undefined;
@@ -819,9 +848,12 @@ function DeliveryFields({
             value={delivery}
             onChange={(event) => {
               const picked = event.target.value as Delivery;
+              // Local holds no pull request, so there is nothing to merge: Fleet refuses both.
               moved({
-                tuning: { ...tuning, local: picked === "local" },
-                ...(picked === "local" ? {} : { landing: { ...edits.landing, pr_mode: picked } }),
+                landing:
+                  picked === "local"
+                    ? { ...edits.landing, local: true, auto_merge: false }
+                    : { ...edits.landing, local: false, pr_mode: picked },
               });
             }}
           >
@@ -835,9 +867,12 @@ function DeliveryFields({
       </ProposalField>
       {/* The switch names itself, so it takes no row label beside it. */}
       {delivery === "local" ? null : !open ? (
-        <ProposalField label="Auto-merge">{tuning.auto_merge ? "On" : "Off"}</ProposalField>
+        <ProposalField label="Auto-merge">{edits.landing.auto_merge === true ? "On" : "Off"}</ProposalField>
       ) : (
-        <Switch checked={tuning.auto_merge} onChange={(event) => tuned?.({ ...tuning, auto_merge: event.target.checked })}>
+        <Switch
+          checked={edits.landing.auto_merge === true}
+          onChange={(event) => moved({ landing: { ...edits.landing, auto_merge: event.target.checked } })}
+        >
           Auto-merge
         </Switch>
       )}
@@ -846,8 +881,8 @@ function DeliveryFields({
 }
 
 /** Where it lands, and the delivery again: local only is answered here once the pull request node is gone. */
-function LandCard({ value, landed, landsLate, sendLate, branches, edits, tuning, tuned, moved }: NodeCardProps) {
-  const delivery = deliveryOf(tuning.local, edits.landing.pr_mode);
+function LandCard({ value, landed, landsLate, sendLate, branches, edits, moved }: NodeCardProps) {
+  const delivery = deliveryOf(edits.landing.local, edits.landing.pr_mode);
   return (
     <>
       <ProposalLanding
@@ -869,7 +904,7 @@ function LandCard({ value, landed, landsLate, sendLate, branches, edits, tuning,
           </Button>
         </div>
       )}
-      <DeliveryFields delivery={delivery} edits={edits} tuning={tuning} tuned={tuned} moved={moved} />
+      <DeliveryFields delivery={delivery} edits={edits} moved={moved} />
     </>
   );
 }

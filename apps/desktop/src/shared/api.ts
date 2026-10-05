@@ -12,6 +12,7 @@ import type {
   MovePlan,
   ApproveWave,
   EditJob,
+  ToProposer,
   ApproveDispatch,
   BranchesRead,
   Artifact,
@@ -207,6 +208,8 @@ export type BridgeApi = {
   editJob: (jobId: string, edit: EditJob) => Promise<Outcome>;
   /** Where an approved Job with no landing target lands, once — `set_landing_target`, since 23.22. */
   setLandingTarget: (jobId: string, target: string) => Promise<Outcome>;
+  /** Send the proposal back to the proposer with a note; the Job returns to its gate rewritten — `to_proposer`, since 23.25. */
+  toProposer: (jobId: string, body: ToProposer) => Promise<Outcome>;
   /**
    * Reclaim every terminal Job's worktree and branch at once, one
    * `reclaim_worktree` per id. **Every row survives** — this takes the
