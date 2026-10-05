@@ -195,7 +195,7 @@ describe("what froze at approval", () => {
 // `proposing.test.tsx`'s to claim.
 describe("classifying", () => {
   test(
-    "arc/proposing-review: the workflow the proposer chose is named with its four steps, and " +
+    "arc/proposing-review: the workflow the proposer chose is named with its three steps, and " +
       "every one of them has a gate row a person can still change",
     async () => {
       mount("arc/proposing-review");
@@ -207,7 +207,7 @@ describe("classifying", () => {
       await expect
         .element(workflow.getByRole("combobox", { name: "Workflow" }))
         .toHaveValue("feature");
-      await expect.element(workflow).toHaveTextContent("feature — 4 steps");
+      await expect.element(workflow).toHaveTextContent("feature — 3 steps");
 
       // A Judge on the plan step and no Check, which is what `feature.json`
       // declares — and the box is a person's to move.
@@ -1136,7 +1136,7 @@ describe("one Job per workflow kind", () => {
   const stepCard = (label: string) => page.getByRole("button", { name: new RegExp(`^${label}, `) });
 
   test.for([
-    ["kind/feature", 4],
+    ["kind/feature", 3],
     ["kind/bug", 3],
     ["kind/revert", 2],
     ["kind/prototype", 3],

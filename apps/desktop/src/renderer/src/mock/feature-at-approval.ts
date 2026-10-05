@@ -1,6 +1,6 @@
 // A feature Job at its dispatch gate, for the approval canvas (prototype): the
 // request read from an issue, its criteria and branches as
-// `proposal-from-an-issue.ts` serves them, on `feature.json`'s four steps.
+// `proposal-from-an-issue.ts` serves them, on `feature.json`'s three steps.
 //
 // **The steps are the workflow's own** (`featureWorkflow`, transcribed from
 // `.armada/workflows/feature.json`), frozen as Fleet freezes them at the

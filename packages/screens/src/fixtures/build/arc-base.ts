@@ -161,7 +161,7 @@ export const BRIDGE_CHECKS: DeclaredCheck[] = [
 export const checkNames = (checks: DeclaredCheck[]): string[] =>
   checks.map((check) => check.name ?? check.kind);
 
-/** The four steps `feature.json` declares, with the gates it declares them at. */
+/** The three steps `feature.json` declares, with the gates it declares them at. */
 export function featureWorkflow(): WorkflowSummary {
   return {
     id: "feature",
@@ -182,19 +182,10 @@ export function featureWorkflow(): WorkflowSummary {
           step_id: "implement",
           label: "Implement",
           checks: [...RUST_CHECKS, ...BRIDGE_CHECKS],
-          judge_checks: [{ criteria: 4, gaming_check: false }],
+          judge_checks: [{ criteria: 5, gaming_check: true }],
           advance_gate: "auto_if_judge_passes",
           delivers: false,
           drone_per_task: true,
-          phase: "work",
-        },
-      {
-          step_id: "tests",
-          label: "Write tests",
-          checks: BRIDGE_CHECKS,
-          judge_checks: [{ criteria: 1, gaming_check: true }],
-          advance_gate: "auto_if_judge_passes",
-          delivers: false,
           phase: "work",
         },
       {
