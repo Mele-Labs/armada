@@ -1259,3 +1259,69 @@
   status = "Proposed"
   reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
   notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."
+
+  [[icons.anchor.usage]]
+    means = "A Job's worktree outside the pool that ended and still holds work, and a locked checkout's row in a tile's panel"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 5 Oct 2026 with Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. A worktree outside the pool is held for what it still carries, as a kept bay is, so it takes the kept bay's mark. A lock is a person saying not yet, which holds the checkout in place: the same drawing, since `lock` is banned for a locked file. Tooltips `Kept: ...` and `Locked`."
+
+[[icons.file-pen-line.usage]]
+  means = "The Uncommitted row in a worktree's panel, beside how long the files have sat"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The same files the Finding marks, named in the panel's own row and in Clear's confirm. Tooltip `Written and committed nowhere`."
+
+[[icons.folder-x.usage]]
+  means = "A Job's worktree whose checkout is gone and whose record is all that is left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. No directory stands, which is what the mark already says of a slot. Tooltip `Checkout gone`."
+
+[[icons.link.usage]]
+  means = "The Depended on row in a worktree's panel: another Job has not finished"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The Queued reason already says something upstream is unfinished, which is what a dependent Job is. Tooltip `Another Job has not finished`."
+
+[[icons.git-branch.usage]]
+  means = "The Base unanswered row in a worktree's panel, and a tile's branch"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Nothing could name the base`."
+
+[[icons.triangle-alert.usage]]
+  means = "The Unreadable row in a worktree's panel: version control would not say what is in the checkout"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Version control would not say`."
+
+[icons.eraser]
+  means = "An eraser - give a worktree's checkout back"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Clear, the reclaim of a Job's checkout, the act in a tile's panel. Never deleting a Job's record, which is Forget Job, and never a slot, which is Remove."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. Clear wipes what stands in a directory and leaves the branch, which is what an eraser does to a page. Refused: `trash-2`, which is Remove on a slot; `brush-cleaning`, whose bristles are interior detail at 12px."
+
+[icons.git-branch-minus]
+  means = "A branch with a minus - delete the branch a Job left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Delete branch, the act in a tile's panel on an unmerged branch left behind. Never a branch on a Studio or an issue."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. The branch glyph the set already uses for a branch, with the one stroke that says it goes. Refused: `trash-2`, Remove's."
+
+[icons.package-x]
+  means = "A box with a cross - forget a Job's record"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Forget Job, the act in a tile's panel once nothing of the Job stands. Never a Job's state on the Board."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. `box` is the Record's drawing of a Job, so a box with a cross is the Job no longer kept. Refused: `archive`, superseded's, and `archive-x` with it."
