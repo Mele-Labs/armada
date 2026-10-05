@@ -12,6 +12,7 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import {
   running,
   workingAPlan,
+  handedInATask,
   runningWaitingOnACommand,
   review,
   escalatedGateFailure,
@@ -203,6 +204,7 @@ function asRow(fixture: JobFixture, at: number, slug: string, title: string): Jo
 export const BUILDERS = {
   running,
   workingAPlan,
+  handedInATask,
   runningWaitingOnACommand,
   review,
   escalatedGateFailure,
@@ -254,6 +256,7 @@ type Builder = keyof typeof BUILDERS;
 const EVERY_STATE_TITLES: Record<Builder, string> = {
   running: "Cache the manifest read between dispatches",
   workingAPlan: "Extract the column order selector into its own module",
+  handedInATask: "Extract the column order selector into its own module",
   runningWaitingOnACommand: "Reuse one HTTP client across every query",
   review: "Fold the two notification routes into one",
   escalatedGateFailure: "Shorten the reconnect backoff to two seconds",
