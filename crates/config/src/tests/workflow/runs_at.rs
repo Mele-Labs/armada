@@ -67,16 +67,22 @@ fn a_word_outside_the_three_is_refused_where_it_is_written() {
     );
 }
 
-/// **The first line of the issue's definition of done.** `implement` gates on
-/// every Check and retries, and the end-to-end Check is not among them.
+/// **The first line of the issue's definition of done.** A step that retries
+/// and is not the last to sweep does not gate on the end-to-end Check. `feature`
+/// has one sweeping step, so this reads a workflow with two.
 #[test]
-fn features_implement_step_does_not_gate_on_a_handoff_check() {
-    let feature = resolved(FEATURE);
-    let implement = step(&feature, "implement");
-    assert_eq!(names(implement.checks()), ["build", "storybook"]);
-    assert!(implement.retry_limit() > 0, "the step retries");
+fn an_earlier_sweeping_step_does_not_gate_on_a_handoff_check() {
+    let text = "version: 1\nworkflow_id: two\nname: two\nstructure: linear\nsteps:\n\
+                - id: first\n  label: First\n  retry_limit: 2\n  delivers: false\n  \
+                advance_gate: auto\n  mechanical_checks: [{ type: every_manifest_check }]\n\
+                - id: second\n  label: Second\n  delivers: false\n  advance_gate: auto\n  \
+                mechanical_checks: [{ type: every_manifest_check }]\n";
+    let workflow = resolved(text);
+    let first = step(&workflow, "first");
+    assert_eq!(names(first.checks()), ["build", "storybook"]);
+    assert!(first.retry_limit() > 0, "the step retries");
     assert_eq!(
-        feature.frozen().held_for_handoff(implement.id()),
+        workflow.frozen().held_for_handoff(first.id()),
         ["e2e"],
         "and the step says where it went"
     );
@@ -88,12 +94,12 @@ fn features_implement_step_does_not_gate_on_a_handoff_check() {
 fn the_step_before_handoff_is_the_one_that_runs_it() {
     let feature = resolved(FEATURE);
     assert_eq!(
-        names(step(&feature, "tests").checks()),
+        names(step(&feature, "implement").checks()),
         ["build", "storybook", "e2e"]
     );
     assert!(feature
         .frozen()
-        .held_for_handoff(&StepId::new("tests"))
+        .held_for_handoff(&StepId::new("implement"))
         .is_empty());
     let taking: usize = feature
         .steps()
@@ -107,7 +113,7 @@ fn the_step_before_handoff_is_the_one_that_runs_it() {
 #[test]
 fn a_drones_run_leaves_out_gate_and_handoff_checks() {
     let feature = resolved(FEATURE);
-    assert_eq!(names(&step(&feature, "tests").mid_step_checks()), ["build"]);
+    assert_eq!(names(&step(&feature, "implement").mid_step_checks()), ["build"]);
 }
 
 /// A workflow that delivers nothing still runs a handoff Check somewhere: on
