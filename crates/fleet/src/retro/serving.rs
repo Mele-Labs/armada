@@ -37,6 +37,8 @@ fn item(job: &str, ordinal: usize, line: RetroLine) -> RetroItem {
         statement: line.said,
         evidence: line.evidence,
         lands_in: line.lands_in.map(LandsIn::from),
+        state: None,
+        job_proposed: None,
     }
 }
 
@@ -93,11 +95,29 @@ where
                 Reflected::Written { model, items } => {
                     retro.state = RetroState::Written;
                     retro.model = Some(model);
+                    let store = self.store().lock().await;
                     retro.items = items
                         .into_iter()
                         .enumerate()
-                        .map(|(ordinal, line)| item(id.as_str(), ordinal, line))
-                        .collect();
+                        .map(|(ordinal, line)| {
+                            let mut item = item(id.as_str(), ordinal, line);
+                            // The answer is read from the row the Lessons list reads.
+                            let answer = u32::try_from(ordinal)
+                                .ok()
+                                .and_then(|place| store.lesson(&id, place).transpose())
+                                .transpose()
+                                .map_err(|cause| {
+                                    self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(
+                                        cause,
+                                    )))
+                                })?;
+                            if let Some(answer) = answer {
+                                item.state = Some(LessonState::from(answer.state));
+                                item.job_proposed = answer.job_proposed.as_ref().map(JobId::from);
+                            }
+                            Ok(item)
+                        })
+                        .collect::<Result<_, Refusal>>()?;
                 }
                 Reflected::Failed { why } => {
                     retro.state = RetroState::Failed;

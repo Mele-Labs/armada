@@ -84,6 +84,13 @@ pub struct RetroItem {
     /// **absent on an item kept before**, never defaulted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lands_in: Option<LandsIn>,
+    /// Where it stands with the person, as on [`Lesson`]. **Absent only on an
+    /// item whose row has no answer record**, read as before. Since 23.24.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<LessonState>,
+    /// The Job proposed for it, as on [`Lesson`]. Since 23.24.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_proposed: Option<JobId>,
 }
 
 /// One item of what the retro call answers with. **Not [`RetroItem`]**: the

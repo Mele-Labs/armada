@@ -31,6 +31,10 @@ export type LessonState = "open" | "agreed" | "accepted" | "discarded";
  * or two short sentences) and `fix` (one sentence). All three are absent on an
  * item kept before, which has `statement` alone. On an item written since,
  * `statement` repeats `what`.
+ *
+ * Since 23.24 an item carries where it stands with the person, as a `Lesson`
+ * does: `state`, and `job_proposed`, the Job `agree_lesson` proposed for it, a
+ * Job id. `state` is absent only on an item whose row has no answer record.
  */
 export type RetroItem = {
   id: string;
@@ -41,6 +45,8 @@ export type RetroItem = {
   statement: string;
   evidence: string[];
   lands_in?: LandsIn;
+  state?: LessonState;
+  job_proposed?: string;
 };
 
 /** A tool call the Drone was refused, with what it tried. */

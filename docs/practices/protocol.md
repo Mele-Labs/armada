@@ -2772,6 +2772,20 @@ skew rule's own direction.
 after that is a record the forge disagrees with. **The worktree keeps what it was cut from.** No
 store migration: the landing row takes the target. The event stream is untouched.
 
+## Protocol 23.24: a retro item says where it stands
+
+The owner, 5 Oct 2026. The Retro sheet in Bridge offered Agree and Disagree on an item already
+answered from the Lessons list, because `get_job_retro` carried no answer state.
+
+**Additive.** Two optional fields, with the names and types `Lesson` already has.
+
+| Change | Where | Absent or older |
+| --- | --- | --- |
+| `state` | `RetroItem` | Only on an item whose row has no answer record, read as before |
+| `job_proposed` | `RetroItem` | Absent until agreeing proposed a Job for the item |
+
+Both are read from the rows `list_lessons` reads. A 23.23 Bridge ignores them.
+
 ## Protocol 23.23: a retro item has parts, and a person answers it
 
 The owner, 4 Oct 2026, after Job 3's retro was rejected as prose nobody could act on and wrong
