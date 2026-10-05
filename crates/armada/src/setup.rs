@@ -66,7 +66,7 @@ pub fn kit(home: &Path) -> std::io::Result<PathBuf> {
 /// is a subset of YAML — so which of these a repository wrote is a choice about
 /// tooling rather than about meaning, and refusing two of them would be this
 /// module inventing a rule the parser does not have.
-const DEFINITION_EXTS: &[&str] = &["json", "yml", "yaml"];
+pub(crate) const DEFINITION_EXTS: &[&str] = &["json", "yml", "yaml"];
 
 /// One repository's Manifest and every workflow its steps resolved against.
 #[derive(Debug)]
@@ -188,6 +188,43 @@ fn definitions(
     dir: &Path,
     place: fn(PathBuf, String) -> Written,
 ) -> Result<Vec<Written>, SetupRefused> {
+    listed(dir)?
+        .into_iter()
+        .map(|path| match std::fs::read_to_string(&path) {
+            Ok(text) => Ok(place(path, text)),
+            Err(cause) => Err(SetupRefused::WorkflowRefused(LoadError::Unreadable {
+                path,
+                cause,
+            })),
+        })
+        .collect()
+}
+
+/// The same read **for a Fleet that is already running**: a folder or a file
+/// that cannot be read is said at the console and skipped, since refusing here
+/// would take down every workflow beside it.
+fn definitions_leniently(dir: &Path, place: fn(PathBuf, String) -> Written) -> Vec<Written> {
+    let paths = match listed(dir) {
+        Ok(paths) => paths,
+        Err(why) => {
+            eprintln!("{why}");
+            return Vec::new();
+        }
+    };
+    paths
+        .into_iter()
+        .filter_map(|path| match std::fs::read_to_string(&path) {
+            Ok(text) => Some(place(path, text)),
+            Err(cause) => {
+                eprintln!("{} could not be read: {cause}", path.display());
+                None
+            }
+        })
+        .collect()
+}
+
+/// The files in one directory that may hold a definition, sorted.
+pub(crate) fn listed(dir: &Path) -> Result<Vec<PathBuf>, SetupRefused> {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -215,17 +252,38 @@ fn definitions(
     // compare, and so the duplicate-id refusal above always names the first
     // occurrence by that same order.
     found.sort();
+    Ok(found)
+}
 
-    found
-        .into_iter()
-        .map(|path| match std::fs::read_to_string(&path) {
-            Ok(text) => Ok(place(path, text)),
-            Err(cause) => Err(SetupRefused::WorkflowRefused(LoadError::Unreadable {
-                path,
-                cause,
-            })),
-        })
-        .collect()
+/// Every workflow `root` runs now, read again from the three places.
+///
+/// **Leniently, where [`Setup::at`] is strict**: a definition that does not fit
+/// is left out with its reason and the others stand, because this is a Fleet
+/// with Jobs in flight and a file somebody saved a second ago. The Manifest is
+/// the one the Fleet holds, so what a definition resolves against is what its
+/// Jobs are gated on.
+pub fn workflows_again(
+    root: &Path,
+    kit: &Path,
+    roster: &Roster,
+    manifest: &Manifest,
+) -> (
+    BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
+    Vec<LeftOut>,
+) {
+    let mut written = config::carried();
+    written.extend(definitions_leniently(
+        &kit.join(KIT_WORKFLOWS),
+        Written::in_kit,
+    ));
+    written.extend(definitions_leniently(
+        &root.join(WORKFLOWS),
+        Written::in_repository,
+    ));
+    Catalogue::leniently(written, roster)
+        .resolve(manifest)
+        .expect("a lenient catalogue refuses nothing")
+        .into_parts()
 }
 
 /// Why a repository's setup could not be read.
