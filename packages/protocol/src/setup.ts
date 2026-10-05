@@ -126,6 +126,8 @@ export type WorkflowStep = {
    * Sent on every step since 23.19; optional here so a fixture need not say.
    */
   phase?: StepPhase;
+  /** What the step does for the Job, a line or two. Absent where the workflow wrote none. Since 23.28. */
+  about?: string;
   /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
   may_dispatch_jobs?: boolean;
   /** `StepDetail.drone_per_task`, before a dispatch. Absent is false. Since 23.19. */

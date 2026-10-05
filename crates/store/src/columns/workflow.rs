@@ -84,6 +84,8 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             // Written on every step, because a boolean has no absent value
             // meaning anything other than `false`. A row frozen before the key
             // existed carries none, which reads back as `false`.
+            // Null where the step wrote none, which is every row frozen before the key existed.
+            "about": step.about(),
             "may_dispatch_jobs": step.may_dispatch_jobs(),
             // Written on every step, for `may_dispatch_jobs`' reason: a boolean
             // has no absent value meaning anything other than `false`, and here
@@ -323,6 +325,7 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
         read_step_model(entry)?,
     )
     .capturing(captured)
+    .describing(read_about(entry)?)
     .dispatching(read_may_dispatch_jobs(entry)?)
     // **False where the key is absent, and `read_workflow` is what corrects a
     // row where every step is.** A step alone cannot tell "this step does not
@@ -505,6 +508,16 @@ fn read_step_model(entry: &Map<String, Value>) -> Result<Option<ModelName>, Malf
             ModelName::new(named).map_err(|blank| format!("`model` {blank}"))?,
         )),
         Some(other) => Err(format!("`model` is {}", kind(other))),
+    }
+}
+
+/// What the step said it does. **Absent and null read as none**, which is every
+/// row frozen before the key existed.
+fn read_about(entry: &Map<String, Value>) -> Result<Option<String>, Malformed> {
+    match entry.get("about") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(found)) => Ok(Some(found.clone())),
+        Some(other) => Err(format!("`about` is {}", kind(other))),
     }
 }
 

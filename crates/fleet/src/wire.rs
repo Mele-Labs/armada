@@ -149,6 +149,7 @@ pub(crate) fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep>
             // rather than a cap of zero, which is not a cap anything declared.
             iteration_cap: Some(step.iteration_cap()).filter(|cap| *cap > 0),
             phase: step.phase().into(),
+            about: step.about().map(str::to_string),
             may_dispatch_jobs: step.may_dispatch_jobs(),
             drone_per_task: step.drone_per_task(),
         })
