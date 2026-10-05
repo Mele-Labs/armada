@@ -116,6 +116,51 @@ fn job_3s_failed_checks_include_the_one_only_its_transcript_kept() {
     );
 }
 
+/// **The retro is told, as a fact, that the Drone's own calls never named the
+/// file the gate failed on.** Job 3's plan step failed `out_of_bounds` on
+/// `armada.yml`, which came in off a stale base and which the plan Drone never
+/// called a tool on. A file that failed a Check and was named in a Drone's call
+/// reads the other way.
+#[test]
+fn a_failure_that_names_a_file_says_whether_the_drone_called_on_it() {
+    let home = TempDir::new();
+    let record = job_3(&home);
+
+    let bounds = record
+        .failed_checks
+        .iter()
+        .find(|check| check.name == "out_of_bounds")
+        .expect("the out_of_bounds failure");
+    assert_eq!(
+        bounds.paths,
+        vec![ipc::RecordPath {
+            path: "armada.yml".to_string(),
+            named_in_drone_calls: false,
+        }],
+        "{bounds:?}"
+    );
+    assert!(
+        record
+            .failed_checks
+            .iter()
+            .filter(|check| check.run == CheckRunBy::Drone)
+            .all(|check| check.paths.is_empty()),
+        "only a gate failure is set against the transcript"
+    );
+}
+
+/// A word is a path when it has a directory or an extension with a letter.
+#[test]
+fn only_a_path_is_read_as_one() {
+    use crate::retro::record::looks_like_a_path;
+    for yes in ["armada.yml", "crates/fleet/src/lib.rs", "src/", "lib.rs"] {
+        assert!(looks_like_a_path(yes), "{yes}");
+    }
+    for no in ["e.g", "1.5", "check", "v1.0", "of."] {
+        assert!(!looks_like_a_path(no), "{no}");
+    }
+}
+
 /// A Judge's `not_met`, a person asked about it and agreeing, and the restart
 /// after it with what they said — the three in the order they happened.
 #[test]

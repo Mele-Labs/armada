@@ -7,7 +7,7 @@
 //! and files that exist for their own reasons; Fleet reads them when it writes
 //! a retro and keeps no second copy.
 
-use core_model::{JobId, JobStatus, LandsIn, StepId, Timestamp, Via, Whose};
+use core_model::{JobId, JobStatus, LandsIn, LessonState, StepId, Timestamp, Via, Whose};
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
@@ -65,11 +65,30 @@ ALTER TABLE job_retro_items ADD COLUMN lands_in TEXT
     CHECK (lands_in IS NULL OR lands_in IN ('armada', 'kit', 'manifest'));
 "#;
 
+/// Version 104 — an item's headline, what happened and what to change, and
+/// where it stands with the person.
+///
+/// **The three texts are null on every item kept before**, which has `said`
+/// alone, and nothing is backfilled. **Every existing item starts `open`.**
+pub(crate) const V104: &str = r#"
+ALTER TABLE job_retro_items ADD COLUMN title TEXT CHECK (title IS NULL OR trim(title) <> '');
+ALTER TABLE job_retro_items ADD COLUMN what TEXT CHECK (what IS NULL OR trim(what) <> '');
+ALTER TABLE job_retro_items ADD COLUMN fix TEXT CHECK (fix IS NULL OR trim(fix) <> '');
+ALTER TABLE job_retro_items ADD COLUMN state TEXT NOT NULL DEFAULT 'open'
+    CHECK (state IN ('open', 'agreed', 'accepted', 'discarded'));
+ALTER TABLE job_retro_items ADD COLUMN job_proposed TEXT;
+"#;
+
 /// One item of a retro: what got in the way, whose way, and the record rows
 /// that show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetroLine {
     pub whose: Whose,
+    /// A headline. **`None` only on an item kept before V104**, as `what` and
+    /// `fix` are.
+    pub title: Option<String>,
+    pub what: Option<String>,
+    pub fix: Option<String>,
     pub said: String,
     /// References into the Job's assembled record, `refusal:1` and the like.
     /// **Never empty on a written item**: Fleet drops an item that cites
@@ -106,8 +125,13 @@ pub struct KeptRetro {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptLesson {
     pub job_id: JobId,
+    /// The item's place in its retro. With `job_id` it is the item's id.
+    pub ordinal: u32,
     pub at: Timestamp,
     pub line: RetroLine,
+    pub state: LessonState,
+    /// The Job proposed for it, once one was.
+    pub job_proposed: Option<JobId>,
 }
 
 /// What a Drone said got in its way, on one submission.
@@ -253,8 +277,9 @@ impl Store {
         .map_err(WriteError::Database)?;
         for (ordinal, item) in items.iter().enumerate() {
             tx.execute(
-                "INSERT INTO job_retro_items (job_id, ordinal, whose, said, evidence, lands_in) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO job_retro_items \
+                 (job_id, ordinal, whose, said, evidence, lands_in, title, what, fix) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 (
                     job_id.as_str(),
                     ordinal as i64,
@@ -262,6 +287,9 @@ impl Store {
                     item.said.as_str(),
                     item.evidence.join("\n"),
                     item.lands_in.map(|lands| lands.as_wire()),
+                    item.title.as_deref(),
+                    item.what.as_deref(),
+                    item.fix.as_deref(),
                 ),
             )
             .map_err(fault("keeping a retro's item"))
@@ -313,47 +341,155 @@ impl Store {
     /// Up to `most` items across every written retro, newest retro first and
     /// each retro's items in the order they were written. `lands_in` narrows
     /// to the items whose fix lands there, and **an item kept before V102
-    /// matches none**: it is listed only where nothing narrows.
+    /// matches none**: it is listed only where nothing narrows. `state`
+    /// narrows to the items a person has answered that way.
     pub fn lessons(
         &self,
         most: u32,
         lands_in: Option<LandsIn>,
+        state: Option<LessonState>,
+    ) -> Result<Vec<KeptLesson>, RowError> {
+        let sql = format!(
+            "SELECT {LESSON_COLUMNS} \
+             FROM job_retro_items AS i JOIN job_retros AS r ON r.job_id = i.job_id \
+             WHERE r.state = 'written' AND (?2 IS NULL OR i.lands_in = ?2) \
+             AND (?3 IS NULL OR i.state = ?3) \
+             ORDER BY r.at DESC, i.job_id, i.ordinal LIMIT ?1"
+        );
+        self.lessons_where(
+            &sql,
+            (
+                i64::from(most),
+                lands_in.map(|lands| lands.as_wire()),
+                state.map(|state| state.as_wire()),
+            ),
+        )
+    }
+
+    /// One item, by its Job and its place in the retro. `None` where there is
+    /// none, or where the retro was not written.
+    pub fn lesson(&self, job_id: &JobId, ordinal: u32) -> Result<Option<KeptLesson>, RowError> {
+        let sql = format!(
+            "SELECT {LESSON_COLUMNS} \
+             FROM job_retro_items AS i JOIN job_retros AS r ON r.job_id = i.job_id \
+             WHERE r.state = 'written' AND i.job_id = ?1 AND i.ordinal = ?2"
+        );
+        Ok(self
+            .lessons_where(&sql, (job_id.as_str(), i64::from(ordinal)))?
+            .into_iter()
+            .next())
+    }
+
+    /// Move an item off `open`, and say whether this call did it. **The write
+    /// is the claim**: two presses race on one row, one changes it and the
+    /// other reads `false`, so a Job is proposed once however many press.
+    pub fn answer_lesson(
+        &mut self,
+        job_id: &JobId,
+        ordinal: u32,
+        to: LessonState,
+    ) -> Result<bool, WriteError> {
+        let changed = self
+            .conn
+            .execute(
+                "UPDATE job_retro_items SET state = ?3 \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND state = 'open'",
+                (job_id.as_str(), i64::from(ordinal), to.as_wire()),
+            )
+            .map_err(fault("answering a lesson"))
+            .map_err(WriteError::Database)?;
+        Ok(changed == 1)
+    }
+
+    /// Keep the Job proposed for an agreed item.
+    pub fn keep_lesson_job(
+        &mut self,
+        job_id: &JobId,
+        ordinal: u32,
+        proposed: &JobId,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_retro_items SET job_proposed = ?3 \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND state = 'agreed'",
+                (job_id.as_str(), i64::from(ordinal), proposed.as_str()),
+            )
+            .map_err(fault("keeping the Job proposed for a lesson"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Give an agreed item back to `open`, where no Job could be proposed for
+    /// it. **Only one that has none**: a Job that exists is never forgotten.
+    pub fn reopen_lesson(&mut self, job_id: &JobId, ordinal: u32) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_retro_items SET state = 'open' \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND state = 'agreed' \
+                 AND job_proposed IS NULL",
+                (job_id.as_str(), i64::from(ordinal)),
+            )
+            .map_err(fault("giving a lesson back"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    fn lessons_where(
+        &self,
+        sql: &str,
+        params: impl rusqlite::Params,
     ) -> Result<Vec<KeptLesson>, RowError> {
         let mut statement = self
             .conn
-            .prepare(
-                "SELECT i.job_id, r.at, i.whose, i.said, i.evidence, i.lands_in \
-                 FROM job_retro_items AS i JOIN job_retros AS r ON r.job_id = i.job_id \
-                 WHERE r.state = 'written' AND (?2 IS NULL OR i.lands_in = ?2) \
-                 ORDER BY r.at DESC, i.job_id, i.ordinal LIMIT ?1",
-            )
+            .prepare(sql)
             .map_err(fault("preparing the lessons"))
             .map_err(RowError::Database)?;
         let rows = statement
-            .query_map(
-                (i64::from(most), lands_in.map(|lands| lands.as_wire())),
-                |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, String>(3)?,
-                        row.get::<_, String>(4)?,
-                        row.get::<_, Option<String>>(5)?,
-                    ))
-                },
-            )
+            .query_map(params, |row| {
+                Ok(Stored {
+                    job_id: row.get(0)?,
+                    ordinal: row.get(1)?,
+                    at: row.get(2)?,
+                    whose: row.get(3)?,
+                    said: row.get(4)?,
+                    evidence: row.get(5)?,
+                    lands_in: row.get(6)?,
+                    texts: Texts {
+                        title: row.get(7)?,
+                        what: row.get(8)?,
+                        fix: row.get(9)?,
+                    },
+                    state: row.get(10)?,
+                    proposed: row.get(11)?,
+                })
+            })
             .map_err(fault("reading the lessons"))
             .map_err(RowError::Database)?;
         let mut lessons = Vec::new();
         for row in rows {
-            let (job_id, at, whose, said, evidence, lands_in) = row
+            let stored = row
                 .map_err(fault("reading a lesson"))
                 .map_err(RowError::Database)?;
             lessons.push(KeptLesson {
-                job_id: JobId::carried(core_model::Ulid::carried(job_id)),
-                at: Timestamp::from_rfc3339(at),
-                line: line_of(&whose, said, &evidence, lands_in.as_deref())?,
+                job_id: JobId::carried(core_model::Ulid::carried(stored.job_id)),
+                ordinal: u32::try_from(stored.ordinal).unwrap_or(0),
+                at: Timestamp::from_rfc3339(stored.at),
+                line: line_of(
+                    &stored.whose,
+                    stored.said,
+                    &stored.evidence,
+                    stored.lands_in.as_deref(),
+                    stored.texts,
+                )?,
+                state: enum_value(
+                    LessonState::from_wire,
+                    "job_retro_items",
+                    "state",
+                    &stored.state,
+                )?,
+                job_proposed: stored
+                    .proposed
+                    .map(|id| JobId::carried(core_model::Ulid::carried(id))),
             });
         }
         Ok(lessons)
@@ -361,8 +497,8 @@ impl Store {
 
     fn retro_lines(&self, job_id: &JobId) -> Result<Vec<RetroLine>, RowError> {
         self.rows(
-            "SELECT whose, said, evidence, lands_in FROM job_retro_items WHERE job_id = ?1 \
-             ORDER BY ordinal",
+            "SELECT whose, said, evidence, lands_in, title, what, fix FROM job_retro_items \
+             WHERE job_id = ?1 ORDER BY ordinal",
             job_id,
             |row| {
                 let text = |name: &'static str| -> Result<String, RowError> {
@@ -371,11 +507,20 @@ impl Store {
                 let lands_in: Option<String> = row
                     .get("lands_in")
                     .map_err(column("job_retro_items", "lands_in"))?;
+                let optional = |name: &'static str| -> Result<Option<String>, RowError> {
+                    row.get(name).map_err(column("job_retro_items", name))
+                };
+                let texts = Texts {
+                    title: optional("title")?,
+                    what: optional("what")?,
+                    fix: optional("fix")?,
+                };
                 line_of(
                     &text("whose")?,
                     text("said")?,
                     &text("evidence")?,
                     lands_in.as_deref(),
+                    texts,
                 )
             },
         )
@@ -409,13 +554,43 @@ impl Store {
     }
 }
 
+/// The columns [`Store::lessons`] and [`Store::lesson`] read, in the order
+/// [`Store::lessons_where`] reads them.
+const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
+     i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed";
+
+/// The three texts V104 added, which are all absent on an older item.
+struct Texts {
+    title: Option<String>,
+    what: Option<String>,
+    fix: Option<String>,
+}
+
+/// One row of [`LESSON_COLUMNS`], before its spellings are checked.
+struct Stored {
+    job_id: String,
+    ordinal: i64,
+    at: String,
+    whose: String,
+    said: String,
+    evidence: String,
+    lands_in: Option<String>,
+    texts: Texts,
+    state: String,
+    proposed: Option<String>,
+}
+
 fn line_of(
     whose: &str,
     said: String,
     evidence: &str,
     lands_in: Option<&str>,
+    texts: Texts,
 ) -> Result<RetroLine, RowError> {
     Ok(RetroLine {
+        title: texts.title,
+        what: texts.what,
+        fix: texts.fix,
         whose: enum_value(Whose::from_wire, "job_retro_items", "whose", whose)?,
         lands_in: lands_in
             .map(|lands| enum_value(LandsIn::from_wire, "job_retro_items", "lands_in", lands))
