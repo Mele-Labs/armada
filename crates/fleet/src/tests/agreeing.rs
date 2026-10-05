@@ -259,3 +259,35 @@ async fn an_id_that_names_no_item_is_not_found() {
         }
     }
 }
+
+/// **`GET /jobs/:id/retro` carries each item's answer**, as the Lessons list
+/// does: the Job proposed on the one agreed, `discarded` on the one disagreed
+/// with, and `open` on the one left alone.
+#[tokio::test]
+async fn the_job_retro_carries_each_items_answer() {
+    let home = TempDir::new();
+    let (_fleet, app, _judge, ids) = retro_written(&home).await;
+    let (_, agreed) = answered(&app, &ids[0], "agree").await;
+    let proposed = lesson(&agreed).job_proposed.expect("a Job proposed");
+    answered(&app, &ids[2], "disagree").await;
+    let job = ids[0].rsplit_once('-').expect("an id").0;
+
+    let (status, body) = sent(&app, "GET", &format!("/jobs/{job}/retro"), "", From::Bridge).await;
+
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let retro: ipc::JobRetro = ipc::decode("a retro", &body).expect("a JobRetro");
+    let states: Vec<(&str, Option<ipc::JobId>)> = retro
+        .items
+        .iter()
+        .map(|item| {
+            (
+                item.state.expect("an answer state").as_wire(),
+                item.job_proposed.clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        vec![("agreed", Some(proposed)), ("open", None), ("discarded", None)]
+    );
+}
