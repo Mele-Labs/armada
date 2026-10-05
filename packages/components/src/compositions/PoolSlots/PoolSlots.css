@@ -84,10 +84,32 @@
   text-transform: uppercase;
 }
 
+/* The name is the button that opens the tile's panel; a press anywhere on the tile does the same. */
 .armada-bay__name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
+}
+
+.armada-bay__name:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-bay:not([data-bay="add"]) {
+  cursor: pointer;
+}
+
+/* The tile whose panel is open. */
+.armada-bay[data-open] {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .armada-bay__body {
@@ -229,13 +251,7 @@
   gap: var(--space-2);
 }
 
-.armada-bay__acts {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-/* An act on a bay reads as a button at rest: an edge and a fill drawn from the
+/* An act on a tile reads as a button at rest: an edge and a fill drawn from the
    bay's own colour, so it holds on the inverse band and on an open bay alike.
    Hover fills it further; the focus ring is the shared one. */
 .armada-bay__act {
@@ -355,27 +371,7 @@
   }
 }
 
-/* What a bay shows of its rescue: the way into the Finding, and the live mark. */
-.armada-bay__finding {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* The Finding, read in the bay's sheet. */
-.armada-slot-sheet__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.armada-slot-sheet__about {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  font-family: var(--font-mono);
-}
-
+/* The Finding, read in the tile's panel. */
 .armada-finding {
   display: flex;
   flex-direction: column;
@@ -517,16 +513,4 @@
   .armada-finding__reading {
     animation: none;
   }
-}
-
-/* What a rescue act did, a bare fact on the bay it was about. */
-.armada-bay__said {
-  margin: 0;
-  padding-top: var(--space-1);
-  border-top: var(--border-width) solid var(--border-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
-  text-align: start;
 }
