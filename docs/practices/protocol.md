@@ -2950,11 +2950,11 @@ after.
 the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
 `failed` when Fleet starts.
 
-## Protocol 23.30: where a workflow came from, one read whole, and a start that leaves out
+## Protocol 23.32: where a workflow came from, one read whole, and a start that leaves out
 
 The Workflow creator needs to draw each definition's place, the ones a more specific place replaced, and the one it is editing. A workflow file that does not fit stops refusing Fleet's start.
 
-**Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none). A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back. `source` is optional and absent means the one that runs; 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. `FleetHealth` gains `workflows_left_out`, a boolean and never a count, true where any served repository left a definition out. A 23.28 Bridge ignores all of it, and a 23.30 Bridge behind it is refused, which is the skew rule's own direction.
+**Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none). A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back. `source` is optional and absent means the one that runs; 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. `FleetHealth` gains `workflows_left_out`, a boolean and never a count, true where any served repository left a definition out. A 23.28 Bridge ignores all of it, and a 23.32 Bridge behind it is refused, which is the skew rule's own direction.
 
 | What | How |
 |---|---|
@@ -2967,13 +2967,52 @@ The Workflow creator needs to draw each definition's place, the ones a more spec
 
 **No migration, no store change, and no event.**
 
-## Protocol 23.31: Helm is told when a person is on Workflows
+## Protocol 23.33: Helm is told when a person is on Workflows
 
 The Workflow creator hands its draft to Helm, and Helm has to know which screen the person is on to read it as a workflow under edit.
 
-**Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflow creator is the screen. Fleet's screen phrase for it is *Workflows*. A 23.30 Fleet refuses the value as an unknown variant, and a 23.31 Bridge behind it is refused by the skew rule's own direction, so no Bridge sends it to a Fleet that cannot read it.
+**Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflow creator is the screen. Fleet's screen phrase for it is *Workflows*. A 23.32 Fleet refuses the value as an unknown variant, and a 23.33 Bridge behind it is refused by the skew rule's own direction, so no Bridge sends it to a Fleet that cannot read it.
 
 **No migration, no store change, and no event.**
+
+## Protocol 23.30: a Scout's Finding picked up
+
+The owner, 5 Oct 2026: a stranded slot's Finding gets a third act beside Scrap and Stash, which
+proposes a Job that continues the work from the slot's branch. `../concepts/fleet.md`,
+*Rescuing a stranded slot*.
+
+**Additive only.** One variant and one optional field; a 23.29 Bridge never sends the variant and
+never sends the field.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `pick_up` | `RescueAct` | Stash, then a proposal. The answer is `SlotRescued`, as a stash's | A 23.29 peer sends `start`, `stop`, `scrap` or `stash` |
+| `continue_from` | `ProposeJob` | A branch the Job's worktree is cut from in place of the base. Kept as the proposal's landing `from_ref`, so the approval shows it and refuses it unless the repository holds it | Cut from the base, as every proposal before it |
+
+**The seam is the landing the approval already has.** `from_ref` was set only at the approval; a
+proposal can now arrive with it set, and the approval's own body still replaces it. A blank
+`continue_from` is none.
+
+**Pick up uses the proposer, not a workflow of its own.** Fleet assigns no workflow by default
+(`crates/fleet/src/proposing.rs`), so the request, the branch and the Finding's items, goes to the
+proposer as a dispatched request does, and the head of its plan is cut from the branch. A plan's
+other Jobs wait on the head and are cut from the base.
+
+**Two refusals, both 409s:** `fleet.rescue_unread` (no Finding of the slot has items or words to
+carry) and `fleet.rescue_nothing_left` (its verdict is `scraps`). A stash's refusals apply too.
+
+**No migration, no store change and no event.** The landing is the existing `job_landing` row.
+
+## Protocol 23.31: what a step does, in words
+
+The owner, 5 Oct 2026, at the approval gate on a workflow he had not used: *I have no idea what that
+means.*
+
+**One optional field, additive.** `WorkflowStep` and `StepDetail` gain `about`: a line or two on what
+the step does for the Job and what it hands on. A workflow step declares it as `about:` beside
+`label:`. Absent where the step wrote none, and a blank one is read as absent. `StepDetail` reads it
+off the frozen workflow (`about` is written beside `label` in the Job's frozen steps), so a Job
+frozen before 23.31 shows nothing there.
 
 ## Open questions
 

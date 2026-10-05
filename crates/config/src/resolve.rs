@@ -309,6 +309,7 @@ fn resolve_step(
     )
     .capturing(step.captured())
     .walking(step.walked())
+    .describing(step.about().map(str::to_string))
     .dispatching(step.may_dispatch_jobs())
     // Its own builder for `dispatching`'s reason, and read straight off the
     // step: the file was required to say, and `config` already refused a

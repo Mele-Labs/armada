@@ -51,7 +51,7 @@ export type FleetHealth = {
   /**
    * Whether any served repository left a workflow definition out, so a rail can
    * warn without counting. A boolean and never a number: the list is
-   * `GET /workflows/left_out`. Absent from a Fleet older than 23.30.
+   * `GET /workflows/left_out`. Absent from a Fleet older than 23.32.
    */
   workflows_left_out?: boolean;
 };

@@ -1,5 +1,5 @@
 // The dispatch gate drawn as the run it will be (prototype, 3 Oct 2026), in
-// three lanes — setup, the work, delivery — each gate beside its step: each node opens a card beside it with what it tunes for this Job,
+// three lanes — setup, the work, delivery — each gate beside its step: each node opens a panel on the right with what it tunes for this Job,
 // another workflow rebuilds the steps, Done when is one list on two nodes, and
 // how it lands reshapes the end of the run.
 

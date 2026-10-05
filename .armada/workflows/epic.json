@@ -45,6 +45,7 @@
     {
       "id": "plan",
       "label": "Plan the wave",
+      "about": "Splits the milestone or issue list into Jobs and proposes them. They wait until you approve, and approving starts the whole wave.",
       "records_plan": true,
       "may_dispatch_jobs": true,
       "evidence": {
@@ -81,6 +82,7 @@
     {
       "id": "roll_up",
       "label": "Roll up the wave",
+      "about": "Writes up what the wave's Jobs did as one document. You read it before the epic closes.",
       "phase": "delivery",
       "follows_plan": true,
       "evidence": {

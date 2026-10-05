@@ -42,6 +42,7 @@
     {
       "id": "frame",
       "label": "Frame",
+      "about": "Writes three lines on what will be tried and how, before any code. Build works from them.",
       "records_plan": true,
       "evidence": {
         "submitted": { "type": "facts_note" }
@@ -57,6 +58,7 @@
     {
       "id": "build",
       "label": "Build",
+      "about": "Builds a rough version to answer the question. The repository's walk server starts so you can use it. You decide whether it is enough.",
       "follows_plan": true,
       "evidence": {
         "submitted": { "type": "diff" },
@@ -68,6 +70,7 @@
     {
       "id": "write_up",
       "label": "Write up",
+      "about": "Writes up what was tried and what it showed. The code is not landed.",
       "evidence": {
         "submitted": { "type": "facts_note" }
       },

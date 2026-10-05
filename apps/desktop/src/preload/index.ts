@@ -259,12 +259,10 @@ const api: BridgeApi = {
   overrideVerdict: (jobId: string, reason: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.overrideVerdict, jobId, reason),
 
-  // Ask the gate again where it could not decide. **Its own entry beside the
-  // override rather than a flag on it**: that one lifts a decision a machine
-  // made, and this one asks for a decision no machine reached. Fleet's two
-  // routes refuse each other's triggers, so one capability taking which would
-  // be a surface that reads as one act and performs two acts that partition. No
-  // reason crosses, because nothing is being disagreed with.
+  // Ask the judge again where it did not answer. **Its own entry beside the
+  // override rather than a flag on it**: that one advances the step, and this
+  // one changes nothing but asks again. No reason crosses, because nothing is
+  // being disagreed with.
   rerunGate: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunGate, jobId),
 
   // Run a stopped step's Checks again. Its own entry beside `rerunGate`'s, for

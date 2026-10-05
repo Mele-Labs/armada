@@ -32,6 +32,7 @@ use crate::yaml::{self, Table};
 const STEP_KEYS: &[&str] = &[
     "id",
     "label",
+    "about",
     "evidence",
     "mechanical_checks",
     "judge_checks",
@@ -111,6 +112,7 @@ const SUBMITTED_KEYS: &[&str] = &["type"];
 pub struct Step {
     id: StepId,
     label: String,
+    about: Option<String>,
     evidence_type: Option<EvidenceType>,
     captured: bool,
     walked: bool,
@@ -144,6 +146,12 @@ impl Step {
     /// a second field rather than a prettier `id`.
     pub fn label(&self) -> &str {
         &self.label
+    }
+
+    /// What the step does for the Job, in a line or two a person reads before
+    /// approving it. **`None` where the step wrote none**, and none draws nothing.
+    pub fn about(&self) -> Option<&str> {
+        self.about.as_deref()
     }
 
     pub fn evidence_type(&self) -> Option<EvidenceType> {
@@ -319,6 +327,13 @@ pub(super) fn read(
     let label = table
         .required("label", out)
         .and_then(|value| yaml::text(&table.at("label"), value, out));
+    // **Absent and blank are the same answer: nothing to say.** What the step
+    // does for the Job, in the owner's words, so a blank one is not carried.
+    let about_key = table.at("about");
+    let about = table
+        .optional("about")
+        .and_then(|value| yaml::text(&about_key, value, out))
+        .filter(|text| !text.trim().is_empty());
     let (evidence_type, captured, walked) = evidence(&mut table, out);
     // **Absent is false, and anything that is not a boolean is a refusal** —
     // `may_dispatch_jobs`'s rule, for its reason: a value read as absent
@@ -542,6 +557,7 @@ pub(super) fn read(
     Some(Step {
         id: StepId::new(id?),
         label: label?,
+        about,
         evidence_type,
         captured: captured?,
         walked: walked?,

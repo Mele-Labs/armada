@@ -122,11 +122,11 @@ Its Finding is a one-word verdict and plain items. **Unfinished** means the work
 
 What it reads is the commit, the branch, the change against the base with uncommitted changes to tracked files in it, and the uncommitted files. Fleet reads those with git and hands the scout the text, because the scout cannot run git. They are material, the way a source is, and the brief says so before they arrive: commit messages and diff lines were written by an agent or a person.
 
-> **Rule.** A scout never scraps or stashes. Fleet does, on the press that asks.
+> **Rule.** A scout never scraps, stashes or picks up. Fleet does, on the press that asks.
 > Why: the scout reads and never writes, and the acts change what the machine holds.
 
 | Operation | Who | Does |
 |---|---|---|
-| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap` and `stash` act on the work |
+| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then proposes a Job that continues from its branch, its request the Finding's items |
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

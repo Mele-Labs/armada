@@ -40,17 +40,17 @@ export type WorkflowSummary = {
   for_requests?: string;
   /**
    * The file this definition was read from, as Fleet read it: a path, or a
-   * bracketed name where Armada carries it. Absent from a Fleet older than 23.30.
+   * bracketed name where Armada carries it. Absent from a Fleet older than 23.32.
    */
   file?: string;
   /**
    * The definitions of this id that a more specific place replaced, one per
-   * place. Absent where nothing is replaced, and from a Fleet older than 23.30.
+   * place. Absent where nothing is replaced, and from a Fleet older than 23.32.
    */
   overrides?: OverriddenWorkflow[];
 };
 
-/** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.30. */
+/** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.32. */
 export type OverriddenWorkflow = {
   /** `armada` or `kit`; a repository's own is never replaced. */
   source: string;
@@ -61,7 +61,7 @@ export type OverriddenWorkflow = {
  * `GET /workflows/definition?workflow_id=&source=&manifest_id=`: one definition
  * as its file holds it. `source` is optional and names the place; absent is the
  * one that runs. 422 `fleet.no_such_workflow_definition` where none is held.
- * Since 23.30. `crates/ipc/src/setup.rs`.
+ * Since 23.32. `crates/ipc/src/setup.rs`.
  */
 export type WorkflowDefinition = {
   workflow_id: string;
@@ -158,6 +158,8 @@ export type WorkflowStep = {
    * Sent on every step since 23.19; optional here so a fixture need not say.
    */
   phase?: StepPhase;
+  /** What the step does for the Job, a line or two. Absent where the workflow wrote none. Since 23.31. */
+  about?: string;
   /** Whether this step's Drone may create Jobs. Absent is false. Since 23.19. */
   may_dispatch_jobs?: boolean;
   /** `StepDetail.drone_per_task`, before a dispatch. Absent is false. Since 23.19. */

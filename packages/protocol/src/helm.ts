@@ -54,7 +54,7 @@ export type HelmScreen =
    * reported to Helm as being on the Board.
    */
   | "settings"
-  /** The Workflow creator. Since 23.31. */
+  /** The Workflow creator. Since 23.33. */
   | "workflows"
   | "job_detail";
 

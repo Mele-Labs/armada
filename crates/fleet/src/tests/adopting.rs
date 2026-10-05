@@ -853,8 +853,8 @@ async fn an_undecided_gate_under_an_adopted_drone_offers_no_re_run() {
 
     assert_eq!(
         offered(&fleet, &job).await,
-        ["restart_step", "redispatch_job"],
-        "no re-run and no override: nothing ruled, and nothing can be asked again"
+        ["override_verdict", "restart_step", "redispatch_job"],
+        "no re-run, because nothing can be asked again; an override needs no Drone"
     );
 
     end(pid).await;

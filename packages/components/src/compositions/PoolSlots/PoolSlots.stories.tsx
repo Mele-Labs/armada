@@ -315,7 +315,7 @@ export const Reading: Story = {
     await expect(finding.getByRole("img", { name: "Reading" })).toBeInTheDocument();
     await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
     await expect(finding.queryByRole("list", { name: "Searched" })).toBeNull();
-    await expect(finding.queryByRole("button", { name: /Scrap|Stash/ })).toBeNull();
+    await expect(finding.queryByRole("button", { name: /Scrap|Stash|Pick up/ })).toBeNull();
     await userEvent.click(finding.getByRole("button", { name: "Stop" }));
     await expect(args.onRescue).toHaveBeenCalledWith("stop", 4);
     await userEvent.click(bay(canvas, 4).getByRole("button", { name: "Stop" }));
@@ -376,6 +376,36 @@ export const FindingAnswered: Story = {
 };
 
 /**
+ * **Pick up acts at once and closes the sheet**, like Stash: the proposal it
+ * makes is Fleet's, and shows wherever a new proposal does. A refusal is said on
+ * the bay.
+ */
+export const FindingPickedUp: Story = {
+  name: "Finding picked up",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/reader/retry.rs has no test"] },
+        }),
+        refused: "Not picked up: no origin to push to",
+      },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(bay(canvas, 4).getByRole("alert")).toHaveTextContent("Not picked up: no origin to push to");
+    const finding = await opened(canvas, userEvent, 4);
+    await userEvent.click(finding.getByRole("button", { name: "Pick up" }));
+    await expect(args.onRescue).toHaveBeenCalledTimes(1);
+    await expect(args.onRescue).toHaveBeenCalledWith("pick_up", 4);
+    await expect(canvas.queryByRole("dialog")).toBeNull();
+  },
+};
+
+/**
  * **Scraps is one line**, under its one word: no list, and nothing under it to
  * do. **A Scout that did not answer in the shape** leaves its own words as they
  * are, with no verdict drawn.
@@ -406,11 +436,14 @@ export const FindingScraps: Story = {
     await expect(scraps.getByText("A draft note in notes/lease.md")).toBeInTheDocument();
     await expect(scraps.queryByRole("list", { name: "Left to do" })).toBeNull();
     await expect(scraps.queryByRole("heading", { name: "Unfinished" })).toBeNull();
+    await expect(scraps.queryByRole("button", { name: "Pick up" })).toBeNull();
+    await expect(scraps.getByRole("button", { name: "Stash" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
 
     const prose = await opened(canvas, userEvent, 5);
     await expect(prose.getByText("The parser is half written; the lexer is done.")).toBeInTheDocument();
     await expect(prose.queryByRole("heading", { name: /Unfinished|Scraps/ })).toBeNull();
+    await expect(prose.getByRole("button", { name: "Pick up" })).toBeInTheDocument();
   },
 };
 
@@ -512,6 +545,7 @@ export const FindingFailed: Story = {
       await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/retry.rs");
       await expect(finding.getByRole("button", { name: "Scrap" })).toBeInTheDocument();
       await expect(finding.getByRole("button", { name: "Stash" })).toBeInTheDocument();
+      await expect(finding.queryByRole("button", { name: "Pick up" })).toBeNull();
       await expect(finding.queryByRole("img", { name: "Uncommitted changes on top" })).toBeNull();
       await expect(finding.queryByLabelText(/cut before/)).toBeNull();
       return finding;

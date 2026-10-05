@@ -28,6 +28,7 @@
     {
       "id": "plan",
       "label": "Scope the refactor",
+      "about": "Reads the code and writes down the restructure as tasks. Nothing is changed yet. The tasks are what Restructure works from.",
       "evidence": {
         "submitted": { "type": "plan" }
       },
@@ -58,6 +59,7 @@
     {
       "id": "implement",
       "label": "Restructure",
+      "about": "Moves and renames code from the plan, one Drone per task, and runs the repository's checks to confirm behaviour has not changed.",
       "evidence": {
         "submitted": { "type": "diff" }
       },
@@ -120,6 +122,7 @@
     {
       "id": "handoff",
       "label": "Review the change",
+      "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
       "evidence": {
         "submitted": { "type": "review" }
       },

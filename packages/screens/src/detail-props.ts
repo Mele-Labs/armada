@@ -211,7 +211,7 @@ export type JobDetailProps = {
    * does not.
    */
   onRaiseTurnCap: (jobId: string, turnCap: number) => void;
-  /** Ask the gate again on a step it could not decide. Nothing is at stake. */
+  /** Ask the judge again on a step it did not answer. Nothing is at stake. */
   onRerun: (jobId: string) => void;
   /**
    * Run a stopped step's Checks again, on the worktree as it stands. No
