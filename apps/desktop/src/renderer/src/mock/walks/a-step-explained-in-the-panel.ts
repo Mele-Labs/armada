@@ -17,6 +17,8 @@ export const aStepExplainedInThePanel = walk("proto/feature-at-approval", [
     say: "What the step does, above its settings",
   },
   { type: "opus", into: inside(FRAME, role("combobox", "Model on Frame")), say: "Frame runs on opus" },
-  { press: inside(FRAME, button("Close")), say: "Closed, and the canvas is as it was" },
+  { press: card("Build"), say: "Another node, with the panel still open" },
+  { look: dialog("Build"), say: "The panel is Build's now, without closing first" },
+  { press: inside(dialog("Build"), button("Close")), say: "Closed, and the canvas is as it was" },
   { look: inside(card("Frame"), text("opus")), say: "The node carries the model" },
 ]);

@@ -365,12 +365,14 @@ export function ApprovalCanvas({
   });
 
   // The panel every other tab opens, over the work area: the node stays marked
-  // while it is open, and closing it returns to the canvas.
+  // while it is open, closing it returns to the canvas, and pressing another
+  // node swaps it to that node (`through`: the canvas keeps its presses).
   const panel =
     opened === undefined ? null : (
       <Sheet
         open
         floating
+        through
         kind="approval-node"
         size="dock"
         floor={floor}

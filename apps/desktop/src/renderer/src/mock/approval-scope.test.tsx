@@ -154,3 +154,14 @@ test("what a person moved under the lead is what the press sends, and what the J
   await expect.element(page.getByRole("heading", { name: "Retire guide 8", exact: true })).toBeVisible();
   expect(approving().all()).toHaveLength(0);
 });
+
+test("pressing another node with a panel open swaps the panel to it, and Close still closes", async () => {
+  mount(onJob(proposalFromAnIssue()));
+  await openNode("Brief");
+  // A real press, on the canvas behind the open panel.
+  await page.getByRole("button", { name: /^Base branch, / }).click();
+  await expect.element(page.getByRole("dialog", { name: "Base branch" })).toBeVisible();
+  expect(page.getByRole("dialog", { name: "Brief" }).all()).toHaveLength(0);
+  await closeNode();
+  expect(page.getByRole("dialog").all()).toHaveLength(0);
+});
