@@ -26,8 +26,8 @@ import {
   LayoutDashboard,
   Merge,
   Presentation,
-  ScrollText,
   Settings as SettingsIcon,
+  Workflow,
 } from "lucide-react";
 
 import type { PaletteSurface } from "./Palette";
@@ -201,9 +201,7 @@ export const SURFACES: readonly PaletteSurface[] = [
     // Past the ninth, so no key; reached by the rail and by name.
     shortcut: digitOf(SURFACE.workflows),
     aliases: ["workflow", "create workflow"],
-    // A sketch: `scroll-text` is the workflow a Job runs, in the Graph group.
-    // A Navigation glyph is the owner's to mint.
-    icon: ScrollText,
+    icon: Workflow,
   },
 ];
 

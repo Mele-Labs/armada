@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, TriangleAlert, type LucideIcon } from "lucide-react";
+import { PanelLeftClose, Ban, PanelLeftOpen, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -124,7 +124,7 @@ function Item({
       {!collapsed && item.warning !== undefined ? (
         <Tooltip label={item.warning}>
           <span className="armada-sidebar__warning" role="img" aria-label={item.warning}>
-            <TriangleAlert size={12} strokeWidth={2} aria-hidden />
+            <Ban size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
       ) : null}
