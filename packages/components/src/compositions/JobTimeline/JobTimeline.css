@@ -1,5 +1,9 @@
-/* The scrubber under a timeline of `WaveCanvas` cards: the time axis, and the playhead on it. */
+/* Jobs in lanes, a lane to a family, on a time axis with the playhead on it. A row is `--timeline-row`;
+   a lane is as many rows as its family's Jobs stack to, and a Job's dot sits at the centre of its row. */
 .armada-timeline {
+  --timeline-head: 11rem;
+  --timeline-row: 1.5rem;
+  --timeline-pad: var(--space-1);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -20,19 +24,42 @@
   color: var(--fg-muted);
 }
 
-.armada-timeline__canvas {
-  height: 60vh;
-  min-height: 24rem;
-  min-width: 0;
+/* The lanes scroll down; the ruler stays at the top of them. */
+.armada-timeline__scroll {
+  max-height: 60vh;
+  min-height: 12rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-timeline__lanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .armada-timeline__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: var(--timeline-head) minmax(0, 1fr);
+  border-block-end: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+.armada-timeline__ruler::before {
+  content: "";
+}
+
+.armada-timeline__ruler-track {
   position: relative;
   height: var(--space-6);
-  border-block: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
   cursor: col-resize;
-  }
+}
 
 .armada-timeline__tick {
   position: absolute;
@@ -63,4 +90,181 @@
 .armada-timeline__playhead:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* The playhead's line, down through every lane, over the track column only. */
+.armada-timeline__line {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: var(--timeline-head) 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.armada-timeline__line > span {
+  position: absolute;
+  inset-block: 0;
+  width: var(--border-width);
+  background: var(--accent);
+}
+
+/* One family. Its frame is its root's state, at the playhead. */
+.armada-timeline__lane {
+  display: grid;
+  grid-template-columns: var(--timeline-head) minmax(0, 1fr);
+  min-height: calc(var(--space-8) + var(--timeline-pad));
+  border-block-end: var(--border-width) solid var(--border-default);
+}
+
+.armada-timeline__lane[data-alone] {
+  opacity: 0.8;
+}
+
+.armada-timeline__family {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2);
+  border-inline-start: var(--space-1) solid var(--state);
+  border-inline-end: var(--border-width) solid var(--border-default);
+  background: color-mix(in srgb, var(--state) 8%, var(--bg-raised));
+}
+
+.armada-timeline__lane[data-alone] .armada-timeline__family {
+  border-inline-start-color: var(--border-default);
+  background: transparent;
+}
+
+.armada-timeline__family[data-ghost] {
+  opacity: 0.5;
+}
+
+.armada-timeline__family-title {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-timeline__family-handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}
+
+.armada-timeline__row-track {
+  position: relative;
+  min-height: calc(var(--rows) * var(--timeline-row) + 2 * var(--timeline-pad));
+  overflow: hidden;
+}
+
+/* A Job: the dot is at the instant it started, its title after it. */
+.armada-timeline__node {
+  all: unset;
+  box-sizing: border-box;
+  position: absolute;
+  top: calc(var(--timeline-pad) + var(--row) * var(--timeline-row));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--timeline-row) - 0.25rem);
+  max-width: 10rem;
+  transform: translateX(-0.3rem);
+  cursor: pointer;
+}
+
+.armada-timeline__dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--state);
+}
+
+.armada-timeline__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  /* Over the lines that pass behind it, so a title is never struck through. */
+  padding-inline: 0.15rem;
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+}
+
+.armada-timeline__node:hover .armada-timeline__label,
+.armada-timeline__node[data-shown] .armada-timeline__label {
+  color: var(--fg-default);
+}
+
+.armada-timeline__node[data-shown] .armada-timeline__dot {
+  box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--state);
+}
+
+.armada-timeline__node:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Began before the window: only its title, at the edge. */
+.armada-timeline__node[data-before] .armada-timeline__dot {
+  visibility: hidden;
+}
+
+/* Not yet minted at the playhead: a ring, and a faint title. */
+.armada-timeline__node[data-ghost] {
+  opacity: 0.45;
+}
+
+.armada-timeline__node[data-ghost] .armada-timeline__dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--border-width) var(--fg-subtle);
+}
+
+/* How long it ran: a thin line along the bottom of its row. */
+.armada-timeline__span {
+  position: absolute;
+  top: calc(var(--timeline-pad) + var(--row) * var(--timeline-row) + var(--timeline-row) - 0.4rem);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--state);
+  opacity: 0.55;
+}
+
+/* A dispatch: down (or up) the dispatcher's row at the instant the child was minted, then across to the child. */
+.armada-timeline__edge {
+  position: absolute;
+  box-sizing: border-box;
+  top: calc(var(--timeline-pad) + var(--from) * var(--timeline-row) + 0.625rem);
+  height: calc(var(--rows) * var(--timeline-row));
+  border-inline-start: var(--border-width) solid var(--fg-subtle);
+  pointer-events: none;
+}
+
+.armada-timeline__edge[data-down] {
+  border-block-end: var(--border-width) solid var(--fg-subtle);
+}
+
+.armada-timeline__edge:not([data-down]) {
+  border-block-start: var(--border-width) solid var(--fg-subtle);
+}
+
+.armada-timeline__edge[data-ghost] {
+  opacity: 0.3;
+}
+
+/* The card for the Job pointed at. Its room is kept whether or not there is one. */
+.armada-timeline__dock {
+  min-height: 6.5rem;
 }

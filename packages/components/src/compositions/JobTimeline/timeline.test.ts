@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampWindow, following, LEAST_WIDTH_MS, packRows, percentOf, reaches, spanOf, ticksOf, zoomed } from "./timeline";
+import { clampWindow, following, laneRows, LEAST_WIDTH_MS, packRows, percentOf, reaches, spanOf, ticksOf, zoomed } from "./timeline";
 
 const MIN = 60_000;
 const span = { start: 0, width: 600 * MIN };
@@ -23,6 +23,18 @@ describe("packRows", () => {
       { id: "y", from: 11, to: 40 },
     ]);
     expect(rows.get("c")).toBe(rows.get("p"));
+  });
+
+  it("puts a child in the free row nearest its parent's when its own is taken", () => {
+    const rows = packRows([
+      { id: "a", from: 0, to: 100 },
+      { id: "b", from: 1, to: 100 },
+      { id: "p", from: 2, to: 100 },
+      { id: "q", from: 3, to: 100 },
+      { id: "x", from: 4, to: 9 },
+      { id: "c", from: 5, to: 30, parent: "p" },
+    ]);
+    expect([rows.get("p"), rows.get("c")]).toEqual([2, 4]);
   });
 
   it("holds 150 chained and fanned-out jobs in far fewer rows", () => {
@@ -62,5 +74,24 @@ describe("ticks", () => {
     expect(ticks.every((t) => t % (15 * MIN) === 0)).toBe(true);
     expect(ticks.length).toBeGreaterThan(3);
     expect(ticks.length).toBeLessThanOrEqual(9);
+  });
+});
+
+describe("laneRows", () => {
+  const bar = (id: string, from: number, to: number) => ({ id, from, to });
+
+  it("keeps a label off the span of the Job before it, and a Job beyond that on the same row", () => {
+    const { rows, count } = laneRows([bar("a", 0, 100), bar("b", 30, 60), bar("c", 200, 220)], new Map(), 20);
+    expect([rows.get("a"), rows.get("b"), rows.get("c")]).toEqual([0, 1, 0]);
+    expect(count).toBe(2);
+  });
+
+  it("holds a short Job's row for the width of its label", () => {
+    const { rows } = laneRows([bar("a", 0, 5), bar("b", 10, 15)], new Map(), 20);
+    expect(rows.get("b")).toBe(1);
+  });
+
+  it("is no rows for no Jobs", () => {
+    expect(laneRows([], new Map(), 20).count).toBe(0);
   });
 });

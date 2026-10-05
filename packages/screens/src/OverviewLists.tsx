@@ -22,16 +22,15 @@
 // Mounted beneath the summary strip #921 put here. Since the Job Board went, this is where every
 // Job is listed, Done included — `overview-lists.ts` says why that section arrived.
 
-import { ActiveJobsList, Button, Tooltip, WaveCanvas } from "@armada/components";
+import { ActiveJobsList, Button, Tooltip } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
-import { ChartGantt, Waypoints } from "lucide-react";
+import { ChartGantt } from "lucide-react";
 import { BoardEmpty, OverviewEmpty } from "./BoardEmpty";
 import type { BoardSection } from "./board";
 import { columnsFor, repositoryOf } from "./board";
 import { boardPressOf, verbOf } from "./keys";
 import { headlineOf } from "./lineage";
 import { useListCursor, useListKeydown } from "./list-keyboard";
-import { overviewGraphOf } from "./overview-graph";
 import { nestedOf, overviewListsOf } from "./overview-lists";
 import { OverviewTimeline } from "./OverviewTimeline";
 import { readingOf } from "./reading";
@@ -89,7 +88,7 @@ export type OverviewListsProps = {
    * the Board.
    */
   onCursor?: (jobId: string | null) => void;
-  /** The Jobs as the sectioned list or as the graph their dependencies make. Absent is the list. */
+  /** The Jobs as the sectioned list or as lanes on a timeline. Absent is the list. */
   view?: OverviewView;
   /** The toggle pressed. Absent draws no toggle. */
   onView?: (view: OverviewView) => void;
@@ -98,7 +97,7 @@ export type OverviewListsProps = {
   onPlayhead?: (t: number | null) => void;
 };
 
-export type OverviewView = "list" | "graph" | "timeline";
+export type OverviewView = "list" | "timeline";
 
 export function OverviewLists({
   jobs,
@@ -171,8 +170,6 @@ export function OverviewLists({
   }
   useListKeydown(press);
 
-  const graph = view === "graph" ? overviewGraphOf(drawn, { onOpen, onKill, onRedispatch }) : null;
-
   const rowOf = ({ job, depth, alsoWaits }: { job: JobSummary; depth: number; alsoWaits: boolean }) => (
     <Row
       key={job.id}
@@ -205,19 +202,7 @@ export function OverviewLists({
     >
       {onView === undefined || sections.length === 0 ? null : (
         <div className="armada-screen__overview-view">
-          {/* `waypoints` and `chart-gantt`, the registry's graph and timeline toggles: pressed is that view. */}
-          <Tooltip label={view === "graph" ? "Back to the list" : "Graph"}>
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label="Graph"
-              aria-pressed={view === "graph"}
-              onClick={() => onView(view === "graph" ? "list" : "graph")}
-            >
-              <Waypoints size={16} />
-            </Button>
-          </Tooltip>
+          {/* `chart-gantt`, the registry's timeline toggle: pressed is that view. */}
           <Tooltip label={view === "timeline" ? "Back to the list" : "Timeline"}>
             <Button
               variant="ghost"
@@ -240,10 +225,6 @@ export function OverviewLists({
           onPlayhead={(t) => onPlayhead?.(t)}
           acts={{ onOpen, onKill, onRedispatch }}
         />
-      ) : graph !== null && sections.length > 0 ? (
-        <div className="armada-screen__overview-graph">
-          <WaveCanvas nodes={graph.nodes} edges={graph.edges} label="Jobs and what they wait on" />
-        </div>
       ) : sections.length === 0 && disconnected === null && repositories.length > 0 ? (
         // The null result is a card of its own on the canvas, not a well inside a panel — a
         // card inside the panel would be a card in a card. `BoardEmpty`'s order: a fault or a

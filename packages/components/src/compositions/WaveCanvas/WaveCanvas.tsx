@@ -173,6 +173,9 @@ function JobCard({ card }: { card: WaveCanvasCard }) {
   );
 }
 
+/** The card on its own, off the canvas: the timeline shows one for the Job a person is pointing at. */
+export { JobCard as WaveJobCard };
+
 function NodeView({ data }: NodeProps<WaveNode>) {
   return (
     <>

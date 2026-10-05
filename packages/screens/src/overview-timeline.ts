@@ -8,10 +8,10 @@
 // from `created_at` to `started_at`, `running` from there to `ended_at`, and its own `status`
 // once ended. A Job still going shows `running` before now and its own status at now.
 
-import type { JobTimelineBar, JobTimelineDispatch } from "@armada/components";
+import type { JobTimelineBar, JobTimelineDispatch, JobTimelineFamily } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
-import { actsOf } from "./overview-graph";
-import type { OverviewGraphActs } from "./overview-graph";
+import { actsOf } from "./overview-acts";
+import type { OverviewActs } from "./overview-acts";
 import { titleOf } from "./title";
 
 const at = (iso: string | undefined): number | null => {
@@ -40,7 +40,7 @@ export function jobsAt(jobs: readonly JobSummary[], t: number, now: number): Job
   });
 }
 
-export function timelineBarsOf(jobs: readonly JobSummary[], t: number, now: number, acts: OverviewGraphActs): JobTimelineBar[] {
+export function timelineBarsOf(jobs: readonly JobSummary[], t: number, now: number, acts: OverviewActs): JobTimelineBar[] {
   return jobs.map((job) => {
     const from = at(job.started_at) ?? at(job.created_at) ?? now;
     const to = at(job.ended_at) ?? now;
@@ -50,13 +50,57 @@ export function timelineBarsOf(jobs: readonly JobSummary[], t: number, now: numb
   });
 }
 
-/** Every Job whose dispatcher is also on the board. */
-export function timelineDispatchesOf(jobs: readonly JobSummary[]): JobTimelineDispatch[] {
+/** The dispatcher of `job` where it is on the board and is not the Job itself. */
+const dispatcherOf = (job: JobSummary, held: ReadonlySet<string>): string | undefined =>
+  job.dispatched_by !== undefined && job.dispatched_by !== job.id && held.has(job.dispatched_by) ? job.dispatched_by : undefined;
+
+const byCreated = (a: JobSummary, b: JobSummary) => (at(a.created_at) ?? 0) - (at(b.created_at) ?? 0) || a.id.localeCompare(b.id);
+
+/**
+ * The Jobs as families: a root, with every Job it dispatched, however deep, in the order they were
+ * minted. A root is a Job nobody on the board dispatched: its dispatcher may have left the board.
+ * A Job with no dispatcher and nothing it dispatched is alone, and belongs to no family.
+ *
+ * **Every Job lands in one family or in alone, even round a cycle.** `dispatched_by` should never
+ * loop, but a board that holds a loop still draws: once the roots are spent, the earliest Job not
+ * yet placed is taken as a root, and its own dispatcher is ignored so no edge is drawn into it.
+ * `dispatches` is the edges the families drew, at each child's creation.
+ */
+export function familiesOf(jobs: readonly JobSummary[]): {
+  families: JobTimelineFamily[];
+  alone: string[];
+  dispatches: JobTimelineDispatch[];
+} {
   const held = new Set(jobs.map((job) => job.id));
-  return jobs.flatMap((job) => {
-    const created = at(job.created_at);
-    return job.dispatched_by !== undefined && job.dispatched_by !== job.id && held.has(job.dispatched_by) && created !== null
-      ? [{ parent: job.dispatched_by, child: job.id, at: created }]
-      : [];
-  });
+  const sorted = [...jobs].sort(byCreated);
+  const children = new Map<string, JobSummary[]>();
+  for (const job of sorted) {
+    const parent = dispatcherOf(job, held);
+    if (parent !== undefined) children.set(parent, [...(children.get(parent) ?? []), job]);
+  }
+  const placed = new Set<string>();
+  const grown: JobTimelineFamily[] = [];
+  const dispatches: JobTimelineDispatch[] = [];
+  const grow = (root: JobSummary) => {
+    const members: string[] = [];
+    const queue = [root];
+    placed.add(root.id);
+    for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+      members.push(next.id);
+      for (const child of children.get(next.id) ?? []) {
+        if (placed.has(child.id)) continue;
+        placed.add(child.id);
+        dispatches.push({ parent: next.id, child: child.id, at: at(child.created_at) ?? 0 });
+        queue.push(child);
+      }
+    }
+    grown.push({ root: root.id, members });
+  };
+  for (const job of sorted) if (dispatcherOf(job, held) === undefined) grow(job);
+  for (const job of sorted) if (!placed.has(job.id)) grow(job);
+  return {
+    families: grown.filter((one) => one.members.length > 1),
+    alone: grown.filter((one) => one.members.length === 1).map((one) => one.root),
+    dispatches,
+  };
 }

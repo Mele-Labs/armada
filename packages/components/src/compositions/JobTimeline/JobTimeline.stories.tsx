@@ -35,6 +35,8 @@ const meta: Meta<typeof JobTimeline> = {
     bars,
     now: NOW,
     playhead: at(90),
+    families: [{ root: "a", members: ["a", "b", "c", "d"] }],
+    alone: [],
     dispatches: [
       { parent: "a", child: "b", at: at(28) },
       { parent: "b", child: "c", at: at(70) },

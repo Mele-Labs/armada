@@ -52,9 +52,10 @@ export type Placed = { id: string; from: number; to: number; parent?: string };
 /**
  * One row per bar so that no two in a row overlap, in the fewest rows greedy placement finds.
  *
- * **Placed in the order they start**, so a parent is always placed before what it dispatched, and
- * a child takes its parent's row when that is free: a chain reads straight across. Otherwise the
- * highest row that is free, which keeps the rows at the top full and the tail short.
+ * **Placed in the order they start**, so a parent is always placed before what it dispatched. A
+ * child takes the free row nearest its parent's, its own when that is free, so the edge between
+ * them is short and a chain reads straight across; a bar with no parent takes the highest free
+ * row, which keeps the rows at the top full and the tail short.
  */
 export function packRows(bars: readonly Placed[], gap = 0): Map<string, number> {
   const rowOf = new Map<string, number>();
@@ -62,12 +63,29 @@ export function packRows(bars: readonly Placed[], gap = 0): Map<string, number> 
   for (const bar of [...bars].sort((a, b) => a.from - b.from || a.to - b.to || a.id.localeCompare(b.id))) {
     const free = (row: number) => freeFrom[row] === undefined || freeFrom[row]! + gap <= bar.from;
     const parent = bar.parent === undefined ? undefined : rowOf.get(bar.parent);
-    let row = parent !== undefined && free(parent) ? parent : freeFrom.findIndex((_, at) => free(at));
-    if (row === -1) row = freeFrom.length;
+    const open = [...freeFrom.keys(), freeFrom.length].filter(free);
+    const row =
+      parent === undefined
+        ? open[0]!
+        : open.reduce((best, one) => (Math.abs(one - parent) < Math.abs(best - parent) ? one : best));
     freeFrom[row] = bar.to;
     rowOf.set(bar.id, row);
   }
   return rowOf;
+}
+
+/**
+ * The rows of one family's lane. A Job holds its row from where it starts to the later of where it
+ * ends and where its label ends, so a label never sits on another Job's span. `labelMs` is the
+ * label's width in time at the window's zoom. `count` is how many rows the lane needs.
+ */
+export function laneRows(
+  bars: readonly { id: string; from: number; to: number }[],
+  parentOf: ReadonlyMap<string, string>,
+  labelMs: number,
+): { rows: Map<string, number>; count: number } {
+  const rows = packRows(bars.map((bar) => ({ id: bar.id, from: bar.from, to: Math.max(bar.to, bar.from + labelMs), parent: parentOf.get(bar.id) })));
+  return { rows, count: bars.length === 0 ? 0 : Math.max(...rows.values()) + 1 };
 }
 
 const STEPS_MS = [

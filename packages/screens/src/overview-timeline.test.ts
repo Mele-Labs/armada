@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { JobSummary } from "@armada/protocol";
 
 import { job } from "./fixtures/build/base";
-import { jobsAt, statusAt, timelineBarsOf, timelineDispatchesOf } from "./overview-timeline";
+import { jobsAt, statusAt, familiesOf, timelineBarsOf } from "./overview-timeline";
 
 const T = (min: number) => new Date(Date.UTC(2026, 9, 5, 12, min)).toISOString();
 const NOW = Date.parse(T(60));
@@ -37,8 +37,44 @@ describe("the timeline's reads", () => {
     expect(b!.to).toBe(NOW);
   });
 
-  it("reads a dispatch off dispatched_by, at the child's creation, and ignores one that is not on the board", () => {
-    expect(timelineDispatchesOf([done, live])).toEqual([{ parent: "a", child: "b", at: Date.parse(T(10)) }]);
-    expect(timelineDispatchesOf([live])).toEqual([]);
+});
+
+describe("familiesOf", () => {
+  const at = (id: string, min: number, by?: string) => made("running", { id, created_at: T(min), started_at: T(min), ended_at: undefined, ...(by === undefined ? {} : { dispatched_by: by }) });
+  const ids = (jobs: JobSummary[]) => familiesOf(jobs).families.map((one) => one.members);
+
+  it("follows a chain down to its last Job, and reads each edge at the child's creation", () => {
+    const got = familiesOf([at("c", 20, "b"), at("a", 0), at("b", 10, "a")]);
+    expect(got.families).toEqual([{ root: "a", members: ["a", "b", "c"] }]);
+    expect(got.dispatches).toEqual([
+      { parent: "a", child: "b", at: Date.parse(T(10)) },
+      { parent: "b", child: "c", at: Date.parse(T(20)) },
+    ]);
+  });
+
+  it("keeps a fan-out in one family, in the order minted", () => {
+    expect(ids([at("a", 0), at("z", 5, "a"), at("y", 6, "a"), at("x", 7, "a")])).toEqual([["a", "z", "y", "x"]]);
+  });
+
+  it("sets aside a Job with no dispatcher and nothing it dispatched", () => {
+    const got = familiesOf([at("a", 0), at("b", 5, "a"), at("solo", 3)]);
+    expect(got.alone).toEqual(["solo"]);
+    expect(got.families.map((one) => one.root)).toEqual(["a"]);
+  });
+
+  it("takes a Job whose dispatcher is not on the board as a root", () => {
+    expect(familiesOf([at("b", 5, "gone"), at("c", 6, "b")]).families).toEqual([{ root: "b", members: ["b", "c"] }]);
+    expect(familiesOf([at("b", 5, "gone")]).alone).toEqual(["b"]);
+  });
+
+  it("places every Job round a cycle once, and draws no edge into the Job it broke at", () => {
+    const got = familiesOf([at("a", 0, "b"), at("b", 5, "a"), at("c", 8, "b")]);
+    expect(got.families).toEqual([{ root: "a", members: ["a", "b", "c"] }]);
+    expect(got.dispatches.map((one) => `${one.parent}>${one.child}`)).toEqual(["a>b", "b>c"]);
+    expect(familiesOf([at("s", 0, "s")]).alone).toEqual(["s"]);
+  });
+
+  it("orders families by when their root was minted", () => {
+    expect(familiesOf([at("late", 30), at("l2", 31, "late"), at("early", 1), at("e2", 2, "early")]).families.map((one) => one.root)).toEqual(["early", "late"]);
   });
 });
