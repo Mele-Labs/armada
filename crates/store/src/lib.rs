@@ -133,6 +133,9 @@ mod showing;
 mod shown_again;
 /// Which pool slot a Job's worktree is.
 mod slot;
+/// The Finding a rescue Scout brought back from a stranded slot. Since V106;
+/// its verdict and items since V107.
+mod slot_rescues;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
@@ -185,6 +188,7 @@ pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
+pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};

@@ -57,6 +57,87 @@ export type WorktreeSlot = {
    * which closes nothing.
    */
   closed?: boolean;
+  /** What a stranded slot holds, which a Scrap would lose. Since 23.29. */
+  stranded?: SlotStranded;
+  /** What a rescue Scout read of a stranded slot, while it reads and after. Since 23.29. */
+  rescue?: SlotFinding;
+};
+
+/** The work a stranded slot holds. */
+export type SlotStranded = {
+  /** Every path `git status` reports, untracked included. */
+  uncommitted: string[];
+  /** Commits the base does not have, newest first. */
+  commits: SlotCommit[];
+  /** Of those, how many are on neither the remote nor the base. */
+  unpushed: number;
+};
+
+/** One commit on a stranded slot's branch. */
+export type SlotCommit = {
+  sha: string;
+  subject: string;
+  /** Whether it exists anywhere but this slot. Since 23.29. */
+  home: CommitHome;
+};
+
+/**
+ * Where else a commit on a stranded slot exists: `only_here` on no remote branch
+ * and not on the local base, `on_remote` on a remote branch, `on_main` on the
+ * local base.
+ */
+export type CommitHome = "only_here" | "on_remote" | "on_main";
+
+/** Where a rescue Scout is. */
+export type SlotFindingState = "reading" | "answered" | "stopped" | "failed";
+
+/** What a rescue Scout concluded: `unfinished` has a part left to do, `scraps` needs no more work. */
+export type SlotVerdict = "unfinished" | "scraps";
+
+/** What a rescue Scout read of a stranded slot, kept against the slot. Since 23.29. */
+export type SlotFinding = {
+  state: SlotFindingState;
+  /** The commit the slot was at when the Scout read it. */
+  commit: string;
+  /** Whether uncommitted changes were on top of it. */
+  uncommitted: boolean;
+  /** Characters of the change dropped before the Scout was handed it. */
+  cut?: number;
+  read: string[];
+  searched: string[];
+  /**
+   * Whether the work has a part left to do, or is leftovers. Absent until the
+   * Scout answers in the shape asked for. Since 23.29.
+   */
+  verdict?: SlotVerdict;
+  /**
+   * Under `unfinished`, what is left to do, a line each. Under `scraps`, one
+   * line saying what the leftovers are. Since 23.29.
+   */
+  items?: string[];
+  /** What it said last, where that was not the shape asked for. */
+  summary?: string;
+  /** Why it failed, where it did. */
+  why?: string;
+  cost_micros?: number;
+};
+
+/** What a person does with a stranded slot. Since 23.29. */
+export type RescueAct = "start" | "stop" | "scrap" | "stash";
+
+/** `rescue_slot`'s body, `POST /worktrees/slots/rescue?manifest_id=`. */
+export type RescueSlot = { act: RescueAct; slot: number };
+
+/** What `rescue_slot` did. */
+export type SlotRescued = {
+  manifest_id: string;
+  slot: number;
+  /** The branch the slot was on, for a Scrap or a Stash. */
+  branch?: string;
+  /** A Scrap kept the branch, because it holds commits nothing else has. */
+  branch_kept?: boolean;
+  /** The commit a Stash made of the uncommitted work. */
+  committed?: string;
 };
 
 /** What a person does to the pool from Cleanup's bay grid. Since 23.17. */
@@ -84,7 +165,17 @@ export type SlotHolding =
   | { state: "busy" }
   | { state: "free" }
   /** One of Fleet's jobs. The title is absent where the store no longer has the job. */
-  | { state: "job"; job_id: string; job_title?: string }
+  | {
+      state: "job";
+      job_id: string;
+      job_title?: string;
+      /** Where the Job ended, for a Job that has. Since 23.29. */
+      job_status?: string;
+      /** Why the Job's release was refused after it ended: its work is still in the slot. Since 23.29. */
+      kept?: string;
+      /** The Job completed and holds the slot until a person clears it. Since 23.29. */
+      completed?: boolean;
+    }
   /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */
   | { state: "session"; holder: string }
   /** Its holder is gone and it still holds work. */
