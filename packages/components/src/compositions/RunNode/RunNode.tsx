@@ -216,7 +216,7 @@ function GateLine({ gate, named, meta }: { gate: RunNodeGate; named: string; met
         ) : (
           <span className="armada-run-node__marks">
             {gate.waited === undefined ? (
-              <span className="armada-run-node__mark-name" data-quiet>
+              <span className="armada-run-node__mark-name armada-run-node__mark-name--quiet">
                 {gate.asking}
               </span>
             ) : (

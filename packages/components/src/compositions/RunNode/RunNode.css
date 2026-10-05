@@ -145,7 +145,7 @@ button.armada-run-node {
   width: calc(var(--w-workflow-node) - var(--space-8) - var(--space-3));
   height: calc(var(--space-8) + var(--space-3));
   border: none;
-  border-radius: 999px;
+  border-radius: var(--space-8);
   background: none;
 }
 
@@ -166,7 +166,7 @@ button.armada-run-node {
   border: var(--border-width) solid var(--armada-run-node-hue);
   /* The kind, a thin accent on the leading end. */
   border-inline-start: var(--space-1) solid var(--armada-run-node-kind);
-  border-radius: 999px;
+  border-radius: var(--space-8);
   background: var(--bg-raised);
   color: var(--fg-muted);
 }
@@ -183,7 +183,7 @@ button.armada-run-node {
 
 /* Settled: thin and quiet. */
 .armada-run-node[data-gate][data-tone="done"] .armada-run-node__capsule {
-  border-width: 1px;
+  border-width: var(--border-width);
   border-inline-start-width: var(--space-1);
   border-color: color-mix(in srgb, var(--armada-run-node-hue) 45%, var(--border-default));
   opacity: 0.75;
@@ -194,7 +194,7 @@ button.armada-run-node {
 }
 
 .armada-run-node[data-gate]:is([data-tone="failed"], [data-tone="waiting"], [data-tone="blocked"]) .armada-run-node__capsule {
-  border-width: 2px;
+  border-width: var(--edge-active);
   border-inline-start-width: var(--space-1);
   background: color-mix(in srgb, var(--armada-run-node-hue) var(--row-tint), var(--bg-raised));
 }
@@ -253,7 +253,7 @@ button.armada-run-node {
   color: var(--step-failed);
 }
 
-.armada-run-node__mark-name[data-quiet] {
+.armada-run-node__mark-name--quiet {
   font-family: var(--font-sans);
   color: var(--fg-muted);
 }
