@@ -23,6 +23,8 @@ use crate::daemon::Fleet;
 use crate::gate::{rule_on, Began, Ruling};
 use crate::keeping::Keeping;
 use crate::regating::came_to;
+use crate::rerun_settles::{as_settled, note, settled, with_the_note};
+use crate::work_plan::with_the_plan;
 
 /// Why the Checks cannot run again. **Each is checked before anything runs**,
 /// and `core_model::Stuck` offers the act on exactly the reading these refuse.
@@ -251,6 +253,7 @@ where
         let ruling = self
             .ruled_with_no_drone(&job, step, &worktree, &submission)
             .await?;
+        self.settled_by_the_rerun(job_id, step, &ruling).await?;
         self.noted_rechecked(job_id, step, &ruling);
         self.noted_undecided(job_id, step, &ruling);
         if matches!(ruling, Ruling::Failed { .. } | Ruling::HandedBack { .. }) {
@@ -301,7 +304,6 @@ where
             .await
             .work_plan(job_id)
             .map_err(Adrift::Reading)?;
-        let recorded = crate::work_plan::with_the_plan(recorded, job.workflow(), plan.as_ref());
         let attempt = self
             .store()
             .lock()
@@ -337,6 +339,26 @@ where
             .filter(|run| run.step_id == *step && run.attempt == attempt)
             .flat_map(|run| run.record.iter())
             .any(|check| check.name == DIFF_NONEMPTY && check.outcome == CheckOutcome::Passed);
+        // A group's own run, as `crate::settling` reads it.
+        let at_group = self.group_at_gate(job, step).await?;
+        let spent = at_group.map_or(spent, |g| core_model::Spent::runs_this_pass(g.run));
+        // **The Judge runs only on green Checks**, and a group's tasks failed by
+        // a red run read done to it: `crate::rerun_settles`, Job 3.
+        let settling = at_group
+            .zip(plan.as_ref())
+            .map(|(g, plan)| (g.group, settled(plan, g.group)));
+        let judged_plan = plan.as_ref().map(|plan| match &settling {
+            Some((_, changes)) => as_settled(plan, changes, step, attempt, &self.now()),
+            None => plan.clone(),
+        });
+        let recorded = with_the_plan(recorded, job.workflow(), judged_plan.as_ref());
+        let recorded = with_the_note(
+            recorded,
+            job.workflow(),
+            settling
+                .and_then(|(group, changes)| note(group, &changes))
+                .as_deref(),
+        );
         let announcing = self.announcing(&served, job, step, attempt);
         let ports = self.port_map(job).await;
         let port_env = self.port_env(job).await;
@@ -352,9 +374,6 @@ where
             .await
             .tolerated_criteria()
             .unwrap_or_default();
-        // A group's own run, as `crate::settling` reads it.
-        let at_group = self.group_at_gate(job, step).await?;
-        let spent = at_group.map_or(spent, |g| core_model::Spent::runs_this_pass(g.run));
         // What another Job's fix holds off this one, refused whatever wrote it. #1673.
         let held_off = self.held_off(job_id).await.paths();
         let ruling = rule_on(
