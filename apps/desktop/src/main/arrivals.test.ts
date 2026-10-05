@@ -86,6 +86,7 @@ function fakeHost(
     setGreeted: () => {},
     proposalRef: () => null,
     setProposalRef: () => {},
+    setProposalJob: () => {},
     watchedJobId: () => null,
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { ChangeSlotPool, Outcome } from "@armada/protocol";
+import type { ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -576,6 +576,13 @@ void app.whenReady().then(() => {
   // reclaim's reason: whether a slot went is Fleet's reading.
   ipcMain.handle(CHANNELS.changeSlotPool, async (_event, manifestId: string, change: ChangeSlotPool) => {
     const outcome = await connection?.commands.changeSlotPool(manifestId, change);
+    await connection?.rereadHeld();
+    return outcome;
+  });
+  // The rescue of a stranded slot, read again after for the same reason: whether
+  // the Scout is reading, or the slot went, is Fleet's reading.
+  ipcMain.handle(CHANNELS.rescueSlot, async (_event, manifestId: string, rescue: RescueSlot) => {
+    const outcome = await connection?.commands.rescueSlot(manifestId, rescue);
     await connection?.rereadHeld();
     return outcome;
   });
