@@ -26,6 +26,7 @@
 //! counts that time against the Drone.
 
 mod absence;
+mod bounded;
 mod later;
 mod leaving_out;
 mod naming;
@@ -55,6 +56,7 @@ use crate::clock::Clock;
 use crate::converging::StepNorms;
 use crate::daemon::Fleet;
 use crate::dry_run::DryRuns;
+use crate::gate::CheckBudget;
 use crate::silence::Liveness;
 use crate::tests::admitted::dispatched;
 use crate::tests::daemon::{a_proposal, fitted_with, one, worktree_directory};
@@ -176,6 +178,27 @@ fn a_fleet_driven(
     changed: &[&str],
     drone: FakeHarness,
 ) -> Fixture {
+    a_fleet_budgeted(
+        home,
+        workflow,
+        clock,
+        allowed,
+        changed,
+        drone,
+        CheckBudget::of(Duration::from_secs(5)),
+    )
+}
+
+/// The same, with the time a Check and a wait for a place may take.
+fn a_fleet_budgeted(
+    home: &TempDir,
+    workflow: ResolvedWorkflow,
+    clock: Arc<Held>,
+    allowed: u32,
+    changed: &[&str],
+    drone: FakeHarness,
+    budget: CheckBudget,
+) -> Fixture {
     let mut fittings = fitted_with(
         home,
         FakeWorkProduct::changed(changed).showing("+    let x = 1;\n"),
@@ -186,6 +209,7 @@ fn a_fleet_driven(
     fittings.liveness = Liveness::of(QUIET_AFTER, 2);
     fittings.norms = StepNorms::of(60, WALL_CLOCK, Duration::from_secs(120));
     fittings.dry_runs = DryRuns::of(allowed);
+    fittings.budget = budget;
     fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a dry run"));
     Fleet::assembled(fittings)
 }
