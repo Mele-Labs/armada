@@ -355,6 +355,7 @@ fn every_kind_of_question_is_served_on_the_job_it_belongs_to_across_two_manifest
     detail.command_waiting = Some(CommandInFlight {
         call: "call-01QUESTIONOVERVIEWCMDB".to_string(),
         step_id: ipc::StepId::carried("fix"),
+        drone_id: None,
         asked_at: ipc::Instant::carried("2026-09-13T09:06:00.000Z"),
         tool: "Bash".to_string(),
         detail: "rm -rf node_modules".to_string(),

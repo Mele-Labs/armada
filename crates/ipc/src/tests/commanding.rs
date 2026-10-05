@@ -4,13 +4,16 @@
 //! pin the spellings Bridge mirrors by hand — and both sets are ones Bridge
 //! matches on, so a spelling that drifted would be a control that never draws.
 
-use crate::{decode, encode, CommandAnswer, CommandInFlight, Instant, StepId, WhenBlocked};
+use crate::{
+    decode, encode, CommandAnswer, CommandInFlight, DroneId, Instant, StepId, WhenBlocked,
+};
 
 /// A Drone held on one shell command, with all three answers on offer.
 fn waiting() -> CommandInFlight {
     CommandInFlight {
         call: String::from("toolu_01"),
         step_id: StepId::carried("implement"),
+        drone_id: Some(DroneId::carried("drone-t2")),
         asked_at: Instant::carried("2026-09-11T09:00:00.000Z"),
         tool: String::from("Bash"),
         detail: String::from("cargo nextest run -p ipc"),
@@ -61,6 +64,24 @@ fn an_unmeasured_command_carries_no_length_rather_than_nought() {
     assert_eq!(
         decode::<CommandInFlight>("a waiting command", json.as_bytes()).expect("it reads back"),
         unmeasured
+    );
+}
+
+/// A Fleet that does not name the asker leaves the field out, and a payload
+/// from one older than the field still reads.
+#[test]
+fn the_asking_drone_is_named_when_known_and_absent_rather_than_null_when_not() {
+    let json = encode(&waiting()).expect("plain data");
+    assert!(json.contains("\"drone_id\":\"drone-t2\""), "{json}");
+    let unnamed = CommandInFlight {
+        drone_id: None,
+        ..waiting()
+    };
+    let json = encode(&unnamed).expect("plain data");
+    assert!(!json.contains("drone_id"), "absent, never null: {json}");
+    assert_eq!(
+        decode::<CommandInFlight>("a waiting command", json.as_bytes()).expect("reads back"),
+        unnamed
     );
 }
 

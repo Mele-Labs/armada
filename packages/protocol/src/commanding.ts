@@ -61,6 +61,13 @@ export type CommandInFlight = {
   call: string;
   /** Which step's drone is waiting. */
   step_id: string;
+  /**
+   * Which drone asked. A step can run several at once (a drone per task), so
+   * `step_id` alone cannot say whose panel to open. Absent where fleet could
+   * not identify the asker, and from a fleet older than the field. Since
+   * protocol 23.32.
+   */
+  drone_id?: string;
   /** When the harness asked, by fleet's clock. A surface ages it itself. */
   asked_at: string;
   /** The tool reached for, in the harness's own spelling. */
