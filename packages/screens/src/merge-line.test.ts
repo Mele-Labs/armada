@@ -24,17 +24,16 @@ describe("the merge line Fleet serves", () => {
     expect(views(SERVED, null)).toEqual([{
       root: "/repo",
       line: [
-        { branch: "fleet/helm-kills-processes", place: 1, state: "waiting" },
         {
           branch: "docs/wire-lock-signed",
-          place: 2,
+          place: 1,
           state: "preparing",
           doing: "reading verify-foundations against main",
           batch: "docs/wire-lock-signed",
         },
         {
           branch: "worktree-agent-a",
-          place: 3,
+          place: 2,
           state: "gating",
           batch: "docs/wire-lock-signed",
           checks: [
@@ -45,12 +44,13 @@ describe("the merge line Fleet serves", () => {
         },
         {
           branch: "fleet/gate-policy-every-run",
-          place: 4,
+          place: 3,
           state: "preparing",
           doing: "merging main (c527f60e09) into fleet/gate-policy-every-run",
           batch: "docs/wire-lock-signed",
         },
-        { branch: "fleet/push-the-base", place: 5, state: "merging", doing: "pushing the merge onto main" },
+        { branch: "fleet/push-the-base", place: 4, state: "merging", doing: "pushing the merge onto main" },
+        { branch: "fleet/helm-kills-processes", place: 5, state: "waiting" },
         {
           branch: "fleet/read-in-cluster-membership",
           place: 6,
@@ -91,12 +91,38 @@ describe("the merge line Fleet serves", () => {
   test("a turn that has run no Check yet reads as preparing, and one in its Checks as gating", () => {
     const [one] = views(SERVED, "/repo");
     expect(one?.line.map((row) => [row.branch, row.state])).toEqual([
-      ["fleet/helm-kills-processes", "waiting"],
       ["docs/wire-lock-signed", "preparing"],
       ["worktree-agent-a", "gating"],
       ["fleet/gate-policy-every-run", "preparing"],
       ["fleet/push-the-base", "merging"],
+      ["fleet/helm-kills-processes", "waiting"],
       ["fleet/read-in-cluster-membership", "waiting"],
+    ]);
+  });
+
+  test("the line is ordered by what merges next, and the number is the position in that order", () => {
+    const kept: MergeLines = {
+      lines: [
+        {
+          root: "/repo",
+          line: [
+            { place: 1, branch: "idle", state: "waiting", why: "kept" } as MergeLines["lines"][0]["line"][0],
+            { place: 2, branch: "a", state: "gating", batch: "a" },
+            { place: 3, branch: "b", state: "gating", batch: "a" },
+            { place: 4, branch: "c", state: "waiting" },
+          ],
+          off: [],
+          landed: [],
+          sent_back: [],
+        },
+      ],
+    };
+    const [one] = views(kept, null);
+    expect(one?.line.map((row) => [row.place, row.branch, row.why])).toEqual([
+      [1, "a", undefined],
+      [2, "b", undefined],
+      [3, "idle", "kept"],
+      [4, "c", undefined],
     ]);
   });
 
