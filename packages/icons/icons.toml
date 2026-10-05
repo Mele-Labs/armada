@@ -669,6 +669,14 @@
   status = "Proposed"
   notes = "Within the shield reservation — the family means gates and checks. Its counterpart shield-x is already spoken for as failed a check."
 
+[icons.ellipsis]
+  means = "Three dots in a row: there is more past what is drawn"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The run canvas's one card standing for a group's tasks past the fourth, its count on the tooltip. Never a menu or a row's more-actions."
+  notes = "Proposed 5 Oct 2026 on the prototype `tasksOffTheGroups`, for the owner to walk. Three dots are the silhouette people already read as more, and no glyph in the set says it."
+
 [icons.shield-ellipsis]
   means = "A pointed-base pentagon with three dots inside — the Check family's outline, its answer not in yet"
   group = "Step phase"

@@ -157,3 +157,13 @@ export const GateSetUp: Story = {
 export const PlanPlaceholder: Story = {
   args: { kind: "stack", name: "Plan", line: "Groups drawn once the plan exists", id: undefined, traits: [], onOpen: undefined },
 };
+
+/** A task hung under its group: narrow, the band and its title. */
+export const TaskUnderAGroup: Story = {
+  args: { kind: "task", name: "Answer restart and move", id: "T4", traits: [], narrow: true, activity: "running", said: "working", state: "live" },
+};
+
+/** The group's tasks past the fourth: one muted card, its count on the tooltip. */
+export const MoreTasks: Story = {
+  args: { kind: "more", name: "Group 1", id: undefined, traits: [], narrow: true, said: "3 more tasks" },
+};

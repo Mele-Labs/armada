@@ -4,7 +4,7 @@
 // third running its first try — so the canvas draws where the Job is, and
 // Groups filled in with the plan's own.
 
-import type { PlanGroup, StepDetail } from "@armada/protocol";
+import type { PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { featureRunInGroups } from "./job-groups-fixture";
@@ -15,12 +15,20 @@ export function featureRunning(): JobFixture {
   const whole = base.watched.detail;
   const plan = whole.work_plan!;
   // G3 on its first run, nothing back yet; T4 being worked.
+  const more: Record<string, string[]> = { G2: ["T5"], G3: ["T6", "T7"] };
   const groups: PlanGroup[] = (plan.groups ?? []).map((group) => {
+    if (more[group.id] !== undefined) group = { ...group, tasks: [...group.tasks, ...more[group.id]!] };
     if (group.id !== "G3") return group;
     const { ended_at: _ended, ...rest } = group;
     return { ...rest, state: "running", attempts: (group.attempts ?? []).slice(0, 1).map(({ verdict: _v, ended_at: _e, ...one }) => one) };
   });
-  const tasks = plan.tasks.map((task) => {
+  // A second task on Group 2 (done) and two on Group 3 (not started): every group draws a chain.
+  const added: PlanTask[] = [
+    { id: "T5", title: "Show a group's attempts on its panel", scope: ["packages/screens/src/plan-review.tsx"], state: "done", group: "G2" },
+    { id: "T6", title: "Draw tasks under their group", scope: ["packages/screens/src/approval-layout.ts"], state: "open", group: "G3" },
+    { id: "T7", title: "Walk the canvas with a task open", scope: ["apps/desktop/src/renderer/src/mock/walks"], state: "open", group: "G3" },
+  ];
+  const tasks = [...plan.tasks, ...added].map((task) => {
     if (task.id !== "T4") return task;
     const { failed_reason: _reason, ...rest } = task;
     return { ...rest, state: "working" as const };
@@ -40,7 +48,7 @@ export function featureRunning(): JobFixture {
   const job = {
     ...base.job,
     status: "running",
-    tasks: { done: 3, working: 1, open: 0, dropped: 0, failed: 0 },
+    tasks: { done: 4, working: 1, open: 2, dropped: 0, failed: 0 },
   };
   return {
     ...base,

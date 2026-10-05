@@ -173,6 +173,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenStep?: (stepId: string) => void;
   /** Past the gate, a plan group's panel — the one Plan opens, its tasks reached from it. */
   onOpenGroup?: (groupId: string) => void;
+  /** Past the gate, a plan task's panel — Plan's own, with the way back to Overview. */
+  onOpenTask?: (taskId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
   onOpenStudio?: OpenStudioFrom;
 };
@@ -185,6 +187,7 @@ export function ApprovalCanvas({
   onToProposer,
   onOpenStep,
   onOpenGroup,
+  onOpenTask,
   onOpenStudio,
   whole,
   edits,
@@ -320,7 +323,11 @@ export function ApprovalCanvas({
         ? () => onOpenStep(node.stepId!)
         : node.kind === "group" && onOpenGroup !== undefined
           ? () => onOpenGroup(node.id.replace(/^group:/, ""))
-          : undefined;
+          : node.kind === "task" && onOpenTask !== undefined
+            ? () => onOpenTask(node.bandId!)
+            : node.kind === "more" && onOpenGroup !== undefined
+              ? () => onOpenGroup(node.chain!.group.replace(/^group:/, ""))
+              : undefined;
     const onOpen =
       node.opensStudio === true && from !== undefined && onOpenStudio !== undefined
         ? () => onOpenStudio(from.studio_id, from.node_id)

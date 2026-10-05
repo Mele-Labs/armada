@@ -79,6 +79,8 @@ export type WorkflowCanvasEdge = {
   across?: boolean;
   /** Where the edge turns, in canvas x — a gutter between two lanes, so it never runs through one. */
   via?: number;
+  /** Where a downward edge turns across, in canvas y: chains of different lengths rejoining on one line. */
+  joinY?: number;
   /** Enters the target's leading side rather than its top: one bend into a lane beside, not a loop over it. */
   intoSide?: boolean;
 };
@@ -139,7 +141,7 @@ export type WorkflowCanvasProps = {
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number; joinY?: number }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -183,6 +185,7 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
     borderRadius: CLEARS_THE_CARD,
     offset: stands,
     ...(via === undefined ? {} : { centerX: via }),
+    ...(props.data?.joinY === undefined ? {} : { centerY: props.data.joinY }),
   });
   const label = props.data?.label;
   return (
@@ -435,6 +438,7 @@ export function WorkflowCanvas({
           returning,
           flowing: edge.flowing === true,
           ...(edge.via === undefined ? {} : { via: edge.via }),
+          ...(edge.joinY === undefined ? {} : { joinY: edge.joinY }),
           ...(edge.label === undefined ? {} : { label: edge.label }),
         },
       };

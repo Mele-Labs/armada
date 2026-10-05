@@ -20,6 +20,9 @@ const ROW_GAP = 56;
 const CHAIN_GAP = 16;
 const LOOP_ROOM = 64;
 
+/** A task in a group's chain, as `RunNode.css` draws it (`RUN_NODE_TASK_HEIGHT`), and the room between two of a chain (`--space-6` and `--space-1`). */
+const TASK = { height: 66, gap: 28 };
+
 /** Across a fan, member to member (`--space-6`). */
 const ACROSS = 24;
 
@@ -57,8 +60,9 @@ export type Layout = {
 /** What a lane is called on its head. */
 const LANE_NAME: Record<Lane, string> = { setup: "Setup", work: "Work", delivery: "Delivery" };
 
-/** Whether a node is drawn narrow: a plan group in a fan, the setup lane. */
-export const narrowOf = (node: ApprovalNode): boolean => node.kind === "group" || node.lane === "setup";
+/** Whether a node is drawn narrow: a plan group in a fan, its tasks, the setup lane. */
+export const narrowOf = (node: ApprovalNode): boolean =>
+  node.kind === "group" || node.kind === "task" || node.kind === "more" || node.lane === "setup";
 
 const widthOf = (node: ApprovalNode): number => (narrowOf(node) ? CARD.narrow : CARD.width);
 
@@ -74,6 +78,33 @@ function rowsOf(fan: readonly ApprovalNode[]): ApprovalNode[][] {
 
 const rowWidth = (row: readonly ApprovalNode[]): number =>
   row.reduce((sum, one) => sum + widthOf(one), 0) + ACROSS * Math.max(0, row.length - 1);
+
+/**
+ * **The one place a group's tasks are put.** Chains: each group's tasks hang
+ * in a column under it, in plan order. The clusters-side-by-side layout would
+ * replace this function and `joinOf`, and nothing else.
+ */
+function chainsUnder(row: readonly ApprovalNode[], nodes: readonly ApprovalNode[], places: Map<string, Place>, top: number): number {
+  let tallest = 0;
+  for (const group of row) {
+    const at = places.get(group.id);
+    const chain = nodes.filter((one) => one.chain?.group === group.id);
+    if (at === undefined || chain.length === 0) continue;
+    for (const [n, task] of chain.entries()) places.set(task.id, { x: at.x, y: top + TASK.gap + n * (TASK.height + TASK.gap) });
+    tallest = Math.max(tallest, chain.length * (TASK.height + TASK.gap));
+  }
+  return tallest;
+}
+
+/** Where chains of any length rejoin: one line, half a row above the node they rejoin at. */
+const joinOf = (nodes: ReadonlyMap<string, ApprovalNode>, edge: WorkflowCanvasEdge, places: ReadonlyMap<string, Place>): number | undefined => {
+  const from = nodes.get(edge.source);
+  const into = nodes.get(edge.target);
+  const reaches = from?.chain !== undefined || from?.kind === "group";
+  const lands = into !== undefined && into.from === undefined && into.chain === undefined;
+  const at = places.get(edge.target);
+  return reaches && lands && at !== undefined ? at.y - ROW_GAP / 2 : undefined;
+};
 
 export function layoutOf(
   nodes: readonly ApprovalNode[],
@@ -114,7 +145,7 @@ export function layoutOf(
 
     let y = LANE_TOP;
     for (const [at, node] of inLane.entries()) {
-      if (node.from !== undefined) continue;
+      if (node.from !== undefined || node.chain !== undefined) continue;
       if (labelled.has(node.id)) y += LABELLED;
       const gate = node.kind === "checks";
       places.set(node.id, { x: spine - (gate ? GATE.width : spineCard) / 2, y });
@@ -132,7 +163,7 @@ export function layoutOf(
             places.set(member.id, { x: at, y: rowY });
             at += widthOf(member) + ACROSS;
           }
-          rowY += CARD.height + ROW_GAP;
+          rowY += CARD.height + chainsUnder(row, nodes, places, rowY + CARD.height) + ROW_GAP;
         }
         const bottom = rowY - ROW_GAP + CLUSTER_PAD;
         frames.push({
@@ -171,7 +202,10 @@ export function layoutOf(
     })),
   );
 
+  const byId = new Map(nodes.map((node) => [node.id, node]));
   const drawn = edges.map((edge) => {
+    const joinY = joinOf(byId, edge, places);
+    if (joinY !== undefined) return { ...edge, joinY };
     const from = laneOfId.get(edge.source);
     const into = laneOfId.get(edge.target);
     if (edge.kind === "returns" && from !== undefined) {

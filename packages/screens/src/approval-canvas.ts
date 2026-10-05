@@ -13,13 +13,14 @@
 // is no pull request, no merge and no push (the owner, 4 Oct 2026); auto-merge
 // says on the edge into Land that it merges on its own. One field each, read here.
 
-import { AUTO, STEP_STATE } from "@armada/components";
+import { AUTO, STEP_STATE, TASK_STATE } from "@armada/components";
 import type { GateCommandOutcome, PanelMark, RunNodeGate, RunNodeTrait, StepActivity, WorkflowCanvasEdge } from "@armada/components";
 import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, StepPass, StepPhase, WorkflowStep } from "@armada/protocol";
 
 import type { GateView } from "./draft/proposal";
 import type { TaskView } from "./draft/task";
+import { TASK_ACTIVITY, taskNodeId } from "./plan-canvas";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
 
@@ -31,6 +32,8 @@ export type ApprovalNodeKind =
   | "checks"
   | "groups"
   | "group"
+  | "task"
+  | "more"
   | "jobs"
   | "job"
   | "done"
@@ -147,6 +150,8 @@ export type ApprovalNode = {
   lane: Lane;
   /** A fanned group or Job, under the node it falls from, by that node's id. Off the spine. */
   from?: string;
+  /** A task hung under its plan group, by that group's node id, and its place in the chain from zero. Off the spine and out of the fan. */
+  chain?: { group: string; at: number };
   /** The step it belongs to, on a step or its gate. */
   stepId?: string;
   /** Which kind of gate a `checks` node is the stage for. */
@@ -430,6 +435,21 @@ export function approvalNodesOf({
             tasks: group.tasks,
             ordinal: nodes.length + 1,
           });
+          for (const task of chainOf(group.tasks, group.name)) {
+            nodes.push({
+              id: task.more === undefined ? taskNodeId(task.id) : `more:${group.id}`,
+              kind: task.more === undefined ? "task" : "more",
+              lane,
+              chain: { group: `group:${group.id}`, at: task.at },
+              stepId: step.id,
+              name: task.title,
+              ...(task.more === undefined ? { bandId: task.id } : {}),
+              traits: [],
+              meta: [],
+              life: task.life,
+              ordinal: nodes.length + 1,
+            });
+          }
         }
       }
     }
@@ -563,7 +583,14 @@ export function approvalNodesOf({
   // from to each of its members that waits on nothing, member to member where
   // one waits, and from each nobody waits on to the next node on the spine.
   const byId = new Map(nodes.map((one) => [one.id, one]));
-  const spine = nodes.filter((one) => one.from === undefined);
+  const spine = nodes.filter((one) => one.from === undefined && one.chain === undefined);
+  // A group's tasks hang below it in plan order. The plan carries no dependency
+  // between tasks, so none is drawn: only the order it lists them in.
+  for (const node of nodes) {
+    if (node.chain === undefined) continue;
+    const above = node.chain.at === 0 ? byId.get(node.chain.group) : byId.get(chainIdAt(nodes, node.chain.group, node.chain.at - 1));
+    if (above !== undefined) lead(above, node);
+  }
   for (const node of nodes) {
     if (node.from !== undefined) {
       const waits = node.waits_on ?? [];
@@ -600,10 +627,38 @@ export function approvalNodesOf({
       continue;
     }
     for (const member of fan) {
-      if (!fan.some((other) => other.waits_on?.includes(member.id) === true)) lead(member, node);
+      if (fan.some((other) => other.waits_on?.includes(member.id) === true)) continue;
+      // A group with tasks rejoins from the foot of its chain.
+      const chain = nodes.filter((one) => one.chain?.group === member.id);
+      lead(chain.length === 0 ? member : chain[chain.length - 1]!, node);
     }
   }
   return { nodes, edges };
+}
+
+/** The most tasks a chain draws before one card stands for the rest. */
+export const CHAIN_SHOWN = 4;
+
+const chainIdAt = (nodes: readonly ApprovalNode[], group: string, at: number): string =>
+  nodes.find((one) => one.chain?.group === group && one.chain.at === at)?.id ?? "";
+
+/** A group's tasks as the chain draws them: up to four, then one card for the rest. */
+function chainOf(tasks: readonly TaskView[], groupName: string) {
+  const shown = tasks.slice(0, CHAIN_SHOWN).map((task, at) => ({
+    id: task.id,
+    title: task.title,
+    at,
+    life: {
+      activity: TASK_ACTIVITY[task.state],
+      said: TASK_STATE[task.state]?.verb ?? task.state,
+      ...(task.state === "working" ? { current: true } : {}),
+    } satisfies NodeLife,
+    more: undefined as number | undefined,
+  }));
+  const rest = tasks.length - shown.length;
+  return rest > 0
+    ? [...shown, { id: "", title: groupName, at: shown.length, life: { activity: "not_started", said: `${rest} more tasks` } satisfies NodeLife, more: rest }]
+    : shown;
 }
 
 /**
