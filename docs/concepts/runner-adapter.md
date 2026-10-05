@@ -51,7 +51,7 @@ having configured that repository for it first.
 | `run` | template string | no | none | run the whole suite |
 | `one_test` | template string, `{test}` | no | nearest supported shape | run exactly one test by name |
 | `run_failed` | template string, `{failed}` | no | nearest supported shape | rerun a named failed set |
-| `run_changed` | template string, `{files}` | no | nearest supported shape | run tests touching changed files |
+| `run_changed` | template string, `{files}` | no | nearest supported shape | run tests touching changed files; `{files}` are relative to the Check's `dir`, which the command runs from, and a covered path outside `dir` leaves the Check whole |
 | `run_group` | template string, `{group}` | no | nearest supported shape | run one named group or project |
 | `run_pattern` | template string, `{glob}` | no | nearest supported shape | run tests matching a name glob |
 
