@@ -42,7 +42,7 @@ import {
   gateChecksStreaming,
   proposing,
 } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS, dispatchTyping, everyTaskState } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_MOMENTS, dispatchTyping, everyTaskState, executingHeld } from "@armada/screens/src/fixtures/build/arc";
 import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
 import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
 import { KIND_FIXTURES, prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
@@ -82,6 +82,7 @@ import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { answeringTheHeldCommand } from "./held-fleet";
 import { slotsHeld } from "./slots-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -514,6 +515,8 @@ export const SCENARIOS: readonly Scenario[] = [
   ),
   // A task in each of the six states, for Plan's marks; not an arc moment, so not in `ARC_MOMENTS`.
   moment("plan", everyTaskState()),
+  // T5's Drone held on a command it was not given; answering it from the Drone's own card clears it.
+  { ...moment("arc", executingHeld()), behaves: answeringTheHeldCommand },
   // A Prototype held at Build, its mock up for review and opened in Bridge's window on the Job.
   walkedPrototype(onJob(evidenceRead(prototypeKind()))),
   // A Check's log, from both strips that draw one: group three's boundary running its Checks, and
