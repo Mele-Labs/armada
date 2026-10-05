@@ -409,12 +409,135 @@ test("the pool draws a bay per slot, and a slot's Job opens from it", async () =
   await expect.element(page.getByRole("img", { name: "Held" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Warm" })).toBeInTheDocument();
   await expect.element(page.getByRole("img", { name: "Not made yet" })).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Commits behind main: 4")).toBeInTheDocument();
-  await expect.element(page.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("4 commits behind main")).toBeInTheDocument();
+  await expect.element(page.getByLabelText("Held for 2 hours")).toBeInTheDocument();
   expect(page.getByText(/slots? free/).elements()).toHaveLength(0);
 
   await userEvent.click(page.getByRole("button", { name: "Fix the reader" }));
   expect(opens).toEqual(["01JOB"]);
+});
+
+const stranded = (rescue?: WorktreeSlot["rescue"]): WorktreeSlot => ({
+  manifest_id: "armada",
+  slot: 4,
+  path: "/r/.armada/slots/slot-4",
+  base: "main",
+  warm: false,
+  held: { state: "stranded", why: "2 uncommitted, first src/lib.rs" },
+  branch: "fleet/an-old-try",
+  stranded: {
+    uncommitted: ["src/lib.rs", "src/reader/retry.rs"],
+    commits: [{ sha: "9d41e07b2c", subject: "Retry a short read once", home: "only_here" }],
+    unpushed: 1,
+  },
+  ...(rescue === undefined ? {} : { rescue }),
+});
+
+const FINDING = { commit: "9d41e07b2c", uncommitted: true, read: ["src/lib.rs"], searched: [] };
+
+/** Mount the surface over one slot, with the rescue's answer and a count of every ask to read. */
+function rescuing(slot: WorktreeSlot, onRescueSlot: NonNullable<Parameters<typeof Worktrees>[0]["onRescueSlot"]>) {
+  const wants: boolean[] = [];
+  mount(
+    <Worktrees
+      onWant={(want) => wants.push(want)}
+      held={{ state: "read", held: { worktrees: [], slots: [slot] } }}
+      onReclaim={() => Promise.resolve({ ok: true })}
+      onDeleteBranch={() => Promise.resolve({ ok: true })}
+      onForget={() => Promise.resolve({ ok: true })}
+      now={NOW}
+      onClose={() => {}}
+      onCopied={() => {}}
+      onOpenJob={() => {}}
+      onRescueSlot={onRescueSlot}
+    />,
+  );
+  return wants;
+}
+
+const RECEIPT = { manifest_id: "armada", slot: 4 };
+
+/**
+ * Fleet sends nothing when a Scout reads one more file, so the surface asks for
+ * the pool again while one reads. **Only then**: a pool nobody is reading into
+ * is not polled.
+ */
+test("the pool is read again while a Scout reads, and not after it answers", async () => {
+  const reading = rescuing(stranded({ ...FINDING, state: "reading" }), () => Promise.resolve({ ok: true, rescued: RECEIPT }));
+  await new Promise((done) => setTimeout(done, 2_300));
+  expect(reading.filter(Boolean).length).toBeGreaterThanOrEqual(3);
+  unmount();
+
+  const answered = rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), () =>
+    Promise.resolve({ ok: true, rescued: RECEIPT }),
+  );
+  await new Promise((done) => setTimeout(done, 1_500));
+  expect(answered).toEqual([true]);
+});
+
+/** A rescue act Fleet refuses is said on the bay it was about, as the pool's acts are. */
+test("a refused rescue is said on its bay", async () => {
+  rescuing(stranded(), () =>
+    Promise.resolve({
+      ok: false,
+      why: "refused",
+      error: { code: "fleet.slot_busy", message: "a lease is under way", run_id: "r", fields: {}, chain: [] },
+    }),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Rescue" }));
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Not started: a lease is under way");
+});
+
+/**
+ * The Finding opens in the app's trailing sheet and not on the bay, and Escape
+ * closes it without sending anything.
+ */
+test("a Finding opens in the sheet and Escape closes it", async () => {
+  const sent: string[] = [];
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), (_manifest, rescue) => {
+    sent.push(rescue.act);
+    return Promise.resolve({ ok: true, rescued: RECEIPT });
+  });
+  expect(page.getByText("src/lib.rs still calls the old loop").elements()).toHaveLength(0);
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await expect.element(page.getByRole("dialog", { name: "Finding" }).getByText("src/lib.rs still calls the old loop")).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(page.getByRole("dialog").elements()).toHaveLength(0);
+  expect(sent).toEqual([]);
+});
+
+/** A Scrap that kept the branch says so on the slot it freed, once its confirm is answered. */
+test("a scrap that kept its branch says so, after its confirm", async () => {
+  const sent: string[] = [];
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), (_manifest, rescue) => {
+    sent.push(rescue.act);
+    return Promise.resolve({ ok: true, rescued: { ...RECEIPT, branch: "fleet/an-old-try", branch_kept: true } });
+  });
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await userEvent.click(page.getByRole("dialog", { name: "Finding" }).getByRole("button", { name: "Scrap" }));
+  expect(sent).toEqual([]);
+  await userEvent.click(page.getByRole("group", { name: "Scrap slot-4" }).getByRole("button", { name: "Scrap" }));
+  expect(sent).toEqual(["scrap"]);
+  await expect.element(page.getByRole("status")).toHaveTextContent("fleet/an-old-try kept");
+});
+
+/** A Job's kept slot is rescued from the screen as a stranded one is: the start reaches Fleet with its number. */
+test("a kept Job's slot offers Rescue, and the press is sent", async () => {
+  const sent: string[] = [];
+  rescuing(
+    {
+      ...stranded(),
+      slot: 8,
+      held: { state: "job", job_id: "01KEPT", job_title: "Retry the read", kept: "2 uncommitted, first a.rs" },
+    },
+    (_manifest, rescue) => {
+      sent.push(`${rescue.act} ${rescue.slot}`);
+      return Promise.resolve({ ok: true, rescued: { manifest_id: "armada", slot: 8 } });
+    },
+  );
+  await expect.element(page.getByRole("img", { name: "Kept: 2 uncommitted, first a.rs" })).toBeInTheDocument();
+  await userEvent.click(page.getByRole("button", { name: "Rescue" }));
+  expect(sent).toEqual(["start 8"]);
 });
 
 // Only referenced for their types, so the answer functions above stay honest

@@ -61,6 +61,7 @@ export async function proposeFromRequest(
   attachments: StagedAttachment[] = [],
   repository: string | null = null,
   picked: Picked = board.picked,
+  wait: { everyMs: number; forMs: number } = RECONCILE,
 ): Promise<Proposed> {
   const said = request.trim();
   if (said === "") return { ok: false, why: "refused", outcome: { ok: false, why: "empty_brief" } };
@@ -100,7 +101,17 @@ export async function proposeFromRequest(
     // at one end and `stopProposal` at the other — a control that reaches the
     // process, offered to somebody who can see how far the call has got.
     const answer = await ask(port, "POST", path, body, NO_WAIT);
-    if (answer.ok !== true) return notProposed(said, answer.outcome);
+    if (answer.ok !== true) {
+      // **A lost answer is not a Job that was never made.** The Job exists from
+      // the first `proposal.moved`, so where the socket failed and the stream
+      // named it, what Fleet made is read back rather than reported as a
+      // failure — which sent somebody to dispatch the same work twice.
+      if (!answer.outcome.ok && answer.outcome.why === "transport") {
+        const made = await madeAnyway(board, port, wait);
+        if (made !== null) return made;
+      }
+      return notProposed(said, answer.outcome);
+    }
     return proposedFrom(board, port, answer.body);
   } finally {
     // However it ended. The event that clears the published state is Fleet's
@@ -108,6 +119,36 @@ export async function proposeFromRequest(
     // fold the next proposal's events into a call that is over.
     board.watchProposal(null);
   }
+}
+
+/** How long a send that lost its answer waits for the proposer, and how often it looks. */
+const RECONCILE = { everyMs: 1_000, forMs: 150_000 };
+
+/**
+ * The Job a send that got no answer made, once the proposer has finished with
+ * it. `null` where the stream never named one, Fleet cannot be asked, or the
+ * Job never left `proposing` inside Fleet's own budget — all of which are the
+ * failure the caller was going to report.
+ */
+async function madeAnyway(
+  board: Board,
+  port: number,
+  wait: { everyMs: number; forMs: number },
+): Promise<Proposed | null> {
+  const jobId = board.proposalJob?.() ?? null;
+  if (jobId === null) return null;
+  for (let waited = 0; waited <= wait.forMs; waited += wait.everyMs) {
+    const read = await ask(port, "GET", `/jobs/${encodeURIComponent(jobId)}`);
+    if (read.ok !== true) return null;
+    const job = (read.body as { job?: unknown }).job;
+    if (!isJobSummary(job)) return null;
+    if (job.status !== "proposing") {
+      board.fold(job);
+      return { ok: true, jobs: [job] };
+    }
+    await new Promise((resume) => setTimeout(resume, wait.everyMs));
+  }
+  return null;
 }
 
 /** The Jobs a plan came back with, onto the board. */

@@ -43,10 +43,12 @@ pub mod asking;
 pub mod at_step;
 /// The four narrowings of the board, and the one rule each is.
 mod attention;
+/// Saving a workflow definition, and reading the workflow folders again.
+mod authoring;
 pub mod basing;
 mod boundary;
 pub mod briefing;
-/// Racing a plain command's work against [`commanding::CommandBudget`],
+/// Racing a plain command's work against [`budget::CommandBudget`],
 /// split out of `commanding` at the 900-line refusal, `#897`.
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
@@ -236,6 +238,7 @@ pub mod reporting;
 pub mod repositories;
 mod rerun_settles;
 mod rerunning;
+mod rescuing;
 /// What one Job holds on this machine — its processes, what they are burning,
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;
@@ -329,8 +332,8 @@ pub use adrift::Adrift;
 pub use allowance::{Allowance, Micros, Overspent};
 pub use asked::Asked;
 pub use at_step::AtStep;
+pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
-pub use commanding::CommandBudget;
 pub use confirming::{Confirmed, ONE_BY_ONE};
 pub use converging::{NoReport, ReportNow, Stage, StepNorms, Tripwire, Wandering, FORCED_REPORT};
 pub use crossing::{Cleared, Crossed, Dispatched, Produced, Reconciling, Redirected, ThePlan};

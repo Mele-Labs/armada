@@ -85,6 +85,7 @@ export class JobFocus {
       route: (jobId) => `/jobs/${encodeURIComponent(jobId)}`,
       keeps: (body) => ({ detail: body as JobDetail }),
       keepsLastGood: true,
+      retryMs: 2_000,
       // `readAt` moves only where a reading did, so a failure leaves the screen
       // saying when what it shows was last current.
       publish: (watched) =>
