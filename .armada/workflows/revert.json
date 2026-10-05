@@ -37,6 +37,7 @@
     {
       "id": "revert",
       "label": "Undo the change",
+      "about": "Takes the named change back out and nothing else, then runs the repository's checks.",
       "records_plan": true,
       "follows_plan": true,
       "evidence": {
@@ -81,6 +82,7 @@
     {
       "id": "handoff",
       "label": "Summarise",
+      "about": "Summarises what was taken out. You decide whether it goes out.",
       "evidence": {
         "submitted": { "type": "facts_note" }
       },

@@ -342,6 +342,18 @@ function stoppedBecause(job: JobSummary): string | undefined {
 
 
 /**
+ * The headline for a stop. **A verb that opens on an article is a clause and
+ * not a predicate** — "This Job the judge did not answer" is not English, so
+ * it stands as its own sentence.
+ */
+function stoppedSaid(verb: string): string {
+  return /^(the|a|an) /i.test(verb) ? `${verb[0]?.toUpperCase()}${verb.slice(1)}` : `This Job ${verb}`;
+}
+
+/** What `gate_undecided` leaves true: nothing was judged, and the person may go on or ask again. */
+const UNJUDGED = "The work was not judged. Ask again, or accept the step yourself.";
+
+/**
  * The status a dispatched request stands at until the proposer answers.
  *
  * **A wire value and not a token**, `render.ts`'s `awaiting_repair` rule: the
@@ -502,8 +514,10 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
     const stopped = stoppedBecause(job);
     if (stopped !== undefined) {
       return {
-        said: `This Job ${stopped}`,
-        because: tasksSaid(whole),
+        said: stoppedSaid(stopped),
+        // A step nobody judged says what is safe and what is on offer; the
+        // plan's progress is on the canvas below it.
+        because: job.reason?.named === "gate_undecided" ? UNJUDGED : tasksSaid(whole),
         tone: "completed-failed",
         act: "Read what stopped it",
         // The whole Record, because no one row is why it stopped — newest

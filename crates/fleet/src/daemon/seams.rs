@@ -505,7 +505,7 @@ where
         job: &Job,
         step: &core_model::StepId,
         attempt: core_model::Attempt,
-        hearing: tokio::sync::mpsc::UnboundedSender<crate::underway::Landed>,
+        hearing: tokio::sync::mpsc::UnboundedSender<crate::underway::Heard>,
         whole: bool,
     ) -> Announcing {
         Announcing::dry_run(

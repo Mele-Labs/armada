@@ -226,7 +226,7 @@ pub(super) async fn until_waiting(fleet: &Fixture, job: &JobId) -> CommandInFlig
     panic!("nobody was ever asked");
 }
 
-/// **Where every Job starts.** The call is refused at once, with the command
+/// **Refuse and hold.** The call is refused at once, with the command
 /// named, and the refusal is in what the ending folds — the stream carries no
 /// refusal line for it, so this is the only way `blocked_by_policy` can fire.
 #[tokio::test]
@@ -257,13 +257,18 @@ async fn refuse_and_hold_refuses_and_the_fold_sees_it() {
     );
 }
 
-/// **The default, as a case.** A Job nobody has touched the setting on holds
-/// the call for a person rather than refusing it outright — issue #686.
+/// **Ask me, as a case.** A Job set to it holds the call for a person rather
+/// than refusing it outright — issue #686. It was the default until a new Job
+/// was bound to allow all, so the setting is now stated.
 #[tokio::test]
-async fn a_new_job_asks_first_by_default() {
+async fn ask_me_holds_the_call_rather_than_refusing_it() {
     let home = TempDir::new();
     let fleet = a_fleet_with(&home, a_drone_that_reached_for("c1"));
     let job = started(&fleet, &home).await;
+    fleet
+        .set_when_blocked(&job, WhenBlocked::AskMe)
+        .await
+        .unwrap();
     let asking = asked("Bash", "npm publish", "c1");
 
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {

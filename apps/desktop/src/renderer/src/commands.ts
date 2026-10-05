@@ -699,11 +699,11 @@ export function useCommands(sending: Sending) {
   }
 
   /**
-   * Ask the gate again on a step it could not decide. **Not through `act`**,
+   * Ask the judge again on a step it did not answer. **Not through `act`**,
    * which confirms first: nothing is destroyed, nothing is overruled and
    * nothing is advanced by pressing this, so there is nothing for a dialog to
-   * state. **And not through `overrule`**, which answers a machine that ruled —
-   * this answers one that could not.
+   * state. **And not through `overrule`**, which advances the step — this only
+   * asks again.
    */
   async function rerun(jobId: string): Promise<void> {
     return acted(jobId, "rerun_gate", async () => {
