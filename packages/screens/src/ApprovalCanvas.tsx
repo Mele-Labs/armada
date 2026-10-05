@@ -1,7 +1,7 @@
 // What a Job at its dispatch gate will do, drawn as the run it will be rather
 // than as a form: brief, base branch, the workflow starting, each step and its
 // gate, the pull request, and where it lands — top to bottom. A node pressed
-// opens a card beside it holding what that node tunes for this Job.
+// opens the app's panel holding what that node tunes for this Job.
 //
 // **Prototype** (the owner, 3 Oct 2026: *What you are approving* read as a
 // boring form). It takes `Approving`'s place and its props, and moves the same
@@ -17,7 +17,7 @@ import type { HeldCommand } from "./drone-held";
 import { withAsk } from "./held-card";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { X } from "lucide-react";
+import { useAtFloor } from "@armada/shell";
 
 import {
   AUTO,
@@ -41,6 +41,7 @@ import {
   Tooltip,
   RUN_NODE_HEIGHT,
   RunNode,
+  Sheet,
   StudioFrame,
   WorkflowCanvas,
   WorkflowStepCard,
@@ -200,6 +201,7 @@ export function ApprovalCanvas({
   held,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
+  const floor = useAtFloor();
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
   const steps = stepsReadOf(proposal.gates, whole, declared, life !== undefined);
@@ -249,6 +251,8 @@ export function ApprovalCanvas({
   });
   // A node a workflow change took away closes its card with it.
   const opened = nodes.find((node) => node.id === open);
+  const openedStep = steps.find((one) => one.id === opened?.stepId);
+  const about = openedStep?.about;
 
   const workflowName = workflow?.name ?? proposal.workflow_id;
   const layout = layoutOf(nodes, edges, workflowName);
@@ -365,61 +369,64 @@ export function ApprovalCanvas({
     };
   });
 
-  const card =
-    opened === undefined
-      ? undefined
-      : {
-          nodeId: opened.id,
-          // A gate node is `Checks` on the canvas, where its place says whose;
-          // the card it opens says so in words.
-          label: dialogNameOf(opened, steps),
-          children: (
-            <>
-              <div className="armada-approval-canvas__card-head">
-                <h3 className="armada-proposal__heading">{dialogNameOf(opened, steps)}</h3>
-                <Tooltip label="Close">
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Close" onClick={() => setOpen(null)}>
-                    <X size={16} aria-hidden />
-                  </Button>
-                </Tooltip>
-              </div>
-              <NodeCard
-                node={opened}
-                step={steps.find((one) => one.id === opened.stepId)}
-                edits={edits}
-                tuning={tuning}
-                moved={moved}
-                tuned={onEdits === undefined ? undefined : tuned}
-                landed={onEdits === undefined ? undefined : landed}
-                {...(picksLate
-                  ? {
-                      landsLate: (target: string) => setLate(target),
-                      ...(onSetLandingTarget === undefined ? {} : { sendLate: () => void onSetLandingTarget(late.trim()) }),
-                    }
-                  : {})}
-                value={value}
-                branches={branches}
-                models={models}
-                harnesses={harnesses}
-                {...(onToProposer === undefined
-                  ? {}
-                  : {
-                      toProposer: (note: string) =>
-                        onToProposer({
-                          note,
-                          tuning: tuningChoicesOf(edits, workflows),
-                          landing: landingChoiceOf(landing, branches),
-                        }),
-                    })}
-                machineCap={machineCap}
-                workflows={workflows}
-                whole={whole}
-                manifest={manifest}
-                forRequests={workflow?.for_requests}
-              />
-            </>
-          ),
-        };
+  // The panel every other tab opens, over the work area: the node stays marked
+  // while it is open, closing it returns to the canvas, and pressing another
+  // node swaps it to that node (`through`: the canvas keeps its presses).
+  const panel =
+    opened === undefined ? null : (
+      <Sheet
+        open
+        floating
+        through
+        kind="approval-node"
+        size="dock"
+        floor={floor}
+        title={dialogNameOf(opened, steps)}
+        closeLabel="Close"
+        closeBinding="Esc"
+        onClose={() => setOpen(null)}
+      >
+        <div className="armada-approval-canvas__panel">
+          {opened.kind === "step" && about !== undefined ? (
+            <p className="armada-approval-canvas__about">{about}</p>
+          ) : null}
+          <NodeCard
+            node={opened}
+            step={openedStep}
+            edits={edits}
+            tuning={tuning}
+            moved={moved}
+            tuned={onEdits === undefined ? undefined : tuned}
+            landed={onEdits === undefined ? undefined : landed}
+            {...(picksLate
+              ? {
+                  landsLate: (target: string) => setLate(target),
+                  ...(onSetLandingTarget === undefined ? {} : { sendLate: () => void onSetLandingTarget(late.trim()) }),
+                }
+              : {})}
+            value={value}
+            branches={branches}
+            models={models}
+            harnesses={harnesses}
+            {...(onToProposer === undefined
+              ? {}
+              : {
+                  toProposer: (note: string) =>
+                    onToProposer({
+                      note,
+                      tuning: tuningChoicesOf(edits, workflows),
+                      landing: landingChoiceOf(landing, branches),
+                    }),
+                })}
+            machineCap={machineCap}
+            workflows={workflows}
+            whole={whole}
+            manifest={manifest}
+            forRequests={workflow?.for_requests}
+          />
+        </div>
+      </Sheet>
+    );
 
   const withHeld = withAsk(
     [...backdrops, ...placed],
@@ -429,6 +436,7 @@ export function ApprovalCanvas({
   );
 
   return (
+    <>
     <section
       className="armada-approval-canvas armada-glass"
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
@@ -441,9 +449,10 @@ export function ApprovalCanvas({
         downOnly
         centred
         opensOn={[opensOnOf(nodes, layout.places)]}
-        {...(card === undefined ? {} : { opened: card })}
       />
     </section>
+    {panel}
+    </>
   );
 }
 

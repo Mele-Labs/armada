@@ -3,7 +3,6 @@ import {
   EdgeLabelRenderer,
   Handle,
   MarkerType,
-  NodeToolbar,
   Position,
   getNodesBounds,
   getSmoothStepPath,
@@ -127,16 +126,8 @@ export type WorkflowCanvasProps = {
    */
   runsDown?: boolean;
   /**
-   * A card anchored beside one node, holding what that node tunes — the
-   * approval canvas's. **React Flow's own `NodeToolbar`**, as the node bar is:
-   * it holds against pan and zoom without scaling with them, so the controls
-   * inside read at their own size at any zoom. Absent draws nothing.
-   */
-  opened?: { nodeId: string; label: string; children: ReactNode };
-  /**
    * Whether a run too long to read whole opens centred across the frame
-   * rather than at its leading edge — the approval canvas, whose card opens
-   * beside the node and needs the room either side (the owner, 4 Oct 2026).
+   * rather than at its leading edge — the approval canvas (the owner, 4 Oct 2026).
    */
   centred?: boolean;
   /**
@@ -381,44 +372,6 @@ function Follows({ running, following }: { running: string | null; following: bo
   return null;
 }
 
-/**
- * Pan the opened node's card into the frame — beside the node, off its
- * trailing edge (the owner, 4 Oct 2026) — the node bar's rule: *panned to,
- * never clamped* (1 Oct 2026). On the open, or the node moving, and not after
- * it, so a person who pans away is not pulled back. The card's size is read
- * off its tokens rather than measured.
- */
-function KeepsTheCardInView({ nodeId }: { nodeId: string }) {
-  const flow = useReactFlow();
-  const width = useStore((state) => state.width);
-  const height = useStore((state) => state.height);
-  // And when the node moves under its open card — a node added before it.
-  const at = useStore((state) => {
-    const placed = state.nodeLookup.get(nodeId)?.internals.positionAbsolute;
-    return placed === undefined ? undefined : `${placed.x} ${placed.y}`;
-  });
-  useEffect(() => {
-    const node = flow.getInternalNode(nodeId);
-    if (node === undefined || width === 0) return;
-    const { x, y, zoom } = flow.getViewport();
-    // The card opens off the node's trailing edge, top edges flush.
-    const left = node.internals.positionAbsolute.x * zoom + x;
-    const right = left + (node.measured.width ?? 0) * zoom + token("--space-2") + token("--w-dock") + INSET;
-    const top = node.internals.positionAbsolute.y * zoom + y;
-    const bottom = top + token("--h-workflow-canvas") + INSET;
-    const dx = right > width ? Math.max(width - right, INSET - left) : 0;
-    const dy = top < INSET ? INSET - top : bottom > height ? Math.max(height - bottom, INSET - top) : 0;
-    if (dx !== 0 || dy !== 0) void flow.setViewport({ x: x + dx, y: y + dy, zoom });
-  }, [nodeId, at]);
-  return null;
-}
-
-/** One length off the token set, as a number — what the card's stylesheet sizes it by. */
-function token(name: string): number {
-  const read = Number.parseFloat(getComputedStyle(document.body).getPropertyValue(name));
-  return Number.isFinite(read) ? read : 0;
-}
-
 export function WorkflowCanvas({
   nodes: given,
   edges: givenEdges,
@@ -429,7 +382,6 @@ export function WorkflowCanvas({
   opensOn,
   hangsFromTop = false,
   runsDown = false,
-  opened,
   centred = false,
   downOnly = false,
 }: WorkflowCanvasProps) {
@@ -529,23 +481,6 @@ export function WorkflowCanvas({
     >
       <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
       <Follows running={running} following={following} />
-      {opened === undefined ? null : (
-        <NodeToolbar
-          nodeId={opened.nodeId}
-          isVisible
-          position={Position.Right}
-          align="start"
-          offset={token("--space-2")}
-          // `nowheel nopan nodrag`: a scroll, a drag or a selection inside the
-          // card is the card's, never the canvas's.
-          className="armada-workflow-canvas__card nowheel nopan nodrag"
-          role="dialog"
-          aria-label={opened.label}
-        >
-          {opened.children}
-        </NodeToolbar>
-      )}
-      {opened === undefined ? null : <KeepsTheCardInView nodeId={opened.nodeId} />}
     </GraphCanvas>
   );
 }

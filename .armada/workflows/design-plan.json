@@ -43,6 +43,7 @@
     {
       "id": "draft",
       "label": "Draft",
+      "about": "Writes the design as a document and records the plan behind it. No code is written.",
       "records_plan": true,
       "evidence": {
         "submitted": { "type": "document" }
@@ -62,6 +63,7 @@
     {
       "id": "present",
       "label": "Present",
+      "about": "Shows you the document. You approve it or send it back with notes for another draft.",
       "phase": "delivery",
       "follows_plan": true,
       "evidence": {
