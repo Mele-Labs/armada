@@ -13,7 +13,9 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 use adapter_traits::Vcs;
 use adapters::{CreateWorktreeError, GitVcs, HeadlessAgent};
 use config::{Reloads, Roster};
-use fleet::repositories::{Located, Locating, NotLocated, SetUp};
+use fleet::repositories::{
+    Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotSaved,
+};
 use fleet::{Clock, Fleet, SystemClock};
 
 use crate::setup::{Setup, SetupRefused};
@@ -85,7 +87,55 @@ impl Locator {
     }
 }
 
+impl Locator {
+    /// Watch the folders a repository's workflows are read from — its own
+    /// `.armada/workflows/` and Kit's — and have Fleet read them again once a
+    /// burst of writes has settled. A watch that will not start is said, and
+    /// Fleet serves anyway.
+    fn watch_workflows(&self, root: &str) {
+        let folders = vec![
+            Path::new(root).join(crate::setup::WORKFLOWS),
+            self.kit.join(crate::setup::KIT_WORKFLOWS),
+        ];
+        let fleet = self.fleet.get().cloned();
+        let served = root.to_string();
+        match watching::watch_folders(folders, move || {
+            if let Some(fleet) = fleet.as_ref().and_then(Weak::upgrade) {
+                fleet.workflows_changed(&served);
+            }
+        }) {
+            Ok(watching) => self
+                .watches
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(watching),
+            Err(why) => eprintln!(
+                "the workflow folders for {root} will not be watched, so a new definition needs \
+                 a restart: {why}"
+            ),
+        }
+    }
+}
+
 impl Locating for Locator {
+    fn save_workflow(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<SavedWorkflow, WorkflowNotSaved> {
+        crate::authoring::save(root, &self.kit, manifest, &self.roster, asked)
+    }
+
+    fn workflows(&self, root: &Path, manifest: &config::Manifest) -> Catalogued {
+        let (workflows, left_out) =
+            crate::setup::workflows_again(root, &self.kit, &self.roster, manifest);
+        Catalogued {
+            workflows,
+            left_out: left_out.iter().map(fleet::left_out_workflow).collect(),
+        }
+    }
+
     fn located(&self, folder: &Path) -> Result<Located, NotLocated> {
         let not_one = |why: String| {
             // The person's sentence names no library; its codes stay here.
@@ -152,6 +202,7 @@ impl Locating for Locator {
             .remove(root);
         if let Some(reloads) = reloads {
             self.watch(reloads);
+            self.watch_workflows(root);
         }
     }
 }

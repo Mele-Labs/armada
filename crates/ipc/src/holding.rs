@@ -59,11 +59,11 @@ pub struct WorktreeSlot {
     #[serde(default)]
     pub closed: bool,
     /// What a slot holds that a Scrap would lose. Present where `held` is
-    /// `stranded`, and where it is a Job's with `kept`. Since 23.28.
+    /// `stranded`, and where it is a Job's with `kept`. Since 23.29.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stranded: Option<SlotStranded>,
     /// What a rescue Scout read of a stranded slot, while it reads and after.
-    /// Since 23.28.
+    /// Since 23.29.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rescue: Option<SlotFinding>,
 }
@@ -84,7 +84,7 @@ pub struct SlotStranded {
 pub struct SlotCommit {
     pub sha: String,
     pub subject: String,
-    /// Whether it exists anywhere but this slot. Since 23.28.
+    /// Whether it exists anywhere but this slot. Since 23.29.
     pub home: CommitHome,
 }
 
@@ -121,7 +121,7 @@ pub enum SlotVerdict {
 }
 
 /// What a rescue Scout read of a stranded slot: the Finding, kept against the
-/// slot. Since 23.28.
+/// slot. Since 23.29.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SlotFinding {
     pub state: SlotFindingState,
@@ -139,11 +139,11 @@ pub struct SlotFinding {
     pub searched: Vec<String>,
     /// Whether the work still has a part left to do, or is leftovers. Absent
     /// while the Scout has not answered, and where its answer was not the
-    /// shape asked for. Since 23.28.
+    /// shape asked for. Since 23.29.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict: Option<SlotVerdict>,
     /// Under `unfinished`, what is left to do, a line each. Under `scraps`, one
-    /// line saying what the leftovers are. Since 23.28.
+    /// line saying what the leftovers are. Since 23.29.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<String>,
     /// What it said last, where that was not the shape asked for. Absent while
@@ -157,7 +157,7 @@ pub struct SlotFinding {
     pub cost_micros: Option<u64>,
 }
 
-/// `rescue_slot`'s body: one act on a stranded slot. Since 23.28.
+/// `rescue_slot`'s body: one act on a stranded slot. Since 23.29.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RescueSlot {
     pub act: RescueAct,
@@ -243,15 +243,15 @@ pub enum SlotHolding {
         job_id: JobId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_title: Option<String>,
-        /// Where the Job ended, for a Job that has. Since 23.28.
+        /// Where the Job ended, for a Job that has. Since 23.29.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_status: Option<JobStatus>,
         /// Why the Job's release was refused after it ended: its work is in
-        /// the slot, which it still holds. Since 23.28.
+        /// the slot, which it still holds. Since 23.29.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         kept: Option<String>,
         /// The Job completed and holds the slot until a person clears it.
-        /// Since 23.28.
+        /// Since 23.29.
         #[serde(default)]
         completed: bool,
     },

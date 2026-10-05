@@ -57,9 +57,9 @@ export type WorktreeSlot = {
    * which closes nothing.
    */
   closed?: boolean;
-  /** What a stranded slot holds, which a Scrap would lose. Since 23.28. */
+  /** What a stranded slot holds, which a Scrap would lose. Since 23.29. */
   stranded?: SlotStranded;
-  /** What a rescue Scout read of a stranded slot, while it reads and after. Since 23.28. */
+  /** What a rescue Scout read of a stranded slot, while it reads and after. Since 23.29. */
   rescue?: SlotFinding;
 };
 
@@ -77,7 +77,7 @@ export type SlotStranded = {
 export type SlotCommit = {
   sha: string;
   subject: string;
-  /** Whether it exists anywhere but this slot. Since 23.28. */
+  /** Whether it exists anywhere but this slot. Since 23.29. */
   home: CommitHome;
 };
 
@@ -94,7 +94,7 @@ export type SlotFindingState = "reading" | "answered" | "stopped" | "failed";
 /** What a rescue Scout concluded: `unfinished` has a part left to do, `scraps` needs no more work. */
 export type SlotVerdict = "unfinished" | "scraps";
 
-/** What a rescue Scout read of a stranded slot, kept against the slot. Since 23.28. */
+/** What a rescue Scout read of a stranded slot, kept against the slot. Since 23.29. */
 export type SlotFinding = {
   state: SlotFindingState;
   /** The commit the slot was at when the Scout read it. */
@@ -107,12 +107,12 @@ export type SlotFinding = {
   searched: string[];
   /**
    * Whether the work has a part left to do, or is leftovers. Absent until the
-   * Scout answers in the shape asked for. Since 23.28.
+   * Scout answers in the shape asked for. Since 23.29.
    */
   verdict?: SlotVerdict;
   /**
    * Under `unfinished`, what is left to do, a line each. Under `scraps`, one
-   * line saying what the leftovers are. Since 23.28.
+   * line saying what the leftovers are. Since 23.29.
    */
   items?: string[];
   /** What it said last, where that was not the shape asked for. */
@@ -122,7 +122,7 @@ export type SlotFinding = {
   cost_micros?: number;
 };
 
-/** What a person does with a stranded slot. Since 23.28. */
+/** What a person does with a stranded slot. Since 23.29. */
 export type RescueAct = "start" | "stop" | "scrap" | "stash";
 
 /** `rescue_slot`'s body, `POST /worktrees/slots/rescue?manifest_id=`. */
@@ -169,11 +169,11 @@ export type SlotHolding =
       state: "job";
       job_id: string;
       job_title?: string;
-      /** Where the Job ended, for a Job that has. Since 23.28. */
+      /** Where the Job ended, for a Job that has. Since 23.29. */
       job_status?: string;
-      /** Why the Job's release was refused after it ended: its work is still in the slot. Since 23.28. */
+      /** Why the Job's release was refused after it ended: its work is still in the slot. Since 23.29. */
       kept?: string;
-      /** The Job completed and holds the slot until a person clears it. Since 23.28. */
+      /** The Job completed and holds the slot until a person clears it. Since 23.29. */
       completed?: boolean;
     }
   /** A process outside Fleet, as `ps` names it: `zsh (pid 4120)`. */

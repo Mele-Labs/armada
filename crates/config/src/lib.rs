@@ -28,6 +28,7 @@
 mod amending;
 mod catalogue;
 mod error;
+mod fields;
 mod judge;
 mod live;
 mod loops;
@@ -47,10 +48,11 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRunner, NotAmended, PortEdit, Unplaceable,
 };
 pub use catalogue::{
-    carried, Catalogue, CatalogueRefused, LeftOut, ResolvedCatalogue, WhyLeftOut, Written,
-    CARRIED_AT,
+    carried, fit, Catalogue, CatalogueRefused, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut,
+    Written, CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
+pub use fields::{workflow_fields, Field};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
     BadSeedPath, Check, Command, Harness, Link, Manifest, MergeBy, Preparation, Seed, Server,

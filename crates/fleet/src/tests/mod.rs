@@ -29,6 +29,7 @@ mod asking;
 mod at_once;
 mod attachments;
 mod attribution;
+mod authoring;
 mod auto_merging;
 mod basing;
 mod boundary;
