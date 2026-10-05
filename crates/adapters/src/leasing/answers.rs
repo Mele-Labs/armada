@@ -115,8 +115,33 @@ pub enum LeaseRefused {
     /// The branch exists and carries commits on neither the remote nor the
     /// base. Resetting it to the base would orphan them.
     BranchHoldsWork { branch: String, commits: usize },
+    /// Leasing an existing branch: there is no such local branch.
+    NoSuchBranch(String),
+    /// Leasing an existing branch: another checkout has it, and git lets one
+    /// checkout have a branch.
+    CheckedOutElsewhere { branch: String, at: PathBuf },
     /// The version-control command refused, and this is what it said.
     Vcs(String),
+}
+
+impl LeaseRefused {
+    /// One sentence, for a person.
+    pub fn said(&self) -> String {
+        match self {
+            LeaseRefused::BranchHoldsWork { branch, commits } => format!(
+                "{branch} already exists with {commits} commits on neither the remote nor the \
+                 base, and a lease would reset it"
+            ),
+            LeaseRefused::NoSuchBranch(branch) => {
+                format!("there is no branch {branch} here to lease")
+            }
+            LeaseRefused::CheckedOutElsewhere { branch, at } => format!(
+                "{branch} is already checked out at {}. Give that checkout back first",
+                at.display()
+            ),
+            LeaseRefused::Vcs(why) => why.clone(),
+        }
+    }
 }
 
 /// Why a release let nothing go.
@@ -131,7 +156,9 @@ pub enum ReleaseRefused {
         path: PathBuf,
         files: Vec<String>,
     },
-    Unlanded {
+    /// HEAD carries commits the lease's branch lacks, and neither the remote
+    /// nor the base has them: a release would leave them on no branch.
+    OffTheBranch {
         branch: String,
         commits: usize,
     },
@@ -157,9 +184,9 @@ impl ReleaseRefused {
                 files.len(),
                 files.first().map(String::as_str).unwrap_or_default()
             ),
-            ReleaseRefused::Unlanded { branch, commits } => format!(
-                "{branch} has {commits} commits on neither the remote nor the base. \
-                 Land or push them, then release"
+            ReleaseRefused::OffTheBranch { branch, commits } => format!(
+                "the checkout has {commits} commits that {branch} lacks, and the remote and \
+                 the base lack them too. Put them on {branch}, then release"
             ),
             ReleaseRefused::Vcs(why) => why.clone(),
         }
@@ -171,4 +198,80 @@ impl ReleaseRefused {
 pub struct Released {
     pub slot: usize,
     pub branch: String,
+}
+
+/// What a park committed and freed.
+#[derive(Debug)]
+pub struct Parked {
+    pub slot: usize,
+    /// The branch the work is on, and stays on.
+    pub branch: String,
+    /// The WIP commit, with the paths it took; `None` where the slot was
+    /// clean and only released.
+    pub committed: Option<Committed>,
+}
+
+/// The commit a park made.
+#[derive(Debug)]
+pub struct Committed {
+    pub commit: String,
+    pub files: Vec<String>,
+}
+
+/// Why a park changed nothing, or committed and could not free the slot.
+#[derive(Debug)]
+pub enum ParkRefused {
+    NotASlot(PathBuf),
+    NotLeased(PathBuf),
+    /// Somebody else holds it, named for a person.
+    HeldByAnother(String),
+    /// A take or a release is under way on it.
+    Busy,
+    /// The checkout is detached, so there is no branch to park onto.
+    OnNoBranch,
+    /// The checkout is on the base itself.
+    OnTheBase(String),
+    /// The checkout is on a branch other than the one the lease names.
+    OnAnotherBranch {
+        leased: String,
+        on: String,
+    },
+    /// The work was committed and the release then refused. The commit stays.
+    Release(ReleaseRefused),
+    Vcs(String),
+}
+
+impl ParkRefused {
+    /// One sentence, for a person.
+    pub fn said(&self) -> String {
+        match self {
+            ParkRefused::NotASlot(path) => format!(
+                "{} is not one of this repository's worktree slots",
+                path.display()
+            ),
+            ParkRefused::NotLeased(path) => format!(
+                "{} is not leased, so there is nothing to park",
+                path.display()
+            ),
+            ParkRefused::HeldByAnother(holder) => format!("{holder} holds it"),
+            ParkRefused::Busy => String::from("a lease or a release is under way on it"),
+            ParkRefused::OnNoBranch => String::from(
+                "the checkout is on no branch, so there is nothing to park the work onto",
+            ),
+            ParkRefused::OnTheBase(base) => {
+                format!("the checkout is on {base}, the base itself. Park onto a branch of its own")
+            }
+            ParkRefused::OnAnotherBranch { leased, on } => format!(
+                "the checkout is on {on}, and the lease names {leased}. Switch back to {leased}, \
+                 then park"
+            ),
+            ParkRefused::Release(refused) => {
+                format!(
+                    "the work is committed, but the slot stays held: {}",
+                    refused.said()
+                )
+            }
+            ParkRefused::Vcs(why) => why.clone(),
+        }
+    }
 }

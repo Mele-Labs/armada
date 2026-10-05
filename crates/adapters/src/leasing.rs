@@ -15,8 +15,10 @@
 //! put one invariant in three files.
 
 mod answers;
+mod existing;
 mod git;
 pub(crate) mod jobs;
+mod parking;
 mod reading;
 mod record;
 mod rescue;
@@ -28,7 +30,11 @@ use std::time::Duration;
 
 use adapter_traits::{BaseSpec, SLOT_ROOT as SLOTS};
 
-pub use answers::{Full, Lease, LeaseRefused, Leased, ReleaseRefused, Released, Slot, SlotState};
+pub use answers::{
+    Committed, Full, Lease, LeaseRefused, Leased, ParkRefused, Parked, ReleaseRefused, Released,
+    Slot, SlotState,
+};
+use existing::Onto;
 use git::{count, git, git_ok};
 pub use record::Holder;
 use record::Record;
@@ -131,6 +137,17 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
+        self.take(Onto::New, branch, holder, since, seed)
+    }
+
+    fn take(
+        &self,
+        onto: Onto,
+        branch: &str,
+        holder: &Holder,
+        since: u64,
+        seed: Seed<'_>,
+    ) -> Result<Leased, LeaseRefused> {
         // A Job asking again is handed its own slot as it stands: resetting it
         // would throw away the work a Drone left there.
         if let Holder::Job(_) = holder {
@@ -145,16 +162,26 @@ impl Pool {
                 }));
             }
         }
-        let unfetched = self.fetched().err();
+        // An existing branch is leased at its tip: nothing is cut from the
+        // base, so there is no base to fetch.
+        let unfetched = match onto {
+            Onto::New => self.fetched().err(),
+            Onto::Existing => None,
+        };
         let from = self.base_ref();
         let existing = format!("refs/heads/{branch}");
-        if git_ok(&self.root, &["rev-parse", "--verify", "--quiet", &existing]) {
-            let commits = self.unlanded(&self.root, &existing);
-            if commits > 0 {
-                return Err(LeaseRefused::BranchHoldsWork {
-                    branch: branch.to_string(),
-                    commits,
-                });
+        match onto {
+            Onto::Existing => self.existing_free(branch)?,
+            Onto::New => {
+                if git_ok(&self.root, &["rev-parse", "--verify", "--quiet", &existing]) {
+                    let commits = self.unlanded(&self.root, &existing);
+                    if commits > 0 {
+                        return Err(LeaseRefused::BranchHoldsWork {
+                            branch: branch.to_string(),
+                            commits,
+                        });
+                    }
+                }
             }
         }
 
@@ -199,7 +226,7 @@ impl Pool {
                     continue;
                 }
             };
-            let lease = self.point(number, branch, &from, holder, since, None)?;
+            let lease = self.point(number, onto, branch, &from, holder, since, None)?;
             drop(lock);
             return Ok(Leased::Took(Lease {
                 reclaimed_from,
@@ -230,7 +257,7 @@ impl Pool {
         )
         .map_err(LeaseRefused::Vcs)?;
         let seeded_from = self.seeded(&path, seed);
-        let lease = self.point(number, branch, &from, holder, since, seeded_from)?;
+        let lease = self.point(number, onto, branch, &from, holder, since, seeded_from)?;
         drop(lock);
         Ok(Leased::Took(Lease {
             unfetched,
@@ -239,8 +266,10 @@ impl Pool {
         }))
     }
 
-    /// Give a slot back: refused while it holds anything not on the remote or
-    /// the base, and otherwise detached so its branch is free to land.
+    /// Give a slot back: refused while it holds uncommitted files or commits
+    /// its branch, the remote and the base all lack, and otherwise detached
+    /// so its branch is free to land. A commit on the branch is enough; a
+    /// push is not asked for.
     pub fn release(&self, path: &Path) -> Result<Released, ReleaseRefused> {
         let wanted = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let Some(number) = self.bays().into_iter().find(|n| {
@@ -271,6 +300,17 @@ impl Pool {
         let lock = self.lock_file(number).map_err(ReleaseRefused::Vcs)?;
         lock.lock()
             .map_err(|why| ReleaseRefused::Vcs(why.to_string()))?;
+        self.give_back_locked(number, holder)
+    }
+
+    /// [`give_back`](Pool::give_back) for a caller already holding slot
+    /// `number`'s lock, as a park does between its commit and its release.
+    fn give_back_locked(
+        &self,
+        number: usize,
+        holder: Option<&Holder>,
+    ) -> Result<Released, ReleaseRefused> {
+        let slot = self.path_of(number);
         let Some(mut record) = Record::read(&self.record_path(number)) else {
             return Err(ReleaseRefused::NotLeased(slot));
         };
@@ -283,9 +323,9 @@ impl Pool {
                 path: slot.clone(),
                 files,
             }),
-            Ok(_) => match self.unlanded(&slot, "HEAD") {
+            Ok(_) => match self.off_branch(&slot, &record.branch) {
                 0 => None,
-                commits => Some(ReleaseRefused::Unlanded {
+                commits => Some(ReleaseRefused::OffTheBranch {
                     branch: record.branch.clone(),
                     commits,
                 }),
@@ -404,10 +444,10 @@ impl Pool {
                     commits => Some(format!("{commits} commits no branch names")),
                 }
             }
-            Ok(_) => match self.unlanded(&path, "HEAD") {
+            Ok(_) => match self.off_branch(&path, record.as_ref().map_or("", |r| &r.branch)) {
                 0 => None,
                 commits => Some(format!(
-                    "{commits} commits on neither the remote nor {}",
+                    "{commits} commits on neither its branch, the remote nor {}",
                     self.base
                 )),
             },
@@ -431,6 +471,7 @@ impl Pool {
     fn point(
         &self,
         number: usize,
+        onto: Onto,
         branch: &str,
         from: &str,
         holder: &Holder,
@@ -444,12 +485,15 @@ impl Pool {
                 path.display()
             )));
         }
-        // `--no-track`, so the new branch has no upstream and a bare `git push`
-        // cannot reach the base.
-        git(
-            &path,
-            &["switch", "--quiet", "--no-track", "-C", branch, from],
-        )
+        match onto {
+            // `--no-track`, so the new branch has no upstream and a bare `git
+            // push` cannot reach the base.
+            Onto::New => git(
+                &path,
+                &["switch", "--quiet", "--no-track", "-C", branch, from],
+            ),
+            Onto::Existing => git(&path, &["switch", "--quiet", branch]),
+        }
         .map_err(LeaseRefused::Vcs)?;
         let mut clean = vec!["clean", "-fdx", "--quiet"];
         for kept in &self.keep {
