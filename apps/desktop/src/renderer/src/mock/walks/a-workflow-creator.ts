@@ -9,7 +9,7 @@ import { button, card, inside, role, text, walk } from "../walk";
 const FRAME = role("region", "Workflow definition");
 const PANEL = role("dialog", "gather");
 
-export const aWorkflowCreator = walk("every-state", [
+export const aWorkflowCreator = walk("workflows", [
   { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
   { hover: role("img", "A workflow file cannot run"), say: "The rail row is marked while a file cannot run" },
   { look: role("list", "Workflow files"), say: "Every file, a row each" },

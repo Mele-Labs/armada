@@ -31,6 +31,7 @@ import type { ChangeSlotPool, LandCheckAt, SketchToKeep } from "@armada/protocol
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
+import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
@@ -225,6 +226,11 @@ export const removeRepositoryAllowedCommand = (run: string) =>
 /** Kit's MCP servers, and the two tiers of reach over each — #1275. */
 export const readKitInventory = () => window.armada.readKitInventory();
 export const listKitServers = () => window.armada.listKitServers();
+/** The Workflow creator: the list, one definition, and a save. */
+export const readWorkflows = () => window.armada.readWorkflows();
+export const readWorkflowDefinition = (workflowId: string, source: string) =>
+  window.armada.readWorkflowDefinition(workflowId, source);
+export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>

@@ -5,13 +5,10 @@
 // Fleet hands them: a row each, the left-out files, and each definition's text.
 // Delete with the mock.
 
-import { resolve, type Definition, type Entry, type Gate, type Step } from "./def";
-import { writeDefinition, type LeftOutRow, type WorkflowRow, WIRE_OF_SOURCE } from "./json";
+import { SOURCE_RANK, type Definition, type Entry, type Gate, type Step } from "./def";
+import { SOURCE_OF_WIRE, WIRE_OF_SOURCE, writeDefinition, type LeftOutRow, type WorkflowRow } from "./json";
 
 export const MOCK_REPOSITORY = "armada";
-
-/** The Manifests a definition may be written to, beside Kit. */
-export const MOCK_MANIFESTS: readonly string[] = [MOCK_REPOSITORY, "ledger", "site"];
 
 const none: Gate = { checks: false, judge: false, you: false, repository: false };
 
@@ -138,37 +135,38 @@ const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
   },
 };
 
+/** One file the mock Fleet holds: the place as Fleet spells it, its id, its path, its text, and why it was left out. */
+export type MockFile = { source: string; id: string; file: string; text: string; leftOut?: string };
+
 /** Fleet's own spelling of a file: a bracketed name where Armada carries it. */
-const fileOf = (one: Entry) => (one.source === "carried" ? `[${one.file}]` : one.file);
+const pathOf = (one: Entry) => (one.source === "carried" ? `[${one.file}]` : one.file);
 
-/** `GET /workflows`: the definition that runs for each id, and the ones it replaces. */
-export const MOCK_WORKFLOWS: readonly WorkflowRow[] = (() => {
-  const resolved = resolve(MOCK_ENTRIES);
-  return resolved
-    .filter((one) => one.leftOut === undefined && one.overriddenBy === undefined)
-    .map((one) => {
-      const under = resolved.filter((other) => other.id === one.id && other.overriddenBy !== undefined);
-      return {
-        id: one.id,
-        source: WIRE_OF_SOURCE[one.source],
-        file: fileOf(one),
-        ...(under.length === 0 ? {} : { overrides: under.map((other) => ({ source: WIRE_OF_SOURCE[other.source], file: fileOf(other) })) }),
-      };
-    });
-})();
-
-/** `GET /workflows/left_out`. */
-export const MOCK_LEFT_OUT: readonly LeftOutRow[] = MOCK_ENTRIES.filter((one) => one.leftOut !== undefined).map((one) => ({
-  id: one.id,
+export const MOCK_FILES: readonly MockFile[] = MOCK_ENTRIES.map((one) => ({
   source: WIRE_OF_SOURCE[one.source],
-  file: one.file,
-  said: one.leftOut ?? "",
+  id: one.id,
+  file: pathOf(one),
+  text: one.leftOut === undefined ? writeDefinition(MOCK_DEFINITIONS[one.key]!) : "",
+  ...(one.leftOut === undefined ? {} : { leftOut: one.leftOut }),
 }));
 
-/** `GET /workflows/definition`: each definition's text, by `<source>/<id>` with the source as Fleet spells it. */
-export const MOCK_DEFINITION_TEXT: Readonly<Record<string, string>> = Object.fromEntries(
-  MOCK_ENTRIES.filter((one) => one.leftOut === undefined).map((one) => [
-    `${WIRE_OF_SOURCE[one.source]}/${one.id}`,
-    writeDefinition(MOCK_DEFINITIONS[one.key]!),
-  ]),
-);
+/** `GET /workflows`: the file that runs for each id, and the ones it replaces. */
+export function workflowRowsOf(files: readonly MockFile[]): WorkflowRow[] {
+  const rank = (one: MockFile) => SOURCE_RANK[SOURCE_OF_WIRE[one.source] ?? "carried"];
+  const runs = files.filter((one) => one.leftOut === undefined);
+  return runs
+    .filter((one) => runs.every((other) => other.id !== one.id || rank(other) <= rank(one)))
+    .map((one) => {
+      const under = runs.filter((other) => other.id === one.id && rank(other) < rank(one));
+      return {
+        id: one.id,
+        source: one.source,
+        file: one.file,
+        ...(under.length === 0 ? {} : { overrides: under.map((other) => ({ source: other.source, file: other.file })) }),
+      };
+    });
+}
+
+/** `GET /workflows/left_out`. */
+export function leftOutRowsOf(files: readonly MockFile[]): LeftOutRow[] {
+  return files.flatMap((one) => (one.leftOut === undefined ? [] : [{ id: one.id, source: one.source, file: one.file, said: one.leftOut }]));
+}

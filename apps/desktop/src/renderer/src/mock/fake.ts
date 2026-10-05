@@ -16,6 +16,7 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
+import { workflowsServed } from "./workflows-fleet";
 import { reshaped } from "./slots-fleet";
 import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
@@ -419,6 +420,9 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     forgetKitServer: async () => refused("/kit/servers"),
     setKitServerReach: async () => refused("/kit/servers"),
     setManifestServerReach: async () => refused("/kit/servers"),
+
+    // The Workflow creator's own Fleet: the list, a definition and a save, from the fixture.
+    ...workflowsServed(() => state.holds.repositories?.find((one) => one.root === state.repository)?.manifest?.id ?? null),
 
     // The rail's pick is this window's own, so it moves here as it does in main.
     pickRepository: async (root) => publish({ repository: root }),

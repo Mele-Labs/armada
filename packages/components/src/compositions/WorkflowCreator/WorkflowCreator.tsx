@@ -24,6 +24,7 @@ import {
   type Definition,
   type Entry,
   type Gate,
+  type ManifestOption,
   type Read,
   type Refusal,
   type Resolved,
@@ -43,10 +44,10 @@ import { writeDefinition } from "./json";
  * `onSave` writes one, and what Fleet says of a save is shown as it said it.
  */
 export type WorkflowCreatorProps = {
-  /** The Manifest the window is in: where a new definition is written until another is picked. */
+  /** The id of the Manifest the window is in: where a new definition is written until another is picked. */
   repository: string;
   /** Every Manifest a definition may be written to, beside Kit. */
-  manifests: readonly string[];
+  manifests: readonly ManifestOption[];
   entries: readonly Entry[];
   /** One file's definition, for a row's graph and for opening it. */
   onRead: (entry: Entry) => Promise<Read>;
@@ -389,7 +390,7 @@ function Stage({
 }: {
   open: Open;
   repository: string;
-  manifests: readonly string[];
+  manifests: readonly ManifestOption[];
   entries: readonly Entry[];
   panel: Panel;
   onPanel: (panel: Panel) => void;
@@ -399,6 +400,7 @@ function Stage({
 }) {
   const { def, standing, refusals } = open;
   const ScopeGlyph = def.scope === KIT ? Briefcase : FolderGit2;
+  const scopeName = (scope: string) => (scope === KIT ? "Kit" : (manifests.find((one) => one.id === scope)?.name ?? scope));
   const marked = useMemo(() => {
     const by = new Map<number, string[]>();
     for (const one of refusals) if (one.step !== undefined) by.set(one.step, [...(by.get(one.step) ?? []), one.why]);
@@ -439,8 +441,8 @@ function Stage({
         ) : null}
         <span className="armada-wf-stage__eyebrow">{STANDING[standing]}</span>
         <span className="armada-wf-stage__name">{def.id}</span>
-        <Tooltip label={def.scope === KIT ? "Kit" : def.scope}>
-          <span className="armada-wf-stage__mark" role="img" aria-label={def.scope === KIT ? "Kit" : def.scope}>
+        <Tooltip label={scopeName(def.scope)}>
+          <span className="armada-wf-stage__mark" role="img" aria-label={scopeName(def.scope)}>
             <ScopeGlyph size={12} strokeWidth={2} aria-hidden />
           </span>
         </Tooltip>
@@ -515,6 +517,7 @@ function Stage({
                 def={def}
                 repository={repository}
                 manifests={manifests}
+                scopeName={scopeName}
                 replaces={replaces}
                 invalid={refusals.some((one) => one.where === "id")}
                 onChange={onChange}
@@ -554,13 +557,15 @@ function WorkflowFields({
   def,
   repository,
   manifests,
+  scopeName,
   replaces,
   invalid,
   onChange,
 }: {
   def: Definition;
   repository: string;
-  manifests: readonly string[];
+  manifests: readonly ManifestOption[];
+  scopeName: (scope: string) => string;
   replaces: readonly string[];
   invalid: boolean;
   onChange: (next: (def: Definition) => Definition) => void;
@@ -577,12 +582,12 @@ function WorkflowFields({
       <Select label="Scope" value={def.scope} onChange={(event) => onChange((was) => ({ ...was, scope: event.target.value }))}>
         <option value={KIT}>Kit</option>
         {manifests.map((one) => (
-          <option key={one} value={one}>
-            {one}
+          <option key={one.id} value={one.id}>
+            {one.name}
           </option>
         ))}
       </Select>
-      <span className="armada-wf-panel__fact">{fileOf(def, repository)}</span>
+      <span className="armada-wf-panel__fact">{fileOf(def, repository, scopeName)}</span>
       {replaces.length === 0 ? null : (
         <span className="armada-wf-panel__fact">{`replaces ${replaces.join(", ").toLowerCase()}`}</span>
       )}

@@ -606,6 +606,11 @@ export const CHANNELS = {
   forgetKitServer: "bridge:forget-kit-server",
   setKitServerReach: "bridge:set-kit-server-reach",
   setManifestServerReach: "bridge:set-manifest-server-reach",
+  // The Workflow creator: the list, one definition, and a save. Fleet names the
+  // repository for the first two; a save names the Manifest it is written under.
+  readWorkflows: "bridge:read-workflows",
+  readWorkflowDefinition: "bridge:read-workflow-definition",
+  saveWorkflow: "bridge:save-workflow",
   // The rail's pick. A root and nothing else; main ignores one Fleet does not list.
   pickRepository: "bridge:pick-repository",
   // Locate: the OS folder dialog, and a repository added or cloned. Main asks Fleet; the renderer names paths.

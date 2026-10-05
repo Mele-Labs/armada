@@ -10,8 +10,11 @@
 /** Where a definition comes from, least specific first. The most specific wins by id. */
 export type Source = "carried" | "kit" | "repository";
 
-/** Where a saved definition is written: `kit`, or a Manifest by name. */
+/** Where a saved definition is written: `kit`, or a Manifest by its id. */
 export type Scope = string;
+
+/** A Manifest a definition may be written to: the id Fleet names it by, and the repository's name a person reads. */
+export type ManifestOption = { id: string; name: string };
 
 export const KIT: Scope = "kit";
 
@@ -157,11 +160,11 @@ function displayId(step: Step | { id: string }, n: number): string {
   return step.id === "" ? `step ${n}` : step.id;
 }
 
-/** The file a definition is written to, from the Manifest the window is in. */
-export function fileOf(def: Pick<Definition, "id" | "scope">, current: string): string {
+/** The file a definition is written to, from the Manifest the window is in. `scopeName` is the repository's name for a Manifest. */
+export function fileOf(def: Pick<Definition, "id" | "scope">, current: string, scopeName: (scope: Scope) => string): string {
   const name = def.id === "" ? "…" : def.id;
   if (def.scope === KIT) return `${SOURCE_DIR.kit}/${name}.json`;
-  return `${def.scope === current ? "" : `${def.scope}/`}${SOURCE_DIR.repository}/${name}.json`;
+  return `${def.scope === current ? "" : `${scopeName(def.scope)}/`}${SOURCE_DIR.repository}/${name}.json`;
 }
 
 export function blankStep(): Step {

@@ -43,6 +43,7 @@ import type {
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
@@ -456,6 +457,12 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.setKitServerReach, name, drones),
   setManifestServerReach: (name: string, reach: ManifestReach | null): Promise<KitServersRead> =>
     ipcRenderer.invoke(CHANNELS.setManifestServerReach, name, reach),
+
+  readWorkflows: (): Promise<WorkflowsRead> => ipcRenderer.invoke(CHANNELS.readWorkflows),
+  readWorkflowDefinition: (workflowId: string, source: string): Promise<WorkflowDefinitionRead> =>
+    ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source),
+  saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why

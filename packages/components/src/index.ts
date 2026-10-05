@@ -200,12 +200,11 @@ export * from "./compositions/HeldWorktree/HeldWorktree";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export {
-  MOCK_DEFINITION_TEXT,
-  MOCK_LEFT_OUT,
-  MOCK_MANIFESTS,
-  MOCK_REPOSITORY,
-  MOCK_WORKFLOWS,
+  leftOutRowsOf,
+  MOCK_FILES,
+  workflowRowsOf,
 } from "./compositions/WorkflowCreator/mock";
+export type { MockFile } from "./compositions/WorkflowCreator/mock";
 export { entriesOf, readDefinition, writeDefinition } from "./compositions/WorkflowCreator/json";
 export type { Definition as WorkflowDefinitionDraft, Entry as WorkflowEntry, Read as WorkflowRead, Saved as WorkflowSavedAnswer } from "./compositions/WorkflowCreator/def";
 export { KIT as WORKFLOW_KIT } from "./compositions/WorkflowCreator/def";
