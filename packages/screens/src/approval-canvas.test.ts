@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { approvalNodesOf } from "./approval-canvas";
+import { approvalNodesOf, stepsReadOf } from "./approval-canvas";
 import type { StepRead } from "./approval-canvas";
 import { tuningOf } from "./draft/tuning";
 
@@ -200,5 +200,16 @@ describe("Land, local only", () => {
       prMode: "ready", local: true, target: "main", branch: "armada/1-retire-guide-8",
     });
     expect(nodes.at(-1)).toMatchObject({ id: "land", face: "armada/1-retire-guide-8" });
+  });
+});
+
+describe("stepsReadOf", () => {
+  const gates = [{ step_id: "handoff", checks: false, judge: true, you: true }];
+  const whole = { steps: [{ step_id: "handoff", label: "Review", judge_checks: [{ criteria: 1, gaming_check: false }] }] } as never;
+  const catalog = new Map([["handoff", { step_id: "handoff", label: "Review", judge_checks: [] } as never]]);
+
+  it("reads the catalog at the gate, and the Job's own step past it", () => {
+    expect(stepsReadOf(gates, whole, catalog)[0]?.judges).toEqual([]);
+    expect(stepsReadOf(gates, whole, catalog, true)[0]?.judges).toHaveLength(1);
   });
 });

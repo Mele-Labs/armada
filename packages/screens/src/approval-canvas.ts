@@ -205,10 +205,12 @@ export function stepsReadOf(
   gates: readonly GateView[],
   whole: JobWhole | null,
   declared: ReadonlyMap<string, WorkflowStep>,
+  /** Past the gate the Job's own frozen step is the truth, and the catalog's only fills in what it lacks. */
+  frozenFirst = false,
 ): StepRead[] {
   return gates.map((gate) => {
     const frozen = whole?.steps.find((one) => one.step_id === gate.step_id);
-    const step: WorkflowStep | StepDetail | undefined = declared.get(gate.step_id) ?? frozen;
+    const step: WorkflowStep | StepDetail | undefined = frozenFirst ? (frozen ?? declared.get(gate.step_id)) : (declared.get(gate.step_id) ?? frozen);
     return {
       id: gate.step_id,
       label: step?.label ?? gate.step_id,
@@ -501,7 +503,7 @@ export function approvalNodesOf({
     } else {
       gateFace = {
         kind,
-        asking: run?.waited === undefined ? I_REVIEW : `Review ${step.label}`,
+        asking: run?.waited === undefined ? I_REVIEW : step.label,
         ...(run?.waited === undefined ? {} : { waited: run.waited }),
       };
     }

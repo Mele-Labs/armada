@@ -12,6 +12,9 @@ import type { ApprovalNode, Lane } from "./approval-canvas";
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
 const CARD = { height: 112, width: 260, narrow: 196 };
 
+/** A gate stage, the lighter card between two steps (`RUN_NODE_GATE_HEIGHT`, `RUN_NODE_GATE_WIDTH`). */
+const GATE = { height: 104, width: 228 };
+
 /** Spine to spine (`--space-12` and `--space-2`), a step to its gate and gate stage to stage (`--space-6`), and the room a way back takes beside the spine (`--space-12`). */
 const ROW_GAP = 56;
 const CHAIN_GAP = 24;
@@ -113,8 +116,9 @@ export function layoutOf(
     for (const [at, node] of inLane.entries()) {
       if (node.from !== undefined) continue;
       if (labelled.has(node.id)) y += LABELLED;
-      places.set(node.id, { x: spine - spineCard / 2, y });
-      y += CARD.height;
+      const gate = node.kind === "checks";
+      places.set(node.id, { x: spine - (gate ? GATE.width : spineCard) / 2, y });
+      y += gate ? GATE.height : CARD.height;
       const fan = fans.get(node.id);
       if (fan !== undefined) {
         // The fan's Cluster: a head, then its rows centred on the spine.

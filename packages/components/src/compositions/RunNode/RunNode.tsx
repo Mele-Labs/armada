@@ -101,6 +101,9 @@ export type RunNodeProps = {
 export const RUN_NODE_HEIGHT = 112;
 export const RUN_NODE_WIDTH = 260;
 export const RUN_NODE_NARROW = 196;
+/** A gate stage is the lighter card between two steps: `RunNode.css` declares it off the tokens. */
+export const RUN_NODE_GATE_HEIGHT = 104;
+export const RUN_NODE_GATE_WIDTH = 228;
 
 /** The band's word for each kind. A kind, never a state: the state is the band's hue and glyph. */
 const KIND: Record<RunNodeKind, string> = {
@@ -141,8 +144,6 @@ const OUTCOME_ICON = {
   off: CHECK_OUTCOME["skipped"]?.icon,
 } as const;
 
-const OUTCOME_SAID = { passed: "passed", failed: "failed", running: "running", waiting: "waiting", off: "off" } as const;
-
 const JUDGE_ICON = {
   met: CRITERION_VERDICT_JUDGE["met"]?.icon,
   not_met: CRITERION_VERDICT_JUDGE["not_met"]?.icon,
@@ -162,55 +163,60 @@ function GateBody({ gate, face, meta }: { gate: RunNodeGate; face: string | unde
   const tail = meta.length === 0 ? null : <Values of={meta} className="armada-run-node__meta" />;
   if (gate.kind === "checks") {
     const on = gate.commands.filter((one) => one.outcome !== "off");
-    // What failed first, so a long list cuts off what passed.
-    const names = [...on].sort((a, b) => Number(b.outcome === "failed") - Number(a.outcome === "failed"));
     const passed = on.filter((one) => one.outcome === "passed").length;
     const failed = on.filter((one) => one.outcome === "failed").length;
-    const started = on.some((one) => one.outcome !== "waiting");
+    // What needs reading first: what failed, then what is running, then the rest. A long list cuts off what passed.
+    const rank = { failed: 0, running: 1, waiting: 2, passed: 3, off: 4 } as const;
+    const rows = [...on].sort((a, b) => rank[a.outcome] - rank[b.outcome]);
+    const roomy = gate.output === undefined && meta.length === 0;
     return (
       <>
-        <span className="armada-run-node__title armada-run-node__commands">
-          {names.length === 0
-            ? (face ?? "")
-            : names.map((one, at) => {
-                const Icon = one.outcome === "waiting" || one.outcome === "off" ? undefined : (OUTCOME_ICON[one.outcome] ?? undefined);
-                return (
-                  <Tooltip key={one.name} label={`${one.name}, ${OUTCOME_SAID[one.outcome]}`}>
-                    <span className="armada-run-node__command" data-outcome={one.outcome}>
-                      {at === 0 ? null : <span className="armada-run-node__sep" aria-hidden>{" · "}</span>}
-                      {Icon === undefined ? null : <Icon size={12} strokeWidth={2} aria-hidden />}
-                      {one.name}
-                    </span>
-                  </Tooltip>
-                );
-              })}
-        </span>
-        {!started || gate.elapsed === undefined ? null : (
-          <Tooltip label={`${passed} passed, ${failed} failed, running for`}>
-            <span className="armada-run-node__counts">{gate.elapsed}</span>
-          </Tooltip>
-        )}
+        {rows.length === 0 ? <span className="armada-run-node__title">{face ?? ""}</span> : null}
+        {rows.slice(0, roomy ? 3 : 2).map((one, at) => {
+          const Icon = one.outcome === "off" ? undefined : (OUTCOME_ICON[one.outcome] ?? undefined);
+          return (
+            <span key={one.name} className="armada-run-node__command" data-outcome={one.outcome}>
+              {Icon === undefined ? null : <Icon size={12} strokeWidth={2} aria-hidden />}
+              <span className="armada-run-node__command-name">{one.name}</span>
+              {at === 0 && gate.elapsed !== undefined ? (
+                <Tooltip label={`${passed} passed, ${failed} failed, running for`}>
+                  <span className="armada-run-node__elapsed">{gate.elapsed}</span>
+                </Tooltip>
+              ) : null}
+            </span>
+          );
+        })}
         {gate.output !== undefined ? <span className="armada-run-node__meta armada-run-node__output">{gate.output}</span> : tail}
       </>
     );
   }
   if (gate.kind === "judge") {
+    const said =
+      gate.refusal !== undefined
+        ? gate.refusal
+        : gate.panel.length > 0 && gate.panel.every((one) => one === "met")
+          ? CRITERION_VERDICT_JUDGE["met"]?.verb
+          : gate.panel.includes("not_met")
+            ? CRITERION_VERDICT_JUDGE["not_met"]?.verb
+            : undefined;
     return (
       <>
-        <span className="armada-run-node__title armada-run-node__panel">
+        <span className="armada-run-node__panel">
           {gate.panel.map((mark, at) => {
             const Icon = JUDGE_ICON[mark];
             return (
               <Tooltip key={at} label={`Judge ${at + 1}, ${JUDGE_SAID[mark]}`}>
                 <span className="armada-run-node__judge" data-verdict={mark} role="img" aria-label={`Judge ${at + 1}, ${JUDGE_SAID[mark]}`}>
-                  {Icon === undefined || Icon === null ? null : <Icon size={16} strokeWidth={2} aria-hidden />}
+                  {Icon === undefined || Icon === null ? null : <Icon size={22} strokeWidth={2} aria-hidden />}
                 </span>
               </Tooltip>
             );
           })}
         </span>
-        {gate.refusal === undefined ? null : (
-          <span className="armada-run-node__line armada-run-node__refusal">{gate.refusal}</span>
+        {said === undefined ? null : (
+          <span className="armada-run-node__line armada-run-node__refusal" data-refused={gate.panel.includes("not_met") || undefined}>
+            {said}
+          </span>
         )}
         {tail}
       </>

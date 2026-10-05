@@ -197,7 +197,7 @@ export function ApprovalCanvas({
   const [open, setOpen] = useState<string | null>(null);
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
-  const steps = stepsReadOf(proposal.gates, whole, declared);
+  const steps = stepsReadOf(proposal.gates, whole, declared, life !== undefined);
   const tuning = edits.tuning ?? tuningOf(steps.map((step) => ({ step_id: step.id, judge_checks: step.judges })));
   const base = baseBranch(branches);
   // **Where it lands, picked late.** A Job frozen with no branch to land in

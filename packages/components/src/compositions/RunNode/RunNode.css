@@ -133,50 +133,91 @@ button.armada-run-node {
   color: var(--accent);
 }
 
-/* --- A gate stage's face: one per kind of gate. -------------------------
+/* --- A gate stage: a checkpoint between two steps, not a step. ------------
 
-   The same three body lines. A command that failed takes the failure state's
-   hue and glyph; the rest stay muted. Nothing glows. */
-.armada-run-node__commands {
-  display: flex;
-  align-items: center;
-  min-width: 0;
+   Shorter and narrower than a step, on the card's own surface with a slim
+   header instead of a solid band. The state is the frame and the leading
+   edge, quieter than a step's fill; a gate that passed recedes, one that
+   failed or is held stands out. Nothing glows. */
+.armada-run-node[data-gate] {
+  width: calc(var(--w-workflow-node) - var(--space-8));
+  height: calc(var(--space-8) * 3 + var(--space-2));
+  border-color: color-mix(in srgb, var(--armada-run-node-hue) 40%, var(--border-default));
 }
 
-.armada-run-node__command {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: 0 0 auto;
+.armada-run-node[data-gate] .armada-run-node__band {
+  background: transparent;
+  color: var(--fg-muted);
+  padding-block: var(--space-1);
+}
+
+.armada-run-node[data-gate] .armada-run-node__band .armada-step-mark {
+  color: var(--armada-run-node-hue);
+}
+
+.armada-run-node[data-gate] .armada-run-node__body {
+  padding-block: 0 var(--space-2);
+}
+
+/* The leading edge says the state; at the gate and before it, the kind. */
+.armada-run-node[data-gate]:not([data-tone="neutral"], [data-tone="upcoming"], [data-tone="ghost"]) {
+  border-inline-start-color: var(--armada-run-node-hue);
+}
+
+/* Settled: what passed steps back. */
+.armada-run-node[data-gate][data-tone="done"] {
+  opacity: 0.72;
+}
+
+/* Failed or held: stands out from the steps around it, on a flat tint. */
+.armada-run-node[data-gate]:is([data-tone="failed"], [data-tone="waiting"], [data-tone="blocked"]) {
+  border-color: var(--armada-run-node-hue);
+  background: color-mix(in srgb, var(--armada-run-node-hue) var(--row-tint), var(--bg-raised));
+}
+
+.armada-run-node[data-gate] .armada-run-node__band .armada-run-node__kind {
   color: var(--fg-default);
 }
 
-.armada-run-node__command[data-outcome="waiting"] {
+.armada-run-node__command {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-muted);
+}
+
+.armada-run-node__command > svg {
+  flex: 0 0 auto;
+}
+
+.armada-run-node__command-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.armada-run-node__command[data-outcome="running"] {
+  color: var(--step-running);
+}
+
+.armada-run-node__command[data-outcome="passed"] {
+  color: var(--step-advanced);
 }
 
 .armada-run-node__command[data-outcome="failed"] {
   color: var(--step-failed);
 }
 
-.armada-run-node__counts {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.armada-run-node__elapsed {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
   color: var(--fg-muted);
-}
-
-.armada-run-node__count {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.armada-run-node__count[data-outcome="failed"] {
-  color: var(--step-failed);
 }
 
 .armada-run-node__output {
@@ -187,6 +228,7 @@ button.armada-run-node {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding-block: var(--space-1);
 }
 
 .armada-run-node__judge {
@@ -203,7 +245,7 @@ button.armada-run-node {
 }
 
 .armada-run-node__judge[data-verdict="not_met"],
-.armada-run-node__refusal {
+.armada-run-node__refusal[data-refused] {
   color: var(--step-failed);
 }
 

@@ -35,10 +35,11 @@ const run = () => {
 describe("layoutOf", () => {
   it("stands a gate's stage on the spine under its step, close under it", () => {
     const { places } = run();
-    expect(places.get("plan:judge")?.x).toBe(places.get("plan")?.x);
+    // Inset: narrower than the step, on the same spine.
+    expect(places.get("plan:judge")!.x + 228 / 2).toBe(places.get("plan")!.x + 260 / 2);
     const gap = places.get("plan:judge")!.y - places.get("plan")!.y - 112;
     expect(gap).toBeGreaterThan(0);
-    expect(gap).toBeLessThan(places.get("implement")!.y - places.get("plan:judge")!.y - 112);
+    expect(gap).toBeLessThan(places.get("implement")!.y - places.get("plan:judge")!.y - 104);
   });
 
   it("fans a step's groups across one row under it, and frames them", () => {
