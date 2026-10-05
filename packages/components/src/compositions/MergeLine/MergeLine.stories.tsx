@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { MergeLine, type MergeLineEntry } from "./MergeLine";
+import { MergeLine, type MergeLineEntry, type MergeLineNotice } from "./MergeLine";
 
 /**
  * The merge line as an Overview panel: `armada land --status` drawn, from the
@@ -194,5 +194,67 @@ export const Wrapping: Story = {
     const detail = canvasElement.querySelector(".armada-merge-line__detail")!.getBoundingClientRect();
     await expect(detail.height).toBeGreaterThan(branch.height * 1.5);
     await expect(Math.abs(mark.top + mark.height / 2 - (branch.top + branch.height / 2))).toBeLessThan(2);
+  },
+};
+
+/** A batch mid-turn: screens_test failed, its rerun failed, and desktop_test is running behind it. */
+const FAILING: MergeLineEntry[] = [
+  { place: 1, branch: "docs/wire-lock-signed", state: "gating", batch: TURN, doing: "reading verify-foundations against main" },
+  {
+    place: 2,
+    branch: "worktree-agent-aef3c24792026e2c3",
+    state: "gating",
+    batch: TURN,
+    checks: [
+      { name: "build", state: "passed" },
+      { name: "screens_test", state: "failed" },
+      { name: "desktop_test", state: "running" },
+      { name: "components_test", state: "waiting" },
+    ],
+  },
+];
+
+const AT = "worktree-agent-aef3c24792026e2c3";
+
+const noticed = (notice: MergeLineNotice): Story => ({
+  args: { line: FAILING, notice, onOpenCheck: fn() },
+  play: async ({ canvas, args }) => {
+    // One alert, whichever reading: a later one replaces it.
+    await expect(canvas.getAllByRole("status")).toHaveLength(1);
+    await canvas.getByRole("button", { name: "Open log" }).click();
+    await expect(args.onOpenCheck).toHaveBeenCalledWith(AT, "screens_test");
+  },
+});
+
+/** Before the split names the one at fault: a heads-up to the whole batch, once. */
+export const FailedBatch: Story = {
+  name: "A Check failed, batch not split",
+  ...noticed({ kind: "batch", check: "screens_test", branch: AT }),
+};
+
+/** The split named the branch at fault while the turn runs on. */
+export const FailedBranch: Story = {
+  name: "A Check failed, branch named",
+  ...noticed({ kind: "branch", check: "screens_test", branch: AT }),
+};
+
+/** The same Check is red on main: nobody is blamed, and the turn holds. */
+export const FailedOnMain: Story = {
+  name: "A Check red on main too",
+  ...noticed({ kind: "main", check: "screens_test", branch: AT }),
+};
+
+/** The turn's verdict, in the slot the heads-up held. */
+export const FailedSent: Story = {
+  name: "A Check failed, branch sent back",
+  args: {
+    line: [{ place: 1, branch: "docs/wire-lock-signed", state: "preparing", doing: "reading verify-foundations against main" }],
+    notice: { kind: "sent", check: "screens_test", branch: AT },
+    sentBack: [{ branch: AT, state: "red", failed: ["screens_test"] }],
+    onOpenCheck: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("status")).toHaveLength(1);
+    await expect(canvas.getByRole("status")).toHaveTextContent(AT);
   },
 };

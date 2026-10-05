@@ -286,3 +286,17 @@
     animation: none;
   }
 }
+
+/* The failed Check of the turn, across the whole body above the line. */
+.armada-merge-line__notice {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0;
+}
+
+/* Bare facts, side by side and set back from the title. */
+.armada-merge-line__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}

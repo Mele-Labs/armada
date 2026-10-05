@@ -1,7 +1,8 @@
 import { Fragment } from "react";
-import { ChevronRight, ChevronUp, type LucideIcon } from "lucide-react";
+import { ChevronRight, ChevronUp, Pause, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
+import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -62,11 +63,31 @@ export type MergeLineCheck = {
   state: "waiting" | "running" | "passed" | "failed" | "timed_out";
 };
 
+/**
+ * What the owner is told while a turn runs and one of its Checks has failed: the rerun failed
+ * too, and the Check is green on main. **One per line, because a line runs one turn at a time**,
+ * so it sits in one slot and each later reading replaces it rather than stacking a second.
+ *
+ * - `batch`: before the split names the one at fault, a heads-up to every branch in the turn.
+ * - `branch`: the split named it, or the turn is a single branch.
+ * - `main`: the same Check is red on main too. Nobody is blamed, and the turn holds.
+ * - `sent`: the turn's verdict, the branch sent back.
+ */
+export type MergeLineNotice = {
+  kind: "batch" | "branch" | "main" | "sent";
+  /** The Check that failed. */
+  check: string;
+  /** The branch whose turn wrote the Check's log. Named on the notice only where a batch has more than one. */
+  branch: string;
+};
+
 export type MergeLineProps = {
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
   /** In place order. */
   line: readonly MergeLineEntry[];
+  /** The turn's failed Check, drawn above the line. Absent is nothing to say, and nothing is drawn. */
+  notice?: MergeLineNotice;
   /** Landed, newest first. */
   landed?: readonly MergeLineEntry[];
   /** Red, conflict or stopped and not back in line, newest first. */
@@ -100,7 +121,7 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
+  const { name, line, notice, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
   const acts = { onOpenPullRequest, ...(onOpenCheck === undefined ? {} : { onOpenCheck }) };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
   const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
@@ -131,12 +152,15 @@ export function MergeLine(props: MergeLineProps) {
           )}
         </button>
       </header>
-      {!open ? null : line.length === 0 && left.length === 0 ? (
+      {!open ? null : line.length === 0 && left.length === 0 && notice === undefined ? (
         <div className="armada-merge-line__empty">
           <EmptyLine />
         </div>
       ) : (
         <div className="armada-merge-line__body">
+          {notice === undefined ? null : (
+            <Notice notice={notice} batched={batched(line).some((run) => run.length > 1)} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+          )}
           {line.length === 0 ? null : (
             <ol className="armada-merge-line__list" aria-label="In line">
               {batched(line).map((run) =>
@@ -171,6 +195,86 @@ export function MergeLine(props: MergeLineProps) {
         </div>
       )}
     </section>
+  );
+}
+
+const NOTICE_TONE: Record<MergeLineNotice["kind"], AlertTone> = {
+  batch: "caution",
+  branch: "escalated",
+  main: "neutral",
+  sent: "escalated",
+};
+
+/**
+ * The failed Check, in the Alert's own tones: caution for a heads-up to a whole batch, escalated
+ * once a branch is named, neutral where main is red too and nobody is to blame. **Facts only, no
+ * sentence**; the glyph and the Check's mark carry what the tone cannot, and caution takes none.
+ */
+function Notice({
+  notice,
+  batched,
+  onOpenCheck,
+}: {
+  notice: MergeLineNotice;
+  batched: boolean;
+  onOpenCheck?: (branch: string, check: string) => void;
+}) {
+  const failed = CHECK_OUTCOME.failed;
+  const Shield = failed?.icon ?? null;
+  const glyph =
+    notice.kind === "main" ? (
+      <Tooltip label="Held" asChild>
+        <span role="img" aria-label="Held">
+          <Pause size={16} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    ) : notice.kind === "batch" || Shield === null ? undefined : (
+      <Tooltip label="Check failed" asChild>
+        <span role="img" aria-label="Check failed">
+          <Shield size={16} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    );
+  // A branch is named where the turn is a batch, and always once it has left the line.
+  const named = notice.kind === "sent" || (notice.kind === "branch" && batched);
+  return (
+    <div className="armada-merge-line__notice">
+      <Alert
+        tone={NOTICE_TONE[notice.kind]}
+        icon={glyph}
+        title={
+          <span className="mono">
+            {notice.check}
+            {notice.kind === "main" ? " red on main" : " failed"}
+          </span>
+        }
+        {...(onOpenCheck === undefined
+          ? {}
+          : {
+              action: (
+                <button
+                  type="button"
+                  className="armada-alert__button"
+                  onClick={() => onOpenCheck(notice.branch, notice.check)}
+                >
+                  Open log
+                </button>
+              ),
+              actionOn: "title" as const,
+            })}
+      >
+        <span className="armada-merge-line__facts">
+          {named ? <span className="mono">{notice.branch}</span> : null}
+          {notice.kind === "sent" ? <span>sent back</span> : null}
+          {notice.kind === "batch" || notice.kind === "branch" ? (
+            <>
+              <span>rerun failed</span>
+              <span>green on main</span>
+            </>
+          ) : null}
+        </span>
+      </Alert>
+    </div>
   );
 }
 
