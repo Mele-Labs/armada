@@ -7,7 +7,7 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { JobRetro, Lesson, LessonAnswer, LessonState } from "@armada/protocol";
+import type { JobRetro, Lesson, LessonAnswer, LessonState, RetroRead } from "@armada/protocol";
 
 import { JobRetroSheet, Lessons } from "./Lessons";
 import { mount, unmount } from "./mounted";
@@ -57,7 +57,12 @@ const SAVED = lesson({ ...KIT, id: "l-saved", state: "accepted", title: "grep wa
 type Acts = { agree?: (id: string) => Promise<LessonAnswer>; disagree?: (id: string) => Promise<LessonAnswer> };
 
 /** Mount the page over an open list and a saved one, recording what was read. */
-function opened(open: Lesson[], saved: Lesson[] = [], acts: Acts = {}) {
+function opened(
+  open: Lesson[],
+  saved: Lesson[] = [],
+  acts: Acts = {},
+  readRetro: (jobId: string) => Promise<RetroRead> = async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } }),
+) {
   const read = vi.fn(async (state: LessonState | "open" | "accepted") => ({
     ok: true as const,
     lessons: state === "accepted" ? saved : open,
@@ -69,7 +74,7 @@ function opened(open: Lesson[], saved: Lesson[] = [], acts: Acts = {}) {
   mount(
     <Lessons
       onReadLessons={read}
-      onReadRetro={async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } })}
+      onReadRetro={readRetro}
       onAgreeLesson={agree}
       onDisagreeLesson={disagree}
       onOpenJob={job}
@@ -299,4 +304,99 @@ test("the retro sheet shows an answered item as it stands, and offers buttons on
   // Discarded draws nothing, and an item with no state is read and left alone.
   expect(one("Discarded one").elements()).toHaveLength(0);
   expect(answers("Old one")).toHaveLength(0);
+});
+
+// Evidence on the Retros list: the rows a Job's retro holds, read once per Job.
+
+const HELD: JobRetro = {
+  job_id: "01K6JOB3",
+  state: "written",
+  record: {
+    failed_checks: [{ cite: "check:1", name: "out_of_bounds", run: "gate", produced: "armada.yml changed" }],
+    refusals: [{ cite: "refusal:1", tool: "grep", tried: "grep on a check log", because: "not allowed" }],
+  },
+};
+const WITH_CHECK = { ...ARMADA, evidence: ["check:1", "check:9"] };
+const WITH_REFUSAL = { ...KIT, evidence: ["refusal:1"] };
+
+test("list evidence: a list card offers Evidence and expands the rows it cites, in place, after one read", async () => {
+  const readRetro = vi.fn(async () => ({ ok: true as const, retro: HELD }));
+  opened([WITH_CHECK, OLD], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await expect.element(one).toBeVisible();
+  // An item citing nothing offers none.
+  expect(card(/in the dock/).getByRole("button", { name: "Evidence" }).elements()).toHaveLength(0);
+  expect(readRetro).not.toHaveBeenCalled();
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+  expect(readRetro).toHaveBeenCalledTimes(1);
+  expect(readRetro).toHaveBeenCalledWith("01K6JOB3");
+  // A cite the record does not hold is left out.
+  expect(one.element().querySelectorAll(".armada-retro__cite")).toHaveLength(1);
+  // The answers stay as they were.
+  expect(one.getByRole("button", { name: /^(Create Job|Reject change)$/ }).elements()).toHaveLength(2);
+});
+
+test("list evidence: two items of one Job make one read", async () => {
+  const readRetro = vi.fn(async () => ({ ok: true as const, retro: HELD }));
+  opened([WITH_CHECK, WITH_REFUSAL], [], {}, readRetro);
+  await card(/blamed the Drone/).getByRole("button", { name: "Evidence" }).click();
+  await expect.element(card(/blamed the Drone/).getByText("armada.yml changed")).toBeVisible();
+  await card(/grep to be allowed/).getByRole("button", { name: "Evidence" }).click();
+  await expect.element(card(/grep to be allowed/).getByText("grep on a check log · not allowed")).toBeVisible();
+  expect(readRetro).toHaveBeenCalledTimes(1);
+});
+
+test("list evidence: a failed read shows the card's alert, leaves the card intact and can be pressed again", async () => {
+  let fail = true;
+  const readRetro = vi.fn(async (): Promise<RetroRead> =>
+    fail ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, retro: HELD },
+  );
+  opened([WITH_CHECK, WITH_REFUSAL], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("Retros could not be read")).toBeVisible();
+  expect(card(/grep to be allowed/).getByText("Retros could not be read").elements()).toHaveLength(0);
+  await expect.element(one.getByText(/two commits behind origin/)).toBeVisible();
+  expect(one.getByRole("button", { name: /^(Create Job|Reject change)$/ }).elements()).toHaveLength(2);
+  fail = false;
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+  expect(one.getByText("Retros could not be read").elements()).toHaveLength(0);
+});
+
+test("list evidence: while the read is out Evidence is pending and the other buttons stay usable", async () => {
+  let release: (read: RetroRead) => void = () => {};
+  const readRetro = vi.fn(() => new Promise<RetroRead>((done) => (release = done)));
+  const { agree } = opened([WITH_CHECK], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByRole("button", { name: "Evidence" })).toHaveAttribute("data-pending", "true");
+  await one.getByRole("button", { name: "Create Job", exact: true }).click();
+  expect(agree).toHaveBeenCalled();
+  release({ ok: true, retro: HELD });
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+});
+
+test("list evidence: when the retro holds none of the cited rows nothing is said and the control goes", async () => {
+  const readRetro = vi.fn(async () => ({ ok: true as const, retro: { ...HELD, record: {} } }));
+  opened([WITH_CHECK], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.poll(() => one.getByRole("button", { name: "Evidence" }).elements().length).toBe(0);
+  expect(one.element().querySelectorAll(".armada-retro__cites")).toHaveLength(0);
+  expect(one.getByText("Retros could not be read").elements()).toHaveLength(0);
+});
+
+test("list evidence: the window regaining focus drops what was read, and the next press reads again", async () => {
+  const readRetro = vi.fn(async () => ({ ok: true as const, retro: HELD }));
+  opened([WITH_CHECK], [], {}, readRetro);
+  const one = card(/blamed the Drone/);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+  window.dispatchEvent(new Event("focus"));
+  await expect.poll(() => one.element().querySelectorAll(".armada-retro__cite").length).toBe(0);
+  await one.getByRole("button", { name: "Evidence" }).click();
+  await expect.element(one.getByText("armada.yml changed")).toBeVisible();
+  expect(readRetro).toHaveBeenCalledTimes(2);
 });
