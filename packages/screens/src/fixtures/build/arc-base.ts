@@ -181,7 +181,8 @@ export function featureWorkflow(): WorkflowSummary {
       {
           step_id: "implement",
           label: "Implement",
-          checks: [...RUST_CHECKS, ...BRIDGE_CHECKS],
+          // `test` is in both lists; a step declares each Check once.
+          checks: [...RUST_CHECKS, ...BRIDGE_CHECKS.filter((one) => !RUST_CHECKS.some((rust) => rust.name === one.name))],
           judge_checks: [{ criteria: 5, gaming_check: true }],
           advance_gate: "auto_if_judge_passes",
           delivers: false,
