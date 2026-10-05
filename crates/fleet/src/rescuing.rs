@@ -12,7 +12,7 @@ use adapter_traits::{AgentHarness, Delivery, RescueRefused, SlotRescue, Vcs, Wor
 use api::Refusal;
 use core_model::{ScoutEnded, ScoutLook, ScoutOutcome};
 use ipc::{ManifestId, RescueAct, RescueSlot, WireError};
-use store::{KeptRescue, RescueState};
+use store::{KeptRescue, RescueState, RescueVerdict};
 use tokio::sync::mpsc;
 
 use crate::daemon::Fleet;
@@ -102,6 +102,8 @@ where
                     cut,
                     read: Vec::new(),
                     searched: Vec::new(),
+                    verdict: None,
+                    items: Vec::new(),
                     summary: None,
                     why: None,
                     cost_micros: None,
@@ -221,7 +223,18 @@ where
         learned: Option<String>,
         ended: ScoutEnded,
     ) {
-        rescue.summary = learned;
+        // An answer in the shape asked for is the verdict and its items; any
+        // other is kept as the Scout's own words, which the person still reads.
+        match learned.as_deref().map(ipc::what_a_scout_found_in_a_slot) {
+            Some(Ok(found)) => {
+                rescue.verdict = Some(match found.verdict {
+                    ipc::SlotVerdict::Unfinished => RescueVerdict::Unfinished,
+                    ipc::SlotVerdict::Scraps => RescueVerdict::Scraps,
+                });
+                rescue.items = found.items;
+            }
+            _ => rescue.summary = learned,
+        }
         rescue.cost_micros = ended.cost_micros;
         match ended.outcome {
             ScoutOutcome::Answered => rescue.state = RescueState::Answered,

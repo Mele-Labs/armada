@@ -23,8 +23,9 @@ use crate::tests::tmp::TempDir;
 type Rescued = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 /// The agent CLI as a scout meets it. A brief naming `slowly` (the branch
-/// does) reads one file and waits, bounded, to be interrupted; any other reads
-/// two files and answers. The wait ends with its parent, so a test that dies
+/// does) reads one file and waits, bounded, to be interrupted; one naming
+/// `prosy` answers in prose; any other reads two files and answers with a
+/// verdict. The wait ends with its parent, so a test that dies
 /// leaves nothing polling.
 const STAND_IN: &str = r##"#!/bin/sh
 state='@STATE@'
@@ -50,10 +51,15 @@ case "$turn" in
     sleep 30 >/dev/null 2>&1 &
     wait
     ;;
+  *prosy*)
+    call toolu_1 Read "\"file_path\":\"$root/src/parser.rs\"" false
+    said "The parser is half written; the lexer is done."
+    ended 1 0.0123
+    ;;
   *)
     call toolu_1 Read "\"file_path\":\"$root/src/parser.rs\"" false
     call toolu_2 Read "\"file_path\":\"$root/src/lexer.rs\"" false
-    said "The parser is half written; the lexer is done."
+    said 'Reading done.\n\n```json\n{\"verdict\":\"unfinished\",\"items\":[\"src/parser.rs has no parse_expr\",\"The lexer test is not written\"]}\n```'
     ended 2 0.0123
     ;;
 esac
@@ -182,10 +188,12 @@ async fn a_rescue_reads_the_slot_and_the_finding_stays_on_it() {
     assert_eq!(finding.read, ["src/parser.rs", "src/lexer.rs"]);
     assert_eq!(finding.commit, "abc1234def");
     assert!(finding.uncommitted);
+    assert_eq!(finding.verdict, Some(ipc::SlotVerdict::Unfinished));
     assert_eq!(
-        finding.summary.as_deref(),
-        Some("The parser is half written; the lexer is done.")
+        finding.items,
+        ["src/parser.rs has no parse_expr", "The lexer test is not written"]
     );
+    assert_eq!(finding.summary, None);
     assert_eq!(finding.cost_micros, Some(12_300));
 
     let slot = on_the_wire(&fleet).await;
@@ -223,6 +231,29 @@ async fn a_finding_outlives_the_fleet_that_read_it() {
     assert_eq!(on_the_wire(&fleet).await.rescue, Some(before));
 }
 
+/// **An answer that is not the shape asked for is kept as the Scout's words**,
+/// with no verdict, so the person still has something to decide on.
+#[tokio::test]
+async fn an_answer_that_is_not_the_shape_is_kept_as_the_scouts_words() {
+    let home = TempDir::new();
+    let fleet = rescued(&home);
+    stranded(&home, &fleet, Some("fleet/prosy"));
+
+    Arc::clone(&fleet)
+        .rescue_slot(press(RescueAct::Start), None)
+        .await
+        .expect("started");
+
+    let finding = ended(&fleet).await;
+    assert_eq!(finding.state, SlotFindingState::Answered);
+    assert_eq!(finding.verdict, None);
+    assert!(finding.items.is_empty());
+    assert_eq!(
+        finding.summary.as_deref(),
+        Some("The parser is half written; the lexer is done.")
+    );
+}
+
 /// A Scout still reading when Fleet stopped ends as failed, keeping what it
 /// read, since no Scout outlives the Fleet that was reading for it.
 #[tokio::test]
@@ -251,6 +282,8 @@ async fn a_finding_left_reading_by_a_restart_ends_failed() {
             cut: 0,
             read: vec![String::from("src/parser.rs")],
             searched: Vec::new(),
+            verdict: None,
+            items: Vec::new(),
             summary: None,
             why: None,
             cost_micros: None,

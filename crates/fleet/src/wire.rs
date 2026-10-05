@@ -849,6 +849,11 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
             cut: kept.cut,
             read: kept.read.clone(),
             searched: kept.searched.clone(),
+            verdict: kept.verdict.map(|verdict| match verdict {
+                store::RescueVerdict::Unfinished => ipc::SlotVerdict::Unfinished,
+                store::RescueVerdict::Scraps => ipc::SlotVerdict::Scraps,
+            }),
+            items: kept.items.clone(),
             summary: kept.summary.clone(),
             why: kept.why.clone(),
             cost_micros: kept.cost_micros,

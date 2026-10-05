@@ -1,6 +1,6 @@
 import { FilePenLine, GitCommitHorizontal, Power, ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
-import type { CommitHome, SlotCommit, WorktreeSlot } from "@armada/protocol";
+import type { CommitHome, SlotCommit, SlotFinding as Found, WorktreeSlot } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -63,6 +63,31 @@ function Commits({ commits, base }: { commits: readonly SlotCommit[]; base: stri
   );
 }
 
+/**
+ * The Scout's verdict as one word, then plain items: what is left to do under
+ * Unfinished, one line saying what the leftovers are under Scraps. Nothing
+ * where it has not answered in that shape.
+ */
+function Verdict({ finding }: { finding: Found }) {
+  const items = finding.items ?? [];
+  if (finding.verdict === undefined) return null;
+  const unfinished = finding.verdict === "unfinished";
+  return (
+    <div className="armada-finding__answer">
+      <h3 className="armada-finding__verdict">{unfinished ? "Unfinished" : "Scraps"}</h3>
+      {items.length === 0 ? null : unfinished ? (
+        <ul className="armada-finding__left" aria-label="Left to do">
+          {items.map((one, at) => (
+            <li key={`${at}/${one}`}>{one}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="armada-finding__scraps">{items[0]}</p>
+      )}
+    </div>
+  );
+}
+
 /** A mark with no words, named by its tooltip and its accessible name. */
 export function Mark({ said, children }: { said: string; children: ReactNode }) {
   return (
@@ -85,6 +110,7 @@ export function SlotFinding({ slot }: { slot: WorktreeSlot }) {
   const reading = rescue.state === "reading";
   return (
     <section className="armada-finding" aria-label="Finding" aria-busy={reading || undefined}>
+      <Verdict finding={rescue} />
       <div className="armada-finding__meta">
         {reading ? (
           <Mark said="Reading">

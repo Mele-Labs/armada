@@ -407,8 +407,36 @@
 }
 
 .armada-finding__summary,
-.armada-finding__failed {
+.armada-finding__failed,
+.armada-finding__scraps {
   margin: 0;
+}
+
+/* The verdict: one word, then what it rests on. */
+.armada-finding__answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-finding__verdict {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+}
+
+.armada-finding__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-finding__left > li {
+  overflow-wrap: anywhere;
 }
 
 .armada-finding__lists {

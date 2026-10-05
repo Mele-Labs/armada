@@ -110,6 +110,16 @@ pub enum SlotFindingState {
     Failed,
 }
 
+/// What a rescue Scout concluded of a stranded slot's work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotVerdict {
+    /// The work has a part left to do.
+    Unfinished,
+    /// Leftovers that need no more work.
+    Scraps,
+}
+
 /// What a rescue Scout read of a stranded slot: the Finding, kept against the
 /// slot. Since 23.19.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,7 +137,17 @@ pub struct SlotFinding {
     pub read: Vec<String>,
     /// Every search it ran.
     pub searched: Vec<String>,
-    /// What it said last. Absent while it has said nothing.
+    /// Whether the work still has a part left to do, or is leftovers. Absent
+    /// while the Scout has not answered, and where its answer was not the
+    /// shape asked for. Since 23.19.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<SlotVerdict>,
+    /// Under `unfinished`, what is left to do, a line each. Under `scraps`, one
+    /// line saying what the leftovers are. Since 23.19.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<String>,
+    /// What it said last, where that was not the shape asked for. Absent while
+    /// it has said nothing, and where `verdict` carries the answer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     /// Why it failed, where it did.

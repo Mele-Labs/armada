@@ -2697,7 +2697,7 @@ reads neither field and sees exactly what it did.
 | --- | --- | --- | --- |
 | `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
 | `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose. Each commit is `{ sha, subject, home }`, `home` being `only_here` (on no remote branch and not on the local base), `on_remote` or `on_main` | A slot that is not stranded |
-| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed` | No Scout has read it, or it has moved off the commit read |
+| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, verdict?, items?, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed`. `verdict` is `unfinished` or `scraps`; `items` is what is left to do under the first and one line of leftovers under the second. `summary` is the Scout's own words, kept only where its answer was not that shape | No Scout has read it, or it has moved off the commit read |
 
 **A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains
 `job_status` (where the Job ended), `kept` (why its release was refused, so its work is still in
@@ -2711,7 +2711,7 @@ after.
 
 **Bridge re-reads `GET /worktrees` while a Finding is `reading`.** No event carries it.
 
-**Store V104**, `slot_rescues`: one row per slot, keyed by Manifest and slot number, replaced as
+**Store V104 and V105**, `slot_rescues` (V105 adds `verdict` and `items`): one row per slot, keyed by Manifest and slot number, replaced as
 the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
 `failed` when Fleet starts.
 

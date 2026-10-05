@@ -324,7 +324,7 @@ export const Reading: Story = {
 };
 
 /**
- * The Finding, in the sheet: the summary, what it read and searched, the slot's
+ * The Finding, in the sheet: the verdict and what is left, what it read and searched, the slot's
  * commits, the commit it read and that uncommitted changes sat on it, and what
  * was cut. **The bay holds none of it.** Stash acts at once and closes the
  * sheet; Scrap waits on its confirm.
@@ -340,7 +340,8 @@ export const FindingAnswered: Story = {
             ...FOUND,
             state: "answered",
             cut: 1200,
-            summary: "A retry for a short read, finished in the commit and half-moved in the working files.",
+            verdict: "unfinished",
+            items: ["src/lib.rs still calls the old read loop", "src/reader/retry.rs has no test"],
           },
         }),
       },
@@ -354,7 +355,10 @@ export const FindingAnswered: Story = {
     await expect(bay(canvas, 4).queryByRole("button", { name: /Rescue|Stop|Scrap|Stash/ })).toBeNull();
 
     const finding = await opened(canvas, userEvent, 4);
-    await expect(finding.getByText(/A retry for a short read/)).toBeInTheDocument();
+    await expect(finding.getByRole("heading", { name: "Unfinished" })).toBeInTheDocument();
+    const left = finding.getByRole("list", { name: "Left to do" });
+    await expect(within(left).getAllByRole("listitem")).toHaveLength(2);
+    await expect(left).toHaveTextContent("src/lib.rs still calls the old read loop");
     await expect(finding.getByRole("list", { name: "Read" })).toHaveTextContent("src/reader/mod.rs");
     await expect(finding.getByRole("list", { name: "Searched" })).toHaveTextContent("retry_short_read in src/");
     await expect(finding.getByRole("list", { name: "Commits" })).toHaveTextContent("9d41e07 Retry a short read once");
@@ -368,6 +372,45 @@ export const FindingAnswered: Story = {
     await expect(args.onRescue).toHaveBeenCalledTimes(1);
     await expect(args.onRescue).toHaveBeenCalledWith("stash", 4);
     await expect(canvas.queryByRole("dialog")).toBeNull();
+  },
+};
+
+/**
+ * **Scraps is one line**, under its one word: no list, and nothing under it to
+ * do. **A Scout that did not answer in the shape** leaves its own words as they
+ * are, with no verdict drawn.
+ */
+export const FindingScraps: Story = {
+  name: "Finding scraps",
+  args: {
+    rows: [
+      {
+        slot: slot(4, {
+          ...STRANDED,
+          rescue: { ...FOUND, state: "answered", verdict: "scraps", items: ["A draft note in notes/lease.md"] },
+        }),
+      },
+      {
+        slot: slot(5, {
+          ...STRANDED,
+          rescue: { ...FOUND, state: "answered", summary: "The parser is half written; the lexer is done." },
+        }),
+      },
+    ],
+    onAct: fn(),
+    onRescue: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    const scraps = await opened(canvas, userEvent, 4);
+    await expect(scraps.getByRole("heading", { name: "Scraps" })).toBeInTheDocument();
+    await expect(scraps.getByText("A draft note in notes/lease.md")).toBeInTheDocument();
+    await expect(scraps.queryByRole("list", { name: "Left to do" })).toBeNull();
+    await expect(scraps.queryByRole("heading", { name: "Unfinished" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+
+    const prose = await opened(canvas, userEvent, 5);
+    await expect(prose.getByText("The parser is half written; the lexer is done.")).toBeInTheDocument();
+    await expect(prose.queryByRole("heading")).toBeNull();
   },
 };
 
@@ -425,7 +468,7 @@ export const CommitHomes: Story = {
 export const FindingClosed: Story = {
   name: "Finding closed",
   args: {
-    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }) }],
+    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] } }) }],
     onAct: fn(),
     onRescue: fn(),
   },
@@ -490,7 +533,7 @@ export const FindingFailed: Story = {
 export const ScrapConfirm: Story = {
   name: "Scrap confirm",
   args: {
-    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }) }],
+    rows: [{ slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] } }) }],
     onAct: fn(),
     onRescue: fn(),
   },
@@ -557,7 +600,7 @@ export const RescueRefusedAndReceipt: Story = {
   args: {
     rows: [
       {
-        slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", summary: "Half moved." } }),
+        slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] } }),
         refused: "Not stashed: a Scout is reading it",
       },
       { slot: slot(5, { held: { state: "free" } }), said: "fleet/old-try kept" },
@@ -642,13 +685,13 @@ export const KeptJob: Story = {
 export const KeptJobFinding: Story = {
   name: "Kept Job finding",
   args: {
-    rows: [{ slot: slot(8, { ...KEPT, rescue: { ...FOUND, state: "answered", summary: "Route edited, test not." } }) }],
+    rows: [{ slot: slot(8, { ...KEPT, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["The route test asserts a retry count the read does not return"] } }) }],
     onAct: fn(),
     onRescue: fn(),
   },
   play: async ({ args, canvas, userEvent }) => {
     const finding = await opened(canvas, userEvent, 8);
-    await expect(finding.getByText("Route edited, test not.")).toBeInTheDocument();
+    await expect(finding.getByText("The route test asserts a retry count the read does not return")).toBeInTheDocument();
     await userEvent.click(finding.getByRole("button", { name: "Stash" }));
     await expect(args.onRescue).toHaveBeenLastCalledWith("stash", 8);
     await expect(canvas.queryByRole("dialog")).toBeNull();

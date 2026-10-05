@@ -31,6 +31,39 @@ CREATE TABLE slot_rescues (
 ) STRICT;
 "#;
 
+/// Version 105 — what the Scout concluded: a verdict and its items.
+///
+/// **`items` is a JSON array of text**, as `read` is. A row kept before this
+/// has neither and reads as a Finding with only its summary.
+pub(crate) const V105: &str = r#"
+ALTER TABLE slot_rescues ADD COLUMN verdict TEXT CHECK (verdict IN ('unfinished', 'scraps'));
+ALTER TABLE slot_rescues ADD COLUMN items TEXT NOT NULL DEFAULT '[]';
+"#;
+
+/// What a rescue Scout concluded of the work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RescueVerdict {
+    Unfinished,
+    Scraps,
+}
+
+impl RescueVerdict {
+    fn as_text(self) -> &'static str {
+        match self {
+            RescueVerdict::Unfinished => "unfinished",
+            RescueVerdict::Scraps => "scraps",
+        }
+    }
+
+    fn of(text: &str) -> Option<RescueVerdict> {
+        Some(match text {
+            "unfinished" => RescueVerdict::Unfinished,
+            "scraps" => RescueVerdict::Scraps,
+            _ => return None,
+        })
+    }
+}
+
 /// Where a rescue Scout is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RescueState {
@@ -76,7 +109,12 @@ pub struct KeptRescue {
     pub cut: u64,
     pub read: Vec<String>,
     pub searched: Vec<String>,
-    /// What the Scout said last.
+    /// Whether the work has a part left to do, or is leftovers. `None` until
+    /// the Scout answers in the shape asked for.
+    pub verdict: Option<RescueVerdict>,
+    /// What is left to do, or what the leftovers are.
+    pub items: Vec<String>,
+    /// What the Scout said last, where it was not the shape asked for.
     pub summary: Option<String>,
     /// Why it failed, where it did.
     pub why: Option<String>,
@@ -90,8 +128,8 @@ impl Store {
         self.conn
             .execute(
                 "INSERT OR REPLACE INTO slot_rescues (manifest_id, slot, state, work_commit, \
-                 uncommitted, cut, read, searched, summary, why, cost_micros)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                 uncommitted, cut, read, searched, summary, why, cost_micros, verdict, items)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 rusqlite::params![
                     rescue.manifest_id,
                     i64::from(rescue.slot),
@@ -104,6 +142,8 @@ impl Store {
                     rescue.summary,
                     rescue.why,
                     rescue.cost_micros.map(|micros| micros as i64),
+                    rescue.verdict.map(RescueVerdict::as_text),
+                    list(&rescue.items),
                 ],
             )
             .map(|_| ())
@@ -118,7 +158,8 @@ impl Store {
             .conn
             .prepare(
                 "SELECT manifest_id, slot, state, work_commit, uncommitted, cut, read, searched, \
-                 summary, why, cost_micros FROM slot_rescues ORDER BY manifest_id, slot",
+                 summary, why, cost_micros, verdict, items FROM slot_rescues \
+                 ORDER BY manifest_id, slot",
             )
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
@@ -135,6 +176,10 @@ impl Store {
                     cut: row.get::<_, i64>(5)? as u64,
                     read: list(row.get(6)?),
                     searched: list(row.get(7)?),
+                    verdict: row
+                        .get::<_, Option<String>>(11)?
+                        .and_then(|text| RescueVerdict::of(&text)),
+                    items: list(row.get(12)?),
                     summary: row.get(8)?,
                     why: row.get(9)?,
                     cost_micros: row.get::<_, Option<i64>>(10)?.map(|micros| micros as u64),

@@ -468,7 +468,7 @@ test("the pool is read again while a Scout reads, and not after it answers", asy
   expect(reading.filter(Boolean).length).toBeGreaterThanOrEqual(3);
   unmount();
 
-  const answered = rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), () =>
+  const answered = rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), () =>
     Promise.resolve({ ok: true, rescued: RECEIPT }),
   );
   await new Promise((done) => setTimeout(done, 1_500));
@@ -494,13 +494,13 @@ test("a refused rescue is said on its bay", async () => {
  */
 test("a Finding opens in the sheet and Escape closes it", async () => {
   const sent: string[] = [];
-  rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), (_manifest, rescue) => {
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), (_manifest, rescue) => {
     sent.push(rescue.act);
     return Promise.resolve({ ok: true, rescued: RECEIPT });
   });
-  expect(page.getByText("Half moved.").elements()).toHaveLength(0);
+  expect(page.getByText("src/lib.rs still calls the old loop").elements()).toHaveLength(0);
   await userEvent.click(page.getByRole("button", { name: "Finding" }));
-  await expect.element(page.getByRole("dialog", { name: "Finding" }).getByText("Half moved.")).toBeInTheDocument();
+  await expect.element(page.getByRole("dialog", { name: "Finding" }).getByText("src/lib.rs still calls the old loop")).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   expect(page.getByRole("dialog").elements()).toHaveLength(0);
   expect(sent).toEqual([]);
@@ -509,7 +509,7 @@ test("a Finding opens in the sheet and Escape closes it", async () => {
 /** A Scrap that kept the branch says so on the slot it freed, once its confirm is answered. */
 test("a scrap that kept its branch says so, after its confirm", async () => {
   const sent: string[] = [];
-  rescuing(stranded({ ...FINDING, state: "answered", summary: "Half moved." }), (_manifest, rescue) => {
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), (_manifest, rescue) => {
     sent.push(rescue.act);
     return Promise.resolve({ ok: true, rescued: { ...RECEIPT, branch: "fleet/an-old-try", branch_kept: true } });
   });

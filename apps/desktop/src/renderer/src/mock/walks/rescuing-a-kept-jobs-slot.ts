@@ -16,6 +16,7 @@ export const rescuingAKeptJobsSlot = walk("cleanup/slots", [
   { hover: ACT(8, "Rescue"), say: "Rescue, as on a stranded slot" },
   { press: ACT(8, "Rescue"), say: "A Scout starts reading it" },
   { press: ACT(8, "Finding"), say: "The Finding opens in the side panel" },
+  { look: inside(FINDING, role("heading", "Unfinished", { exact: true })), say: "Unfinished, and what is left" },
   { look: inside(FINDING, role("list", "Searched", { exact: true })), say: "What it read" },
   { hover: IN_FINDING("Scrap"), say: "Scrap and Stash are in the panel" },
   { press: IN_FINDING("Stash"), say: "Stashed, at once" },

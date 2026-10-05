@@ -118,6 +118,8 @@ A person presses Rescue on a stranded bay in Cleanup and a scout reads the work 
 > **Rule.** That Finding records the commit the slot was at and whether uncommitted changes were present, and a Finding of another commit is not shown.
 > Why: it describes one state of the work, and an act chosen from it must be on that state.
 
+Its Finding is a one-word verdict and plain items. **Unfinished** means the work has a part left to do, and the items are what is left, a line each. **Scraps** means leftovers that need no more work, and the one item says what they are. Fleet reads the verdict out of the Scout's closing JSON block (`agent-prompt.md`, section 5d); an answer in any other shape is kept as the Scout's own words with no verdict.
+
 What it reads is the commit, the branch, the change against the base with uncommitted changes to tracked files in it, and the uncommitted files. Fleet reads those with git and hands the scout the text, because the scout cannot run git. They are material, the way a source is, and the brief says so before they arrive: commit messages and diff lines were written by an agent or a person.
 
 > **Rule.** A scout never scraps or stashes. Fleet does, on the press that asks.

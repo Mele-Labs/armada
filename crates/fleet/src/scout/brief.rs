@@ -121,13 +121,15 @@ You read and never write. You have no tool that edits a file, runs a command, \
 commits or reaches the network, and you do not ask for one. Where an answer \
 needs something you cannot read, say what it is and stop there.";
 
-const RESCUE_ANSWER: &str = "\
-WHAT YOU ANSWER WITH
+const RESCUE_ANSWER: &str = r#"WHAT YOU ANSWER WITH
 
-Armada lists every file you read and every search you run beside your answer, \
-so you do not list them. End with a summary a person can decide on: what the \
-work was for, how far it got, what is left, and anything that looks broken. \
-Where you are inferring rather than reading, say so.";
+Armada lists every file you read and every search you run beside your answer, so you do not list them. End with one fenced JSON block and nothing after it:
+
+```json
+{"verdict":"unfinished","items":["..."]}
+```
+
+`verdict` is `unfinished` where the work still has a part left to do, and `scraps` where what is left needs no more work. Under `unfinished`, `items` is what is left to do, one line each, naming the file. Something that looks broken is an item. Under `scraps`, `items` is one line saying what the leftovers are. An item states a fact: no history of the work, no advice. Where you are inferring rather than reading, begin the item with "Inferred:"."#;
 
 const WHAT_ARMADA_READ: &str = "\
 WHAT ARMADA READ FOR YOU
@@ -279,7 +281,8 @@ mod tests {
     }
 
     /// **The contract's drafted wording, whole**: section 5d, with its slots
-    /// filled and the material left off.
+    /// filled and the material left off. The block is fenced with `~~~` in the
+    /// contract because the brief itself carries a fence.
     #[test]
     fn a_rescue_is_told_the_contracts_brief_with_the_material_last() {
         let files = vec![String::from("src/a.rs")];
@@ -291,7 +294,7 @@ mod tests {
             .nth(1)
             .expect("section 5d");
         let drafted = section
-            .split("```\n")
+            .split("~~~\n")
             .nth(1)
             .expect("the drafted block")
             .trim_end()
@@ -305,6 +308,21 @@ mod tests {
         let unwrapped = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
         assert_eq!(unwrapped(&told), unwrapped(&drafted));
         assert_eq!(cut, 0);
+    }
+
+    /// **What the Scout is asked to end with is what Fleet reads back**: the
+    /// brief's own example decodes as a verdict, so the two cannot drift apart.
+    #[test]
+    fn a_rescue_asks_for_the_shape_fleet_reads() {
+        let (told, _) = super::told_a_rescue(&stranded("+added\n", &[], &[]));
+        let asked = told
+            .split("```json\n")
+            .nth(1)
+            .and_then(|rest| rest.split("\n```").next())
+            .expect("the brief shows its block");
+        let found = ipc::what_a_scout_found_in_a_slot(asked).expect("the example decodes");
+        assert_eq!(found.verdict, ipc::SlotVerdict::Unfinished);
+        assert!(told.contains("`unfinished`") && told.contains("`scraps`"));
     }
 
     /// **The change arrives after every rule about how to read it**, and what

@@ -168,32 +168,35 @@ export function reshaped(
 }
 
 /** What a rescue Scout reads of one stranded slot, a file to a poll, and what it concludes. */
-type Scouted = Pick<SlotFinding, "commit" | "uncommitted" | "read" | "searched" | "summary">;
+type Scouted = Pick<SlotFinding, "commit" | "uncommitted" | "read" | "searched" | "verdict" | "items">;
 
 const SCOUTED: Record<number, Scouted> = {
   8: {
     commit: "b61d3a0e94",
     uncommitted: true,
-    read: ["crates/fleet/src/manifest.rs", "crates/api/src/routes.rs"],
+    read: ["crates/api/src/routes.rs"],
     searched: ["read_manifest in crates/"],
-    summary:
-      "The manifest read retried on a short answer, committed. The route and its test are edited and not committed; the test asserts a retry count the read does not return yet.",
+    verdict: "unfinished",
+    items: [
+      "crates/api/src/routes.rs is edited and not committed",
+      "The route test asserts a retry count the read does not return",
+    ],
   },
   4: {
     commit: "9d41e07b2c",
     uncommitted: true,
     read: ["src/reader/retry.rs", "src/lib.rs"],
     searched: ["retry_short_read in src/"],
-    summary:
-      "A retry for a short read, finished in the commit and half-moved in the working files. src/reader/retry.rs holds the new loop; src/lib.rs still calls the old one. No test covers either.",
+    verdict: "unfinished",
+    items: ["src/lib.rs still calls the old read loop", "src/reader/retry.rs has no test"],
   },
   7: {
     commit: "e08c4d1a77",
     uncommitted: true,
     read: ["crates/fleet/src/slots.rs", "crates/fleet/src/leasing.rs"],
     searched: ["LeaseRecord in crates/"],
-    summary:
-      "The lease record written ahead of the checkout, with the read on start still open. leasing.rs calls a record function slots.rs does not define yet.",
+    verdict: "scraps",
+    items: ["A draft note in notes/lease.md and a renamed local in slots.rs"],
   },
 };
 
@@ -277,7 +280,7 @@ export function scoutRead(held: WorktreesHeld): WorktreesHeld {
       const rescue: SlotFinding =
         next !== undefined
           ? { ...finding, read: [...finding.read, next] }
-          : { ...finding, state: "answered", searched: script.searched, ...(script.summary === undefined ? {} : { summary: script.summary }) };
+          : { ...finding, state: "answered", searched: script.searched, verdict: script.verdict, items: script.items };
       return { ...one, rescue };
     }),
   };

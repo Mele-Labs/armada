@@ -91,6 +91,9 @@ export type CommitHome = "only_here" | "on_remote" | "on_main";
 /** Where a rescue Scout is. */
 export type SlotFindingState = "reading" | "answered" | "stopped" | "failed";
 
+/** What a rescue Scout concluded: `unfinished` has a part left to do, `scraps` needs no more work. */
+export type SlotVerdict = "unfinished" | "scraps";
+
 /** What a rescue Scout read of a stranded slot, kept against the slot. Since 23.19. */
 export type SlotFinding = {
   state: SlotFindingState;
@@ -102,7 +105,17 @@ export type SlotFinding = {
   cut?: number;
   read: string[];
   searched: string[];
-  /** What it said last. */
+  /**
+   * Whether the work has a part left to do, or is leftovers. Absent until the
+   * Scout answers in the shape asked for. Since 23.19.
+   */
+  verdict?: SlotVerdict;
+  /**
+   * Under `unfinished`, what is left to do, a line each. Under `scraps`, one
+   * line saying what the leftovers are. Since 23.19.
+   */
+  items?: string[];
+  /** What it said last, where that was not the shape asked for. */
   summary?: string;
   /** Why it failed, where it did. */
   why?: string;
