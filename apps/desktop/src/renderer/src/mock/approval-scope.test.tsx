@@ -45,7 +45,7 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   await expect.element(workflow.getByRole("checkbox", { name: "You on Review the change" })).toBeChecked();
   await expect
     .element(workflow.getByRole("listitem", { name: "Review the change" }))
-    .toHaveTextContent("It holds at awaiting review for you to answer");
+    .toHaveTextContent("It reads needs review until you answer");
   // The registry's word for the status, never its id (`#1748` row 16).
   await expect.element(workflow.getByText(/awaiting_review/)).not.toBeInTheDocument();
 

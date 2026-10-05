@@ -90,7 +90,7 @@ const BORROWS_FROM_JOB: Partial<Record<StepActivity, string>> = {
 };
 
 /**
- * The activity in the registry's own word — `running`, `awaiting review`,
+ * The activity in the registry's own word — `running`, `needs review`,
  * `stopped`. **Read from `enum-verbs.toml`, never retyped**: that file decides
  * a state's verb, and a second spelling in a tooltip is exactly the drift
  * `lib/job-states.js` was deleted over.
