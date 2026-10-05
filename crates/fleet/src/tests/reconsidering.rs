@@ -202,18 +202,6 @@ async fn a_split_rewrite_brings_every_job_to_the_gate_with_the_tuning() {
         Some(made[0].id().clone()),
         "the extra names the head"
     );
-    // Neither the head nor its extra is sent back again: a rewrite would leave
-    // the other at its gate.
-    for job in &plan.jobs {
-        let again = Commands::to_proposer(
-            Arc::clone(&fleet),
-            job.id.clone(),
-            note(r#"{"note": "once more"}"#),
-        )
-        .await
-        .expect_err("a split");
-        assert!(matches!(again, Refusal::Unacceptable(_)), "{again:?}");
-    }
 }
 
 /// **A proposer that could not read the note leaves the proposal as it was.**
@@ -269,4 +257,210 @@ async fn a_blank_note_and_a_job_past_its_gate_are_refused_and_nothing_moves() {
     .await
     .expect_err("past the gate");
     assert!(matches!(late, Refusal::IllegalMove(_)), "{late:?}");
+}
+
+const TWO: &str = "\
+job: 1
+workflow: feature
+title: Bound the reader
+scope: stop the reader at the last row
+because: the note
+
+job: 2
+workflow: feature
+title: Cover the bound
+scope: a test for the last row
+because: it needs the bound
+after: 1
+";
+
+const THREE: &str = "\
+job: 1
+workflow: feature
+title: Bound the reader
+scope: stop the reader at the last row
+because: the note
+
+job: 2
+workflow: feature
+title: Cover the bound
+scope: a test for the last row
+because: it needs the bound
+after: 1
+
+job: 3
+workflow: feature
+title: Say what the bound is
+scope: a line in the docs
+because: the note
+after: 1
+";
+
+/// A split on the board: `[head, extra]`, at their gates.
+async fn a_split(fleet: &Arc<crate::tests::reviewing::Fixture>) -> Vec<core_model::Job> {
+    let made = fleet
+        .propose_from("move the endpoint and update its consumer", None)
+        .await
+        .expect("a plan");
+    assert_eq!(made.len(), 2);
+    made
+}
+
+async fn titles_at_the_gate(fleet: &Arc<crate::tests::reviewing::Fixture>) -> Vec<String> {
+    let (loaded, _) = fleet.every_job().await.expect("the board");
+    let mut at_the_gate: Vec<_> = loaded
+        .jobs
+        .iter()
+        .filter(|job| job.status() == JobStatus::AwaitingApproval)
+        .collect();
+    at_the_gate.sort_by_key(|job| job.number());
+    at_the_gate
+        .iter()
+        .map(|job| job.title().as_str().to_string())
+        .collect()
+}
+
+/// **Sending back any Job of a split sends the whole split**, and the one
+/// answer replaces the group: the same two Jobs, rewritten, each at its gate
+/// with the person's tuning, and nobody left holding the old words.
+#[tokio::test]
+async fn a_note_on_one_job_of_a_split_sends_the_whole_split_back_together() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &[A_PLAN, TWO]);
+    let made = a_split(&fleet).await;
+    let body =
+        r#"{"note": "bound it first", "tuning": [{"step_id": "implement", "effort": "low"}]}"#;
+    // From the extra, not the head: the group is the same either way.
+    let plan = Commands::to_proposer(Arc::clone(&fleet), made[1].id().into(), note(body))
+        .await
+        .expect("the split was rewritten");
+    assert_eq!(plan.jobs.len(), 2);
+    let ids: Vec<_> = plan.jobs.iter().map(|job| job.id.to_domain()).collect();
+    assert_eq!(
+        ids,
+        [made[0].id().clone(), made[1].id().clone()],
+        "the same Jobs"
+    );
+    assert_eq!(
+        titles_at_the_gate(&fleet).await,
+        ["Bound the reader", "Cover the bound"],
+        "no Job holds the old words"
+    );
+    for id in &ids {
+        let job = fleet.load(id).await.expect("loads");
+        assert_eq!(job.status(), JobStatus::AwaitingApproval);
+        let step = job
+            .workflow()
+            .step(&core_model::StepId::new("implement"))
+            .expect("the step");
+        assert_eq!(step.effort(), Some(core_model::Effort::Low));
+    }
+    let second = fleet.load(made[1].id()).await.expect("loads");
+    assert_eq!(
+        second.dispatched_by().map(|origin| origin.job_id.clone()),
+        Some(made[0].id().clone())
+    );
+    assert_eq!(second.dependencies().len(), 1, "the edge the answer drew");
+}
+
+/// An answer with more Jobs makes the rest as new extras of the same head.
+#[tokio::test]
+async fn an_answer_with_more_jobs_makes_the_rest_as_new_extras() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &[A_PLAN, THREE]);
+    let made = a_split(&fleet).await;
+    let plan = Commands::to_proposer(
+        Arc::clone(&fleet),
+        made[0].id().into(),
+        note(r#"{"note": "and document it"}"#),
+    )
+    .await
+    .expect("rewritten");
+    assert_eq!(plan.jobs.len(), 3);
+    let third = fleet
+        .load(&plan.jobs[2].id.to_domain())
+        .await
+        .expect("loads");
+    assert_eq!(third.status(), JobStatus::AwaitingApproval);
+    assert_eq!(
+        third.dispatched_by().map(|origin| origin.job_id.clone()),
+        Some(made[0].id().clone())
+    );
+    assert_eq!(titles_at_the_gate(&fleet).await.len(), 3);
+}
+
+/// **An answer with fewer Jobs ends the old extra it has no place for**, said in
+/// its log as replaced, and leaves nothing at a gate holding the old words.
+#[tokio::test]
+async fn an_answer_with_fewer_jobs_ends_the_extra_it_has_no_place_for() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &[A_PLAN, FEATURE]);
+    let made = a_split(&fleet).await;
+    let plan = Commands::to_proposer(
+        Arc::clone(&fleet),
+        made[0].id().into(),
+        note(r#"{"note": "one change is enough"}"#),
+    )
+    .await
+    .expect("rewritten");
+    assert_eq!(plan.jobs.len(), 1);
+    assert_eq!(
+        titles_at_the_gate(&fleet).await,
+        ["Bound the reader and say so"]
+    );
+    let ended = fleet.load(made[1].id()).await.expect("loads");
+    assert_eq!(ended.status(), JobStatus::Killed);
+    assert!(log_of(&home, &ended).contains("replaced by the revised proposal"));
+}
+
+/// **A sibling past its gate refuses the whole send-back**, naming it, and
+/// nothing moves: no Job is sent back, none rewritten.
+#[tokio::test]
+async fn a_sibling_past_its_gate_refuses_the_whole_split_and_names_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &[A_PLAN, TWO]);
+    let made = a_split(&fleet).await;
+    Commands::approve_dispatch(Arc::clone(&fleet), made[1].id().into(), None)
+        .await
+        .expect("one member is approved on its own");
+    let refused = Commands::to_proposer(
+        Arc::clone(&fleet),
+        made[0].id().into(),
+        note(r#"{"note": "rewrite"}"#),
+    )
+    .await
+    .expect_err("a sibling is past its gate");
+    let Refusal::Unacceptable(error) = &refused else {
+        panic!("{refused:?}");
+    };
+    assert!(
+        error.message.contains(made[1].id().as_str()),
+        "{}",
+        error.message
+    );
+    assert!(error.message.contains("queued"), "{}", error.message);
+    let head = fleet.load(made[0].id()).await.expect("loads");
+    assert_eq!(head.status(), JobStatus::AwaitingApproval);
+    assert_eq!(
+        head.title().as_str(),
+        made[0].title().as_str(),
+        "not rewritten"
+    );
+}
+
+/// A call that cannot be read puts every Job of the split back as it was.
+#[tokio::test]
+async fn a_split_whose_note_could_not_be_used_is_put_back_whole() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, &[A_PLAN, "workflow: none\nbecause: a release"]);
+    let made = a_split(&fleet).await;
+    let before = titles_at_the_gate(&fleet).await;
+    Commands::to_proposer(
+        Arc::clone(&fleet),
+        made[1].id().into(),
+        note(r#"{"note": "ship it"}"#),
+    )
+    .await
+    .expect_err("no workflow fits");
+    assert_eq!(titles_at_the_gate(&fleet).await, before);
 }
