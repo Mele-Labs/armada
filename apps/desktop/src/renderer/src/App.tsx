@@ -135,7 +135,7 @@ import {
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
-import { WorkflowCreatorSurface } from "./workflow-creator";
+import { WorkflowCreatorSurface, WORKFLOWS_WARNED } from "./workflow-creator";
 import { showingOf } from "./showing";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -619,6 +619,7 @@ export function App({ draft }: AppProps = {}) {
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
         <Shell
           hidden={hidden}
+          warned={WORKFLOWS_WARNED}
           connection={state.connection}
           repositories={repositories}
           listed={listed}

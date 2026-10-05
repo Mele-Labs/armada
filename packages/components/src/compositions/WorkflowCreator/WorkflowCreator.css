@@ -82,6 +82,28 @@
   font-family: var(--font-mono);
 }
 
+/* The workflow as a row's small mark: dots in order, a thin arc where a
+   step sends work back. Right-aligned so the ids keep one edge. */
+.armada-wf-mini {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-muted);
+}
+
+.armada-wf-mini__dot {
+  fill: currentColor;
+}
+
+.armada-wf-mini__back {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.armada-wf-row[data-state="overridden"] .armada-wf-mini {
+  color: var(--fg-subtle);
+}
+
 /* Shadowed by a more specific place: quiet, the way an unmade slot is. */
 .armada-wf-row[data-state="overridden"] > button {
   color: var(--fg-subtle);

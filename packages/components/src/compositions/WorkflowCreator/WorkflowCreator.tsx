@@ -222,7 +222,7 @@ export function WorkflowCreator({
         </div>
         <ul className="armada-wf-rows" aria-label="Workflow files">
           {listed.map((entry) => (
-            <Row key={entry.key} entry={entry} on={picked?.key === entry.key} onOpen={() => begin(entry)} />
+            <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => begin(entry)} />
           ))}
         </ul>
       </section>
@@ -248,7 +248,58 @@ export function WorkflowCreator({
   );
 }
 
-function Row({ entry, on, onOpen }: { entry: Resolved; on: boolean; onOpen: () => void }) {
+/** The mini graph's geometry, in its own units: a dot's radius, the gap between two, and the room round them. */
+const DOT = 3;
+const GAP = 14;
+const PAD = 2;
+const ARC = 5;
+
+/**
+ * The workflow as a row's small mark: a dot a step, in order, and a thin
+ * arc over the dots from a step back to the earlier one it sends work to — the
+ * canvas's own picture of it, drawn from the same definition.
+ */
+function MiniGraph({ def }: { def: Definition }) {
+  const named = (step: Step, at: number) => (step.id === "" ? `step ${at + 1}` : step.id);
+  const backs = def.steps.flatMap((step, at) => {
+    const to = step.returnsTo === "" ? -1 : def.steps.findIndex((one) => one.id === step.returnsTo);
+    return to !== -1 && to < at ? [{ from: at, to }] : [];
+  });
+  /** How high an arc stands over the dots: further for a longer way back, up to three rises. */
+  const peakOf = (one: { from: number; to: number }) => ARC * Math.min(one.from - one.to, 3);
+  const high = backs.length === 0 ? 0 : Math.max(...backs.map(peakOf));
+  const width = PAD * 2 + DOT * 2 + (def.steps.length - 1) * GAP;
+  const base = PAD + DOT + high;
+  const said = `${def.steps.map(named).join(", ")}${backs
+    .map((one) => `. ${named(def.steps[one.from]!, one.from)} returns to ${named(def.steps[one.to]!, one.to)}`)
+    .join("")}`;
+  return (
+    <Tooltip asChild label={said}>
+      <svg
+        className="armada-wf-mini"
+        role="img"
+        aria-label={said}
+        width={width}
+        height={base + DOT + PAD}
+        viewBox={`0 0 ${width} ${base + DOT + PAD}`}
+      >
+        {backs.map((one) => {
+          const x1 = PAD + DOT + one.from * GAP;
+          const x2 = PAD + DOT + one.to * GAP;
+          const top = base - DOT - 2 * peakOf(one);
+          return (
+            <path key={`${one.from}-${one.to}`} className="armada-wf-mini__back" d={`M ${x1} ${base - DOT} Q ${(x1 + x2) / 2} ${top} ${x2} ${base - DOT}`} />
+          );
+        })}
+        {def.steps.map((_, at) => (
+          <circle key={at} className="armada-wf-mini__dot" cx={PAD + DOT + at * GAP} cy={base} r={DOT} />
+        ))}
+      </svg>
+    </Tooltip>
+  );
+}
+
+function Row({ entry, def, on, onOpen }: { entry: Resolved; def: Definition | undefined; on: boolean; onOpen: () => void }) {
   const leftOut = entry.leftOut !== undefined;
   const { Glyph, said } = leftOut ? { Glyph: Ban, said: `Cannot run. ${entry.leftOut}` } : PLACE[entry.source];
   const where = leftOut ? `${PLACE[entry.source].said}. ${said}` : said;
@@ -263,6 +314,7 @@ function Row({ entry, on, onOpen }: { entry: Resolved; on: boolean; onOpen: () =
           </span>
         </Tooltip>
         <span className="armada-wf-row__id">{entry.id}</span>
+        {leftOut || def === undefined ? null : <MiniGraph def={def} />}
       </button>
     </li>
   );

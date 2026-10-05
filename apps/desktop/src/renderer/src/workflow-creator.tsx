@@ -8,6 +8,11 @@ import { Boundary } from "@armada/shell";
 import type { BridgeState } from "../../shared/bridge";
 import { askHelm } from "./commands";
 
+/** The rail mark on Workflows while any file is left out: a file that cannot run is not something to find by opening the surface. */
+export const WORKFLOWS_WARNED: Readonly<Record<string, string>> = MOCK_ENTRIES.some((one) => one.leftOut !== undefined)
+  ? { workflows: "A workflow file cannot run" }
+  : {};
+
 export function WorkflowCreatorSurface({
   bridge,
   onCopied,

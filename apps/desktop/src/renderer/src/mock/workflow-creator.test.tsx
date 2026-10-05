@@ -25,6 +25,11 @@ test("rows are marked by place, a shadowed one reads as overridden, and a left-o
 
   await expect.element(page.getByRole("button", { name: "bug, repository" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "bug, carried, overridden" })).toBeVisible();
+  // A row draws its workflow as dots with an arc where a step sends work back, and a left-out row draws none.
+  await expect.element(page.getByRole("button", { name: "bug, repository" }).getByRole("img", { name: /review returns to fix/ })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "hotfix, kit, left out" }).getByRole("img", { name: /,/ })).not.toBeInTheDocument();
+  // The rail row is marked while any file is left out.
+  await expect.element(page.getByRole("img", { name: "A workflow file cannot run" })).toBeVisible();
   // Nothing is drawn until a workflow is picked.
   await expect.element(frame()).not.toBeInTheDocument();
 

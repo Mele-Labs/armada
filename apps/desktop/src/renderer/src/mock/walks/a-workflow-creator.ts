@@ -11,7 +11,9 @@ const PANEL = role("dialog", "gather");
 
 export const aWorkflowCreator = walk("every-state", [
   { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
+  { hover: role("img", "A workflow file cannot run"), say: "The rail row is marked while a file cannot run" },
   { look: role("list", "Workflow files"), say: "Every file, a row each" },
+  { hover: role("img", /review returns to fix/), say: "The workflow as dots, an arc for a step sending work back" },
   { hover: role("img", "Ships with Armada"), say: "Carried: ships with Armada" },
   { hover: role("img", "Your machine"), say: "Kit: your machine" },
   { hover: role("img", "This repository"), say: "Repository: this repo" },
