@@ -102,7 +102,7 @@ export const AwaitingReview: Story = {
 };
 
 export const AwaitingAttestation: Story = {
-  args: { status: "awaiting-attestation", icon: Stamp, children: "Awaiting attestation" },
+  args: { status: "awaiting-attestation", icon: Stamp, children: "Needs attestation" },
 };
 
 /**

@@ -163,12 +163,12 @@ in_code = ""
 notes = "Carried over from needs_approval when the approval axis became a status. The verb did not move to awaiting approval for symmetry with `awaiting_review`, which read awaiting review until 4 Oct 2026: the badge means a person must act, not that time is passing, and needs is the word that says so."
 
 [verbs.job_status.awaiting_attestation]
-verb = "awaiting attestation"
+verb = "needs attestation"
 icon = "stamp"
 status_token = "--status-awaiting-attestation"
 vocabulary = "Job status"
 in_code = ""
-notes = "Reads as the act the person owes. Grounded once the third verification source was named Attestation — the status and the source use the same word because they are the same thing at two moments, one waiting for it and one recording it."
+notes = "Reads as the act the person owes, and as "needs" beside approval, repair and review (owner, 4 Oct 2026). Grounded once the third verification source was named Attestation — the status and the source use the same word because they are the same thing at two moments, one waiting for it and one recording it."
 
 [verbs.job_status.awaiting_repair]
 verb = "needs repair"

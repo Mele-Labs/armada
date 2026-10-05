@@ -34,7 +34,7 @@ export type Rendering = {
 /** `job_status`, keyed by the wire value. */
 export const JOB_STATUS: Readonly<Record<string, Rendering | undefined>> = {
   "awaiting_approval": { verb: "needs approval", icon: UserCheck, badgeStatus: "awaiting-approval", statusToken: "--status-awaiting-approval", hint: null },
-  "awaiting_attestation": { verb: "awaiting attestation", icon: Stamp, badgeStatus: "awaiting-attestation", statusToken: "--status-awaiting-attestation", hint: null },
+  "awaiting_attestation": { verb: "needs attestation", icon: Stamp, badgeStatus: "awaiting-attestation", statusToken: "--status-awaiting-attestation", hint: null },
   "awaiting_repair": { verb: "needs repair", icon: Wrench, badgeStatus: "awaiting-repair", statusToken: "--status-awaiting-repair", hint: null },
   "awaiting_review": { verb: "needs review", icon: Eye, badgeStatus: "awaiting-review", statusToken: "--status-awaiting-review", hint: null },
   "completed_failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
