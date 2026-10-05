@@ -18,6 +18,12 @@ impl Pool {
 
     fn reading(&self, slot: Slot) -> SlotReading {
         let made = !matches!(slot.state, SlotState::Unmade | SlotState::NotACheckout);
+        let (kept, completed) = match &slot.state {
+            SlotState::Held {
+                kept, completed, ..
+            } => (kept.clone(), *completed),
+            _ => (None, false),
+        };
         let (held, branch, since) = match slot.state {
             SlotState::Unmade => (SlotHeld::Unmade, None, 0),
             SlotState::NotACheckout => (SlotHeld::NotACheckout, None, 0),
@@ -51,6 +57,8 @@ impl Pool {
             held,
             branch,
             since: (since > 0).then_some(since),
+            kept,
+            completed,
         }
     }
 

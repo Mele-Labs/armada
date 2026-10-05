@@ -120,7 +120,7 @@ pub fn what_a_scout_read_in(answered: &str) -> Result<ReadIn, crate::Undecodable
 }
 
 /// The contents of the last fenced block in `text`, `None` where there is none.
-fn fenced(text: &str) -> Option<&str> {
+pub(crate) fn fenced(text: &str) -> Option<&str> {
     let close = text.rfind("```")?;
     let open = text[..close].rfind("```")?;
     let body = &text[open + 3..close];

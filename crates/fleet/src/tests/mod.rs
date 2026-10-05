@@ -177,6 +177,7 @@ mod replaced;
 mod reporting;
 pub(crate) mod repositories;
 mod rerunning;
+mod rescuing;
 mod resources;
 mod restarting;
 mod resting;

@@ -490,6 +490,13 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/worktrees/slots",
     },
+    // An act on a stranded slot of that pool: the Scout that reads it, and
+    // what a person then does with the work.
+    Route {
+        operation: "rescue_slot",
+        method: "POST",
+        path: "/worktrees/slots/rescue",
+    },
     Route {
         operation: "propose_job",
         method: "POST",

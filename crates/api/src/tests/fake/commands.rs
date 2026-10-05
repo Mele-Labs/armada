@@ -563,6 +563,17 @@ impl Commands for FakeDaemon {
             crate::tests::shapes::run_id(),
         )))
     }
+    async fn rescue_slot(
+        self: std::sync::Arc<Self>,
+        _asked: ipc::RescueSlot,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::SlotRescued, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fleet.no_such_slot",
+            String::from("the fake daemon serves no pool"),
+            crate::tests::shapes::run_id(),
+        )))
+    }
     async fn delete_branch(
         self: std::sync::Arc<Self>,
         job_id: JobId,
