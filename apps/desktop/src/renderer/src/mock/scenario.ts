@@ -74,6 +74,7 @@ import { readingNothing } from "./studio-read-nothing";
 import { job2Landed } from "./job-2-landed";
 import { featureJudgeRefused, featureRunInGroups } from "./job-groups-fixture";
 import { featureAfterAgreeing } from "./job-detail-refusal";
+import { featureUndecided } from "./job-detail-undecided";
 import { retroFixtures } from "./job-3-retro";
 import { job2AtReview, job2AtReviewBefore235, job2AtReviewLiveTitle } from "./job-2-at-review";
 import { featureWithTiers } from "./job-tiers-fixture";
@@ -586,6 +587,10 @@ export const SCENARIOS: readonly Scenario[] = [
   // with Fleet's recourse in the lead and the step panel (Job 3, 2 Oct 2026).
   holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
     opens: featureAfterAgreeing().job.id,
+  }),
+  // The Judge did not answer on the plan: both recourses, ask again and accept (Job 3, 5 Oct 2026).
+  holding("judge/undecided", "The Judge did not answer, the step stopped", [featureUndecided()], {
+    opens: featureUndecided().job.id,
   }),
   // Run Checks again pressed on a Job out of retries: the step still stopped,
   // Fleet offering nothing, and its Checks running (Job 3, 4 Oct 2026).

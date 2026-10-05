@@ -6,7 +6,7 @@
 // *Bridge on a mock Fleet*.
 
 import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
-import type { JobSummary, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
+import type { JobDetail, JobSummary, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -18,6 +18,7 @@ import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
 import { reshaped, rescued, scoutRead } from "./slots-fleet";
 import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
+import { accepted, askedAgain } from "./undecided-fleet";
 import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
@@ -88,6 +89,15 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
           ? { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, ...change } } }
           : watched,
     });
+  }
+
+  /** A Job the Judge did not answer on, moved the way Fleet would; any other is left as drawn. */
+  function stepping(jobId: string, moved: (whole: JobDetail, at: string) => JobDetail | undefined): void {
+    const watched = state.watched;
+    if (watched.state !== "read" || watched.jobId !== jobId) return;
+    const detail = moved(watched.detail, new Date().toISOString());
+    if (detail === undefined) return;
+    publish({ jobs: state.jobs.map((job) => (job.id === jobId ? detail.job : job)), watched: { ...watched, detail } });
   }
 
   /**
@@ -323,8 +333,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     setReviewModel: async () => OK,
     removeAllowedCommand: async () => OK,
     restartStep: async () => OK,
-    overrideVerdict: async () => OK,
-    rerunGate: async () => OK,
+    overrideVerdict: async (jobId) => (stepping(jobId, accepted), OK),
+    rerunGate: async (jobId) => (stepping(jobId, askedAgain), OK),
     rerunChecks: async () => OK,
     showAgain: async () => OK,
     raiseCostCap: async () => OK,
