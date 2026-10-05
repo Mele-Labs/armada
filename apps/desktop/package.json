@@ -13,7 +13,7 @@
     "start": "electron-vite preview",
     "mock": "vite --config vite.mock.config.ts --open",
     "walk": "node capture/walk.mjs",
-    "typecheck": "tsc -b --force",
+    "typecheck": "tsc -b",
     "test": "vitest run"
   },
   "devDependencies": {

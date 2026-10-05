@@ -40,6 +40,8 @@ mod approved;
 pub mod approving;
 pub mod asked;
 pub mod asking;
+/// A red Check in a merge line turn, asked of the base before the branch is blamed.
+mod asking_the_base;
 pub mod at_step;
 /// The four narrowings of the board, and the one rule each is.
 mod attention;
@@ -131,6 +133,8 @@ mod issue_noticing;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
+/// A press to merge under `merge_by: push`, joining the merge line.
+mod joining_the_line;
 /// A Job's own log, read back and served. **The other side of the file every
 /// `transcript::note` call writes**, and the third voice the activity log was
 /// designed around.
@@ -294,6 +298,8 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
+/// The merge line Fleet runs for each repository, and its turn.
+mod taking_turns;
 pub mod task_edits;
 /// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
 pub mod tasking;

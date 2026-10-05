@@ -836,7 +836,11 @@ impl Delivery for FakeVcs {
                 said: format!("the branch carries {tree}, which no run of its Checks passed on"),
             });
         }
-        Ok(PushedOntoBase { base, merged })
+        Ok(PushedOntoBase {
+            base,
+            merged,
+            merge: Some(String::from("3e9a7c1000000000000000000000000000000000")),
+        })
     }
 
     fn tree_as_it_stands(&self, _worktree: &Worktree) -> Result<String, NotDelivered> {
@@ -904,6 +908,16 @@ impl Delivery for FakeVcs {
             });
         let mut trees = self.trees.lock().expect("not poisoned");
         trees.now = trees.was;
+        Ok(())
+    }
+
+    fn settle_worktree(&self, worktree: &Worktree) -> Result<(), NotDelivered> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::SettledWorktree {
+                branch: worktree.branch().to_string(),
+            });
         Ok(())
     }
 
