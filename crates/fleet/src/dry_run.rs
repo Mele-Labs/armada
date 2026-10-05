@@ -37,7 +37,7 @@ use crate::check_output;
 use crate::checking::Stop;
 use crate::daemon::Fleet;
 use crate::session::{LiveSession, Occasion};
-use crate::underway::{stopped_by, Announcing, Landed};
+use crate::underway::{stopped_by, Announcing, Heard};
 use crate::working::Working;
 
 /// How many times one step may ask. **One constructor and no `Default`**, for
@@ -562,10 +562,23 @@ where
                 heard,
                 !read.narrow,
             );
-            let ran = fleet
-                .dry_run(&caller, run, &plan, &read, &stop, &showing, hearing)
-                .await;
-            fleet.dry_run_ends(&caller, &plan, run, ran, showing).await
+            let whole = fleet.budget().whole_run();
+            let running = fleet.dry_run(&caller, run, &plan, &read, &stop, &showing, hearing);
+            match tokio::time::timeout(whole, running).await {
+                Ok(ran) => {
+                    fleet
+                        .dry_run_ends(&caller, &plan, run, ran, showing, None)
+                        .await
+                }
+                Err(_) => {
+                    // The run is dropped: its places and processes went with it.
+                    let said = fleet.timed_out(&plan, whole);
+                    let cause = said.text().to_string();
+                    fleet
+                        .dry_run_ends(&caller, &plan, run, Err(cause), showing, Some(said))
+                        .await
+                }
+            }
         })))
     }
 
@@ -585,6 +598,7 @@ where
         run: u64,
         ran: Result<(CheckReport, crate::reuse::KeptDryRun), String>,
         showing: Announcing,
+        said: Option<ChecksReported>,
     ) -> Option<Result<CheckReport, String>> {
         // Whether or not the step still waits: what ran to a code was measured.
         self.kept_timings(&plan.record, showing.timings()).await;
@@ -605,7 +619,7 @@ where
             at_work.kept_dry_run(kept);
         }
         at_work.show_dry_run(showing);
-        let told = ChecksReported::of(&ran);
+        let told = said.unwrap_or_else(|| ChecksReported::of(&ran));
         // Written down before the send, `Fleet::tell`'s order.
         at_work.instructed(Occasion::Checks, told.text());
         let _ = at_work.session().checks(&told).await;
@@ -615,6 +629,25 @@ where
             self.pointed_at_fixes_in(plan.record.id(), report).await;
         }
         Some(ran)
+    }
+
+    /// The turn for a run its time-box ended, naming where it stood: the Checks
+    /// running, or that none had been given a slot.
+    fn timed_out(&self, plan: &Plan, whole: Duration) -> ChecksReported {
+        let rows = self
+            .underway()
+            .dry_run_on(
+                &ipc::JobId::from(plan.record.id()),
+                &ipc::StepId::from(&plan.step),
+            )
+            .map(|underway| underway.checks)
+            .unwrap_or_default();
+        let running: Vec<String> = rows
+            .iter()
+            .filter(|row| row.started_at.is_some() && row.ran.is_none())
+            .map(|row| format!("`{}`", row.name))
+            .collect();
+        ChecksReported::timed_out(whole, &running)
     }
 
     /// The run itself, with no lock held.
@@ -632,7 +665,7 @@ where
         read: &Readings,
         stop: &Stop,
         showing: &Announcing,
-        hearing: UnboundedReceiver<Landed>,
+        hearing: UnboundedReceiver<Heard>,
     ) -> Result<(CheckReport, crate::reuse::KeptDryRun), String> {
         let Some(declared) = plan.record.workflow().step(&plan.step) else {
             return Err(format!(

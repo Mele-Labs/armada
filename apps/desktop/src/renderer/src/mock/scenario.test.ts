@@ -12,6 +12,9 @@ import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
 
 import { BUILDERS, SCENARIOS, scenarioNamed } from "./scenario";
+import * as listed from "./scenario-rows";
+
+const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", { eager: true });
 
 test("every fixture the build roster lists has a builder here, and no more", () => {
   const built = Object.values(BUILDERS).map((make) => make().name).sort();
@@ -101,4 +104,44 @@ test("no scenario names a shape", () => {
       expect(new RegExp(`\\b${word}\\b`).test(said), `${one.name}: ${one.says}`).toBe(false);
     }
   }
+});
+
+// The rows that lived in `scenario.ts` before they were split into `scenarios/`, in the order the
+// picker listed them. A row added since may sit anywhere among them; none of these may move or go.
+const BEFORE_THE_SPLIT = [
+  "real/job-2-landed",
+  "real/job-2-at-review",
+  "real/job-2-at-review-before-23-5",
+  "real/job-2-at-review-live-title",
+  "drones/every-drone-had",
+  "real/groups-run-by-fleet",
+  "real/groups-judge-refused",
+  "held/gaming-check",
+  "real/proposal-from-an-issue",
+  "proto/feature-at-approval",
+  "proto/feature-running",
+  "proto/gates-on-the-spine",
+  "breakage/fixed-elsewhere",
+  "judge/refusal-agreed",
+  "judge/undecided",
+  "repair/checks-again",
+  "real/tiers-and-models",
+];
+
+test("the split rows are still listed, in the order they had", () => {
+  const names = SCENARIOS.map((one) => one.name);
+  const at = BEFORE_THE_SPLIT.map((name) => names.indexOf(name));
+  expect(at).not.toContain(-1);
+  expect(at).toEqual([...at].sort((a, b) => a - b));
+  // The ones that followed them, and the one before, kept their places around the block.
+  expect(names.slice(-3)).toEqual(["retro/lessons", "retro/job-3", "cleanup/slots"]);
+  expect(names[names.indexOf("real/job-2-landed") - 1]).toBe("recorded/landed-and-merged");
+});
+
+// `export *` drops a name two files both export without saying so, which would drop a walk's row,
+// and a file nobody listed in `scenario-rows.ts` is a row nobody sees.
+test("every file in scenarios/ is listed, and every row it exports reaches the list", () => {
+  const exported = Object.values(ROW_FILES).flatMap((one) => Object.keys(one));
+  expect(Object.keys(listed).sort()).toEqual(exported.sort());
+  expect(Object.keys(listed)).toHaveLength(Object.keys(ROW_FILES).length);
 });

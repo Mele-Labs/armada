@@ -1,0 +1,9 @@
+# Append-only list files keep both sides of a merge, so two branches that each
+# add a line never conflict. `cargo xtask verify-foundations` refuses a file
+# listed here that holds anything but entries. This file is the declaration:
+# docs/practices/list-files.md.
+packages/components/src/index.ts merge=union
+crates/ipc/operations.toml merge=union
+crates/fleet/src/tests/mod.rs merge=union
+packages/icons/icons.toml merge=union
+apps/desktop/src/renderer/src/mock/scenario-rows.ts merge=union

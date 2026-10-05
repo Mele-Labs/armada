@@ -1,10 +1,14 @@
 import { Fragment } from "react";
-import { ChevronRight, ChevronUp, type LucideIcon } from "lucide-react";
+import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
+import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
+import { Button } from "../../primitives/Button/Button";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { GUIDE_MERGE_LINE } from "../../guides";
+import { GuideMark } from "../GuideMark/GuideMark";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
 
 /**
@@ -20,16 +24,31 @@ import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } 
  * all three empty the panel draws a picture and no words, the owner's one
  * exception to the empty-state rule, 2 Oct 2026.
  */
-/** `preparing` is Bridge's own: a `gating` turn that has run no Check yet. */
+/**
+ * `preparing` and `held` are Bridge's own: a `gating` turn that has run no Check yet, and a turn
+ * whose failed Check is red on main too.
+ */
 export type MergeLineState =
   | "waiting"
   | "preparing"
+  | "held"
   | "gating"
   | "merging"
   | "landed"
   | "red"
   | "conflict"
   | "stopped";
+
+/**
+ * Why a waiting branch is not in the turn that is running, where there is a reason. A branch with
+ * none is queued behind, and draws nothing.
+ *
+ * - `member`: left out because it clashes with another member of the turn.
+ * - `main`: left out because it clashes with main. Its own `conflict` outcome is a different mark.
+ * - `kept`: kept its place after a red, and is next up.
+ * - `late`: joined after the running turn began.
+ */
+export type MergeLineWaiting = "member" | "main" | "kept" | "late";
 
 export type MergeLineEntry = {
   branch: string;
@@ -43,6 +62,8 @@ export type MergeLineEntry = {
     settled?: { status: string; icon: LucideIcon; label: string };
   };
   state: MergeLineState;
+  /** Waiting only: why it is not in the running turn. Absent draws nothing. */
+  why?: MergeLineWaiting;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
   doing?: string;
   /** The turn's batch, by key. Consecutive entries with one key gate together. */
@@ -62,11 +83,36 @@ export type MergeLineCheck = {
   state: "waiting" | "running" | "passed" | "failed" | "timed_out";
 };
 
+/**
+ * What the owner is told while a turn runs and one of its Checks has failed: the rerun failed
+ * too, and the Check is green on main. **One per line, because a line runs one turn at a time**,
+ * so it sits in one slot and each later reading replaces it rather than stacking a second.
+ *
+ * - `batch`: before the split names the one at fault, a heads-up to every branch in the turn.
+ * - `branch`: the split named it, or the turn is a single branch.
+ * - `main`: the same Check is red on main too. Nobody is blamed, and the turn holds.
+ * - `sent`: the turn's verdict, the branch sent back.
+ */
+export type MergeLineNotice = {
+  kind: "batch" | "branch" | "main" | "sent";
+  /** The Check that failed. */
+  check: string;
+  /** The branch whose turn wrote the Check's log. */
+  branch: string;
+  /**
+   * Every branch the Check failed for: a `batch` heads-up lists the turn's members. Absent is the
+   * one `branch`.
+   */
+  branches?: readonly string[];
+};
+
 export type MergeLineProps = {
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
   /** In place order. */
   line: readonly MergeLineEntry[];
+  /** The turn's failed Check, drawn above the line. Absent is nothing to say, and nothing is drawn. */
+  notice?: MergeLineNotice;
   /** Landed, newest first. */
   landed?: readonly MergeLineEntry[];
   /** Red, conflict or stopped and not back in line, newest first. */
@@ -100,7 +146,7 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
+  const { name, line, notice, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
   const acts = { onOpenPullRequest, ...(onOpenCheck === undefined ? {} : { onOpenCheck }) };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
   const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
@@ -109,14 +155,17 @@ export function MergeLine(props: MergeLineProps) {
   return (
     <section className="armada-merge-line" id={id} aria-label={named}>
       <header className="armada-merge-line__head">
-        <h2 className="armada-merge-line__heading">
-          {HEADING}
-          {name === undefined ? null : (
-            <Tooltip label="Repository" asChild>
-              <span className="armada-merge-line__repository">{name}</span>
-            </Tooltip>
-          )}
-        </h2>
+        <div className="armada-merge-line__title">
+          <h2 className="armada-merge-line__heading">
+            {HEADING}
+            {name === undefined ? null : (
+              <Tooltip label="Repository" asChild>
+                <span className="armada-merge-line__repository">{name}</span>
+              </Tooltip>
+            )}
+          </h2>
+          <GuideMark guide={GUIDE_MERGE_LINE} />
+        </div>
         <button
           type="button"
           className="armada-merge-line__fold"
@@ -131,12 +180,15 @@ export function MergeLine(props: MergeLineProps) {
           )}
         </button>
       </header>
-      {!open ? null : line.length === 0 && left.length === 0 ? (
+      {!open ? null : line.length === 0 && left.length === 0 && notice === undefined ? (
         <div className="armada-merge-line__empty">
           <EmptyLine />
         </div>
       ) : (
         <div className="armada-merge-line__body">
+          {notice === undefined ? null : (
+            <Notice notice={notice} {...(name === undefined ? {} : { repository: name })} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+          )}
           {line.length === 0 ? null : (
             <ol className="armada-merge-line__list" aria-label="In line">
               {batched(line).map((run) =>
@@ -171,6 +223,100 @@ export function MergeLine(props: MergeLineProps) {
         </div>
       )}
     </section>
+  );
+}
+
+const NOTICE_TONE: Record<MergeLineNotice["kind"], AlertTone> = {
+  batch: "caution",
+  branch: "escalated",
+  main: "neutral",
+  sent: "escalated",
+};
+
+/**
+ * The failed Check, in the Alert's own tones: caution for a heads-up to a whole batch, escalated
+ * once a branch is named, neutral where main is red too and nobody is to blame. **Facts only, no
+ * sentence**; the glyph and the Check's mark carry what the tone cannot, and caution takes none.
+ */
+function Notice({
+  notice,
+  repository,
+  onOpenCheck,
+}: {
+  notice: MergeLineNotice;
+  /** The repository, where the panel is one of several. */
+  repository?: string;
+  onOpenCheck?: (branch: string, check: string) => void;
+}) {
+  const failed = CHECK_OUTCOME.failed;
+  const Shield = failed?.icon ?? null;
+  // The row's own mark for the same state, so the two read as one.
+  const Held = LAND_STATE.held?.icon ?? null;
+  const glyph =
+    notice.kind === "main" && Held !== null ? (
+      <Tooltip label="Held" asChild>
+        <span role="img" aria-label="Held">
+          <Held size={16} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    ) : notice.kind === "batch" || Shield === null ? undefined : (
+      <Tooltip label="Check failed" asChild>
+        <span role="img" aria-label="Check failed">
+          <Shield size={16} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    );
+  const branches = notice.branches ?? [notice.branch];
+  return (
+    <div className="armada-merge-line__notice">
+      <Alert
+        tone={NOTICE_TONE[notice.kind]}
+        icon={glyph}
+        title={
+          <span className="mono">
+            {notice.check}
+            {notice.kind === "main" ? " red on main" : " failed"}
+          </span>
+        }
+        {...(onOpenCheck === undefined
+          ? {}
+          : {
+              action: (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  ground="sunken"
+                  onClick={() => onOpenCheck(notice.branch, notice.check)}
+                >
+                  Open log
+                </Button>
+              ),
+              actionOn: "title" as const,
+            })}
+      >
+        <span className="armada-merge-line__failed">
+          {repository === undefined ? null : (
+            <Tooltip label="Repository" asChild>
+              <span>{repository}</span>
+            </Tooltip>
+          )}
+          {branches.map((one) => (
+            <Tooltip key={one} label="Branch" asChild>
+              <span className="mono">{one}</span>
+            </Tooltip>
+          ))}
+        </span>
+        <span className="armada-merge-line__facts">
+          {notice.kind === "sent" ? <span>sent back</span> : null}
+          {notice.kind === "batch" || notice.kind === "branch" ? (
+            <>
+              <span>rerun failed</span>
+              <span>green on main</span>
+            </>
+          ) : null}
+        </span>
+      </Alert>
+    </div>
   );
 }
 
@@ -219,7 +365,7 @@ function Entry({
       {entry.place === undefined ? (
         <span className="armada-merge-line__place" />
       ) : (
-        <Tooltip label="Place in line" asChild>
+        <Tooltip label="Order to merge in" asChild>
           <span className="armada-merge-line__place mono">{entry.place}</span>
         </Tooltip>
       )}
@@ -263,6 +409,14 @@ function Entry({
   );
 }
 
+/** A waiting branch's reason as a registry glyph and the tooltip that names it. */
+const WHY: Record<MergeLineWaiting, { Glyph: LucideIcon; says: string }> = {
+  member: { Glyph: GitBranch, says: "Left out of this turn: clashes with another branch in it" },
+  main: { Glyph: Ban, says: "Left out of this turn: clashes with main" },
+  kept: { Glyph: ArrowUpToLine, says: "Kept its place after a red, next up" },
+  late: { Glyph: GitCommitHorizontal, says: "Joined after the turn began" },
+};
+
 /** A Check of the turn on the boundary strip's own readings. A timeout is a failure there, and says so. */
 const READS: Record<MergeLineCheck["state"], GroupBoundaryCheckReads> = {
   waiting: "not run",
@@ -299,7 +453,18 @@ function Detail({
     entry.checks === undefined || entry.checks.length === 0 ? null : (
       <GroupBoundary checks={entry.checks.map((check) => boundaryCheck(check, onOpen))} />
     );
-  if (LIVE.has(entry.state)) {
+  if (entry.state === "waiting" && entry.why !== undefined) {
+    const { Glyph, says } = WHY[entry.why];
+    return (
+      <Tooltip label={says} asChild>
+        <span className="armada-merge-line__why" role="img" aria-label={says}>
+          <Glyph size={MARK} strokeWidth={STROKE} aria-hidden />
+        </span>
+      </Tooltip>
+    );
+  }
+  // A held turn stops, and still shows what it was doing and where its Checks stand.
+  if (LIVE.has(entry.state) || entry.state === "held") {
     return (
       <>
         {entry.doing === undefined ? null : <span>{entry.doing}</span>}

@@ -326,6 +326,10 @@ pub struct PushedOntoBase {
     /// The branch the work landed on.
     pub base: String,
     pub merged: Merged,
+    /// The merge commit that holds the branch on the base: the one just
+    /// pushed, or for [`Merged::AlreadyMerged`] the one found there. `None`
+    /// where the base holds the branch by some other road.
+    pub merge: Option<String>,
 }
 
 /// What [`Delivery::merge_the_moved_base_in`] left on a Job's branch: the base
@@ -421,6 +425,39 @@ impl NotMerged {
         out.push_str(": ");
         out.push_str(said);
         out
+    }
+
+    /// What the refusal carries, without the words [`said`](NotMerged::said)
+    /// puts around it: the part worth keeping to rebuild it later.
+    pub fn detail(&self) -> &str {
+        match self {
+            NotMerged::Protected { said }
+            | NotMerged::Conflicted { said }
+            | NotMerged::ChecksNotPassed { said }
+            | NotMerged::NotOpen { said }
+            | NotMerged::NoTool { said }
+            | NotMerged::BaseMoved { said }
+            | NotMerged::GateFailed { said }
+            | NotMerged::Unchecked { said }
+            | NotMerged::Refused { said } => said,
+        }
+    }
+
+    /// The refusal a stored `kind` and sentence came from, for a caller that
+    /// kept one and answers with it later. An unknown kind is
+    /// [`NotMerged::Refused`], the kind that guesses nothing.
+    pub fn from_kind(kind: &str, said: String) -> NotMerged {
+        match kind {
+            "branch_protected" => NotMerged::Protected { said },
+            "conflicted" => NotMerged::Conflicted { said },
+            "checks_not_passed" => NotMerged::ChecksNotPassed { said },
+            "not_open" => NotMerged::NotOpen { said },
+            "no_tool" => NotMerged::NoTool { said },
+            "base_moved" => NotMerged::BaseMoved { said },
+            "gate_failed" => NotMerged::GateFailed { said },
+            "unchecked" => NotMerged::Unchecked { said },
+            _ => NotMerged::Refused { said },
+        }
     }
 
     /// The kind, as one word, for a wire code and a log field.
@@ -842,6 +879,11 @@ pub trait Delivery {
     /// its gate went red. **Only while its head is still that merge**, so
     /// nothing committed since is thrown away.
     fn put_back(&self, worktree: &Worktree, merged: &BaseMergedIn) -> Result<(), NotDelivered>;
+
+    /// Clear a merge a killed process left part-way through a Job's worktree,
+    /// so the next gate reads the branch as it was committed. **A no-op where
+    /// no merge is in progress**, and it never touches a commit.
+    fn settle_worktree(&self, worktree: &Worktree) -> Result<(), NotDelivered>;
 
     /// Rebase a Job's branch onto a base that has moved, and push the result —
     /// in place of closing and reopening the pull request. `#663`.

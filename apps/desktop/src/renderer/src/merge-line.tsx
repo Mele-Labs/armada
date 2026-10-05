@@ -76,6 +76,7 @@ function OneLine({
       line={view.line}
       landed={view.landed}
       sentBack={view.sentBack}
+      notice={view.notice}
       open={open}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
