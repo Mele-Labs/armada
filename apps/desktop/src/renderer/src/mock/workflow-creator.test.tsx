@@ -63,7 +63,7 @@ test("a step opens in the sheet, a Judge with no question is refused on its node
 
   const refusals = page.getByRole("list", { name: "Refusals" });
   await expect.element(refusals.getByText("Judge ticked and the step names no question")).toBeVisible();
-  await expect.element(frame().getByText("Refused", { exact: true })).toBeVisible();
+  await expect.element(frame().getByText("Refused", { exact: true }).first()).toBeVisible();
   await expect.element(page.getByRole("button", { name: /^Gather, / }).getByText(/names no question/)).toBeVisible();
 
   await page.getByRole("button", { name: /^Gather, / }).click();
