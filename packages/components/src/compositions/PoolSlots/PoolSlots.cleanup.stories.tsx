@@ -7,7 +7,7 @@ import { held, openTile, panel, slot, tile } from "./PoolSlots.fixtures";
 
 /** A Job's worktree, in the grid beside the bays and in the panel that gives it back. */
 const meta: Meta<typeof PoolSlots> = {
-  title: "Compositions/Pool slots/Cleanup",
+  title: "Compositions/Pool slots",
   component: PoolSlots,
   args: { onOpenJob: fn() },
 };
@@ -93,7 +93,7 @@ export const WhatItHolds: Story = {
   play: async ({ canvas, userEvent }) => {
     const all = await openTile(canvas, userEvent, "all");
     const holds = within(all.getByRole("region", { name: "What it holds" }));
-    await expect(holds.getAllByRole("listitem").filter((one) => one.className.includes("armada-holds__row"))).toHaveLength(6);
+    await expect(holds.getAllByRole("listitem").filter((one) => one.className.includes("armada-tile-holds__row"))).toHaveLength(6);
     await expect(holds.getByLabelText("Uncommitted files")).toHaveTextContent("src/a.rs");
     await expect(holds.getByLabelText("Uncommitted files")).toHaveTextContent("notes/b.md");
     await expect(holds.getByLabelText("Last moved 4 days ago")).toBeInTheDocument();

@@ -8,7 +8,7 @@ import { FOUND, STRANDED, openTile, panel, slot, tile } from "./PoolSlots.fixtur
 
 /** A stranded bay's rescue, read and acted on in its tile's panel. */
 const meta: Meta<typeof PoolSlots> = {
-  title: "Compositions/Pool slots/Rescue",
+  title: "Compositions/Pool slots",
   component: PoolSlots,
   args: { onOpenJob: fn() },
 };
