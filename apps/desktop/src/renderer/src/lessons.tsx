@@ -25,7 +25,7 @@ export function LessonsSurface({
   // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
   const [tab, setTab] = useLessonsTab();
   return (
-    <Boundary region="Lessons" bridge={bridge} onCopied={onCopied}>
+    <Boundary region="Retros" bridge={bridge} onCopied={onCopied}>
       {/* Keyed by the pick, because main narrows the read to it. */}
       <Lessons
         key={repository ?? ""}

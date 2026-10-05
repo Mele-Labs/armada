@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MoveRight } from "lucide-react";
 import { useState } from "react";
 
 import { Alert } from "../../primitives/Alert/Alert";
@@ -37,6 +37,7 @@ export type LessonCardItem = {
 
 /** The two answers, and what each does for this item's place. */
 export type LessonAnswers = {
+  agreeLabel: string;
   agreeTip: string;
   disagreeTip: string;
   onAgree: () => void;
@@ -86,16 +87,22 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
     // reader and by a walk alike.
     <li className="armada-lesson" aria-label={headed ? item.title : item.statement}>
       <div className="armada-lesson__labels">
-        <span className="armada-lesson__label">
-          <WhoMark who={item.who} />
-          <span className="armada-lesson__word">{whoWord(item.who)}</span>
-        </span>
-        {item.landsIn === undefined ? null : (
-          <span className="armada-lesson__label">
-            <LandsMark lands={item.landsIn} />
-            <span className="armada-lesson__word">{landsWord(item.landsIn)}</span>
+        {/* One arrow, from whose way it got in to where the fix lands. Each end is its own hue. */}
+        <span className="armada-lesson__route">
+          <span className="armada-lesson__label" data-hue={item.who === "owner" ? "you" : item.who}>
+            <WhoMark who={item.who} />
+            <span className="armada-lesson__word">{whoWord(item.who)}</span>
           </span>
-        )}
+          {item.landsIn === undefined ? null : (
+            <>
+              <MoveRight className="armada-lesson__arrow" size={14} strokeWidth={2} aria-hidden />
+              <span className="armada-lesson__label" data-hue={item.landsIn}>
+                <LandsMark lands={item.landsIn} />
+                <span className="armada-lesson__word">{landsWord(item.landsIn)}</span>
+              </span>
+            </>
+          )}
+        </span>
         {from === undefined ? null : (
           <Tooltip label={from.exact ?? from.label}>
             <button type="button" className="armada-lesson__from" onClick={from.onOpen}>
@@ -112,7 +119,7 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
       )}
       {item.fix === undefined || item.fix === "" ? null : (
         <div className="armada-lesson__fix">
-          <span className="armada-lesson__fix-label">Fix</span>
+          <span className="armada-lesson__fix-label">What would change</span>
           <p className="armada-lesson__fix-said">{item.fix}</p>
         </div>
       )}
@@ -141,7 +148,7 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
                   disabled={answers.pressing === "disagree"}
                   onClick={answers.onAgree}
                 >
-                  Agree
+                  {answers.agreeLabel}
                 </Button>
               </Tooltip>
               <Tooltip label={answers.disagreeTip}>
@@ -151,7 +158,7 @@ export function LessonCard({ item, answers, settled, from }: LessonCardProps) {
                   disabled={answers.pressing === "agree"}
                   onClick={answers.onDisagree}
                 >
-                  Disagree
+                  Reject change
                 </Button>
               </Tooltip>
             </>

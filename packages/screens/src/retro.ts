@@ -16,6 +16,7 @@ import type {
   LandsIn,
   Lesson,
   LessonAnswer,
+  LessonState,
   LessonsRead,
   RecordAct,
   RecordAsked,
@@ -122,16 +123,21 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+/** A sheet's item with where it stands, which `useAnswers` reads and the sheet does not draw. */
+export type SheetItem = RetroSheetItem & { state?: LessonState; jobProposed?: string };
+
 /**
  * What got in the way, in the order it was written, each with the record rows
  * it cites. **A cite the record does not hold is left out** rather than drawn
  * as a name nobody can read back — Fleet already drops those, and this holds
  * to it for a record read later than its retro was written.
  */
-export function itemsOf(retro: JobRetro): RetroSheetItem[] {
+export function itemsOf(retro: JobRetro): SheetItem[] {
   const rows = rowsOf(retro.record);
   return (retro.items ?? []).map((item) => ({
     id: item.id,
+    ...(item.state === undefined ? {} : { state: item.state }),
+    ...(item.job_proposed === undefined ? {} : { jobProposed: item.job_proposed }),
     who: item.who,
     ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
     statement: item.statement,
@@ -216,24 +222,32 @@ export function underTab(rows: readonly LessonRow[], tab: LessonsTab): LessonRow
   return tab === "all" ? [...rows] : rows.filter((row) => row.landsIn === tab);
 }
 
-/** What Agree does for an item, by where its fix lands, as its tooltip says it. */
-export function agreeTipOf(landsIn: LandsIn): string {
-  switch (landsIn) {
-    case "armada":
-      return "Proposes a Job on Armada's repository";
-    case "manifest":
-      return "Proposes a Job on the Manifest's repository";
-    case "kit":
-      return "Saves it under Accepted";
-  }
+/**
+ * The words on the button that agrees, by where the fix lands. **Only the words
+ * differ from the wire's `agree`**: an Armada or Manifest item makes a Job, and a
+ * Kit item makes none and is saved.
+ */
+export function agreeLabelOf(landsIn: LandsIn): string {
+  return landsIn === "kit" ? "Accept" : "Create Job";
 }
 
-/** What Disagree does, the same for every place. */
-export const DISAGREE_TIP = "Discards it";
+/** What that button does for an item, as its tooltip says it. */
+export function agreeTipOf(landsIn: LandsIn): string {
+  return landsIn === "kit"
+    ? "Saves it under Accepted."
+    : "Turn this into a Job that applies the change. It waits for your approval on the Board.";
+}
+
+/** What the button that disagrees does, the same for every place. */
+export const DISAGREE_TIP = "Discards it.";
 
 /** The words an answered item reads as while it stays on screen. */
 const AGREED = "Agreed";
+const ACCEPTED = "Accepted";
 const PROPOSED_JOB = "Proposed Job";
+
+/** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
+export type Standing = { state?: LessonState; jobProposed?: string };
 
 /** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
 export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
@@ -251,7 +265,7 @@ export function useAnswers(
   agree: AnswerLesson | undefined,
   disagree: AnswerLesson | undefined,
   openJob: ((jobId: string) => void) | undefined,
-): (lessonId: string, landsIn: LandsIn | undefined) => AnswerView {
+): (lessonId: string, landsIn: LandsIn | undefined, standing: Standing) => AnswerView {
   const [pressing, setPressing] = useState<Record<string, "agree" | "disagree">>({});
   const [refused, setRefused] = useState<Record<string, string>>({});
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
@@ -275,20 +289,25 @@ export function useAnswers(
     }
   }
 
-  return (lessonId, landsIn) => {
+  const agreedAs = (job: string | undefined): AnswerView => ({
+    gone: false,
+    settled: {
+      said: AGREED,
+      ...(job === undefined || openJob === undefined
+        ? {}
+        : { job: { label: PROPOSED_JOB, onOpen: () => openJob(job) } }),
+    },
+  });
+
+  return (lessonId, landsIn, standing) => {
     if (gone.has(lessonId)) return { gone: true };
-    if (lessonId in agreed) {
-      const job = agreed[lessonId];
-      return {
-        gone: false,
-        settled: {
-          said: AGREED,
-          ...(job === undefined || openJob === undefined
-            ? {}
-            : { job: { label: PROPOSED_JOB, onOpen: () => openJob(job) } }),
-        },
-      };
-    }
+    if (lessonId in agreed) return agreedAs(agreed[lessonId]);
+    // **An item answered before this read stands as Fleet says**: its state, and no buttons.
+    // Discarded draws nothing. One with no state is read and left alone.
+    if (standing.state === "agreed") return agreedAs(standing.jobProposed);
+    if (standing.state === "accepted") return { gone: false, settled: { said: ACCEPTED } };
+    if (standing.state === "discarded") return { gone: true };
+    if (standing.state === undefined) return { gone: false };
     // An item kept before a place was named is refused both answers by Fleet, so it has none.
     if (agree === undefined || disagree === undefined || landsIn === undefined) return { gone: false };
     const held = pressing[lessonId];
@@ -296,6 +315,7 @@ export function useAnswers(
     return {
       gone: false,
       answers: {
+        agreeLabel: agreeLabelOf(landsIn),
         agreeTip: agreeTipOf(landsIn),
         disagreeTip: DISAGREE_TIP,
         onAgree: () => void press(lessonId, "agree", landsIn),

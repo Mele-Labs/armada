@@ -1,4 +1,4 @@
-// The Lessons page: what got in the way across Jobs, newest first, and one
+// The Retros page: what got in the way across Jobs, newest first, and one
 // Job's retro over it — `docs/concepts/retro.md`.
 //
 // **The owner reads and answers.** Each item offers Agree and Disagree. Agree
@@ -77,7 +77,7 @@ export function Lessons({
   const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap((row) => {
     // A saved item is read and nothing more: the view says it is accepted.
     if (view === "accepted") return [row];
-    const shown = answered(row.id, row.landsIn);
+    const shown = answered(row.id, row.landsIn, { state: "open" });
     if (shown.gone) return [];
     return [
       {
@@ -91,7 +91,7 @@ export function Lessons({
   return (
     <div className="armada-screen__overview">
       {read?.ok === false ? (
-        <Alert tone="escalated" title="Lessons could not be read">
+        <Alert tone="escalated" title="Retros could not be read">
           {said(read.outcome)}
         </Alert>
       ) : (
@@ -137,7 +137,7 @@ export function Lessons({
 
 /**
  * One Job's retro on its sheet, read when it opens and again on focus. The
- * Lessons page opens it from a row and a Job's Record from its head.
+ * Retros page opens it from a row and a Job's Record from its head.
  */
 export function JobRetroSheet({
   jobId,
@@ -164,7 +164,10 @@ export function JobRetroSheet({
   const retro = answer?.ok === true ? answer.retro : null;
   const status = retro === null ? undefined : statusOf(retro);
   const items = (retro === null ? [] : itemsOf(retro)).flatMap((item) => {
-    const shown = answered(item.id ?? "", item.landsIn);
+    const shown = answered(item.id ?? "", item.landsIn, {
+      ...(item.state === undefined ? {} : { state: item.state }),
+      ...(item.jobProposed === undefined ? {} : { jobProposed: item.jobProposed }),
+    });
     if (shown.gone) return [];
     return [
       {

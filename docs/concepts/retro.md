@@ -2,7 +2,7 @@
 
 **What it is:** What got in the way while one Job ran, whose way it got in —
 the Drone's, the owner's or Fleet's — and where each fix lands, written once
-the Job ends and read on the Lessons page.
+the Job ends and read on the Retros page.
 
 ---
 
@@ -33,7 +33,7 @@ questions: a command a Drone was refused cost the Drone, and is fixed in Kit.
 | `manifest` | The repository the Job worked on: its `armada.yml` (Checks, Commands, places, when), its tests and its code ([Manifest](manifest.md)) | Browser tests on a fixed 15 s timeout; `test` running every Rust test on a docs-only edit |
 
 **An item names exactly one.** Where a fix spans two places, the retro writes
-two items. The Lessons page narrows by it, and **an item written before
+two items. The Retros page narrows by it, and **an item written before
 23.15 names none**: it reads with the field absent and is listed under All
 alone, never given a place after the fact.
 
@@ -67,7 +67,7 @@ Every item starts `open`.
 
 | State | Means |
 | --- | --- |
-| `open` | Nobody has answered it. What the Lessons page lists by default |
+| `open` | Nobody has answered it. What the Retros page lists by default |
 | `agreed` | A Job was proposed for it at the approval gate, and `job_proposed` names it |
 | `accepted` | A Kit item the person agreed with. Nothing to dispatch, so it is kept as it is: the person's saved Kit items |
 | `discarded` | Disagreed with. The row stays |
@@ -195,7 +195,7 @@ a Job from the time a note was left.
 **Bridge writes the open Job's ULID as `openJobId` when a note is saved.** Job
 detail stamps its Job's id on its own root, and the layer reads the page at the
 save, so a note begun on one Job and saved on another names the second. Job
-detail alone counts as open: a retro read on the Lessons page is not that Job's
+detail alone counts as open: a retro read on the Retros page is not that Job's
 detail, and a note left there names no Job. The key is left out, never null,
 where none is open. `packages/screens/src/open-job.ts`.
 
@@ -203,27 +203,39 @@ where none is open. `packages/screens/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
+| **Retros**, a rail surface (glyph `rewind`, Proposed) under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
 | **Retro**, in the head of a Job's Record | The same cards, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
 nothing on `/events` says a retro was written. What Fleet serves for acting is
 *Agree and disagree*.
 
-**An item reads top to bottom:** whose way it got in (`Drone`, `You`, `Fleet`)
-and where its fix lands (`Armada`, `Kit`, `Manifest`) as words with their marks
-beside them, the `title`, what happened, the `fix` set apart, then `Agree` and
-`Disagree`. The cited record rows sit behind an `Evidence` control. An item
-written before `title` carries its `statement` alone, drawn as the body with
-the same two buttons. `packages/components/src/compositions/LessonCard`.
+**An item reads top to bottom:** one arrow from whose way it got in (`Drone`,
+`You`, `Fleet`) to where its fix lands (`Armada`, `Kit`, `Manifest`), both ends
+words with their marks beside them and each its own hue, then the `title`, what
+happened, the `fix` under the label `What would change`, and the two answers.
+The cited record rows sit behind an `Evidence` control.
+`packages/components/src/compositions/LessonCard`.
 
-**What a press leaves on screen.** Agree on an Armada or Manifest item keeps
-the card as `Agreed` with a link to the proposed Job until the list is read
-again, when Fleet no longer lists it as open. Agree on a Kit item and Disagree
-on any item take the card off at once. There is no confirmation: a mistaken
-Agree proposes a Job that waits for the owner's approval, and a mistaken
-Disagree discards one item. **An item kept before `lands_in` names no place,
-so it is drawn without the buttons**: Fleet refuses both acts on it.
+**The hues are not status hues.** Whose way: Drone `--tool-change`, You
+`--tool-look`, Fleet `--tool-run`. Where: Armada `--accent`, Kit `--diff-add-fg`,
+Manifest `--diff-del-fg`. Proposed, for the owner to rule on.
+
+**The buttons carry words for what they do, not the wire's names.** Where the
+fix lands in Armada or the Manifest the button reads `Create Job`, since agreeing
+proposes a Job that waits for approval on the Board. In Kit it reads `Accept`,
+since nothing is dispatched and the item is saved. The other reads
+`Reject change`. The acts are still `agree` and `disagree` on the wire.
+
+**What a press leaves on screen.** Create Job keeps the card as `Agreed` with a
+link to the proposed Job until the list is read again, when Fleet no longer
+lists it as open. Accept and Reject change take the card off at once. There is
+no confirmation: a mistaken Create Job proposes a Job that waits for the
+owner's approval, and a mistaken Reject change discards one item. **An item
+answered already stands as its `state` says**, on the sheet as on the list:
+`Agreed` with the link, or `Accepted`, or nothing where discarded, and no
+buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
+the buttons**: Fleet refuses both acts on one with no place.
 
 ## Where it is served
 

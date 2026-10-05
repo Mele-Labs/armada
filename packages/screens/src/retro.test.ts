@@ -7,6 +7,7 @@ import { absoluteOf } from "./duration";
 import {
   agreeTipOf,
   DISAGREE_TIP,
+  agreeLabelOf,
   itemsOf,
   lessonRowsOf,
   lessonsTabNamed,
@@ -197,9 +198,13 @@ describe("an item's title, what happened and fix", () => {
 
 describe("what Agree and Disagree say they do", () => {
   it("names the place for each", () => {
-    expect(agreeTipOf("armada")).toBe("Proposes a Job on Armada's repository");
-    expect(agreeTipOf("manifest")).toBe("Proposes a Job on the Manifest's repository");
-    expect(agreeTipOf("kit")).toBe("Saves it under Accepted");
-    expect(DISAGREE_TIP).toBe("Discards it");
+    const JOB_TIP = "Turn this into a Job that applies the change. It waits for your approval on the Board.";
+    expect(agreeLabelOf("armada")).toBe("Create Job");
+    expect(agreeLabelOf("manifest")).toBe("Create Job");
+    expect(agreeLabelOf("kit")).toBe("Accept");
+    expect(agreeTipOf("armada")).toBe(JOB_TIP);
+    expect(agreeTipOf("manifest")).toBe(JOB_TIP);
+    expect(agreeTipOf("kit")).toBe("Saves it under Accepted.");
+    expect(DISAGREE_TIP).toBe("Discards it.");
   });
 });

@@ -35,7 +35,7 @@ export type LessonListProps = {
 };
 
 /**
- * What got in the way across Jobs, newest first — the Lessons page's one list,
+ * What got in the way across Jobs, newest first — the Retros page's one list,
  * each item a `LessonCard` the owner can agree or disagree with.
  *
  * **No heading and no count.** A count beside the rows it counts is
@@ -47,7 +47,7 @@ export type LessonListProps = {
 export function LessonList({ rows, onOpen }: LessonListProps) {
   if (rows.length === 0) return null;
   return (
-    <ul className="armada-lessons" aria-label="Lessons">
+    <ul className="armada-lessons" aria-label="Retros">
       {rows.map((row) => (
         <LessonCard
           key={row.id}

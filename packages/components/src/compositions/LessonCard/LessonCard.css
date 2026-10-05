@@ -29,18 +29,64 @@
   min-width: 0;
 }
 
+/* Who, an arrow, where. One thing to read, so the three sit together. */
+.armada-lesson__route {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-lesson__arrow {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Each end takes its own hue, from `--hue`. **Never a status hue**: hard rule 3
+   keeps those for the Job state machine. The six are the tool families, the
+   accent and the diff pair, which alias no status (see the data-hue rules). The
+   word is drawn in the hue and the tag is a tint of it, so the pair reads
+   apart before either word is read. */
 .armada-lesson__label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
+  border: var(--border-width) solid color-mix(in srgb, var(--hue, var(--fg-muted)) 40%, transparent);
   border-radius: var(--radius-sm);
-  background: var(--surface-well);
+  background: color-mix(in srgb, var(--hue, var(--fg-muted)) 12%, var(--surface-well));
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
-  color: var(--text-label);
+  color: var(--hue, var(--text-label));
   white-space: nowrap;
+}
+
+.armada-lesson__label .armada-who-mark,
+.armada-lesson__label .armada-lands-mark {
+  color: inherit;
+}
+
+/* Whose way. Drone, You, Fleet. */
+.armada-lesson__label[data-hue="drone"] {
+  --hue: var(--tool-change);
+}
+.armada-lesson__label[data-hue="you"] {
+  --hue: var(--tool-look);
+}
+.armada-lesson__label[data-hue="fleet"] {
+  --hue: var(--tool-run);
+}
+
+/* Where the fix lands. Armada, Kit, Manifest. */
+.armada-lesson__label[data-hue="armada"] {
+  --hue: var(--accent);
+}
+.armada-lesson__label[data-hue="kit"] {
+  --hue: var(--diff-add-fg);
+}
+.armada-lesson__label[data-hue="manifest"] {
+  --hue: var(--diff-del-fg);
 }
 
 .armada-lesson__from,

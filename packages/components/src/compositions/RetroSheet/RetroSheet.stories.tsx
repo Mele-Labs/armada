@@ -28,9 +28,10 @@ export default meta;
 
 type Story = StoryObj<typeof RetroSheet>;
 
-const answers = (agreeTip: string) => ({
+const answers = (agreeLabel: string, agreeTip: string) => ({
+  agreeLabel,
   agreeTip,
-  disagreeTip: "Discards it",
+  disagreeTip: "Discards it.",
   onAgree: fn(),
   onDisagree: fn(),
 });
@@ -44,7 +45,7 @@ const ITEMS: RetroSheetItem[] = [
     title: "The gate blamed the Drone for Fleet's own mistake",
     what: "It compared the step against a local main two commits behind origin, so two commits that edited armada.yml counted as the Drone's work.",
     fix: "Compare against origin/main, where the branch is cut from.",
-    answers: answers("Proposes a Job on Armada's repository"),
+    answers: answers("Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board."),
     cites: [
       {
         id: "check:1",
@@ -63,7 +64,7 @@ const ITEMS: RetroSheetItem[] = [
     title: "A Drone had to wait for grep to be allowed",
     what: "It asked to run grep on a check log, and the step waited until you allowed it.",
     fix: "Add grep on .armada/checks to the allowlist.",
-    answers: answers("Saves it under Accepted"),
+    answers: answers("Accept", "Saves it under Accepted."),
     cites: [{ id: "asked:1", name: "Allow grep on .armada/checks?", detail: "Allow", when: "Oct 2, 9:10 PM" }],
   },
   {
@@ -87,7 +88,7 @@ export const Written: Story = {
   play: async ({ canvas }) => {
     const sheet = canvas.getByRole("dialog", { name: "Retro" });
     await expect(sheet).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(2);
+    await expect(canvas.getAllByRole("button", { name: "Create Job" })).toHaveLength(1);
     // Collapsed until asked for.
     await expect(canvas.queryByText("out_of_bounds")).toBeNull();
     await userEvent.click(canvas.getAllByRole("button", { name: "Evidence" })[0]!);

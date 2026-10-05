@@ -6,7 +6,7 @@
 // *Bridge on a mock Fleet*.
 
 import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
-import type { JobSummary, LessonAnswer, Outcome, WorkPlan } from "@armada/protocol";
+import type { JobSummary, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -442,7 +442,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
     readRetro: async (jobId) => {
       const retro = scenario.retros?.[jobId];
-      if (retro !== undefined) return { ok: true, retro };
+      // Each item stands as the answers left it, as Fleet's `state` says. An old item has none.
+      const standing = (item: RetroItem): RetroItem => {
+        const now = item.state === undefined ? undefined : lessons.find((one) => one.id === item.id);
+        if (now === undefined) return item;
+        return { ...item, state: now.state, ...(now.job_proposed === undefined ? {} : { job_proposed: now.job_proposed }) };
+      };
+      if (retro !== undefined) return { ok: true, retro: { ...retro, items: retro.items?.map(standing) } };
       return readsOf(jobId) === undefined
         ? refused(path(jobId, "/retro"))
         : { ok: true, retro: { job_id: jobId, state: "pending", record: {} } };

@@ -47,6 +47,7 @@ const JOB_3_ITEMS: RetroItem[] = [
     what: "It compared the step against a local main two commits behind origin, so two commits that edited armada.yml counted as the Drone's work.",
     fix: "Compare against origin/main, where the branch is cut from.",
     evidence: ["check:1"],
+    state: "open",
   },
   {
     id: "01M2LESSON3ALLATONCE",
@@ -57,6 +58,7 @@ const JOB_3_ITEMS: RetroItem[] = [
     what: "The gate ran a step's Checks all at once, which slowed the browser tests 5 to 8 times.",
     fix: "Run a step's Checks one at a time.",
     evidence: ["check:3", "said:1", "note:1"],
+    state: "open",
   },
   {
     id: "01M2LESSON3GREPASKED",
@@ -67,6 +69,7 @@ const JOB_3_ITEMS: RetroItem[] = [
     what: "It asked to run grep on a check log, and the step waited until you allowed it.",
     fix: "Add grep on .armada/checks to the allowlist.",
     evidence: ["refusal:1", "asked:1", "waited:1"],
+    state: "open",
   },
   {
     id: "01M2LESSON3DOCSTESTS",
@@ -77,6 +80,7 @@ const JOB_3_ITEMS: RetroItem[] = [
     what: "One docs edit set off all 4211 Rust tests and a 7.5 minute compile.",
     fix: "Run only xtask's tests when only apps/ or packages/ change.",
     evidence: ["check:2"],
+    state: "open",
   },
 ];
 

@@ -34,6 +34,9 @@ export type LessonState = "open" | "agreed" | "accepted" | "discarded";
  */
 export type RetroItem = {
   id: string;
+  /** Where the item stands, as on `Lesson`. Absent on an item kept before it was written. */
+  state?: LessonState;
+  job_proposed?: string;
   who: Whose;
   title?: string;
   what?: string;

@@ -4,12 +4,12 @@ import { expect, fn, userEvent } from "storybook/test";
 import { LessonList, type LessonRow } from "./LessonList";
 
 /**
- * The Lessons page's list: what got in the way across Jobs, newest first, each
+ * The Retros page's list: what got in the way across Jobs, newest first, each
  * item a card the owner can agree or disagree with. The Job label opens its
  * retro.
  */
 const meta: Meta<typeof LessonList> = {
-  title: "Compositions/Lesson list",
+  title: "Compositions/Retro list",
   component: LessonList,
   args: { onOpen: fn() },
   decorators: [
@@ -26,9 +26,10 @@ type Story = StoryObj<typeof LessonList>;
 
 const JOB_3 = { jobId: "01K6Q3JOB3", job: "Job 3", jobExact: "3-retire-two-guides", when: "Oct 2, 9:41 PM" };
 
-const answers = (agreeTip: string) => ({
+const answers = (agreeLabel: string, agreeTip: string) => ({
+  agreeLabel,
   agreeTip,
-  disagreeTip: "Discards it",
+  disagreeTip: "Discards it.",
   onAgree: fn(),
   onDisagree: fn(),
 });
@@ -43,7 +44,7 @@ const ROWS: LessonRow[] = [
     title: "The gate blamed the Drone for Fleet's own mistake",
     what: "It compared the step against a local main two commits behind origin, so two commits that edited armada.yml counted as the Drone's work.",
     fix: "Compare against origin/main, where the branch is cut from.",
-    answers: answers("Proposes a Job on Armada's repository"),
+    answers: answers("Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board."),
   },
   {
     id: "3-1",
@@ -54,7 +55,7 @@ const ROWS: LessonRow[] = [
     title: "A Drone had to wait for grep to be allowed",
     what: "It asked to run grep on a check log, and the step waited until you allowed it.",
     fix: "Add grep on .armada/checks to the allowlist.",
-    answers: answers("Saves it under Accepted"),
+    answers: answers("Accept", "Saves it under Accepted."),
   },
   {
     id: "3-2",
@@ -65,7 +66,7 @@ const ROWS: LessonRow[] = [
     title: "A docs edit ran every Rust test",
     what: "One docs edit set off all 4211 Rust tests and a 7.5 minute compile.",
     fix: "Run only xtask's tests when only apps/ or packages/ change.",
-    answers: answers("Proposes a Job on the Manifest's repository"),
+    answers: answers("Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board."),
   },
   {
     id: "2-0",
@@ -83,7 +84,7 @@ const ROWS: LessonRow[] = [
  * The last item predates the headline and draws its statement alone.
  */
 export const Listed: Story = {
-  name: "Lessons from every retro",
+  name: "Retros from every Job",
   args: { rows: ROWS },
   play: async ({ canvas, args }) => {
     const marks = canvas.getAllByRole("img").map((one) => one.getAttribute("aria-label"));
@@ -96,7 +97,7 @@ export const Listed: Story = {
       "Lands in the Manifest",
       "You",
     ]);
-    await expect(canvas.getAllByRole("button", { name: "Agree" })).toHaveLength(3);
+    await expect(canvas.getAllByRole("button", { name: "Create Job" })).toHaveLength(2);
     await userEvent.click(canvas.getByRole("button", { name: "Job 2" }));
     await expect(args.onOpen).toHaveBeenCalledWith("01K6Q2JOB2");
   },
@@ -124,7 +125,7 @@ export const Agreed: Story = {
 
 /** Nothing written yet. An empty slot stays empty: no list and no sentence. */
 export const NothingYet: Story = {
-  name: "Lessons before any retro",
+  name: "Retros before any is written",
   args: { rows: [] },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("list")).toBeNull();

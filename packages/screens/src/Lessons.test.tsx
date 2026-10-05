@@ -97,9 +97,9 @@ test("an item reads as words for whose way and where it lands, a headline, what 
   await expect.element(one.getByRole("img", { name: "Lands in Armada" })).toBeInTheDocument();
   await expect.element(one.getByRole("heading", { name: "The gate blamed the Drone for Fleet's own mistake" })).toBeVisible();
   await expect.element(one.getByText(/two commits behind origin/)).toBeVisible();
-  await expect.element(one.getByText("Fix", { exact: true })).toBeVisible();
+  await expect.element(one.getByText("What would change", { exact: true })).toBeVisible();
   await expect.element(one.getByText(/Compare against origin\/main/)).toBeVisible();
-  expect(one.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements().map((b) => b.textContent)).toEqual(["Agree", "Disagree"]);
+  expect(one.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements().map((b) => b.textContent)).toEqual(["Create Job", "Reject change"]);
 });
 
 test("the three whose-ways and three places are each a word", async () => {
@@ -111,6 +111,31 @@ test("the three whose-ways and three places are each a word", async () => {
   expect(wordsOf(card(/in the dock/))).toEqual(["You"]);
 });
 
+test("whose way and where the fix lands are one arrow, each end its own hue, with no arrow where no place is named", async () => {
+  opened([ARMADA, OLD]);
+  await expect.element(card(/blamed the Drone/)).toBeVisible();
+  const route = card(/blamed the Drone/).element().querySelector(".armada-lesson__route")!;
+  // Who, the arrow, then where: both ends words, each carrying the hue its name has.
+  expect([...route.children].map((one) => (one.classList.contains("armada-lesson__arrow") ? "arrow" : "label"))).toEqual([
+    "label",
+    "arrow",
+    "label",
+  ]);
+  expect([...route.querySelectorAll("[data-hue]")].map((one) => one.getAttribute("data-hue"))).toEqual(["fleet", "armada"]);
+  expect(route.querySelector(".armada-lesson__arrow")?.getAttribute("aria-hidden")).toBe("true");
+  const old = card(/in the dock/).element().querySelector(".armada-lesson__route")!;
+  expect(old.querySelector(".armada-lesson__arrow")).toBeNull();
+});
+
+test("each answer names what it does for its item's place", async () => {
+  opened([ARMADA, KIT, MANIFEST]);
+  await expect.element(card(/every Rust test/)).toBeVisible();
+  const buttons = (title: RegExp) => card(title).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements().map((b) => b.textContent);
+  expect(buttons(/blamed the Drone/)).toEqual(["Create Job", "Reject change"]);
+  expect(buttons(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
+  expect(buttons(/every Rust test/)).toEqual(["Create Job", "Reject change"]);
+});
+
 test("each Agree names what it does for its item's place, and Disagree discards", async () => {
   opened([ARMADA, KIT, MANIFEST]);
   // The bubble opens after the tooltip delay, so its words are what is waited for.
@@ -118,10 +143,10 @@ test("each Agree names what it does for its item's place, and Disagree discards"
     await card(title).getByRole("button", { name, exact: true }).hover();
     await expect.element(card(title).getByText(words, { exact: true })).toBeVisible();
   };
-  await tip(/blamed the Drone/, "Agree", "Proposes a Job on Armada's repository");
-  await tip(/grep to be allowed/, "Agree", "Saves it under Accepted");
-  await tip(/every Rust test/, "Agree", "Proposes a Job on the Manifest's repository");
-  await tip(/every Rust test/, "Disagree", "Discards it");
+  await tip(/blamed the Drone/, "Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board.");
+  await tip(/grep to be allowed/, "Accept", "Saves it under Accepted.");
+  await tip(/every Rust test/, "Create Job", "Turn this into a Job that applies the change. It waits for your approval on the Board.");
+  await tip(/every Rust test/, "Reject change", "Discards it.");
 });
 
 test("an item written before the headline draws its statement as the body, with no answers, since Fleet refuses both", async () => {
@@ -129,17 +154,17 @@ test("an item written before the headline draws its statement as the body, with 
   const one = card(/in the dock/);
   await expect.element(one.getByText(/waited in the dock/)).toBeVisible();
   expect(one.getByRole("heading").elements()).toHaveLength(0);
-  expect(one.getByText("Fix", { exact: true }).elements()).toHaveLength(0);
-  expect(one.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
+  expect(one.getByText("What would change", { exact: true }).elements()).toHaveLength(0);
+  expect(one.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
 });
 
 test("agreeing with an Armada item leaves a link to the Job it proposed, and the link opens it", async () => {
   const { agree, job } = opened([ARMADA]);
-  await card(/blamed the Drone/).getByRole("button", { name: "Agree", exact: true }).click();
+  await card(/blamed the Drone/).getByRole("button", { name: "Create Job", exact: true }).click();
   expect(agree).toHaveBeenCalledWith("l-armada");
   const one = card(/blamed the Drone/);
   await expect.element(one.getByText("Agreed")).toBeVisible();
-  expect(one.getByRole("button", { name: "Agree", exact: true }).elements()).toHaveLength(0);
+  expect(one.getByRole("button", { name: "Create Job", exact: true }).elements()).toHaveLength(0);
   await one.getByRole("button", { name: "Proposed Job" }).click();
   expect(job).toHaveBeenCalledWith("01K7JOB");
 });
@@ -148,19 +173,19 @@ test("agreeing with a Kit item, and disagreeing with any, takes it off the list"
   const { agree, disagree } = opened([KIT, MANIFEST], [], {
     agree: async (id) => ({ ok: true, lesson: lesson({ ...KIT, id, state: "accepted" }) }),
   });
-  await card(/grep to be allowed/).getByRole("button", { name: "Agree", exact: true }).click();
+  await card(/grep to be allowed/).getByRole("button", { name: "Accept", exact: true }).click();
   expect(agree).toHaveBeenCalledWith("l-kit");
   await expect.poll(() => card(/grep to be allowed/).elements()).toHaveLength(0);
-  await card(/every Rust test/).getByRole("button", { name: "Disagree", exact: true }).click();
+  await card(/every Rust test/).getByRole("button", { name: "Reject change", exact: true }).click();
   expect(disagree).toHaveBeenCalledWith("l-manifest");
   await expect.poll(() => card(/every Rust test/).elements()).toHaveLength(0);
 });
 
 test("a refused answer says why, and the item stays with both answers", async () => {
   opened([ARMADA], [], { agree: async () => ({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } }) });
-  await card(/blamed the Drone/).getByRole("button", { name: "Agree", exact: true }).click();
+  await card(/blamed the Drone/).getByRole("button", { name: "Create Job", exact: true }).click();
   await expect.element(page.getByText(/already in flight/)).toBeVisible();
-  expect(card(/blamed the Drone/).getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(2);
+  expect(card(/blamed the Drone/).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(2);
 });
 
 test("Open and Accepted sit beside the places, and Accepted reads the saved items with no answers on them", async () => {
@@ -171,7 +196,7 @@ test("Open and Accepted sit beside the places, and Accepted reads the saved item
   await expect.element(card(/allowed once already/)).toBeVisible();
   expect(read).toHaveBeenLastCalledWith("accepted");
   expect(card(/blamed the Drone/).elements()).toHaveLength(0);
-  expect(card(/allowed once already/).getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
+  expect(card(/allowed once already/).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.element(card(/blamed the Drone/)).toBeVisible();
   const tabs = page.getByRole("tab").elements().map((t) => t.textContent);
@@ -181,7 +206,7 @@ test("Open and Accepted sit beside the places, and Accepted reads the saved item
 test("an empty list draws nothing", async () => {
   opened([]);
   await expect.element(page.getByRole("tab", { name: "Open", exact: true })).toBeVisible();
-  expect(page.getByRole("list", { name: "Lessons" }).elements()).toHaveLength(0);
+  expect(page.getByRole("list", { name: "Retros" }).elements()).toHaveLength(0);
 });
 
 const RETRO: JobRetro = {
@@ -197,6 +222,7 @@ const RETRO: JobRetro = {
       what: "It compared against a stale main.",
       fix: "Compare against origin/main.",
       evidence: ["check:1"],
+      state: "open",
     },
   ],
   record: {
@@ -226,7 +252,51 @@ test("the retro sheet draws the same item, keeps its evidence behind a control, 
   expect(sheet.getByText("armada.yml changed").elements()).toHaveLength(0);
   await sheet.getByRole("button", { name: "Evidence" }).click();
   await expect.element(sheet.getByText("armada.yml changed")).toBeVisible();
-  await sheet.getByRole("button", { name: "Agree", exact: true }).click();
+  await sheet.getByRole("button", { name: "Create Job", exact: true }).click();
   expect(agree).toHaveBeenCalledWith("l-armada");
   await expect.element(sheet.getByText("Agreed")).toBeVisible();
+});
+
+test("the retro sheet shows an answered item as it stands, and offers buttons only on an open one", async () => {
+  const base = { who: "fleet" as const, lands_in: "armada" as const, evidence: [] };
+  const retro: JobRetro = {
+    job_id: "01K6JOB3",
+    state: "written",
+    record: {},
+    items: [
+      { ...base, id: "a-open", statement: "Open one", title: "Open one", what: "w", fix: "f", state: "open" },
+      { ...base, id: "a-agreed", statement: "Agreed one", title: "Agreed one", what: "w", fix: "f", state: "agreed", job_proposed: "01K7JOB" },
+      { ...base, id: "a-kit", lands_in: "kit" as const, statement: "Saved one", title: "Saved one", what: "w", fix: "f", state: "accepted" },
+      { ...base, id: "a-no", statement: "Discarded one", title: "Discarded one", what: "w", fix: "f", state: "discarded" },
+      { ...base, id: "a-old", statement: "Old one", title: "Old one", what: "w", fix: "f" },
+    ],
+  };
+  const job = vi.fn();
+  mount(
+    <JobRetroSheet
+      jobId="01K6JOB3"
+      job="Job 3"
+      read={async () => ({ ok: true, retro })}
+      onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onOpenJob={job}
+      floor={false}
+      onClose={() => {}}
+    />,
+  );
+  const sheet = page.getByRole("dialog", { name: "Retro" });
+  const one = (title: string) => sheet.getByRole("listitem").filter({ hasText: title });
+  await expect.element(one("Open one")).toBeVisible();
+  const answers = (title: string) =>
+    one(title).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements();
+  expect(answers("Open one")).toHaveLength(2);
+  expect(answers("Agreed one")).toHaveLength(0);
+  expect(one("Agreed one").element().querySelector(".armada-lesson__settled")?.textContent).toMatch(/^Agreed/);
+  await one("Agreed one").getByRole("button", { name: "Proposed Job" }).click();
+  expect(job).toHaveBeenCalledWith("01K7JOB");
+  await expect.element(one("Saved one").getByText("Accepted", { exact: true })).toBeVisible();
+  expect(answers("Saved one")).toHaveLength(0);
+  // Discarded draws nothing, and an item with no state is read and left alone.
+  expect(one("Discarded one").elements()).toHaveLength(0);
+  expect(answers("Old one")).toHaveLength(0);
 });

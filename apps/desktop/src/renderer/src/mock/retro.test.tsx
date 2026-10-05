@@ -1,4 +1,4 @@
-// Job retros in Bridge (23.12, `docs/concepts/retro.md`): the Lessons page
+// Job retros in Bridge (23.12, `docs/concepts/retro.md`): the Retros page
 // lists what got in the way across Jobs, newest first, each item as words, a
 // headline, what happened, a fix and two answers. A Job label opens its retro,
 // and the same retro opens from the Job's own Record. Agree proposes a Job or
@@ -17,20 +17,20 @@ const DOCS = /A docs edit ran every Rust test/;
 
 const card = (title: RegExp) => page.getByRole("listitem").filter({ hasText: title });
 
-/** The Lessons surface, and the headlines its cards draw. */
+/** The Retros surface, and the headlines its cards draw. */
 async function lessons(): Promise<() => string[]> {
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Lessons", exact: true }).click();
-  await expect.element(page.getByRole("list", { name: "Lessons" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Retros", exact: true }).click();
+  await expect.element(page.getByRole("list", { name: "Retros" })).toBeVisible();
   return () => [...document.querySelectorAll(".armada-lesson")].map((one) => one.getAttribute("aria-label") ?? "");
 }
 
-test("Lessons is a rail row in Work, and lists every Job's items newest first", async () => {
+test("Retros is a rail row in Work, and lists every Job's items newest first", async () => {
   mount("retro/lessons");
   await onScreen();
 
   const titles = await lessons();
   // The rail marks where the window is.
-  expect(document.querySelector('[aria-current="page"]')?.textContent).toMatch(/Lessons/);
+  expect(document.querySelector('[aria-current="page"]')?.textContent).toMatch(/Retros/);
   const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent);
   // Job 3's four items, then Job 2's one: Fleet's order, newest retro first.
   expect(from).toEqual([...Array<string>(4).fill("Job 3"), "Job 2"]);
@@ -54,7 +54,7 @@ test("an item says whose way and where in words, and an old item has its stateme
   ]);
   const old = card(/waited in the dock/);
   expect(old.getByRole("heading").elements()).toHaveLength(0);
-  expect(old.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
+  expect(old.getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
 });
 
 test("a Job label opens its retro, each item with the record rows it cites behind Evidence, and the owner's notes", async () => {
@@ -85,7 +85,8 @@ test("a Job's own retro opens from its Record, with the same items and answers",
   expect(sheet.getByRole("img", { name: "Lands in Kit" }).elements()).toHaveLength(1);
   expect(sheet.getByRole("img", { name: "Lands in Armada" }).elements()).toHaveLength(2);
   expect(sheet.getByRole("img", { name: "Lands in the Manifest" }).elements()).toHaveLength(1);
-  expect(sheet.getByRole("button", { name: "Agree", exact: true }).elements()).toHaveLength(4);
+  expect(sheet.getByRole("button", { name: "Create Job", exact: true }).elements()).toHaveLength(3);
+  expect(sheet.getByRole("button", { name: "Accept", exact: true }).elements()).toHaveLength(1);
 });
 
 test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
@@ -124,18 +125,18 @@ test("Agree on an Armada item proposes a Job and keeps a link to it, Agree on a 
   await onScreen();
   const titles = await lessons();
 
-  await card(STALE_MAIN).getByRole("button", { name: "Agree", exact: true }).click();
+  await card(STALE_MAIN).getByRole("button", { name: "Create Job", exact: true }).click();
   await expect.element(card(STALE_MAIN).getByText("Agreed")).toBeVisible();
   await expect.element(card(STALE_MAIN).getByRole("button", { name: "Proposed Job" })).toBeVisible();
 
-  await card(GREP).getByRole("button", { name: "Agree", exact: true }).click();
+  await card(GREP).getByRole("button", { name: "Accept", exact: true }).click();
   await expect.poll(() => titles().some((one) => /grep/.test(one))).toBe(false);
-  await card(DOCS).getByRole("button", { name: "Disagree", exact: true }).click();
+  await card(DOCS).getByRole("button", { name: "Reject change", exact: true }).click();
   await expect.poll(() => titles().some((one) => /Rust test/.test(one))).toBe(false);
 
   await page.getByRole("tab", { name: "Accepted", exact: true }).click();
   await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
-  expect(card(GREP).getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
+  expect(card(GREP).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
   // Read again, the agreed item is no longer open either: two items are left.
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.poll(() => titles()).toHaveLength(2);
