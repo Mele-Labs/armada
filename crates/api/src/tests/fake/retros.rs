@@ -60,15 +60,28 @@ impl Retros for FakeDaemon {
         lesson_id: String,
         _by: Redirector,
     ) -> Result<Lesson, Refusal> {
-        Err(self.no_such_lesson(&lesson_id))
+        Err(self.refusing_lesson(&lesson_id))
     }
 
     async fn disagree_lesson(&self, lesson_id: String) -> Result<Lesson, Refusal> {
-        Err(self.no_such_lesson(&lesson_id))
+        Err(self.refusing_lesson(&lesson_id))
     }
 }
 
 impl FakeDaemon {
+    /// The one id the fake knows answers with a 422, and any other is one
+    /// nothing answers to.
+    fn refusing_lesson(&self, lesson_id: &str) -> Refusal {
+        if lesson_id == crate::tests::shapes::THE_LESSON {
+            return Refusal::Unacceptable(ipc::WireError::raised(
+                "fake.lesson_names_no_place",
+                format!("{lesson_id} names no place its fix lands"),
+                run_id(),
+            ));
+        }
+        self.no_such_lesson(lesson_id)
+    }
+
     /// The fake holds no retro items, so every id is one nothing answers to.
     fn no_such_lesson(&self, lesson_id: &str) -> Refusal {
         Refusal::NoSuchJob(ipc::WireError::raised(
