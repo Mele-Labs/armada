@@ -167,15 +167,13 @@ function GateBody({ gate, face, meta }: { gate: RunNodeGate; face: string | unde
     const passed = on.filter((one) => one.outcome === "passed").length;
     const failed = on.filter((one) => one.outcome === "failed").length;
     const started = on.some((one) => one.outcome !== "waiting");
-    const Passed = OUTCOME_ICON.passed;
-    const Failed = OUTCOME_ICON.failed;
     return (
       <>
         <span className="armada-run-node__title armada-run-node__commands">
           {names.length === 0
             ? (face ?? "")
             : names.map((one, at) => {
-                const Icon = one.outcome === "failed" ? (OUTCOME_ICON.failed ?? undefined) : undefined;
+                const Icon = one.outcome === "waiting" || one.outcome === "off" ? undefined : (OUTCOME_ICON[one.outcome] ?? undefined);
                 return (
                   <Tooltip key={one.name} label={`${one.name}, ${OUTCOME_SAID[one.outcome]}`}>
                     <span className="armada-run-node__command" data-outcome={one.outcome}>
@@ -187,30 +185,10 @@ function GateBody({ gate, face, meta }: { gate: RunNodeGate; face: string | unde
                 );
               })}
         </span>
-        {!started ? null : (
-          <span className="armada-run-node__counts">
-            {Passed === undefined || Passed === null ? null : (
-              <Tooltip label="Passed">
-                <span className="armada-run-node__count" data-outcome="passed">
-                  <Passed size={12} strokeWidth={2} aria-hidden />
-                  {passed}
-                </span>
-              </Tooltip>
-            )}
-            {Failed === undefined || Failed === null || failed === 0 ? null : (
-              <Tooltip label="Failed">
-                <span className="armada-run-node__count" data-outcome="failed">
-                  <Failed size={12} strokeWidth={2} aria-hidden />
-                  {failed}
-                </span>
-              </Tooltip>
-            )}
-            {gate.elapsed === undefined ? null : (
-              <Tooltip label="Running for">
-                <span className="armada-run-node__count">{gate.elapsed}</span>
-              </Tooltip>
-            )}
-          </span>
+        {!started || gate.elapsed === undefined ? null : (
+          <Tooltip label={`${passed} passed, ${failed} failed, running for`}>
+            <span className="armada-run-node__counts">{gate.elapsed}</span>
+          </Tooltip>
         )}
         {gate.output !== undefined ? <span className="armada-run-node__meta armada-run-node__output">{gate.output}</span> : tail}
       </>
