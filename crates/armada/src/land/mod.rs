@@ -27,6 +27,7 @@ pub mod env;
 pub mod gate;
 mod gating;
 pub mod git;
+pub(crate) mod hold;
 pub mod lock;
 mod logs;
 mod merge_in;
@@ -61,6 +62,7 @@ pub use outcome::{
 };
 pub use preflight::{preflight, Preflighted};
 pub use queue::{nonce, queued, read_queue_entry, write_queue_entry, QueueEntry, QueuedError};
+pub use repo::{common_git_dir, current_branch, merge_base};
 pub use runner::{ensure_runner, spawn_detached, EnsureRunnerError};
 pub use runner_loop::run_runner;
 pub use stamp::{read_stamp, write_stamp, PreflightStamp};

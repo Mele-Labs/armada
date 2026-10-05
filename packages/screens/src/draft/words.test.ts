@@ -115,6 +115,13 @@ describe("the values that have no registry row at all", () => {
     }
   });
 
+  // Submitted is neither in flight nor landed (owner, 5 Oct 2026).
+  it("gives a handed-in task its own hue, apart from running and done", () => {
+    expect(TASK_STATE.handed_in?.statusToken).toBe("--status-handed-in");
+    expect(TASK_STATE.handed_in?.statusToken).not.toBe(TASK_STATE.working?.statusToken);
+    expect(TASK_STATE.handed_in?.statusToken).not.toBe(TASK_STATE.done?.statusToken);
+  });
+
   it("calls a case that did not run not covered, never passing", () => {
     expect(CASE_RUN_OUTCOME_WORDS.not_run.verb).toBe("not covered");
     expect(CASE_RUN_OUTCOME_WORDS.not_run.badgeStatus).not.toBe("completed-success");

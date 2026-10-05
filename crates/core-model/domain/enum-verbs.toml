@@ -326,10 +326,10 @@ notes = "`circle-dot`, `job_status.running`'s glyph two levels down, as `TaskMar
 [verbs.task_state.handed_in]
 verb = "handed in"
 icon = "file-check"
-status_token = "--status-running"
+status_token = "--status-handed-in"
 vocabulary = "Task state"
 in_code = ""
-notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-running` because the work is in flight, `group_state.checking`'s reason. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
+notes = "Its agent handed the work in, and the step's Checks have not answered: done arrives at green, the owner's answer 1 in spike 022. `file-check` because its own reservation is this claim exactly, a submission that landed with the verdict still to come, and it is not a Check result. `--status-handed-in`, its own green-teal between running and completed-success: submitted reads settled, and not yet done. Written by Fleet at a task Drone's hand-in from slice 1b; nothing writes it at 22.0."
 
 [verbs.task_state.done]
 verb = "done"
@@ -1276,6 +1276,14 @@ status_token = "--status-running"
 vocabulary = "Land state"
 in_code = ""
 notes = "Bridge's own, not a word `OutcomeState::word` prints: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `git-merge` (the owner chose it over `hammer`), pulsing in the running hue as `gating` does; see its row in `packages/icons/icons.toml`."
+
+[verbs.land_state.held]
+verb = "Held, red on main"
+icon = "pause"
+status_token = "--status-not-started"
+vocabulary = "Land state"
+in_code = ""
+notes = "Bridge's own, as `preparing` is, and not a word `OutcomeState::word` prints: a turn whose failed Check is red on main too, so the turn holds and nobody is to blame. Bridge reads it off the line's `notice` (kind `main`) and draws it on the rows of the running turn (`packages/screens/src/merge-line.ts`). `pause` and the neutral hue, the pair the panel's Alert draws for the same state, so row and alert read as one condition. It is stationary: a held turn is doing nothing, and a pulse would say it was working. The owner asked for the mark on 5 Oct 2026."
 
 [verbs.land_state.merging]
 verb = "Pushing onto main"

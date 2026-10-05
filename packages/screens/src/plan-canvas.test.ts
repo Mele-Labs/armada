@@ -8,7 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ARC_MOMENTS } from "./fixtures/build/arc";
+import { TASK_STATE } from "@armada/components";
+
+import { ARC_MOMENTS, everyTaskState } from "./fixtures/build/arc";
 import { groupNodeId, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
 
 /** The arc moment by name, with the plan it opens. */
@@ -100,5 +102,44 @@ describe("a press opens a task and nothing else", () => {
   it("reads a task out of a node id, and nothing out of a group's", () => {
     expect(taskOfNodeId(taskNodeId("T3"))).toBe("T3");
     expect(taskOfNodeId(groupNodeId("g1"))).toBeUndefined();
+  });
+});
+
+describe("a handed-in task's node", () => {
+  const nodeOf = (state: "working" | "handed_in") => {
+    const groups = [...everyTaskState().draft.groups!];
+    const task = groups.flatMap((group) => group.tasks).find((one) => one.state === state)!;
+    return planGraphOf({ groups }).nodes.find((node) => node.id === taskNodeId(task.id))!.card;
+  };
+
+  it("says Submitted · awaiting checks, in the card's line and its name", () => {
+    const card = nodeOf("handed_in");
+    expect(card.line).toBe("Submitted · awaiting checks");
+    expect(card.said).toBe("Submitted · awaiting checks");
+  });
+
+  it("draws the registry's mark and does not sweep as a working task does", () => {
+    const card = nodeOf("handed_in");
+    expect(card.mark).toEqual({ icon: TASK_STATE.handed_in!.icon, token: "--status-handed-in" });
+    expect(card.activity).not.toBe("running");
+    expect(nodeOf("working").activity).toBe("running");
+  });
+
+  // The line wraps to two rows, so the node is taller than a plain task's;
+  // the next one down must clear it, and so must the group below.
+  // Measured off the walk's picture: the wrapped node is 138 tall, a plain one 90.
+  const NODE_HEIGHT = 138;
+  const PLAIN_HEIGHT = 90;
+  it("leaves room under it for the wrapped line, for the task and the group below", () => {
+    const base = [...everyTaskState().draft.groups!];
+    const handed = base.flatMap((group) => group.tasks).find((one) => one.state === "handed_in")!;
+    const open = base.flatMap((group) => group.tasks).find((one) => one.state === "open")!;
+    const first = { ...base[0]!, tasks: [handed, { ...open, id: "T-next" }] };
+    const second = { ...base[0]!, id: "g-next", tasks: [{ ...open, id: "T-last" }] };
+    const nodes = planGraphOf({ groups: [first, second] }).nodes;
+    const y = (id: string) => nodes.find((node) => node.id === id)!.position.y;
+    expect(y(taskNodeId("T-next")) - y(taskNodeId(handed.id))).toBeGreaterThanOrEqual(NODE_HEIGHT);
+    expect(y(taskNodeId("T-last")) - y(taskNodeId("T-next"))).toBeGreaterThanOrEqual(PLAIN_HEIGHT);
+    expect(y(groupNodeId("g-next"))).toBeGreaterThan(y(taskNodeId("T-next")) + PLAIN_HEIGHT);
   });
 });

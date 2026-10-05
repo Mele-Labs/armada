@@ -231,6 +231,51 @@ export const DoneTouchedLater: Story = {
 };
 
 /**
+ * A group with one task still working and one handed in, its Checks waiting.
+ *
+ * **A `play`, because a rendering cannot show it and a colour is not a
+ * reading.** A handed-in task wore a working task's hue and read as one
+ * (owner, 5 Oct 2026); the row now says what it waits on, in the same cell
+ * `beside` is in, and the working task says nothing of the kind. The boundary
+ * says which task its Checks wait on rather than five `not run` in a row.
+ */
+export const HandedInAwaitingChecks: Story = {
+  args: {
+    approach: APPROACH,
+    groups: [
+      {
+        ...planned()[1]!,
+        state: "running",
+        says: "running",
+        tasks: [
+          {
+            ...planned()[1]!.tasks[0]!,
+            mark: "handed_in",
+            statusSays: "Submitted · awaiting checks",
+            turnsSays: "27 turns",
+            costSays: "~$1.90",
+          },
+          { ...planned()[1]!.tasks[1]!, mark: "working", turnsSays: "15 turns" },
+        ],
+        boundary: { checks: notRun(BRIDGE), verdictSays: "Waiting on T6" },
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const handedIn = canvas.getByRole("listitem", { name: /^T5 / });
+    await expect(handedIn).toHaveTextContent("Submitted · awaiting checks");
+    // Beside, not instead: both notes share the cell.
+    await expect(handedIn).toHaveTextContent("beside T6");
+    await expect(within(handedIn).getByRole("img", { name: "Handed in" })).toBeVisible();
+    const working = canvas.getByRole("listitem", { name: /^T6 / });
+    await expect(working).not.toHaveTextContent("Submitted");
+    await expect(within(working).getByRole("img", { name: "Working" })).toBeVisible();
+    await expect(canvas.getByText("Waiting on T6")).toBeVisible();
+  },
+};
+
+/**
  * Two groups claiming one file, said on the group that has the clash — the
  * owner's call of 28 Sep 2026, against a band above the whole plan.
  */

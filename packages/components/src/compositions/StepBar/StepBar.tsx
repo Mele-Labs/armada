@@ -37,8 +37,13 @@ import type { StepActivity } from "../StepActivityMark/StepActivityMark";
  * **`failed` is a claim rather than a weight**, and it is what a boundary's
  * Check takes: given `past` it would read as one of the six beside it that
  * passed. `#1536`.
+ *
+ * **`handed_in` is in flight and not working**: the task's agent has stopped
+ * and its Checks have not answered, so it keeps `working`'s hue as an outline
+ * rather than a fill. Drawn as `working` it read as a task still being worked
+ * (owner, 5 Oct 2026).
  */
-export type TaskBarSegment = "open" | "working" | "done" | "failed";
+export type TaskBarSegment = "open" | "working" | "handed_in" | "done" | "failed";
 
 export type StepBarProps =
   | {
@@ -101,11 +106,17 @@ export function StepBar(props: StepBarProps) {
           state:
             task === "done"
               ? ("past" as const)
-              : task === "working" || task === "failed"
+              : task === "working" || task === "handed_in" || task === "failed"
                 ? ("current" as const)
                 : ("remaining" as const),
           activity:
-            task === "working" ? ("running" as const) : task === "failed" ? ("failed" as const) : undefined,
+            task === "working"
+              ? ("running" as const)
+              : task === "handed_in"
+                ? ("handed_in" as const)
+                : task === "failed"
+                  ? ("failed" as const)
+                  : undefined,
         }))
       : Array.from({ length: props.total }, (_, i) => {
           const position = i + 1;

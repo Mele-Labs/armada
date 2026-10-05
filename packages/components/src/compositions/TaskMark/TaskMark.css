@@ -36,8 +36,8 @@
   color: var(--fg-muted);
 }
 
-/* Its agent handed the work in and the Checks have not answered: still in
-   flight, so `working`'s hue, as a group's `checking` takes `running`'s. */
+/* Its agent handed the work in and the Checks have not answered: still not
+   done, so its own hue (task_state.handed_in's registry row). */
 .armada-task-mark[data-state="handed_in"] {
-  color: var(--step-running);
+  color: var(--status-handed-in);
 }

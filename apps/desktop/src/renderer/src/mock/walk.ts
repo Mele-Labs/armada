@@ -9,6 +9,8 @@
 
 import { computeAccessibleName, getRole, isInaccessible } from "dom-accessibility-api";
 
+import { timePasses } from "./time-passes";
+
 /** What a name is matched against: a string inside it, any case, or a pattern. */
 export type Name = string | RegExp;
 
@@ -30,6 +32,8 @@ export type Step =
   | { look: Target; say: string }
   /** Pointed at and held there while the step is shown, so what hovering reveals is in its picture. */
   | { hover: Target; say: string }
+  /** Looked at, and then time passes: the scenario publishes its next moment as the walk moves on. */
+  | { later: Target; say: string }
   | { type: string; into: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
@@ -82,12 +86,14 @@ export function inside(scope: Target, target: Target): Target {
 /** Where a step points: what it presses, looks at, or types into. */
 export function targetOf(step: Step): Target {
   if ("hover" in step) return step.hover;
+  if ("later" in step) return step.later;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
 /** What the step does, said plainly for a stop. */
 function verb(step: Step): string {
   if ("hover" in step) return "hover over";
+  if ("later" in step) return "look at";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
@@ -284,6 +290,7 @@ function drag(element: HTMLElement, by: { x: number; y: number }): void {
 /** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
   if ("hover" in step) pointerOver(element, false);
+  else if ("later" in step) timePasses();
   else if ("press" in step) press(element);
   else if ("drag" in step) drag(element, step.by);
   else if ("type" in step) fill(element, step.type);

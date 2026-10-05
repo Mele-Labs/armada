@@ -41,12 +41,21 @@ export type PlanGroupState =
   | "retrying"
   | "landed";
 
-/** One task's row. `mark` is the whole of its state — no row prints a word. */
+/**
+ * One task's row. `mark` is the whole of its state — no row prints a word,
+ * **bar one**: `statusSays`, for the state whose glyph alone misleads.
+ */
 export type PlanBoardTask = {
   /** `T1`, `T2`, … as the plan numbered it. */
   id: string;
   title: string;
   mark: TaskMarkState;
+  /**
+   * What the task is waiting on, written by the caller: `Submitted · awaiting
+   * checks` on a handed-in task, which read as a working one by its hue
+   * (owner, 5 Oct 2026). Absent on every other state.
+   */
+  statusSays?: string;
   /**
    * The model it runs on: a person's pick, else the Job's map for its tier.
    * **Absent is Armada picking**, and the slot stays empty.
@@ -474,13 +483,22 @@ function TaskRow({
       <TaskMark state={task.mark} />
       <span className="armada-plan-board__task-id">{task.id}</span>
       <span className="armada-plan-board__task-title">{task.title}</span>
-      {task.besideSays === undefined ? null : (
-        <span className="armada-plan-board__task-beside">{task.besideSays}</span>
-      )}
-      {/* The flag, and the whole of what #1530 decided: the task stays done
-          and says which later one reached into its files. */}
-      {task.touchedSays === undefined ? null : (
-        <span className="armada-plan-board__task-touched">{task.touchedSays}</span>
+      {/* One cell for whichever notes a row has, so a handed-in task in a group
+          running at once holds its status and its `beside` on one line. */}
+      {task.statusSays === undefined && task.besideSays === undefined && task.touchedSays === undefined ? null : (
+        <span className="armada-plan-board__task-notes">
+          {task.statusSays === undefined ? null : (
+            <span className="armada-plan-board__task-status">{task.statusSays}</span>
+          )}
+          {task.besideSays === undefined ? null : (
+            <span className="armada-plan-board__task-beside">{task.besideSays}</span>
+          )}
+          {/* The flag, and the whole of what #1530 decided: the task stays done
+              and says which later one reached into its files. */}
+          {task.touchedSays === undefined ? null : (
+            <span className="armada-plan-board__task-touched">{task.touchedSays}</span>
+          )}
+        </span>
       )}
       {/* **An empty slot stays empty** (owner, 30 Sep 2026: *what are these
           dashes representing?*). The span stays so the columns keep their

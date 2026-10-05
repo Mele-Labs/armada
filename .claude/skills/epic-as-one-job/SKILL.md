@@ -127,8 +127,9 @@ Manifest the test counts. Read the failing test before re-queueing, every time.
 branch's remote after merging, so `merge-base --is-ancestor origin/<branch>`
 reads a landed branch as "not merged". Grep `git log origin/main --merges
 --first-parent` for the branch name instead. And expect the shared append points
-— the protocol minor, store migration numbers, the mock's `scenario.ts` — to
-conflict on nearly every landing until #1059 is built.
+— the protocol minor and store migration numbers — to conflict on nearly
+every landing until #1059 is built. The mock's scenario rows no longer do: each is a
+file in `mock/scenarios/` and a line in `mock/scenario-rows.ts`, which merges by union.
 
 ## Asking, when you do not know
 
