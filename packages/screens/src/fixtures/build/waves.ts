@@ -249,6 +249,8 @@ function planStep(): StepDetail {
   const step = arcStep("plan", "Plan the wave", 1);
   return {
     ...step,
+    // `epic.json` lets it create the wave's Jobs.
+    may_dispatch_jobs: true,
     state: "advanced",
     // `epic.json` declares it, and it is what says which step recorded the
     // split — `tab-plan.tsx` reads the check, never the workflow's name.
@@ -270,6 +272,7 @@ function planStep(): StepDetail {
 function rollUpStep(): StepDetail {
   return {
     ...arcStep("roll_up", "Roll up the wave", 2),
+    phase: "delivery",
     pass: { number: 2, of: 5 },
     verdict_routing_target: "plan",
   };

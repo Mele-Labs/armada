@@ -30,7 +30,7 @@ export function featureAtApproval(): JobFixture {
     advance_gate: step.advance_gate,
     delivers: step.delivers,
     // `feature.json` declares a Drone per task on `implement`, as Fleet serves it since 23.1.
-    ...(step.step_id === "implement" ? { drone_per_task: true } : {}),
+    ...(step.drone_per_task === true ? { drone_per_task: true } : {}),
     overridden: false,
     judged: [],
     flagged: [],

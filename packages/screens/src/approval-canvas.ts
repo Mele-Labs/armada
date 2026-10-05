@@ -190,7 +190,8 @@ export function stepsReadOf(
       judges: step?.judge_checks ?? [],
       delivers: step?.delivers ?? false,
       phase: step?.phase ?? "work",
-      perTask: step?.drone_per_task === true,
+      // The Job's own step where it holds one, else what the picked workflow declares.
+      perTask: (frozen?.drone_per_task ?? declared.get(gate.step_id)?.drone_per_task) === true,
       dispatches: step?.may_dispatch_jobs === true,
     };
   });

@@ -103,6 +103,7 @@ export function epicWorkflow(): WorkflowSummary {
   return summary("epic", "epic", [
     step("plan", "Plan the wave", "human_always", {
       judge_checks: [{ criteria: 2, gaming_check: false }],
+      may_dispatch_jobs: true,
     }, "work"),
     // The roll-up delivers no change, and is what the wave delivers.
     step("roll_up", "Roll up the wave", "human_always", {}, "delivery"),

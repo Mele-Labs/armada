@@ -185,6 +185,7 @@ export function featureWorkflow(): WorkflowSummary {
           judge_checks: [{ criteria: 4, gaming_check: false }],
           advance_gate: "auto_if_judge_passes",
           delivers: false,
+          drone_per_task: true,
           phase: "work",
         },
       {
@@ -372,6 +373,8 @@ export function arcStep(
     judge_checks: judgeChecks,
     judged: [],
     flagged: [],
+    // `feature.json` declares a Drone per task on `implement`, as Fleet serves it since 23.1.
+    ...(id === "implement" ? { drone_per_task: true } : {}),
     overridden: false,
     attempts: [],
     verdicts: [],

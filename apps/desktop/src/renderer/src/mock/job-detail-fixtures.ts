@@ -295,7 +295,7 @@ export function refactorAtItsPlan(): JobFixture {
     job,
     steps: [
       plan,
-      step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      { ...step("implement", "Restructure", 1, "auto_if_judge_passes"), drone_per_task: true },
       step("handoff", "Review the change", 2, "human_always"),
     ],
     work_plan: {
@@ -353,6 +353,7 @@ export function refactorAtApproval(): JobFixture {
     },
     {
       ...step("implement", "Restructure", 1, "auto_if_judge_passes"),
+      drone_per_task: true,
       checks: [{ kind: "every_manifest_check" }, { kind: "diff_nonempty" }],
       judge_checks: [{ criteria: 4, gaming_check: true }],
     },
@@ -451,6 +452,8 @@ export function featureOnItsPlan(tasks: Partial<Record<string, PlanTask["state"]
     judge_checks: [{ criteria: 1, gaming_check: false }],
     advance_gate: "auto_if_judge_passes",
     delivers: false,
+    // `feature.json` declares a Drone per task on `implement`, as Fleet serves it since 23.1.
+    ...(step_id === "implement" ? { drone_per_task: true } : {}),
     overridden: false,
     judged: [],
     flagged: [],
