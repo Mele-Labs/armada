@@ -489,6 +489,11 @@
   justify-content: flex-end;
 }
 
+/* The toggles are a row of their own at the end of the line. */
+.armada-screen__overview-view {
+  gap: var(--space-1);
+}
+
 /* The graph takes the height a canvas needs; React Flow draws nothing in a box with none. */
 .armada-screen__overview-graph {
   height: 70vh;

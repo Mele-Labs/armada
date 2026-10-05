@@ -83,3 +83,7 @@ button.armada-wave-card:hover {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+.armada-wave-card[data-dimmed] {
+  opacity: 0.4;
+}

@@ -495,6 +495,9 @@ group `Graph`. Nodes inside the graph reuse the badge icons at 12px — a
 graph node and a Job Board row showing the same job must show the same
 glyph.
 
+`chart-gantt` at 16px is the timeline's view toggle, beside it, and `zoom-in` and
+`zoom-out` its zoom. All three are Proposed, for the owner to rule on in the walk.
+
 ### The canvas rail
 
 **Every canvas draws one rail down its leading edge**, at 16px, each act named

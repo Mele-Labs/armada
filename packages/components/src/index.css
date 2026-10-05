@@ -343,6 +343,9 @@
 /* A wave of Jobs under one plan, and which of them waits on which. #1544. */
 @import "./compositions/WaveCanvas/WaveCanvas.css";
 
+/* Jobs on a time axis, with a playhead and what dispatched what. #920. */
+@import "./compositions/JobTimeline/JobTimeline.css";
+
 /* The two branch fields on the dispatch form: pick one, or type one that is
    not there yet. An @import after the first rule below is dropped, so the
    run of imports is where a new one is appended. */

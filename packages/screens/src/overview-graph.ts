@@ -22,6 +22,15 @@ export type OverviewGraphActs = {
   onRedispatch: (jobId: string) => void;
 };
 
+/** What the list row offers on a Job, for any view that draws one in place of the row. */
+export function actsOf(job: JobSummary, acts: OverviewGraphActs): { label: string; onPress: () => void }[] {
+  const redispatches = sectionOf(job) === "recently-ended" && job.status !== "rejected";
+  return [
+    ...(redispatches ? [{ label: ACT_LABEL.redispatch, onPress: () => acts.onRedispatch(job.id) }] : []),
+    ...(isTerminal(job) ? [] : [{ label: "Kill", onPress: () => acts.onKill(job.id) }]),
+  ];
+}
+
 export type OverviewGraph = { nodes: WaveCanvasNode[]; edges: WaveCanvasEdge[] };
 
 /**
@@ -38,11 +47,7 @@ export function overviewGraphOf(jobs: readonly JobSummary[], acts: OverviewGraph
     const at = depth.get(job.id) ?? 0;
     const row = down.get(at) ?? 0;
     down.set(at, row + 1);
-    const redispatches = sectionOf(job) === "recently-ended" && job.status !== "rejected";
-    const offered = [
-      ...(redispatches ? [{ label: ACT_LABEL.redispatch, onPress: () => acts.onRedispatch(job.id) }] : []),
-      ...(isTerminal(job) ? [] : [{ label: "Kill", onPress: () => acts.onKill(job.id) }]),
-    ];
+    const offered = actsOf(job, acts);
     return {
       id: waveNodeId(job.id),
       position: { x: at * APART, y: row * DOWN },

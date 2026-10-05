@@ -1,0 +1,66 @@
+/* The scrubber under a timeline of `WaveCanvas` cards: the time axis, and the playhead on it. */
+.armada-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-timeline__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.armada-timeline__at {
+  margin-inline-end: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-timeline__canvas {
+  height: 60vh;
+  min-height: 24rem;
+  min-width: 0;
+}
+
+.armada-timeline__ruler {
+  position: relative;
+  height: var(--space-6);
+  border-block: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  cursor: col-resize;
+  }
+
+.armada-timeline__tick {
+  position: absolute;
+  top: 0;
+  padding-inline-start: var(--space-1);
+  border-inline-start: var(--border-width) solid var(--border-default);
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--space-6);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+
+.armada-timeline__playhead {
+  position: absolute;
+  top: 0;
+  z-index: 4;
+  width: var(--space-3);
+  height: var(--space-3);
+  transform: translateX(-50%);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--accent);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.armada-timeline__playhead:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}

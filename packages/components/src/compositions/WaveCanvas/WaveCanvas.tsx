@@ -61,6 +61,8 @@ export type WaveCanvasCard = {
    * control and these, since a button may not hold a button.
    */
   acts?: readonly { label: string; onPress: () => void }[];
+  /** Drawn faint: the Job has not started at the moment a timeline is showing. */
+  dimmed?: boolean;
 };
 
 export type WaveCanvasNode = {
@@ -76,6 +78,8 @@ export type WaveCanvasEdge = {
   source: string;
   /** The Job that waits, drawn behind it. */
   target: string;
+  /** What the edge says to somebody who cannot see it, where it is not a wait. */
+  said?: string;
 };
 
 export type WaveCanvasProps = {
@@ -140,7 +144,7 @@ function JobCard({ card }: { card: WaveCanvasCard }) {
       )}
     </>
   );
-  const attributes = { className: "armada-wave-card", "data-status": card.status };
+  const attributes = { className: "armada-wave-card", "data-status": card.status, "data-dimmed": card.dimmed || undefined };
   const name = `${card.title}, ${said ?? card.status}`;
   if (card.acts !== undefined && card.acts.length > 0) {
     return (
@@ -256,7 +260,10 @@ export function WaveCanvas({ nodes: given, edges: givenEdges, label, opensOn }: 
         target: edge.target,
         ...facingSides(placed.get(edge.source), placed.get(edge.target)),
         type: "wave" as const,
-        ariaLabel: `${to} waits on ${from}`,
+        ariaLabel: edge.said ?? `${to} waits on ${from}`,
+        // React Flow names an edge to a screen reader only where it is focusable, so one that says
+        // something of its own is.
+        focusable: edge.said !== undefined,
         markerEnd: { type: MarkerType.ArrowClosed },
         data: {},
       };

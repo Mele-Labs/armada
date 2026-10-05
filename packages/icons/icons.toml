@@ -885,6 +885,30 @@
   status = "Specified"
   notes = "Nodes inside the graph reuse the badge icons at 12px — a graph node and a Job Board row showing the same job must show the same glyph."
 
+[icons.chart-gantt]
+  means = "Bars of different lengths starting at different places along an axis — Jobs over time"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Overview's timeline view toggle only. Never a chart of a count or a duration, and never a schedule."
+  notes = "Proposed 5 Oct 2026 beside `waypoints`, the graph toggle, for the owner to rule on in the walk `overviewOnATimeline`. The one lucide glyph of staggered bars on an axis, which is what a Job's start and end are. Refused: `waypoints`, the graph's; `history`, a clock face; `align-horizontal-distribute-start`, which says layout."
+
+[icons.zoom-in]
+  means = "A magnifier with a plus — the window of a timeline made narrower"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The timeline's zoom. Never a search, which is `search`, and never a canvas fit, which is `maximize`. Tooltip `Less time`."
+  notes = "Proposed 5 Oct 2026 with the timeline, for the owner to rule on in the walk `overviewOnATimeline`. `plus` is reserved to the Dispatch segment, so the lens carries the add."
+
+[icons.zoom-out]
+  means = "A magnifier with a minus — the window of a timeline made wider"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The timeline's zoom. Never a search, and never a canvas fit. Tooltip `More time`."
+  notes = "Proposed 5 Oct 2026 with `zoom-in`, its other half."
+
 [icons.wrench]
   means = "A spanner held on a diagonal, its open jaw at one end — a tool for putting something right, and the only tool silhouette in the badge set"
   group = "Job state"

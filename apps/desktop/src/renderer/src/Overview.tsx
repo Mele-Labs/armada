@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { BoardSection, OverviewView } from "@armada/screens";
-import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
+import { OverviewLists, OverviewSummary, jobsAt, overviewPanelId } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -100,6 +100,9 @@ export function Overview({
   };
   const onSectionOpenChange = (section: BoardSection, open: boolean) => setters[section](open);
   const [view, setView] = useState<OverviewView>("list");
+  // Null is now. The strip draws the board as it stood at the playhead while the timeline shows.
+  const [playhead, setPlayhead] = useState<number | null>(null);
+  const strip = view === "timeline" && playhead !== null ? jobsAt(state.jobs, playhead, now) : state.jobs;
 
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
@@ -127,7 +130,7 @@ export function Overview({
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
-        <OverviewSummary jobs={state.jobs} repositories={repositories} picked={state.repository} onJump={onJump} />
+        <OverviewSummary jobs={strip} repositories={repositories} picked={state.repository} onJump={onJump} />
         <OverviewLists
           jobs={state.jobs}
           stale={!live}
@@ -148,6 +151,8 @@ export function Overview({
           onCursor={onCursor}
           view={view}
           onView={setView}
+          playhead={playhead}
+          onPlayhead={setPlayhead}
         />
         <MergeLinePanel state={state} onOpenLink={onOpenLink} />
       </div>

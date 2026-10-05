@@ -101,6 +101,7 @@ export type * from "./overview-reads";
 // Overview — #920: Needs you, Running, Queued and Other, as the Board's own rows.
 export * from "./OverviewLists";
 export * from "./overview-lists";
+export { jobsAt } from "./overview-timeline";
 // Workflow — the Job's run drawn as the workflow it froze, on the canvas or
 // stacked, with the inspector beside it. #1539.
 export * from "./tab-workflow";

@@ -377,6 +377,8 @@ export * from "./compositions/GroupBoundary/GroupBoundary";
 export * from "./compositions/RowLink/RowLink";
 // A wave of Jobs under one plan, and which of them waits on which. #1544.
 export * from "./compositions/WaveCanvas/WaveCanvas";
+// Jobs on a time axis, with a playhead and what dispatched what. #920.
+export * from "./compositions/JobTimeline/JobTimeline";
 // The two branch fields on the dispatch form: pick one, or type one that is
 // not there yet.
 export * from "./compositions/BranchPicker/BranchPicker";

@@ -24,7 +24,7 @@
 
 import { ActiveJobsList, Button, Tooltip, WaveCanvas } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
-import { Waypoints } from "lucide-react";
+import { ChartGantt, Waypoints } from "lucide-react";
 import { BoardEmpty, OverviewEmpty } from "./BoardEmpty";
 import type { BoardSection } from "./board";
 import { columnsFor, repositoryOf } from "./board";
@@ -33,6 +33,7 @@ import { headlineOf } from "./lineage";
 import { useListCursor, useListKeydown } from "./list-keyboard";
 import { overviewGraphOf } from "./overview-graph";
 import { nestedOf, overviewListsOf } from "./overview-lists";
+import { OverviewTimeline } from "./OverviewTimeline";
 import { readingOf } from "./reading";
 import { useRecentChanges } from "./recent";
 import { isTerminal, Row } from "./Row";
@@ -92,9 +93,12 @@ export type OverviewListsProps = {
   view?: OverviewView;
   /** The toggle pressed. Absent draws no toggle. */
   onView?: (view: OverviewView) => void;
+  /** Where the timeline's playhead is, in epoch milliseconds. Null is now. */
+  playhead?: number | null;
+  onPlayhead?: (t: number | null) => void;
 };
 
-export type OverviewView = "list" | "graph";
+export type OverviewView = "list" | "graph" | "timeline";
 
 export function OverviewLists({
   jobs,
@@ -116,6 +120,8 @@ export function OverviewLists({
   onCursor,
   view = "list",
   onView,
+  playhead = null,
+  onPlayhead,
 }: OverviewListsProps) {
   const pickedRepository = repositories.find((one) => one.root === picked) ?? null;
   const all = picked === null;
@@ -199,7 +205,7 @@ export function OverviewLists({
     >
       {onView === undefined || sections.length === 0 ? null : (
         <div className="armada-screen__overview-view">
-          {/* One glyph, `waypoints`, the registry's graph view toggle: pressed is the graph. */}
+          {/* `waypoints` and `chart-gantt`, the registry's graph and timeline toggles: pressed is that view. */}
           <Tooltip label={view === "graph" ? "Back to the list" : "Graph"}>
             <Button
               variant="ghost"
@@ -212,9 +218,29 @@ export function OverviewLists({
               <Waypoints size={16} />
             </Button>
           </Tooltip>
+          <Tooltip label={view === "timeline" ? "Back to the list" : "Timeline"}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Timeline"
+              aria-pressed={view === "timeline"}
+              onClick={() => onView(view === "timeline" ? "list" : "timeline")}
+            >
+              <ChartGantt size={16} />
+            </Button>
+          </Tooltip>
         </div>
       )}
-      {graph !== null && sections.length > 0 ? (
+      {view === "timeline" && sections.length > 0 ? (
+        <OverviewTimeline
+          jobs={drawn}
+          now={now}
+          playhead={playhead}
+          onPlayhead={(t) => onPlayhead?.(t)}
+          acts={{ onOpen, onKill, onRedispatch }}
+        />
+      ) : graph !== null && sections.length > 0 ? (
         <div className="armada-screen__overview-graph">
           <WaveCanvas nodes={graph.nodes} edges={graph.edges} label="Jobs and what they wait on" />
         </div>
