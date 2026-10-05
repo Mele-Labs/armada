@@ -114,11 +114,11 @@ function Warmth({ warm, worded }: { warm: boolean; worded: boolean }) {
   );
 }
 
-/** A bare figure, named by its tooltip and its accessible name. */
-function Figure({ shown, value, named }: { shown: string; value: string; named: string }) {
+/** A bare figure, with what it measures said whole in its tooltip and its accessible name. */
+function Figure({ shown, said }: { shown: string; said: string }) {
   return (
-    <Tooltip label={named}>
-      <span className="armada-bay__figure" aria-label={`${named}: ${value}`}>
+    <Tooltip label={said}>
+      <span className="armada-bay__figure" aria-label={said}>
         {shown}
       </span>
     </Tooltip>
@@ -377,12 +377,11 @@ function BayTile({
         <Refused said={row.refused} />
         <Said said={row.said} />
         <div className="armada-bay__foot">
-          {heldFor === undefined ? null : <Figure shown={heldFor} value={heldFor} named="Held for" />}
+          {heldFor === undefined ? null : <Figure shown={heldFor} said={`Held for ${heldFor}`} />}
           {slot.behind === undefined ? null : (
             <Figure
               shown={`${slot.behind} behind`}
-              value={String(slot.behind)}
-              named={`Commits behind ${slot.base}`}
+              said={`${slot.behind} ${slot.behind === 1 ? "commit" : "commits"} behind ${slot.base}`}
             />
           )}
           <Warmth warm={slot.warm} worded={false} />

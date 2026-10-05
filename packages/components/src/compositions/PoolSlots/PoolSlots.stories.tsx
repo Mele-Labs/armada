@@ -69,8 +69,8 @@ export const EveryState: Story = {
 
     const held = within(bay(1));
     await expect(held.getByRole("img", { name: "Held" })).toBeInTheDocument();
-    await expect(held.getByLabelText("Held for: 2 hours")).toBeInTheDocument();
-    await expect(held.getByLabelText("Commits behind main: 0")).toBeInTheDocument();
+    await expect(held.getByLabelText("Held for 2 hours")).toBeInTheDocument();
+    await expect(held.getByLabelText("0 commits behind main")).toBeInTheDocument();
     await userEvent.click(held.getByRole("button", { name: "Fix the reader" }));
     await expect(args.onOpenJob).toHaveBeenCalledWith("01JOB");
 
@@ -93,6 +93,36 @@ export const EveryState: Story = {
     await expect(style(6).borderTopStyle).toBe("dashed");
     await expect(style(4).backgroundImage).toContain("repeating-linear-gradient");
     await expect(style(1).backgroundColor).not.toBe(style(3).backgroundColor);
+  },
+};
+
+/**
+ * A bare figure says what it measures, in its tooltip and its name: the age a
+ * holder has had the slot, and how far the checkout is behind its base, with
+ * the unit singular for one.
+ */
+export const Figures: Story = {
+  name: "Figures",
+  args: {
+    rows: [
+      {
+        slot: slot(1, {
+          held: { state: "session", holder: "zsh (pid 4120)" },
+          branch: "fleet/a",
+          base: "develop",
+          behind: 1,
+        }),
+        heldFor: "1 day",
+      },
+      { slot: slot(2, { held: { state: "session", holder: "zsh (pid 4121)" }, behind: 3 }), heldFor: "3 days" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const bay = (n: number) => within(canvas.getByRole("listitem", { name: `slot-${n}` }));
+    await expect(bay(1).getByLabelText("Held for 1 day")).toHaveTextContent("1 day");
+    await expect(bay(1).getByLabelText("1 commit behind develop")).toHaveTextContent("1 behind");
+    await expect(bay(2).getByLabelText("3 commits behind main")).toHaveTextContent("3 behind");
+    await expect(bay(2).getByLabelText("Held for 3 days")).toBeInTheDocument();
   },
 };
 
