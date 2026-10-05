@@ -48,8 +48,6 @@ export type RetroItem = {
   statement: string;
   evidence: string[];
   lands_in?: LandsIn;
-  state?: LessonState;
-  job_proposed?: string;
 };
 
 /** A tool call the Drone was refused, with what it tried. */
