@@ -3,17 +3,31 @@
 //!
 //! **Split out of `commanding` at the 900-line refusal, `#897`.** [`budgeted`]
 //! and [`budgeted_for`] are generic over the answer and reach for nothing
-//! `commanding` owns beyond [`CommandBudget`](crate::commanding::CommandBudget)
-//! itself, so where the race lives and where the type it carries lives are two
-//! different questions — the type stays put, because `Fleet::command_budget`
-//! and the spawn configuration both already carry it by that path.
+//! `commanding` owns, and [`CommandBudget`], the type they carry, lives here
+//! with them.
 
 use std::future::Future;
+use std::time::Duration;
 
 use ipc::JobId;
 
 use crate::adrift::Adrift;
-use crate::commanding::CommandBudget;
+
+/// How long Fleet gives a plain command before answering
+/// [`Adrift::CommandTimedOut`]. Paired with Bridge's `COMMAND_MS` — see
+/// `PROVISIONAL_COMMAND_BUDGET` in `crates/armada/src/serve.rs`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CommandBudget(Duration);
+
+impl CommandBudget {
+    pub fn of(budget: Duration) -> CommandBudget {
+        CommandBudget(budget)
+    }
+
+    pub fn duration(&self) -> Duration {
+        self.0
+    }
+}
 
 /// Race a plain command's work against [`CommandBudget`], spawned rather than
 /// merely timed: a losing race stops waiting without cancelling a write

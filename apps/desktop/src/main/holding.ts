@@ -38,6 +38,8 @@ export class HeldReader {
   private readonly publish: (held: HeldWorktrees) => void;
   /** Whether anybody is deciding. The only scope this read has. */
   private open = false;
+  /** Whether the last thing published was a list. */
+  private shown = false;
 
   constructor(publish: (held: HeldWorktrees) => void) {
     this.publish = publish;
@@ -47,24 +49,33 @@ export class HeldReader {
   async want(port: number | null, want: boolean): Promise<void> {
     this.open = want;
     if (!want) {
+      this.shown = false;
       this.publish({ state: "none" });
       return;
     }
     if (port === null) {
+      this.shown = false;
       this.publish({ state: "failed", outcome: { ok: false, why: "not_connected" } });
       return;
     }
     await this.again(port);
   }
 
-  /** Read again, where a surface has one open. Nothing open is no read. */
+  /**
+   * Read again, where a surface has one open. Nothing open is no read.
+   *
+   * **A list already on screen stays there while the next read is out.** The
+   * pool is read again on a timer while a Scout reads, and "reading" would
+   * blank the surface and its refusals every time.
+   */
   async again(port: number): Promise<void> {
     if (!this.open) return;
-    this.publish({ state: "reading" });
+    if (!this.shown) this.publish({ state: "reading" });
     const answer = await ask(port, "GET", "/worktrees");
     // The surface closed while this was in flight, so nobody is reading the
     // answer and publishing it would draw a list onto a screen that is gone.
     if (!this.open) return;
+    this.shown = answer.ok === true;
     this.publish(
       answer.ok === true
         ? { state: "read", held: answer.body as WorktreesHeld }

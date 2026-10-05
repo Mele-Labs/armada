@@ -41,7 +41,7 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   await expect.element(approving().getByRole("combobox", { name: "Workflow", exact: true })).toHaveValue("refactor");
 
   // Who decides each step, read off its frozen `advance_gate`: Checks and the
-  // Judge on the two that do the work, each its own gate node in run order.
+  // Judge on the two that do the work, each a stage on the spine in run order.
   for (const [at, step] of ["Scope the refactor", "Restructure"].entries()) {
     const gate = await openNode("Checks", at);
     await expect.element(gate.getByRole("checkbox", { name: `Checks on ${step}` })).toBeChecked();
@@ -53,8 +53,8 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
         .toHaveTextContent("Its Checks have to pass and the Judge has to decline to refuse them.");
     }
   }
-  // A person on the one that hands it over, whose gate is on its own card.
-  const review = await openNode("Review the change");
+  // A person on the one that hands it over: its gate is a You stage on the spine.
+  const review = await openNode("You");
   await expect.element(review.getByRole("checkbox", { name: "You on Review the change" })).toBeChecked();
   await expect
     .element(review.getByRole("listitem", { name: "Review the change" }))

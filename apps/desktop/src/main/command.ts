@@ -15,6 +15,7 @@
 // what makes "kill the Drone" a request to the daemon that spawned it.
 
 import type { CommandExplainedRead } from "../shared/api";
+import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import type { BridgeState } from "../shared/bridge";
 import type {
   CaptureWalkNote,
@@ -26,7 +27,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, SetLandingTarget, ToProposer } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotRescued, ToProposer } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -96,6 +97,13 @@ export type Board = {
    * this way round rather than off the id Fleet mints.
    */
   watchProposal: (clientRef: string | null) => void;
+  /**
+   * The Job the proposal this window is waiting on is reading for, as the
+   * stream last named it. **What a send that lost its answer is reconciled
+   * against**: the Job exists from the first `proposal.moved`, so a response
+   * that never arrived is not a Job that was never made.
+   */
+  proposalJob?: () => string | null;
   /** The proposal this window is waiting on, as Fleet last described it. */
   proposalOut: () => ProposalInFlight | null;
   /**
@@ -574,6 +582,18 @@ export class JobCommands {
     if (port === null) return { ok: false, why: "not_connected" };
     const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots", manifestId), change);
     return answer.ok === true ? { ok: true } : answer.outcome;
+  }
+
+  /**
+   * Start or stop the rescue Scout on a stranded slot, or Scrap or Stash what
+   * it holds. A refusal comes back coded, `fleet.rescue_reading` and its
+   * siblings, so the bay says why. The receipt rides on the answer.
+   */
+  async rescueSlot(manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> {
+    const port = this.board.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots/rescue", manifestId), rescue);
+    return answer.ok === true ? { ok: true, rescued: answer.body as SlotRescued } : (answer.outcome as RescueOutcome);
   }
 
   /**
