@@ -50,13 +50,14 @@
 // different things a person is doing, so the sentences are one record and
 // admitting a trigger costs the words to describe it.
 //
-// `gate_undecided` is the gate declining to rule in either direction, and a
-// failed mechanical Check declines nothing — neither has a ruling to
-// overrule, so what is left for both is to ask again, on the worktree as it
-// stands: `crates/fleet/src/regating.rs` for the first, `#1105` for the
-// second. The gate's re-run needs the Drone still standing, so it sits beside a
-// redirect; a failed Check has already stood its Drone down, so the Checks'
-// re-run sits beside a restart.
+// `gate_undecided` is the Judge not answering in either direction. It has no
+// ruling to disagree with, but the owner overruled the old rule that a step with
+// no verdict cannot be overridden: an engineer who deems the step done advances
+// it, so it offers both the override and asking again, on the worktree as it
+// stands (`crates/fleet/src/regating.rs`). A failed mechanical Check declines
+// nothing and gets only its re-run, `#1105`. The Judge's re-run needs the Drone
+// still standing, so it sits beside a redirect; a failed Check has already stood
+// its Drone down, so the Checks' re-run sits beside a restart.
 
 import { JOB_STATUS } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary, RedirectInFlight, StepDetail, Stuck } from "@armada/protocol";
@@ -103,8 +104,8 @@ const REDISPATCH_JOB = "redispatch_job";
  * take; the other two turn on the trigger instead, so each is offered alongside
  * whichever of the two applies. `docs/concepts/job.md` says so in its table.
  *
- * **`overrule` and `reread` are never both present**, because the two triggers
- * partition: `overrulable()` refuses what `undecided_step()` admits.
+ * **Both are present on `gate_undecided`**, where a person may ask the Judge
+ * again or accept the step themselves; every other trigger offers at most one.
  */
 export type Recourse = {
   act?: "redirect" | "restart_step";
@@ -153,7 +154,7 @@ export type Recourse = {
 };
 
 /**
- * The step whose gate could not decide, and so the step a re-run reads again.
+ * The step the Judge did not answer on, and so the step a re-run reads again.
  *
  * **A record and not a boolean**, for `Overrule`'s reason: the act is about one
  * step and "yes" would leave the screen unable to name which. Nothing beyond it
@@ -197,7 +198,7 @@ export type Overrule = {
 };
 
 /** The triggers this file has words for. Fleet decides which are overrulable. */
-export type Overruled = "gate_failure" | "evidence_suspect";
+export type Overruled = "gate_failure" | "evidence_suspect" | "gate_undecided";
 
 /**
  * What is left to do with a Job that stopped.
@@ -231,8 +232,7 @@ export function recourseOf(job: JobSummary, whole: JobWhole | null): Recourse {
   const redispatch = offered.has(REDISPATCH_JOB);
   // Overruling and asking again both lead wherever they apply, because both
   // take nothing away and the other two do — `docs/concepts/job.md` orders the
-  // acts on an escalated Job that way. **Never both**: the two triggers
-  // partition, so at most one of these two sentences is here.
+  // acts on an escalated Job that way. `gate_undecided` carries both.
   const says: Partial<Record<JobAct, string>> = {
     ...(overrule === undefined ? {} : { override_verdict: overruling(overrule) }),
     ...(reread === undefined ? {} : { rerun_gate: REREAD }),
@@ -309,6 +309,12 @@ export type Overruling = {
   /** The same, in the confirmation, with the step named — a person arrives here
    * from a rail with several rows on it. */
   dialog: (step: string) => string;
+  /**
+   * Whether the confirmation takes a blank reason. **Only where no machine
+   * decided anything**: nothing was disputed, so there is no sentence the
+   * record needs that accepting the step does not already say.
+   */
+  reasonOptional?: boolean;
 };
 
 /**
@@ -320,12 +326,11 @@ export type Overruling = {
  * words, rather than a screen offering a Judge's words for a check that is not
  * the Judge — which is how `evidence_suspect` would have arrived.
  *
- * **Two, since Fleet admitted the second.** `gate_failure` is the Judge
- * refusing a criterion — a judgement about the work. `evidence_suspect` is the
- * gaming check reading a diff and inferring intent — a claim about the
- * evidence, and the owner's rule is that anything a machine decides a person
- * can overrule. `gate_undecided` is absent and that is not an omission: the
- * gate never weighed the work, so there is no ruling to disagree with.
+ * **Three.** `gate_failure` is the Judge refusing a criterion — a judgement
+ * about the work. `evidence_suspect` is the gaming check reading a diff and
+ * inferring intent — a claim about the evidence. `gate_undecided` is the Judge
+ * not answering: nothing is overruled, a person accepts a step nobody judged,
+ * and the owner's call is that an engineer who deems it done can advance it.
  */
 export const OVERRULING: Record<Overruled, Overruling> = {
   gate_failure: {
@@ -354,6 +359,18 @@ export const OVERRULING: Record<Overruled, Overruling> = {
       "the evidence for it is not to be trusted. Overruling says a person has read that " +
       "evidence and takes responsibility for it; the step advances still recorded as failed " +
       "against the flag.",
+  },
+  gate_undecided: {
+    label: "Accept this step",
+    asks: "Accept this step without the Judge?",
+    field: "Why you are accepting it (optional)",
+    screen:
+      "Accept this step. The Judge did not answer, so the work was not judged: you read it and " +
+      "decide it is done, and the step advances still recorded as not judged.",
+    dialog: (step) =>
+      `The Judge did not answer for ${step}, so the work was not judged. Accepting says you have ` +
+      "read it and take responsibility for it. The step advances still recorded as not judged.",
+    reasonOptional: true,
   },
 };
 
@@ -463,8 +480,9 @@ function overruling(overrule: Overrule): string {
  * and press the other one in the confirmation.
  */
 export function onwards(overrule: Overrule): string {
+  const act = overrule.trigger === "gate_undecided" ? "accepting" : "overruling";
   return overrule.commits
-    ? "It is the last step of this workflow, so overruling it commits the work and delivers it."
+    ? `It is the last step of this workflow, so ${act} it commits the work and delivers it.`
     : "It is not the last step, so the job carries on at the next one.";
 }
 
@@ -581,7 +599,7 @@ function waiting(sent: RedirectInFlight): string {
  * re-run of any other one.
  */
 const REREAD =
-  "The gate could not decide, so there is nothing to overrule. Asking again runs it over the " +
+  "The Judge did not answer, so the work was not judged. Asking again runs the Judge over the " +
   "evidence already submitted — no drone works, nothing is redone, and no retry is spent.";
 
 /**

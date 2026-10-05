@@ -170,15 +170,15 @@ export class JobCommands {
   /** Jobs with an override in flight. Its own set: it is its own act. */
   private readonly overruling = new Set<string>();
   /**
-   * Jobs with a gate re-run in flight. Its own set beside the override's: the
-   * two acts answer triggers that do not overlap, so one set would refuse a
-   * press that names a different Job's different act.
+   * Jobs with a gate re-run in flight. Its own set beside the override's: both
+   * answer `gate_undecided`, and asking again is not accepting the step, so one
+   * set would refuse the second press.
    */
   private readonly rereading = new Set<string>();
   /**
    * Jobs with a Checks re-run in flight. Its own set beside the gate re-run's:
-   * `rerun_checks` answers a stopped Check and `rerun_gate` answers a gate that
-   * could not decide, and `recovery.ts` says the two triggers partition — so a
+   * `rerun_checks` answers a stopped Check and `rerun_gate` answers a Judge
+   * that did not answer, and the two triggers partition — so a
    * Job never has both out at once, but the sets stay separate rather than
    * shared because nothing here should have to know that to stay correct.
    */
@@ -870,7 +870,7 @@ export class JobCommands {
   }
 
   /**
-   * Ask the gate again, over the evidence the step already submitted.
+   * Ask the judge again, over the evidence the step already submitted.
    *
    * **It re-runs; it does not retry.** No Drone works, nothing the Drone did is
    * redone, and the step's retry budget is untouched — the run the gate is told
