@@ -16,16 +16,16 @@ pub enum WhenBlocked {
     /// Refuse the command and hold the Job for a person, asking nobody. What
     /// every Job written before this setting existed reads as, and this
     /// type's own default — read where the store cannot say, not where a Job
-    /// simply chose nothing: a new Job is bound to `AskMe` at creation, so
+    /// simply chose nothing: a new Job is bound to `AllowAll` at creation, so
     /// this is the safe answer to a read that failed, not the answer a new
     /// Job starts at.
     #[default]
     RefuseAndHold,
-    /// Put the command to a person, who allows or rejects it. What a Job
-    /// starts at, so nothing runs ungranted without a person also being
-    /// asked.
+    /// Put the command to a person, who allows or rejects it. What a person
+    /// chooses to be asked first.
     AskMe,
-    /// Allow it without asking. **Not what `armada.yml` withholds**: a command
+    /// Allow it without asking. What a new Job starts at, so a Drone is not
+    /// held on a command. **Not what `armada.yml` withholds**: a command
     /// declared destructive, and one the harness cannot grant, are refused
     /// under this as under the others, because no person's setting widens them.
     AllowAll,
