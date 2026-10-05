@@ -82,6 +82,7 @@ import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { slotsHeld } from "./slots-fleet";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -137,6 +138,27 @@ function holding(
 function lined(scenario: Scenario): Scenario {
   const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
   return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };
+}
+
+/**
+ * Three merge lines mid-turn, a Check failing in each, moment by moment: `later` carries the
+ * three moments after the first, which a walk's `later` step publishes. The Job whose branch is in
+ * the batch has the Check's failure in its own log, and that log moves with the lines.
+ */
+function failingCheck(): Scenario {
+  const rows = EVERY_STATE_ROWS.filter((one) => ["running", "review", "queued"].some((slug) => one.job.handle.endsWith(`-${slug}`)));
+  const base = holding(
+    "merge-line-failed-check",
+    "Three merge lines mid-turn, each with a Check failed and the turn still going",
+    rows,
+    { alsoServed: [NOTES, SCRATCH, BRIDGE] },
+  );
+  const running = rows.find((one) => one.job.handle.endsWith("-running"))!;
+  const { first, later } = failingTurn(
+    { armada: repository().root, notes: NOTES.root, scratch: SCRATCH.root, bridge: BRIDGE.root },
+    running.journalled,
+  );
+  return { ...base, state: { ...base.state, ...first }, later, behaves: writingTheFailedLogs };
 }
 
 /**
@@ -369,6 +391,12 @@ const NOTES: RepositorySummary = {
   records_root: "/Users/user/Library/Application Support/Armada/records/notes",
 };
 
+/** A fourth repository, whose line has waiting branches: `merge-line-failed-check`. */
+const BRIDGE: RepositorySummary = {
+  root: "/Users/user/bridge",
+  records_root: "/Users/user/Library/Application Support/Armada/records/bridge",
+};
+
 /**
  * Repositories served, and not one of them with a Manifest. **The moment every
  * surface that needs a Manifest has nothing to offer**: the rail is on All
@@ -495,6 +523,7 @@ export const SCENARIOS: readonly Scenario[] = [
       { alsoServed: [NOTES, SCRATCH] },
     ),
   ),
+  failingCheck(),
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,

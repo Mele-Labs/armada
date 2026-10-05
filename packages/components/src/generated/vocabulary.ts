@@ -169,6 +169,7 @@ export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "gating": { verb: "Running Checks before landing", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "preparing": { verb: "Preparing to land", icon: GitMerge, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "held": { verb: "Held, red on main", icon: Pause, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "merging": { verb: "Pushing onto main", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "red": { verb: "Checks failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
