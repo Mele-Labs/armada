@@ -4,7 +4,17 @@ import { describe, expect, it } from "vitest";
 import type { JobRetro, Lesson } from "@armada/protocol";
 
 import { absoluteOf } from "./duration";
-import { itemsOf, lessonRowsOf, lessonsTabNamed, notesOf, statusOf, underTab, type LessonsTab } from "./retro";
+import {
+  agreeTipOf,
+  DISAGREE_TIP,
+  itemsOf,
+  lessonRowsOf,
+  lessonsTabNamed,
+  notesOf,
+  statusOf,
+  underTab,
+  type LessonsTab,
+} from "./retro";
 
 const AT = "2026-10-02T21:12:00.000Z";
 
@@ -12,9 +22,9 @@ const RETRO: JobRetro = {
   job_id: "01K6Q3JOB3",
   state: "written",
   items: [
-    { who: "fleet", statement: "The gate failed out_of_bounds.", evidence: ["check:1", "check:9"] },
-    { who: "owner", statement: "Helm acted with curl.", evidence: ["act:2", "waited:1", "asked:1"] },
-    { who: "drone", statement: "It never saw its test pass.", evidence: ["said:1", "refusal:1", "not_met:1"] },
+    { id: "r", who: "fleet", statement: "The gate failed out_of_bounds.", evidence: ["check:1", "check:9"] },
+    { id: "r", who: "owner", statement: "Helm acted with curl.", evidence: ["act:2", "waited:1", "asked:1"] },
+    { id: "r", who: "drone", statement: "It never saw its test pass.", evidence: ["said:1", "refusal:1", "not_met:1"] },
   ],
   record: {
     failed_checks: [
@@ -83,12 +93,12 @@ it("draws the owner's notes linked to a retro, oldest first as Fleet sends them"
 
 it("lists each retro item against its Job by number, with the handle on hover", () => {
   const lessons: Lesson[] = [
-    { job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "fleet", statement: "A", evidence: [] },
-    { job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "drone", statement: "B", evidence: [] },
+    { id: "l-a", state: "open", job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "fleet", statement: "A", evidence: [] },
+    { id: "l-b", state: "open", job_id: "01K6Q3JOB3", handle: "3-retire-two-guides", at: AT, who: "drone", statement: "B", evidence: [] },
   ];
   expect(lessonRowsOf(lessons)).toEqual([
     {
-      id: "01K6Q3JOB3:0",
+      id: "l-a",
       jobId: "01K6Q3JOB3",
       who: "fleet",
       statement: "A",
@@ -98,7 +108,7 @@ it("lists each retro item against its Job by number, with the handle on hover", 
       whenExact: AT,
     },
     {
-      id: "01K6Q3JOB3:1",
+      id: "l-b",
       jobId: "01K6Q3JOB3",
       who: "drone",
       statement: "B",
@@ -116,8 +126,8 @@ describe("where a retro item's fix lands", () => {
     state: "written",
     record: {},
     items: [
-      { who: "fleet", statement: "A", evidence: [], lands_in: "armada" },
-      { who: "owner", statement: "B", evidence: [] },
+      { id: "r", who: "fleet", statement: "A", evidence: [], lands_in: "armada" },
+      { id: "r", who: "owner", statement: "B", evidence: [] },
     ],
   };
 
@@ -128,18 +138,18 @@ describe("where a retro item's fix lands", () => {
 
   it("rides each lesson row the same way", () => {
     const lessons: Lesson[] = [
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "kit" },
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [] },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "kit" },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [] },
     ];
     expect(lessonRowsOf(lessons).map((one) => one.landsIn)).toEqual(["kit", undefined]);
   });
 
   it("narrows the retro lessons to one place, and keeps a row with none under All alone", () => {
     const rows = lessonRowsOf([
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "armada" },
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [], lands_in: "kit" },
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "C", evidence: [], lands_in: "manifest" },
-      { job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "D", evidence: [] },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "A", evidence: [], lands_in: "armada" },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "B", evidence: [], lands_in: "kit" },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "C", evidence: [], lands_in: "manifest" },
+      { id: "l", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "D", evidence: [] },
     ]);
     const said = (tab: LessonsTab) => underTab(rows, tab).map((one) => one.statement);
     expect(said("all")).toEqual(["A", "B", "C", "D"]);
@@ -152,5 +162,45 @@ describe("where a retro item's fix lands", () => {
     expect(lessonsTabNamed("kit")).toBe("kit");
     expect(lessonsTabNamed("everything")).toBe("all");
     expect(lessonsTabNamed(null)).toBe("all");
+  });
+});
+
+describe("an item's title, what happened and fix", () => {
+  const written: JobRetro = {
+    job_id: "j",
+    state: "written",
+    record: {},
+    items: [
+      { id: "i-new", who: "fleet", lands_in: "armada", statement: "S", title: "T", what: "W", fix: "F", evidence: [] },
+      { id: "i-old", who: "owner", statement: "Old", evidence: [] },
+    ],
+  };
+
+  it("ride the sheet's item, and are left out of one that has only a statement", () => {
+    const [fresh, old] = itemsOf(written);
+    expect(fresh).toMatchObject({ id: "i-new", title: "T", what: "W", fix: "F" });
+    expect(old).toMatchObject({ id: "i-old", statement: "Old" });
+    expect("title" in (old ?? {})).toBe(false);
+    expect("fix" in (old ?? {})).toBe(false);
+  });
+
+  it("ride the Lessons row the same way, keyed by the item's own id", () => {
+    const rows = lessonRowsOf([
+      { id: "l-new", state: "open", job_id: "j", handle: "3-x", at: AT, who: "fleet", statement: "S", title: "T", what: "W", fix: "F", evidence: [] },
+      { id: "l-old", state: "open", job_id: "j", handle: "3-x", at: AT, who: "owner", statement: "Old", evidence: [] },
+    ]);
+    expect(rows.map((one) => one.id)).toEqual(["l-new", "l-old"]);
+    expect(rows[0]).toMatchObject({ title: "T", what: "W", fix: "F" });
+    expect("title" in (rows[1] ?? {})).toBe(false);
+  });
+});
+
+describe("what Agree and Disagree say they do", () => {
+  it("names the place for each, and says what Agree does with no place", () => {
+    expect(agreeTipOf("armada")).toBe("Proposes a Job on Armada's repository");
+    expect(agreeTipOf("manifest")).toBe("Proposes a Job on the Manifest's repository");
+    expect(agreeTipOf("kit")).toBe("Saves it under Accepted");
+    expect(agreeTipOf(undefined)).toBe("Agrees with it");
+    expect(DISAGREE_TIP).toBe("Discards it");
   });
 });

@@ -37,9 +37,10 @@ two items. The Lessons page narrows by it, and **an item written before
 23.15 names none**: it reads with the field absent and is listed under All
 alone, never given a place after the fact.
 
-**Nothing acts on a retro.** No item is filed as an issue, proposed as a
-change or put into a brief. The owner reads the Lessons page and decides
-what each item is worth.
+**The owner answers each item, Agree or Disagree.** Agree on an Armada or
+Manifest item proposes a Job at the approval gate, and Agree on a Kit item
+saves it under Accepted. Disagree discards it. No item is filed as an issue
+or put into a brief.
 
 ## The record it is read from
 
@@ -136,13 +137,25 @@ where none is open. `packages/screens/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. A row opens its Job's retro |
-| **Retro**, in the head of a Job's Record | The same sheet, on `get_job_retro` |
+| **Lessons**, a rail surface under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
+| **Retro**, in the head of a Job's Record | The same cards, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
-nothing on `/events` says a retro was written. Whose way an item got in, and
-where its fix lands, are marks named by their tooltips, and nothing on either
-surface acts.
+nothing on `/events` says a retro was written.
+
+**An item reads top to bottom:** whose way it got in (`Drone`, `You`, `Fleet`)
+and where its fix lands (`Armada`, `Kit`, `Manifest`) as words with their marks
+beside them, the `title`, what happened, the `fix` set apart, then `Agree` and
+`Disagree`. The cited record rows sit behind an `Evidence` control. An item
+written before `title` carries its `statement` alone, drawn as the body with
+the same two buttons. `packages/components/src/compositions/LessonCard`.
+
+**What a press leaves on screen.** Agree on an Armada or Manifest item keeps
+the card as `Agreed` with a link to the proposed Job until the list is read
+again, when Fleet no longer lists it as open. Agree on a Kit item and Disagree
+on any item take the card off at once. There is no confirmation: a mistaken
+Agree proposes a Job that waits for the owner's approval, and a mistaken
+Disagree discards one item.
 
 ## Where it is served
 

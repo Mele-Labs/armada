@@ -423,6 +423,7 @@ export type Outcome =
   | { ok: false; why: "already_reclaiming" }
   | { ok: false; why: "already_redirecting" }
   | { ok: false; why: "already_restarting" }
+  | { ok: false; why: "already_answering_lesson" }
   | { ok: false; why: "already_overruling" }
   | { ok: false; why: "already_rereading" }
   | { ok: false; why: "already_rerunning_checks" }

@@ -103,6 +103,8 @@ import {
   readCheckOutput,
   readBrief,
   readRetro,
+  agreeLesson,
+  disagreeLesson,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -743,6 +745,8 @@ export function App({ draft }: AppProps = {}) {
                   onReadCheckOutput={readCheckOutput}
                   onReadBrief={readBrief}
                   onReadRetro={readRetro}
+                  onAgreeLesson={agreeLesson}
+                  onDisagreeLesson={disagreeLesson}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}
@@ -889,7 +893,7 @@ export function App({ draft }: AppProps = {}) {
                 />
               </Boundary>
             ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : learning ? (
-              <LessonsSurface repository={state.repository} {...guarded} />
+              <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has

@@ -1,7 +1,8 @@
 // Job retros in Bridge (23.12, `docs/concepts/retro.md`): the Lessons page
-// lists what got in the way across Jobs, newest first, and a row opens its
-// Job's retro; the same retro opens from the Job's own Record. Nothing on
-// either acts.
+// lists what got in the way across Jobs, newest first, each item as words, a
+// headline, what happened, a fix and two answers. A Job label opens its retro,
+// and the same retro opens from the Job's own Record. Agree proposes a Job or
+// saves a Kit item; Disagree discards.
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
@@ -10,46 +11,68 @@ import { entered, mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
-const JOB_3_FIRST = /out_of_bounds on armada\.yml/;
+const STALE_MAIN = /blamed the Drone for Fleet's own mistake/;
+const GREP = /had to wait for grep to be allowed/;
+const DOCS = /A docs edit ran every Rust test/;
 
-test("Lessons is a rail row in Work, and lists every Job's retro items newest first", async () => {
+const card = (title: RegExp) => page.getByRole("listitem").filter({ hasText: title });
+
+/** The Lessons surface, and the headlines its cards draw. */
+async function lessons(): Promise<() => string[]> {
+  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Lessons", exact: true }).click();
+  await expect.element(page.getByRole("list", { name: "Lessons" })).toBeVisible();
+  return () => [...document.querySelectorAll(".armada-lesson")].map((one) => one.getAttribute("aria-label") ?? "");
+}
+
+test("Lessons is a rail row in Work, and lists every Job's items newest first", async () => {
   mount("retro/lessons");
   await onScreen();
 
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Lessons", exact: true }).click();
-  const list = page.getByRole("region", { name: "Lessons" });
-  await expect.element(list).toBeVisible();
+  const titles = await lessons();
   // The rail marks where the window is.
   expect(document.querySelector('[aria-current="page"]')?.textContent).toMatch(/Lessons/);
-  const rows = list.getByRole("row").elements();
-  // Job 3's six items, then Job 2's one: Fleet's order, newest retro first.
-  expect(rows.map((row) => row.querySelector(".armada-lessons__job")?.textContent)).toEqual([
-    ...Array<string>(6).fill("Job 3"),
-    "Job 2",
-  ]);
-  // Whose way is a mark its tooltip names, never a word in the row.
-  expect(rows[0]?.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Fleet");
+  const from = [...document.querySelectorAll(".armada-lesson__from")].map((one) => one.textContent);
+  // Job 3's four items, then Job 2's one: Fleet's order, newest retro first.
+  expect(from).toEqual([...Array<string>(4).fill("Job 3"), "Job 2"]);
+  expect(titles()).toHaveLength(5);
 });
 
-test("a row opens its Job's retro, each item with the record rows it cites, and the owner's notes", async () => {
+test("an item says whose way and where in words, and an old item has its statement alone", async () => {
   mount("retro/lessons");
   await onScreen();
+  await lessons();
 
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Lessons", exact: true }).click();
-  await page.getByRole("row", { name: JOB_3_FIRST }).click();
+  const one = card(STALE_MAIN);
+  const words = [...one.element().querySelectorAll(".armada-lesson__word")].map((word) => word.textContent);
+  expect(words).toEqual(["Fleet", "Armada"]);
+  await expect.element(one.getByRole("heading")).toBeVisible();
+  await expect.element(one.getByText(/Compare against origin\/main/)).toBeVisible();
+  // The marks stay, named by their tooltips.
+  expect(one.getByRole("img").elements().map((mark) => mark.getAttribute("aria-label"))).toEqual([
+    "Fleet",
+    "Lands in Armada",
+  ]);
+  const old = card(/waited in the dock/);
+  expect(old.getByRole("heading").elements()).toHaveLength(0);
+  expect(old.getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(2);
+});
+
+test("a Job label opens its retro, each item with the record rows it cites behind Evidence, and the owner's notes", async () => {
+  mount("retro/lessons");
+  await onScreen();
+  await lessons();
+
+  await card(STALE_MAIN).getByRole("button", { name: "Job 3" }).click();
   const sheet = page.getByRole("dialog", { name: "Retro" });
   await entered(sheet);
   await expect.element(sheet.getByText("Job 3")).toBeVisible();
-  await expect.element(sheet.getByText("armada.yml changed; the line came in with 4e1c2a9 on main")).toBeVisible();
-  await expect.element(sheet.getByText("helm via http").first()).toBeVisible();
+  expect(sheet.getByText(/4e1c2a9 on main/).elements()).toHaveLength(0);
+  await sheet.getByRole("listitem").filter({ hasText: STALE_MAIN }).getByRole("button", { name: "Evidence" }).click();
+  await expect.element(sheet.getByText(/4e1c2a9 on main/)).toBeVisible();
   await expect.element(sheet.getByRole("region", { name: "Notes" })).toBeVisible();
-  // Nothing on a retro acts: its close is its only control.
-  expect(sheet.getByRole("button").elements().map((one) => one.textContent)).toEqual([
-    expect.stringContaining("Close"),
-  ]);
 });
 
-test("a Job's own retro opens from its Record", async () => {
+test("a Job's own retro opens from its Record, with the same items and answers", async () => {
   mount("retro/job-3");
   await onScreen();
 
@@ -57,59 +80,65 @@ test("a Job's own retro opens from its Record", async () => {
   await page.getByRole("button", { name: "Retro", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Retro" });
   await entered(sheet);
-  await expect.element(sheet.getByText(/fixed 15 s timeouts ran out under load/)).toBeVisible();
+  await expect.element(sheet.getByText(/Browser tests timed out under the gate/)).toBeVisible();
   // Where each item's fix lands, beside whose way it got in.
   expect(sheet.getByRole("img", { name: "Lands in Kit" }).elements()).toHaveLength(1);
-  expect(sheet.getByRole("img", { name: "Lands in the Manifest" }).elements()).toHaveLength(2);
+  expect(sheet.getByRole("img", { name: "Lands in Armada" }).elements()).toHaveLength(2);
+  expect(sheet.getByRole("img", { name: "Lands in the Manifest" }).elements()).toHaveLength(1);
+  expect(sheet.getByRole("button", { name: "Agree", exact: true }).elements()).toHaveLength(4);
 });
-
-/** The Lessons surface, and the statements its list draws. */
-async function lessons(): Promise<() => string[]> {
-  await page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Lessons", exact: true }).click();
-  await expect.element(page.getByRole("region", { name: "Lessons" })).toBeVisible();
-  return () =>
-    [...document.querySelectorAll(".armada-lessons__statement")].map((one) => one.textContent ?? "");
-}
 
 test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
   mount("retro/lessons");
   await onScreen();
-  const statements = await lessons();
+  const titles = await lessons();
 
-  const tabs = page.getByRole("tablist").last().getByRole("tab").elements();
+  const tabs = page.getByRole("tablist").first().getByRole("tab").elements();
   expect(tabs.map((one) => one.textContent)).toEqual(["All", "Armada", "Kit", "Manifest"]);
   expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
-  expect(statements()).toHaveLength(7);
+  expect(titles()).toHaveLength(5);
 
   await page.getByRole("tab", { name: "Kit", exact: true }).click();
-  await expect.poll(() => statements()).toEqual([expect.stringMatching(/^T4 had to ask you to allow/)]);
+  await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
   await page.getByRole("tab", { name: "Manifest", exact: true }).click();
-  await expect.poll(() => statements()).toEqual([
-    expect.stringMatching(/fixed 15 s timeouts/),
-    "A docs edit set off every Rust test.",
-  ]);
+  await expect.poll(() => titles()).toEqual(["A docs edit ran every Rust test"]);
   await page.getByRole("tab", { name: "Armada", exact: true }).click();
   // Job 2's item predates where a fix lands, so it is under All alone.
-  await expect.poll(() => statements()).toHaveLength(3);
-  expect(statements().some((one) => one.startsWith("The Judge's question waited"))).toBe(false);
-  // Each row says where its fix lands, beside whose way.
-  const row = page.getByRole("row", { name: JOB_3_FIRST }).element();
-  expect([...row.querySelectorAll('[role="img"]')].map((one) => one.getAttribute("aria-label"))).toEqual([
-    "Fleet",
-    "Lands in Armada",
-  ]);
+  await expect.poll(() => titles()).toHaveLength(2);
 });
 
 test("the retro lessons tab is remembered for the viewer", async () => {
   localStorage.setItem("armada.bridge.lessons-tab", "kit");
   mount("retro/lessons");
   await onScreen();
-  const statements = await lessons();
+  const titles = await lessons();
 
   await expect.element(page.getByRole("tab", { name: "Kit", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => statements()).toHaveLength(1);
+  await expect.poll(() => titles()).toHaveLength(1);
   await page.getByRole("tab", { name: "Manifest", exact: true }).click();
   expect(localStorage.getItem("armada.bridge.lessons-tab")).toBe("manifest");
+});
+
+test("Agree on an Armada item proposes a Job and keeps a link to it, Agree on a Kit item saves it under Accepted, and Disagree discards", async () => {
+  mount("retro/lessons");
+  await onScreen();
+  const titles = await lessons();
+
+  await card(STALE_MAIN).getByRole("button", { name: "Agree", exact: true }).click();
+  await expect.element(card(STALE_MAIN).getByText("Agreed")).toBeVisible();
+  await expect.element(card(STALE_MAIN).getByRole("button", { name: "Proposed Job" })).toBeVisible();
+
+  await card(GREP).getByRole("button", { name: "Agree", exact: true }).click();
+  await expect.poll(() => titles().some((one) => /grep/.test(one))).toBe(false);
+  await card(DOCS).getByRole("button", { name: "Disagree", exact: true }).click();
+  await expect.poll(() => titles().some((one) => /Rust test/.test(one))).toBe(false);
+
+  await page.getByRole("tab", { name: "Accepted", exact: true }).click();
+  await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
+  expect(card(GREP).getByRole("button", { name: /^(Agree|Disagree)$/ }).elements()).toHaveLength(0);
+  // Read again, the agreed item is no longer open either: two items are left.
+  await page.getByRole("tab", { name: "Open", exact: true }).click();
+  await expect.poll(() => titles()).toHaveLength(2);
 });
 
 test("a Job whose retro is not written says so, and nothing more", async () => {

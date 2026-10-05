@@ -21,8 +21,13 @@ export type RetroState = "pending" | "written" | "failed" | "skipped";
  * before, which is shown under All only.
  */
 export type RetroItem = {
+  id: string;
   who: Whose;
   statement: string;
+  /** The headline, what happened and the fix, in a person's words. Absent on an item written before. */
+  title?: string;
+  what?: string;
+  fix?: string;
   evidence: string[];
   lands_in?: LandsIn;
 };
@@ -132,20 +137,33 @@ export type JobRetro = {
   annotations?: LinkedAnnotation[];
 };
 
-/** One retro item, with the Job it came from. `lands_in` as on `RetroItem`. */
+/** Where one item stands: waiting on the owner, or answered. */
+export type LessonState = "open" | "agreed" | "accepted" | "discarded";
+
+/**
+ * One retro item, with the Job it came from. `lands_in` as on `RetroItem`.
+ * `job_proposed` is the Job an agreed Armada or Manifest item proposed.
+ */
 export type Lesson = {
+  id: string;
   job_id: string;
   handle: string;
   at: string;
   who: Whose;
   statement: string;
+  title?: string;
+  what?: string;
+  fix?: string;
   evidence: string[];
   lands_in?: LandsIn;
+  state: LessonState;
+  job_proposed?: string;
 };
 
 /**
- * `list_lessons`: `GET /lessons?manifest_id=&lands_in=&most=`, newest retro
- * first. `lands_in` absent is all three, an item kept before 23.15 included.
+ * `list_lessons`: `GET /lessons?state=&manifest_id=&lands_in=&most=`, newest
+ * retro first. `lands_in` absent is all three, an item kept before 23.15
+ * included. `state` absent is `open`; `accepted` lists the saved Kit items.
  */
 export type Lessons = {
   lessons: Lesson[];
@@ -161,3 +179,11 @@ export type RetroRead = { ok: true; retro: JobRetro } | { ok: false; outcome: Ou
 
 /** What the Lessons listing came back as. `RetroRead`'s shape and reasons. */
 export type LessonsRead = { ok: true; lessons: Lesson[] } | { ok: false; outcome: Outcome };
+
+/**
+ * What `POST /lessons/:id/agree` and `POST /lessons/:id/disagree` came back as:
+ * the item as it now stands, or the refusal. Agreeing an Armada or Manifest
+ * item proposes a Job at the approval gate (`agreed`, `job_proposed` set);
+ * agreeing a Kit item saves it (`accepted`); disagreeing discards it.
+ */
+export type LessonAnswer = { ok: true; lesson: Lesson } | { ok: false; outcome: Outcome };

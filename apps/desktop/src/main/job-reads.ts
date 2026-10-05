@@ -96,10 +96,10 @@ export class JobReads {
    * The Lessons listing, narrowed to the calling window's pick. `readComposing`'s reason for
    * taking the pick as an argument: each window keeps its own.
    */
-  async readLessons(picked: Picked): Promise<LessonsRead> {
+  async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    return await lessonsOf(port, picked);
+    return await lessonsOf(port, picked, state);
   }
 
   /**

@@ -1,8 +1,8 @@
 // What a Job's retro and the Lessons listing are drawn from — `docs/concepts/retro.md`.
 //
-// **Nothing here acts and nothing proposes.** A retro is read, and the owner
-// decides what each item is worth; every function below turns the wire into
-// what the sheet and the list draw, and nothing more.
+// A retro is read, and the owner decides what each item is worth: Agree or
+// Disagree. Every function below turns the wire into what the sheet and the
+// list draw, and `useAnswers` holds what an answer leaves on screen.
 //
 // **Read on open and on focus, never on a timer.** Nothing on `/events` says a
 // retro was written, and a retro is written once, after its Job ends — so a
@@ -15,6 +15,7 @@ import type {
   JobRetro,
   LandsIn,
   Lesson,
+  LessonAnswer,
   LessonsRead,
   RecordAct,
   RecordAsked,
@@ -26,14 +27,19 @@ import type {
   RetroRead,
   RetroRecord,
 } from "@armada/protocol";
-import type { LessonRow, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
+import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
 
+import { said as refusalSaid } from "./copy";
 import { absoluteOf, lasting } from "./duration";
 
 /** Ask main for one Job's retro. */
 export type ReadRetro = (jobId: string) => Promise<RetroRead>;
-/** Ask main for the Lessons listing, narrowed to this window's pick. */
-export type ReadLessons = () => Promise<LessonsRead>;
+/** Ask main for the Lessons listing, narrowed to this window's pick: the open items or the saved ones. */
+export type ReadLessons = (state: LessonsView) => Promise<LessonsRead>;
+/** Which list the page draws: items waiting on the owner, or the Kit items he saved. */
+export type LessonsView = "open" | "accepted";
+/** One answer on one item, by its id. */
+export type AnswerLesson = (lessonId: string) => Promise<LessonAnswer>;
 
 /** A record row as one line: what it is about, what it came to, and when. */
 function when(at: string | undefined): { when?: string } {
@@ -125,9 +131,13 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
 export function itemsOf(retro: JobRetro): RetroSheetItem[] {
   const rows = rowsOf(retro.record);
   return (retro.items ?? []).map((item) => ({
+    id: item.id,
     who: item.who,
     ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
     statement: item.statement,
+    ...(item.title === undefined ? {} : { title: item.title }),
+    ...(item.what === undefined ? {} : { what: item.what }),
+    ...(item.fix === undefined ? {} : { fix: item.fix }),
     cites: item.evidence.flatMap((cite) => {
       const row = rows.get(cite);
       return row === undefined ? [] : [row];
@@ -163,16 +173,16 @@ export function jobOf(handle: string): string {
 
 /** The Lessons list's rows, in Fleet's order: newest retro first. */
 export function lessonRowsOf(lessons: readonly Lesson[]): LessonRow[] {
-  const seen = new Map<string, number>();
   return lessons.map((lesson) => {
-    const at = seen.get(lesson.job_id) ?? 0;
-    seen.set(lesson.job_id, at + 1);
     return {
-      id: `${lesson.job_id}:${at}`,
+      id: lesson.id,
       jobId: lesson.job_id,
       who: lesson.who,
       ...(lesson.lands_in === undefined ? {} : { landsIn: lesson.lands_in }),
       statement: lesson.statement,
+      ...(lesson.title === undefined ? {} : { title: lesson.title }),
+      ...(lesson.what === undefined ? {} : { what: lesson.what }),
+      ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
       job: jobOf(lesson.handle),
       jobExact: lesson.handle,
       when: absoluteOf(lesson.at) ?? lesson.at,
@@ -204,6 +214,98 @@ export function lessonsTabNamed(value: string | null): LessonsTab {
  */
 export function underTab(rows: readonly LessonRow[], tab: LessonsTab): LessonRow[] {
   return tab === "all" ? [...rows] : rows.filter((row) => row.landsIn === tab);
+}
+
+/** What Agree does for an item, by where its fix lands, as its tooltip says it. */
+export function agreeTipOf(landsIn: LandsIn | undefined): string {
+  switch (landsIn) {
+    case "armada":
+      return "Proposes a Job on Armada's repository";
+    case "manifest":
+      return "Proposes a Job on the Manifest's repository";
+    case "kit":
+      return "Saves it under Accepted";
+    case undefined:
+      return "Agrees with it";
+  }
+}
+
+/** What Disagree does, the same for every place. */
+export const DISAGREE_TIP = "Discards it";
+
+/** The words an answered item reads as while it stays on screen. */
+const AGREED = "Agreed";
+const PROPOSED_JOB = "Proposed Job";
+
+/** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
+export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
+
+/**
+ * What answering leaves on screen, for the list and the sheet alike.
+ *
+ * **An answer sends once per item** and the item's buttons hold while it is out.
+ * Agreed for an Armada or Manifest item stays, reading `Agreed` with a link to
+ * the Job it proposed, until the surface is read again, when Fleet no longer
+ * lists it as open. Agreeing a Kit item and disagreeing with any item take it
+ * off at once. A refusal stays on the item, with both answers.
+ */
+export function useAnswers(
+  agree: AnswerLesson | undefined,
+  disagree: AnswerLesson | undefined,
+  openJob: ((jobId: string) => void) | undefined,
+): (lessonId: string, landsIn: LandsIn | undefined) => AnswerView {
+  const [pressing, setPressing] = useState<Record<string, "agree" | "disagree">>({});
+  const [refused, setRefused] = useState<Record<string, string>>({});
+  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  const [agreed, setAgreed] = useState<Record<string, string | undefined>>({});
+
+  async function press(lessonId: string, which: "agree" | "disagree", landsIn: LandsIn | undefined) {
+    const send = which === "agree" ? agree : disagree;
+    if (send === undefined) return;
+    setPressing((was) => ({ ...was, [lessonId]: which }));
+    setRefused(({ [lessonId]: _, ...rest }) => rest);
+    const answer = await send(lessonId);
+    setPressing(({ [lessonId]: _, ...rest }) => rest);
+    if (!answer.ok) {
+      setRefused((was) => ({ ...was, [lessonId]: refusalSaid(answer.outcome) }));
+      return;
+    }
+    if (which === "agree" && landsIn !== "kit" && answer.lesson.state === "agreed") {
+      setAgreed((was) => ({ ...was, [lessonId]: answer.lesson.job_proposed }));
+    } else {
+      setGone((was) => new Set(was).add(lessonId));
+    }
+  }
+
+  return (lessonId, landsIn) => {
+    if (gone.has(lessonId)) return { gone: true };
+    if (lessonId in agreed) {
+      const job = agreed[lessonId];
+      return {
+        gone: false,
+        settled: {
+          said: AGREED,
+          ...(job === undefined || openJob === undefined
+            ? {}
+            : { job: { label: PROPOSED_JOB, onOpen: () => openJob(job) } }),
+        },
+      };
+    }
+    if (agree === undefined || disagree === undefined) return { gone: false };
+    const held = pressing[lessonId];
+    const why = refused[lessonId];
+    return {
+      gone: false,
+      answers: {
+        agreeTip: agreeTipOf(landsIn),
+        disagreeTip: DISAGREE_TIP,
+        onAgree: () => void press(lessonId, "agree", landsIn),
+        onDisagree: () => void press(lessonId, "disagree", landsIn),
+        ...(held === undefined ? {} : { pressing: held }),
+        ...(why === undefined ? {} : { refusal: why }),
+      },
+    };
+  };
 }
 
 /**
