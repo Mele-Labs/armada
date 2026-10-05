@@ -1,11 +1,10 @@
 // A running feature Job staged for the gate stages (prototype, 5 Oct 2026):
 // every kind of gate and every state in one frame. **Staged, not a moment** —
-// a real Job is at one step, and here four steps stand at their gates at once
+// a real Job is at one step, and here three steps stand at their gates at once
 // so the owner can read each face beside the others.
 //
 //   plan       its Checks and Judge passed
 //   implement  attempt 2 of 3: Checks running, one failed, a live output line
-//   tests      Checks passed, the Judge part-way through a panel of three
 //   handoff    the Judge passed, You held
 
 import type { CheckRun, Judged, StepDetail } from "@armada/protocol";
@@ -51,15 +50,6 @@ export function featureGates(): JobFixture {
             run("typecheck", 2, "failed"),
             run("test", 2, "running", "test screens::approval_life::marks_a_gate ... ok"),
           ],
-        };
-      case "tests":
-        return {
-          ...step,
-          state: "running",
-          judge_checks: [{ criteria: 1, gaming_check: false, panel_size: 3 }],
-          attempts: [{ attempt: 1, outcome: "running", started_at: ago(9) }],
-          check_runs: names.map((name) => run(name, 1, "passed")),
-          judged: [judged(1, 0), judged(1, 1)],
         };
       case "handoff":
         return {

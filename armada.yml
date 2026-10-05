@@ -207,11 +207,12 @@ checks:
   # whichever loses reports a missing module — #227.
   typecheck:
     # Two commands, because neither config reaches the other's files and there
-    # is no third that covers both. `apps/desktop` needs `-b --force`: its
-    # tsconfig owns only referenced projects, and stale build info would skip
-    # the one just edited. The library is one project that writes no build
-    # info, so `--noEmit -p` is the whole job and `--force` has nothing to
-    # force.
+    # is no third that covers both. `apps/desktop` needs `-b`: its tsconfig
+    # owns only referenced projects. `-b` is incremental and re-checks a project
+    # whose inputs changed, so `--force` is not needed; its build info lives in
+    # the uncommitted `out/`, so a fresh worktree checks everything. The library
+    # is one project that writes no build info, so `--noEmit -p` is the whole
+    # job.
     #
     # Named rather than left to `pnpm -r`, which skips a package that declares
     # no `typecheck` — silently, which is how the library went unchecked for as
