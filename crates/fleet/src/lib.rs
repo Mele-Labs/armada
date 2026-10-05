@@ -218,6 +218,8 @@ mod reclaiming;
 mod recognising;
 /// What the boot read found and what the reconciliation did about it.
 mod reconciled;
+/// A proposal sent back to the proposer with a note. 23.25.
+pub mod reconsidering;
 /// Where one repository's records live, off the checkout — the per-repository
 /// key and the one-time move of what an older Fleet wrote under it.
 pub mod records;
@@ -232,6 +234,7 @@ pub mod remarks;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
+mod rerun_settles;
 mod rerunning;
 /// What one Job holds on this machine — its processes, what they are burning,
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**

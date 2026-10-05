@@ -150,3 +150,40 @@ fn a_splits_extras_wait_at_the_gate_naming_the_head() {
         })
     );
 }
+
+/// **A person sends a proposal back, and the answer brings it to the gate
+/// again**: `awaiting_approval -> proposing -> awaiting_approval`, a person's act
+/// only, from the gate only, and what was there is what an answer puts back.
+#[test]
+fn a_proposal_sent_back_is_read_again_and_an_answer_returns_it_to_the_gate() {
+    let at_the_gate = proposing()
+        .answered(answer(), Actor::Fleet, later())
+        .expect("answered")
+        .job;
+    let back = at_the_gate
+        .sent_back_to_the_proposer(Actor::Human, later())
+        .expect("awaiting_approval -> proposing");
+    assert_eq!(back.job.status(), JobStatus::Proposing);
+    assert_eq!(back.event.from(), JobStatus::AwaitingApproval);
+    assert_eq!(back.event.to(), JobStatus::Proposing);
+
+    assert!(matches!(
+        at_the_gate.sent_back_to_the_proposer(Actor::Fleet, later()),
+        Err(IllegalTransition::NotAPersonsAct { .. })
+    ));
+    assert!(matches!(
+        proposing().sent_back_to_the_proposer(Actor::Human, later()),
+        Err(IllegalTransition::NothingToReconsider { .. })
+    ));
+
+    // A revision that could not be made puts the proposal back as it was.
+    let restored = back
+        .job
+        .answered(back.job.as_answered(), Actor::Fleet, later())
+        .expect("proposing -> awaiting_approval")
+        .job;
+    assert_eq!(restored.status(), JobStatus::AwaitingApproval);
+    assert_eq!(restored.title(), at_the_gate.title());
+    assert_eq!(restored.workflow(), at_the_gate.workflow());
+    assert_eq!(restored.steps().len(), at_the_gate.steps().len());
+}

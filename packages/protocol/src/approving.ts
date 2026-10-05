@@ -43,6 +43,8 @@ export type StepTuning = {
   effort?: Effort;
   /** Words handed to the step's Drone beside its brief. Blank is none. */
   context?: string;
+  /** The harness, in its own name. Refused unless `ModelChoices.harnesses` lists it. Since 23.23. */
+  harness?: string;
   /** Every judge check's `panel_size`. Refused at zero and on a step with no Judge. */
   judges?: number;
   /** Manifest Checks the step declares that this Job does not run, by name. */
@@ -98,6 +100,31 @@ export type LandingChoice = {
   pr_mode?: string;
   /** Only `delivered` is run; the other three are refused. */
   complete_when?: string;
+  /**
+   * Stop at the branch: commit on the Job's own branch, with no pull request,
+   * merge or push, and keep it. `pr_mode` is ignored while it holds. Since 23.24.
+   */
+  local?: boolean;
+  /**
+   * Turn on the forge's auto-merge for the pull request when it opens. Refused with
+   * `local`. Since 23.24.
+   */
+  auto_merge?: boolean;
+};
+
+/**
+ * `to_proposer`'s body, `POST /jobs/{job_id}/to_proposer`: a note sent back to
+ * the proposer from the approval gate, with what the person has set so far.
+ * The proposer rewrites the proposal whole and the answer is a `ProposedPlan`,
+ * since it may split. Fleet carries `tuning` onto each rewritten Job wherever a
+ * step id still matches, and `landing` as it stands; what cannot carry is
+ * dropped and said in the Job's log. Since 23.25.
+ */
+export type ToProposer = {
+  /** What the person wants different. Never blank. */
+  note: string;
+  tuning?: StepTuning[];
+  landing?: LandingChoice;
 };
 
 /**
@@ -121,6 +148,10 @@ export type LandingRule = {
    * absent from a Fleet before it, whose Jobs finished delivered.
    */
   complete_when?: string;
+  /** The work stops at the Job's branch: no pull request. Absent is false. Since 23.24. */
+  local?: boolean;
+  /** The pull request is set to merge itself on the forge. Absent is false. Since 23.24. */
+  auto_merge?: boolean;
 };
 
 /**

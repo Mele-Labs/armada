@@ -146,6 +146,24 @@ pub(crate) fn replay(created: Job, events: &[RecordedEvent]) -> Result<Job, RowE
             });
         }
         job = match &event.moved {
+            // **Neither crossing has a `Target`**: `proposing` is never moved
+            // into any other way, and the answer freezes a workflow. A person
+            // sent the proposal back, and an answer brought it to the gate
+            // again with what the columns hold, which is the last answer's.
+            Moved::Job {
+                to: JobStatus::Proposing,
+                ..
+            } => illegal(
+                event,
+                job.sent_back_to_the_proposer(event.actor, event.at.clone()),
+            )?,
+            Moved::Job {
+                to: JobStatus::AwaitingApproval,
+                ..
+            } if job.status() == JobStatus::Proposing => illegal(
+                event,
+                job.answered(job.as_answered(), event.actor, event.at.clone()),
+            )?,
             Moved::Job { .. } => {
                 job.transition(target(event)?, event.actor, event.at.clone())
                     .map_err(|cause| RowError::IllegalRecordedTransition {
@@ -170,6 +188,21 @@ pub(crate) fn replay(created: Job, events: &[RecordedEvent]) -> Result<Job, RowE
         };
     }
     Ok(job)
+}
+
+/// A crossing that has no `Target`, refused as any history the machine would
+/// not admit is.
+fn illegal(
+    event: &RecordedEvent,
+    moved: Result<core_model::Transitioned, core_model::IllegalTransition>,
+) -> Result<Job, RowError> {
+    moved
+        .map(|moved| moved.job)
+        .map_err(|cause| RowError::IllegalRecordedTransition {
+            job_id: event.job_id.clone(),
+            seq: event.seq,
+            cause,
+        })
 }
 
 /// One step row, put back through the mutator that wrote it.

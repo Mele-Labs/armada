@@ -213,6 +213,12 @@ impl HeadlessAgent {
         MODELS
     }
 
+    /// The harness's own name, as a person picks it. **The one place it is
+    /// spelled**, for [`program`](Self::program)'s reason.
+    pub fn harness_name() -> &'static str {
+        "Claude Code"
+    }
+
     /// The model a proposal that names none is given.
     ///
     /// **This is what stops a Job dying at dispatch.** A proposal with no model

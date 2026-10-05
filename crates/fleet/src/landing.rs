@@ -105,6 +105,10 @@ where
         if !delivers {
             return;
         }
+        if self.landing_of(job.id()).await.local {
+            self.kept_on_the_branch(job, step, worktree).await;
+            return;
+        }
         match self.land_and_deliver(job, worktree).await {
             // **The one case that used to fall through here silently — `#691`.**
             // `deliver` returned `Ok`, which is not the same claim as "the
@@ -140,6 +144,41 @@ where
                 "this step sends the work out and the branch did not go: the \
                  work stays in the worktree and no pull request was opened",
                 Some(&adrift),
+            ),
+        }
+    }
+
+    /// **Stop at the branch**, for a Job approved `local`: the work is
+    /// committed on the Job's own branch and nothing else happens, no push, no
+    /// pull request and no merge. The branch outlives the Job, since reclaiming
+    /// keeps unmerged work, and a person acts on it from there. Since 23.24.
+    ///
+    /// Held, never raised, for [`sent_out_on_entry`](Fleet::sent_out_on_entry)'s
+    /// reason; a commit that would not land is the line `noted_not_sent` writes.
+    async fn kept_on_the_branch(&self, job: &Job, step: &StepId, worktree: &Worktree) {
+        let _at_the_merge_end = self.merge_end().lock().await;
+        let landed = self.land(job, worktree).await;
+        let noted = self.note_delivery(job, landed.as_ref().ok(), None).await;
+        match (&landed, &noted) {
+            (Ok(_), Ok(())) => {
+                let envelope = Envelope::new(
+                    self.now(),
+                    Level::Info,
+                    Component::Fleet,
+                    self.run().clone(),
+                    "this job was approved to stop at its branch: the work is committed there, \
+                     and nothing was pushed, opened for review or merged",
+                )
+                .in_job(job.id().as_ulid().clone())
+                .at_step(step.as_str());
+                self.noted_in_the_log(job.id(), &envelope);
+            }
+            (Err(adrift), _) | (_, Err(adrift)) => self.noted_not_sent(
+                job,
+                step,
+                "this job stops at its branch and the commit did not land: the work stays \
+                 in the worktree",
+                Some(adrift),
             ),
         }
     }

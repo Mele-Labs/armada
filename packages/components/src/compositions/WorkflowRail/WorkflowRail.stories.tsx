@@ -333,7 +333,7 @@ export const ServedSteps: Story = {
  * `step_id`, because this workflow declares none and Fleet substitutes the id,
  * and the Check row says its name and not its command, because `GET /manifests`
  * serves names and not `run` strings. The status is the registry's word for
- * the state — `awaiting_human` reads `awaiting review` — so the row shows the
+ * the state — `awaiting_human` reads `needs review` — so the row shows the
  * wire value and its reading side by side.
  *
  * `not reached` and its `shield-minus` come from the criterion Check

@@ -1417,6 +1417,21 @@ Refused with a 409, and nothing kept, where any model in the map is one `list_mo
 `agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
 """
 
+[operations.to_proposer]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Send a proposal back to the proposer with a note, and bring what it rewrites to the gate"
+notes = """
+`POST /jobs/:job_id/to_proposer`, protocol 23.25, for the approval canvas. The body is `ToProposer`: `note`, and optionally the `tuning` and `landing` the person has set so far, in `ApproveDispatch`'s shapes. The answer is a `ProposedPlan`, as `propose_from_request`'s, because the rewrite may split.
+
+**The Job goes `awaiting_approval -> proposing` and back.** The proposer reads the request and the note, and its answer replaces the title, words, workflow and criteria whole. Each Job the answer makes is at `awaiting_approval` on its own, carrying the person's tuning for every step whose id the new workflow still has and the landing as it stands; what cannot carry is dropped, with a warning in the Job's log naming it. A call that cannot be read puts the proposal back as it was and refuses with the proposer's own code (`fleet.no_workflow_fits`, `fleet.proposer_unreadable` and the like). A Fleet that restarts mid-call escalates the Job as `proposer_failed`, as it does a first dispatch.
+
+409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`. 422 `fleet.unacceptable_proposal` on a blank note, a Job that is one of a split or was split, and a tuning or landing nothing could honour against the proposal the person is looking at. The route holds until the proposer answers, on a task of its own.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason.
+"""
+
 [operations.set_landing_target]
 kind = "command"
 transport = "HTTP"
@@ -1591,7 +1606,7 @@ The primary autonomy control.
 
 409 `fleet.proposal_frozen` on a Job past `awaiting_approval`, and the existing 409 on a move the machine refuses. 422 `fleet.no_such_branch` on a landing branch the repository does not hold, and 422 `fleet.unacceptable_proposal` on a blank title, a criterion the Job does not hold or sent twice, a Check on a typed line, `judge` alone on a step giving the Judge nothing to read, an override on a step deferring to no rule, `branching: group`, `complete_when` `pr_merged` or `pr_opened` (`all_members_landed` is kept since 23.13), and a cap of zero. 409 `fleet.wave_refused` on one Job of an Epic's wave, which is released with its wave by `approve_wave`. A model `list_models` does not offer is refused as `set_tiers` refuses one.
 
-**Since 23.20 a step may be tuned**: `tuning?`, a `StepTuning` per step (`step_id`, `model?`, `effort?`, `context?`, `judges?`, `checks_off?`), frozen into the step after its gate. 422 `fleet.unacceptable_proposal` on a step the workflow lacks or tuned twice, a blank model, `judges` of zero or on a step with no Judge, and a Check the step does not run or one of Fleet's own; an unknown field, `harness` among them, does not decode. **Since 23.21 `LandingChoice` takes `start_point?`**: a `from_ref` the repository lacks is made there at the press, and 422 `fleet.no_such_branch` names a `start_point` it lacks.
+**Since 23.20 a step may be tuned**: `tuning?`, a `StepTuning` per step (`step_id`, `model?`, `effort?`, `context?`, `judges?`, `checks_off?`), frozen into the step after its gate. 422 `fleet.unacceptable_proposal` on a step the workflow lacks or tuned twice, a blank model, `judges` of zero or on a step with no Judge, and a Check the step does not run or one of Fleet's own; an unknown field does not decode; since 23.23 `harness` is read and refused unless `list_models` lists it under `harnesses`. **Since 23.21 `LandingChoice` takes `start_point?`**: a `from_ref` the repository lacks is made there at the press, and 422 `fleet.no_such_branch` names a `start_point` it lacks. **Since 23.24 it takes `local?` and `auto_merge?`**: stop at the Job's branch with no pull request, or have the forge merge the pull request itself; 422 on both together.
 """
 
 [operations.edit_job]

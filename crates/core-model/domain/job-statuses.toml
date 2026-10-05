@@ -70,7 +70,7 @@ step_states = ["advanced", "awaiting_human", "not_started", "retrying", "running
 reason_storage = "None"
 reason_vocabulary = "None"
 transitions_in = ["proposing -> awaiting_approval", "queued -> awaiting_approval", "running -> awaiting_approval"]
-transitions_out = ["awaiting_approval -> queued", "awaiting_approval -> rejected", "awaiting_approval -> killed"]
+transitions_out = ["awaiting_approval -> queued", "awaiting_approval -> rejected", "awaiting_approval -> killed", "awaiting_approval -> proposing"]
 in_code = "Not yet"
 open_questions = ["How are a not-started Job's approval state and readiness state recorded?"]
 notes = "A person must approve the dispatch before anything runs. Readiness is not a status of its own: the readiness values are `queued`'s reason, and `ready` is the null there rather than a value."
@@ -218,16 +218,17 @@ terminal = false
 mode = "Working"
 who_is_acting = "None"
 drone_process = "None, and no slot either. The proposer is a model call Fleet makes in its own process — `crates/ipc/src/proposing.rs` is what a client watches it through — so there is no worktree, no session, no branch and nothing for `concurrency-cap` to admit. What a person may take away is the call, through `stop_proposal`, and never a Drone."
-step_machine = "There is none, and this is the one row where that is the answer. Every other row says where a frozen step machine stands; this status is the interval before a workflow has been resolved at all, so the Job holds no `job_steps` rows for one to stand in. The machine is initialised on the way out, at `proposing -> awaiting_approval`, which is the moment the proposer's answer freezes a WorkflowDef — `awaiting_approval`'s own \"Initialised at creation\" is what a Job dispatched some other way still gets."
-step_states = []
+step_machine = "There is none at a first dispatch, and until a person sends a proposal back from its gate this was the one row where that is the answer. Sent back, the Job holds the rows it held at the gate, all `not_started`, until the answer replaces them whole. Every other row says where a frozen step machine stands; this status is the interval before a workflow has been resolved at all, so the Job holds no `job_steps` rows for one to stand in. The machine is initialised on the way out, at `proposing -> awaiting_approval`, which is the moment the proposer's answer freezes a WorkflowDef — `awaiting_approval`'s own \"Initialised at creation\" is what a Job dispatched some other way still gets."
+step_states = ["advanced", "awaiting_human", "not_started", "retrying", "running", "stopped"]
 reason_storage = "None"
 reason_vocabulary = "None"
+transitions_in = ["awaiting_approval -> proposing"]
 transitions_out = ["proposing -> awaiting_approval", "proposing -> escalated", "proposing -> killed"]
 in_code = "Yes"
 notes = """
 A request has been dispatched and the Job proposer is reading it — `docs/concepts/job-proposer.md`, step 3. #1159. **The row exists from the moment Dispatch is pressed**, which is the whole of what this status buys: somebody who sends several requests at once and walks away has an address to come back to for each, and every surface that lists Jobs lists these with no second concept — the Board, search, Stats. Before it, the reading happened inside the dispatch dialog and until it answered there was no row anywhere.
 
-**The Job is created here and nothing arrives here**, which is why there is no `transitions_in`. It is the third entry status, beside `awaiting_approval`'s top-level Job and `queued`'s sub-dispatched one, and it is the only one of the three whose Job has no frozen workflow yet.
+**The Job is created here, and one road arrives**, a person sending the proposal back from its gate (4 Oct 2026), so `transitions_in` holds that edge alone. It is the third entry status, beside `awaiting_approval`'s top-level Job and `queued`'s sub-dispatched one, and it is the only one of the three whose Job has no frozen workflow yet.
 
 **`mode` is `Working` and `who_is_acting` is `None`, and the pair is not a contradiction.** The registry's header keeps them separate questions and this row is where they come apart furthest: something is happening, and it is neither a person nor a Drone. `Working` is what puts the row under the Board's Running tab rather than on somebody's list — `packages/screens/src/needs-you.ts` reads `mode` before the actor — and it is true: the money is being spent while it sits here. `None` is the honest actor because the three values name what a surface can address, a person to prompt or a Drone to poke, and neither exists; a fourth value for Fleet's own call would be a new wire word for a fact `mode` already carries. **Not `Person`**, which would put a dispatched request on the Needs you tab the moment it was sent, when there is nothing to answer. **Not `Drone`**, which would claim a process with a worktree and a slot.
 

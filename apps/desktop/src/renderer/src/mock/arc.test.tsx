@@ -829,7 +829,7 @@ describe("landing", () => {
     // The first is in, the second is a person's to answer, and the third is
     // branched off the second and still working.
     await expect.element(member(1).getByText("merged")).toBeVisible();
-    await expect.element(member(2).getByText("awaiting review")).toBeVisible();
+    await expect.element(member(2).getByText("needs review")).toBeVisible();
     await expect.element(member(3).getByText(/branches off member 2/)).toBeVisible();
     // Stacked means its pull request targets the branch before it, and not main.
     await expect
@@ -919,7 +919,7 @@ describe("the wave", () => {
     for (const [title, said] of [
       ["Refuse an unknown code at the seam", "done"],
       ["Name the fault in the toast", "done"],
-      ["Carry the code into the journal", "awaiting review"],
+      ["Carry the code into the journal", "needs review"],
       ["Say which half refused", "needs you"],
       ["Drop the second error shape", "running"],
     ] as const) {

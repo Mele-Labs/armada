@@ -176,6 +176,65 @@ impl Job {
         job
     }
 
+    /// A person sent the proposal back to the proposer with a note: the Job
+    /// is read again, from `awaiting_approval`. **Only a person's act**, and the
+    /// proposal stays on the record until the answer replaces it whole, so a
+    /// call that fails leaves [`Job::answered`] able to put it back.
+    pub fn sent_back_to_the_proposer(
+        &self,
+        by: Actor,
+        at: Timestamp,
+    ) -> Result<Transitioned, IllegalTransition> {
+        if self.status != JobStatus::AwaitingApproval {
+            return Err(IllegalTransition::NothingToReconsider { from: self.status });
+        }
+        if !matches!(by, Actor::Human | Actor::Helm) {
+            return Err(IllegalTransition::NotAPersonsAct {
+                from: JobStatus::AwaitingApproval,
+                to: JobStatus::Proposing,
+            });
+        }
+        let event = JobEvent::recorded(
+            self.id.clone(),
+            JobStatus::AwaitingApproval,
+            JobStatus::Proposing,
+            TransitionReason::Unqualified,
+            by,
+            at,
+        );
+        let mut job = self.clone();
+        job.status = JobStatus::Proposing;
+        Ok(Transitioned { job, event })
+    }
+
+    /// What this Job's proposal is, as an answer, so a revision that could not
+    /// be made puts it back with [`answered`](Job::answered).
+    pub fn as_answered(&self) -> Answered {
+        Answered {
+            title: self.title.clone(),
+            workflow: self.workflow.clone(),
+            steps: self
+                .workflow
+                .steps()
+                .iter()
+                .enumerate()
+                .map(|(ordinal, step)| StepSeed {
+                    step_id: step.id().clone(),
+                    ordinal: ordinal as u32,
+                })
+                .collect(),
+            urgency: self.urgency,
+            atomic: self.atomic,
+            model: self.model.clone(),
+            acceptance_criteria: self.acceptance_criteria.clone(),
+            dependencies: self.dependencies.clone(),
+            write_targets: self.write_targets.clone(),
+            subject: self.subject.clone(),
+            facts: self.facts.clone(),
+            scope_revisions: self.scope_revisions.clone(),
+        }
+    }
+
     /// The proposer answered: freeze its workflow, make the steps, and cross
     /// to `awaiting_approval`. Refused anywhere but `proposing`.
     pub fn answered(

@@ -180,14 +180,12 @@ impl JobStatus {
     }
 }
 
-/// Every status but `proposing`, which is the one status a Job holds before it
-/// has a workflow and therefore before it has a step at all.
-///
-/// **What `advanced` answers, where it answered [`JobStatus::ALL`].** No guard
-/// narrows this one: no edge arrives at `proposing`, so nothing is carried in,
-/// and no step row exists to be in any state. Written out for
+/// Every status. **What `advanced` answers**, as no guard narrows it: since a
+/// person may send a proposal back to the proposer from its gate, an edge
+/// arrives at `proposing` carrying the frozen step rows, so the walk reaches it
+/// as it reaches every other status. Written out for
 /// [`NOT_UNDER_COMPLETED_SUCCESS`]'s reason.
-const NOT_UNDER_PROPOSING: &[JobStatus] = &[
+const EVERY_STATUS: &[JobStatus] = &[
     JobStatus::AwaitingApproval,
     JobStatus::AwaitingAttestation,
     JobStatus::AwaitingRepair,
@@ -197,6 +195,7 @@ const NOT_UNDER_PROPOSING: &[JobStatus] = &[
     JobStatus::Escalated,
     JobStatus::Killed,
     JobStatus::Piloted,
+    JobStatus::Proposing,
     JobStatus::Queued,
     JobStatus::Rejected,
     JobStatus::Running,
@@ -219,6 +218,7 @@ const NOT_UNDER_COMPLETED_SUCCESS: &[JobStatus] = &[
     JobStatus::Escalated,
     JobStatus::Killed,
     JobStatus::Piloted,
+    JobStatus::Proposing,
     JobStatus::Queued,
     JobStatus::Rejected,
     JobStatus::Running,
@@ -242,6 +242,7 @@ const NOT_UNDER_A_SPENT_BUDGET: &[JobStatus] = &[
     JobStatus::Escalated,
     JobStatus::Killed,
     JobStatus::Piloted,
+    JobStatus::Proposing,
     JobStatus::Queued,
     JobStatus::Rejected,
     JobStatus::Running,
@@ -334,15 +335,12 @@ impl StepState {
     /// `completed_success`, which is the whole point of reaching it — a Job
     /// whose last step is a human gate cannot end while the gate is open.
     ///
-    /// **And nothing at all is seen under `proposing`**, which is why
-    /// `advanced` no longer answers [`JobStatus::ALL`]. That status is a
-    /// request dispatched and being read, before a workflow has been resolved,
-    /// so the Job has no `job_steps` rows for a state to be the state of. It is
-    /// the one status narrowed by the absence of an inbound edge rather than by
-    /// a [`Guard`](crate::Guard).
+    /// **`proposing` is under every arm bar the guarded ones**: a person's
+    /// note sends a Job back from `awaiting_approval` with its rows still
+    /// there, until the answer replaces them. A first dispatch holds none.
     pub fn seen_under(&self) -> &'static [JobStatus] {
         match self {
-            StepState::Advanced => NOT_UNDER_PROPOSING,
+            StepState::Advanced => EVERY_STATUS,
             StepState::AwaitingHuman => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::NotStarted => NOT_UNDER_COMPLETED_SUCCESS,
             StepState::Retrying => NOT_UNDER_COMPLETED_SUCCESS,

@@ -160,7 +160,7 @@ function isHeldAct(act: ConfirmableAct): act is HeldAct {
  *
  * **Two of the drawing's five leads are not here yet.** A running Job and a
  * plain escalated one lead with `Pilot`, which `actions.toml` carries as
- * `unbuilt = "#250"`; a Job awaiting review leads with `Review`, which on this
+ * `unbuilt = "#250"`; a Job that needs review leads with `Review`, which on this
  * screen is the decision block under the story rather than a header act. Until
  * those land there is no non-destructive lead on those renders, and a split
  * button with no legal lead is not a split button — so they keep the buttons

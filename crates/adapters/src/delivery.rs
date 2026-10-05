@@ -224,6 +224,10 @@ impl Delivery for GitVcs {
         crate::landing::merge(in_repo, pull_request)
     }
 
+    fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
+        crate::landing::enable_auto_merge(in_repo, pull_request)
+    }
+
     fn merge_by_push(
         &self,
         in_repo: &str,

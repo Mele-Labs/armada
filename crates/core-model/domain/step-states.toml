@@ -30,7 +30,7 @@
 
 [states.advanced]
 meaning = "The step passed its advance gate"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "completed_success", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "completed_success", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 notes = """
 Reached a second way, from `stopped`, when a person overrules the gate that refused it. The state is the same and the verdict is not: an overridden step keeps `failed(<trigger>)`, so a step the gate cleared and a step a person cleared over the gate are told apart by the pair and never by the state alone.
@@ -40,7 +40,7 @@ Reached a second way, from `stopped`, when a person overrules the gate that refu
 
 [states.awaiting_human]
 meaning = "The step's advance gate is a human gate, and it is open"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 notes = """
 This row said `awaiting_review` alone until something walked an edge into the state, and it was the narrowest claim in the file for the reason `status.rs` gave: the state had no `StepTarget`, so the row said where its design put it rather than where a walk found it. #522 gave it four edges, and the walk then answers what every wide row here answers — a frozen step crosses an unguarded edge holding what it held, so a Job killed, escalated or piloted at a human gate carries a held step across, and a person routing the work back to an earlier step leaves the gate holding while the Job goes back to `running`.
@@ -52,24 +52,24 @@ This row said `awaiting_review` alone until something walked an edge into the st
 
 [states.not_started]
 meaning = "Written at Job creation for every step of the frozen WorkflowDef"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 
 [states.retrying]
 meaning = "The step failed and is being reattempted inside its retry budget"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 notes = "This row said `running` alone until the transpose was read against the machine. A Job does not stop moving because a step is between attempts: whatever freezes it — a kill, an escalation, an approval sent back — freezes the step mid-retry, and a frozen step is never cleared. See job-statuses.toml's header."
 
 [states.running]
 meaning = "The step is being worked"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 notes = "**The one row narrowed by a guard other than `every_step_advanced`.** `running -> awaiting_repair` is admitted only where no step is being worked, so a Job held for repair never holds a `running` step — the gate stops it first, which is #179's finding and #208's edge."
 
 [states.stopped]
 meaning = "Retries spent"
-seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "queued", "rejected", "running", "superseded"]
+seen_under = ["awaiting_approval", "awaiting_attestation", "awaiting_repair", "awaiting_review", "completed_failed", "escalated", "killed", "piloted", "proposing", "queued", "rejected", "running", "superseded"]
 in_code = "Not yet"
 notes = "The step's retries are spent; it is neither retrying nor waiting on a person."
 why = "Folding it into `retrying` or `awaiting_human` would make a designed human gate and a dead stop render alike."

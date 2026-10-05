@@ -71,6 +71,8 @@ fn every_edge_in_the_table_is_admitted() {
     for edge in EDGES
         .iter()
         .filter(|e| !(e.from == JobStatus::Proposing && e.to == JobStatus::AwaitingApproval))
+        // No `Target` names `proposing`; `proposing.rs` walks this edge.
+        .filter(|e| !(e.from == JobStatus::AwaitingApproval && e.to == JobStatus::Proposing))
     {
         // A guarded edge makes two claims and this is the first: admitted with
         // its condition met. That it refuses without it is asserted below.
