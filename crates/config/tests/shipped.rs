@@ -407,3 +407,21 @@ fn a_forge_link_is_offered_a_line_written_in_the_words_somebody_asking_would_use
         );
     }
 }
+
+/// **Every shipped step says what it does.** Bridge draws the line at the
+/// approval gate, where a person meets a workflow's steps for the first time.
+#[test]
+fn every_shipped_step_says_what_it_does() {
+    for (path, text) in shipped() {
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            assert!(
+                step.about().is_some_and(|about| !about.trim().is_empty()),
+                "{} step `{}` has no `about`",
+                path.display(),
+                step.id().as_str(),
+            );
+        }
+    }
+}

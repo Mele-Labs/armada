@@ -48,6 +48,7 @@ import type { MergeLineView } from "../../merge-line";
 import type { Outstanding } from "../../outstanding";
 import type { JobFixture } from "../fixture";
 import { manifest, MANIFEST_ID, spend } from "./base";
+import { aboutOf } from "./step-about";
 
 /** The Job every arc moment is a moment of. */
 export const ARC_JOB_ID = "01M2D4YQK80011620DRONEST";
@@ -168,7 +169,7 @@ export function featureWorkflow(): WorkflowSummary {
     name: "feature",
     version: 1,
     manifest_id: MANIFEST_ID,
-    steps: [
+    steps: ([
       {
           step_id: "plan",
           label: "Plan the change",
@@ -198,7 +199,7 @@ export function featureWorkflow(): WorkflowSummary {
           delivers: true,
           phase: "delivery",
         },
-    ],
+    ] satisfies WorkflowSummary["steps"]).map((one) => ({ ...one, ...aboutOf("feature", one.step_id) })),
   };
 }
 

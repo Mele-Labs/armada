@@ -104,7 +104,7 @@ pub struct Judging {
 
 /// How many turns a Judge's call may take, its reads and its answer together.
 /// `judge-read-turns` in `crates/config/settings.toml`.
-pub(crate) const JUDGE_READ_TURNS: NonZeroU8 = NonZeroU8::new(8).expect("eight is not zero");
+pub(crate) const JUDGE_READ_TURNS: NonZeroU8 = NonZeroU8::new(16).expect("sixteen is not zero");
 
 /// What a Judge may read: the repository's checkout at `root`, for
 /// [`JUDGE_READ_TURNS`].

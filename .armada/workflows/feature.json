@@ -54,6 +54,7 @@
     {
       "id": "plan",
       "label": "Plan the change",
+      "about": "Reads the request and the code, and writes down the change as tasks. Nothing is changed yet. The tasks are what Implement works from.",
       "evidence": {
         "submitted": { "type": "plan" }
       },
@@ -88,6 +89,7 @@
     {
       "id": "implement",
       "label": "Implement",
+      "about": "Builds the change and its tests from the plan, one Drone per task, and runs the repository's checks on the result.",
       "evidence": {
         "submitted": { "type": "diff" },
         "captured": true
@@ -155,6 +157,7 @@
     {
       "id": "handoff",
       "label": "Review the change",
+      "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
       "evidence": {
         "submitted": { "type": "review" }
       },

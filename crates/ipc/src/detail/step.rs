@@ -193,6 +193,10 @@ pub struct StepDetail {
     /// workflow. Absent where Fleet cannot say, as `delivers` is. Since 23.19.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase: Option<crate::StepPhase>,
+    /// [`WorkflowStep::about`](crate::WorkflowStep::about), off the frozen workflow.
+    /// Absent where the workflow wrote none. Since 23.31.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
     /// Whether this step's Drone may create Jobs. Absent is false. Since 23.19.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub may_dispatch_jobs: bool,
@@ -430,6 +434,7 @@ impl StepDetail {
             delivers: declared.map(core_model::ResolvedStep::delivers),
             drone_per_task: declared.is_some_and(core_model::ResolvedStep::drone_per_task),
             phase: declared.map(|declared| declared.phase().into()),
+            about: declared.and_then(|declared| declared.about().map(str::to_string)),
             may_dispatch_jobs: declared.is_some_and(core_model::ResolvedStep::may_dispatch_jobs),
             pass: declared
                 .map(core_model::ResolvedStep::iteration_cap)
