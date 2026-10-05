@@ -36,6 +36,26 @@ export type WorkflowStepNeed = {
   tone: "waiting" | "failed";
 };
 
+/**
+ * A header band over the card, in the bays' language (`PoolSlots`): a solid
+ * band in a hue, one mark a part, a CAPS label and a mono tag at the trailing
+ * edge. **The band says what the card is and never how a run is going**, so the
+ * caller names the hue, and the marks and the label carry the meaning without
+ * it. Absent draws the card exactly as before.
+ */
+export type WorkflowStepBand = {
+  /** One mark each, 12px, named on hover. */
+  marks: readonly { icon: LucideIcon; said: string }[];
+  /** CAPS by the stylesheet. */
+  label: string;
+  /** A mono tag at the trailing edge: the step's id. */
+  tag?: string;
+  /** The band's hue, a custom property name — `--status-running`. */
+  token: string;
+  /** `dashed` is an outline with no fill, `hatched` the caution hatch a stranded bay wears. */
+  look?: "solid" | "dashed" | "hatched";
+};
+
 export type WorkflowStepCardProps = {
   /**
    * A step of the workflow, a group of a plan, or a task inside a group. The
@@ -96,6 +116,11 @@ export type WorkflowStepCardProps = {
    * and the sweep stands down. Absent on a step neither running nor waiting.
    */
   track?: readonly StepPhasePart[];
+  band?: WorkflowStepBand;
+  /** A mono line in the accent under the others, the card's own act — where it sends work back to. */
+  action?: string;
+  /** Takes the accent edge on its leading side: the card sends work back. */
+  returns?: boolean;
 };
 
 export function WorkflowStepCard({
@@ -115,6 +140,9 @@ export function WorkflowStepCard({
   needs = [],
   bar,
   track,
+  band,
+  action,
+  returns = false,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -157,6 +185,19 @@ export function WorkflowStepCard({
           rather than inside its content box. Nothing to read: the mark and the
           word beside it already say running. */}
       {working && track === undefined ? <span className="armada-wf-card__sweep" aria-hidden="true" /> : null}
+      {band === undefined ? null : (
+        <span className="armada-wf-card__band">
+          {band.marks.map((one) => (
+            <Tooltip key={one.said} asChild label={one.said}>
+              <span className="armada-wf-card__band-mark" role="img" aria-label={one.said}>
+                <one.icon size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          ))}
+          <span className="armada-wf-card__band-label">{band.label}</span>
+          {band.tag === undefined ? null : <span className="armada-wf-card__band-tag">{band.tag}</span>}
+        </span>
+      )}
       <span className="armada-wf-card__head">
         {mark === undefined ? (
           <StepActivityMark
@@ -201,6 +242,7 @@ export function WorkflowStepCard({
           {gate}
         </span>
       )}
+      {action === undefined ? null : <span className="armada-wf-card__action">{action}</span>}
       {track === undefined ? null : (
         <span className="armada-wf-card__track">
           <StepPhaseTrack parts={track} />
@@ -218,6 +260,14 @@ export function WorkflowStepCard({
     "data-kind": kind,
     "data-current": current || undefined,
     "data-working": working || undefined,
+    ...(band === undefined
+      ? {}
+      : {
+          "data-banded": "",
+          "data-look": band.look ?? "solid",
+          "data-returns": returns || undefined,
+          style: { "--armada-wf-band": `var(${band.token})` } as CSSProperties,
+        }),
   };
 
   return onOpen === undefined ? (

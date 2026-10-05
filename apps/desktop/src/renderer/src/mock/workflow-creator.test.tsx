@@ -43,8 +43,11 @@ test("a workflow is drawn as steps, a step sending work back is a back edge, and
   await open();
 
   await page.getByRole("button", { name: "bug, repository" }).click();
-  await expect.element(page.getByRole("button", { name: /^repro, / })).toBeVisible();
-  await expect.element(page.getByText("up to 4 passes")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Repro, / })).toBeVisible();
+  await expect.element(page.getByText("up to 4 passes").first()).toBeVisible();
+  // The band names how the step advances, and the step that sends work back says where.
+  await expect.element(page.getByRole("button", { name: /^Fix, / }).getByRole("img", { name: "Judge" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Review, / }).getByText("returns to fix")).toBeVisible();
   await expect.element(page.getByRole("radio", { name: "Loop" })).not.toBeInTheDocument();
 });
 
@@ -52,7 +55,7 @@ test("a step opens in the sheet, a Judge with no question is refused on its node
   await open();
 
   await page.getByRole("button", { name: "release_notes, kit" }).click();
-  await page.getByRole("button", { name: /^gather, / }).click();
+  await page.getByRole("button", { name: /^Gather, / }).click();
   const panel = page.getByRole("dialog", { name: "gather" });
   await panel.getByRole("checkbox", { name: "Judge" }).click({ force: true });
   await panel.getByRole("button", { name: "Close" }).click();
@@ -61,9 +64,9 @@ test("a step opens in the sheet, a Judge with no question is refused on its node
   const refusals = page.getByRole("list", { name: "Refusals" });
   await expect.element(refusals.getByText("Judge ticked and the step names no question")).toBeVisible();
   await expect.element(frame().getByText("Refused", { exact: true })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: /^gather, / }).getByText(/names no question/)).toBeVisible();
+  await expect.element(page.getByRole("button", { name: /^Gather, / }).getByText(/names no question/)).toBeVisible();
 
-  await page.getByRole("button", { name: /^gather, / }).click();
+  await page.getByRole("button", { name: /^Gather, / }).click();
   await page.getByRole("dialog", { name: "gather" }).getByRole("textbox", { name: "Judge question" }).fill("Does it cover every change?");
   await page.getByRole("dialog", { name: "gather" }).getByRole("button", { name: "Close" }).click();
   await expect.element(refusals).not.toBeInTheDocument();

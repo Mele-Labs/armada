@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Ban, Briefcase, Check, FolderGit2, MessageSquare, Package, Trash2 } from "lucide-react";
+import { Ban, Briefcase, Check, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Alert } from "../../primitives/Alert/Alert";
@@ -10,6 +10,7 @@ import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { WorkflowCanvas, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "../WorkflowCanvas/WorkflowCanvas";
+import type { WorkflowStepBand } from "../WorkflowStepCard/WorkflowStepCard";
 import {
   blankDefinition,
   blankStep,
@@ -78,43 +79,77 @@ function copy<T>(value: T): T {
   return structuredClone(value);
 }
 
-/** One card's height with a row under its name, and what each further row adds. `workflow-canvas.ts`'s own numbers. */
+/** A card's height with one row under its name, a band over it, and what each further row adds. `workflow-canvas.ts`'s numbers. */
 const STEP_APART = 112;
+const BAND = 28;
 const ROW = 28;
 
 const canvasId = (at: number) => `step:${at}`;
 
-function gateWords(gate: Gate): string | undefined {
-  if (gate.repository) return "repository decides";
-  const ticked = [gate.checks ? "checks" : null, gate.judge ? "judge" : null, gate.you ? "you" : null].filter(
-    (one) => one !== null,
-  );
-  return ticked.length === 0 ? undefined : ticked.join(" · ");
+/**
+ * What a step IS, as its band: **how it advances**, since a definition has no
+ * run to colour. The strongest setting picks the hue (you, then Judge, then
+ * Checks); every ticked setting keeps its own mark and its word in the label,
+ * so the meaning holds without the colour. The hues are existing status
+ * aliases chosen for this mock, and the owner's to change.
+ */
+const GATE: Record<"checks" | "judge" | "you" | "repository" | "auto", { icon: LucideIcon; said: string; token: string }> = {
+  checks: { icon: ShieldCheck, said: "Checks", token: "--status-running" },
+  judge: { icon: Scale, said: "Judge", token: "--status-rejected" },
+  you: { icon: UserCheck, said: "You", token: "--status-awaiting-review" },
+  repository: { icon: FolderGit2, said: "Repository decides", token: "--accent" },
+  auto: { icon: Zap, said: "Submission only", token: "--status-not-started" },
+};
+
+export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
+  const g = step.gate;
+  type Kind = keyof typeof GATE;
+  const ticked: Kind[] = g.repository ? ["repository"] : [];
+  if (!g.repository) {
+    if (g.checks) ticked.push("checks");
+    if (g.judge) ticked.push("judge");
+    if (g.you) ticked.push("you");
+  }
+  const kinds: Kind[] = ticked.length === 0 ? ["auto"] : ticked;
+  const lead = kinds.includes("you") ? "you" : kinds.includes("judge") ? "judge" : kinds[0]!;
+  const tag = step.id === "" ? undefined : step.id;
+  const marks = kinds.map((one) => ({ icon: GATE[one].icon, said: GATE[one].said }));
+  if (refused) return { marks, label: "Refused", ...(tag === undefined ? {} : { tag }), token: "--notice-caution", look: "hatched" };
+  return {
+    marks,
+    label: kinds.map((one) => (one === "auto" ? "Auto" : one === "repository" ? "Repository" : GATE[one].said)).join(" · "),
+    ...(tag === undefined ? {} : { tag }),
+    token: GATE[lead].token,
+    look: kinds[0] === "auto" ? "dashed" : "solid",
+  };
 }
+
+/** The title a step reads as: its id without the underscores. */
+const titleOf = (id: string, at: number) => (id === "" ? `Step ${at + 1}` : id.charAt(0).toUpperCase() + id.slice(1).replaceAll("_", " "));
 
 /** The definition as the canvas draws it: a spine down, and a back edge wherever a step sends work back. */
 function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void) {
   let y = 0;
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
-    const gate = gateWords(step.gate);
-    const facts = [{ value: step.evidence }, ...(step.check === "none" ? [] : [{ value: step.check }])];
-    const rows = needs.length + (gate === undefined ? 0 : 1);
+    const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
+    const line = [step.evidence, step.check === "none" ? null : step.check].filter((one) => one !== null).join(" · ");
+    const rows = 1 + needs.length + (back ? 1 : 0);
     const here = y;
-    y += STEP_APART + (Math.max(rows, 1) - 1) * ROW;
+    y += STEP_APART + BAND + (rows - 1) * ROW;
     return {
       id: canvasId(at),
       position: { x: 0, y: here },
       card: {
         kind: "step",
-        name: step.id === "" ? `step ${at + 1}` : step.id,
-        nameIsAnIdentifier: step.id !== "",
+        name: titleOf(step.id, at),
         activity: "not_started",
         said: `step ${at + 1}`,
         ordinal: at + 1,
-        facts,
+        line,
         needs,
-        ...(gate === undefined ? {} : { gate }),
+        band: bandOf(step, needs.length > 0),
+        ...(back ? { action: `returns to ${step.returnsTo}`, returns: true } : {}),
         selected: panel === at,
         onOpen: () => onOpen(at),
       },
@@ -292,7 +327,7 @@ function MiniGraph({ def }: { def: Definition }) {
           );
         })}
         {def.steps.map((_, at) => (
-          <circle key={at} className="armada-wf-mini__dot" cx={PAD + DOT + at * GAP} cy={base} r={DOT} />
+          <circle key={at} className="armada-wf-mini__dot" style={{ fill: `var(${bandOf(def.steps[at]!, false).token})` }} cx={PAD + DOT + at * GAP} cy={base} r={DOT} />
         ))}
       </svg>
     </Tooltip>
