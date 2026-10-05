@@ -12,7 +12,7 @@ import { page } from "vitest/browser";
 import { refactorAtApproval, withRow } from "./job-detail-fixtures";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import { onJob } from "./scenario";
-import { mount, openNode, unmountAfterEach } from "./testing";
+import { closeNode, mount, openNode, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -33,6 +33,7 @@ test("a Job Fleet found draws no origin on its criteria, on the approval panel o
   await expect.element(doneWhen().getByText("The Judge will decide it").first()).toBeVisible();
   expect(doneWhen().getByRole("img", FROM_REQUEST).elements()).toHaveLength(0);
 
+  await closeNode();
   await page.getByRole("tab", { name: /^Plan/ }).last().click();
   await expect.element(heldTo()).toBeVisible();
   await expect.element(heldTo().getByText("The Judge will decide it", { exact: true }).first()).toBeVisible();
@@ -44,6 +45,7 @@ test("a Job a person dispatched still says its criteria came from their request"
   await openNode("Done when");
   await expect.element(doneWhen().getByRole("img", FROM_REQUEST).first()).toBeVisible();
 
+  await closeNode();
   await page.getByRole("tab", { name: /^Plan/ }).last().click();
   await expect.element(heldTo().getByRole("img", FROM_REQUEST).first()).toBeVisible();
 });
@@ -59,6 +61,7 @@ test("a criterion Fleet read from an issue names the issue, and says the issue m
   // Since Fleet read it, never since the words froze: nothing is frozen at the gate.
   expect(doneWhen().getByText(/since these words were frozen/).elements()).toHaveLength(0);
 
+  await closeNode();
   await page.getByRole("tab", { name: /^Plan/ }).last().click();
   await expect.element(heldTo().getByText("armada#1162").first()).toBeVisible();
   expect(heldTo().getByRole("img", MOVED).elements()).toHaveLength(2);

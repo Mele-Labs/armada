@@ -513,6 +513,7 @@ answers on its own and no question reaches the Drone.
 | Not behind | Nothing at all, and nothing is announced |
 | Behind, and it replays | The Drone is told what moved, in its next turn |
 | Behind, and it conflicts | The conflict is handed to the Drone as work, every file named |
+| Behind, and the conflict is lines added to a declared list file | There is none: git keeps both (`.gitattributes`, [list files](list-files.md)) |
 
 **Uncommitted work is never destroyed by this.** Fleet commits only at the last
 step, so mid-Job the worktree is full of uncommitted changes; the rebase carries

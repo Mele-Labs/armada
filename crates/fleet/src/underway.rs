@@ -27,7 +27,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -100,6 +100,14 @@ pub(crate) struct Landed {
     pub took: Duration,
     /// Every Check still running or waiting, in the step's order.
     pub still: Vec<String>,
+}
+
+/// What a Drone's run says while it goes on.
+#[derive(Clone, Debug)]
+pub(crate) enum Heard {
+    Landed(Landed),
+    /// The run is waiting for a place while this many are held by other work.
+    Queued(usize),
 }
 
 static TOKENS: AtomicU64 = AtomicU64::new(0);
@@ -202,7 +210,9 @@ struct Bound {
     whose: Whose,
     token: u64,
     /// Told each result that lands while a Drone's run goes on. `None` at a gate.
-    hearing: Option<UnboundedSender<Landed>>,
+    hearing: Option<UnboundedSender<Heard>>,
+    /// Whether the Drone has been told it is queued; once per run.
+    queued: AtomicBool,
     /// Each command that ran to an exit code, and how long it took. `None`
     /// where the run's durations are not the Checks' own, as a narrowed run's.
     timed: Option<Mutex<Vec<(String, Duration)>>>,
@@ -248,6 +258,7 @@ impl Announcing {
             whose: Whose::Gate,
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: None,
+            queued: AtomicBool::new(false),
             timed: Some(Mutex::new(Vec::new())),
             again: None,
         }))
@@ -264,7 +275,7 @@ impl Announcing {
         underway: Underway,
         events: api::Broadcaster,
         clock: Arc<dyn Clock>,
-        hearing: UnboundedSender<Landed>,
+        hearing: UnboundedSender<Heard>,
         whole: bool,
     ) -> Announcing {
         Announcing(Some(Bound {
@@ -278,6 +289,7 @@ impl Announcing {
             whose: Whose::DryRun,
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: Some(hearing),
+            queued: AtomicBool::new(false),
             timed: whole.then(|| Mutex::new(Vec::new())),
             again: None,
         }))
@@ -306,6 +318,7 @@ impl Announcing {
             whose: bound.whose,
             token: bound.token,
             hearing: None,
+            queued: AtomicBool::new(false),
             timed: None,
             again: Some(Again {
                 slots,
@@ -479,6 +492,11 @@ impl Announcing {
     /// on every Check still waiting, and cleared by zero. #1063.
     pub(crate) fn behind(&self, others: usize) {
         let Some(bound) = self.0.as_ref() else { return };
+        if others > 0 && !bound.queued.swap(true, Ordering::Relaxed) {
+            if let Some(hearing) = bound.hearing.as_ref() {
+                let _ = hearing.send(Heard::Queued(others));
+            }
+        }
         let behind = u32::try_from(others).ok().filter(|held| *held > 0);
         let checking = {
             let Ok(mut held) = bound.underway.0.lock() else {
@@ -606,7 +624,7 @@ impl Announcing {
                     .collect(),
             }
         };
-        let _ = hearing.send(landed);
+        let _ = hearing.send(Heard::Landed(landed));
     }
 
     /// Each command that ran to an exit code and how long it took, in the

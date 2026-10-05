@@ -312,10 +312,8 @@ async fn a_re_run_that_reaches_a_failing_check_rules_on_it() {
 
 // ------------------------------------------ what it must not be able to do
 
-/// **This act and the override partition the triggers.** `overrulable` admits
-/// `gate_failure` because a machine ruled; this refuses it for the same reason,
-/// turned around — running the gate again would ask a question that was
-/// answered and draw the same answer.
+/// **This act refuses `gate_failure`.** A machine ruled on it, so running the
+/// gate again would ask a question that was answered and draw the same answer.
 #[tokio::test]
 async fn a_step_the_judge_refused_is_not_re_run() {
     let home = TempDir::new();

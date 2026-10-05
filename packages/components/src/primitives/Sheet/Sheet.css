@@ -392,3 +392,16 @@
 .armada-sheet__way > .armada-button[data-variant="ghost"] {
   margin-left: calc(-1 * var(--space-2));
 }
+
+/* Through: the ground behind keeps its presses. The scrim paints and takes
+   nothing, and does not fade in; the panel and its handle take their own. */
+.armada-sheet-scrim[data-through] {
+  background: none;
+  pointer-events: none;
+  animation: none;
+}
+
+.armada-sheet-scrim[data-through] > .armada-sheet,
+.armada-sheet-scrim[data-through] > .armada-dock-handle {
+  pointer-events: auto;
+}

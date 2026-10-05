@@ -202,6 +202,7 @@ pub(crate) fn merge_by_push(
     let RemoteBase { base, gated, .. } = fetched_base(in_repo, declared)?;
     if onto_base::is_ancestor(root, &candidate, &gated) {
         return Ok(PushedOntoBase {
+            merge: onto_base::merge_naming(root, &gated, &candidate),
             base,
             merged: Merged::AlreadyMerged,
         });
@@ -242,6 +243,7 @@ pub(crate) fn merge_by_push(
         Onto::Landed => Ok(PushedOntoBase {
             base,
             merged: Merged::Taken,
+            merge: Some(merge),
         }),
         Onto::Moved => Err(NotMerged::BaseMoved {
             said: format!("{base} moved on {REMOTE} between the fetch and the push"),

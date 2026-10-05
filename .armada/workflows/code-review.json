@@ -50,6 +50,7 @@
     {
       "id": "read",
       "label": "Read the diff",
+      "about": "Reads the pull request's diff and writes down what it changes. The pull request itself is only read. The notes are what Assess works from.",
       "records_plan": true,
       "evidence": {
         "submitted": { "type": "facts_note" }
@@ -69,6 +70,7 @@
     {
       "id": "assess",
       "label": "Assess",
+      "about": "Weighs the change against the notes and writes the review. You read it before it goes anywhere.",
       "follows_plan": true,
       "evidence": {
         "submitted": { "type": "review" }
@@ -88,6 +90,7 @@
     {
       "id": "deliver",
       "label": "Deliver the review",
+      "about": "Delivers the review you approved. No code is landed.",
       "evidence": {
         "submitted": { "type": "bundle" }
       },

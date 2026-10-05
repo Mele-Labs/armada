@@ -31,6 +31,7 @@ mod rules_gitnexus;
 mod rules_guides;
 mod rules_icons;
 mod rules_layers;
+mod rules_list_files;
 mod rules_node;
 mod rules_privacy;
 mod rules_protocol;
@@ -140,6 +141,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads,
     rules_stylesheets::claims::no_two_compositions_claim_one_class,
     rules_tests::every_test_file_is_declared,
+    rules_list_files::a_list_file_holds_only_entries,
     rules_transcripts::no_bare_transcript_read_in_a_test,
     rules_protocol::the_router_serves_what_the_inventory_names,
     rules_protocol::unserved::every_operation_the_inventory_names_is_served,

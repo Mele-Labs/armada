@@ -27,4 +27,27 @@ describe("lifeOf", () => {
     // No plan recorded, so the canvas keeps its Groups placeholder.
     expect(groups).toBeUndefined();
   });
+
+  it("keeps a step's Checks as passed after the gate was asked again", () => {
+    // Asking again records attempt 2 and re-runs no Check, so `check_runs` still names attempt 1.
+    const asked = {
+      job: { current_step_id: "plan" },
+      steps: [
+        {
+          step_id: "plan",
+          state: "stopped",
+          checks: [{ kind: "plan_recorded" }],
+          check_runs: [{ attempt: 1, name: "plan_recorded", outcome: "passed" }],
+          attempts: [
+            { attempt: 1, outcome: "stopped", why: "gate_undecided", started_at: "2026-10-05T14:00:00Z" },
+            { attempt: 2, outcome: "stopped", why: "gate_undecided", started_at: "2026-10-05T14:10:00Z" },
+          ],
+        },
+      ],
+    } as unknown as JobWhole;
+    expect(lifeOf(asked).nodes["plan:checks"]).toMatchObject({
+      activity: "advanced",
+      run: { commands: [{ name: "plan_recorded", outcome: "passed" }] },
+    });
+  });
 });

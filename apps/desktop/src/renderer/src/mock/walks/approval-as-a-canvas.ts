@@ -1,5 +1,5 @@
 // The dispatch gate drawn as the run it will be (prototype, 3 Oct 2026), in
-// three lanes — setup, the work, delivery — each gate beside its step: each node opens a card beside it with what it tunes for this Job,
+// three lanes — setup, the work, delivery — each gate beside its step: each node opens a panel on the right with what it tunes for this Job,
 // another workflow rebuilds the steps, Done when is one list on two nodes, and
 // how it lands reshapes the end of the run.
 
@@ -21,9 +21,9 @@ export const approvalAsACanvas = walk("proto/feature-at-approval", [
   { type: "opus", into: role("combobox", "Model on Plan the change"), say: "Plan runs on opus" },
   { look: inside(card("Plan the change"), text("opus")), say: "and the node says so" },
   { look: role("group", /^Plan, /), say: "Plan, with its groups drawn once the plan exists" },
-  { press: card("Checks"), say: "Write tests' gate" },
-  { type: "3", into: role("spinbutton", "Judges on Write tests"), say: "Three Judges" },
-  { press: role("checkbox", "You on Write tests"), say: "and it stops for you" },
+  { press: card("Checks"), say: "Implement's gate" },
+  { type: "3", into: role("spinbutton", "Judges on Implement"), say: "Three Judges" },
+  { press: role("checkbox", "You on Implement"), say: "and it stops for you" },
   { press: card("Done when"), say: "What counts as the work being done" },
   {
     type: "The guide catalogue still opens on guide 1, with guide 8 gone",

@@ -15,7 +15,7 @@ use super::{ChecksReported, HEADING};
 use crate::checking::Completed;
 use crate::daemon::Fleet;
 use crate::session::{LiveSession, Occasion};
-use crate::underway::Landed;
+use crate::underway::{Heard, Landed};
 
 impl ChecksReported {
     /// One result, landed while others still run.
@@ -40,6 +40,32 @@ impl ChecksReported {
     }
 }
 
+impl ChecksReported {
+    /// The run is waiting for a place; said once.
+    pub(super) fn queued(others: usize, of: usize) -> ChecksReported {
+        ChecksReported(format!(
+            "{HEADING}\n\nWaiting for a Check slot, {others} of {of} in use. Your run \
+             starts when one is free, and each result arrives as its own turn."
+        ))
+    }
+}
+
+impl ChecksReported {
+    /// The run outlived its time-box and was stopped.
+    pub(super) fn timed_out(whole: std::time::Duration, running: &[String]) -> ChecksReported {
+        let minutes = whole.as_secs().div_ceil(60);
+        let unit = if minutes == 1 { "minute" } else { "minutes" };
+        let where_it_stood = match running.is_empty() {
+            true => "It was still waiting for a Check slot.".to_string(),
+            false => format!("It was running {}.", running.join(", ")),
+        };
+        ChecksReported(format!(
+            "{HEADING}\n\nThe checks did not finish in {minutes} {unit}, so they were \
+             stopped. {where_it_stood} Ask again, or submit when the work is done."
+        ))
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -56,25 +82,25 @@ where
         caller: &JobId,
         run: u64,
         running: impl Future<Output = Vec<Completed>>,
-        mut hearing: UnboundedReceiver<Landed>,
+        mut hearing: UnboundedReceiver<Heard>,
     ) -> Vec<Completed> {
         tokio::pin!(running);
         let completed = loop {
             tokio::select! {
                 biased;
-                Some(landed) = hearing.recv() => self.told_landed(caller, run, &landed).await,
+                Some(heard) = hearing.recv() => self.told_heard(caller, run, heard).await,
                 completed = &mut running => break completed,
             }
         };
         // A result heard just before the run ended still goes before the report.
-        while let Ok(landed) = hearing.try_recv() {
-            self.told_landed(caller, run, &landed).await;
+        while let Ok(heard) = hearing.try_recv() {
+            self.told_heard(caller, run, heard).await;
         }
         completed
     }
 
     /// Tell the Drone one result, only while its run is still the one in flight.
-    async fn told_landed(&self, caller: &JobId, run: u64, landed: &Landed) {
+    async fn told_heard(&self, caller: &JobId, run: u64, heard: Heard) {
         let Some(slot) = self.slot_of(caller).await else {
             return;
         };
@@ -85,7 +111,10 @@ where
         else {
             return;
         };
-        let told = ChecksReported::landed(landed);
+        let told = match &heard {
+            Heard::Landed(landed) => ChecksReported::landed(landed),
+            Heard::Queued(others) => ChecksReported::queued(*others, self.checks_at_once().get()),
+        };
         // Written down before the send, `Fleet::tell`'s order.
         at_work.instructed(Occasion::Checks, told.text());
         let _ = at_work.session().checks(&told).await;
