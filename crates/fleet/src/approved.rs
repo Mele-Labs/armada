@@ -173,6 +173,11 @@ where
                     .map_err(|why| why.about(job_id))?;
             }
         }
+        crate::tuned::harnesses_held(
+            body.tuning.as_deref().unwrap_or_default(),
+            &self.models().harnesses,
+        )
+        .map_err(|why| refused(job_id, Refused::Untuned(why)))?;
         for model in body
             .tuning
             .iter()

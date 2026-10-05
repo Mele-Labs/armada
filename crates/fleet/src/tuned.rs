@@ -35,6 +35,12 @@ pub enum Untunable {
         step: String,
         check: String,
     },
+    /// A harness Fleet does not run.
+    NoSuchHarness {
+        step: String,
+        named: String,
+        held: Vec<String>,
+    },
     /// `checks_off` names one of Fleet's own looks, which is what the step is
     /// rather than a gate on it.
     CheckIsTheStep {
@@ -64,12 +70,33 @@ impl fmt::Display for Untunable {
             Untunable::NoSuchCheck { step, check } => {
                 write!(out, "step `{step}` runs no Check `{check}` to turn off")
             }
+            Untunable::NoSuchHarness { step, named, held } => write!(
+                out,
+                "step `{step}` names the harness `{named}`, which this Fleet does not run; it runs {}",
+                held.join(", ")
+            ),
             Untunable::CheckIsTheStep { step, check } => write!(
                 out,
                 "`{check}` is what step `{step}` is, not a gate on it, so it cannot be turned off"
             ),
         }
     }
+}
+
+/// Refused where a step names a harness this Fleet does not run.
+pub(crate) fn harnesses_held(tuning: &[ipc::StepTuning], held: &[String]) -> Result<(), Untunable> {
+    for sent in tuning {
+        if let Some(named) = sent.harness.as_deref().map(str::trim) {
+            if !held.iter().any(|one| one == named) {
+                return Err(Untunable::NoSuchHarness {
+                    step: sent.step_id.as_str().to_string(),
+                    named: named.to_string(),
+                    held: held.to_vec(),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Each step as a person tuned it, after its gate: a Check a gate box already

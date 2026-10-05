@@ -63,6 +63,7 @@ fn code(refusal: &Refusal) -> &str {
 const TUNED: &str = r#"{"tuning": [{
   "step_id": "implement",
   "model": "another-model",
+  "harness": "a-harness",
   "effort": "high",
   "context": "  Keep the reader's public shape.  ",
   "judges": 3,
@@ -171,6 +172,10 @@ async fn a_tuning_nothing_could_honour_is_refused_and_keeps_nothing() {
         (r#"{"step_id": "implement", "judges": 0}"#, "no Judges"),
         (r#"{"step_id": "handoff", "judges": 2}"#, "no panel to size"),
         (
+            r#"{"step_id": "implement", "harness": "another"}"#,
+            "runs a-harness",
+        ),
+        (
             r#"{"step_id": "implement", "checks_off": ["lint"]}"#,
             "no Check `lint`",
         ),
@@ -189,14 +194,6 @@ async fn a_tuning_nothing_could_honour_is_refused_and_keeps_nothing() {
         };
         assert!(error.message.contains(says), "{tuning}: {}", error.message);
     }
-    let harness: Result<ipc::ApproveDispatch, _> = ipc::decode(
-        "an approval",
-        br#"{"tuning": [{"step_id": "implement", "harness": "another"}]}"#,
-    );
-    assert!(
-        harness.is_err(),
-        "a harness Fleet cannot run is not dropped"
-    );
     let held = fleet.load(job.id()).await.expect("the Job");
     assert_eq!(held.status(), core_model::JobStatus::AwaitingApproval);
     let step = held

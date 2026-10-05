@@ -43,6 +43,8 @@ export type StepTuning = {
   effort?: Effort;
   /** Words handed to the step's Drone beside its brief. Blank is none. */
   context?: string;
+  /** The harness, in its own name. Refused unless `ModelChoices.harnesses` lists it. Since 23.23. */
+  harness?: string;
   /** Every judge check's `panel_size`. Refused at zero and on a step with no Judge. */
   judges?: number;
   /** Manifest Checks the step declares that this Job does not run, by name. */

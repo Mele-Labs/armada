@@ -71,6 +71,11 @@ pub struct StepTuning {
     /// Words handed to the step's Drone beside its brief. Blank is none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<String>,
+    /// The harness the step's Drone runs under. **Only one runs**: a name
+    /// `list_models` does not list under `harnesses` is refused, naming those
+    /// that do. Since 23.23.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub harness: Option<String>,
     /// How many Judges answer each criterion: every judge check's
     /// `panel_size`. Refused at zero, and on a step that asks the Judge nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
