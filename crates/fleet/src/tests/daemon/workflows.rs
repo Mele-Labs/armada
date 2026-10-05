@@ -211,6 +211,26 @@ fn two_steps_gated(
         .unwrap_or_else(|refused| panic!("the fixture workflow did not resolve: {refused}"))
 }
 
+/// Prototype's shape: a step that hands in a patch, then a Build-like step a
+/// person stops, **asking to be walked**. Through the parser, so the key is the
+/// one a shipped workflow spells and not a flag set on a value.
+pub fn built_then_walked() -> config::ResolvedWorkflow {
+    let def = config::WorkflowDef::parse(
+        std::path::Path::new("fixture-walked.yml"),
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+         steps:\n  - id: implement\n    label: \"Implement\"\n    \
+         evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      \
+         - type: diff_nonempty\n    delivers: false\n    advance_gate: auto\n  - \
+         id: build\n    label: \"Build\"\n    \
+         evidence: {submitted: {type: facts_note}, walked: true}\n    \
+         delivers: false\n    advance_gate: human_always\n",
+        &config::Roster::offering_nothing(),
+    )
+    .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &manifest())
+        .unwrap_or_else(|refused| panic!("the fixture workflow did not resolve: {refused}"))
+}
+
 /// One workflow, keyed by its own id — what `fittings` holds when a case
 /// wants nothing more than the fixture.
 pub fn one(

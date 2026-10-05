@@ -215,7 +215,7 @@ pub(super) async fn storybook_port(fleet: &Fixture, job: &Job) -> u16 {
 /// **No deadline.** Python starting and `ready` passing took longer than 30s
 /// only when the whole machine stalled for 30s, and that is not a failure of
 /// anything these tests claim.
-async fn next_event(watching: &mut Subscription, wanted: impl Fn(&Event) -> bool) -> Event {
+pub(super) async fn next_event(watching: &mut Subscription, wanted: impl Fn(&Event) -> bool) -> Event {
     loop {
         match watching.next().await {
             Some(Next::Send(delivered)) if wanted(&delivered.event) => return delivered.event,
