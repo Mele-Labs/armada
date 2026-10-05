@@ -1,9 +1,9 @@
 // The Retros page (`docs/concepts/retro.md`): what got in the way across Jobs,
 // newest first. Each item reads as one arrow from whose way it got in to where
 // the fix lands, each end its own hue, then a headline, what happened, what
-// would change and two answers. The walk opens Job 3's retro first, then
-// creates a Job from an Armada item, accepts a Kit item, rejects a Manifest
-// item and reads the accepted ones. `retro.test.tsx` holds the claims.
+// would change and two answers. The walk expands two items' evidence in place,
+// opens Job 3's retro, then creates a Job from an Armada item, accepts a Kit
+// item, rejects a Manifest item and reads the accepted ones. `retro.test.tsx` holds the claims.
 
 import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
@@ -23,8 +23,12 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   { look: inside(DOCS, text(/^Manifest$/)), say: "So does Manifest" },
   { look: inside(STALE_MAIN, text(/Compare against origin\/main/)), say: "What would change, set apart" },
   { hover: inside(STALE_MAIN, role("img", "Fleet")), say: "The marks keep their tooltips" },
+  { press: inside(STALE_MAIN, button("Evidence")), say: "Evidence on the list reads Job 3's retro once" },
+  { look: inside(STALE_MAIN, text(/4e1c2a9 on main/)), say: "The rows it cites open under the card" },
+  { press: inside(GREP, button("Evidence")), say: "Another item of Job 3 shares that read" },
+  { look: inside(GREP, text(/grep -n timed/)), say: "Its rows open in place too" },
   { press: inside(STALE_MAIN, button("Job 3")), say: "The Job label opens its retro" },
-  { press: inside(STALE_MAIN, button("Evidence")), say: "The record rows, behind a control" },
+  { press: inside(inside(RETRO, STALE_MAIN), button("Evidence")), say: "The record rows, behind a control" },
   { look: inside(RETRO, text(/4e1c2a9 on main/)), say: "The record row it cites" },
   { look: inside(RETRO, role("region", "Notes")), say: "Notes left with Job 3 open" },
   { press: inside(RETRO, button("Close")), say: "Back to Retros" },

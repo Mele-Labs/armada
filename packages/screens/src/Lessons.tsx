@@ -8,10 +8,11 @@
 
 import { useState } from "react";
 
-import { Alert, LessonList, RetroSheet, Tabs } from "@armada/components";
+import { Alert, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
 
 import { said } from "./copy";
 import {
+  citesOf,
   itemsOf,
   LESSONS_TABS,
   lessonRowsOf,
@@ -19,6 +20,7 @@ import {
   statusOf,
   underTab,
   useAnswers,
+  useJobRetros,
   useReadOnFocus,
   type AnswerLesson,
   type LessonsTab,
@@ -74,14 +76,38 @@ export function Lessons({
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}`);
   const [open, setOpen] = useState<{ jobId: string; job: string } | null>(null);
   const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
+  const retros = useJobRetros(onReadRetro);
+  // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.
+  const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
+  const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
   const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap((row) => {
+    // **The list holds the ids a row cites; its Job's retro holds the rows.** Read once per Job, on the first press.
+    const ids = cited.get(row.id) ?? [];
+    const got = retros.of(row.jobId);
+    let withEvidence: LessonRow = row;
+    if (ids.length > 0 && got?.state === "read") {
+      withEvidence = { ...row, cites: citesOf(got.retro, ids) };
+    } else if (ids.length > 0) {
+      withEvidence = {
+        ...row,
+        evidence: {
+          onAsk: () => {
+            setPressed((was) => new Set(was).add(row.id));
+            retros.ask(row.jobId);
+          },
+          // Only the card that asked shows the wait or the failure, though its Job's other cards share the read.
+          ...(pressed.has(row.id) && got?.state === "pending" ? { pending: true } : {}),
+          ...(pressed.has(row.id) && got?.state === "failed" ? { failure: said(got.outcome) } : {}),
+        },
+      };
+    }
     // A saved item is read and nothing more: the view says it is accepted.
-    if (view === "accepted") return [row];
+    if (view === "accepted") return [withEvidence];
     const shown = answered(row.id, row.landsIn, { state: "open" });
     if (shown.gone) return [];
     return [
       {
-        ...row,
+        ...withEvidence,
         ...(shown.answers === undefined ? {} : { answers: shown.answers }),
         ...(shown.settled === undefined ? {} : { settled: shown.settled }),
       },
