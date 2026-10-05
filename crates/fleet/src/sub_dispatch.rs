@@ -484,6 +484,7 @@ fn proposal(
         // for.
         facts: asked.brief.clone(),
         attachments: Vec::new(),
+        continue_from: None,
     }
 }
 

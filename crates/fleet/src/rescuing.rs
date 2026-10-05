@@ -1,9 +1,11 @@
 //! A stranded slot rescued: a Scout reads it on a person's press, its Finding
-//! is kept against the slot, and a person then scraps it or stashes it.
+//! is kept against the slot, and a person then scraps it, stashes it or picks
+//! it up.
 //! `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 //!
 //! **A Scout reads and Fleet acts.** The Scout has no tool that writes; the
-//! scrap and the stash are `Vcs::rescue_slot`, run on the press that asks.
+//! scrap and the stash are `Vcs::rescue_slot`, run on the press that asks, and
+//! a pick up is a stash followed by a proposal.
 //! **Nothing starts on its own**: `rescue_slot` is the only door.
 
 use std::sync::Arc;
@@ -30,6 +32,11 @@ const RESCUE_ON_NO_BRANCH: &str = "fleet.rescue_on_no_branch";
 const RESCUE_ON_THE_BASE: &str = "fleet.rescue_on_the_base";
 /// A stash with nowhere to push it.
 const RESCUE_NO_REMOTE: &str = "fleet.rescue_no_remote";
+/// A pick up of a slot no Scout has read, or whose Finding says nothing to
+/// carry into a request.
+const RESCUE_UNREAD: &str = "fleet.rescue_unread";
+/// A pick up where the Finding's verdict is that nothing is left to do.
+const RESCUE_NOTHING_LEFT: &str = "fleet.rescue_nothing_left";
 
 /// Why a Finding left reading across a restart, in its own words.
 pub(crate) const LOST: &str =
@@ -122,6 +129,53 @@ where
                 }
                 Ok(answered(None, false, None))
             }
+            RescueAct::PickUp => {
+                self.refuse_while_reading(&manifest, slot).await?;
+                let found = self.finding_of(&manifest, slot).await?;
+                if found.verdict == Some(RescueVerdict::Scraps) {
+                    return Err(Refusal::IllegalMove(WireError::raised(
+                        RESCUE_NOTHING_LEFT,
+                        format!("the Finding on slot-{slot} says nothing is left to do"),
+                        self.run_id(),
+                    )));
+                }
+                // Before the stash, so a Fleet that cannot propose changes nothing.
+                self.proposing()
+                    .map_err(|why| self.refusal(crate::adrift::Adrift::NotProposable(why)))?;
+                let done = self
+                    .vcs()
+                    .rescue_slot(
+                        &pool,
+                        slot,
+                        SlotRescue::Stash {
+                            message: format!("Work left in slot-{slot}, kept"),
+                        },
+                    )
+                    .map_err(|why| self.rescue_refusal(why))?;
+                let _ = self.store().lock().await.forget_rescue(&manifest, slot);
+                let answer = answered(done.branch.clone(), done.branch_kept, done.committed);
+                if let Some(branch) = done.branch {
+                    let request = continuing(&branch, &found);
+                    let fleet = Arc::clone(&self);
+                    // On a task of its own: the proposer is a model call, and
+                    // the proposal reaches Bridge as every dispatched request does.
+                    tokio::spawn(async move {
+                        let by = api::Redirector::Person;
+                        let _ = fleet
+                            .proposing_from(
+                                &request,
+                                None,
+                                Vec::new(),
+                                &served,
+                                by,
+                                crate::proposal::requested(by),
+                                Some(&branch),
+                            )
+                            .await;
+                    });
+                }
+                Ok(answer)
+            }
             RescueAct::Scrap | RescueAct::Stash => {
                 self.refuse_while_reading(&manifest, slot).await?;
                 let rescue = match asked.act {
@@ -139,6 +193,27 @@ where
                 Ok(answered(done.branch, done.branch_kept, done.committed))
             }
         }
+    }
+
+    /// What the Scout read of the slot, refused where it read nothing a
+    /// request can carry.
+    async fn finding_of(&self, manifest: &str, slot: u32) -> Result<KeptRescue, Refusal> {
+        let kept = self
+            .store()
+            .lock()
+            .await
+            .rescues()
+            .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))?
+            .into_iter()
+            .find(|one| one.manifest_id == manifest && one.slot == slot)
+            .filter(|one| !one.items.is_empty() || one.summary.is_some());
+        kept.ok_or_else(|| {
+            Refusal::IllegalMove(WireError::raised(
+                RESCUE_UNREAD,
+                format!("no Finding of slot-{slot} to continue from"),
+                self.run_id(),
+            ))
+        })
     }
 
     /// Refused where a scout is reading the slot, or the store would not say.
@@ -274,6 +349,23 @@ where
             RescueRefused::Vcs(said) => Refusal::Fault(raised(SLOT_UNCHANGED, said)),
         }
     }
+}
+
+/// The request a pick up proposes: the branch, and what the Finding says is
+/// left. Bare facts, because the proposer and then the person read it as given.
+fn continuing(branch: &str, found: &KeptRescue) -> String {
+    let mut request = format!("Continue the work on branch {branch}.");
+    if found.items.is_empty() {
+        if let Some(summary) = &found.summary {
+            request.push_str(&format!("\n\n{summary}"));
+        }
+        return request;
+    }
+    request.push_str("\n\nLeft to do:");
+    for item in &found.items {
+        request.push_str(&format!("\n- {item}"));
+    }
+    request
 }
 
 /// Record what the scout looked at. `true` where that changed the Finding.

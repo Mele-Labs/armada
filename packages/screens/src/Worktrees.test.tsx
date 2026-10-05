@@ -521,6 +521,40 @@ test("a scrap that kept its branch says so, after its confirm", async () => {
   await expect.element(page.getByRole("status")).toHaveTextContent("fleet/an-old-try kept");
 });
 
+/** Pick up is sent from the Finding and says its commit on the bay, as a Stash does; Scraps does not offer it. */
+test("a pick up is sent from the Finding, and Scraps offers none", async () => {
+  const sent: string[] = [];
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), (_manifest, rescue) => {
+    sent.push(rescue.act);
+    return Promise.resolve({ ok: true, rescued: { ...RECEIPT, branch: "fleet/an-old-try", committed: "c0ffee1a4d9" } });
+  });
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await userEvent.click(page.getByRole("dialog", { name: "Finding" }).getByRole("button", { name: "Pick up" }));
+  expect(sent).toEqual(["pick_up"]);
+  expect(page.getByRole("dialog").elements()).toHaveLength(0);
+  await expect.element(page.getByRole("status")).toHaveTextContent("c0ffee1 on fleet/an-old-try");
+  unmount();
+
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "scraps", items: ["A draft note"] }), () => Promise.resolve({ ok: true, rescued: RECEIPT }));
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await expect.element(page.getByRole("dialog", { name: "Finding" }).getByRole("button", { name: "Stash" })).toBeInTheDocument();
+  expect(page.getByRole("button", { name: "Pick up" }).elements()).toHaveLength(0);
+});
+
+/** A Pick up Fleet refuses is said on its bay, led by what it failed to do. */
+test("a refused pick up is said on its bay", async () => {
+  rescuing(stranded({ ...FINDING, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] }), () =>
+    Promise.resolve({
+      ok: false,
+      why: "refused",
+      error: { code: "fleet.rescue_no_remote", message: "no origin to push to", run_id: "r", fields: {}, chain: [] },
+    }),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Finding" }));
+  await userEvent.click(page.getByRole("dialog", { name: "Finding" }).getByRole("button", { name: "Pick up" }));
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Not picked up: no origin to push to");
+});
+
 /** A Job's kept slot is rescued from the screen as a stranded one is: the start reaches Fleet with its number. */
 test("a kept Job's slot offers Rescue, and the press is sent", async () => {
   const sent: string[] = [];
