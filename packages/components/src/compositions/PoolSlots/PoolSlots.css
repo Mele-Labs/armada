@@ -11,7 +11,7 @@
 .armada-pool-slots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 5), 1fr));
-  grid-auto-rows: 1fr;
+  grid-auto-rows: auto;
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -49,6 +49,14 @@
       transparent var(--space-2) var(--space-4)
     ),
     var(--bg-raised);
+  border-color: var(--slot-stranded);
+}
+
+/* A Job that ended and kept its slot: a solid card in the warning hue, so it
+   reads as needing a person without the stranded bay's hatch. */
+.armada-bay[data-bay="kept"] {
+  --bay-hue: var(--slot-stranded);
+  background: color-mix(in srgb, var(--slot-stranded) var(--row-tint), var(--bg-raised));
   border-color: var(--slot-stranded);
 }
 
@@ -227,21 +235,24 @@
   gap: var(--space-1);
 }
 
-/* An act on a bay: a bare glyph in the bay's own colour, named on hover. */
+/* An act on a bay reads as a button at rest: an edge and a fill drawn from the
+   bay's own colour, so it holds on the inverse band and on an open bay alike.
+   Hover fills it further; the focus ring is the shared one. */
 .armada-bay__act {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-1);
-  border: none;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid color-mix(in srgb, currentColor 55%, transparent);
   border-radius: var(--radius-sm);
-  background: none;
+  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
   color: inherit;
   cursor: pointer;
 }
 
 .armada-bay__act:hover {
-  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor calc(var(--row-tint-recent) * 2), transparent);
 }
 
 .armada-bay__act:focus-visible,
@@ -342,4 +353,180 @@
   .armada-bay[data-bay="busy"] .armada-bay__state > svg {
     animation: none;
   }
+}
+
+/* What a bay shows of its rescue: the way into the Finding, and the live mark. */
+.armada-bay__finding {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The Finding, read in the bay's sheet. */
+.armada-slot-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.armada-slot-sheet__about {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+}
+
+.armada-finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--fg-default);
+}
+
+/* The Scrap's confirm, set off in the warning hue. */
+.armada-finding--confirm {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--slot-stranded);
+  border-radius: var(--radius-sm);
+}
+
+.armada-finding__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}
+
+.armada-finding__commit,
+.armada-finding__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-finding__summary,
+.armada-finding__failed,
+.armada-finding__scraps {
+  margin: 0;
+}
+
+/* The verdict: one word, then what it rests on. */
+.armada-finding__answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-finding__verdict {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+}
+
+.armada-finding__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-finding__left > li {
+  overflow-wrap: anywhere;
+}
+
+.armada-finding__lists {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.armada-finding__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-finding__label {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-finding__names {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-finding__names[data-mono] {
+  font-family: var(--font-mono);
+}
+
+.armada-finding__names > li {
+  overflow-wrap: anywhere;
+}
+
+/* A commit, and the tag saying whether it exists anywhere but this slot. */
+.armada-finding__names > .armada-finding__commitrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-finding__home {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+/* The one that matters: what a Scrap would lose. */
+.armada-finding__home[data-home="only_here"] {
+  border-color: var(--slot-stranded);
+  color: var(--fg-default);
+}
+
+.armada-finding__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A Scout reading, the live state: a loop that says still working. */
+.armada-finding__reading {
+  animation: armada-finding-reading var(--duration-pulse) ease-in-out infinite;
+}
+
+@keyframes armada-finding-reading {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-finding__reading {
+    animation: none;
+  }
+}
+
+/* What a rescue act did, a bare fact on the bay it was about. */
+.armada-bay__said {
+  margin: 0;
+  padding-top: var(--space-1);
+  border-top: var(--border-width) solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  text-align: start;
 }

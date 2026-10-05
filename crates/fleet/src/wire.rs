@@ -805,6 +805,9 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
             SlotHeld::Job(id) => ipc::SlotHolding::Job {
                 job_id: ipc::JobId::carried(id.clone()),
                 job_title: one.job_title.clone(),
+                job_status: one.job_status.map(Into::into),
+                kept: reading.kept.clone(),
+                completed: reading.completed,
             },
             SlotHeld::Session(holder) => ipc::SlotHolding::Session {
                 holder: holder.clone(),
@@ -821,6 +824,44 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
         warm: reading.warm,
         behind: reading.behind,
         closed: reading.closed,
+        stranded: one.stranded.as_ref().map(|work| ipc::SlotStranded {
+            uncommitted: work.uncommitted.clone(),
+            commits: work
+                .commits
+                .iter()
+                .map(|commit| ipc::SlotCommit {
+                    sha: commit.sha.clone(),
+                    subject: commit.subject.clone(),
+                    home: match commit.home {
+                        adapter_traits::CommitHome::OnlyHere => ipc::CommitHome::OnlyHere,
+                        adapter_traits::CommitHome::OnRemote => ipc::CommitHome::OnRemote,
+                        adapter_traits::CommitHome::OnMain => ipc::CommitHome::OnMain,
+                    },
+                })
+                .collect(),
+            unpushed: work.unpushed,
+        }),
+        rescue: one.rescue.as_ref().map(|kept| ipc::SlotFinding {
+            state: match kept.state {
+                store::RescueState::Reading => ipc::SlotFindingState::Reading,
+                store::RescueState::Answered => ipc::SlotFindingState::Answered,
+                store::RescueState::Stopped => ipc::SlotFindingState::Stopped,
+                store::RescueState::Failed => ipc::SlotFindingState::Failed,
+            },
+            commit: kept.commit.clone(),
+            uncommitted: kept.uncommitted,
+            cut: kept.cut,
+            read: kept.read.clone(),
+            searched: kept.searched.clone(),
+            verdict: kept.verdict.map(|verdict| match verdict {
+                store::RescueVerdict::Unfinished => ipc::SlotVerdict::Unfinished,
+                store::RescueVerdict::Scraps => ipc::SlotVerdict::Scraps,
+            }),
+            items: kept.items.clone(),
+            summary: kept.summary.clone(),
+            why: kept.why.clone(),
+            cost_micros: kept.cost_micros,
+        }),
     }
 }
 

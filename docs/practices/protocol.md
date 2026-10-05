@@ -2919,7 +2919,38 @@ The owner's ask of 5 Oct 2026: Helm helps author a workflow and ends by creating
 
 **No migration, no store change, and no event.** What a reader sees move is `list_workflows` and `list_left_out_workflows`, which are asked again. The generated TypeScript moves by the version constant only, since the DTO types are mirrored by hand and no Bridge reads these yet.
 
-## Protocol 23.29: what a step does, in words
+## Protocol 23.29: a Scout reads a stranded slot
+
+The owner, 4 Oct 2026: when a worktree slot is stranded, send an agent to look at the work, then
+choose to scrap it or stash it. `../concepts/scout.md`, *Starting from a stranded slot*, and
+`../concepts/fleet.md`, *Rescuing a stranded slot*.
+
+**Additive only.** One command, six DTOs and two optional fields on `WorktreeSlot`; a 23.18 Bridge
+reads neither field and sees exactly what it did.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `rescue_slot` | `POST /worktrees/slots/rescue?manifest_id=` | `RescueSlot { act, slot }` in, `SlotRescued { manifest_id, slot, branch?, branch_kept, committed? }` out. `act` is `start`, `stop`, `scrap` or `stash` | — |
+| `stranded` | `WorktreeSlot` | `SlotStranded { uncommitted, commits, unpushed }`: what a Scrap would lose. Each commit is `{ sha, subject, home }`, `home` being `only_here` (on no remote branch and not on the local base), `on_remote` or `on_main` | A slot that is not stranded |
+| `rescue` | `WorktreeSlot` | `SlotFinding { state, commit, uncommitted, cut, read, searched, verdict?, items?, summary?, why?, cost_micros? }`, `state` being `reading`, `answered`, `stopped` or `failed`. `verdict` is `unfinished` or `scraps`; `items` is what is left to do under the first and one line of leftovers under the second. `summary` is the Scout's own words, kept only where its answer was not that shape | No Scout has read it, or it has moved off the commit read |
+
+**A Job's slot the Job could not give back is on the wire as kept.** `SlotHolding::Job` gains
+`job_status` (where the Job ended), `kept` (why its release was refused, so its work is still in
+the slot) and `completed`, all optional or defaulted. A kept slot carries `stranded` too, and
+`rescue_slot` acts on it as on a stranded one; each act ends the Job's claim, so the slot is free
+after.
+
+**Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
+`fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
+`fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.
+
+**Bridge re-reads `GET /worktrees` while a Finding is `reading`.** No event carries it.
+
+**Store V104 and V105**, `slot_rescues` (V105 adds `verdict` and `items`): one row per slot, keyed by Manifest and slot number, replaced as
+the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
+`failed` when Fleet starts.
+
+## Protocol 23.30: what a step does, in words
 
 The owner, 5 Oct 2026, at the approval gate on a workflow he had not used: *I have no idea what that
 means.*
@@ -2928,7 +2959,7 @@ means.*
 the step does for the Job and what it hands on. A workflow step declares it as `about:` beside
 `label:`. Absent where the step wrote none, and a blank one is read as absent. `StepDetail` reads it
 off the frozen workflow (`about` is written beside `label` in the Job's frozen steps), so a Job
-frozen before 23.29 shows nothing there.
+frozen before 23.30 shows nothing there.
 
 ## Open questions
 
