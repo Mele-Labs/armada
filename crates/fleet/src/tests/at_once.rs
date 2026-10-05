@@ -161,6 +161,43 @@ async fn handed_in_beside(
     .await
 }
 
+/// Two Drones on one step, only the one beside the kept Drone asks: the held
+/// command names it, and an allow still releases that Drone's call.
+#[tokio::test]
+async fn a_held_command_names_the_drone_that_asked_and_not_its_neighbour() {
+    use crate::tests::permitting::{asked, until_waiting};
+    use core_model::WhenBlocked;
+    let home = TempDir::new();
+    let (fleet, job) = at_implement(&home, FakeHarness::that_listens(), None).await;
+    let extra = beside(&fleet, &job).pop().expect("T2's Drone");
+    fleet
+        .set_when_blocked(&job, WhenBlocked::AskMe)
+        .await
+        .expect("the setting is recorded");
+    let asking = asked("Bash", "npm publish", "c1");
+
+    let (answer, answered) = tokio::join!(
+        as_caller(Some(extra.clone()), fleet.permission(&job, &asking)),
+        async {
+            let waiting = until_waiting(&fleet, &job).await;
+            assert_eq!(
+                waiting.drone_id,
+                Some(ipc::DroneId::from(&extra)),
+                "T2's Drone asked, and the kept Drone did not"
+            );
+            fleet
+                .answer_command(
+                    &job,
+                    "c1",
+                    crate::permitting::Answered::of(ipc::CommandAnswer::AllowForJob, None),
+                )
+                .await
+        }
+    );
+    answered.expect("the answer reaches the Drone that asked");
+    assert_eq!(answer, api::PermissionAnswer::Allow);
+}
+
 #[tokio::test]
 async fn two_tasks_marked_safe_together_run_at_once_with_drones_of_their_own() {
     let home = TempDir::new();

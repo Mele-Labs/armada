@@ -22,6 +22,7 @@ import {
 
 import type { GroupState, GroupView } from "./draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
+import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
 
 /**
@@ -38,6 +39,14 @@ import type { TaskState, TaskView } from "./draft/task";
 const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
+/**
+ * What a task carrying the awaiting line adds to its pitch. The line wraps
+ * rather than clips ("Submitted · awaiting checks" is the fact), so the node
+ * is taller by the wrapped lines: `--leading-xs` (20) each, and the sentence
+ * takes up to two beyond the one a task's facts already draw — 40, so nothing
+ * below overlaps. React Flow places by number, so it is a number here.
+ */
+const LINE_EXTRA = 40;
 /** A group holding no task still takes a row of its own. */
 const GROUP_APART = 104;
 
@@ -70,8 +79,8 @@ const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "c
 export const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   open: "not_started",
   working: "running",
-  // In flight until its Checks answer, `group_state.checking`'s reading.
-  handed_in: "running",
+  // Its agent has stopped, so nothing sweeps; `taskCard` draws its own mark.
+  handed_in: "not_started",
   done: "advanced",
   failed: "failed",
   dropped: "stopped",
@@ -108,11 +117,18 @@ export function taskCard(task: TaskView, onOpen: (() => void) | undefined): Work
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
+  // **A handed-in task is not a working one** (owner, 5 Oct 2026): its own
+  // glyph and hue from the registry, and the sentence under its name.
+  const awaiting = awaitingSaid(task.state);
+  const row = TASK_STATE[task.state];
   return {
     kind: "task",
     name: task.title,
     activity: TASK_ACTIVITY[task.state],
-    said: TASK_STATE[task.state]?.verb ?? task.state,
+    ...(awaiting !== undefined && row?.icon && row.statusToken
+      ? { mark: { icon: row.icon, token: row.statusToken }, line: awaiting }
+      : {}),
+    said: awaiting ?? row?.verb ?? task.state,
     facts,
     ...(onOpen === undefined ? {} : { onOpen }),
   };
@@ -171,14 +187,16 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
       card: group.id === openGroup ? { ...card, selected: true } : card,
     });
 
-    group.tasks.forEach((task, at) => {
+    let under = down;
+    group.tasks.forEach((task) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);
       const card = taskCard(task, open);
       nodes.push({
         id: taskNodeId(task.id),
-        position: { x: TASK_ACROSS, y: down + at * TASK_APART },
+        position: { x: TASK_ACROSS, y: under },
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
+      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA);
       edges.push({
         id: `${groupId}>${taskNodeId(task.id)}`,
         source: groupId,
@@ -186,7 +204,7 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
         kind: "holds",
       });
     });
-    down += Math.max(GROUP_APART, group.tasks.length * TASK_APART + AFTER_GROUP);
+    down = Math.max(down + GROUP_APART, under + AFTER_GROUP);
   }
 
   return { nodes, edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };

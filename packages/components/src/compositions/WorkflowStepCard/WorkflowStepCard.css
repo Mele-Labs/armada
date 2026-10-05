@@ -193,9 +193,8 @@ button.armada-wf-card:hover {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps rather than clipping: "Submitted · awaiting checks" is the fact. */
+  overflow-wrap: anywhere;
 }
 
 .armada-wf-card[data-working] .armada-wf-card__line {

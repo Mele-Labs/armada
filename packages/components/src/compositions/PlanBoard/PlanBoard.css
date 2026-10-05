@@ -258,14 +258,28 @@
   color: var(--fg-subtle);
 }
 
-/* The fourth track holds whichever of the two notes a row has, and nothing
-   where it has neither — a track sized to its content collapses. */
+/* The fourth track holds whichever of the notes a row has, and nothing where
+   it has none — a track sized to its content collapses. */
+.armada-plan-board__task-notes {
+  grid-column: 4;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.armada-plan-board__task-status,
 .armada-plan-board__task-beside,
 .armada-plan-board__task-touched {
-  grid-column: 4;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   white-space: nowrap;
+}
+
+/* The running hue, as the mark leading the row has it: the task is in flight
+   with its agent stopped, and the words say what for. */
+.armada-plan-board__task-status {
+  color: var(--status-running);
 }
 
 .armada-plan-board__task-beside {

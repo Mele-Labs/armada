@@ -26,7 +26,7 @@ pub use holding::{domain_setting, wire_setting, NotPermitted};
 use std::time::Duration;
 
 use adapter_traits::PERMISSION_WAIT;
-use core_model::{AllowedCommand, Reach, StepId, Timestamp, WhenBlocked};
+use core_model::{AllowedCommand, DroneId, Reach, StepId, Timestamp, WhenBlocked};
 use ipc::CommandAnswer;
 use tokio::sync::oneshot;
 
@@ -91,6 +91,8 @@ pub struct Waiting {
     /// answer from a window left open across a newer question joins to nothing.
     pub call: String,
     pub step: StepId,
+    /// The Drone that asked: the one whose slot holds this, never inferred.
+    pub drone: DroneId,
     pub asked_at: Timestamp,
     pub tool: String,
     pub command: String,

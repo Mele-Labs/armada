@@ -55,6 +55,9 @@ pub fn take_turn(repo: &Path, state: &StateDir, env: &Env, entries: &[QueueEntry
 fn finish(state: &StateDir, seen: &mut Seen, entry: &QueueEntry, stopped: Stopped) {
     seen.red |= stopped.state == OutcomeState::Red;
     seen.landed |= stopped.state == OutcomeState::Landed;
+    if stopped.state == OutcomeState::Landed {
+        crate::need::Needs::beside(state).spend(&entry.branch);
+    }
     let _ = say(
         state,
         &entry.branch,

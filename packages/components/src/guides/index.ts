@@ -29,6 +29,7 @@ import { GUIDE_PLAN } from "./017-what-is-a-plan";
 import { GUIDE_DRONE } from "./018-what-is-a-drone";
 import { GUIDE_WORKFLOW } from "./019-what-is-a-workflow";
 import { GUIDE_PULSE } from "./021-what-is-pulse";
+import { GUIDE_MERGE_LINE } from "./022-what-is-the-merge-line";
 
 export * from "./guide";
 export {
@@ -50,6 +51,7 @@ export {
   GUIDE_DRONE,
   GUIDE_WORKFLOW,
   GUIDE_PULSE,
+  GUIDE_MERGE_LINE,
 };
 
 /**
@@ -78,6 +80,7 @@ export const GUIDES: readonly Guide[] = [
   GUIDE_DRONE,
   GUIDE_ALWAYS_LOOKS,
   GUIDE_CRITERIA,
+  GUIDE_MERGE_LINE,
   GUIDE_WORKFLOW,
   GUIDE_PULSE,
   GUIDE_PROCESSES,

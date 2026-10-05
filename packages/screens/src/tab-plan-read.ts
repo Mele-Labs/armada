@@ -236,6 +236,18 @@ export function markOf(state: TaskView["state"]): TaskMarkState {
 }
 
 /**
+ * What a handed-in task is waiting on, which its mark's glyph alone read as
+ * `working` (owner, 5 Oct 2026). The registry's word is `handed in`
+ * (`verbs.task_state`) and stays the mark's name; this is the sentence beside
+ * it, on a row and a node, and no other state says one.
+ */
+export const HANDED_IN_SAID = "Submitted · awaiting checks";
+
+export function awaitingSaid(state: TaskView["state"]): string | undefined {
+  return state === "handed_in" ? HANDED_IN_SAID : undefined;
+}
+
+/**
  * Which Checks failed at a group's boundary, by name.
  *
  * Read off the step's own `check_runs`, **the group's own latest run where

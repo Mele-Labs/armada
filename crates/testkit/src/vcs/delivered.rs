@@ -62,4 +62,6 @@ pub enum Delivered {
     ReadTheUncheckedHead { branch: String },
     /// The branch was put back from that merge, its gate having gone red.
     PutBack { branch: String },
+    /// A merge a killed process left part-way through was cleared.
+    SettledWorktree { branch: String },
 }

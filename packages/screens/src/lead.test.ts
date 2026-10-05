@@ -198,7 +198,7 @@ describe("the second line carries a fact or it is empty", () => {
 
   it("a gate ahead is named, and no gate ahead says nothing", () => {
     expect(leadFor(arcJobAt("executingSequential")).because).toContain(
-      "Review the change asks you, 2 steps away",
+      "Review the change asks you, 1 step away",
     );
     // Every step after `Fix` on the Bug workflow advances on its Checks, so
     // there is no *No step after this one stops for you* to read.

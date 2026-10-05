@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
-import { MergeLine, type MergeLineEntry } from "./MergeLine";
+import { GuidanceProvider } from "../../guidance";
+import { GUIDE_MERGE_LINE } from "../../guides";
+import { MergeLine, type MergeLineEntry, type MergeLineNotice } from "./MergeLine";
 
 /**
  * The merge line as an Overview panel: `armada land --status` drawn, from the
@@ -194,5 +196,167 @@ export const Wrapping: Story = {
     const detail = canvasElement.querySelector(".armada-merge-line__detail")!.getBoundingClientRect();
     await expect(detail.height).toBeGreaterThan(branch.height * 1.5);
     await expect(Math.abs(mark.top + mark.height / 2 - (branch.top + branch.height / 2))).toBeLessThan(2);
+  },
+};
+
+/** A batch mid-turn: screens_test failed, its rerun failed, and desktop_test is running behind it. */
+const FAILING: MergeLineEntry[] = [
+  { place: 1, branch: "docs/wire-lock-signed", state: "gating", batch: TURN, doing: "reading verify-foundations against main" },
+  {
+    place: 2,
+    branch: "worktree-agent-aef3c24792026e2c3",
+    state: "gating",
+    batch: TURN,
+    checks: [
+      { name: "build", state: "passed" },
+      { name: "screens_test", state: "failed" },
+      { name: "desktop_test", state: "running" },
+      { name: "components_test", state: "waiting" },
+    ],
+  },
+];
+
+const AT = "worktree-agent-aef3c24792026e2c3";
+const FIRST = "docs/wire-lock-signed";
+
+const noticedPlay: NonNullable<Story["play"]> = async ({ canvas, args }) => {
+  // One alert, whichever reading: a later one replaces it.
+  await expect(canvas.getAllByRole("status")).toHaveLength(1);
+  const open = canvas.getByRole("button", { name: "Open log" });
+  // A button reads as one: it has a fill, which a bare text link does not.
+  await expect(getComputedStyle(open).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  await open.click();
+  await expect(args.onOpenCheck).toHaveBeenCalledWith(AT, "screens_test");
+};
+
+const noticed = (notice: MergeLineNotice): Story => ({
+  args: { line: FAILING, notice, onOpenCheck: fn() },
+  play: noticedPlay,
+});
+
+/** Before the split names the one at fault: a heads-up to the whole batch, once. */
+export const FailedBatch: Story = {
+  name: "A Check failed, batch not split",
+  ...noticed({ kind: "batch", check: "screens_test", branch: AT, branches: [FIRST, AT] }),
+  play: async (context) => {
+    const { canvas } = context;
+    // Every branch the Check failed for.
+    const alert = within(canvas.getByRole("status"));
+    await expect(alert.getByText(FIRST)).toBeVisible();
+    await expect(alert.getByText(AT)).toBeVisible();
+    await noticedPlay(context);
+  },
+};
+
+/** One of several lines: the alert says which repository it is in. */
+export const FailedBranchInRepository: Story = {
+  name: "A Check failed, in a named repository",
+  args: { name: "armada", line: FAILING, notice: { kind: "branch", check: "screens_test", branch: AT }, onOpenCheck: fn() },
+  play: async ({ canvas }) => {
+    const alert = within(canvas.getByRole("status"));
+    await expect(alert.getByText("armada")).toBeVisible();
+    await expect(alert.getByText(AT)).toBeVisible();
+  },
+};
+
+/** The split named the branch at fault while the turn runs on. */
+export const FailedBranch: Story = {
+  name: "A Check failed, branch named",
+  ...noticed({ kind: "branch", check: "screens_test", branch: AT }),
+};
+
+/** The same Check is red on main: nobody is blamed, and the turn holds. */
+export const FailedOnMain: Story = {
+  name: "A Check red on main too",
+  ...noticed({ kind: "main", check: "screens_test", branch: AT }),
+};
+
+/** The turn's verdict, in the slot the heads-up held. */
+export const FailedSent: Story = {
+  name: "A Check failed, branch sent back",
+  args: {
+    line: [{ place: 1, branch: "docs/wire-lock-signed", state: "preparing", doing: "reading verify-foundations against main" }],
+    notice: { kind: "sent", check: "screens_test", branch: AT },
+    sentBack: [{ branch: AT, state: "red", failed: ["screens_test"] }],
+    onOpenCheck: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("status")).toHaveLength(1);
+    await expect(canvas.getByRole("status")).toHaveTextContent(AT);
+  },
+};
+
+/** The turn held because its Check is red on main too: its rows keep still and carry the Alert's pause. */
+export const HeldTurn: Story = {
+  name: "A turn held, red on main",
+  parameters: { motion: "on" },
+  args: {
+    line: [{ place: 1, branch: AT, state: "held", checks: FAILING[1]!.checks! }],
+    notice: { kind: "main", check: "screens_test", branch: AT },
+  },
+  render: (args) => (
+    <>
+      <MergeLine {...args} name="scratch" />
+      <MergeLine {...args} name="armada" line={[{ place: 1, branch: FIRST, state: "gating", checks: FAILING[1]!.checks! }]} notice={undefined} />
+    </>
+  ),
+  play: async ({ canvas }) => {
+    const moving = (mark: HTMLElement) =>
+      [...mark.querySelectorAll("*")].some((one) => getComputedStyle(one).animationName !== "none");
+    const held = canvas.getByRole("img", { name: "Held, red on main" });
+    const running = canvas.getByRole("img", { name: "Running Checks before landing" });
+    // The control: a running row's mark does move, so a held one standing still is a fact.
+    await expect(moving(running)).toBe(true);
+    await expect(moving(held)).toBe(false);
+    // The Alert's glyph is the same state, by name.
+    const alert = canvas.getByRole("img", { name: "Held" });
+    await expect(alert).toBeVisible();
+    await expect(held.querySelector("svg")!.innerHTML).toBe(alert.querySelector("svg")!.innerHTML);
+  },
+};
+
+/** The `?` beside the heading opens the guide. Wrapped in a provider that remembers nothing. */
+export const HeadingGuide: Story = {
+  name: "The heading's guide",
+  args: { line: FAILING },
+  render: (args) => (
+    <GuidanceProvider remembered={false}>
+      <MergeLine {...args} />
+    </GuidanceProvider>
+  ),
+  play: async ({ canvas }) => {
+    const body = within(document.body);
+    const dialog = `Guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}`;
+    // First contact may have raised the card by itself: close it, then ask for it.
+    const raised = body.queryByRole("dialog", { name: dialog });
+    if (raised !== null) await userEvent.click(within(raised).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(body.queryByRole("dialog", { name: dialog })).toBeNull());
+    await userEvent.click(canvas.getByRole("button", { name: `Open guide ${GUIDE_MERGE_LINE.number}, ${GUIDE_MERGE_LINE.title}` }));
+    const card = body.getByRole("dialog", { name: dialog });
+    await waitFor(() => expect(card).toBeVisible());
+    await expect(within(card).getByText(GUIDE_MERGE_LINE.steps[0] as string)).toBeVisible();
+  },
+};
+
+/** Waiting branches in merge order, each with the reason it is not in the running turn. */
+export const WaitingWhy: Story = {
+  name: "Waiting, with the reason",
+  args: {
+    line: [
+      { place: 1, branch: "canvas/gates-on-the-spine", state: "gating", batch: "t", checks: [{ name: "build", state: "running" }] },
+      { place: 2, branch: "fix/overview-fallback-and-reads", state: "preparing", batch: "t", doing: "reading verify-foundations against main" },
+      { place: 3, branch: "fleet/stranded-slot-rescue", state: "waiting", why: "kept" },
+      { place: 4, branch: "fix/dispatch-did-not-answer", state: "waiting" },
+      { place: 5, branch: "fix/pulse-log-clash", state: "waiting", why: "member" },
+      { place: 6, branch: "fix/stale-base-read", state: "waiting", why: "main" },
+      { place: 7, branch: "bridge/late-joiner", state: "waiting", why: "late" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const queued = canvas.getByRole("listitem", { name: "fix/dispatch-did-not-answer, waiting" });
+    // Queued behind with no reason: a clock for the state and nothing else.
+    await expect(within(queued).getAllByRole("img")).toHaveLength(1);
+    const kept = canvas.getByRole("listitem", { name: "fleet/stranded-slot-rescue, waiting" });
+    await expect(within(kept).getByRole("img", { name: /Kept its place/ })).toBeVisible();
   },
 };

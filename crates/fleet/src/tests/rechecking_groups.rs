@@ -13,7 +13,7 @@ use testkit::{FakeJudge, FakeWorkProduct};
 use crate::daemon::Fleet;
 use crate::tests::daemon::{fittings, one};
 use crate::tests::groups::{
-    at_implement_on, g1_handed_in, hand_in, implement, planned, states, task,
+    at_implement_on, g1_handed_in, group, hand_in, implement, planned, states, task,
 };
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
@@ -202,4 +202,57 @@ async fn a_rerun_that_is_still_red_leaves_the_tasks_failed_with_their_reason() {
     let after = fleet.plan_of(&job).await.expect("reads").expect("a plan");
     assert_eq!(after, before, "no change was appended");
     assert!(judge.asked().is_empty());
+}
+
+/// **#1792.** G1 ran red to the end of its retries and a group follows. A
+/// passing re-run closes G1 and keeps the step, so G2's Drone is admission's to
+/// start: the step must not advance past a group that never ran.
+#[tokio::test]
+async fn a_passing_rerun_of_one_group_starts_the_next_and_does_not_advance_the_step() {
+    use TaskState::{Done, Open};
+    let home = TempDir::new();
+    let judge = Arc::new(FakeJudge::with_no_objection());
+    let plan = planned(&[("Stop the reader at the end", 1), ("Note the bound", 2)]);
+    let (fleet, job) = held_red(&home, &judge, &plan, 1).await;
+    std::fs::write(home.path().join("pass"), "").expect("the cause lifts");
+
+    let held = Arc::clone(&fleet)
+        .rerun_checks(&job)
+        .await
+        .expect("the Checks run again");
+
+    assert_eq!(
+        states(&fleet, &job).await,
+        [Done, Open],
+        "G2 is still to run"
+    );
+    assert_eq!(
+        held.status(),
+        JobStatus::Queued,
+        "admission starts G2's Drone"
+    );
+    assert_eq!(
+        held.current_step_id(),
+        Some(&implement()),
+        "the step stays while a group is owed"
+    );
+    assert_eq!(
+        held.step(&implement()).map(|row| row.state()),
+        Some(core_model::StepState::Running)
+    );
+    let runs = fleet.group_runs_of(&job).await.expect("reads");
+    assert!(runs.passed(group("G1")), "G1's run is closed as passed");
+    assert!(runs.open_attempt(group("G1")).is_none());
+    let commits = fleet.vcs().committed();
+    assert_eq!(commits.len(), 1, "G1 committed once, as its own gate would");
+    assert!(commits[0].message.contains("G1"), "{}", commits[0].message);
+
+    // Admission puts the Drone on G2's first task.
+    fleet.admit_next().await.expect("admission");
+    assert_eq!(fleet.working_on().await.len(), 1, "a Drone is on G2");
+    let plan = fleet.plan_of(&job).await.expect("reads").expect("a plan");
+    assert_eq!(
+        plan.task(task("T2")).map(|t| t.state()),
+        Some(TaskState::Working)
+    );
 }

@@ -25,4 +25,6 @@ only its steps does not need one.
   conversation.
 - [`merge-line.md`](merge-line.md) — merges take turns onto `main`, and a branch
   whose base moved is merged with it and reruns the Checks the combination hits
-  before it lands; `scripts/land` is the local stand-in, mapped onto Fleet.
+  before it lands, and a branch that declared a need on a path (`armada need`)
+  lands after the ones ahead of it; `scripts/land` is the local stand-in,
+  mapped onto Fleet.
