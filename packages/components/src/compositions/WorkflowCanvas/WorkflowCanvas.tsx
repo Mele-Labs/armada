@@ -185,10 +185,12 @@ const CLEARS_THE_CARD = 20;
  */
 function EdgeView(props: EdgeProps<CanvasEdge>) {
   const via = props.data?.via;
+  // A way back with a `via` stands off the cards that far: past a fan it would otherwise cross.
+  const stands = props.data?.returning === true && via !== undefined ? Math.max(CLEARS_THE_CARD, via - Math.max(props.sourceX, props.targetX)) : CLEARS_THE_CARD;
   const [path, labelX, labelY] = getSmoothStepPath({
     ...props,
     borderRadius: CLEARS_THE_CARD,
-    offset: CLEARS_THE_CARD,
+    offset: stands,
     ...(via === undefined ? {} : { centerX: via }),
   });
   const label = props.data?.label;
