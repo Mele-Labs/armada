@@ -128,12 +128,12 @@ export type AnswerCommand = {
    * Manifest, the default) or `kit` (every Job on this machine, in `~/.armada`).
    * **Only `always_allow` reads it**, and a `kit` one is sent with a `rule`,
    * since the whole of a chained command is refused for Kit. Since protocol
-   * 23.33.
+   * 23.35.
    */
   scope?: AlwaysAllowScope;
 };
 
-/** Where an Always allow is kept. Since protocol 23.33. */
+/** Where an Always allow is kept. Since protocol 23.35. */
 export type AlwaysAllowScope = "repository" | "kit";
 
 /**

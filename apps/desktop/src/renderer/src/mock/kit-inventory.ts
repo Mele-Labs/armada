@@ -117,7 +117,7 @@ export const KIT_INVENTORY: KitInventory = {
         unreadable: [],
       },
     },
-    // Read since 23.33, from `~/.armada/allowed-commands`. Nothing in it until a command is added.
+    // Read since 23.35, from `~/.armada/allowed-commands`. Nothing in it until a command is added.
     { kind: "allowlist", read: { what: "read", items: [], unreadable: [] } },
     {
       kind: "models",

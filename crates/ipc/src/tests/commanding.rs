@@ -319,7 +319,7 @@ fn an_allow_is_removed_by_the_command_its_row_carries() {
 }
 
 /// **Where an Always allow is kept is a field of the answer**, not a fourth
-/// answer: `CommandAnswer` is one Bridge matches on, and 23.33 is a minor. An
+/// answer: `CommandAnswer` is one Bridge matches on, and 23.35 is a minor. An
 /// older Bridge sends no `scope` and is answered as it always was.
 #[test]
 fn an_always_allow_names_where_it_is_kept_and_an_older_body_names_none() {

@@ -160,8 +160,8 @@ pub struct AnswerCommand {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rule: Option<String>,
     /// Where an Always allow is kept. **Only Always allow reads it.** Absent is
-    /// the repository, which is what every Fleet before 23.33 kept it in. Since
-    /// 23.33.
+    /// the repository, which is what every Fleet before 23.35 kept it in. Since
+    /// 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<AlwaysAllowScope>,
 }
@@ -171,7 +171,7 @@ pub struct AnswerCommand {
 /// **A field of the answer and not a fourth [`CommandAnswer`]**, which Bridge
 /// matches on: a value added there is a major bump, and this one is read by
 /// Fleet alone, so a Bridge that never sends it is answered as it always was.
-/// Which scopes are offered is not on the wire: every Fleet at 23.33 or later
+/// Which scopes are offered is not on the wire: every Fleet at 23.35 or later
 /// takes both, and a Bridge that sends `kit` to an older Fleet is refused at
 /// the handshake, which is the direction that survives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

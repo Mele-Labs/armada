@@ -3019,7 +3019,7 @@ the step does for the Job and what it hands on. A workflow step declares it as `
 off the frozen workflow (`about` is written beside `label` in the Job's frozen steps), so a Job
 frozen before 23.31 shows nothing there.
 
-## Protocol 23.33: Accept changes the Kit
+## Protocol 23.35: Accept changes the Kit
 
 The owner, 5 Oct 2026: Accept on a Kit item in Retros should change the Kit, starting with allowed
 commands. `../concepts/kit.md`, *Kit's allowlist*; `../concepts/retro.md`, *Items*.
@@ -3030,15 +3030,15 @@ fields and reads past the ones it is sent.
 | Change | Where | Carries | Absent |
 | --- | --- | --- | --- |
 | `scope` | `AnswerCommand` | `repository` or `kit`, read by an Always allow only. `kit` keeps the command in `~/.armada/allowed-commands` for every Job on this machine | The repository, which is what Always allow has meant since `#836` |
-| `change` | `RetroItem`, `Lesson` | `{ "kind": "allow_command", "command": "…" }`, on a Kit item whose command Fleet copied off a refusal in the record | An item with no change, and every item kept before 23.33 |
+| `change` | `RetroItem`, `Lesson` | `{ "kind": "allow_command", "command": "…" }`, on a Kit item whose command Fleet copied off a refusal in the record | An item with no change, and every item kept before 23.35 |
 | `applied` | `RetroItem`, `Lesson` | The change `agree_lesson` applied, on every later read | Nothing applied |
-| `change` | `RetroAnswered` | What the retro model may write: `{ "kind", "refusal", "command"? }`. Read leniently, so one that will not read costs the change and not the item | Not asked for by a Fleet before 23.33 |
+| `change` | `RetroAnswered` | What the retro model may write: `{ "kind", "refusal", "command"? }`. Read leniently, so one that will not read costs the change and not the item | Not asked for by a Fleet before 23.35 |
 | `allowlist` row | `KitInventory` | Each command as `name` and where it came from as `source` (`retro item <id>`, `always allow`, `written by hand`), in place of *not read* | `not_read` with why, where the file will not read |
 | `remove_kit_allowed_command` | `POST /kit/allowed_commands/remove` | Body `{ "run" }`; answers `KitAllowedCommands`, each row `{ "run", "source", "lesson_id"? }`. Helm only | A 409 `fleet.kit_allowlist_refused` where no line is spelled `run` |
 
 **The Always allow value is a field and not a fourth `CommandAnswer`.** `CommandAnswer` is one Bridge
 matches on, so a variant added there is a major bump by the table above; a `scope` on the answer is
-read by Fleet alone. `offers` is unchanged, and a Fleet at 23.33 or later takes both scopes whenever
+read by Fleet alone. `offers` is unchanged, and a Fleet at 23.35 or later takes both scopes whenever
 it offers Always allow.
 
 **One migration, V109**, on `job_retro_items`: `change_kind`, `change_command` and `applied`, all

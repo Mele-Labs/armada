@@ -1647,7 +1647,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Take a command out of Kit's allowlist, which every Job on this machine reads"
 notes = """
-Since 23.33. The body is `run`, exactly as `get_kit_inventory`'s `allowlist` row names it, and the answer is what the allowlist holds now, each command with where it came from: a retro item (`retro_item`, with its `lesson_id`), an Always allow (`always_allow`), or a line a person wrote (`by_hand`). **It is what makes Always allow and Accept reversible**: both write one line to `~/.armada/allowed-commands`, and this takes that line out.
+Since 23.35. The body is `run`, exactly as `get_kit_inventory`'s `allowlist` row names it, and the answer is what the allowlist holds now, each command with where it came from: a retro item (`retro_item`, with its `lesson_id`), an Always allow (`always_allow`), or a line a person wrote (`by_hand`). **It is what makes Always allow and Accept reversible**: both write one line to `~/.armada/allowed-commands`, and this takes that line out.
 
 **Read by the next permission question**, so no Job is touched: a Drone already granted the command keeps it for the call it is on, and the next one it reaches for is decided again. Taking a command out does not reopen a retro item that put it there; the item stays `accepted` and its `applied` stays as it was.
 

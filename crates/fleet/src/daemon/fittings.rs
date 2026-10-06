@@ -90,7 +90,7 @@ pub struct Host {
     /// taken of. Since protocol 23.16.
     pub walk_frames_dir: String,
     /// Kit's home, `~/.armada`, where Kit's own allowlist is kept as a plain
-    /// file a person can edit. Since protocol 23.33.
+    /// file a person can edit. Since protocol 23.35.
     pub kit_home: String,
 }
 

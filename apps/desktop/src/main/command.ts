@@ -674,7 +674,7 @@ export class JobCommands {
       // one — Fleet 409s a name outside that command's own candidates.
       ...(rule === undefined ? {} : { rule }),
       // Only always_allow reads it, and only the Kit choice sends one: absent
-      // is the repository, which is what every Fleet before 23.33 kept it in.
+      // is the repository, which is what every Fleet before 23.35 kept it in.
       ...(scope === undefined ? {} : { scope }),
     };
     return this.act(jobId, this.answering, "already_answering", (port) =>

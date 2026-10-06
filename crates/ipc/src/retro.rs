@@ -91,16 +91,16 @@ pub struct RetroItem {
     /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
-    /// What Accept would change in Kit, as on [`Lesson`]. Since 23.33.
+    /// What Accept would change in Kit, as on [`Lesson`]. Since 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change: Option<RetroChange>,
-    /// What Accept applied, as on [`Lesson`]. Since 23.33.
+    /// What Accept applied, as on [`Lesson`]. Since 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applied: Option<RetroChange>,
 }
 
 /// A change to Kit a retro item carries, which `agree_lesson` applies. Since
-/// 23.33.
+/// 23.35.
 ///
 /// **Copied by Fleet off a refusal the record shows, never written by the
 /// model.** The model only names which refusal; the command is the one that
@@ -166,7 +166,7 @@ pub struct RetroAnswered {
     pub evidence: Vec<String>,
     /// A change to Kit, on a `kit` item whose fix is a command a refusal in the
     /// record names. **Read leniently**: one that will not read is left off and
-    /// the item stays. Since 23.33.
+    /// the item stays. Since 23.35.
     #[serde(
         default,
         deserialize_with = "leniently",
@@ -259,13 +259,13 @@ pub struct Lesson {
     pub job_proposed: Option<JobId>,
     /// What Accept would change in Kit. **Only on a `kit` item whose change
     /// Fleet copied off a refusal in the record**; absent on every other, and
-    /// on one kept before 23.33. Since 23.33.
+    /// on one kept before 23.35. Since 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change: Option<RetroChange>,
     /// What `agree_lesson` applied. **Absent when nothing was applied**: an
     /// item with no `change`, one still open, and one disagreed with. Present
     /// is the change, exactly as it was applied, and it stays so on every later
-    /// read of the item. Since 23.33.
+    /// read of the item. Since 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applied: Option<RetroChange>,
 }

@@ -140,7 +140,7 @@ export type KitInventory = {
 };
 
 /**
- * Where a command in Kit's allowlist came from. Since protocol 23.33.
+ * Where a command in Kit's allowlist came from. Since protocol 23.35.
  * `lesson_id` rides with `retro_item`.
  */
 export type KitAllowedSource = "retro_item" | "always_allow" | "by_hand";
@@ -152,7 +152,7 @@ export type KitAllowedCommand = {
   lesson_id?: string;
 };
 
-/** `remove_kit_allowed_command`'s answer: what the allowlist holds now. Since protocol 23.33. */
+/** `remove_kit_allowed_command`'s answer: what the allowlist holds now. Since protocol 23.35. */
 export type KitAllowedCommands = {
   commands: KitAllowedCommand[];
 };

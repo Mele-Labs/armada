@@ -223,7 +223,7 @@ it("sends an always-allow's rule with the answer", async () => {
 });
 
 /**
- * **`scope: "kit"` rides with an always-allow**, since protocol 23.33, and with
+ * **`scope: "kit"` rides with an always-allow**, since protocol 23.35, and with
  * the rule: the whole of a chained command is refused for Kit. A repository
  * always-allow sends no `scope`, which is what it has always meant.
  */

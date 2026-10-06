@@ -23,14 +23,14 @@ export type KitServersRead = { ok: true; kit: KitServers } | { ok: false; outcom
 /** `GET /kit/inventory`, read into the app. #1491. */
 export type KitInventoryRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
 
-/** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.33. */
+/** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.35. */
 export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } | { ok: false; outcome: Outcome };
 
 /** What the Manifest surface asks of the host for Kit. */
 export type KitSlice = {
   /** The setup a person already has, read to be shown. Machine-wide. #1491. */
   onReadKitInventory: () => Promise<KitInventoryRead>;
-  /** Take a command out of the allowlist, by the line as the inventory spelled it. Since 23.33. */
+  /** Take a command out of the allowlist, by the line as the inventory spelled it. Since 23.35. */
   onRemoveKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
   onListKitServers: () => Promise<KitServersRead>;
   onAddKitServer: (adding: AddKitServer) => Promise<KitServersRead>;

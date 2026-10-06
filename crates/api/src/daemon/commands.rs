@@ -1118,7 +1118,7 @@ pub trait Commands: Send + Sync + 'static {
     ) -> impl Future<Output = Result<ipc::KitServers, Refusal>> + Send;
 
     /// `remove_kit_allowed_command` — take a command out of Kit's allowlist, a
-    /// person's act. **Since 23.33.** Answers with what the allowlist holds now.
+    /// person's act. **Since 23.35.** Answers with what the allowlist holds now.
     /// **Read by the next permission question**, so a Drone already granted
     /// the command keeps it for the call it is on. Refused where the allowlist
     /// holds no command spelled `run`.

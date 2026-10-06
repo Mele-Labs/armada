@@ -182,7 +182,7 @@ pub struct KitInventory {
     pub kinds: Vec<SetupKindRow>,
 }
 
-/// Where a command in Kit's allowlist came from. Since 23.33.
+/// Where a command in Kit's allowlist came from. Since 23.35.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "source", rename_all = "snake_case")]
 pub enum KitAllowedSource {
@@ -207,14 +207,14 @@ pub struct KitAllowedCommand {
 }
 
 /// `remove_kit_allowed_command`'s answer: what Kit's allowlist holds now, in
-/// the order the file holds it. Since 23.33.
+/// the order the file holds it. Since 23.35.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KitAllowedCommands {
     pub commands: Vec<KitAllowedCommand>,
 }
 
 /// The request half of `remove_kit_allowed_command`: `run`, exactly as
-/// [`KitAllowedCommand::run`] has it. Since 23.33.
+/// [`KitAllowedCommand::run`] has it. Since 23.35.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoveKitAllowedCommand {
     pub run: String,
