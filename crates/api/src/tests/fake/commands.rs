@@ -224,6 +224,10 @@ impl Commands for FakeDaemon {
         job_id: JobId,
         _run: ipc::StartRun,
     ) -> Result<ipc::RunUnderway, Refusal> {
+        self.run_asked_on
+            .lock()
+            .expect("not poisoned")
+            .push(crate::asking().and_then(|caller| caller.port()));
         self.runs_nothing(&job_id)
     }
     async fn stop_run(

@@ -204,10 +204,8 @@ async fn called<D: Queries + Admitting>(
     let named = Query::<InManifest>::try_from_uri(&parts.uri)
         .ok()
         .and_then(|Query(scope)| scope.manifest());
-    let helm = doorway
-        .served
-        .daemon()
-        .helm_at(crate::mcp::who_called(&parts));
+    let caller = crate::mcp::who_called(&parts);
+    let helm = doorway.served.daemon().helm_at(caller);
     let body = match axum::body::to_bytes(body, MOST_A_CALL_MAY_BE).await {
         Ok(body) => body,
         // Answered as unreadable bytes, `crate::mcp`'s shape for the same case.
@@ -250,7 +248,7 @@ async fn called<D: Queries + Admitting>(
             (Ok(scope), _) => match within_scope(&call, &scope) {
                 Ok(call) => Answered::Served {
                     id,
-                    answer: doorway.through(&call, helm.is_some(), &scope).await,
+                    answer: doorway.through(&call, helm.is_some(), &scope, caller).await,
                 },
                 Err(why) => Answered::Refused { id, why },
             },
@@ -300,7 +298,13 @@ impl<D: Queries> Doorway<D> {
 
     /// One tool call, made against the surface inside `scope`. `by_helm`
     /// marks it for the route that records who acted.
-    async fn through(&self, call: &door::Call, by_helm: bool, scope: &Scope) -> Answer {
+    async fn through(
+        &self,
+        call: &door::Call,
+        by_helm: bool,
+        scope: &Scope,
+        caller: crate::mcp::Caller,
+    ) -> Answer {
         if let Some(why) = self.elsewhere(call, scope).await {
             return refused_here(call, &why);
         }
@@ -319,6 +323,9 @@ impl<D: Queries> Doorway<D> {
             request.extensions_mut().insert(HelmCalled);
         }
         request.extensions_mut().insert(DoorCalled);
+        request
+            .extensions_mut()
+            .insert(crate::acting::DoorCaller(caller));
         request
             .extensions_mut()
             .insert(Scoped(ManifestId::carried(scope.named())));
