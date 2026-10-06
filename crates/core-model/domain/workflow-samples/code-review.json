@@ -1,7 +1,6 @@
 {
   "workflow_id": "code_review",
   "version": 1,
-  "structure": "linear",
   "ref_source": "job_specified_branch",
   "requires_worktree": true,
   "requires_checks": false,

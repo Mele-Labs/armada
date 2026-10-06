@@ -198,6 +198,8 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 // answers differently, and each wants different facts in front of the decision.
 export * from "./compositions/HeldWorktree/HeldWorktree";
 export * from "./compositions/PoolSlots/PoolSlots";
+export * from "./compositions/WorkflowCreator/WorkflowCreator";
+export * from "./compositions/WorkflowCreator/exports";
 
 // What one Job holds on the machine, and the act that goes and looks. Not a
 // debug panel: the first thing on it is a sentence answering *is this working*,

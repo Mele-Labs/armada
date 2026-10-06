@@ -58,6 +58,8 @@ means to ask for more.
 | **ModelClient** | One-shot model calls Armada makes itself | Anthropic API, cheap model |
 | **Docker** — added Aug 2026, unscoped | Resolve a repo's compose files, rewrite published ports into a Job's claimed span, run the transformed document on stdin. Also the surface Doctor's existing health probe belongs behind | Docker CLI / Compose. Note the inherited trap: an override **appends** to `ports:` rather than replacing, and the `!override` fix is silently ignored below Compose 2.24.4 — which is why the whole resolved document is transformed in memory rather than layered |
 
+**The vendor-literal gate yields to one thing: a glyph's component name imported from `lucide-react`**, such as `FolderGit2`. That name is the icon library's and says nothing about whose API the code reaches; `git2` written anywhere else outside the adapters still fails.
+
 ### ModelClient, and what it deliberately does not cover
 
 `ModelClient` was added to the crate design after

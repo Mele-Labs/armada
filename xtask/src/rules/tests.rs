@@ -109,3 +109,11 @@ fn the_real_doc_names_every_test_file_in_the_package() {
         }
     }
 }
+
+#[test]
+fn a_lucide_glyph_name_is_not_a_vendor_literal_but_the_same_text_elsewhere_is() {
+    let source = "import { FolderGit2, Ban } from \"lucide-react\";\nconst glyph = FolderGit2;\nconst lib = \"git2\";\n";
+    let blanked = super::without_lucide_names(&source.to_lowercase(), source);
+    assert_eq!(blanked.matches("git2").count(), 1, "{blanked}");
+    assert!(blanked.lines().nth(2).unwrap().contains("git2"));
+}

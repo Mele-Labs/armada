@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 
-use config::{Manifest, ResolvedWorkflow};
+use config::{Manifest, ResolvedWorkflow, WorkflowFile};
 use core_model::WorkflowId;
 
 mod adding;
@@ -42,6 +42,9 @@ pub struct SetUp {
 struct Held {
     workflows: Arc<BTreeMap<WorkflowId, ResolvedWorkflow>>,
     left_out: Arc<Vec<ipc::LeftOutWorkflow>>,
+    /// Every definition file that parsed, with its text: the ones that run and
+    /// the ones a more specific place replaced.
+    files: Arc<Vec<WorkflowFile>>,
 }
 
 /// What reading the workflow folders again came to, for a Fleet that is
@@ -50,6 +53,7 @@ struct Held {
 pub struct Catalogued {
     pub workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
     pub left_out: Vec<ipc::LeftOutWorkflow>,
+    pub files: Vec<WorkflowFile>,
 }
 
 impl SetUp {
@@ -61,8 +65,18 @@ impl SetUp {
             held: Arc::new(RwLock::new(Held {
                 workflows: Arc::new(workflows),
                 left_out: Arc::new(Vec::new()),
+                files: Arc::new(Vec::new()),
             })),
         }
+    }
+
+    /// The definition files this repository read, as the catalogue kept them.
+    pub fn with_files(self, files: Vec<WorkflowFile>) -> SetUp {
+        self.held
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .files = Arc::new(files);
+        self
     }
 
     /// What this repository's catalogue left out, as the wire carries it.
@@ -88,6 +102,7 @@ impl SetUp {
         *self.held.write().unwrap_or_else(PoisonError::into_inner) = Held {
             workflows: Arc::new(read.workflows),
             left_out: Arc::new(read.left_out),
+            files: Arc::new(read.files),
         };
     }
 
@@ -288,6 +303,11 @@ impl Served {
 
     pub fn left_out(&self) -> Arc<Vec<ipc::LeftOutWorkflow>> {
         Arc::clone(&self.set_up().held().left_out)
+    }
+
+    /// Every definition file read, as one snapshot, with the text of each.
+    pub fn files(&self) -> Arc<Vec<WorkflowFile>> {
+        Arc::clone(&self.set_up().held().files)
     }
 
     /// Lay a re-read of the workflow folders over what this repository holds.

@@ -95,10 +95,8 @@ pub struct WorkflowStep {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_for_handoff: Vec<String>,
     /// Where this step goes on a verdict that neither advances nor ends —
-    /// `structure: loop`'s edge. **This is the fact `structure` alone cannot
-    /// give**: a `loop` workflow says a step returns to an earlier one, and
-    /// only `verdict_routing` says which. `None` on every step of a linear
-    /// workflow, which is most steps of most workflows. Since 14.3, #1149.
+    /// the back edge, which `verdict_routing` alone declares. `None` on a step
+    /// that sends the work nowhere, which is most steps. Since 14.3, #1149.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict_routing_target: Option<StepId>,
     /// How many times this step may be returned to before the Job escalates.
@@ -175,6 +173,44 @@ pub struct WorkflowSummary {
     /// definition declares none**, and from a Fleet older than 21.1. Since 21.1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_requests: Option<String>,
+    /// The file this definition was read from, as Fleet read it: a path, or a
+    /// bracketed name where Armada carries it. Empty from a Fleet older than
+    /// 23.33.
+    #[serde(default)]
+    pub file: String,
+    /// **The definitions of this id a more specific place replaced**, one per
+    /// place, so a list can draw each as a row of its own beside the one that
+    /// runs. Absent where nothing is replaced. Since 23.33.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<OverriddenWorkflow>,
+}
+
+/// A definition of a workflow id that a more specific place replaced (protocol
+/// 23.33). It does not run; it can still be read with `get_workflow`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OverriddenWorkflow {
+    /// `armada` or `kit`; a repository's own is never replaced.
+    pub source: String,
+    /// The definition's file, as Fleet read it.
+    pub file: String,
+}
+
+/// One definition as `get_workflow` answers it (protocol 23.33): the file's
+/// text, in the shape `save_workflow` takes back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowDefinition {
+    pub workflow_id: WorkflowId,
+    /// `armada`, `kit` or `repository`.
+    pub source: String,
+    /// The file as Fleet read it.
+    pub file: String,
+    /// The definition whole, as the file holds it. **Text, not a tree**, so what
+    /// an editor changes and sends to `save_workflow` is the same string.
+    pub definition: String,
+    /// The place whose definition of this id runs instead, where this one is
+    /// replaced. Absent where this is the one that runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overridden_by: Option<String>,
 }
 
 /// A definition this Fleet runs without, and why. #425: named only in
@@ -184,9 +220,8 @@ pub struct LeftOutWorkflow {
     /// Absent where the file did not parse far enough to say.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<WorkflowId>,
-    /// `armada`, `kit` or `repository`. A repository's own definition refuses
-    /// Fleet's start; it is left out only by a Fleet that was already running
-    /// when the file was saved (protocol 23.28).
+    /// `armada`, `kit` or `repository`. A repository's own is left out the way
+    /// Kit's is; before 23.33 one that did not fit refused Fleet's start.
     pub source: String,
     /// The definition's file, as Fleet read it.
     pub file: String,

@@ -15,7 +15,7 @@ fn summary_of(for_requests: Option<&str>) -> ipc::WorkflowSummary {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
-            "version: 1\nworkflow_id: refactor\nname: refactor\n{line}structure: linear\nsteps:\n  \
+            "version: 1\nworkflow_id: refactor\nname: refactor\n{line}steps:\n  \
              - id: only\n    label: \"only\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
              delivers: true\n    advance_gate: auto\n"
         ),
@@ -29,7 +29,7 @@ fn summary_of(for_requests: Option<&str>) -> ipc::WorkflowSummary {
     .expect("the fixture manifest parses");
     let workflow = config::ResolvedWorkflow::resolve(&def, &manifest)
         .unwrap_or_else(|refused| panic!("the fixture workflow did not resolve: {refused}"));
-    workflow_summary(&workflow, manifest.id())
+    workflow_summary(&workflow, manifest.id(), &[])
 }
 
 #[test]

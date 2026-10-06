@@ -15,6 +15,7 @@ export type Open = {
   studying: boolean;
   lining: boolean;
   learning: boolean;
+  workflowing: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -27,5 +28,6 @@ export function showingOf(open: Open): string {
   if (open.studying) return SURFACE.studios;
   if (open.lining) return SURFACE.mergeLine;
   if (open.learning) return SURFACE.lessons;
+  if (open.workflowing) return SURFACE.workflows;
   return SURFACE.overview;
 }
