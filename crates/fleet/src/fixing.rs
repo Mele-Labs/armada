@@ -274,6 +274,7 @@ where
             repository: ManifestId::carried(Ulid::carried(owner)),
             root: served.root().to_string(),
             run: ResolvedCheck::ManifestCheck {
+                manifest_dir: String::new(),
                 name: check.to_string(),
                 run: command,
                 expect_exit_code,

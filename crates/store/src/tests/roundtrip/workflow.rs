@@ -49,6 +49,7 @@ fn the_frozen_workflow_comes_back_with_every_check_its_steps_declared() {
         fix.checks(),
         &[
             ResolvedCheck::ManifestCheck {
+                manifest_dir: "packages/a".to_string(),
                 name: "build".to_string(),
                 run: "cargo build".to_string(),
                 expect_exit_code: 0,

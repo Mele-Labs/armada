@@ -207,8 +207,9 @@ pub enum Fault {
     /// run that is narrowed to nothing and says so nowhere.
     NothingToSubstitute,
     /// **A key only the root `armada.yml` may carry, written in a workspace's.**
-    /// `setup.worktrees` is read from the root at every lease, so a value
-    /// beside a workspace's reads as set and is read by nothing.
+    /// `setup.worktrees` and `setup.seed` are read from the root at every
+    /// lease, so a value beside a workspace's reads as set and is read by
+    /// nothing.
     RootOnly,
     /// **An `artifact_exists` target that cannot name one file.** Refused where
     /// the definition is parsed rather than discovered at the gate, because

@@ -143,7 +143,7 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
                 })),
             })).collect::<Vec<Value>>(),
             "checks": step.checks().iter().map(|check| match check {
-                ResolvedCheck::ManifestCheck { name, run, expect_exit_code, when, requires, narrow, one_test, runs_at, places, width, runner } => json!({
+                ResolvedCheck::ManifestCheck { name, run, expect_exit_code, when, requires, narrow, one_test, runs_at, places, width, runner, manifest_dir } => json!({
                     "type": MANIFEST_CHECK,
                     "check": name,
                     // Absent where it runs everywhere, which is how every row
@@ -168,6 +168,9 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
                     })),
                     // Null where the Check declares no `one_test`, which reads back as none. #999.
                     "one_test": one_test,
+                    // Absent for the root's own, which is how every row written
+                    // before workspaces gated reads back.
+                    "manifest_dir": (!manifest_dir.is_empty()).then_some(manifest_dir),
                     "run": run,
                     "expect_exit_code": expect_exit_code,
                     // Absent where the Check requires nothing, which is every
@@ -787,6 +790,10 @@ fn read_check(entry: &Map<String, Value>) -> Result<ResolvedCheck, Malformed> {
             // Absent and null both read as none, for `places`' reason — and
             // none is the machine's own number rather than one. #1444.
             runner: read_runner(entry)?,
+            manifest_dir: match entry.get("manifest_dir") {
+                None | Some(Value::Null) => String::new(),
+                Some(_) => text(entry, "manifest_dir")?,
+            },
             width: match entry.get("width") {
                 None | Some(Value::Null) => None,
                 Some(_) => Some(
