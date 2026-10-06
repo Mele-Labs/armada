@@ -422,6 +422,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         answer: CommandAnswer::Reject,
         note: Some("not on this job".to_string()),
         rule: None,
+        scope: None,
     };
     let received = round_trip_answer_command(&answered_command);
     assert_eq!(received.call, answered_command.call);

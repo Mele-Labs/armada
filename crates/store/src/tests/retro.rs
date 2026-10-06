@@ -32,6 +32,7 @@ fn line(whose: Whose, said: &str, evidence: &[&str]) -> RetroLine {
         said: said.to_string(),
         evidence: evidence.iter().map(|one| one.to_string()).collect(),
         lands_in: Some(LandsIn::Armada),
+        change: None,
     }
 }
 
@@ -344,6 +345,14 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
         .map(|lesson| lesson.line)
         .collect();
     assert_eq!(all, vec![old]);
+    assert!(
+        store
+            .lessons(10, None, None)
+            .expect("read")
+            .iter()
+            .all(|lesson| lesson.line.change.is_none() && !lesson.applied),
+        "V109 gives an item kept before it no change and nothing applied"
+    );
     for place in LandsIn::ALL {
         assert!(
             store

@@ -119,7 +119,7 @@ where
             };
         let mut known = cites(&gathered.record);
         known.extend((0..gathered.annotations.len()).map(annotation_cite));
-        match read(&said, &known) {
+        match read(&said, &known, &gathered.record.refusals) {
             Ok(items) => Reflected::Written {
                 model: ask.model().as_str().to_string(),
                 items,
@@ -214,6 +214,13 @@ fn question(gathered: &Gathered) -> Option<String> {
          - `title`: a headline of about eight words, with no period.\n\
          - `what`: one or two short sentences saying what happened and to whom.\n\
          - `fix`: one sentence naming what to change and where.\n\n\
+         A `kit` item may also carry a `change`, and only when its fix is to allow a command \
+         the record shows the agent was refused. Name that refusal by its `cite`, and Armada \
+         reads the command from the record: \
+         {{\"kind\":\"allow_command\",\"refusal\":\"refusal:2\"}}. Never write the command \
+         yourself. Add `\"command\"` only to allow a shorter start of what was refused, such \
+         as `grep -a -c`, and it must be the first words of what the refusal tried. Leave \
+         `change` out of every other item.\n\n\
          How to write the three texts. A person reads them, and has rejected text that \
          sounds machine written:\n\
          - Short sentences with concrete facts: names, files, counts, durations.\n\
@@ -258,7 +265,11 @@ fn dashed(text: &str) -> bool {
 /// one with a dash in any of them, and one that names no place its fix lands.
 /// **The place is never defaulted**: a guess would list it under a place the
 /// model did not choose.
-pub(crate) fn read(said: &str, known: &BTreeSet<String>) -> Result<Vec<RetroLine>, String> {
+pub(crate) fn read(
+    said: &str,
+    known: &BTreeSet<String>,
+    refusals: &[ipc::RecordRefusal],
+) -> Result<Vec<RetroLine>, String> {
     let from = said.find('{').ok_or("there is no JSON object in it")?;
     let to = said
         .rfind('}')
@@ -282,7 +293,10 @@ pub(crate) fn read(said: &str, known: &BTreeSet<String>) -> Result<Vec<RetroLine
             let written = [&title, &what, &fix]
                 .iter()
                 .all(|text| !text.is_empty() && !dashed(text));
+            let change =
+                super::changing::held_to_the_record(item.change, lands_in.domain(), refusals);
             (!evidence.is_empty() && written).then(|| RetroLine {
+                change,
                 whose: item.who.domain(),
                 title: Some(title),
                 said: what.clone(),

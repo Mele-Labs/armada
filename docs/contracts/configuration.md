@@ -50,6 +50,8 @@ So each setting carries a **peer polarity** alongside the merge strategy: `Lower
 
 **In code the polarity newtypes survive, scoped to peer resolution.** `Cap<T>` resolves by `min` across peers, `Floor<T>` by `max`, an allow-shaped list by intersection, a deny-shaped list by union. What they no longer do is make a Kit → Manifest direction unconstructible.
 
+**What is now read and enforced, 5 Oct 2026.** The allowlist's **Kit tier** is read and enforced: `~/.armada/allowed-commands`, a plain file, matched by the rule a repository's Always allow already uses (the command, or it with plain arguments, never a chained one) and read after the destructive, check-runner and ungrantable answers, so it widens only what asking would have decided. **The Manifest tier of the allowlist is not built**: a repository's own Always allow (`#836`) is kept per Manifest and consulted beside Kit's, and neither can remove the other's line. The models list has no tier to read: it is resolved from the harness at start. `../concepts/kit.md`, *Kit's allowlist*.
+
 **What this leaves unwatched**, filed as findings rather than replaced: nothing prevents a Manifest removing a Judge trigger, selecting a model outside the Kit set, removing a required destructive-op confirmation, or defining a Command that bypasses the allowlist and with it the denial record.
 
 ## Three more rules, decided after the review

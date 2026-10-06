@@ -31,7 +31,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 | Home | Whose | What Armada does with it |
 | --- | --- | --- |
 | The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what they edit in Kit, and not yet |
-| `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows today, and anything with no counterpart in a harness |
+| `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows, and since 5 Oct 2026 the allowlist (`allowed-commands`); and anything with no counterpart in a harness |
 
 **Neither is authoritative over the other's idea of anything**, which is what makes two homes survivable where the issue that raised this feared they would not be. Nothing in `~/.armada` overrides a skill; nothing in the harness's home names a Workflow. A row Kit draws is labelled with the home it came from, so a person can always tell what they are looking at and where to go to change it.
 
@@ -47,7 +47,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **An adapter per harness**, decided with the owner on 18 Sep. Which folder, which file and how one harness spells a skill are `crates/adapters`' to know, and a second harness is a second adapter with nothing above it moving. `get_kit_inventory` is the read and `adapter_traits::HarnessSetup` is the seam.
 
-**Six kinds of the eight are read**: Skills, Plugins, Agent file, Sub agents, Commands and the servers a person connected. The allowlist and the models list answer *not read yet, and why* — a rule drawn out of its two tiers reads as a grant, and both tiers are #41. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along.
+**Seven kinds of the eight are read**: Skills, Plugins, Agent file, Sub agents, Commands, the servers a person connected, and — since 5 Oct 2026 — the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)). The models list answers *not read yet, and why*: it has no stored tier to read. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along. An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 
 **Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from. A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong. What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment. So what is on the screen could not start the server it names, and a server connected outside Armada is visible here while reaching no Drone — adding one to Kit and then allowing it are the two acts they were. That is `../scope.md`'s one confinement, kept where an import would have broken it.
 
@@ -89,6 +89,29 @@ The original four groups split across the two concepts: AI Behavior and the tool
 **A scout gets none of them.** [Scout](scout.md) starts with no server at all, and the sources it reads are fetched by Fleet rather than opened by the agent — so "a scout's connections" is a different question from this one, and nothing here widens a scout.
 
 **Helm's set is still the person's own, resolved by the CLI** — `#1373`, and Kit replaces none of it yet. Helm simply launches without the flag a Drone launches with.
+
+### Kit's allowlist
+
+**Built 5 Oct 2026, the owner's decision: Accept on a Kit item in Retros really changes the Kit.** It began on Job 3, where a Drone asked for `grep -a -c "arc-dispatch"` on a check log, was stopped, and the owner chose *Allow for this Job*. That allowance died with the Job, the retro listed *allow grep on check logs* as a Kit item, and Accept only set it `accepted`, so the next Job's Drone was stopped on the same command.
+
+| | |
+| --- | --- |
+| Where | `~/.armada/allowed-commands`, a plain file. One command per line, `#` starts a note. A line Armada wrote ends in a tab and where it came from (`always allow`, or `retro <item id>`); a line a person wrote needs neither |
+| Read | On every permission question, so a line added by hand while Fleet runs is in force and one taken out is not |
+| Tier | **The machine's, which is the Kit tier.** A Manifest extending or restricting it is not built: a repository's own Always allow (`#836`) is its tier, and the two are both consulted |
+| Matched by | `permitting::covers`, the rule a repository's Always allow already uses: the command itself, or it with more plain arguments after it, never one that chains another command. No glob and no regular expression |
+| Never lifts | A command a Manifest declares destructive, one it runs a Check for, one the harness cannot grant. Kit is read after all three, and widens only the two answers asking would have decided: refuse, and ask |
+| Not kept | A command that chains another, or spans lines. A standing grant on this machine for `a && b` is wider than the person who read `a` meant |
+
+**A command Kit does not list is refused as before and the refusal is recorded as before.** Kit is read in the permission question itself, not written into the Drone's toolbelt, so every call still reaches Fleet and the *denial record* the finding below flags is not bypassed.
+
+**How a line gets in, and out.** A person writes a line. An **Always allow** answered with `scope: kit` appends the command (or the rule they picked off its candidates) with source `always allow`. **Accept** on a Kit retro item that carries a `change` appends it with source `retro <item id>` and answers with what it applied. `remove_kit_allowed_command` takes a line out, and is what makes the other two reversible; it does not reopen the item that put it there. Adding a command already listed adds nothing, so agreeing twice applies once.
+
+**A retro item's `change` is copied off the record, never written by the model.** The writer names a refusal by its `cite`; Fleet takes the command from that refusal's own row, and drops the change (the item stays) where the row is not a shell call, holds no argument, holds one cut for length, or chains. The writer may name a shorter start of the command, and only one of the command's own leading cuts. An Accept for a command that is destructive in any served repository, or that the harness cannot grant, is refused (`fleet.kit_change_refused`) and the item stays open, since no listing could make it run.
+
+**Only `allow_command` exists as a change.** The models list is resolved from the harness at start (`model_choices`) and has no stored tier, so a `set_model` change would have nothing to write to; it waits for the models list to have a home.
+
+**Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
 **Known cost: allowlist rot.** Two-tier inheritance keeps changes scoped, but upkeep is ongoing as new tools are needed. No automated solution exists; worth monitoring rather than solving now.
 

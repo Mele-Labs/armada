@@ -604,6 +604,14 @@ where
         Ok(self.kit_servers_listed(&served).await)
     }
 
+    /// Take a command out of Kit's allowlist: `crate::kit_allowlist`.
+    async fn remove_kit_allowed_command(
+        &self,
+        removing: ipc::RemoveKitAllowedCommand,
+    ) -> Result<ipc::KitAllowedCommands, Refusal> {
+        self.remove_from_kit_allowlist(&removing.run).await
+    }
+
     /// Serve one more repository, from a folder — `crate::repositories`.
     async fn add_repository(
         &self,
@@ -966,7 +974,8 @@ where
             answer.answer,
             answer.note.as_deref(),
             answer.rule.as_deref(),
-        );
+        )
+        .kept_in(answer.scope);
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {

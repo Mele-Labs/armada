@@ -159,6 +159,32 @@ pub struct AnswerCommand {
     /// is what every Fleet before 13.4 always declared. **Since 13.4.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rule: Option<String>,
+    /// Where an Always allow is kept. **Only Always allow reads it.** Absent is
+    /// the repository, which is what every Fleet before 23.33 kept it in. Since
+    /// 23.33.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<AlwaysAllowScope>,
+}
+
+/// Where an [`CommandAnswer::AlwaysAllow`] is kept.
+///
+/// **A field of the answer and not a fourth [`CommandAnswer`]**, which Bridge
+/// matches on: a value added there is a major bump, and this one is read by
+/// Fleet alone, so a Bridge that never sends it is answered as it always was.
+/// Which scopes are offered is not on the wire: every Fleet at 23.33 or later
+/// takes both, and a Bridge that sends `kit` to an older Fleet is refused at
+/// the handshake, which is the direction that survives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AlwaysAllowScope {
+    /// Every Job against this Manifest. What Always allow has meant since
+    /// `#836`.
+    Repository,
+    /// Every Job on this machine, in Kit's allowlist, `~/.armada`. **Matched by
+    /// the same rule as a repository's, and withheld by the same three:** a
+    /// command a Manifest declares destructive, one it runs a Check for, and
+    /// one the harness cannot grant stay refused whatever Kit lists.
+    Kit,
 }
 
 /// The request half of `set_when_blocked`. **A live setting on one Job**: the

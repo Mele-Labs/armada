@@ -157,6 +157,31 @@ fn said(answer: CommandAnswer) -> &'static str {
     }
 }
 
+/// The rule an Always allow keeps: the one a person picked off the command's own
+/// candidates, or the whole command where they named none. **A rule the command
+/// never offered is refused**, so nobody can type past what Fleet showed.
+fn declared_rule(command: &str, rule: Option<&str>) -> Result<String, NotPermitted> {
+    let Some(rule) = rule else {
+        return Ok(command.to_string());
+    };
+    let (candidates, _) = always_allow_rules(command);
+    candidates
+        .into_iter()
+        .find(|candidate| candidate == rule)
+        .ok_or_else(|| NotPermitted::RuleNotOffered {
+            rule: rule.to_string(),
+        })
+}
+
+/// How an answer reads in a log line: [`said`], and where an Always allow was
+/// kept, since the line is the one record of which of the two a person pressed.
+fn said_of(answered: &Answered) -> &'static str {
+    match answered {
+        Answered::AllowedInKit(_) => "always allow in kit",
+        other => said(other.answer()),
+    }
+}
+
 /// The turn an answer becomes where the call it was about has returned.
 ///
 /// **The note rides the reject and nothing else can read it**: [`Answered`] has
@@ -165,6 +190,7 @@ fn said(answer: CommandAnswer) -> &'static str {
 fn permitted(command: &str, answered: &Answered) -> Permitted {
     match answered {
         Answered::Allowed(reach, rule) => Permitted::allowed(command, *reach, rule.as_deref()),
+        Answered::AllowedInKit(rule) => Permitted::allowed_in_kit(command, rule.as_deref()),
         Answered::Rejected(note) => Permitted::rejected(command, note.as_ref()),
     }
 }
@@ -351,7 +377,7 @@ where
             }
         };
         match answered {
-            Some(Answered::Allowed(..)) => PermissionAnswer::Allow,
+            Some(Answered::Allowed(..) | Answered::AllowedInKit(_)) => PermissionAnswer::Allow,
             // **Where a person's words reach a Drone soonest**: inside the call
             // it is still holding open, which is the path every promptly
             // answered reject takes.
@@ -386,7 +412,7 @@ where
             check_runners = self.check_runners(&served);
         }
         let command = asked.command();
-        first(
+        let decided = first(
             &asked.tool,
             command,
             &allowed,
@@ -398,11 +424,23 @@ where
             // by then a standing allow is the only answer left. `#1420`.
             command.and_then(|run| self.not_runnable(run)),
             when,
-        )
+        );
+        // **Kit's allowlist is read last and widens only the two soft answers.**
+        // A command a Manifest declares destructive, one it runs a Check for
+        // and one the harness cannot grant were each withheld above, and a line
+        // in `~/.armada` cannot lift them: nothing Kit holds is read before
+        // those three are asked. A command nothing lists is refused or asked
+        // exactly as it was, and its refusal is recorded by the caller.
+        if let (First::NotGranted | First::Ask, Some(run)) = (&decided, command) {
+            if self.kit_allows(run).await {
+                return First::Allowed;
+            }
+        }
+        decided
     }
 
     /// Every command the Manifest declares destructive, as `(name, run)`.
-    pub(super) fn destructive_commands(
+    pub(crate) fn destructive_commands(
         &self,
         served: &crate::repositories::Served,
     ) -> Vec<(String, String)> {
@@ -470,7 +508,7 @@ where
 
     /// The harness's refusal of this command **as a standing rule**, where it
     /// has one. Asked where a person's answer would write one down.
-    fn ungrantable(&self, run: &str) -> Option<String> {
+    pub(crate) fn ungrantable(&self, run: &str) -> Option<String> {
         self.harness()
             .grantable(run)
             .err()
@@ -648,7 +686,7 @@ where
         call: &str,
         answered: Answered,
     ) -> Result<bool, NotPermitted> {
-        let answer = answered.answer();
+        let said_as = said_of(&answered);
         let Some(slot) = self.slot_of(job_id).await else {
             return Ok(false);
         };
@@ -694,10 +732,7 @@ where
             job_id,
             &step,
             crate::retro::lines::A_PERSON_ANSWERS_A_COMMAND,
-            &[
-                ("call", call.to_string()),
-                ("answer", said(answer).to_string()),
-            ],
+            &[("call", call.to_string()), ("answer", said_as.to_string())],
         );
         self.publish_waiting(job_id, &step, None, Actor::Human);
         Ok(true)
@@ -712,6 +747,7 @@ where
         answered: Answered,
     ) -> Result<(), NotPermitted> {
         let answer = answered.answer();
+        let said_as = said_of(&answered);
         let nothing = || NotPermitted::NothingToAnswer {
             call: call.to_string(),
         };
@@ -749,10 +785,7 @@ where
                 job_id,
                 &step,
                 "a person answered a command the drone was refused",
-                &[
-                    ("call", call.to_string()),
-                    ("answer", said(answer).to_string()),
-                ],
+                &[("call", call.to_string()), ("answer", said_as.to_string())],
             );
         }
         Ok(())
@@ -822,17 +855,14 @@ where
                         cause: cause.to_string(),
                     })
             }
+            Answered::AllowedInKit(rule) => {
+                let declared_as = declared_rule(command, rule.as_deref())?;
+                self.allow_in_kit(&declared_as, ipc::KitAllowedSource::AlwaysAllow)
+                    .await
+                    .map(|_| ())
+            }
             Answered::Allowed(Reach::Repository, rule) => {
-                let declared_as = match rule {
-                    Some(rule) => {
-                        let (candidates, _) = always_allow_rules(command);
-                        candidates
-                            .into_iter()
-                            .find(|candidate| candidate == rule)
-                            .ok_or_else(|| NotPermitted::RuleNotOffered { rule: rule.clone() })?
-                    }
-                    None => command.to_string(),
-                };
+                let declared_as = declared_rule(command, rule.as_deref())?;
                 let served = self
                     .served_by_id(job)
                     .map_err(|why| NotPermitted::NotRecorded {

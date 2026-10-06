@@ -978,6 +978,17 @@ names the command and says what to do next and nothing else.
 └────────────────────────────────────────────────
 ```
 
+```
+┌─ TURN ─────────────────────────────────────────
+│ A person allowed `npm publish --access public`
+│ on this machine. Run `npm publish --access
+│ public` again now; it will not be refused.
+└────────────────────────────────────────────────
+```
+
+The third is an Always allow kept in Kit's allowlist, for every Job on this
+machine (5 Oct 2026).
+
 A person who says no sends the rejected answer's wording as the turn, unchanged.
 
 **It never crosses a step boundary.** Where no Drone is left to tell, the step
