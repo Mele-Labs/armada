@@ -121,9 +121,18 @@ const NOT_RESUMABLE: &str = "fleet.not_resumable";
 /// A person's act on a Job that is paused. A 409: resume it first, and Bridge
 /// offers to.
 pub(crate) const PAUSED: &str = "fleet.paused";
-/// A pause or a resume the Job's own record refuses: a status that cannot
-/// pause, one already paused, one not paused, or no slot to park. A 409.
+/// A pause on a status that cannot hold one, or on a Job with no slot to park.
+/// A 409, and not [`NOT_RESUMABLE`]: the machine was never asked.
 const NOT_PAUSABLE: &str = "fleet.not_pausable";
+/// A pause on a Job that already is. A 409, and its own code so Bridge can read
+/// a double press as the state it wanted rather than as a failure.
+const ALREADY_PAUSED: &str = "fleet.already_paused";
+/// A resume on a Job that is not paused. A 409, for [`ALREADY_PAUSED`]'s reason.
+const NOT_PAUSED: &str = "fleet.not_paused";
+/// An act asked of a Job whose Checks are running again on its worktree: a
+/// person's re-run, or a merge gating a moved base. A 409, and its own code
+/// because waiting is what a caller does next, not looking for another act.
+const CHECKS_RUNNING: &str = "fleet.checks_running";
 /// The pool or git would not park the Job's work, or take it back. A 409 and
 /// nothing changed.
 const PAUSE_REFUSED: &str = "fleet.pause_refused";
@@ -426,22 +435,31 @@ where
             | Adrift::NotUndecided { job, .. }
             | Adrift::NotStandingThere { job }
             | Adrift::NothingToRuleOn { job, .. }
-            // A re-run of the Checks refused, and the two acts it refuses
-            // while it runs.
-            | Adrift::CannotRerunChecks { job, .. }
-            | Adrift::ChecksRunningAgain { job } => Refusal::IllegalMove(
+            | Adrift::CannotRerunChecks { job, .. } => Refusal::IllegalMove(
                 WireError::raised(NOT_RESUMABLE, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
+            ),
+            // The two acts a re-run of the Checks refuses while it runs, and
+            // a pause with them.
+            Adrift::ChecksRunningAgain { job } => Refusal::IllegalMove(
+                WireError::raised(CHECKS_RUNNING, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
             Adrift::Paused { job } => Refusal::IllegalMove(
                 WireError::raised(PAUSED, said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
-            Adrift::NotPausable { job, .. }
-            | Adrift::AlreadyPaused { job }
-            | Adrift::NotPaused { job }
-            | Adrift::NothingToPark { job } => Refusal::IllegalMove(
-                WireError::raised(NOT_PAUSABLE, said, self.run_id())
+            Adrift::NotPausable { job, .. } | Adrift::NothingToPark { job } => {
+                Refusal::IllegalMove(
+                    WireError::raised(NOT_PAUSABLE, said, self.run_id())
+                        .about_job(ipc::JobId::from(job)),
+                )
+            }
+            Adrift::AlreadyPaused { job } => Refusal::IllegalMove(
+                WireError::raised(ALREADY_PAUSED, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::NotPaused { job } => Refusal::IllegalMove(
+                WireError::raised(NOT_PAUSED, said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
             Adrift::CannotPark { job, .. } | Adrift::NotReseated { job, .. } => {
                 Refusal::IllegalMove(
@@ -505,7 +523,8 @@ where
                 job,
                 why: crate::aiming::Unaimed::Blank,
             } => Refusal::Unacceptable(
-                WireError::raised(TARGET_BLANK, said, self.run_id()).about_job(ipc::JobId::from(job)),
+                WireError::raised(TARGET_BLANK, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
             ),
             Adrift::TargetNotSet { job, .. } => Refusal::IllegalMove(
                 WireError::raised(TARGET_SETTLED, said, self.run_id())

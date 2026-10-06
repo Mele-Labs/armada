@@ -242,8 +242,8 @@ pub use error::{RunId, WireError, WireValue};
 pub use event::{
     ChangeKind, ChangedFile, Cursor, Delivered, DroneExited, DroneSpawned, Event,
     EvidenceSubmitted, JobAsking, JobChecking, JobCommandWaiting, JobCreated, JobDryRun,
-    JobFilesChanged, JobJudging, JobLanded, JobRemarksChanged, JobStateChanged, JobStepAdvanced,
-    Missed, ProposalMoved, Reason, Resync, StreamMessage,
+    JobFilesChanged, JobJudging, JobLanded, JobPauseChanged, JobRemarksChanged, JobStateChanged,
+    JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
 };
 pub use explaining::CommandExplained;
 pub use files::FilesFound;
@@ -269,9 +269,9 @@ pub use ids::{
     StudioId, StudioNodeId, WorkflowId,
 };
 pub use job::{
-    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, ProposeJob,
-    ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested, Subject,
-    UnreadableJob,
+    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
+    ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
+    Subject, UnreadableJob,
 };
 pub use journal::{
     JobLog, JournalClosed, JournalMessage, JournalOpened, LogNote, NoteLevel, NotedField, Quiet,
