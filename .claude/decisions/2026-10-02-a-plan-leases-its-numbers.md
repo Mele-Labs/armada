@@ -17,6 +17,8 @@ Offered the 14 Sep union-merge plan, a number filled in at landing, and a lease 
 
 **This changes a rule in `docs/concepts/fleet.md`**, *Write-scope overlap*: "It is deliberately not a lease." Overlap stays a warning; a declared need is the part that is ordered.
 
-**Not decided:** whether a stalled Job's need expires or is taken back by a person.
+- **Asked on 6 Oct whether the checks should refuse a branch that adds a migration or bumps the protocol minor with no need declared, he chose "Yes, refuse it".** A branch had bumped 23.33 to 23.35 undeclared and taken the number another branch held. **Cost he took:** a branch that forgets is stopped at the merge line until it declares.
 
-**Where it landed:** https://github.com/NickMele/armada/issues/1059, rewritten. Nothing built.
+**Built without asking, for him to overrule:** Fleet holds its own merge act under both `merge_by: forge` and `push`, since under `forge` Fleet is still the one asking the forge to merge; a person pressing GitHub's own button bypasses the order. A need has no expiry by time; a person gives one back with `armada need --release`.
+
+**Where it landed:** https://github.com/NickMele/armada/issues/1059, which lists what is built and what is open. The list files, `armada need`, Fleet's half (protocol 23.36) are in main.
