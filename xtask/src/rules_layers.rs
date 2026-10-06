@@ -19,6 +19,13 @@
 //! package to reach another through `../../`, and it is the one form that would
 //! slip past a rule reading names.
 //!
+//! **Surfaces sit between the screens and the app.** Each directory under
+//! `packages/surfaces/` is one package on layer 4, found by listing the
+//! directory because the table is static. Two surfaces cannot import each other
+//! (same layer). One exemption: a surface's `*.test.ts(x)` and `vitest.config.ts`
+//! may import `@armada/desktop`, the mock harness that mounts the whole app.
+//! Nothing else in a surface may.
+//!
 //! **No TS parser, and the gate keeps no dependencies.** This reads the two
 //! shapes an import has: `from "…"` and `import("…")`.
 
@@ -54,23 +61,98 @@ const LAYERS: &[(&str, &str)] = &[
     ("@armada/desktop", "apps/desktop"),
 ];
 
+/// Where the surfaces live. Each directory under it is one package,
+/// `@armada/<dir>`, and they all share one layer.
+const SURFACES_DIR: &str = "packages/surfaces";
+
+/// The layer of `apps/desktop`, which a surface's tests may reach up to.
+const DESKTOP: &str = "@armada/desktop";
+
 /// Which layer each package sits on. Everything in the first group is ground.
-fn layer_of(name: &str) -> Option<usize> {
+/// `surfaces` is the list of `@armada/<x>` names found under [`SURFACES_DIR`],
+/// since the table above is static and the directory is not.
+fn layer_of(name: &str, surfaces: &[String]) -> Option<usize> {
     match name {
         "@armada/tokens" | "@armada/brand" | "@armada/icons" | "@armada/protocol" => Some(0),
         "@armada/components" => Some(1),
         "@armada/shell" => Some(2),
         "@armada/screens" => Some(3),
-        "@armada/desktop" => Some(4),
+        "@armada/desktop" => Some(5),
+        _ if surfaces.iter().any(|s| s == name) => Some(4),
         _ => None,
     }
+}
+
+/// The surfaces on disk, as `(@armada/<x>, packages/surfaces/<x>)`.
+fn surfaces_on_disk(root: &Path) -> Vec<(String, String)> {
+    let Ok(entries) = fs::read_dir(root.join(SURFACES_DIR)) else {
+        return Vec::new();
+    };
+    let mut found: Vec<(String, String)> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|dir| !dir.starts_with('.') && dir != "node_modules")
+        .map(|dir| (format!("@armada/{dir}"), format!("{SURFACES_DIR}/{dir}")))
+        .collect();
+    found.sort();
+    found
+}
+
+/// Whether a surface's file is a test or its test config, which may import the
+/// mock harness in `@armada/desktop` even though that is a higher layer.
+fn is_surface_test_file(path: &str, dir: &str) -> bool {
+    path.ends_with(".test.ts")
+        || path.ends_with(".test.tsx")
+        || path == format!("{dir}/vitest.config.ts")
+}
+
+/// What is wrong with one import, if anything. `name` and `dir` are the
+/// importing package; `surfaces` is every surface name on disk.
+fn import_fault(
+    path: &str,
+    name: &str,
+    dir: &str,
+    spec: &str,
+    surfaces: &[String],
+) -> Option<String> {
+    let mine = layer_of(name, surfaces)?;
+    if let Some(theirs) = layer_of(package_of(spec), surfaces) {
+        let exempt = surfaces.iter().any(|s| s == name)
+            && package_of(spec) == DESKTOP
+            && is_surface_test_file(path, dir);
+        if theirs >= mine && !exempt {
+            let them = package_of(spec);
+            return Some(format!(
+                "{path} imports `{them}`, which is on layer {theirs}, and {name} is on \
+                 layer {mine}. A package imports one strictly below it — otherwise \
+                 the layer it is in is a name rather than a boundary"
+            ));
+        }
+        return None;
+    }
+    if escapes(path, spec, dir) {
+        return Some(format!(
+            "{path} reaches out of its own package with `{spec}`. A package is \
+             reached by its name or not at all: a relative path that climbs out \
+             states no layer and so can be checked against none"
+        ));
+    }
+    None
 }
 
 pub fn every_package_imports_downward(root: &Path) -> Report {
     let mut report = Report::new("every package imports downward, and never out of itself");
 
+    let surfaces = surfaces_on_disk(root);
+    let surface_names: Vec<String> = surfaces.iter().map(|(n, _)| n.clone()).collect();
+
     let mut present: BTreeMap<&str, &str> = BTreeMap::new();
-    for (name, dir) in LAYERS {
+    for (name, dir) in LAYERS
+        .iter()
+        .copied()
+        .chain(surfaces.iter().map(|(n, d)| (n.as_str(), d.as_str())))
+    {
         if root.join(dir).is_dir() {
             present.insert(name, dir);
         }
@@ -81,7 +163,6 @@ pub fn every_package_imports_downward(root: &Path) -> Report {
     }
 
     for (name, dir) in &present {
-        let Some(mine) = layer_of(name) else { continue };
         for path in files_with_ext(root, &root.join(dir), &["ts", "tsx", "mjs"]) {
             if path.contains("/node_modules/") || path.contains("/dist/") {
                 continue;
@@ -90,23 +171,8 @@ pub fn every_package_imports_downward(root: &Path) -> Report {
                 continue;
             };
             for spec in specifiers(&text) {
-                if let Some(theirs) = layer_of(package_of(&spec)) {
-                    if theirs >= mine {
-                        let (them, us) = (package_of(&spec), *name);
-                        report.fail(format!(
-                            "{path} imports `{them}`, which is on layer {theirs}, and {us} is on \
-                             layer {mine}. A package imports one strictly below it — otherwise \
-                             the layer it is in is a name rather than a boundary"
-                        ));
-                    }
-                    continue;
-                }
-                if escapes(&path, &spec, dir) {
-                    report.fail(format!(
-                        "{path} reaches out of its own package with `{spec}`. A package is \
-                         reached by its name or not at all: a relative path that climbs out \
-                         states no layer and so can be checked against none"
-                    ));
+                if let Some(fault) = import_fault(&path, name, dir, &spec, &surface_names) {
+                    report.fail(fault);
                 }
             }
         }
@@ -127,6 +193,9 @@ pub fn every_package_imports_downward(root: &Path) -> Report {
 
     report
 }
+
+#[cfg(test)]
+mod tests;
 
 /// Nothing under `apps/desktop/src/main/` reads the draft schema.
 ///
