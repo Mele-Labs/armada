@@ -55,3 +55,9 @@
 .armada-drone-peek__tail > .armada-turns {
   padding: 0;
 }
+
+/* What the Drone is held on, answered in the card. Its own box draws its
+   edges; this only lets it shrink inside the card. */
+.armada-drone-peek__asking {
+  min-width: 0;
+}

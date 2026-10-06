@@ -125,15 +125,19 @@ export function commandOf(
   whole: JobWhole | null,
   answering: Answering,
   explain?: ExplainOne,
+  /** Name the command over the answers, where no lead above says it — a Drone's own card. */
+  named = false,
 ): ReactNode {
   const waiting = whole?.command_waiting;
   if (waiting === undefined) return undefined;
   // Keyed by the call, so a reading of one command never outlives it.
-  return <CommandWaiting key={waiting.call} waiting={waiting} answering={answering} explain={explain} />;
+  return (
+    <CommandWaiting key={waiting.call} waiting={waiting} answering={answering} explain={explain} named={named} />
+  );
 }
 
 /** Asking what this one command does. The screen is handed the way to ask. */
-type ExplainOne = (call: string) => Promise<CommandExplainedRead>;
+export type ExplainOne = (call: string) => Promise<CommandExplainedRead>;
 
 /** The field a refusal carries, and what becomes of the words typed in it. */
 const REFUSAL_NOTE = "Note (optional)";
@@ -154,10 +158,12 @@ function CommandWaiting({
   waiting,
   answering,
   explain,
+  named,
 }: {
   waiting: CommandInFlight;
   answering: Answering;
   explain?: ExplainOne;
+  named: boolean;
 }): ReactNode {
   const [reading, setReading] = useState<Explaining>({ state: "ready" });
   const offered = offeredOf(waiting.offers, { rules: waiting.rules, suggestedRule: waiting.suggested_rule });
@@ -190,7 +196,18 @@ function CommandWaiting({
       // that panel now, so all three here would be the same thing twice. What
       // the wire cut is not on the lead, so it stays.
       label={null}
-      {...(cut === undefined ? {} : { question: cut.size })}
+      {...(named
+        ? {
+            question: (
+              <>
+                Wants to run <code className="mono">{waiting.detail === "" ? waiting.tool : waiting.detail}</code>
+                {cut === undefined ? null : ` (${cut.size})`}
+              </>
+            ),
+          }
+        : cut === undefined
+          ? {}
+          : { question: cut.size })}
       options={offered.map(({ offer, label, means, rules, suggestedRule }) => ({
         label,
         consequence: means,

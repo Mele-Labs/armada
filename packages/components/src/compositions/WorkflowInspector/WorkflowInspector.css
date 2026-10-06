@@ -431,3 +431,9 @@ span.armada-wf-inspector__drone {
 .armada-wf-inspector__row[data-live="running"] .armada-chip {
   color: var(--status-running);
 }
+
+/* What a held Drone waits on, under its row. */
+.armada-wf-inspector__drone-asking {
+  margin-top: var(--space-2);
+  min-width: 0;
+}
