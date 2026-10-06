@@ -18,7 +18,6 @@ import {
   droneEnded,
   evidenceRead,
   droneLogs,
-  foldedReads,
   freshStep,
   handedBack,
   holdsRead,
@@ -40,6 +39,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 function fixStep() {
   const step = freshStep("fix", "Fix", 3, [BUILD_CHECK]);

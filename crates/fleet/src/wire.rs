@@ -538,6 +538,7 @@ pub(crate) fn step_facts(
     flagged: Vec<Attempted<Vec<core_model::GamingFlag>>>,
     resolved: Vec<Attempted<core_model::ResolvedPolicies>>,
     frames: Vec<store::KeptFrame>,
+    asked: Vec<store::AskedRun>,
     moves: &[StepMove],
 ) -> Vec<StepFacts> {
     job.steps()
@@ -659,6 +660,12 @@ pub(crate) fn step_facts(
                 // The Drone's own run, apart from the gate's. #1062.
                 dry_run: underway
                     .dry_run_on(&ipc::JobId::from(job.id()), &StepId::from(step.step_id())),
+                // Their own rows, never `ran`'s: a dry result is not a gate's.
+                asked_runs: asked
+                    .iter()
+                    .filter(|run| &run.step == step.step_id())
+                    .map(|run| crate::dry_run::asked::wired(job, run))
+                    .collect(),
             }
         })
         .collect()

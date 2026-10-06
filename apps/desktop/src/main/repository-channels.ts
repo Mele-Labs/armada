@@ -30,6 +30,7 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
     connection()?.editingFor(windowIdOf(event)).edit(body),
   );
   ipc.handle(CHANNELS.readManifestSpend, (event) => connection()?.editingFor(windowIdOf(event)).readSpend());
+  ipc.handle(CHANNELS.readManifestChecks, (event) => connection()?.editingFor(windowIdOf(event)).readChecks());
   ipc.handle(CHANNELS.readRepositoryScan, (event) => connection()?.editingFor(windowIdOf(event)).setup.readScan());
   ipc.handle(CHANNELS.readManifestProposals, (event) =>
     connection()?.editingFor(windowIdOf(event)).setup.readProposals(),

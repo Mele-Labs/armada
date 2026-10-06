@@ -537,6 +537,7 @@ where
         attempt: core_model::Attempt,
         hearing: tokio::sync::mpsc::UnboundedSender<crate::underway::Heard>,
         whole: bool,
+        requester: ipc::Requester,
     ) -> Announcing {
         Announcing::dry_run(
             job.id().into(),
@@ -547,6 +548,7 @@ where
             Arc::clone(&self.clock),
             hearing,
             whole,
+            requester,
         )
     }
     /// The headroom in force, **by value**: a save replaces it, so a borrow

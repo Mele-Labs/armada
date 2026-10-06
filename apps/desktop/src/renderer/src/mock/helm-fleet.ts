@@ -15,7 +15,7 @@
 
 import { PROTOCOL_VERSION } from "@armada/protocol";
 import type { HelmDebugInfo, HelmThreadItem } from "@armada/protocol";
-import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/index";
+import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
 import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { connected } from "./moment";

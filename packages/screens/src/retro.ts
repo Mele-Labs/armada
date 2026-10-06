@@ -32,7 +32,7 @@ import type {
 } from "@armada/protocol";
 import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
 
-import { refusalWords } from "./dock-questions";
+import { refusalWords } from "./refusal-words";
 import { absoluteOf, lasting } from "./duration";
 
 /** Ask main for one Job's retro. */

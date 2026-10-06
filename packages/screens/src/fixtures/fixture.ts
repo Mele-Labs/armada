@@ -29,7 +29,7 @@ import type {
   Watched,
   WorkflowSummary,
 } from "@armada/protocol";
-import type { FoldedReads } from "../JobDetail";
+import type { FoldedReads } from "../folded-reads";
 
 /** One Job at one moment, in the shape Fleet sends it — what `JobDetail` is given. */
 export type JobFixture = {

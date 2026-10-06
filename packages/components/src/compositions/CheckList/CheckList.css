@@ -1,0 +1,89 @@
+/* Check list — a bordered panel holding one table, and the facts of the open
+   Check as a labelled grid above its log. min-width: 0 so a long name wraps
+   its cell rather than scrolling the page sideways. */
+.armada-check-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.armada-check-list .armada-table-header-cell {
+  background: transparent;
+  border-bottom-color: var(--border-subtle);
+  white-space: nowrap;
+}
+
+.armada-check-list .armada-table-row:last-child {
+  border-bottom: 0;
+}
+
+/* Sideways inside the panel on a narrow window; inside, because the panel's
+   own `overflow: hidden` is what clips it to its rounded corners. */
+.armada-check-list__scroll {
+  overflow-x: auto;
+}
+
+.armada-check-list__state {
+  white-space: nowrap;
+}
+
+/* The name opens the row. Styled as the name: the row's hover and selected
+   fill are the affordance. */
+.armada-check-list__open {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-check-list__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-check-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.armada-check-details__fact {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+}
+
+.armada-check-details dt {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.armada-check-details dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-check-details dd[data-mono] {
+  font-family: var(--font-mono);
+  white-space: pre-line;
+}

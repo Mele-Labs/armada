@@ -53,6 +53,8 @@ export * from "./proposing";
 export * from "./reading";
 export * from "./reads";
 export * from "./reclaimed";
+export * from "./manifest-checks";
+export * from "./requester";
 export * from "./rehearsal";
 export * from "./scan";
 export * from "./servers";

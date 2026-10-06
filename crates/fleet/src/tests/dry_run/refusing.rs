@@ -41,7 +41,7 @@ async fn a_second_run_while_one_is_going_is_refused() {
 
     let refused = checked_by_the_one(&fleet).await;
     assert!(
-        matches!(refused, Err(NotRun::AlreadyRunning)),
+        matches!(refused, Err(NotRun::AlreadyRunning(_))),
         "{refused:?}"
     );
     running.await.expect("the run finished").expect("a report");

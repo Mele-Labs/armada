@@ -18,7 +18,6 @@ import {
   consumersStep,
   detail,
   droneLogs,
-  foldedReads,
   handedBack,
   holdsRead,
   instructed,
@@ -38,6 +37,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 const REGRESSION_LOG =
   ".armada/checks/77-split-the-settings-reducer/regression_verify.1.cargo_nextest.log";
