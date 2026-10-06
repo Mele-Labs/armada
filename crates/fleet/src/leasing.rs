@@ -217,6 +217,12 @@ where
                     (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
                         self.vcs().stranded_work(&pool, reading.slot).ok()
                     }
+                    // A session's slot, read for the files a release commits.
+                    (SlotHeld::Session(_), _) => self
+                        .vcs()
+                        .session_work(&pool, reading.slot)
+                        .ok()
+                        .filter(|work| !work.uncommitted.is_empty()),
                     _ => None,
                 };
                 // **A Finding is of the commit it read.** One whose slot has

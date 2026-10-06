@@ -3063,6 +3063,7 @@ what was committed.
 | `saved` | `WorktreeReclaimed` | `{ "commit", "files" }`: the WIP commit a Clear made on `branch.branch`, and the files it took | No uncommitted files, and every answer before 23.37 |
 | `release` | `SlotAct`, in `ChangeSlotPool` | Commit a session-held slot's uncommitted files to its branch and free it | An older Fleet refuses the unknown act |
 | `holder` | `ChangeSlotPool` | For `release`: the holder the person was shown, `claude (pid 44698)`. Required by it | Every other act |
+| `stranded` | `WorktreeSlot` | Also on a session-held slot with uncommitted files, as `uncommitted` alone, with no commits | Every slot a session holds clean, and every read before 23.37 |
 | `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
 | `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
 | `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |

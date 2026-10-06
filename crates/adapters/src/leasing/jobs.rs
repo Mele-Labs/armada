@@ -173,6 +173,10 @@ pub(crate) fn change(slots: &SlotPool, change: SlotChange) -> Result<u32, SlotRe
     })
 }
 
+pub(crate) fn session_work(slots: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
+    pool(slots).session_work(slot as usize)
+}
+
 pub(crate) fn stranded_work(slots: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
     pool(slots).stranded_work(slot as usize)
 }

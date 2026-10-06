@@ -222,6 +222,14 @@ impl Vcs for GitVcs {
         crate::leasing::jobs::change(pool, change)
     }
 
+    fn session_work(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<adapter_traits::StrandedWork, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::session_work(pool, slot)
+    }
+
     fn stranded_work(
         &self,
         pool: &SlotPool,

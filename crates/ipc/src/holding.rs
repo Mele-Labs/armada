@@ -59,7 +59,9 @@ pub struct WorktreeSlot {
     #[serde(default)]
     pub closed: bool,
     /// What a slot holds that a Scrap would lose. Present where `held` is
-    /// `stranded`, and where it is a Job's with `kept`. Since 23.29.
+    /// `stranded`, and where it is a Job's with `kept`. Since 23.29. Since
+    /// 23.37 also where an agent session holds it and its checkout has
+    /// uncommitted files, as `uncommitted` alone: what a `release` commits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stranded: Option<SlotStranded>,
     /// What a rescue Scout read of a stranded slot, while it reads and after.

@@ -306,6 +306,13 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
     std::fs::write(path.join("half.txt"), "half a thought\n").expect("a file");
     let wire = slots(&repo, 1);
 
+    // Read, so the confirm can list the files; no rescue act reaches it.
+    assert_eq!(
+        GitVcs.session_work(&wire, 1).expect("read").uncommitted,
+        vec!["half.txt"]
+    );
+    assert!(GitVcs.stranded_work(&wire, 1).is_err());
+
     let changed = GitVcs
         .release_session_slot(&wire, 1, "somebody (pid 1)")
         .expect_err("another holder was shown");

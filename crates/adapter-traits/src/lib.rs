@@ -418,6 +418,16 @@ pub trait Vcs {
     /// slot it changed. The CLI's lease honours it as Fleet's does.
     fn change_slot_pool(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused>;
 
+    /// What a slot held by an agent session holds uncommitted, which a release
+    /// commits. Read only: nothing here rescues it. Refused for any slot a
+    /// session does not hold.
+    fn session_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
+        let _ = (pool, slot);
+        Err(RescueRefused::NotStranded(alloc::string::String::from(
+            "not held by a session",
+        )))
+    }
+
     /// What a stranded slot holds, refused for any slot that is not stranded.
     fn stranded_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused>;
 
