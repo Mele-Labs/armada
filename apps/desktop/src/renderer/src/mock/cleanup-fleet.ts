@@ -31,7 +31,7 @@ export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
     if (one.slot === 2) {
       return {
         ...one,
-        held: { state: "session" as const, holder: "claude (pid 44698)" },
+        held: { state: "session" as const, holder: "nvim (pid 44698)" },
         stranded: { uncommitted: ["packages/screens/src/SlotPools.tsx", "notes/release.md"], commits: [], unpushed: 0 },
       };
     }

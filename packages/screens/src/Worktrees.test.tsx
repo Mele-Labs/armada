@@ -615,7 +615,7 @@ test("Release on a session's slot commits its files, sends the holder shown and 
     {},
     [
       slot(2, {
-        held: { state: "session", holder: "claude (pid 44698)" },
+        held: { state: "session", holder: "nvim (pid 44698)" },
         branch: "fleet/by-hand",
         stranded: { uncommitted: ["src/half.rs"], commits: [], unpushed: 0 },
       }),
@@ -638,7 +638,7 @@ test("Release on a session's slot commits its files, sends the holder shown and 
   const panel = await open("slot-2");
   await userEvent.click(panel.getByRole("button", { name: "Release" }));
   const confirm = confirmOf("Release", "slot-2");
-  await expect.element(confirm.getByText("Held by claude, on branch fleet/by-hand")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Held by nvim, on branch fleet/by-hand")).toBeInTheDocument();
   await expect.element(confirm.getByText("pid 44698")).toBeInTheDocument();
   await expect.element(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
   await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/half.rs");
@@ -646,7 +646,7 @@ test("Release on a session's slot commits its files, sends the holder shown and 
   expect(sentChanges, "nothing is sent before the confirm").toEqual([]);
 
   await userEvent.click(confirm.getByRole("button", { name: "Release" }));
-  expect(sentChanges).toEqual([{ act: "release", slot: 2, holder: "claude (pid 44698)" }]);
+  expect(sentChanges).toEqual([{ act: "release", slot: 2, holder: "nvim (pid 44698)" }]);
   await expect.element(panel.getByRole("status")).toHaveTextContent("Committed to fleet/by-hand, slot released");
 });
 
@@ -665,7 +665,7 @@ test("Release on a session's slot with nothing uncommitted commits nothing", asy
 });
 
 test("a refused Release is said as a slot not released", async () => {
-  opened([], {}, [slot(2, { held: { state: "session", holder: "claude (pid 1)" }, branch: "b" })], {
+  opened([], {}, [slot(2, { held: { state: "session", holder: "nvim (pid 1)" }, branch: "b" })], {
     onChangeSlotPool: () => Promise.resolve({ ok: false, why: "not_connected" }),
   });
   const panel = await open("slot-2");

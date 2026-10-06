@@ -208,7 +208,7 @@ pub struct ChangeSlotPool {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
     /// For `release`: the holder the person was shown, as the slot named it
-    /// (`claude (pid 44698)`). A slot held by anyone else now is refused.
+    /// (`nvim (pid 44698)`). A slot held by anyone else now is refused.
     /// Since 23.37.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub holder: Option<String>,

@@ -228,7 +228,7 @@ export const ReleaseConfirm: Story = {
     rows: [
       {
         slot: slot(2, {
-          held: { state: "session", holder: "claude (pid 44698)" },
+          held: { state: "session", holder: "nvim (pid 44698)" },
           branch: "fleet/by-hand",
           stranded: { uncommitted: ["src/a.rs", "notes/b.md"], commits: [], unpushed: 0 },
         }),
@@ -242,7 +242,7 @@ export const ReleaseConfirm: Story = {
     await userEvent.click(open.getByRole("button", { name: "Release" }));
     await expect(args.onRelease).not.toHaveBeenCalled();
     const confirm = within(canvas.getByRole("group", { name: "Release slot-2" }));
-    await expect(confirm.getByText("Held by claude, on branch fleet/by-hand")).toBeInTheDocument();
+    await expect(confirm.getByText("Held by nvim, on branch fleet/by-hand")).toBeInTheDocument();
     await expect(confirm.getByText("pid 44698")).toBeInTheDocument();
     await expect(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
     await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes/b.md");
@@ -253,7 +253,7 @@ export const ReleaseConfirm: Story = {
 
     await userEvent.click(open.getByRole("button", { name: "Release" }));
     await userEvent.click(within(canvas.getByRole("group", { name: "Release slot-2" })).getByRole("button", { name: "Release" }));
-    await expect(args.onRelease).toHaveBeenCalledWith(2, "claude (pid 44698)");
+    await expect(args.onRelease).toHaveBeenCalledWith(2, "nvim (pid 44698)");
   },
 };
 

@@ -135,10 +135,10 @@ fn released_for(slot: u32, holder: &str) -> ChangeSlotPool {
 fn a_slot_a_session_holds_is_released_and_says_what_was_committed() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
-    fleet.vcs().hold_slot(&root(&home), 2, "claude (pid 44698)");
+    fleet.vcs().hold_slot(&root(&home), 2, "nvim (pid 44698)");
 
     let released = fleet
-        .change_slot_pool(released_for(2, "claude (pid 44698)"), None)
+        .change_slot_pool(released_for(2, "nvim (pid 44698)"), None)
         .expect("released");
 
     let released = released
@@ -156,10 +156,10 @@ fn a_slot_a_session_holds_is_released_and_says_what_was_committed() {
 fn a_slot_another_session_took_since_is_refused_and_left_alone() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
-    fleet.vcs().hold_slot(&root(&home), 2, "claude (pid 51)");
+    fleet.vcs().hold_slot(&root(&home), 2, "nvim (pid 51)");
 
     let refused = fleet
-        .change_slot_pool(released_for(2, "claude (pid 44698)"), None)
+        .change_slot_pool(released_for(2, "nvim (pid 44698)"), None)
         .expect_err("a different holder");
 
     let api::Refusal::IllegalMove(error) = refused else {
@@ -168,7 +168,7 @@ fn a_slot_another_session_took_since_is_refused_and_left_alone() {
     assert_eq!(error.code, "fleet.slot_holder_changed");
     assert_eq!(
         fleet.vcs().slot_holders(&root(&home))[1],
-        Some(String::from("claude (pid 51)"))
+        Some(String::from("nvim (pid 51)"))
     );
 }
 

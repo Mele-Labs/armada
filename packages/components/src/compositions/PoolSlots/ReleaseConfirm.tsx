@@ -7,7 +7,7 @@ import { Line } from "./ConfirmLine";
 import { nameOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
-/** `claude (pid 44698)` as the command and the process id, or the whole text where it is not that shape. */
+/** `nvim (pid 44698)` as the command and the process id, or the whole text where it is not that shape. */
 function holderParts(holder: string): { command: string; pid: string | null } {
   const found = /^(.*) \(pid (\d+)\)$/.exec(holder);
   return found === null ? { command: holder, pid: null } : { command: found[1]!, pid: found[2]! };
