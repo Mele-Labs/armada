@@ -17,7 +17,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";
 import type { FleetHandle, Scenario } from "./scenario";
 import { onJob, scenarioNamed } from "./scenario";
-import { entered, mount, openHelm, unmountAfterEach } from "./testing";
+import { entered, mount, openHelm, unmountAfterEach, whenCalled } from "./testing";
 
 unmountAfterEach();
 
@@ -111,7 +111,7 @@ test("a drop sends this Job's id, the task and the reason typed", async () => {
   await panel.getByRole("button", { name: "Drop this task" }).click();
   await userEvent.type(panel.getByLabelText("Reason"), "Already covered elsewhere.");
   await panel.getByRole("button", { name: "Drop", exact: true }).click();
-  await expect.poll(() => dropTask.mock.calls.length).toBe(1);
+  await whenCalled(dropTask);
   expect(dropTask).toHaveBeenCalledWith(JOB_ID, { task: OPEN_TASK.id, reason: "Already covered elsewhere." });
 });
 
@@ -125,7 +125,7 @@ test("a refused drop says nothing was sent, keeps the reason typed, and taps", a
   await expect.element(panel.getByText("Fleet is not connected. Nothing was sent.")).toBeVisible();
   await expect.element(panel.getByLabelText("Reason")).toHaveValue("Already covered elsewhere.");
   // From the panel that holds its own answer, rather than from a toast. #1326.
-  await expect.poll(() => tap.mock.calls.length).toBe(1);
+  await whenCalled(tap);
   expect(tap).toHaveBeenCalledWith("level_change");
 });
 
@@ -214,7 +214,7 @@ test("⌥↓ on a task row sends the move to Fleet by the task it now follows, a
   const row = page.getByRole("listitem", { name: /^T3 / }).getByRole("button");
   (row.element() as HTMLElement).focus();
   await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
-  await expect.poll(() => movePlan.mock.calls.length).toBe(1);
+  await whenCalled(movePlan);
   expect(movePlan).toHaveBeenCalledWith(ARC_JOB_ID, { group: "g2", task: "T3", after: "T4" });
   const order = () =>
     [...page.getByRole("list", { name: "Group 2 tasks" }).element().children].map(
@@ -233,7 +233,7 @@ test("Remove on a group asks one reason in place and drops each of its tasks wit
   const form = fourth.getByRole("region", { name: "Remove group 4" });
   await userEvent.type(form.getByLabelText("Reason"), "Out of scope for this Job.");
   await form.getByRole("button", { name: "Remove" }).click();
-  await expect.poll(() => dropTask.mock.calls.length).toBe(2);
+  await whenCalled(dropTask, 2);
   expect(dropTask).toHaveBeenNthCalledWith(1, ARC_JOB_ID, { task: "T7", reason: "Out of scope for this Job." });
   expect(dropTask).toHaveBeenNthCalledWith(2, ARC_JOB_ID, { task: "T8", reason: "Out of scope for this Job." });
 });
@@ -267,7 +267,7 @@ test("Propose a change on a group sends the planning Drone an instruction naming
   await expect.element(send).toBeDisabled();
   await userEvent.type(panel.getByRole("textbox", { name: "Propose a change" }), "Run T6 after T5 rather than beside it");
   await send.click();
-  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  await whenCalled(redirect);
   const [jobId, instruction] = redirect.mock.calls[0]!;
   expect(jobId).toBe(ARC_JOB_ID);
   expect(instruction).toContain("on group 3 (T5, T6): Run T6 after T5 rather than beside it");
@@ -312,9 +312,11 @@ test("Restart this task on a failed task works it again, and its mark reads work
 
 test("Pilot with its panel open pops the failure up over the panel, and Copy debug info there leaves the panel open", async () => {
   const written: string[] = [];
+  let copy: () => void;
+  const copied = new Promise<void>((resolve) => (copy = resolve));
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
-    value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+    value: { writeText: (text: string) => (written.push(text), copy(), Promise.resolve()) },
   });
   mount("arc/group-failed");
   const task = await panelOf("T6", "Open a Drone's Job from its row");
@@ -324,7 +326,8 @@ test("Pilot with its panel open pops the failure up over the panel, and Copy deb
   // Not drawn inside the panel: over it.
   expect(task.getByText("Not implemented", { exact: true }).query()).toBeNull();
   await failure.getByRole("button", { name: "Copy debug info" }).click();
-  await expect.poll(() => written).toHaveLength(1);
+  await copied;
+  expect(written).toHaveLength(1);
   expect(written[0]).toContain("bridge.not_implemented");
   expect(written[0]).toContain(issueLink(250));
   expect(written[0]).toContain("POST /jobs/{job_id}/tasks/{task_id}/pilot");
@@ -394,7 +397,7 @@ test("Job settings: the sixth destination, and a choice sends this Job's id and 
   expect(page.getByRole("button", { name: /^Job settings/ }).query()).toBeNull();
   await page.getByRole("tab", { name: /^Settings/ }).click();
   (page.getByRole("radio", { name: "Ask me first" }).element() as HTMLElement).click();
-  await expect.poll(() => setWhenBlocked.mock.calls.length).toBe(1);
+  await whenCalled(setWhenBlocked);
   expect(setWhenBlocked).toHaveBeenCalledWith(JOB_ID, "ask_me");
   await expect.element(page.getByText("gh issue view")).toBeVisible();
   expect(page.getByRole("button", { name: "Remove gh issue view" }).query()).toBeNull();
@@ -413,7 +416,7 @@ test("waiting on a command: Allow for this job sends the call and the answer's w
   await expect.element(page.getByRole("radio", { name: "Allow for this job" })).toBeInTheDocument();
   choose("Allow for this job");
   await page.getByRole("button", { name: "Send this answer" }).click();
-  await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+  await whenCalled(answerCommand);
   expect(answerCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL, "allow_for_job", undefined, undefined);
 });
 
@@ -424,7 +427,7 @@ test("always allowing picks the narrowest rule, and sends it", async () => {
   choose("Always allow in this repository");
   await expect.element(page.getByRole("radio", { name: "pnpm add" })).toBeChecked();
   await page.getByRole("button", { name: "Send this answer" }).click();
-  await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+  await whenCalled(answerCommand);
   expect(answerCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL, "always_allow", undefined, "pnpm add");
 });
 
@@ -435,7 +438,7 @@ test("rejecting a command sends the reason typed", async () => {
   choose("Reject");
   await userEvent.type(page.getByLabelText("Note (optional)"), "we are not taking that dependency");
   await page.getByRole("button", { name: "Send this answer" }).click();
-  await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+  await whenCalled(answerCommand);
   expect(answerCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL, "reject", "we are not taking that dependency", undefined);
 });
 
@@ -450,7 +453,7 @@ test("reading a command before answering it names the model, and decides nothing
   }));
   await opened(runningWaitingOnACommand(), () => ({ explainCommand }));
   await page.getByRole("button", { name: "Help me understand this command" }).click();
-  await expect.poll(() => explainCommand.mock.calls.length).toBe(1);
+  await whenCalled(explainCommand);
   expect(explainCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL);
   const reading = page.getByRole("status", { name: "What this command does" });
   await expect.element(reading.getByText(/adds reselect 5\.1\.1/)).toBeVisible();

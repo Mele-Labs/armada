@@ -11,7 +11,7 @@ use super::batch::{build, halves, tell, NotBuilt};
 use super::blame::blame;
 use super::dir::StateDir;
 use super::env::{Env, ROUNDS};
-use super::gating::{checks, foundations, foundations_red, Read};
+use super::gating::{checks, foundations, foundations_red, Gated, Read};
 use super::git::checked;
 use super::logs::{prune, turn_logs, KEPT_FOR};
 use super::onto_main::{already_landed, landed, local_head, push, Pushed};
@@ -262,7 +262,12 @@ fn land_group(
             Err(stopped) => return end_all(state, seen, group, stopped),
         };
         let narrowed = match checks(repo, state, env, &group, &base, &built, &logs, passed) {
-            Ok(narrowed) => narrowed,
+            Ok(Gated::Green(narrowed)) => narrowed,
+            // Moved from outside mid-gate: the same round a refused push spends.
+            Ok(Gated::BaseMoved) => {
+                rounds += 1;
+                continue;
+            }
             Err(stopped) => return end_all(state, seen, group, stopped),
         };
         let before = group.len();

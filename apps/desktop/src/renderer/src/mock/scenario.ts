@@ -71,6 +71,7 @@ import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";
 import { originsAndPanel } from "./origins-and-panel";
 import { writingLogs } from "./check-logs-fleet";
+import { gridHeld } from "./cleanup-fleet";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { slotsHeld } from "./slots-fleet";
 import { workflowing } from "./workflows-fleet";
@@ -475,6 +476,7 @@ export const SCENARIOS: readonly Scenario[] = [
   retros("retro/lessons", "Two Jobs' retros written, on Overview"),
   retros("retro/job-3", "Job 3, its retro written", { opensJob3: true }),
   pooled(),
+  gridded(),
 ];
 
 /** Cleanup over the worktree pool, one slot in each state; the first is a running Job's. */
@@ -482,6 +484,29 @@ function pooled(): Scenario {
   const running = EVERY_STATE_ROWS.find((one) => one.job.handle.endsWith("-running"))!;
   const scenario = holding("cleanup/slots", "The worktree pool on Cleanup, a slot in each state", [running]);
   return { ...scenario, held: slotsHeld(running.job, Date.now()) };
+}
+
+/**
+ * Cleanup's one grid: a finished Job's bay holding files and an unmerged branch,
+ * a running Job's bay, a stranded one, a closed one, and two worktrees outside
+ * the pool, each with the acts that fit it.
+ */
+function gridded(): Scenario {
+  const row = (suffix: string) => EVERY_STATE_ROWS.find((one) => one.job.handle.endsWith(suffix))!;
+  const jobs = {
+    finished: row("-completedSuccess"),
+    running: row("-running"),
+    rejected: row("-rejected"),
+    failed: row("-completedFailed"),
+  };
+  const scenario = holding("cleanup/grid", "Cleanup as one grid of tiles, each opening its own panel", Object.values(jobs));
+  return {
+    ...scenario,
+    held: gridHeld(
+      { finished: jobs.finished.job, running: jobs.running.job, rejected: jobs.rejected.job, failed: jobs.failed.job },
+      Date.now(),
+    ),
+  };
 }
 
 /** Job 3 and Job 2 with their retros written, and the Lessons listing over both. */

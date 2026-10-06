@@ -908,6 +908,81 @@ class Line(LineFixture):
         self.assertEqual(done.returncode, 7, done.stdout)
         self.assertIn("moved during each of", done.stdout)
 
+    def stale_gate_branch(self, name, first):
+        """A branch hitting two Checks, `test` then `ui`. `first` is what `test`
+        does; `ui` appends a line to `ui-runs` each time it runs."""
+        ran = os.path.join(self.root, "ui-runs")
+        self.test_runs = os.path.join(self.root, "test-runs")
+        return self.branch(name, {
+            "ui/x.ts": "1\n",
+            "checks/test.sh": first + f"echo ran >> {self.test_runs}\n",
+            "checks/ui.sh": f'echo ran >> {ran}\n',
+        }), ran
+
+    def merges_on_main(self):
+        """Merges on main's first-parent line: what the line landed, not the main its candidate took in."""
+        self.git(self.repo, "fetch", "--quiet", "origin")
+        return int(self.git(self.repo, "rev-list", "--count", "--merges", "--first-parent", "origin/main"))
+
+    def test_main_moving_after_a_check_stops_the_rest_and_gates_again(self):
+        self.mover()
+        self.env["LAND_TEST_MOVE_ONCE"] = os.path.join(self.root, "moved-once")
+        where, ui_runs = self.stale_gate_branch("fix/stale-gate", 'sh "$LAND_TEST_MOVER"\n')
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/stale-gate")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(len(open(ui_runs).read().splitlines()), 1,
+                         "ui ran once, in the gate against the new main, not in the stale one")
+        self.assertEqual(len(open(self.test_runs).read().splitlines()), 2, "test ran in both gates")
+        self.assertEqual(self.merges_on_main(), 1)
+        moved = [t for t in self.turns("fix/stale-gate")
+                 if os.path.exists(self.state_file("logs", key("fix/stale-gate"), t, "moved.log"))]
+        self.assertEqual(len(moved), 1, "the stopped gate says why in its own log")
+        said = open(self.state_file("logs", key("fix/stale-gate"), moved[0], "moved.log")).read()
+        self.assertIn("while test ran", said)
+        self.assertTrue(any(f.startswith("moved-") for f in self.main_files()),
+                        "what moved main is still there: the merge was made onto it")
+
+    def test_main_never_moving_runs_every_check_once(self):
+        where, ui_runs = self.stale_gate_branch("fix/quiet-gate", "true\n")
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/quiet-gate")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(len(open(ui_runs).read().splitlines()), 1)
+        self.assertEqual(len(open(self.test_runs).read().splitlines()), 1)
+        self.assertEqual(self.merges_on_main(), 1)
+        for turn in self.turns("fix/quiet-gate"):
+            self.assertFalse(os.path.exists(self.state_file("logs", key("fix/quiet-gate"), turn, "moved.log")))
+
+    def test_main_moving_under_every_gate_stops_each_and_spends_the_rounds(self):
+        self.mover()
+        where, ui_runs = self.stale_gate_branch("fix/never-still", 'sh "$LAND_TEST_MOVER"\n')
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/never-still")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("moved during each of", done.stdout)
+        self.assertFalse(os.path.exists(ui_runs), "no gate got past its first Check")
+        self.assertEqual(self.merges_on_main(), 0)
+
+    def test_a_look_at_main_that_fails_does_not_stop_the_turn(self):
+        away = self.remote + ".away"
+        where, ui_runs = self.stale_gate_branch("fix/no-look", f'mv "$STUB_REMOTE" {away}\n')
+        with open(os.path.join(where, "checks", "ui.sh"), "a") as out:
+            out.write(f'mv {away} "$STUB_REMOTE"\n')
+        self.git(where, "add", "-A")
+        self.git(where, "commit", "--quiet", "-m", "ui gives the remote back")
+        self.git(where, "push", "--quiet", "origin", "HEAD")
+        self.land(where, "preflight")
+        self.land(where)
+        done = self.settle(where, "fix/no-look")
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(len(open(ui_runs).read().splitlines()), 1,
+                         "ui ran after a look that could not be made")
+        self.assertEqual(self.merges_on_main(), 1)
+
     def test_a_commit_to_the_branch_mid_gate_stops_before_merging(self):
         gate = os.path.join(self.root, "gate-open")
         mover = self.branch("fix/moves-7", {"moved.txt": "1\n"})
