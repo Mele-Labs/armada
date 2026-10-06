@@ -28,7 +28,7 @@ their work before advancing them. Rust daemon, Electron app, one repo.
 | What is being built, and in what order | GitHub issues, grouped by milestone |
 | What a thing is, and how it is used | `docs/concepts/`, `docs/journeys/` |
 | Skills and subagents | `.claude/skills/`, `.claude/agents/` |
-| Landing a branch on `main` | `docs/practices/ci.md`, a pull request the owner merges |
+| Landing a branch on `main` | `docs/practices/ci.md`, a pull request merged on a green `ci` |
 
 Everything written down is in `docs/INDEX.md`, and the gate refuses one that is
 not. `ARCHITECTURE.md` is the map. `CLAUDE.md` symlinks here — a copy drifts.

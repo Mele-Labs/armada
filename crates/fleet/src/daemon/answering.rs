@@ -55,7 +55,7 @@ where
     ///
     /// Where the process is gone, the answer is what it always was: `escalated`,
     /// reason `interrupted`, through `crate::aftermath` rather than restated
-    /// here.
+    /// here, and then `crate::boot_restart` puts the step back.
     ///
     /// **Never resumed silently, which is a stronger claim than it looks.** A
     /// Drone that is adopted is put back in a slot and the Job carries on, and
@@ -199,6 +199,9 @@ where
                 let job = self.stopped_at_rest(&job).await?;
                 self.move_job(&job, target, Actor::Fleet).await?;
                 reconciled.interrupted.push(job.id().clone());
+                if self.restarted_after_boot(job.id()).await? {
+                    reconciled.restarted.push(job.id().clone());
+                }
             }
         }
         Ok(())

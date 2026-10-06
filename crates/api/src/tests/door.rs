@@ -464,3 +464,24 @@ async fn the_drones_endpoint_is_untouched_by_the_door_beside_it() {
         "the Drone's endpoint gained a fleet-control tool: {body}"
     );
 }
+
+/// **The connection a `start_run` arrived on reaches the daemon**, so Fleet can
+/// place the Drone behind it. A call with no peer reaches it with none.
+/// Placement itself is `fleet`'s and tested there.
+#[tokio::test]
+async fn a_start_run_through_the_door_reaches_the_daemon_on_the_connection_it_arrived_on() {
+    let daemon = Arc::new(holding_one());
+    let app = shared(&daemon);
+    let start = calling(
+        "start_run",
+        r#"{"job_id":"1","body":{"name":"test","narrowed":false,"worktree_version":false}}"#,
+    );
+
+    from(&app, 51001, &start).await;
+    call(&app, &start).await;
+
+    assert_eq!(
+        *daemon.run_asked_on.lock().expect("not poisoned"),
+        [Some(51001), None]
+    );
+}

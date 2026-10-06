@@ -70,7 +70,9 @@ does for a crash.
 
 **`--adopt` skips that refusal.** Fleet adopts the Drone at boot; the script
 prints the Jobs and the costs (no redirect or verdict, spend undercounted,
-`unheard`, servers stop, a mid-gate Check likely re-runs). Put those in front
+`unheard`, servers stop, a mid-gate Check likely re-runs). A Job whose Drone is
+gone resumes by itself: Fleet restarts its step at boot, once, and the log says
+so. Put those in front
 of the owner before asking to run it. A roster that does not answer still
 refuses.
 
