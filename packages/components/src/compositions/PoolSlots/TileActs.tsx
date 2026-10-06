@@ -1,4 +1,4 @@
-import { DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Power, Trash2 } from "lucide-react";
+import { DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Power, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
 
@@ -51,7 +51,7 @@ export function rescuable(slot: WorktreeSlot): boolean {
 }
 
 /** Which confirm an act opens in the panel, before it is sent. */
-export type Confirming = "clear" | "branch" | "forget";
+export type Confirming = "clear" | "branch" | "forget" | "release";
 
 export type TileActsProps = {
   row: TileRow;
@@ -121,6 +121,17 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm }: TileActsP
     ) : null,
     onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
       <Act key="stop" label="Stop" said={`Stops the Scout reading ${name}.`} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
+    ) : null,
+    onConfirm !== undefined && slot?.held.state === "session" ? (
+      <Act
+        key="release"
+        label="Release"
+        said={`Commits any uncommitted files in ${name} to ${slot.branch ?? "its branch"} as a WIP commit, then releases the slot. Keeps the branch.`}
+        Glyph={Unplug}
+        tone="neutral"
+        waiting={waiting}
+        onPress={() => onConfirm("release")}
+      />
     ) : null,
     onConfirm !== undefined && offered?.clear === true ? (
       <Act key="clear" label="Clear" said={tips.clear} Glyph={Eraser} tone="destructive" waiting={waiting} onPress={() => onConfirm("clear")} />

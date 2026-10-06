@@ -135,6 +135,19 @@ export function SlotPools({
     });
   }
 
+  /** Release a session's slot for the holder the confirm showed, and say where its files went. */
+  async function release(manifestId: string, slot: number, holder: string): Promise<void> {
+    if (onChange === undefined) return;
+    const key = keyOf(manifestId, slot);
+    await run(key, async () => {
+      const outcome = await onChange(manifestId, { act: "release", slot, holder });
+      if (!outcome.ok) return refuse(key, NOT.release, outcome);
+      const released = outcome.slotChanged?.released;
+      const said = released?.saved == null ? "Slot released" : `Committed to ${released.branch}, slot released`;
+      setReceipts((was) => ({ ...was, [key]: said }));
+    });
+  }
+
   async function rescue(manifestId: string, act: RescueAct, slot: number): Promise<void> {
     if (onRescue === undefined) return;
     const key = keyOf(manifestId, slot);
@@ -211,6 +224,7 @@ export function SlotPools({
 
   const acts = (manifestId: string) => ({
     ...(onChange === undefined ? {} : { onAct: (one: SlotAct, slot?: number) => void act(manifestId, one, slot) }),
+    ...(onChange === undefined ? {} : { onRelease: (slot: number, holder: string) => void release(manifestId, slot, holder) }),
     ...(onRescue === undefined ? {} : { onRescue: (one: RescueAct, slot: number) => void rescue(manifestId, one, slot) }),
   });
   const reclaims = (key: (jobId: string) => string, pooled: (jobId: string) => boolean) => ({

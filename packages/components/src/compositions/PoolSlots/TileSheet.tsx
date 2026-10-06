@@ -8,6 +8,7 @@ import { JobLink, jobOf, stateOf } from "./PoolTile";
 import { ScrapConfirm, SlotFinding } from "./SlotFinding";
 import { TileActs, rescuable } from "./TileActs";
 import type { Confirming } from "./TileActs";
+import { ReleaseConfirm } from "./ReleaseConfirm";
 import { TileConfirm } from "./TileConfirm";
 import { TileHolds } from "./TileHolds";
 import { nameOf } from "./tiles";
@@ -38,6 +39,8 @@ export type TileSheetProps = {
   onRescue?: (act: RescueAct, slot: number) => void;
   /** Absent draws no Clear. */
   onClear?: (jobId: string) => void;
+  /** Release a slot an agent session holds, for the holder it showed. */
+  onRelease?: (slot: number, holder: string) => void;
   /** Absent draws no Delete branch. Sends the tip the person confirmed. */
   onDeleteBranch?: (jobId: string, tip: string) => void;
   /** Absent draws no Forget Job. */
@@ -69,7 +72,7 @@ function Copied({ Glyph, said, value, onCopied }: { Glyph: typeof Folder; said: 
   );
 }
 
-export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onDeleteBranch, onForget, onCopied, onClose }: TileSheetProps) {
+export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onCopied, onClose }: TileSheetProps) {
   const { slot, held } = row;
   /** The confirm open on this tile, if one is. */
   const [confirming, setConfirming] = useState<Confirming | null>(null);
@@ -90,6 +93,10 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onD
   const send = () => {
     const which = confirming;
     setConfirming(null);
+    if (which === "release") {
+      if (slot !== undefined && slot.held.state === "session") onRelease?.(slot.slot, slot.held.holder);
+      return;
+    }
     if (held === undefined) return;
     if (which === "clear") onClear?.(held.job_id);
     else if (which === "branch" && unmerged !== undefined) onDeleteBranch?.(held.job_id, unmerged.tip);
@@ -147,7 +154,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onD
           waiting={waiting}
           onAct={onAct}
           onRescue={onRescue}
-          onConfirm={held === undefined ? undefined : (which) => setConfirming(which)}
+          onConfirm={held === undefined && slot?.held.state !== "session" ? undefined : (which) => setConfirming(which)}
         />
         {row.refused === undefined ? null : (
           <p className="armada-tile-sheet__refused" role="alert">
@@ -161,7 +168,8 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onD
             ))}
           </ul>
         )}
-        {confirming === null || held === undefined ? null : (
+        {confirming === "release" ? <ReleaseConfirm row={row} onSend={send} onCancel={() => setConfirming(null)} /> : null}
+        {confirming === null || confirming === "release" || held === undefined ? null : (
           <TileConfirm which={confirming} row={row} cost={row.cost ?? { files: [] }} onSend={send} onCancel={() => setConfirming(null)} />
         )}
         {held === undefined ? null : <TileHolds reasons={held.held} sat={row.sat} status={held.status} job={row.job} />}
