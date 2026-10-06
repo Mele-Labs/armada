@@ -16,6 +16,7 @@ import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
 import type {
+  AlwaysAllowScope,
   CommandAnswer,
   CommandExplainedRead,
   CommandInFlight,
@@ -67,9 +68,10 @@ export type Answering = {
    * The answer, the words typed with it where there are any, and the rule
    * picked where `always_allow` offered one. **Only a reject reads the words,
    * and only an always-allow reads the rule** — Fleet's rule rather than this
-   * screen's.
+   * screen's. `scope` is `kit` for Always allow on this machine, and absent for
+   * every answer that has none.
    */
-  send: (call: string, answer: CommandAnswer, note?: string, rule?: string) => void;
+  send: (call: string, answer: CommandAnswer, note?: string, rule?: string, scope?: AlwaysAllowScope) => void;
   /** What is shown is not live, so nothing may be sent against it. */
   stale: boolean;
   /** An act on this job is already out. */
@@ -88,11 +90,17 @@ export function answeringOf(
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ) => void,
   actingAct?: ActingAct,
 ): Answering {
   return {
-    send: (call, answer, note, rule) => onAnswerCommand(jobId, call, answer, note, rule),
+    // **A scope is sent only where there is one**, so an answer with none is
+    // called exactly as it was before Kit had a choice.
+    send: (call, answer, note, rule, scope) =>
+      scope === undefined
+        ? onAnswerCommand(jobId, call, answer, note, rule)
+        : onAnswerCommand(jobId, call, answer, note, rule, scope),
     stale,
     acting,
     actingAct,
@@ -201,7 +209,7 @@ function CommandWaiting({
       onExplain={ask}
       onAnswer={(label, note, rule) => {
         const chose = offered.find((one) => one.label === label);
-        if (chose !== undefined) answering.send(waiting.call, chose.offer, note, rule);
+        if (chose !== undefined) answering.send(waiting.call, chose.offer, note, rule, chose.scope);
       }}
     />
   );

@@ -149,12 +149,16 @@ function askedOf(question: Outstanding): Pick<DockQuestion, "label" | "asked" | 
         answers: question.asking.options.map(({ label, consequence }) => ({ id: label, label, consequence })),
       };
     case "command": {
-      const { tool, detail, offers } = question.waiting;
+      const { tool, detail, offers, rules, suggested_rule: suggestedRule } = question.waiting;
       return {
         label: "The drone wants to run a command it was not given",
         asked: detail === "" ? `The drone wants to use ${tool}.` : <span className="mono">{detail}</span>,
         // An answer from a Fleet ahead of this build is left out, `offeredOf`'s rule.
-        answers: offeredOf(offers).map(({ offer, label, means }) => ({ id: offer, label, consequence: means })),
+        answers: offeredOf(offers, { rules, suggestedRule }).map(({ id, label, means }) => ({
+          id,
+          label,
+          consequence: means,
+        })),
       };
     }
     case "helm": {

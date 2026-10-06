@@ -105,6 +105,8 @@ mod judging;
 mod keeping;
 mod killing_processes;
 mod kit;
+mod kit_accept;
+mod kit_allowlist;
 mod land_logs;
 mod landing;
 mod landing_committed;

@@ -23,6 +23,7 @@ import type { PlanView } from "./plan-view";
 import type { WorkflowView } from "./workflow-view";
 
 import type {
+  AlwaysAllowScope,
   CommandAnswer,
   CommandExplainedRead,
   EditJob,
@@ -152,7 +153,8 @@ export type JobDetailProps = {
    *
    * **`rule` rides only with `always_allow`**, and only where the command
    * offered one to pick from — one of `CommandInFlight.rules` or
-   * `Refusal.rules`.
+   * `Refusal.rules`. `scope` is `kit` for Always allow on this machine, which
+   * is sent with a rule.
    */
   onAnswerCommand: (
     jobId: string,
@@ -160,6 +162,7 @@ export type JobDetailProps = {
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ) => void;
   /**
    * Ask what one command does. It decides nothing; absent draws no control.

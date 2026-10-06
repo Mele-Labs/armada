@@ -13,6 +13,7 @@
 //! whose friction it was unless the record says an agent drove it.
 
 mod agreeing;
+mod changing;
 pub(crate) mod gathering;
 pub(crate) mod record;
 mod serving;
@@ -23,6 +24,8 @@ use std::sync::Arc;
 
 use core_model::{Actor, JobId, Via};
 
+#[cfg(test)]
+pub(crate) use writing::read;
 pub(crate) use writing::reflected;
 
 /// The lines Fleet writes into a Job's log when a person is asked something

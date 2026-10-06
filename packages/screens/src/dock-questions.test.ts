@@ -5,7 +5,7 @@ import { isValidElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Prose, type ProseProps } from "@armada/components";
-import type { JobSummary, RepositorySummary } from "@armada/protocol";
+import type { CommandAnswer, JobSummary, RepositorySummary } from "@armada/protocol";
 import { dockCardsOf, dockQuestionsOf, jobNumber } from "./dock-questions";
 import type { Outstanding } from "./outstanding";
 
@@ -98,6 +98,38 @@ describe("the dock's cards", () => {
     expect(command?.answers.map((answer) => answer.id)).toEqual(["allow_for_job", "reject"]);
     expect(judge?.answers.map((answer) => answer.id)).toEqual(["agree", "disagree_once", "disagree_always"]);
     expect(prose(judge?.detail)).toBe("The discount is still ignored.");
+  });
+
+  it("offer Always allow on this machine beside the repository's, where Fleet sent a rule to send with it", () => {
+    const waiting = {
+      call: "c2",
+      step_id: "implement",
+      asked_at: "2026-09-13T10:06:00Z",
+      tool: "Bash",
+      detail: "cargo test",
+      truncated: false,
+      offers: ["allow_for_job", "always_allow", "reject"] as CommandAnswer[],
+      rules: ["cargo", "cargo test"],
+    };
+    const allowing: Outstanding = { kind: "command", job_id: "a", waiting };
+    const [command] = dockQuestionsOf([allowing], JOBS, REPOSITORIES, NOW);
+    expect(command?.answers.map((answer) => answer.id)).toEqual([
+      "allow_for_job",
+      "always_allow",
+      "always_allow_kit",
+      "reject",
+    ]);
+    expect(command?.answers.find((answer) => answer.id === "always_allow_kit")).toMatchObject({
+      label: "Always allow on this machine",
+      consequence: "Allows this command in every repository on this machine. You can remove it from the Kit page.",
+    });
+    // No candidate rule, no Kit choice.
+    const bare: Outstanding = { kind: "command", job_id: "a", waiting: { ...waiting, rules: [] } };
+    expect(dockQuestionsOf([bare], JOBS, REPOSITORIES, NOW)[0]?.answers.map((answer) => answer.id)).toEqual([
+      "allow_for_job",
+      "always_allow",
+      "reject",
+    ]);
   });
 
   it("draw what an agent wrote as markdown, and a command as its characters", () => {

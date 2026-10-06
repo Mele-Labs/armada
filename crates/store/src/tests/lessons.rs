@@ -1,7 +1,7 @@
 //! What a person's answer to a retro item keeps: the state, the Job proposed,
 //! and the headline, what and fix an item is written with. `docs/concepts/retro.md`.
 
-use core_model::{Actor, Job, LandsIn, LessonState, Target, Whose};
+use core_model::{Actor, Change, Job, LandsIn, LessonState, Target, Whose};
 
 use crate::tests::{at, created_at, job_id, open, top_level, TempDir};
 use crate::{Reflected, RetroLine, Store};
@@ -27,6 +27,7 @@ fn line(said: &str) -> RetroLine {
         said: said.to_string(),
         evidence: vec!["check:1".to_string()],
         lands_in: Some(LandsIn::Armada),
+        change: None,
     }
 }
 
@@ -109,6 +110,51 @@ fn an_agreed_item_with_no_job_is_given_back_and_one_with_a_job_is_not() {
         agreed.job_proposed.map(|id| id.as_str().to_string()),
         Some("01PROPOSEDJOB".to_string())
     );
+}
+
+/// **A change is kept with its item, accepting applies it once**, and an item
+/// with no change is never marked applied. V110.
+#[test]
+fn a_change_is_kept_and_accepting_applies_it_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = ended(&mut store, "01LESSONCHANGE");
+    let changing = RetroLine {
+        lands_in: Some(LandsIn::Kit),
+        change: Some(Change::AllowCommand {
+            command: "grep -a -c".to_string(),
+        }),
+        ..line("grep was refused")
+    };
+    let plain = RetroLine {
+        lands_in: Some(LandsIn::Kit),
+        ..line("a skill was missing")
+    };
+    written(&mut store, &job, vec![changing.clone(), plain]);
+
+    let kept = store.lesson(job.id(), 0).expect("read").expect("held");
+    assert_eq!(kept.line, changing, "the change is kept with the item");
+    assert!(!kept.applied, "nothing is applied until Accept");
+
+    assert!(
+        store.accept_lesson_applied(job.id(), 0).expect("claimed"),
+        "the first press claims it"
+    );
+    assert!(
+        !store.accept_lesson_applied(job.id(), 0).expect("claimed"),
+        "the second press finds it taken"
+    );
+    let accepted = store.lesson(job.id(), 0).expect("read").expect("held");
+    assert_eq!(accepted.state, LessonState::Accepted);
+    assert!(accepted.applied);
+
+    assert!(
+        !store.accept_lesson_applied(job.id(), 1).expect("claimed"),
+        "an item with no change is not one this claims"
+    );
+    let untouched = store.lesson(job.id(), 1).expect("read").expect("held");
+    assert_eq!(untouched.state, LessonState::Open);
+    assert!(!untouched.applied);
 }
 
 /// **The headline, what and fix are kept with the item.**

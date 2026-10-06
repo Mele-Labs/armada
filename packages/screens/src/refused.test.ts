@@ -256,8 +256,23 @@ describe("what a person may answer on a refused row", () => {
         rules: ["gh", "gh issue", "gh issue view"],
         suggestedRule: "gh issue view",
       },
+      {
+        answer: "always_allow_kit",
+        label: "Always allow on this machine",
+        tip: "Allows this command in every repository on this machine. You can remove it from the Kit page.",
+        rules: ["gh", "gh issue", "gh issue view"],
+        suggestedRule: "gh issue view",
+      },
       { answer: "reject", label: "Reject" },
     ]);
+  });
+
+  it("offers Always allow on this machine only where Fleet sent a rule to send with it", () => {
+    // A chained command is refused whole for Kit, so with no candidate there is nothing to send.
+    const drawn = refusedIn(whole({ refused: [refusal({ offers: offered })], refusals: 1 }));
+    expect(drawn?.refused[0]?.answers?.map((one) => one.answer)).toEqual(["allow_for_job", "always_allow", "reject"]);
+    const empty = refusedIn(whole({ refused: [refusal({ offers: offered, rules: [] })], refusals: 1 }));
+    expect(empty?.refused[0]?.answers?.map((one) => one.answer)).toEqual(["allow_for_job", "always_allow", "reject"]);
   });
 
   it("draws no answers where Fleet offered none", () => {

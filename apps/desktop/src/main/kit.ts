@@ -6,15 +6,17 @@
 
 import type {
   AddKitServer,
+  KitAllowedCommands,
   KitInventory,
   ForgetKitServer,
   KitServers,
   ManifestReach,
   ReachesDrones,
+  RemoveKitAllowedCommand,
   SetKitServerReach,
   SetManifestServerReach,
 } from "@armada/protocol";
-import type { KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 
 import type { Picked } from "./picked";
 import { ask, NOT_SET_UP } from "./request";
@@ -39,6 +41,20 @@ export class KitCommands {
     const answer = await ask(port, "GET", "/kit/inventory");
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, setup: answer.body as KitInventory };
+  }
+
+  /**
+   * Take a command out of Kit's allowlist. **Machine-wide, like the read**, so
+   * the route names no repository. `run` is the line as the inventory spelled
+   * it; Fleet answers with what is left and refuses a line it does not hold.
+   */
+  async removeAllowedCommand(run: string): Promise<KitAllowedCommandsRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const body: RemoveKitAllowedCommand = { run };
+    const answer = await ask(port, "POST", "/kit/allowed_commands/remove", body);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, commands: answer.body as KitAllowedCommands };
   }
 
   /** Every server in Kit, with what a Drone dispatched here resolves. */

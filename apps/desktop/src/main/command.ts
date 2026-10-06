@@ -32,6 +32,7 @@ import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport
 import type {
   AnswerCommand,
   AnswerHelmCall,
+  AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   CommandExplained,
@@ -659,6 +660,7 @@ export class JobCommands {
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ): Promise<Outcome> {
     // Nothing rather than an empty string. A bare refusal is the body every
     // fleet before 11.5 took, and `{"note":""}` is a person's words nobody
@@ -671,6 +673,9 @@ export class JobCommands {
       // Only always_allow reads it, and only the caller's own picker sends
       // one — Fleet 409s a name outside that command's own candidates.
       ...(rule === undefined ? {} : { rule }),
+      // Only always_allow reads it, and only the Kit choice sends one: absent
+      // is the repository, which is what every Fleet before 23.35 kept it in.
+      ...(scope === undefined ? {} : { scope }),
     };
     return this.act(jobId, this.answering, "already_answering", (port) =>
       ask(port, "POST", route(jobId, "answer_command"), body),

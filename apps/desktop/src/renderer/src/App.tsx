@@ -91,6 +91,7 @@ import {
   removeRepositoryAllowedCommand,
   listKitServers,
   readKitInventory,
+  removeKitAllowedCommand,
   addKitServer,
   forgetKitServer,
   setKitServerReach,
@@ -803,9 +804,7 @@ export function App({ draft }: AppProps = {}) {
                   onAnswer={(jobId, questionId, chose) =>
                     void commands.answer(jobId, questionId, chose)
                   }
-                  onAnswerCommand={(jobId, call, chose, note, rule) =>
-                    void commands.answerCommand(jobId, call, chose, note, rule)
-                  }
+                  onAnswerCommand={(...answer) => void commands.answerCommand(...answer)}
                   // A read beside the act it informs. It moves nothing, so it
                   // goes straight through rather than under `acting`.
                   onExplainCommand={explainCommand}
@@ -1041,6 +1040,7 @@ export function App({ draft }: AppProps = {}) {
                     />
                   }
                   onReadKitInventory={readKitInventory}
+                  onRemoveKitAllowedCommand={removeKitAllowedCommand}
                   onListKitServers={listKitServers}
                   onAddKitServer={addKitServer}
                   onForgetKitServer={forgetKitServer}

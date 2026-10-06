@@ -53,7 +53,7 @@ export function Kit(props: KitProps) {
     // The pane is where the window scrolls Kit: the shell's mount never does.
     <div className="armada-screen__pane">
       <div className="armada-kit">
-        <KitSetup setup={kit.setup} />
+        <KitSetup setup={kit.setup} onRemoveAllowed={kit.onRemoveAllowed} />
         <section className="armada-kit__own" aria-label="What Armada holds">
           <header className="armada-kit__head">
             <h3 className="armada-kit__title">What Armada holds</h3>

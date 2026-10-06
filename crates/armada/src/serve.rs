@@ -430,6 +430,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         .to_path_buf();
     let roster = Roster::of(&machine_facts.models.models);
     // Reads a folder a person adds, and holds every served `armada.yml`'s watch.
+    let kit_home = kit.to_string_lossy().to_string();
     let locator = Arc::new(crate::locating::Locator::at(&machine, kit, roster));
     let given = match repository {
         Some(folder) => Some(locator.located(&folder).map_err(|why| why.to_string())?),
@@ -499,6 +500,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         bound.port(),
         port_range,
         machine_facts,
+        kit_home,
         Arc::clone(&locator) as Arc<dyn Locating>,
     )?;
     let fleet = Arc::new(fleet);
@@ -707,6 +709,7 @@ fn assemble(
     port: u16,
     port_range: PortRange,
     facts: MachineFacts,
+    kit_home: String,
     locator: Arc<dyn Locating>,
 ) -> Result<Served, Box<dyn Error>> {
     let MachineFacts {
@@ -774,6 +777,7 @@ fn assemble(
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
+            kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.
             agent_binary: judge_binary.clone(),

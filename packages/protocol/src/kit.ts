@@ -138,3 +138,26 @@ export type KitInventory = {
   /** Every kind, in a fixed order, including the ones nothing reads yet. */
   kinds: SetupKindRow[];
 };
+
+/**
+ * Where a command in Kit's allowlist came from. Since protocol 23.35.
+ * `lesson_id` rides with `retro_item`.
+ */
+export type KitAllowedSource = "retro_item" | "always_allow" | "by_hand";
+
+/** One command Kit's allowlist holds. `run` is what `remove_kit_allowed_command` names. */
+export type KitAllowedCommand = {
+  run: string;
+  source: KitAllowedSource;
+  lesson_id?: string;
+};
+
+/** `remove_kit_allowed_command`'s answer: what the allowlist holds now. Since protocol 23.35. */
+export type KitAllowedCommands = {
+  commands: KitAllowedCommand[];
+};
+
+/** The body of `remove_kit_allowed_command`: `POST /kit/allowed_commands/remove`. A line spelled otherwise is a 409. */
+export type RemoveKitAllowedCommand = {
+  run: string;
+};
