@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 
-import { GROUP_STATE } from "../../generated/vocabulary";
+import { GROUP_STATE, TASK_STATE } from "../../generated/vocabulary";
 import { WorkflowStepCard } from "./WorkflowStepCard";
 
 const meta: Meta<typeof WorkflowStepCard> = {
@@ -211,6 +211,34 @@ export const GroupWithItsOwnMark: Story = {
     await expect((mark as HTMLElement).style.getPropertyValue("--armada-wf-card-mark")).toBe(
       "var(--status-awaiting-review)",
     );
+  },
+};
+
+/**
+ * A task whose agent has handed in and whose Checks have not answered
+ * (owner, 5 Oct 2026): its own hue, not running's, and the line whole.
+ *
+ * **A `play`, because a still cannot tell cut off from complete**: the line
+ * once clipped to "Submitted · awaiting che…" and the mark drew as running.
+ */
+export const TaskHandedIn: Story = {
+  args: {
+    kind: "task",
+    name: "Draw what is running, in four lists",
+    activity: "not_started",
+    mark: { icon: TASK_STATE.handed_in!.icon!, token: TASK_STATE.handed_in!.statusToken! },
+    said: TASK_STATE.handed_in!.verb!,
+    line: "Submitted · awaiting checks",
+    onOpen: fn(),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    const line = canvas.getByText("Submitted · awaiting checks");
+    await expect(line).toBeVisible();
+    // Whole: nothing of the sentence sits past the line's own box.
+    await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+    await expect(getComputedStyle(line).textOverflow).not.toBe("ellipsis");
+    const mark = canvasElement.querySelector(".armada-wf-card__mark") as HTMLElement;
+    await expect(mark.style.getPropertyValue("--armada-wf-card-mark")).toBe("var(--status-handed-in)");
   },
 };
 

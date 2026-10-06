@@ -36,7 +36,7 @@ pub struct FleetHealth {
     /// Whether any served repository left a workflow definition out, so a rail
     /// can warn without counting. **A boolean and never a number**: the list is
     /// `list_left_out_workflows`, and what a person is told is that something
-    /// is there to read. `false` from a Fleet older than 23.32.
+    /// is there to read. `false` from a Fleet older than 23.33.
     #[serde(default)]
     pub workflows_left_out: bool,
 }

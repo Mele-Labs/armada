@@ -102,8 +102,8 @@ fn every_carried_workflow_resolves_against_a_manifest_declaring_no_checks() {
         .filter(|step| step.gates_on_every_check())
         .count();
     assert_eq!(
-        asking, 5,
-        "five steps still say they asked, which is all an empty registry leaves"
+        asking, 4,
+        "four steps still say they asked, which is all an empty registry leaves; feature folded its tests step into implement"
     );
 }
 

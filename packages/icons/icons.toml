@@ -530,7 +530,7 @@
   group = "Action"
   size = "16px"
   status = "Specified"
-  notes = "Two bars, the most legible glyph in the set. snowflake rejected as decorative."
+  notes = "Two bars, the most legible glyph in the set. snowflake rejected as decorative. A second use, 5 Oct 2026: a merge line turn held because its failed Check is red on main too (`land_state.held`), drawn at 12px on the running turn's rows in `--status-not-started` and at 16px on the panel's neutral Alert, so the two read as one condition. It does not pulse. Freeze dispatch is a control and this is a state, and the two never share a surface."
 
 [icons.pencil]
   means = "A held drawing instrument at an angle, tip to the lower leading corner — drawing by hand"
@@ -696,6 +696,14 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator. The step's mechanical tier, in the family that already means gates and checks."
+
+[icons.ellipsis]
+  means = "Three dots in a row: there is more past what is drawn"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The run canvas's one card standing for a group's tasks past the fourth, its count on the tooltip. Never a menu or a row's more-actions."
+  notes = "Proposed 5 Oct 2026 on the prototype `tasksOffTheGroups`, for the owner to walk. Three dots are the silhouette people already read as more, and no glyph in the set says it."
 
 [icons.shield-ellipsis]
   means = "A pointed-base pentagon with three dots inside — the Check family's outline, its answer not in yet"

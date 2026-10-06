@@ -40,17 +40,17 @@ export type WorkflowSummary = {
   for_requests?: string;
   /**
    * The file this definition was read from, as Fleet read it: a path, or a
-   * bracketed name where Armada carries it. Absent from a Fleet older than 23.32.
+   * bracketed name where Armada carries it. Absent from a Fleet older than 23.33.
    */
   file?: string;
   /**
    * The definitions of this id that a more specific place replaced, one per
-   * place. Absent where nothing is replaced, and from a Fleet older than 23.32.
+   * place. Absent where nothing is replaced, and from a Fleet older than 23.33.
    */
   overrides?: OverriddenWorkflow[];
 };
 
-/** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.32. */
+/** A definition a more specific place replaced. It does not run; `GET /workflows/definition` reads it. Since 23.33. */
 export type OverriddenWorkflow = {
   /** `armada` or `kit`; a repository's own is never replaced. */
   source: string;
@@ -61,7 +61,7 @@ export type OverriddenWorkflow = {
  * `GET /workflows/definition?workflow_id=&source=&manifest_id=`: one definition
  * as its file holds it. `source` is optional and names the place; absent is the
  * one that runs. 422 `fleet.no_such_workflow_definition` where none is held.
- * Since 23.32. `crates/ipc/src/setup.rs`.
+ * Since 23.33. `crates/ipc/src/setup.rs`.
  */
 export type WorkflowDefinition = {
   workflow_id: string;

@@ -368,8 +368,8 @@ pub trait Vcs {
     fn slot_standing(&self, pool: &SlotPool, slot: u32, job_id: &str) -> SlotStanding;
 
     /// Give back the slot this Job holds, by the pool's rules: refused while
-    /// the tree holds anything uncommitted, or commits on neither the remote
-    /// nor the base. Refused, the slot stays held and says why.
+    /// the tree holds anything uncommitted, or commits its branch, the remote
+    /// and the base all lack. Refused, the slot stays held and says why.
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept>;
 
     /// Write on the slot this Job holds that the Job completed, so

@@ -312,7 +312,8 @@ function groupStateOf(task: TaskState, worksAt: StepDetail | undefined): GroupSt
     case "retrying":
       return "retrying";
     default:
-      // A handed-in task's group is live until its Checks answer.
+      // A handed-in task's group is live until its Checks answer. The group
+      // stays `running`; the task is what reads as submitted.
       return task === "working" || task === "handed_in" ? "running" : "pending";
   }
 }

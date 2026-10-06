@@ -76,7 +76,7 @@ pub enum HelmScreen {
     /// `#1287` added `Studio` and left this one out, so a person on Settings
     /// was reported to Helm as being on the Board.
     Settings,
-    /// The Workflow creator: the definitions Fleet holds, one open for editing. Since 23.33.
+    /// The Workflow creator: the definitions Fleet holds, one open for editing. Since 23.34.
     Workflows,
     JobDetail,
 }

@@ -702,7 +702,7 @@ description = "All Doctor probes"
 notes = """
 The one call that must work when Fleet is down. The probe count is not stated here; it is Doctor's, in docs/concepts/doctor.md.
 
-**Since 23.32 it says whether any workflow definition was left out**, as `workflows_left_out`, a boolean on the answer itself and not a probe. It is never a count: a rail warns that something is there to read, and `list_left_out_workflows` is where each reason is. True where any served repository left one out.
+**Since 23.33 it says whether any workflow definition was left out**, as `workflows_left_out`, a boolean on the answer itself and not a probe. It is never a count: a rail warns that something is there to read, and `list_left_out_workflows` is where each reason is. True where any served repository left one out.
 """
 
 [operations.get_job]
@@ -1220,7 +1220,7 @@ A step was a bare id until `mechanical_checks` was added to it. Bridge printed "
 
 **A step now carries its advance gate and what it asks the Judge, which is the whole of what this answers that `get_job` does not answer sooner.** This is where a person decides whether to approve a dispatch: afterwards the rail says what happened, and here they are agreeing to it. A workflow that will stop and wait for them at `handoff`, and spend Judge calls at `implement`, previewed as neither. Both are the shapes the rail already uses, and the criteria themselves stay off the wire — counts and states, never a question.
 
-**Since 23.32 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
+**Since 23.33 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
 """
 
 [operations.list_left_out_workflows]
@@ -1246,7 +1246,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "One workflow definition as its file holds it, for an editor, from any of the three places"
 notes = """
-`GET /workflows/definition?workflow_id=&source=&manifest_id=`, protocol 23.32. The answer is a `WorkflowDefinition`: the id, the place (`armada`, `kit` or `repository`), the file as Fleet read it, `definition` and `overridden_by`. **`definition` is the file's text and not a tree**, the shape `save_workflow` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
+`GET /workflows/definition?workflow_id=&source=&manifest_id=`, protocol 23.33. The answer is a `WorkflowDefinition`: the id, the place (`armada`, `kit` or `repository`), the file as Fleet read it, `definition` and `overridden_by`. **`definition` is the file's text and not a tree**, the shape `save_workflow` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
 
 `source` is optional. Absent is the definition that runs; present reads one a more specific place replaced, which `list_workflows` names on the winner's `overrides`. A definition left out is not here: it is on `list_left_out_workflows` with its reason, and a file that did not parse has no id to ask for. 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. Per repository, by `?manifest_id=`, the one Fleet started in where absent.
 
@@ -3239,6 +3239,8 @@ notes = """
 Two messages per command and never a third. The one going out carries `waiting` — the command, one line of it, and the answers on offer — and the one coming back carries nothing. A surface ages the wait from `asked_at`. The actor is `drone` going out and whoever answered coming back.
 
 Only a Job at `ask_me` produces it. Under `refuse_and_hold` the call is refused on arrival, the Job stops at `blocked_by_policy`, and the refused command reaches Bridge on `Stuck.refused` through that state change instead.
+
+`waiting.drone_id` names the Drone that asked, since 23.32, because a drone-per-task step runs several at once and `step_id` alone cannot say whose transcript to open. It is the same id `drone.spawned` and `get_job_drones` carry. Absent where Fleet could not identify the asker, and from a Fleet older than the field; a surface then offers the answer without a panel to open, and never guesses one. `JobDetail.command_waiting` carries it the same way.
 
 It produces at the rate a person answers and holds no queue of its own, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names.
 """

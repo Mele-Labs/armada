@@ -321,8 +321,8 @@ describe("approved", () => {
     const workflow = page.getByRole("region", { name: "Workflow" });
     // The name, and no count of the steps listed under it — hard rule 7.
     await expect.element(workflow.getByText("feature", { exact: true })).toBeVisible();
-    await expect.element(workflow).not.toHaveTextContent("4 steps");
-    expect(workflow.getByRole("listitem").all()).toHaveLength(4);
+    await expect.element(workflow).not.toHaveTextContent("3 steps");
+    expect(workflow.getByRole("listitem").all()).toHaveLength(3);
     expect(workflow.getByRole("combobox").all()).toHaveLength(0);
   });
 });

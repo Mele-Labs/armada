@@ -3,8 +3,12 @@
 # Check reasoning live.
 #
 # The designed `feature.json` runs seven steps in a loop. This form keeps
-# `scope`, `implement` and `tests`, and folds `review`, `merge` and `close` into
-# one `handoff` -- Bug's fold. `regression_verify`'s question does not vanish
+# `scope` and `implement`, and folds `review`, `merge` and `close` into one
+# `handoff` -- Bug's fold. The designed `tests` step is folded into `implement`
+# too: its Drone-per-task already writes the tests as plan tasks, so a step after
+# it had nothing left to move and `diff_nonempty` refused it (Job 3). Its
+# `tests_exercise_behaviour` criterion and its `gaming_check` are carried onto
+# `implement`. `regression_verify`'s question does not vanish
 # with its step: it is carried as `implement`'s second criterion, on the diff it
 # was asking about.
 #
@@ -84,7 +88,7 @@
     {
       "id": "implement",
       "label": "Implement",
-      "about": "Builds the change from the plan, one Drone per task, and runs the repository's checks on the result.",
+      "about": "Builds the change and its tests from the plan, one Drone per task, and runs the repository's checks on the result.",
       "evidence": {
         "submitted": { "type": "diff" },
         "captured": true
@@ -128,45 +132,10 @@
           {
             "criterion_id": "the_evidence_accounts_for_itself",
             "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
-          }
-          ]
-        }
-      ],
-      "delivers": false,
-      "advance_gate": "auto_if_judge_passes"
-    },
-    {
-      "id": "tests",
-      "label": "Write tests",
-      "about": "Writes tests for the new behaviour and runs the repository's checks again.",
-      "evidence": {
-        "submitted": { "type": "diff" }
-      },
-      "retry_limit": 2,
-      "follows_plan": true,
-      "mechanical_checks": [
-        {
-          "type": "every_manifest_check"
-        },
-        {
-          "type": "diff_nonempty"
-        }
-      ],
-      "evidence_scope": {
-        "context_source": "drone_declared",
-        "reference_docs": [
-          "plan.evidence"
-        ],
-        "scope_diff_check": true
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "haiku",
-          "criteria": [
+          },
             {
               "criterion_id": "tests_exercise_behaviour",
-              "question": "Do these tests exercise the behaviour the scope note described, rather than restating the implementation?"
+              "question": "Do the tests in this diff exercise the behaviour the scope note described, rather than restating the implementation?"
             }
           ],
           "gaming_check": {

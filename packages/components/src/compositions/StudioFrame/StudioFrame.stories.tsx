@@ -30,3 +30,9 @@ export const Cluster: Story = { args: { kind: "cluster", title: "Risks to watch"
 
 /** Picked on the board. */
 export const Selected: Story = { args: { kind: "zone", selected: true } };
+
+/** A run's Cluster round a group at work. */
+export const Live: Story = { args: { kind: "cluster", title: "Group 3", tone: "live" } };
+
+/** A run's Cluster round a group that passed: it recedes. */
+export const Done: Story = { args: { kind: "cluster", title: "Group 1", tone: "done" } };

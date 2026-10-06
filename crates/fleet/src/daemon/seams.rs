@@ -559,6 +559,9 @@ where
     pub(crate) fn rechecking(&self) -> &crate::rechecking::Rechecking {
         &self.rechecking
     }
+    pub(crate) fn lines(&self) -> &crate::taking_turns::Lines {
+        &self.lines
+    }
     pub(crate) fn rehearsals(&self) -> &crate::rehearsing::Rehearsals {
         &self.rehearsals
     }

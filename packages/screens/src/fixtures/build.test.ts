@@ -24,6 +24,7 @@ import { propsFor } from "./props";
 const EXPECTED_RENDER: Record<string, Render> = {
   "running — mid-step on Fix, a Check not yet run": "working",
   "running — working the plan's second task of three": "working",
+  "running — the plan's first task handed in, the second still worked": "working",
   "awaiting_review — every Check passed, the Judge met every criterion": "reviewing",
   "awaiting_review — held because the repository says a person answers": "reviewing",
   "escalated · gate_failure — a Check failed and ended the Job": "stopped",

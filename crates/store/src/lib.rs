@@ -71,6 +71,9 @@ mod manifest_allowed;
 /// What the Manifest read at Job creation, kept whole and off the Job row's
 /// own fields.
 mod manifest_snapshot;
+/// The merge line Fleet keeps for each repository it serves: entries, the turn,
+/// and the size a turn takes.
+mod merge_line;
 /// The migration list, and where a file stands against it. `V1`..`V16` stay in
 /// `schema`; this is only what had to move to keep that file under the gate.
 mod migrations;
@@ -171,6 +174,7 @@ pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
+pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
 pub use pending_evidence::PendingEvidence;

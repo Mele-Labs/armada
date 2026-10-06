@@ -24,7 +24,7 @@ use std::process::ExitCode;
 
 use adapters::UnmergedWork;
 use armada::clean::Scope;
-use armada::cli::{self, LandAct, Usage, Verb, WorktreeAct};
+use armada::cli::{self, LandAct, NeedAct, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
 use armada::serve::PROVISIONAL_CHECK_BUDGET;
 use armada::{clean, declared, land, leasing, say, serve};
@@ -81,6 +81,24 @@ async fn main() -> ExitCode {
         Verb::Mcp => armada::mcp::speak(),
         Verb::Land(act) => land_verb(act),
         Verb::Worktree(act) => worktree_verb(act),
+        Verb::Need(act) => need_verb(act),
+    }
+}
+
+fn need_verb(act: NeedAct) -> ExitCode {
+    let Ok(cwd) = std::env::current_dir() else {
+        eprintln!("the working directory could not be read");
+        return ExitCode::FAILURE;
+    };
+    match armada::need::run(&cwd, act) {
+        Ok(said) => {
+            print!("{said}");
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("need: {why}");
+            ExitCode::from(1)
+        }
     }
 }
 
@@ -90,7 +108,7 @@ fn worktree_verb(act: WorktreeAct) -> ExitCode {
         return ExitCode::FAILURE;
     };
     ExitCode::from(match act {
-        WorktreeAct::Lease { branch } => leasing::lease(&cwd, &branch),
+        WorktreeAct::Lease { branch, existing } => leasing::lease(&cwd, &branch, existing),
         WorktreeAct::Release { path } => leasing::release(&cwd, path),
         WorktreeAct::Status => leasing::status(&cwd),
         WorktreeAct::Add => leasing::reshape(&cwd, |pool| {
@@ -157,6 +175,13 @@ fn land_verb(act: LandAct) -> ExitCode {
                     .pull_request
                     .map_or(String::new(), |pr| format!(", #{pr}"));
                 println!("queued: {}{pr}, {} ahead", queued.branch, queued.ahead);
+                if let Some(waiting) = &queued.waiting {
+                    println!("{waiting}");
+                    println!(
+                        "a stalled need is given back by whoever holds it, or by a person: \
+                         armada need --release <path>"
+                    );
+                }
                 println!("poll: armada land --status {}", queued.branch);
                 ExitCode::SUCCESS
             }

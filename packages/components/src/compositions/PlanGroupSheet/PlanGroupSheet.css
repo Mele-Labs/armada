@@ -35,9 +35,10 @@
   grid-column: -2;
 }
 
-.armada-plan-group-sheet__body .armada-plan-board__task-beside,
-.armada-plan-group-sheet__body .armada-plan-board__task-touched {
-  grid-column: 4;
+/* Under the title, across the 1fr track and the fourth, so a status sentence
+   does not widen the track the model and the turns line up in. */
+.armada-plan-group-sheet__body .armada-plan-board__task-notes {
+  grid-column: 3 / 5;
   grid-row: 2;
 }
 

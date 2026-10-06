@@ -10,8 +10,9 @@ use super::{Fault, Verb, WORKTREE};
 /// Which of `armada worktree`'s forms was asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WorktreeAct {
-    /// `lease <branch>`: a warm slot on a new branch cut from the base.
-    Lease { branch: String },
+    /// `lease <branch>`: a warm slot on a new branch cut from the base, or with
+    /// `--existing` on a branch that exists, at its tip.
+    Lease { branch: String, existing: bool },
     /// `release [<path>]`: give a slot back, the one standing in by default.
     Release { path: Option<PathBuf> },
     /// `--status`: every slot, and who holds it since when.
@@ -33,7 +34,14 @@ pub(super) fn usage(out: &mut fmt::Formatter<'_>) -> fmt::Result {
             "lease <branch>  ",
             "a warm slot on a new branch; prints its path",
         ),
-        ("release [<path>]", "give it back, once clean and landed"),
+        (
+            "lease --existing <branch>",
+            "a warm slot on a branch that exists, at its tip",
+        ),
+        (
+            "release [<path>]",
+            "give it back, once everything is committed on its branch",
+        ),
         (
             "add             ",
             "one more slot on this machine; the next lease makes it",
@@ -56,13 +64,15 @@ pub(super) fn usage(out: &mut fmt::Formatter<'_>) -> fmt::Result {
 
 pub(super) fn read(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
     let mut status = false;
+    let mut existing = false;
     let mut positional = Vec::new();
     for arg in rest {
         match arg.as_str() {
             "--status" => status = true,
+            "--existing" => existing = true,
             flag if flag.starts_with('-') => faults.push(Fault::NoSuchFlag {
                 given: arg.clone(),
-                allowed: vec!["--status".to_string()],
+                allowed: vec!["--status".to_string(), "--existing".to_string()],
             }),
             _ => positional.push(arg.clone()),
         }
@@ -79,6 +89,7 @@ pub(super) fn read(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
         Some("lease") => match positional.get(1) {
             Some(branch) => WorktreeAct::Lease {
                 branch: branch.clone(),
+                existing,
             },
             None => {
                 faults.push(Fault::NoBranch);

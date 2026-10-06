@@ -444,6 +444,12 @@ function OneJob(props: JobDetailProps) {
                         setOpensGroup(groupId);
                         setTab("plan");
                       }}
+                      onOpenTask={(taskId) => {
+                        trail.push("overview");
+                        setOpensGroup(undefined);
+                        setOpensTask(taskId);
+                        setTab("plan");
+                      }}
                       workflows={props.workflows}
                       manifest={manifest}
                       branches={held.branches}
