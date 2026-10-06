@@ -328,3 +328,23 @@
 .armada-merge-line__row[aria-current="true"] {
   background: var(--accent-muted);
 }
+
+/* A Job's title where a row names the Job it came from: a link in the accent. */
+.armada-merge-line__job {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-merge-line__job:hover {
+  text-decoration: underline;
+}
+
+.armada-merge-line__job:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

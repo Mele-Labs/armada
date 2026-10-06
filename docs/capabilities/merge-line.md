@@ -411,6 +411,8 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.
 - **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.7. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
 
+**The hub, drawn ahead of Fleet.** The panel's head carries main's state: a green mark with its tooltip, or a red frame naming the failing Check (a press opens its log), the failing test and the merge that turned it red, each a link. Under the line it lists every open pull request with how its `ci` stands, and a `ci` red only because main is reads as waiting on the fix. Where the pull request came from a Job that was watching its landing, that Job takes the red itself and the head links to it, with no question asked. Where it did not, the head offers two ways: dispatch a new Job, its brief filled in from the Check, test, log and pull request, or send the work back to a recent Job, the culprit's own first. A Job that took main's red wears a hammer beside its badge and leads with it, and once main is green it wears a shield. None of this is served: it rides on a line as `hub` and on a Job's row as `fixes_main`, and `?walk=mainGoesRed` plays it.
+
 ## What it depends on
 
 - `concepts/fleet.md` — *Write-scope overlap*, *Catching a branch up*, and what Fleet knows after a merge.

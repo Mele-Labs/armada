@@ -280,6 +280,11 @@ export type JobDetailProps = {
    */
   onOpenJob?: (jobId: string) => void;
   /**
+   * Open the log of the Check that is red on main, for a Job that took main's red. **The shell's**,
+   * which holds the log panel the merge line's head opens too; absent, the lead's act is not drawn.
+   */
+  onOpenMainLog?: (at: { check: string; branch: string }) => void;
+  /**
    * Open the Studio this Job was dispatched from, landing on its own node.
    * `#1362`.
    *

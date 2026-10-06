@@ -402,6 +402,7 @@ export * from "./compositions/DestinationCard/DestinationCard";
 // has left of Fleet's budget, and the one act on it. #1159.
 export * from "./compositions/ProposerWait/ProposerWait";
 // The branches waiting to land on main through `armada land`, and the ones that just left.
+export * from "./compositions/MainHead/MainHead";
 export * from "./compositions/MergeLine/MergeLine";
 export * from "./compositions/PullRequestCard/PullRequestCard";
 // Where a criterion's words came from, and its issue having moved, as marks.
