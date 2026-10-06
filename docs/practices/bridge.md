@@ -196,6 +196,10 @@ What it settled for the next surface:
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
   `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Overview does.
+  A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
+  the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
+  every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
+  catch those.
 - **A fake that needs more than state and `publish` takes a handle type of its
   own.** Cleanup's `cleanupApi` names `move`, the held pool, `unread` and
   `proposingRow` in a `CleanupFleet` type that desktop's `Fleet` satisfies, so the

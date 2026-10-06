@@ -47,6 +47,7 @@
     "@armada/overview": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",
+    "@armada/settings": "workspace:*",
     "@armada/shell": "workspace:*",
     "@armada/studios": "workspace:*",
     "@armada/tokens": "workspace:*",

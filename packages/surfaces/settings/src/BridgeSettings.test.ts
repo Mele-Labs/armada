@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FleetHealth } from "@armada/protocol";
 import { helmActionAuthorityValue } from "./BridgeSettings";
-import type { HealthRead } from "./overview-reads";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 const health = (helm_action_authority: FleetHealth["helm_action_authority"]): FleetHealth => ({
   probes: [{ module: "Fleet", outcome: "pass", detail: "answering" }],

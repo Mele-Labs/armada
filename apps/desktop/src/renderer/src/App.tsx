@@ -35,7 +35,7 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings } from "@armada/screens";
+import { BridgeSettings } from "@armada/settings";
 import { Kit } from "@armada/screens";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
