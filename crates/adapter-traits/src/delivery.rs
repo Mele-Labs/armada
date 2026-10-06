@@ -797,6 +797,12 @@ pub trait Delivery {
     /// message says. `None` where neither names one, as a direct push does not.
     fn merged_by(&self, in_repo: &str, commit: &str) -> Option<crate::MergedPull>;
 
+    /// The repository's open pull requests, each with its `ci`. **One forge
+    /// call for all of them**, so the cost does not grow with the number open.
+    /// `None` is the forge's silence; an empty list is a repository with none
+    /// open.
+    fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
+
     /// The diff of a pull request somebody else opened, for a Code Review Job whose review is
     /// checked against it. #903. **`None` is the forge's silence**, for
     /// [`landed`](Delivery::landed)'s reason.

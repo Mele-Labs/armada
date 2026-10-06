@@ -207,6 +207,10 @@ impl Delivery for GitVcs {
         crate::main_ci::merged_by(in_repo, commit)
     }
 
+    fn open_pull_requests(&self, in_repo: &str) -> Option<adapter_traits::OpenPulls> {
+        crate::main_ci::open_pulls(in_repo)
+    }
+
     fn pull_request_diff(
         &self,
         in_repo: &str,

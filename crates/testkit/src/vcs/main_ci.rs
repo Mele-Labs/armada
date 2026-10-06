@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use adapter_traits::{CiRun, CiRuns, FromOutside, MergedPull};
+use adapter_traits::{CiRun, CiRuns, FromOutside, MergedPull, OpenPulls};
 
 #[derive(Debug, Default)]
 struct Script {
@@ -12,13 +12,15 @@ struct Script {
     runs: BTreeMap<String, CiRuns>,
     logs: BTreeMap<String, String>,
     merged: BTreeMap<String, MergedPull>,
+    pulls: Option<OpenPulls>,
     asked_head: usize,
     asked_runs: usize,
     asked_logs: usize,
     asked_merged: usize,
+    asked_pulls: usize,
 }
 
-/// Unscripted is the forge's silence: no head, no runs, no log, no pull request.
+/// Unscripted is the forge's silence: no head, no runs, no log, no pull request, no listing.
 #[derive(Debug, Default)]
 pub struct MainCiScript(Mutex<Script>);
 
@@ -45,6 +47,15 @@ impl MainCiScript {
     /// The pull request the forge maps `commit` to.
     pub fn merged_by(&self, commit: &str, pull: MergedPull) {
         self.with(|it| it.merged.insert(commit.to_string(), pull));
+    }
+
+    /// The open pull requests the forge lists; `None` is a forge that would not answer.
+    pub fn pulls_are(&self, pulls: Option<OpenPulls>) {
+        self.with(|it| it.pulls = pulls);
+    }
+
+    pub fn times_asked_for_the_pulls(&self) -> usize {
+        self.with(|it| it.asked_pulls)
     }
 
     pub fn times_asked_for_the_head(&self) -> usize {
@@ -90,6 +101,13 @@ impl MainCiScript {
         self.with(|it| {
             it.asked_merged += 1;
             it.merged.get(commit).cloned()
+        })
+    }
+
+    pub(super) fn open_pulls(&self) -> Option<OpenPulls> {
+        self.with(|it| {
+            it.asked_pulls += 1;
+            it.pulls.clone()
         })
     }
 }
