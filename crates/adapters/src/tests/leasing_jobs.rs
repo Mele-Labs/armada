@@ -291,3 +291,46 @@ fn a_park_refused_by_the_pool_says_so_and_keeps_the_slot() {
         SlotStanding::Held
     );
 }
+
+/// A slot an agent session holds is released with its uncommitted files
+/// committed to its branch, and only for the holder the person was shown.
+#[test]
+fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown() {
+    let repo = a_repository();
+    let pool = Pool::at(repo.root(), 1, "main", Vec::new());
+    let here = Holder::of(std::process::id()).expect("this process is running");
+    let path = match pool.try_lease("fleet/by-hand", &here, 0, &no_seed) {
+        Ok(Leased::Took(lease)) => lease.path().to_path_buf(),
+        other => panic!("no slot: {other:?}"),
+    };
+    std::fs::write(path.join("half.txt"), "half a thought\n").expect("a file");
+    let wire = slots(&repo, 1);
+
+    let changed = GitVcs
+        .release_session_slot(&wire, 1, "somebody (pid 1)")
+        .expect_err("another holder was shown");
+    assert!(matches!(
+        changed,
+        adapter_traits::SlotParkRefused::HolderChanged(_)
+    ));
+    assert!(path.join("half.txt").exists());
+
+    let parked = GitVcs
+        .release_session_slot(&wire, 1, &here.said())
+        .expect("the holder shown still holds it");
+    assert_eq!(parked.branch, "fleet/by-hand");
+    assert_eq!(parked.files, vec!["half.txt"]);
+    assert!(matches!(pool.state(1), SlotState::Free));
+    assert_eq!(
+        repo.git(&["show", "fleet/by-hand:half.txt"]).trim(),
+        "half a thought"
+    );
+
+    let free = GitVcs
+        .release_session_slot(&wire, 1, &here.said())
+        .expect_err("nobody holds it now");
+    assert!(matches!(
+        free,
+        adapter_traits::SlotParkRefused::HolderChanged(_)
+    ));
+}

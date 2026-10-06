@@ -55,6 +55,7 @@ const NOT: Record<SlotAct, string> = {
   remove: "Slot not removed",
   close: "Slot not closed",
   open: "Slot not reopened",
+  release: "Slot not released",
 };
 
 const NOT_RESCUED: Record<RescueAct, string> = {

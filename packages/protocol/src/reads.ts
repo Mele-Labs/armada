@@ -36,6 +36,7 @@ import type {
   WorkflowSummary,
   LeftOutWorkflow,
   RepositorySummary,
+  SlotPoolChanged,
   WireError,
   WorktreeReclaimed,
   WorktreesHeld,
@@ -401,6 +402,8 @@ export type Outcome =
        * surface that asked rather than published as app state.
        */
       branchDeleted?: BranchDeleted;
+      /** What `change_slot_pool` answered: for a `release`, the branch and the files committed to it. */
+      slotChanged?: SlotPoolChanged;
       /**
        * What a press came to, on the same terms as `report`: a receipt the
        * surface that pressed shows once. The set itself arrives on the Job's

@@ -36,6 +36,12 @@ pub(crate) const SLOT_BUSY: &str = "fleet.slot_busy";
 const SLOT_NOT_A_CHECKOUT: &str = "fleet.slot_not_a_checkout";
 /// A slot removed whose checkout holds uncommitted files.
 const SLOT_DIRTY: &str = "fleet.slot_dirty";
+/// A release asked for on behalf of a holder the slot no longer has. A 409.
+pub(crate) const SLOT_HOLDER_CHANGED: &str = "fleet.slot_holder_changed";
+/// A release asked for with no holder named. A 422.
+pub(crate) const SLOT_HOLDER_UNNAMED: &str = "fleet.slot_holder_unnamed";
+/// A release whose uncommitted files git could not commit to a branch. A 409.
+pub(crate) const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
@@ -247,11 +253,15 @@ where
     ) -> Result<SlotPoolChanged, Refusal> {
         let served = self.served_named(manifest_id)?;
         let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
+        if asked.act == SlotAct::Release {
+            return self.session_released(&served, &asked);
+        }
         let change = match (asked.act, asked.slot) {
             (SlotAct::Add, _) => SlotChange::Add,
             (SlotAct::Remove, Some(n)) => SlotChange::Remove(n),
             (SlotAct::Close, Some(n)) => SlotChange::Close(n),
             (SlotAct::Open, Some(n)) => SlotChange::Open(n),
+            (SlotAct::Release, _) => unreachable!("answered above"),
             (_, None) => {
                 return Err(Refusal::Unacceptable(raised(
                     NO_SUCH_SLOT,
@@ -295,6 +305,7 @@ where
         Ok(SlotPoolChanged {
             manifest_id: ManifestId::from(served.manifest().id()),
             slot,
+            released: None,
         })
     }
 

@@ -205,6 +205,11 @@ pub struct ChangeSlotPool {
     /// The slot acted on. Absent for `add`, which picks its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
+    /// For `release`: the holder the person was shown, as the slot named it
+    /// (`claude (pid 44698)`). A slot held by anyone else now is refused.
+    /// Since 23.37.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
 }
 
 /// What a person does to the pool from Cleanup's bay grid.
@@ -217,6 +222,9 @@ pub enum SlotAct {
     Remove,
     Close,
     Open,
+    /// Commit what an agent session holds uncommitted in this slot to its
+    /// branch and give the slot back. Since 23.37.
+    Release,
 }
 
 /// The slot `change_slot_pool` changed: the new one, for `add`.
@@ -224,6 +232,20 @@ pub enum SlotAct {
 pub struct SlotPoolChanged {
     pub manifest_id: ManifestId,
     pub slot: u32,
+    /// What a `release` did to the branch. Absent for every other act.
+    /// Since 23.37.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub released: Option<SlotReleased>,
+}
+
+/// The branch a released slot's work is on, and what was committed to it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotReleased {
+    pub branch: String,
+    /// The WIP commit and its files. Absent where the slot held nothing
+    /// uncommitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved: Option<crate::ReclaimedSaved>,
 }
 
 /// Who holds a slot, or why nothing can. Tagged on `state`; widening it is a

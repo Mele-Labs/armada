@@ -171,6 +171,15 @@ impl Vcs for GitVcs {
         crate::leasing::jobs::park(pool, slot, job_id)
     }
 
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        crate::leasing::jobs::release_session(pool, slot, holder)
+    }
+
     fn lease_existing_slot(
         &self,
         pool: &SlotPool,

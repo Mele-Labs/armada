@@ -158,6 +158,9 @@ pub enum SlotParkRefused {
     HeldByAnother(String),
     /// A lease or a release is under way on it.
     Busy,
+    /// Released on behalf of a holder that no longer holds it: who does now,
+    /// or `nobody`.
+    HolderChanged(String),
     /// The slot is not one of the pool's, or nobody leased it.
     NotLeased,
     /// The work was committed and the release then refused.
@@ -183,6 +186,9 @@ impl SlotParkRefused {
             ),
             SlotParkRefused::HeldByAnother(who) => format!("{who} holds it"),
             SlotParkRefused::Busy => String::from("a lease or a release is under way on it"),
+            SlotParkRefused::HolderChanged(now) => {
+                format!("it is held by {now} now, not by the holder that was shown")
+            }
             SlotParkRefused::NotLeased => {
                 String::from("nothing leased it, so there is nothing to park")
             }

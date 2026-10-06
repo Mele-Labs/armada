@@ -3061,12 +3061,19 @@ what was committed.
 | Change | Where | Carries | Absent |
 | --- | --- | --- | --- |
 | `saved` | `WorktreeReclaimed` | `{ "commit", "files" }`: the WIP commit a Clear made on `branch.branch`, and the files it took | No uncommitted files, and every answer before 23.37 |
+| `release` | `SlotAct`, in `ChangeSlotPool` | Commit a session-held slot's uncommitted files to its branch and free it | An older Fleet refuses the unknown act |
+| `holder` | `ChangeSlotPool` | For `release`: the holder the person was shown, `claude (pid 44698)`. Required by it | Every other act |
+| `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
+| `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
+| `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |
+
+A release hands a slot an agent session holds back by the same park, and only for the holder named, so a slot re-leased since is refused. The session's process is not touched.
 
 `reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
 branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same
 way before it is removed.
 
-**Bridge's half**, mirrored by hand: `ReclaimedSaved` and `WorktreeReclaimed.saved` in `reclaimed.ts`.
+**Bridge's half**, mirrored by hand: `ReclaimedSaved` and `WorktreeReclaimed.saved` in `reclaimed.ts`; `SlotAct`'s `release`, `ChangeSlotPool.holder`, `SlotPoolChanged.released` and `SlotReleased` in `holding.ts`.
 
 ## Open questions
 

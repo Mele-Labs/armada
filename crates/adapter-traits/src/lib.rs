@@ -372,6 +372,18 @@ pub trait Vcs {
         job_id: &str,
     ) -> Result<SlotParked, SlotParkRefused>;
 
+    /// Commit everything in a slot held by an agent session to its branch and
+    /// give the slot back, as [`park_slot`](Vcs::park_slot) does for a Job.
+    /// **`holder` is who the person was shown**, as the pool names it
+    /// (`claude (pid 44698)`): a slot re-leased since is refused, not taken.
+    /// The session's process is not touched.
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
     /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
     /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
     /// **Not necessarily the slot the Job parked from.**

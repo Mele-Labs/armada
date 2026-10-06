@@ -8,13 +8,18 @@
 //! provably safe, and a tree with uncommitted files is not.
 
 use adapter_traits::{
-    AgentHarness, Delivery, SlotKept, SlotStanding, Vcs, WorkProduct, WorktreeSpec,
+    AgentHarness, Delivery, SlotKept, SlotParkRefused, SlotStanding, Vcs, WorkProduct, WorktreeSpec,
 };
+use api::Refusal;
 use core_model::{Component, Envelope, FieldValue, Job, JobId, Level};
+use ipc::{ChangeSlotPool, ManifestId, SlotPoolChanged, SlotReleased, WireError};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::leasing::pool_of;
+use crate::leasing::{
+    pool_of, NO_SUCH_SLOT, SLOT_BUSY, SLOT_HOLDER_CHANGED, SLOT_HOLDER_UNNAMED, SLOT_NOT_PARKABLE,
+};
+use crate::repositories::Served;
 
 /// The WIP commit a Clear made, on the Job's own branch.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,6 +138,56 @@ where
             self.noted_saved(job, &saved, None);
             saved
         }))
+    }
+
+    /// `change_slot_pool`'s `release`: commit what an agent session holds
+    /// uncommitted in a slot to its branch and give the slot back, the same
+    /// park a Clear makes for a Job's. **Only for the holder the person was
+    /// shown**, so a slot re-leased since is refused. The session's process is
+    /// never touched.
+    pub(crate) fn session_released(
+        &self,
+        served: &Served,
+        asked: &ChangeSlotPool,
+    ) -> Result<SlotPoolChanged, Refusal> {
+        let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
+        let (Some(slot), Some(holder)) = (asked.slot, asked.holder.as_deref()) else {
+            return Err(Refusal::Unacceptable(raised(
+                if asked.slot.is_none() {
+                    NO_SUCH_SLOT
+                } else {
+                    SLOT_HOLDER_UNNAMED
+                },
+                String::from("a release names the slot and the holder it was shown"),
+            )));
+        };
+        let parked = self
+            .vcs()
+            .release_session_slot(&pool_of(served), slot, holder)
+            .map_err(|why| {
+                let said = why.said();
+                match why {
+                    SlotParkRefused::HolderChanged(_)
+                    | SlotParkRefused::HeldByAnother(_)
+                    | SlotParkRefused::NotLeased => {
+                        Refusal::IllegalMove(raised(SLOT_HOLDER_CHANGED, said))
+                    }
+                    SlotParkRefused::Busy => Refusal::IllegalMove(raised(SLOT_BUSY, said)),
+                    _ => Refusal::IllegalMove(raised(SLOT_NOT_PARKABLE, said)),
+                }
+            })?;
+        let saved = parked.commit.map(|commit| ipc::ReclaimedSaved {
+            commit,
+            files: parked.files,
+        });
+        Ok(SlotPoolChanged {
+            manifest_id: ManifestId::from(served.manifest().id()),
+            slot,
+            released: Some(SlotReleased {
+                branch: parked.branch,
+                saved,
+            }),
+        })
     }
 
     fn noted_saved(&self, job: &JobId, saved: &SavedWork, slot: Option<&str>) {
