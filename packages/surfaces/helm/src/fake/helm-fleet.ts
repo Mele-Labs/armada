@@ -13,13 +13,14 @@
 // `produced` rather than paraphrasing them —
 // `docs/contracts/agent-copy.md`, *Render a record, never paraphrase it*.
 
+import { connected } from "@armada/bridge-api";
+import type { PublishedCore, Scenario } from "@armada/bridge-api";
 import { PROTOCOL_VERSION } from "@armada/protocol";
 import type { HelmDebugInfo, HelmThreadItem } from "@armada/protocol";
 import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
 import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
-import { connected } from "./moment";
-import type { Scenario } from "./moment";
+import type { HelmApi, HelmState } from "../api";
 
 /** The Job the whole conversation is about — the same one the Board behind the dock draws. */
 const JOB = escalatedGateFailure();
@@ -172,15 +173,16 @@ const RECORD: HelmDebugInfo = {
  * field and the thread stands, which is `running-locally.md`'s rule for every
  * other act a Fleet would have to answer.
  */
-export function talking(): Scenario {
+export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(nothingYet: S): Scenario<S, A> {
   return {
     name: "helm-talking",
     says: "Helm pointed at a repository, with a reply given and one that never came",
     state: {
-      ...connected([JOB.job], JOB.workflows, [repository()]),
+      ...connected(nothingYet, [JOB.job], JOB.workflows, [repository()]),
       helm: { state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items: CONVERSATION },
     },
     reads: { [JOB.job.id]: JOB },
-    behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }),
+    // `A` is the app's whole API, so the one member this answers is narrowed to it by hand.
+    behaves: () => ({ helmDebugInfo: async () => ({ ok: true, record: RECORD }) }) as Partial<A>,
   };
 }

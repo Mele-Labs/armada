@@ -13,12 +13,15 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { entered, mount, openHelm, unmountAfterEach } from "./testing";
+import { entered, mount, openHelm, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
+// Core and Helm only: what the dock reads is its own slice's.
+const SLICES = { slices: ["core", "helm"] } as const;
+
 test("the dock opens on a conversation, both voices in it and the answer that never came", async () => {
-  mount("helm-talking");
+  mount("helm-talking", SLICES);
   await openHelm();
 
   // The person's ask, and the reply rendered as the prose it is — each of
@@ -52,7 +55,7 @@ test("the dock opens on a conversation, both voices in it and the answer that ne
 });
 
 test("pointed at a repository, the composer takes a message", async () => {
-  mount("helm-talking");
+  mount("helm-talking", SLICES);
   await openHelm();
 
   const field = page.getByRole("textbox", { name: "Ask Helm" });
@@ -69,7 +72,7 @@ test("pointed at a repository, the composer takes a message", async () => {
 });
 
 test("the record's split button offers both acts, and Details opens this session and no other", async () => {
-  mount("helm-talking");
+  mount("helm-talking", SLICES);
   await openHelm();
 
   // The face is the act the pair exists for, and the caret carries the reading.

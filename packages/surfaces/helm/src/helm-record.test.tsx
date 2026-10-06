@@ -8,12 +8,14 @@ import type { HelmDebugInfo } from "@armada/protocol";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { connected } from "./moment";
-import type { Scenario } from "./moment";
+import { connected, entered, mount, openHelm, unmountAfterEach } from "@armada/desktop/mock";
+import type { Scenario } from "@armada/desktop/mock";
 import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/build/base";
-import { entered, mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+
+// Core and Helm only: what the dock reads is its own slice's.
+const SLICES = { slices: ["core", "helm"] } as const;
 
 const RECORD: HelmDebugInfo = {
   manifest_id: MANIFEST_ID,
@@ -57,7 +59,7 @@ test("one press in the dock copies the record, and the reading beside it is the 
     configurable: true,
     value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
   });
-  mount(talking());
+  mount(talking(), SLICES);
   await openHelm();
 
   // One press, with no sheet in the way: this is reached when Helm has just
@@ -90,7 +92,7 @@ test("one press in the dock copies the record, and the reading beside it is the 
 });
 
 test("Helm pointed at no repository offers neither control, because there is no session to report", async () => {
-  mount("empty-store");
+  mount("empty-store", SLICES);
   await openHelm();
   expect(page.getByRole("button", { name: "Copy debug info" }).query()).toBeNull();
   expect(page.getByRole("button", { name: "Details" }).query()).toBeNull();
