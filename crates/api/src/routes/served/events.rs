@@ -89,7 +89,12 @@ pub(super) const ROUTES: &[Route] = &[
     },
     // A Job was paused or resumed, which moves no status at a gate.
     Route {
-        operation: "job.pause_changed",
+        operation: "job.paused",
+        method: "GET",
+        path: "/events",
+    },
+    Route {
+        operation: "job.resumed",
         method: "GET",
         path: "/events",
     },

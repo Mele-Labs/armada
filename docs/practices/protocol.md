@@ -3098,7 +3098,7 @@ way before it is removed.
 **The names are `park_job` and `resume_job`**, because `pause_job` is a retired row for a different act
 (a hold on a healthy Drone) that `xtask`'s unserved-operation allowance keeps on purpose.
 
-**Additive only.** A new field, a new queued reason, two commands, an event and six refusal codes; a
+**Additive only.** A new field, a new queued reason, two commands, two events and six refusal codes; a
 Bridge before 23.38 reads past the field and the event, and draws a paused Job by its status.
 
 | Change | Where | Carries | Absent |
@@ -3106,7 +3106,7 @@ Bridge before 23.38 reads past the field and the event, and draws a paused Job b
 | `paused` | `JobSummary` | `{ "by", "at", "resuming" }`: `person` or `fleet`, when, and whether a resume waits for a slot | A Job that is not paused, and every row before 23.38 |
 | `paused` | `queued_reason` | A running Job that was paused reads `queued` with this reason | Every other queued Job |
 | `park_job`, `resume_job` | commands | The Job's row, `paused` set or lifted | |
-| `job.pause_changed` | event | `{ "job", "actor", "at" }`, the row whole | |
+| `job.paused`, `job.resumed` | events | `{ "job", "actor", "at" }`, the row whole; a resume that waits carries `paused.resuming` | |
 | `fleet.not_pausable` | 409 | A status that cannot hold a pause, or no slot to park | |
 | `fleet.already_paused`, `fleet.not_paused` | 409 | A pause on a paused Job, a resume on one that is not | |
 | `fleet.checks_running` | 409 | Checks are running again on the worktree; wait | |

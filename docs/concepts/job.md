@@ -500,7 +500,7 @@ refused while its Checks run, and on a status with no worktree to give back.
 **The acts are `park_job` and `resume_job`**, each answering the Job's row, and
 both `Helm only`: Helm pauses on a person's ask. The row carries `paused`
 beside the status, so a Job at a review gate reads "Needs review" with a paused
-chip, and `job.pause_changed` tells every window, since no status moved. Each
+chip, and `job.paused` and `job.resumed` tell every window, since no status moved. Each
 act writes one line in the Job's log.
 
 | Refused as | When |

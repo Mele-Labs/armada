@@ -88,7 +88,7 @@ where
                 "the Job was paused again before it was resumed",
                 None,
             );
-            self.pause_changed(&again).await;
+            self.published_paused(&again).await;
             return Ok(again);
         }
         self.not_while_checks_run_again(&job)?;
@@ -147,7 +147,7 @@ where
             self.move_job(&paused, Target::Queued, Actor::Human).await?;
         }
         let job = self.load(job_id).await?;
-        self.pause_changed(&job).await;
+        self.published_paused(&job).await;
         Ok(job)
     }
 
@@ -172,7 +172,7 @@ where
         }
         if job.status() != JobStatus::Queued {
             if let Reseat::Seated(seated) = self.reseat(&job).await? {
-                self.pause_changed(&seated).await;
+                self.published_resumed(&seated).await;
                 return Ok(seated);
             }
         }
@@ -188,7 +188,7 @@ where
             "the Job was resumed and waits for a slot",
             None,
         );
-        self.pause_changed(&waiting).await;
+        self.published_resumed(&waiting).await;
         Ok(waiting)
     }
 
@@ -272,7 +272,7 @@ where
             }
             match self.reseat(&job).await? {
                 Reseat::Seated(job) => {
-                    self.pause_changed(&job).await;
+                    self.published_resumed(&job).await;
                     seated.push(job.id().clone());
                 }
                 // Every slot is held, and the rest wait behind this one.
@@ -307,14 +307,25 @@ where
         }
     }
 
-    /// Tell every client the row changed. **A gate Job moves no status**, so
+    /// Tell every client the Job was paused. **A gate Job moves no status**, so
     /// `job.state_changed` never fires for it and this is the only word.
-    async fn pause_changed(&self, job: &Job) {
+    async fn published_paused(&self, job: &Job) {
         // A summary that will not build is a refusal for the caller's own
         // read to raise; the pause itself is already written.
-        if let Ok(summary) = self.summarised(job).await {
-            self.publish(ipc::Event::JobPauseChanged(ipc::JobPauseChanged {
-                job: summary,
+        if let Ok(job) = self.summarised(job).await {
+            self.publish(ipc::Event::JobPaused(ipc::JobPaused {
+                job,
+                actor: Actor::Human.into(),
+                at: (&self.now()).into(),
+            }));
+        }
+    }
+
+    /// The same for a resume, whether it seated the Job or began its wait.
+    async fn published_resumed(&self, job: &Job) {
+        if let Ok(job) = self.summarised(job).await {
+            self.publish(ipc::Event::JobResumed(ipc::JobResumed {
+                job,
                 actor: Actor::Human.into(),
                 at: (&self.now()).into(),
             }));

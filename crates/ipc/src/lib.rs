@@ -242,8 +242,8 @@ pub use error::{RunId, WireError, WireValue};
 pub use event::{
     ChangeKind, ChangedFile, Cursor, Delivered, DroneExited, DroneSpawned, Event,
     EvidenceSubmitted, JobAsking, JobChecking, JobCommandWaiting, JobCreated, JobDryRun,
-    JobFilesChanged, JobJudging, JobLanded, JobPauseChanged, JobRemarksChanged, JobStateChanged,
-    JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
+    JobFilesChanged, JobJudging, JobLanded, JobPaused, JobRemarksChanged, JobResumed,
+    JobStateChanged, JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
 };
 pub use explaining::CommandExplained;
 pub use files::FilesFound;

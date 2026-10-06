@@ -1941,7 +1941,7 @@ Refused with a 409 and nothing changed: `fleet.not_pausable` on a status that ca
 
 **An act on a paused Job** (approve, request changes, restart, override) is refused `fleet.paused` and says to resume it first. Bridge turns that refusal into a confirm that offers `resume_job`. Kill works.
 
-Publishes `job.pause_changed` and writes one line in the Job's log.
+Publishes `job.paused` and writes one line in the Job's log.
 
 `agent_access` is `Helm only`, `restart_step`'s: Helm pauses a Job on a person's ask and never on its own reading.
 """
@@ -1958,7 +1958,7 @@ notes = """
 
 **Refused with a 409** `fleet.not_paused` on a Job that is not paused, and `fleet.pause_refused` where its branch could not be put in a slot, with the git reason. The Job is still paused after either. Resuming a Job already waiting for a slot answers the same row and changes nothing.
 
-Publishes `job.pause_changed` and writes one line in the Job's log.
+Publishes `job.resumed` and writes one line in the Job's log.
 
 `agent_access` is `Helm only`, for `park_job`'s reason.
 """
@@ -3262,17 +3262,30 @@ Only for a Job the merge sweep found still open — `notice_a_merge` calls `read
 It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names. The rotation produces at most one of these per `Noticing` interval across every open pull request Fleet holds, which is `job.asking`'s own bound one order slower — a person answers faster than a sweep rotates.
 """
 
-[operations."job.pause_changed"]
+[operations."job.paused"]
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "A Job was paused or resumed"
+description = "A Job was paused"
 notes = """
-Since 23.38. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` present or absent as it now stands.
+Since 23.38. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` set.
 
-Published once per act that changed the marker: a pause, a resume, a pause that called off a resume's wait, a resume that began waiting, and the seat a waiting Job takes when a turn finds a slot free. A queued Job that admission seats is told by `job.state_changed`. A resume of a Job already waiting for a slot changes nothing and publishes nothing.
+Published once per act that sets the marker: a pause, and a pause that called off a resume's wait.
 
 `agent_access` is `Bridge only`, `job.remarks_changed`'s: a screen's wake-up, and Helm has `get_job` for the answer.
+"""
+
+[operations."job.resumed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's pause was lifted, or its resume began waiting for a slot"
+notes = """
+Since 23.38. `job.paused`'s counterpart and shape: the row whole, with `paused` absent where the Job holds a slot again, and present with `resuming` where every slot was held.
+
+Published by a resume that seated the Job or began its wait, and by the turn that seats a waiting Job when a slot frees. A queued Job that admission seats moves status, so `job.state_changed` tells it. A resume of a Job already waiting changes nothing and publishes nothing.
+
+`agent_access` is `Bridge only`, for `job.paused`'s reason.
 """
 
 [operations."job.plan_changed"]

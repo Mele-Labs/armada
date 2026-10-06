@@ -378,7 +378,7 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.refresh(fleet.port, event.job.id);
     return;
   }
-  if (event.kind === "job.pause_changed") {
+  if (event.kind === "job.paused" || event.kind === "job.resumed") {
     // `job.landed`'s shape: the row travels whole, and a gate Job's status did
     // not move, so a state change would never have redrawn it.
     host.publish({ connection });

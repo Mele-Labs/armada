@@ -451,12 +451,14 @@ async fn log_of(fleet: &Fixture, home: &TempDir, job: &JobId) -> Vec<String> {
         .collect()
 }
 
-/// Every `job.pause_changed` the stream carries, as the rows it replaced.
-fn pause_rows(delivered: Vec<ipc::Delivered>) -> Vec<JobSummary> {
+/// Every `job.paused` or `job.resumed` the stream carries, as the rows they
+/// replaced, tagged with the kind.
+fn pause_rows(delivered: Vec<ipc::Delivered>) -> Vec<(&'static str, JobSummary)> {
     delivered
         .into_iter()
         .filter_map(|one| match one.event {
-            ipc::Event::JobPauseChanged(changed) => Some(changed.job),
+            ipc::Event::JobPaused(paused) => Some(("job.paused", paused.job)),
+            ipc::Event::JobResumed(resumed) => Some(("job.resumed", resumed.job)),
             _ => None,
         })
         .collect()
@@ -496,7 +498,8 @@ async fn a_gate_job_paused_over_the_wire_keeps_its_status_and_says_so_to_every_c
     assert_eq!((marker.by.as_str(), marker.resuming), ("person", false));
     let rows = pause_rows(heard(&mut watching).await);
     assert_eq!(rows.len(), 1, "one event, though no status moved");
-    assert_eq!(rows[0].paused, paused.paused);
+    assert_eq!(rows[0].0, "job.paused");
+    assert_eq!(rows[0].1.paused, paused.paused);
     let log = log_of(&fleet, &home, &job).await;
     assert!(
         log.iter().any(|line| line.contains("was paused")),
@@ -511,7 +514,8 @@ async fn a_gate_job_paused_over_the_wire_keeps_its_status_and_says_so_to_every_c
     assert_eq!(back.paused, None, "the marker is lifted");
     let rows = pause_rows(heard(&mut watching).await);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].paused, None);
+    assert_eq!(rows[0].0, "job.resumed");
+    assert_eq!(rows[0].1.paused, None);
     let log = log_of(&fleet, &home, &job).await;
     assert!(
         log.iter().any(|line| line.contains("was resumed")),
