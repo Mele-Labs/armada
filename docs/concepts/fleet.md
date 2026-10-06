@@ -26,7 +26,7 @@ Every number below was measured on macOS 27.0 / 26A5406e, launchd 7.0.0.
 - **Fleet crashes — signal or non-zero exit.** launchd restarts it automatically. Doctor's row flips fail → pass with no user action. **There is no cap and no backoff curve** — a flat `ThrottleInterval`, forever.
 - **Fleet is wedged — alive, not answering.** `launchctl kickstart -k gui/$UID/com.armada.fleet`. **26 ms** to a new PID. This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
-- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`. **A Job whose Drone is still alive and orphaned is not yet specified** — tracked in `../contracts/system-architecture.md`, and see the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
+- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and its step restarted — both in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
 - **Uninstall.** Must `launchctl bootout`, not merely delete the plist. A loaded job survives deletion of its own plist — verified.
 
 Two plist keys do not mean what they read. **`RunAtLoad=false` is a lie in the presence of `KeepAlive`** — both `true` and `{SuccessfulExit:false}` started the job the moment it was bootstrapped. **`Crashed:true` means signal-terminated, not failed** — `exit 1` left the job down, and a Rust panic exits 101.
@@ -296,7 +296,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 ### Network loss mid-Job
 
-**The Drone and Job auto-retry on reconnect** and resume where they left off. Process-crash recovery flags `interrupted` instead of resuming — see the daemon lifecycle above.
+**The Drone and Job auto-retry on reconnect** and resume where they left off. A Fleet restart flags `interrupted` and then restarts the step — see the daemon lifecycle above.
 
 ### What Fleet knows after the merge, and what it does not
 

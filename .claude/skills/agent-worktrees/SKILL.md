@@ -22,9 +22,9 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 `armada.yml`, eight by default — and the pool is the cap.
 
 ```
-path=$(armada worktree lease <branch>)   # waits while every slot is held
+slot=$(armada worktree lease <branch>)   # waits while every slot is held; never `path=`, zsh ties it to PATH
 armada worktree --status                 # who holds each, and since when
-armada worktree release <path>           # after the owner merges the pull request
+armada worktree release <path>           # after the pull request merges
 ```
 
 **A lease belongs to the process that took it, and a restart orphans it.** The
@@ -37,6 +37,12 @@ with `git reset --keep`). After any restart run `git -C <slot> branch
 `armada worktree lease --existing <branch>`. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
+**A lease taken in one tool call can read free when the call ends**, because the
+holder is the shell that ran it. Confirmed 6 Oct 2026, twice in one session:
+`--status` said `holder is gone after 0m` on slots just leased, and another
+session was given each, with an agent's uncommitted work landing on its branch.
+Take the lease and do the work that needs the slot in one background task, and
+commit before it ends; a branch with its commits is safe whoever has the slot.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
@@ -83,7 +89,7 @@ git branch -D <branch>
 Do both. A branch left behind with no worktree is cheap; a worktree left behind
 is not.
 
-**The cleanup happens after the owner merges the pull request**, never when you
+**The cleanup happens after the pull request merges**, never when you
 open it. Check it merged with `gh pr view <branch> --json state` (it reads
 `MERGED`) before removing a worktree, and run the three checks below first,
 every time: nothing here can tell your worktree from one another agent is still
@@ -242,6 +248,13 @@ after the dispatching session merged and pushed on his say-so.
 Audit before deleting, and print what will be kept rather than what will go — the
 keep list is short and readable, and a mistake in it is visible.
 
+**When the disk is already full, clear `target/` first and audit worktrees
+second.** Confirmed 6 Oct 2026: a `du` of every worktree was still running five
+minutes in while the owner waited at 7 GiB free, and was abandoned. Removing
+every `target/` took the disk to 535 GiB free and lost no work. Skip any
+checkout where a build is running. That run also removed slot-9's `target/`
+while an agent was compiling there, and two of its builds failed.
+
 `sed`, `cut` and `sort` have been unavailable in this environment's non-interactive
 shell. Prefer a `python3` heredoc over a pipeline for anything that has to parse
 `git worktree list`.
@@ -262,7 +275,8 @@ Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
 slots held or free, bases, land trees, preview, and the Job and agent worktrees.
 A `target/` with a cargo build running in it is skipped. Settings:
 `slot-build-trim-after-days`, `slot-build-ceiling-gib`,
-`build-sweep-interval-minutes`. Do not delete `target/` by hand to save space.
+`build-sweep-interval-minutes` (constants until #1821). Outside a full disk, do
+not delete `target/` by hand to save space.
 
 **Do not share one `CARGO_TARGET_DIR` between worktrees to save space.** It was
 tried: two manifest directories against one target poisoned the incremental cache

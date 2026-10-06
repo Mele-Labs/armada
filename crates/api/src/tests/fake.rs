@@ -104,6 +104,9 @@ pub struct FakeDaemon {
     /// may call. **Fleet's placement is `fleet::peer`'s and tested there**;
     /// this is what the door does with the answer.
     pub helm_on: Mutex<Option<(u16, fn(&ipc::door::Reachable) -> bool)>>,
+    /// The connection each `start_run` reached this daemon on, as
+    /// `crate::asking` said it: the port, `None` where there was no peer.
+    pub run_asked_on: Mutex<Vec<Option<u16>>>,
     /// Who each redirect that reached this daemon was recorded against.
     pub redirected_by: Mutex<Vec<crate::Redirector>>,
     /// Who each proposal that reached this daemon was recorded against.
@@ -151,6 +154,7 @@ impl FakeDaemon {
             asked_to_run: Mutex::new(Vec::new()),
             helm_polled: Mutex::new(None),
             helm_on: Mutex::new(None),
+            run_asked_on: Mutex::new(Vec::new()),
             redirected_by: Mutex::new(Vec::new()),
             proposed_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""PreToolUse: an agent never merges to `main`.
+"""PreToolUse: nothing reaches `main` around a pull request and its `ci`.
 
-Merges to `main` go through pull requests and the `ci` check, and the owner
-presses the button. So this refuses the three commands that reach `main`
-around that: a push to it, a forge merge, and a `git merge` run in the
-checkout that has it. `scripts/land` and `armada land` drain what is already
+Merges to `main` go through pull requests and the `ci` check. An agent may
+merge a pull request with "Create a merge commit" once `ci` has passed, or ask
+GitHub to do it when `ci` does (`--auto`). So this refuses the commands that
+reach `main` around that: a push to it, a forge merge that is not that one, and
+a `git merge` run in the checkout that has it. `scripts/land` and `armada land` drain what is already
 queued on the merge line and are not refused here.
 
 Reads the hook payload on stdin and answers `deny` or nothing at all.
@@ -18,6 +19,7 @@ lets it through.
 import json
 import os
 import shlex
+import subprocess
 import sys
 
 # What `land` puts on the base. Both spellings of the same ref, plus the bare
@@ -26,18 +28,27 @@ BASE = "main"
 BASE_REFS = (BASE, f"refs/heads/{BASE}")
 
 SAY = (
-    "A merge to `main` is the owner's, made on a pull request with \"Create a "
-    "merge commit\". An agent never merges. When the branch's self-check "
-    "passes:\n"
+    "A merge to `main` is made on a pull request with \"Create a merge "
+    "commit\", once `ci` has passed. When the branch's self-check passes:\n"
     "  git push -u origin <branch>\n"
     "  gh pr create --base main   # say what the diff cannot; end with "
     "\"Merge with Create a merge commit\"\n"
-    "then stop. GitHub runs the `checks` workflow: `ci` is the gate and "
-    "`desktop_test` reports beside it. If `ci` is red, read `gh pr checks <n>` "
-    "and `gh run view --log-failed`, fix on the same branch and push again; "
-    "the pull request updates.\n"
+    "  gh pr merge <n> --merge    # once `gh pr checks <n>` shows `ci` passed, "
+    "or add --auto to let GitHub merge it then\n"
+    "GitHub runs the `checks` workflow: `ci` is the gate and `desktop_test` "
+    "reports beside it. If `ci` is red, read `gh pr checks <n>` and "
+    "`gh run view --log-failed`, fix on the same branch and push again; the "
+    "pull request updates.\n"
     "docs/practices/ci.md says what the workflow runs."
 )
+
+# The `gh` this hook asks about a pull request's checks. Only the hook's own
+# environment sets it, never a command typed into the tool, so a test can point
+# it at a stand-in and nothing an agent runs can.
+GH = os.environ.get("GUARD_MERGE_GH", "gh")
+
+# Merge methods and bypasses a pull request is not to be merged with.
+OTHER_METHODS = ("--squash", "-s", "--rebase", "-r", "--admin")
 
 
 def answer(reason: str) -> None:
@@ -166,6 +177,53 @@ def inner(words: list[str]) -> list[list[str]]:
     return segments(script)
 
 
+def pr_merge_refusal(words: list[str]) -> str | None:
+    """Why this `gh pr merge` may not run, or None where it may.
+
+    It may when it makes a merge commit of one named pull request into `main`,
+    and `ci` has passed on it or `--auto` leaves the wait to GitHub. A
+    squash, a rebase or `--admin` is refused: main's history is one merge per
+    branch, and `--admin` walks past the check that is the gate. A pull request
+    whose `ci` cannot be read is refused, never assumed green.
+    """
+    if any(w in OTHER_METHODS for w in words):
+        return "This merges a pull request another way than \"Create a merge commit\"."
+    if not any(w in ("--merge", "-m") for w in words):
+        return "This merges a pull request without saying how; pass --merge."
+    after = words[words.index("merge") + 1:] if "merge" in words else []
+    selectors = []
+    skip = False
+    for w in after:
+        if skip:
+            skip = False
+        elif w in ("-R", "--repo", "--body", "-b", "--subject", "-t", "--match-head-commit"):
+            skip = True
+        elif not w.startswith("-"):
+            selectors.append(w)
+    if len(selectors) != 1:
+        return "This merges a pull request without naming exactly one."
+    if "--auto" in words:
+        return None
+    command = [GH]
+    for flag in ("-R", "--repo"):
+        if flag in words[:-1]:
+            command += [flag, words[words.index(flag) + 1]]
+    command += ["pr", "view", selectors[0], "--json", "state,baseRefName,statusCheckRollup"]
+    try:
+        run = subprocess.run(command, capture_output=True, text=True, timeout=30, check=True)
+        view = json.loads(run.stdout)
+    except Exception:
+        return "The pull request's checks could not be read, so `ci` is not known to have passed."
+    if view.get("state") != "OPEN" or view.get("baseRefName") != BASE:
+        return f"That pull request is not open against `{BASE}`."
+    for check in view.get("statusCheckRollup") or []:
+        if check.get("name") == "ci":
+            if check.get("conclusion") == "SUCCESS":
+                return None
+            return "`ci` has not passed on that pull request."
+    return "That pull request has no `ci` check yet."
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -205,7 +263,9 @@ def main() -> None:
         if bare and bare[0].endswith("gh"):
             pairs = zip(bare, bare[1:])
             if any(verb == "pr" and act == "merge" for verb, act in pairs):
-                answer(f"This merges a pull request by hand.\n{SAY}")
+                why = pr_merge_refusal(words)
+                if why:
+                    answer(f"{why}\n{SAY}")
             # The same write as a request: `gh api -X PUT repos/…/pulls/1/merge`.
             if any(w.endswith("/merge") and "/pulls/" in w for w in bare):
                 answer(f"This merges a pull request through the forge's API.\n{SAY}")

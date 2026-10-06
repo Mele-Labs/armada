@@ -134,7 +134,8 @@ poked or handed a verdict; its recorded spend is an undercount; its Job shows as
 `unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
 dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
 is open, so a surviving Check group is not swept at boot); a Drone that cannot
-be adopted is ended. A roster that does not answer still refuses. Without
+be adopted is ended. A Job whose Drone is gone resumes by itself: Fleet restarts its
+step at boot, once, unless its cap is spent (`docs/concepts/drone.md`). A roster that does not answer still refuses. Without
 `--adopt` the refusal is as above. It combines with `--from`, and
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
@@ -767,7 +768,7 @@ recorded is the wrapper, which ends at once.
 
 ## Landing a branch
 
-New work goes in on a pull request, and the owner merges it.
+New work goes in on a pull request, and is merged once its `ci` has passed.
 
 ```sh
 git push -u origin <branch>     # once the branch's self-check has passed
@@ -784,12 +785,15 @@ workflow runs and what is owed before it gates.
 **The description says what the diff cannot** (`commit-message`) and ends with
 "Merge with Create a merge commit".
 
-**The owner merges, with the merge button and "Create a merge commit".** Main's
-history is one merge per branch, so nothing is squashed or rebased. An agent
-never merges: `gh pr merge`, a push to `main` and a `git merge` in the checkout
-at `main` are refused by `.claude/hooks/guard_merge.py`, which names the pull
-request instead. `armada check hooks_test` proves the hook, and needs nothing
-built.
+**The merge is "Create a merge commit", from the button or `gh pr merge <n>
+--merge`.** Main's history is one merge per branch, so nothing is squashed or
+rebased. An agent may run `gh pr merge <n> --merge` once `gh pr checks <n>`
+shows `ci` passed, or add `--auto` so GitHub merges it when `ci` does.
+`.claude/hooks/guard_merge.py` refuses everything else that reaches `main`: a
+squash, a rebase, `--admin`, a merge whose `ci` is red or cannot be read, a push
+to `main`, the forge's merge API and a `git merge` in the checkout at `main`. It
+names the pull request instead. `armada check hooks_test` proves the hook, and
+needs nothing built.
 
 **A red `ci` comes back to you.** Read `gh pr checks <n>`, then
 `gh run view --log-failed`, fix on the same branch and push again. The pull

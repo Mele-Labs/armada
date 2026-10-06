@@ -122,7 +122,16 @@ where
         let within = tree.within.clone();
         let command = entry.run.clone();
         let started = Arc::clone(&self)
-            .started_at(place, tree, entry, command, false, false, None)
+            .started_at(
+                place,
+                tree,
+                entry,
+                command,
+                false,
+                false,
+                ipc::Requester::outside(),
+                None,
+            )
             .await;
         match started {
             Ok(underway) => Ok(underway.of_checkout()),

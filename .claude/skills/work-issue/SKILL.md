@@ -230,11 +230,13 @@ gh pr create --base main
 The description follows `commit-message`: say what the diff cannot, and end with
 "Merge with Create a merge commit". GitHub runs the `checks` workflow on it. The
 `ci` job is the gate, and `main` requires it; `desktop_test` reports beside it.
-The owner merges, or turns on auto-merge so GitHub merges it once `ci` passes.
+Merge it with `gh pr merge <n> --merge` once `ci` has passed, or add `--auto` so GitHub merges it when `ci` does.
 The repository allows merge commits only: main's history is one merge per branch.
 
-**An agent never merges.** Never `gh pr merge`, never a push to `main`, never a
-`git merge` in the checkout at `main`. A hook refuses all three.
+**Merge only through the pull request.** `gh pr merge <n> --merge` once `ci`
+has passed, or with `--auto`. Never a squash, a rebase or `--admin`, never a push
+to `main`, never a `git merge` in the checkout at `main`. A hook refuses all of
+them.
 
 **A red `ci` comes back to you.** Read `gh pr checks <n>` and
 `gh run view --log-failed`, fix on the same branch and push again. The pull

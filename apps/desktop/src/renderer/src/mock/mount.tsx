@@ -14,7 +14,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { DraftedFrom } from "../drafted";
 import { fakeBridge, liveDraft } from "./fake";
-import type { LiveDraft } from "./fake";
+import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import type { Scenario } from "./scenario";
 
@@ -65,12 +65,18 @@ function Drafted({ draft }: { draft: LiveDraft }) {
 /**
  * Install a fake `window.armada` on `scenario` and mount the app into `host`.
  * **Throws on a name no scenario has**, so a test never passes against a default.
+ * `options.slices` mounts core and only those surfaces' fakes; the default is every one.
  */
-export function mountApp(scenario: string | Scenario, host: HTMLElement, shared?: BridgeApi): Mounted {
+export function mountApp(
+  scenario: string | Scenario,
+  host: HTMLElement,
+  shared?: BridgeApi,
+  options?: FakeOptions,
+): Mounted {
   const chosen = typeof scenario === "string" ? scenarioNamed(scenario) : scenario;
   if (chosen === undefined) throw new Error(`no mock scenario named ${String(scenario)}`);
   // `shared` is a second window on the same main: both hear what either one's Fleet publishes.
-  const api = shared ?? fakeBridge(chosen);
+  const api = shared ?? fakeBridge(chosen, options);
   window.armada = api;
   const root = createRoot(host);
   let say = (): void => undefined;

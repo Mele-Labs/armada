@@ -24,7 +24,9 @@ use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
 use crate::gate::CheckBudget;
 use crate::tests::admitted::dispatched;
+use crate::tests::concurrency::calling_from;
 use crate::tests::daemon::{a_proposal_for, fittings, one};
+use crate::tests::peer::Placing;
 use crate::tests::tmp::TempDir;
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -68,6 +70,11 @@ const EDITED_AFTER: i64 = EDITED + 7 * 86_400;
 const NARROWED: &str = "/bin/sh -c 'echo narrowed; sleep 30' src/log.rs";
 
 fn a_fleet_rehearsing(home: &TempDir, events: &api::Broadcaster) -> Arc<Fixture> {
+    a_fleet_placing(home, events, Placing::nothing())
+}
+
+/// [`a_fleet_rehearsing`], whose callers are placed by a plant the test holds.
+fn a_fleet_placing(home: &TempDir, events: &api::Broadcaster, peers: Arc<Placing>) -> Arc<Fixture> {
     let manifest = config::Manifest::parse(Path::new("armada.yml"), MANIFEST)
         .unwrap_or_else(|why| panic!("the fixture manifest did not parse: {why}"));
     let def = config::WorkflowDef::parse(
@@ -82,6 +89,7 @@ fn a_fleet_rehearsing(home: &TempDir, events: &api::Broadcaster) -> Arc<Fixture>
     fittings.starting().workflows = one(workflow);
     fittings.starting().manifest = manifest;
     fittings.events = events.clone();
+    fittings.peers = peers as Arc<dyn crate::peer::PeerOf>;
     // Past the narrowed `test`'s thirty seconds, so what ends it is Stop.
     fittings.budget = CheckBudget::of(Duration::from_secs(120));
     Arc::new(Fleet::assembled(fittings))
@@ -628,4 +636,61 @@ async fn a_run_a_person_pressed_says_it_was_asked_from_outside_a_job() {
     assert_eq!(record.requester, ipc::Requester::outside());
     let history = fleet.rehearsal_history(job.id()).await.expect("a history");
     assert_eq!(history.runs[0].requester, ipc::Requester::outside());
+}
+
+/// **A Drone's `start_run` through the agent door names the Drone**, from the
+/// connection the call arrived on, and a caller no Drone holds stays outside.
+#[tokio::test]
+async fn a_run_a_drone_started_names_the_drone_and_a_stranger_stays_outside() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let peers = Placing::nothing();
+    let fleet = a_fleet_placing(&home, &events, Arc::clone(&peers));
+    let (job, _) = a_job_with_work_in_it(&fleet, &home).await;
+    dispatched(&fleet, job.id())
+        .await
+        .expect("a Drone is at work");
+    let drones = fleet.drones_at_work();
+    calling_from(&peers, &drones, job.id(), 51001);
+    let drone = {
+        let slot = fleet.slot_of(job.id()).await.expect("the Job's slot");
+        let held = slot.lock().await;
+        let (_, _, drone) = held.as_ref().expect("a Drone at work").drone();
+        drone
+    };
+    let from =
+        |port: &str| api::Caller::at(format!("127.0.0.1:{port}").parse().expect("an address"));
+
+    let stranger = api::asked_by(
+        Some(from("51999")),
+        Arc::clone(&fleet).start_rehearsal(job.id(), asked("test", true)),
+    )
+    .await
+    .expect("underway");
+    assert_eq!(stranger.requester, ipc::Requester::outside());
+    fleet
+        .stop_rehearsal(job.id(), stranger.id.clone())
+        .await
+        .expect("stopped");
+
+    let underway = api::asked_by(
+        Some(from("51001")),
+        Arc::clone(&fleet).start_rehearsal(job.id(), asked("test", true)),
+    )
+    .await
+    .expect("underway");
+    let by_the_drone = ipc::Requester::drone_on_step(
+        &ipc::JobId::from(job.id()),
+        &ipc::StepId::carried("implement"),
+        &ipc::DroneId::from(&drone),
+    )
+    .with_handle(&job.handle());
+    assert_eq!(underway.requester, by_the_drone);
+    let mut watching = events.subscribe();
+    fleet
+        .stop_rehearsal(job.id(), underway.id.clone())
+        .await
+        .expect("stopped");
+    let record = finished(&mut watching, &underway.id).await;
+    assert_eq!(record.requester, by_the_drone);
 }

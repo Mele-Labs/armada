@@ -5,6 +5,7 @@ import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
+import type { FakeOptions } from "./fake";
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
 import type { Scenario } from "./scenario";
@@ -24,11 +25,11 @@ export function unmountAfterEach(): void {
 }
 
 /** Mount `App` on a scenario, in a host the app's stylesheet sizes as its window. */
-export function mount(scenario: string | Scenario): Mounted {
+export function mount(scenario: string | Scenario, options?: FakeOptions): Mounted {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  const app = mountApp(scenario, host);
+  const app = mountApp(scenario, host, undefined, options);
   mounted.push({ app, host });
   return app;
 }
@@ -60,7 +61,7 @@ export async function openHelm(): Promise<void> {
  * Two windows on one main, side by side, each labelled as a region so a test
  * can scope to it. Both talk to one fake, so a clone either sends lands in both.
  */
-export function mountTwo(scenario: Scenario, labels: [string, string]): [HTMLElement, HTMLElement] {
+export function mountTwo(scenario: Scenario, labels: [string, string], options?: FakeOptions): [HTMLElement, HTMLElement] {
   const row = document.createElement("div");
   row.style.display = "flex";
   document.body.append(row);
@@ -71,7 +72,7 @@ export function mountTwo(scenario: Scenario, labels: [string, string]): [HTMLEle
     host.style.flex = "1";
     host.style.minWidth = "0";
     row.append(host);
-    const app = mountApp(scenario, host, api);
+    const app = mountApp(scenario, host, api, options);
     api = app.api;
     mounted.push({ app, host });
     return host;

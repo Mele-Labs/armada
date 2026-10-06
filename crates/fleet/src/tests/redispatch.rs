@@ -59,7 +59,15 @@ async fn an_escalated_job(home: &TempDir) -> JobId {
             .await
             .expect("a Job at the gate");
         worktree_directory(home, &job);
-        dispatched(&fleet, job.id()).await.expect("released to run");
+        let running = dispatched(&fleet, job.id()).await.expect("released to run");
+        // A spent cost cap is what keeps Fleet from restarting the step at the
+        // boot below, which would leave the Job running rather than escalated.
+        fleet
+            .store()
+            .lock()
+            .await
+            .record_cost_cap(&running.cost_capped(Some(0)))
+            .unwrap();
         // **Ended here rather than left to the drop.** A Drone outlives the
         // Fleet that spawned it by design, and one still in the process table
         // is one the second Fleet adopts — which would leave this Job
