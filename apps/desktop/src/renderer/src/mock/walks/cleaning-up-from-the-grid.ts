@@ -33,7 +33,7 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { press: role("button", "Reclaim worktree"), say: "The Job's own Clear, on the same worktree" },
   { look: dialog("Give this job's worktree back?"), say: "It says the same: the uncommitted files committed to the branch, the slot released, the branch kept" },
   { press: inside(dialog("Give this job's worktree back?"), role("button", "Cancel", { exact: true })), say: "Cancel sends nothing" },
-  { press: role("button", "Back to Cleanup"), say: "Back to the grid" },
+  { press: role("button", "Cleanup", { exact: true }), say: "Back to Cleanup" },
   { press: TILE(1), say: "The bay again" },
   { hover: IN_PANEL(1, "button", "Clear"), say: "Clear says which worktree it acts on and what happens to the branch" },
   { press: IN_PANEL(1, "button", "Clear"), say: "Clear asks first" },

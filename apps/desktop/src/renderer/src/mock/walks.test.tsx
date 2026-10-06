@@ -44,5 +44,6 @@ for (const [name, script] of WALKS) {
     await onScreen();
     await walkThrough(script.steps);
     expect(heard).toEqual([]);
-  });
+    // A step waits for its target to settle, so a long walk outruns the default 15 s.
+  }, Math.max(15_000, script.steps.length * 600));
 }
