@@ -25,6 +25,7 @@
     "src/shared/**/*.ts",
     "electron.vite.config.ts",
     "vite.mock.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "vitest.browser.preset.ts"
   ]
 }
