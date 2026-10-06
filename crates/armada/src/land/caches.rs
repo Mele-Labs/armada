@@ -101,7 +101,7 @@ pub fn checks_on_the_base(
         let at = reused_keeping(repo, LandWorktree::Base, base, logs, &keep)
             .map_err(|why| Stopped::stopped(why.to_string()))?;
         seed(repo, &at, env, logs)?;
-        super::prepare::setup(&at, env, logs)?;
+        super::prepare::setup_for(&at, env, logs, names)?;
         for name in unknown {
             let log = logs.join(format!("{name}-on-{}.log", env.base));
             let ran = check(&env.armada, &at, name, None, &log, env.check_limit)?;
