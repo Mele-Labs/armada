@@ -53,7 +53,7 @@ export type ManifestChecksProps = {
   followedLog: FollowedLog;
   /** A Job as a person names it, for the link to it. */
   jobLabel: (jobId: string) => string;
-  /** Where a requester is opened: a Job at a step or a Drone, and the merge line at a branch. */
+  /** Where a requester is opened: a Job at a step, Drone or task, and the merge line at a branch. */
   onOpenJob: (jobId: string, to?: JobOpening) => void;
   onOpenMergeLine: (branch?: string) => void;
   /** The window is at `--window-floor`. */
@@ -159,7 +159,7 @@ function RequestedBy({ asker, onOpenJob, onOpenMergeLine }: { asker: Asker; onOp
       onClick={() =>
         opens.to === "merge-line"
           ? onOpenMergeLine(opens.branch)
-          : onOpenJob(opens.jobId, opens.step === undefined && opens.drone === undefined ? undefined : { ...(opens.step === undefined ? {} : { step: opens.step }), ...(opens.drone === undefined ? {} : { drone: opens.drone }) })
+          : onOpenJob(opens.jobId, opens.step === undefined && opens.drone === undefined && opens.task === undefined ? undefined : { ...(opens.step === undefined ? {} : { step: opens.step }), ...(opens.drone === undefined ? {} : { drone: opens.drone }), ...(opens.task === undefined ? {} : { task: opens.task }) })
       }
     >
       {label}
