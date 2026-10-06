@@ -55,7 +55,7 @@ where
     ///
     /// Where the process is gone, the answer is what it always was: `escalated`,
     /// reason `interrupted`, through `crate::aftermath` rather than restated
-    /// here.
+    /// here, and then `crate::boot_restart` puts the step back.
     ///
     /// **Never resumed silently, which is a stronger claim than it looks.** A
     /// Drone that is adopted is put back in a slot and the Job carries on, and
