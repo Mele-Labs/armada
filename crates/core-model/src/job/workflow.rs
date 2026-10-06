@@ -110,6 +110,11 @@ pub enum ResolvedCheck {
         /// **`None` where the Manifest names none**, and then nothing resolves
         /// out of a runner's description for it. Frozen for `narrow`'s reason.
         runner: Option<Runner>,
+        /// The directory of the `armada.yml` that declared this Check, relative
+        /// to the repository root. **Empty for the root's own**, which is every
+        /// Check written before workspaces gated and the usual one still.
+        /// Frozen for `narrow`'s reason.
+        manifest_dir: String,
     },
     /// The step produced a non-empty diff.
     DiffNonempty,
@@ -298,6 +303,17 @@ impl ResolvedCheck {
             ResolvedCheck::DiffNonempty
             | ResolvedCheck::ArtifactExists { .. }
             | ResolvedCheck::PlanRecorded { .. } => &[],
+        }
+    }
+
+    /// The directory of the manifest that declared this Check. **Empty for the
+    /// root's, and for a built-in**, which has no manifest.
+    pub fn manifest_dir(&self) -> &str {
+        match self {
+            ResolvedCheck::ManifestCheck { manifest_dir, .. } => manifest_dir,
+            ResolvedCheck::DiffNonempty
+            | ResolvedCheck::ArtifactExists { .. }
+            | ResolvedCheck::PlanRecorded { .. } => "",
         }
     }
 

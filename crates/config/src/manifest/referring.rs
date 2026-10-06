@@ -123,6 +123,7 @@ pub(super) fn after_merge(
     value: &Value,
     checks: &BTreeMap<String, Check>,
     commands: &BTreeMap<String, Command>,
+    dir: &str,
     out: &mut Vec<Refusal>,
 ) -> Vec<ResolvedCheck> {
     let Some(mut table) = Table::open("after_merge", value, out) else {
@@ -188,6 +189,7 @@ pub(super) fn after_merge(
                 // Dropped for `narrow`'s reason: a proof after a merge reads
                 // the whole tree, so there is no narrowing to resolve.
                 runner: None,
+                manifest_dir: dir.to_string(),
             }),
             None => out.push(Refusal::new(
                 key,

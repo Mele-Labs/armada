@@ -54,6 +54,7 @@ fn a_resolved_workflow_carries_the_command_not_the_name() {
                 places: std::num::NonZeroU32::MIN,
                 width: None,
                 runner: None,
+                manifest_dir: String::new(),
             },
             ResolvedCheck::ManifestCheck {
                 name: "test".to_string(),
@@ -67,6 +68,7 @@ fn a_resolved_workflow_carries_the_command_not_the_name() {
                 places: std::num::NonZeroU32::MIN,
                 width: None,
                 runner: None,
+                manifest_dir: String::new(),
             },
             ResolvedCheck::DiffNonempty,
         ]

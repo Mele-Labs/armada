@@ -33,6 +33,7 @@ fn step(checks: Vec<ResolvedCheck>, every: bool) -> ResolvedStep {
 
 fn a_check(name: &str) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: name.to_string(),
         run: format!("run {name}"),
         expect_exit_code: 0,
