@@ -6,7 +6,7 @@ import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { JobSummary, Outcome, WorktreeHeld, WorktreeSlot } from "@armada/protocol";
 
-import { mount, unmount } from "./mounted";
+import { mount, unmount } from "@armada/screens/src/mounted";
 import { Worktrees } from "./Worktrees";
 
 afterEach(unmount);

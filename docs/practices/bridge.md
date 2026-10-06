@@ -141,7 +141,7 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios
-has moved both.
+and Cleanup have moved both.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -194,6 +194,15 @@ What it settled for the next surface:
   renderer folders, `mock/{fake,fake-context,harness,moment,mount,scenario,slices,testing}`,
   `mock/<x>-fake.ts`, `mock/slices/**` (tests mount every slice) and `shared/**`;
   never another surface's `*-fleet.ts`. `armada covers` proves it.
+- **A fake that needs more than state and `publish` takes a handle type of its
+  own.** Cleanup's `cleanupApi` names `move`, the held pool, `unread` and
+  `proposingRow` in a `CleanupFleet` type that desktop's `Fleet` satisfies, so the
+  package never imports `fake-context`. A type main or preload read (`RescueOutcome`)
+  moves with the slice and is read from `@armada/<x>/api`.
+- **A surface whose tests mount a screen, not the app, depends on none of the app.**
+  Cleanup's `Worktrees*.test.tsx` use `@armada/screens/src/mounted`, so its
+  `depends_on` stops at screens, the shared packages and the three desktop files the
+  browser project loads, and a change to another surface's fake names it no more.
 - **A rule that scans `packages/screens` must scan the surfaces.**
   `no_off_contract_design_value` read only `components` and `screens`, so the move
   would have unwatched Studios without a red.
@@ -212,7 +221,7 @@ and the shared helper types beside it, never another slice.** Core's `state` and
 `subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
 typecheck if the composition drifts from them. A slice moves into its surface
-package as `/api`, as above; Studios has.
+package as `/api`, as above; Studios and Cleanup have.
 
 ## State and data flow
 

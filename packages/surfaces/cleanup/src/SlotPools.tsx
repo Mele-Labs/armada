@@ -23,9 +23,9 @@ import type {
   WorktreeSlot,
 } from "@armada/protocol";
 
-import { said } from "./copy";
-import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting } from "./held";
-import { canPause, canResume, pauseRefusal, pausedSaid } from "./pausing";
+import { said } from "@armada/screens/src/copy";
+import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting } from "@armada/screens/src/held";
+import { canPause, canResume, pauseRefusal, pausedSaid } from "@armada/screens/src/pausing";
 import type { RescueOutcome } from "./slot-rescue";
 import { joined } from "./tiles";
 
