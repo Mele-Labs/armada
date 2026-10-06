@@ -98,7 +98,7 @@ pub struct StepFacts {
     pub checking: Option<ChecksUnderway>,
     /// A Drone's own run of the step's Checks, from its start until the Drone
     /// asks again, submits or the step ends. `checking` stays the gate's. #1062.
-    pub dry_run: Option<ChecksUnderway>,
+    pub asked_run: Option<ChecksUnderway>,
     /// How many times this step has sent the work back, counted off the log's
     /// `returned_by` column — `store::step_iteration`'s reading, less its one.
     /// Zero on every step of every linear workflow.
@@ -325,10 +325,10 @@ pub struct StepDetail {
     /// The Checks the Drone asked for mid-step, **its own run and never the
     /// gate's**, from their start until it asks again, submits or the step
     /// ends. Absent is the ordinary case. #1062.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dry_run: Option<ChecksUnderway>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "dry_run")]
+    pub asked_run: Option<ChecksUnderway>,
     /// Every run of this step's Checks a Drone asked for, **each its own row and
-    /// never a `check_runs` row**: a dry result is not a gate's. Oldest first;
+    /// never a `check_runs` row**: an asked result is not a gate's. Oldest first;
     /// absent where none was asked. Since 23.40.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asked_runs: Vec<crate::AskedRun>,
@@ -499,7 +499,7 @@ impl StepDetail {
                 .unwrap_or_default(),
             judging: facts.and_then(|facts| facts.judging.clone()),
             checking: facts.and_then(|facts| facts.checking.clone()),
-            dry_run: facts.and_then(|facts| facts.dry_run.clone()),
+            asked_run: facts.and_then(|facts| facts.asked_run.clone()),
             asked_runs: facts
                 .map(|facts| facts.asked_runs.clone())
                 .unwrap_or_default(),

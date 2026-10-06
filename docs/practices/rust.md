@@ -317,7 +317,7 @@ transcript seam is the one that burned, and it is the one the rule names.
 
 **Building the rule found a fourth site nobody was looking for.** The issue
 named three because three had failed, not because three was the number:
-`dry_run::told_checks` read the same file with no wait at all and had not yet
+`asked_run::told_checks` read the same file with no wait at all and had not yet
 been caught. A rule that had to fire on zero is what turned that up, which is
 the argument for having one.
 

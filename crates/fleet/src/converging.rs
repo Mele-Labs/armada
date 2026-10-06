@@ -255,7 +255,7 @@ impl NoReport {
                 self.quoted
             )),
             output_path: None,
-            reused_from_dry_run: None,
+            reused_from_asked_run: None,
         }
     }
 }

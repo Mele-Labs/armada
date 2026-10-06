@@ -1,7 +1,7 @@
 //! A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
 //!
 //! **Never a [`CheckRun`](crate::CheckRun).** A Check row is what a gate ruled
-//! on, and a dry result readable as one is a pass nobody measured at the gate.
+//! on, and an asked result readable as one is a pass nobody measured at the gate.
 //! These ride on [`StepDetail::asked_runs`](crate::StepDetail::asked_runs) and
 //! [`RunList::asked_runs`](crate::RunList::asked_runs), and a surface that draws
 //! them beside the gate's rows says they are asked runs.

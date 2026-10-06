@@ -236,7 +236,7 @@ where
     }
 
     /// Write a Job's server's end into the Job's own log. **Fields, never an
-    /// interpolated message**, for `crate::dry_run`'s reason. A server with no
+    /// interpolated message**, for `crate::asked_run`'s reason. A server with no
     /// Job has no log of that kind to go in.
     fn noted_server(&self, state: &ServerState) {
         let Some(job) = state.job_id.as_ref().map(|id| id.to_domain()) else {

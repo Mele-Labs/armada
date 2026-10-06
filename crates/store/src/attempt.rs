@@ -415,7 +415,7 @@ fn check(row: &Row<'_>) -> Result<StepCheck, RowError> {
         expected: maybe(row, "expected")?,
         produced: maybe(row, "produced")?,
         output_path: maybe(row, "output_path")?,
-        reused_from_dry_run: maybe(row, "reused_from_dry_run")?.map(Timestamp::from_rfc3339),
+        reused_from_asked_run: maybe(row, "reused_from_dry_run")?.map(Timestamp::from_rfc3339),
     })
 }
 

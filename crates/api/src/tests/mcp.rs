@@ -150,7 +150,7 @@ async fn the_tool_list_carries_every_tool_and_only_one_that_reports() {
     }
     // **Only one of them reports**, which is what the count is about — a Drone
     // choosing between reporting-shaped tools is spike 6's one miss, and none
-    // of a declaration, a scope request, a dry run, a server, a dispatch, a
+    // of a declaration, a scope request, a asked run, a server, a dispatch, a
     // question, a note and a drafted fix is a report. `permission` is not even
     // the Drone's: the harness calls it, and the model is never shown it —
     // spike 15.

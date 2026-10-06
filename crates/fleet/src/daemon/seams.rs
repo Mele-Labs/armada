@@ -23,11 +23,11 @@ use super::{Fleet, Local};
 use crate::admitting::Polled;
 use crate::allowance::Allowance;
 use crate::asked::Asked;
+use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
 use crate::converging::StepNorms;
 use crate::delivery::Delivered;
 use crate::drone::{environment, HostPaths};
-use crate::dry_run::DryRuns;
 use crate::evidence::EvidenceInbox;
 use crate::explaining::Explaining;
 use crate::gate::CheckBudget;
@@ -175,8 +175,8 @@ where
     pub(crate) fn liveness(&self) -> Liveness {
         self.liveness
     }
-    pub(crate) fn dry_runs(&self) -> DryRuns {
-        self.dry_runs
+    pub(crate) fn asked_runs(&self) -> AskedRuns {
+        self.asked_runs
     }
     pub(crate) fn fixes(&self) -> crate::fixing::Fixes {
         self.fixes
@@ -530,7 +530,7 @@ where
     /// Where a Drone's own run says what each of its Checks is doing: shown
     /// beside the gate's and never as it, and heard as each result lands.
     /// `whole` is whether it ran every Check whole, which is when it is timed.
-    pub(crate) fn announcing_dry_run(
+    pub(crate) fn announcing_asked_run(
         &self,
         job: &Job,
         step: &core_model::StepId,
@@ -539,7 +539,7 @@ where
         whole: bool,
         requester: ipc::Requester,
     ) -> Announcing {
-        Announcing::dry_run(
+        Announcing::asked_run(
             job.id().into(),
             step.clone(),
             attempt,

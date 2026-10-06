@@ -215,17 +215,17 @@ pub fn kept(
 
 /// The same, for a run the Drone asked for rather than one the gate made.
 ///
-/// **A different file name, deliberately.** `crate::dry_run` writes no row, so
-/// a dry run using [`RECORDED`]'s path would overwrite output the record points
+/// **A different file name, deliberately.** `crate::asked_run` writes no row, so
+/// a asked run using [`RECORDED`]'s path would overwrite output the record points
 /// at with output nothing points at — and a person opening the log named on a
 /// step's Check row would be reading a run that decided nothing.
 ///
 /// The attempt and the ordinal key it to the step's Check on this run, so a
-/// second dry run inside one attempt overwrites the first. The files and the
+/// second asked run inside one attempt overwrites the first. The files and the
 /// attempt have one lifetime, which is what stops the directory growing with
-/// every ask — and what keeps a reattempt's dry runs apart from the ones
+/// every ask — and what keeps a reattempt's asked runs apart from the ones
 /// before it, the same reason the gate's own path carries the attempt.
-pub fn kept_dry(
+pub fn kept_asked(
     records_root: &str,
     handle: &str,
     step: &StepId,
@@ -277,7 +277,7 @@ pub fn kept_for_a_commit(
 /// Where one Check writes its log while the gate runs it, as the absolute file
 /// and the repository-relative path a surface is handed.
 ///
-/// **A third name beside the recorded one and the dry run's**, for `kept_dry`'s
+/// **A third name beside the recorded one and the asked run's**, for `kept_asked`'s
 /// reason: the recorded file is written from the ruling and its row points at
 /// it, and a live log written under that name would be overwritten by it — or,
 /// on a gate that never ruled, left where a row would take it for the record.
@@ -302,7 +302,7 @@ pub(crate) fn live_file(
 /// What a gate run's file name carries between the step and the ordinal:
 /// nothing.
 const RECORDED: &str = "";
-/// What a dry run's carries.
+/// What a asked run's carries.
 const DRY: &str = "dry.";
 /// What a live log's carries.
 const LIVE: &str = "live.";

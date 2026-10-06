@@ -184,7 +184,7 @@ async fn a_fix_drafts_one_test_run_is_timed_apart_from_a_whole_run() {
 }
 
 /// **The call does not wait for main.** A test that takes a while there is
-/// answered before it finishes, and the Drone waits on it as on a dry run.
+/// answered before it finishes, and the Drone waits on it as on a asked run.
 #[tokio::test]
 async fn the_call_answers_before_the_test_on_main_finishes() {
     let home = TempDir::new();

@@ -160,7 +160,7 @@ pub struct RunList {
     pub runs: Vec<RunRecord>,
     pub unreadable: Vec<UnreadableRun>,
     /// The Checks a Drone asked for on this Job, as their own rows and never
-    /// among `runs`: a dry result is not a rehearsal's. Oldest first. Since 23.40.
+    /// among `runs`: an asked result is not a rehearsal's. Oldest first. Since 23.40.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asked_runs: Vec<crate::AskedRun>,
 }

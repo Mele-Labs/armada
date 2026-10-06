@@ -41,6 +41,7 @@
   "dependencies": {
     "@armada/brand": "workspace:*",
     "@armada/bridge-api": "workspace:*",
+    "@armada/cleanup": "workspace:*",
     "@armada/components": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",

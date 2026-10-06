@@ -264,7 +264,7 @@ export const JUDGE_ROW = "judge";
 /** What a declared Check with no run on this attempt says. */
 const NOTHING_HAS_RUN_IT = "Not run yet";
 
-/** What a Check the gate trusted off the Drone's own dry run says. */
+/** What a Check the gate trusted off the Drone's own asked run says. */
 const REUSED_FROM_THE_DRONE = "reused from the drone's run";
 
 /** What the Judge's row says before a call has gone out. */

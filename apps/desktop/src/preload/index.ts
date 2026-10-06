@@ -9,7 +9,7 @@ import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from
 import type { CaptureOpened } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
-import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
+import type { RescueOutcome } from "@armada/cleanup/api";
 import type { Pattern } from "../shared/haptics";
 import type {
   CheckOutputRead,
