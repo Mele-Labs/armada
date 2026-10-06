@@ -175,6 +175,15 @@ export type BridgeApi = {
   /** End the Job at `killed`. Terminal, and nothing resumes it. */
   killJob: (jobId: string) => Promise<Outcome>;
   /**
+   * Pause the Job: its Drones end, its work is parked on its branch and its
+   * slot goes back. **The Job is kept**, which is the difference from
+   * `killJob`. A refusal says why in Fleet's words — `fleet.checks_running`,
+   * `fleet.pause_refused`, and so on.
+   */
+  parkJob: (jobId: string) => Promise<Outcome>;
+  /** Lift the pause. A Job at a gate takes a slot now or waits for the first to free. */
+  resumeJob: (jobId: string) => Promise<Outcome>;
+  /**
    * Kill one process the Job holds, by pid. **Fleet decides whether the pid is
    * the Job's** — it rebuilds the tree at the act — so this names, never grants.
    * A pid outside it is refused as `fleet.not_the_jobs_process`. #1647.

@@ -129,6 +129,7 @@ type Busy =
   | "already_killing"
   | "already_redirecting"
   | "already_restarting"
+  | "already_pausing"
   | "already_overruling"
   | "already_rereading"
   | "already_rerunning_checks"
@@ -166,6 +167,8 @@ export class JobCommands {
   private readonly killing = new Set<string>();
   private readonly redirecting = new Set<string>();
   private readonly restarting = new Set<string>();
+  /** One set for both: a pause and a resume of one Job cannot both be in flight. */
+  private readonly pausing = new Set<string>();
   /** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
   private readonly answeringLesson = new Set<string>();
   /** Jobs with an override in flight. Its own set: it is its own act. */
@@ -478,6 +481,20 @@ export class JobCommands {
    */
   async killJob(jobId: string): Promise<Outcome> {
     return this.kill(jobId, "kill_job");
+  }
+
+  /** Pause the Job, keeping it. Not `killJob`: nothing here is terminal. */
+  async parkJob(jobId: string): Promise<Outcome> {
+    return this.act(jobId, this.pausing, "already_pausing", (port) =>
+      ask(port, "POST", route(jobId, "park_job")),
+    );
+  }
+
+  /** Lift a pause. */
+  async resumeJob(jobId: string): Promise<Outcome> {
+    return this.act(jobId, this.pausing, "already_pausing", (port) =>
+      ask(port, "POST", route(jobId, "resume_job")),
+    );
   }
 
   /**

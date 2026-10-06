@@ -138,6 +138,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.killDrone, jobId, droneId),
 
   killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
+  parkJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.parkJob, jobId),
+  resumeJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.resumeJob, jobId),
 
   killProcess: (jobId: string, pid: number): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.killProcess, jobId, pid),

@@ -497,6 +497,20 @@ blocked, and its port span is kept. A person's act on it that needs a worktree
 is refused as `fleet.paused` ("resume it first"); Kill works. A pause is
 refused while its Checks run, and on a status with no worktree to give back.
 
+**The acts are `park_job` and `resume_job`**, each answering the Job's row, and
+both `Helm only`: Helm pauses on a person's ask. The row carries `paused`
+beside the status, so a Job at a review gate reads "Needs review" with a paused
+chip, and `job.pause_changed` tells every window, since no status moved. Each
+act writes one line in the Job's log.
+
+| Refused as | When |
+|---|---|
+| `fleet.not_pausable` | the status cannot hold a pause, or the Job holds no slot |
+| `fleet.already_paused`, `fleet.not_paused` | a pause on a paused Job, a resume on one that is not |
+| `fleet.checks_running` | its Checks are running again on the worktree |
+| `fleet.pause_refused` | the pool or git would not park the work, or take it back |
+| `fleet.paused` | a person's act on a paused Job: resume it first |
+
 ## Step state
 
 **Step state is rows, not a field.** `job_steps` carries one row per `(job_id, step_id)`, written at Job creation from the frozen WorkflowDef — every step of the workflow, in order, all `not_started`. A Job at `proposing` is the one exception and it is not a gap: there is no frozen WorkflowDef to write them from yet, so the rows are written where that status is left. The state of steps that are *not* current is therefore recorded rather than inferred from position relative to the current step. Position-inference breaks on a loop workflow, where a step can have advanced and then be re-entered.

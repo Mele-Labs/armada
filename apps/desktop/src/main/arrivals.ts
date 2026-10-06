@@ -378,6 +378,14 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.refresh(fleet.port, event.job.id);
     return;
   }
+  if (event.kind === "job.pause_changed") {
+    // `job.landed`'s shape: the row travels whole, and a gate Job's status did
+    // not move, so a state change would never have redrawn it.
+    host.publish({ connection });
+    host.fold(event.job);
+    host.refresh(fleet.port, event.job.id);
+    return;
+  }
   if (event.kind === "job.remarks_changed") {
     // Moves no row, `job.files_changed`'s terms — `review.ts` owns whether
     // anybody is looking, and this only wakes that read where they are.
