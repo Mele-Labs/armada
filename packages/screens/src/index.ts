@@ -27,6 +27,7 @@ export * from "./Lessons";
 export type { AnswerLesson, LessonsTab, LessonsView, ReadLessons, ReadRetro } from "./retro";
 export { lessonsTabNamed } from "./retro";
 export * from "./Row";
+export * from "./landed-words";
 export * from "./Taken";
 export * from "./freeze";
 export * from "./Sheets";
