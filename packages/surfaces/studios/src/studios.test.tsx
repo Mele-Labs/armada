@@ -11,7 +11,7 @@ import { page, userEvent } from "vitest/browser";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { mountApp, type Mounted, studying, entered, openHelm, whenFleet } from "@armada/desktop/mock";
-import { everyKind } from "@armada/studios/fake";
+import { everyKind } from "./fake";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 
