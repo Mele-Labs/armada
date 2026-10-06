@@ -15,9 +15,12 @@
 //! then refuses, the Job is left `escalated` on `would_not_start`, as
 //! `kill_drone` leaves a Job whose Drone it took away.
 
+use std::sync::Arc;
+
 use adapter_traits::{
     AgentHarness, Delivery, SlotLeased, SlotParkRefused, SlotStanding, Vcs, WorkProduct,
 };
+use api::Refusal;
 use core_model::{
     Actor, Component, Envelope, EscalationTrigger, FieldValue, Job, JobId, JobStatus, Level,
     PausedBy, StepState, Target,
@@ -25,6 +28,7 @@ use core_model::{
 use store::ExtraEnded;
 
 use crate::adrift::Adrift;
+use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
@@ -78,6 +82,13 @@ where
                 .await
                 .record_pause(&again)
                 .map_err(Adrift::Writing)?;
+            self.noted_pause(
+                &again,
+                None,
+                "the Job was paused again before it was resumed",
+                None,
+            );
+            self.pause_changed(&again).await;
             return Ok(again);
         }
         self.not_while_checks_run_again(&job)?;
@@ -126,7 +137,7 @@ where
             .map_err(Adrift::Writing)?;
         self.noted_pause(
             &paused,
-            slot,
+            Some(slot),
             "the Job was paused and its slot given back",
             parked.commit.as_deref(),
         );
@@ -135,7 +146,9 @@ where
         if standing == JobStatus::Running {
             self.move_job(&paused, Target::Queued, Actor::Human).await?;
         }
-        self.load(job_id).await
+        let job = self.load(job_id).await?;
+        self.pause_changed(&job).await;
+        Ok(job)
     }
 
     /// Resume a paused Job. **A gate Job takes a slot now if there is one**,
@@ -168,7 +181,42 @@ where
             .await
             .record_pause(&waiting)
             .map_err(Adrift::Writing)?;
+        self.noted_pause(
+            &waiting,
+            None,
+            "the Job was resumed and waits for a slot",
+            None,
+        );
+        self.pause_changed(&waiting).await;
         Ok(waiting)
+    }
+
+    /// `Commands::park_job`.
+    pub(crate) async fn pause_answered(
+        self: Arc<Self>,
+        job_id: ipc::JobId,
+    ) -> Result<ipc::JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { Fleet::pause_job(&fleet, &job_id.to_domain()).await }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    /// `Commands::resume_job`.
+    pub(crate) async fn resume_answered(
+        self: Arc<Self>,
+        job_id: ipc::JobId,
+    ) -> Result<ipc::JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move { Fleet::resume_job(&fleet, &job_id.to_domain()).await }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
     }
 
     /// Lease the Job's own branch at its tip into whichever slot is free,
@@ -198,10 +246,11 @@ where
             .map_err(Adrift::Writing)?;
         self.noted_pause(
             &seated,
-            slot,
+            Some(slot),
             "the Job was resumed and its work is in a slot again",
             None,
         );
+        self.pause_changed(&seated).await;
         Ok(Reseat::Seated(seated))
     }
 
@@ -252,7 +301,21 @@ where
         }
     }
 
-    fn noted_pause(&self, job: &Job, slot: u32, said: &str, commit: Option<&str>) {
+    /// Tell every client the row changed. **A gate Job moves no status**, so
+    /// `job.state_changed` never fires for it and this is the only word.
+    async fn pause_changed(&self, job: &Job) {
+        // A summary that will not build is a refusal for the caller's own
+        // read to raise; the pause itself is already written.
+        if let Ok(summary) = self.summarised(job).await {
+            self.publish(ipc::Event::JobPauseChanged(ipc::JobPauseChanged {
+                job: summary,
+                actor: Actor::Human.into(),
+                at: (&self.now()).into(),
+            }));
+        }
+    }
+
+    fn noted_pause(&self, job: &Job, slot: Option<u32>, said: &str, commit: Option<&str>) {
         let mut envelope = Envelope::new(
             self.now(),
             Level::Info,
@@ -260,8 +323,10 @@ where
             self.run().clone(),
             said,
         )
-        .in_job(job.id().as_ulid().clone())
-        .with_field("slot", FieldValue::Str(format!("slot-{slot}")));
+        .in_job(job.id().as_ulid().clone());
+        if let Some(slot) = slot {
+            envelope = envelope.with_field("slot", FieldValue::Str(format!("slot-{slot}")));
+        }
         if let Some(commit) = commit {
             envelope = envelope.with_field("wip_commit", FieldValue::Str(commit.to_string()));
         }

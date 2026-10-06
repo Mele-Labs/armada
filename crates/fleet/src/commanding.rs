@@ -493,27 +493,7 @@ where
         asked: ipc::StartServer,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::ServerState, Refusal> {
-        let place = match &asked.job_id {
-            Some(job_id) => crate::servers::Place::Job(
-                self.load(&job_id.to_domain())
-                    .await
-                    .map_err(|why| self.refusal(why))?,
-            ),
-            None => {
-                let served = self.served_named(manifest_id.as_ref())?;
-                let checkout = match asked.checkout.as_deref() {
-                    Some(path) => crate::checkouts::Checkout::beside(served, path)
-                        .map_err(|why| self.checkout_refusal(why))?,
-                    None => crate::checkouts::Checkout::main(served),
-                };
-                crate::servers::Place::Checkout(checkout)
-            }
-        };
-        let refusing = std::sync::Arc::clone(&self);
-        Fleet::hold_server(self, place, &asked.name, ipc::StartedBy::Person, false)
-            .await
-            .map(|(state, _)| state)
-            .map_err(|why| refusing.server_refusal(why, asked.job_id.as_ref()))
+        Fleet::start_server_answered(self, asked, manifest_id).await
     }
 
     /// A person's limits, saved and put in force for the next admission —
@@ -703,6 +683,15 @@ where
         .await
         .map_err(|why| self.refusal(why))?;
         self.summarised(&job).await
+    }
+
+    /// Pause and resume: `crate::pausing`.
+    async fn park_job(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        Fleet::pause_answered(self, job_id).await
+    }
+
+    async fn resume_job(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        Fleet::resume_answered(self, job_id).await
     }
 
     /// One Drone of the Job, by id: `crate::one_drone`.
