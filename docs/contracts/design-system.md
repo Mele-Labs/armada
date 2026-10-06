@@ -384,6 +384,8 @@ violet, because closing is a person declining to lease it; a held one closed
 keeps its band and holder and takes the closed mark beside its state. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
 say which slots were available. Like a verdict, it never sums onto a Job.
 
+**The acts in a tile's panel take the hue of what they do, from tokens that exist.** A destructive act (Clear, Delete branch, Forget Job, Remove slot) is `--status-completed-failed`, as the destructive Button is; a rescue is `--slot-stranded`; Close slot, Reopen slot and Stop take `--fg-default`. Each has its label beside a 16px glyph, a tint of `calc(var(--row-tint) * 2)` and `--row-tint-recent` on hover. **The tint stops at 14%**: worked on `--bg-overlay`, error red as text is 4.54:1 there and 3.53:1 at 28%, so the deeper hover step the bays take fails in a panel. No alias was added.
+
 **Step activity answers where the work is.** `retrying` and
 `not_started` take no hue — `--fg-muted` and `--fg-subtle`. A **killed**
 step takes none either, and that exclusion is load-bearing: killing is a
@@ -913,6 +915,8 @@ holds where the work is read; Machine holds what this machine has and is.
 what it is. *Setup* was the runner-up and was rejected: it already names a view
 on the Manifest surface, and one word meaning two things in one window is what
 the lexicon exists to prevent.
+
+**Workflows is a Machine row.** The definitions a Job runs come from this machine's Kit and from each repository, so the surface that edits them sits with Kit. Its glyph is `workflow`, and the row carries `ban` while Fleet has left a workflow file out. The mark takes no count, and `triangle-alert` stays Doctor's. It joins after Guides and takes no digit.
 
 ```
 default     200px
@@ -1513,7 +1517,7 @@ the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
 **`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
-Doctor, Manifest, Cleanup, Kit, Settings, Guides — since Active Jobs, Reviews and the
+Doctor, Manifest, Cleanup, Kit, Settings, Guides, and no digit for Workflows — since Active Jobs, Reviews and the
 Activity Feed folded into the Board and Cleanup joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the
 numbers.

@@ -12,7 +12,7 @@ use crate::tests::tmp::TempDir;
 fn three_phases() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
-        "version: 1\nworkflow_id: fixture-phases\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-phases\nname: fixture\n\
          steps:\n  - id: prepare\n    label: \"Prepare\"\n    phase: setup\n    \
          delivers: false\n    advance_gate: auto\n  - id: implement\n    label: \"Implement\"\n    \
          evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      - type: diff_nonempty\n    \

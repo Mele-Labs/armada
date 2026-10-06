@@ -141,6 +141,14 @@
   color: var(--fg-subtle);
 }
 
+/* Where an allowlist command came from, in words and not a path. The Remove
+   after it sits at the end of the line. */
+.armada-kit-setup__item-from {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-muted);
+}
+
 /* The name is the row, so it shrinks last and only past a readable measure. */
 .armada-kit-setup__item-name {
   min-width: 0;

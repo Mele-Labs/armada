@@ -26,12 +26,13 @@ import type {
   RecordRefusal,
   RecordSaid,
   RecordWaited,
+  RetroChange,
   RetroRead,
   RetroRecord,
 } from "@armada/protocol";
 import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
 
-import { said as refusalSaid } from "./copy";
+import { refusalWords } from "./dock-questions";
 import { absoluteOf, lasting } from "./duration";
 
 /** Ask main for one Job's retro. */
@@ -133,8 +134,23 @@ export function citesOf(retro: JobRetro, cites: readonly string[]): RetroCite[] 
   });
 }
 
+/**
+ * The command a Kit item would add to the allowlist, or did. **The only kind of
+ * change there is**, so a command is all there is to carry: a second kind is a
+ * second arm here rather than a second shape on the wire.
+ */
+export function commandOf(change: RetroChange | undefined): string | undefined {
+  return change?.kind === "allow_command" ? change.command : undefined;
+}
+
 /** A sheet's item with where it stands, which `useAnswers` reads and the sheet does not draw. */
-export type SheetItem = RetroSheetItem & { state?: LessonState; jobProposed?: string };
+export type SheetItem = RetroSheetItem & {
+  state?: LessonState;
+  jobProposed?: string;
+  /** What Update Kit would add, and what it added. */
+  change?: string;
+  applied?: string;
+};
 
 /**
  * What got in the way, in the order it was written, each with the record rows
@@ -148,6 +164,7 @@ export function itemsOf(retro: JobRetro): SheetItem[] {
     id: item.id,
     ...(item.state === undefined ? {} : { state: item.state }),
     ...(item.job_proposed === undefined ? {} : { jobProposed: item.job_proposed }),
+    ...changed(item),
     who: item.who,
     ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
     statement: item.statement,
@@ -187,8 +204,18 @@ export function jobOf(handle: string): string {
   return number === undefined ? handle : `Job ${number}`;
 }
 
+/** A row of the list, with what Update Kit would add and what it added: read here, not drawn by the list. */
+export type ListedRow = LessonRow & { change?: string; applied?: string };
+
+/** The commands an item carries, where it carries any. */
+function changed(item: { change?: RetroChange; applied?: RetroChange }): { change?: string; applied?: string } {
+  const change = commandOf(item.change);
+  const applied = commandOf(item.applied);
+  return { ...(change === undefined ? {} : { change }), ...(applied === undefined ? {} : { applied }) };
+}
+
 /** The Lessons list's rows, in Fleet's order: newest retro first. */
-export function lessonRowsOf(lessons: readonly Lesson[]): LessonRow[] {
+export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
   return lessons.map((lesson) => {
     return {
       id: lesson.id,
@@ -199,6 +226,7 @@ export function lessonRowsOf(lessons: readonly Lesson[]): LessonRow[] {
       ...(lesson.title === undefined ? {} : { title: lesson.title }),
       ...(lesson.what === undefined ? {} : { what: lesson.what }),
       ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
+      ...changed(lesson),
       job: jobOf(lesson.handle),
       jobExact: lesson.handle,
       when: absoluteOf(lesson.at) ?? lesson.at,
@@ -228,24 +256,28 @@ export function lessonsTabNamed(value: string | null): LessonsTab {
  * with `?lands_in=`**: the page holds one read, so a tab press asks Fleet for
  * nothing. A row stored before `lands_in` was written is under All alone.
  */
-export function underTab(rows: readonly LessonRow[], tab: LessonsTab): LessonRow[] {
+export function underTab(rows: readonly ListedRow[], tab: LessonsTab): ListedRow[] {
   return tab === "all" ? [...rows] : rows.filter((row) => row.landsIn === tab);
 }
 
 /**
  * The words on the button that agrees, by where the fix lands. **Only the words
- * differ from the wire's `agree`**: an Armada or Manifest item makes a Job, and a
- * Kit item makes none and is saved.
+ * differ from the wire's `agree`**: an Armada or Manifest item makes a Job, a
+ * Kit item that carries a change updates Kit, and one without is saved.
  */
-export function agreeLabelOf(landsIn: LandsIn): string {
-  return landsIn === "kit" ? "Accept" : "Create Job";
+export function agreeLabelOf(landsIn: LandsIn, changes = false): string {
+  if (landsIn !== "kit") return "Create Job";
+  return changes ? "Update Kit" : "Accept";
 }
 
 /** What that button does for an item, as its tooltip says it. */
-export function agreeTipOf(landsIn: LandsIn): string {
-  return landsIn === "kit"
-    ? "Saves it under Accepted."
-    : "Turn this into a Job that applies the change. It waits for your approval on the Board.";
+export function agreeTipOf(landsIn: LandsIn, changes = false): string {
+  if (landsIn !== "kit") {
+    return "Turn this into a Job that applies the change. It waits for your approval on the Board.";
+  }
+  return changes
+    ? "Adds this command to your Kit's allowed commands. You can remove it from the Kit page."
+    : "Saves it under Accepted.";
 }
 
 /** What the button that disagrees does, the same for every place. */
@@ -254,10 +286,11 @@ export const DISAGREE_TIP = "Discards it.";
 /** The words an answered item reads as while it stays on screen. */
 const AGREED = "Agreed";
 const ACCEPTED = "Accepted";
+const UPDATED_KIT = "Updated Kit";
 const PROPOSED_JOB = "Proposed Job";
 
 /** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
-export type Standing = { state?: LessonState; jobProposed?: string };
+export type Standing = { state?: LessonState; jobProposed?: string; change?: string; applied?: string };
 
 /** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
 export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
@@ -268,8 +301,10 @@ export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gon
  * **An answer sends once per item** and the item's buttons hold while it is out.
  * Agreed for an Armada or Manifest item stays, reading `Agreed` with a link to
  * the Job it proposed, until the surface is read again, when Fleet no longer
- * lists it as open. Agreeing a Kit item and disagreeing with any item take it
- * off at once. A refusal stays on the item, with both answers.
+ * lists it as open. A Kit item that updated Kit stays the same way, reading
+ * `Updated Kit` with the command Fleet says it applied. Agreeing any other Kit
+ * item and disagreeing with any item take it off at once. A refusal stays on
+ * the item, in Fleet's own words, with both answers.
  */
 export function useAnswers(
   agree: AnswerLesson | undefined,
@@ -280,6 +315,7 @@ export function useAnswers(
   const [refused, setRefused] = useState<Record<string, string>>({});
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [agreed, setAgreed] = useState<Record<string, string | undefined>>({});
+  const [updated, setUpdated] = useState<Record<string, string>>({});
 
   async function press(lessonId: string, which: "agree" | "disagree", landsIn: LandsIn | undefined) {
     const send = which === "agree" ? agree : disagree;
@@ -289,11 +325,14 @@ export function useAnswers(
     const answer = await send(lessonId);
     setPressing(({ [lessonId]: _, ...rest }) => rest);
     if (!answer.ok) {
-      setRefused((was) => ({ ...was, [lessonId]: refusalSaid(answer.outcome) }));
+      setRefused((was) => ({ ...was, [lessonId]: refusalWords(answer.outcome) }));
       return;
     }
+    const applied = commandOf(answer.lesson.applied);
     if (which === "agree" && landsIn !== "kit" && answer.lesson.state === "agreed") {
       setAgreed((was) => ({ ...was, [lessonId]: answer.lesson.job_proposed }));
+    } else if (which === "agree" && landsIn === "kit" && applied !== undefined) {
+      setUpdated((was) => ({ ...was, [lessonId]: applied }));
     } else {
       setGone((was) => new Set(was).add(lessonId));
     }
@@ -309,13 +348,22 @@ export function useAnswers(
     },
   });
 
+  const updatedAs = (command: string): AnswerView => ({
+    gone: false,
+    settled: { said: UPDATED_KIT, command },
+  });
+
   return (lessonId, landsIn, standing) => {
     if (gone.has(lessonId)) return { gone: true };
     if (lessonId in agreed) return agreedAs(agreed[lessonId]);
+    const was = updated[lessonId];
+    if (was !== undefined) return updatedAs(was);
     // **An item answered before this read stands as Fleet says**: its state, and no buttons.
     // Discarded draws nothing. One with no state is read and left alone.
     if (standing.state === "agreed") return agreedAs(standing.jobProposed);
-    if (standing.state === "accepted") return { gone: false, settled: { said: ACCEPTED } };
+    if (standing.state === "accepted") {
+      return standing.applied === undefined ? { gone: false, settled: { said: ACCEPTED } } : updatedAs(standing.applied);
+    }
     if (standing.state === "discarded") return { gone: true };
     if (standing.state === undefined) return { gone: false };
     // An item kept before a place was named is refused both answers by Fleet, so it has none.
@@ -325,8 +373,8 @@ export function useAnswers(
     return {
       gone: false,
       answers: {
-        agreeLabel: agreeLabelOf(landsIn),
-        agreeTip: agreeTipOf(landsIn),
+        agreeLabel: agreeLabelOf(landsIn, standing.change !== undefined),
+        agreeTip: agreeTipOf(landsIn, standing.change !== undefined),
         disagreeTip: DISAGREE_TIP,
         onAgree: () => void press(lessonId, "agree", landsIn),
         onDisagree: () => void press(lessonId, "disagree", landsIn),

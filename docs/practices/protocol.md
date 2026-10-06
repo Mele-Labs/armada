@@ -2955,6 +2955,31 @@ after.
 the Scout reads and deleted by a Scrap or a Stash. A row left `reading` by a restart is set to
 `failed` when Fleet starts.
 
+## Protocol 23.33: where a workflow came from, one read whole, and a start that leaves out
+
+The Workflow creator needs to draw each definition's place, the ones a more specific place replaced, and the one it is editing. A workflow file that does not fit stops refusing Fleet's start.
+
+**Additive.** `WorkflowSummary` gains `file` and `overrides` (each an `OverriddenWorkflow { source, file }`, one per replaced place, absent where none). A new route, `GET /workflows/definition?workflow_id=&source=&manifest_id=`, `get_workflow`, answers a `WorkflowDefinition { workflow_id, source, file, definition, overridden_by? }`, where `definition` is the file's text in the shape `save_workflow` takes back. `source` is optional and absent means the one that runs; 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. `FleetHealth` gains `workflows_left_out`, a boolean and never a count, true where any served repository left a definition out. A 23.28 Bridge ignores all of it, and a 23.33 Bridge behind it is refused, which is the skew rule's own direction.
+
+| What | How |
+|---|---|
+| A repository's own file that does not fit | Left out with its reason at start, as Kit's is; `list_left_out_workflows` carries it with `source: repository`. It no longer answers 422 `fleet.repository_refused` |
+| Two files in one place with one id | Both left out, named together, at start and on a re-read alike |
+| A definition a more specific place replaced | Not in `list_workflows`' rows; named on the winner's `overrides`, and read with `get_workflow` and its `source` |
+| A step that routes back and names no `iteration_cap` | Takes five. Nothing else declares a back edge, so the passes cap is what bounds one |
+
+**Not a protocol change, and the same release.** The workflow definition has no `structure` key any more; a file still writing it is left out as an unknown key. `verdict_routing` on any step is the only declaration of a back edge, and must name an earlier step. A Job's frozen copy never held the key, so no frozen Job moves.
+
+**No migration, no store change, and no event.**
+
+## Protocol 23.34: Helm is told when a person is on Workflows
+
+The Workflow creator hands its draft to Helm, and Helm has to know which screen the person is on to read it as a workflow under edit.
+
+**Additive.** `HelmScreen` gains `workflows`, sent in `AskHelm.context.screen` while the Workflow creator is the screen. Fleet's screen phrase for it is *Workflows*. A 23.33 Fleet refuses the value as an unknown variant, and a 23.34 Bridge behind it is refused by the skew rule's own direction, so no Bridge sends it to a Fleet that cannot read it.
+
+**No migration, no store change, and no event.**
+
 ## Protocol 23.30: a Scout's Finding picked up
 
 The owner, 5 Oct 2026: a stranded slot's Finding gets a third act beside Scrap and Stash, which
@@ -2994,7 +3019,37 @@ the step does for the Job and what it hands on. A workflow step declares it as `
 off the frozen workflow (`about` is written beside `label` in the Job's frozen steps), so a Job
 frozen before 23.31 shows nothing there.
 
-## Protocol 23.33: a merge held behind a need
+## Protocol 23.35: Accept changes the Kit
+
+The owner, 5 Oct 2026: Accept on a Kit item in Retros should change the Kit, starting with allowed
+commands. `../concepts/kit.md`, *Kit's allowlist*; `../concepts/retro.md`, *Items*.
+
+**Additive only.** Optional fields, one DTO set and one route; a 23.32 Bridge sends none of the new
+fields and reads past the ones it is sent.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `scope` | `AnswerCommand` | `repository` or `kit`, read by an Always allow only. `kit` keeps the command in `~/.armada/allowed-commands` for every Job on this machine | The repository, which is what Always allow has meant since `#836` |
+| `change` | `RetroItem`, `Lesson` | `{ "kind": "allow_command", "command": "…" }`, on a Kit item whose command Fleet copied off a refusal in the record | An item with no change, and every item kept before 23.35 |
+| `applied` | `RetroItem`, `Lesson` | The change `agree_lesson` applied, on every later read | Nothing applied |
+| `change` | `RetroAnswered` | What the retro model may write: `{ "kind", "refusal", "command"? }`. Read leniently, so one that will not read costs the change and not the item | Not asked for by a Fleet before 23.35 |
+| `allowlist` row | `KitInventory` | Each command as `name` and where it came from as `source` (`retro item <id>`, `always allow`, `written by hand`), in place of *not read* | `not_read` with why, where the file will not read |
+| `remove_kit_allowed_command` | `POST /kit/allowed_commands/remove` | Body `{ "run" }`; answers `KitAllowedCommands`, each row `{ "run", "source", "lesson_id"? }`. Helm only | A 409 `fleet.kit_allowlist_refused` where no line is spelled `run` |
+
+**The Always allow value is a field and not a fourth `CommandAnswer`.** `CommandAnswer` is one Bridge
+matches on, so a variant added there is a major bump by the table above; a `scope` on the answer is
+read by Fleet alone. `offers` is unchanged, and a Fleet at 23.35 or later takes both scopes whenever
+it offers Always allow.
+
+**One migration, V110**, on `job_retro_items`: `change_kind`, `change_command` and `applied`, all
+null or false on every item kept before. **No event.** Agreeing is the one place a retro acts and its
+answer is the `Lesson`.
+
+**One Fleet fitting, `Host::kit_home`**, which is not on the wire.
+
+**Bridge's half**, mirrored by hand in `packages/protocol`: `RetroChange` and the `change` and `applied` fields on `RetroItem` and `Lesson` (`retro.ts`), `AlwaysAllowScope` and `AnswerCommand.scope` (`commanding.ts`), and `KitAllowedCommand`, `KitAllowedCommands` and `RemoveKitAllowedCommand` (`kit.ts`). Bridge sends `scope: kit` only with a `rule`, and the allowlist rows it draws are the `allowlist` kind of `get_kit_inventory`, read in place of *not read*.
+
+## Protocol 23.36: a merge held behind a need
 
 `merge_pull_request` gains one refusal, `fleet.merge_waiting_behind`, a 409 carrying `refused:
 waiting_behind`. A Job that declared a need on a file (#1059) is refused its merge while a need ahead
@@ -3007,6 +3062,7 @@ given back goes through. No shape moves.
 **Minor because a refusal code added is additive**, for 14.14's reason. The call a Drone declares a
 need through, `declare_scope` and the tasks of `record_plan` and `add_task`, is the Drone seam and not
 this one: it takes an optional `needs`, which is why it moves no number here.
+
 
 ## Open questions
 

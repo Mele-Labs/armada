@@ -40,10 +40,8 @@ fn manifest(text: &str) -> Manifest {
 
 /// The carried set, resolved against `manifest` alone.
 fn carried_against(manifest: &Manifest) -> Vec<ResolvedWorkflow> {
-    let (workflows, left_out) = Catalogue::of(config::carried(), &roster())
-        .unwrap_or_else(|why| panic!("the carried set makes a catalogue: {why:?}"))
+    let (workflows, left_out, _) = Catalogue::of(config::carried(), &roster())
         .resolve(manifest)
-        .unwrap_or_else(|why| panic!("nothing a repository wrote is refused: {why}"))
         .into_parts();
     let named: Vec<String> = left_out.iter().map(ToString::to_string).collect();
     assert!(
@@ -185,7 +183,7 @@ fn armada_carries_every_definition_this_repository_ships_as_written() {
 fn one_file_in_kit_or_the_repository_replaces_a_carried_definition_by_id() {
     let one_step = |id: &str| {
         format!(
-            "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+            "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
              label: Only\n    delivers: true\n    advance_gate: auto\n"
         )
     };
@@ -202,10 +200,7 @@ fn one_file_in_kit_or_the_repository_replaces_a_carried_definition_by_id() {
         "/repo/.armada/workflows/revert.yml".into(),
         one_step("revert"),
     ));
-    let held = Catalogue::of(written, &roster())
-        .expect("the three places merge")
-        .resolve(&manifest(NO_CHECKS))
-        .expect("every winner resolves");
+    let held = Catalogue::of(written, &roster()).resolve(&manifest(NO_CHECKS));
     let sources: Vec<(&str, WorkflowSource)> = held
         .workflows()
         .iter()

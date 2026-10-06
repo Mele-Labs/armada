@@ -91,6 +91,7 @@ import {
   removeRepositoryAllowedCommand,
   listKitServers,
   readKitInventory,
+  removeKitAllowedCommand,
   addKitServer,
   forgetKitServer,
   setKitServerReach,
@@ -112,12 +113,9 @@ import {
   readEvidence,
   readRemarks,
   watchPulse,
-  deleteBranchOne,
-  forgetOne,
   captureStudioNote,
   readHeld,
   readReports,
-  reclaimOne,
   slotActs,
   showAgain,
   startRun,
@@ -137,7 +135,7 @@ import {
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
-import { showingOf } from "./showing";
+import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
@@ -223,7 +221,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const [learning, setLearning] = useState(false); // Lessons, every Job's retro items. `lessons.tsx`.
+  const [learning, setLearning] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
@@ -508,7 +506,7 @@ export function App({ draft }: AppProps = {}) {
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
-    setLearning(surfaceId === SURFACE.lessons);
+    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -559,7 +557,7 @@ export function App({ draft }: AppProps = {}) {
     clearing,
     manifesting,
     studying,
-    kitting,
+    kitting, workflowing,
     settling: settingsShowing,
   });
   const chippedJob = state.jobs.find((job) => job.id === chippedJobId(chip));
@@ -617,7 +615,7 @@ export function App({ draft }: AppProps = {}) {
     <ProseLinks.Provider value={openProseLink}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
         <Shell
-          hidden={hidden}
+          hidden={hidden} warned={workflowsWarned(state.health)}
           connection={state.connection}
           repositories={repositories}
           listed={listed}
@@ -687,7 +685,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning,
+            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing,
           })}
           onSurface={goTo}
         >
@@ -806,9 +804,7 @@ export function App({ draft }: AppProps = {}) {
                   onAnswer={(jobId, questionId, chose) =>
                     void commands.answer(jobId, questionId, chose)
                   }
-                  onAnswerCommand={(jobId, call, chose, note, rule) =>
-                    void commands.answerCommand(jobId, call, chose, note, rule)
-                  }
+                  onAnswerCommand={(...answer) => void commands.answerCommand(...answer)}
                   // A read beside the act it informs. It moves nothing, so it
                   // goes straight through rather than under `acting`.
                   onExplainCommand={explainCommand}
@@ -892,26 +888,20 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and
-                 this is where the rest is chosen from, item by item. */
+                 this is where the rest is given back, one tile at a time. */
               <Boundary region="Cleanup" {...guarded}>
                 <Worktrees
                   held={state.held}
-                  // Read for the handle a `depended_on` reason names its
-                  // blocker by — the only fact this screen borrows from the
-                  // board rather than from `held` itself.
+                  // Read for the handle that names a worktree outside the
+                  // pool, and a `depended_on` reason's blocker.
                   jobs={state.jobs}
                   onWant={readHeld}
-                  // Each receipt is answered to the press that asked for it: a
-                  // published notice would outlive the screen it was made on.
-                  onReclaim={reclaimOne}
-                  onDeleteBranch={deleteBranchOne}
-                  onForget={forgetOne}
                   // The app's one `now`, because two clocks in one window drift.
                   now={now}
                   onClose={() => setClearing(false)}
@@ -1050,6 +1040,7 @@ export function App({ draft }: AppProps = {}) {
                     />
                   }
                   onReadKitInventory={readKitInventory}
+                  onRemoveKitAllowedCommand={removeKitAllowedCommand}
                   onListKitServers={listKitServers}
                   onAddKitServer={addKitServer}
                   onForgetKitServer={forgetKitServer}

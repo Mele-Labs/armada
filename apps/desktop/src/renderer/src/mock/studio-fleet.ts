@@ -102,6 +102,8 @@ export type StudioKeeping = {
   aContradiction: (studioId: string) => void;
   /** Every address handed to the system browser, in the order it was — #1406. */
   browsed: () => readonly string[];
+  /** Told after every write and every address browsed, so a test can await one instead of polling. */
+  onChange: (listener: () => void) => () => void;
 };
 
 /** One scenario's own Fleet, keeping Studios. */
@@ -199,6 +201,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   /** What main publishes after a write it heard: the open Studio whole, and the list's row. */
   function published(studio: Studio): void {
     store.set(studio.id, studio);
+    for (const heard of [...listeners]) heard();
     if (fleet === null) return;
     if (opened === studio.id) fleet.publish({ studio: { state: "read", studio } });
     if (listing === studio.manifest_id) {
@@ -215,6 +218,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   }
 
   const browsed: string[] = [];
+  const listeners = new Set<() => void>();
   /**
    * Each Picture's bytes, by node, and each Sketch picture's by node and picture
    * — `frameKey`'s spelling — so a frame reads back as what was pasted.
@@ -455,6 +459,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
         const address = node !== undefined && "address" in node ? node.address : undefined;
         if (address === undefined) return { ok: false, why: "no_address" };
         browsed.push(address);
+        for (const heard of [...listeners]) heard();
         return { ok: true };
       },
       promoteOnStudio: async (studioId, promotion) => {
@@ -485,6 +490,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
     routes,
     studios: () => [...store.values()],
     browsed: () => [...browsed],
+    onChange: (listener) => (listeners.add(listener), () => void listeners.delete(listener)),
     twoNotes: (studioId) =>
       void write(studioId, (studio) => {
         const now = tick();

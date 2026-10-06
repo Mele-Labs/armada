@@ -83,6 +83,20 @@ fn a_studios_context_round_trips_and_an_older_one_still_decodes() {
     assert_eq!((context.studio, context.node), (None, None));
 }
 
+/// 23.34: the Workflow creator is a screen Helm is told about.
+#[test]
+fn the_workflows_screen_round_trips() {
+    let asked = decode::<AskHelm>(
+        "a message to Helm",
+        br#"{"text":"add a step","context":{"screen":"workflows","picked":"armada"}}"#,
+    )
+    .expect("the workflows screen decodes");
+    assert_eq!(
+        asked.context.expect("a context").screen,
+        HelmScreen::Workflows
+    );
+}
+
 #[test]
 fn a_blank_message_does_not_decode() {
     for body in [&br#"{"text":""}"#[..], br#"{"text":"  \n "}"#, br#"{}"#] {

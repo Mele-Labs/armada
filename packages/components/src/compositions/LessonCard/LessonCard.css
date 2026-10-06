@@ -1,10 +1,9 @@
 /* One retro item, read top to bottom. The Lessons list and the retro sheet draw
    it, so it is one rule set.
 
-   Learned from the places that already scan well: `HeldWorktree`'s card (a raised
-   surface, `--edge-card`, a title line over a well holding the reading) and the
-   Overview lead (a leading edge, the headline one size above its line). The edge
-   is neutral: where a fix lands is a word, never a hue. */
+   Learned from a place that already scans well: the Overview lead (a leading
+   edge, the headline one size above its line). The edge is neutral: where a fix
+   lands is a word, never a hue. */
 .armada-lesson {
   display: flex;
   flex-direction: column;
@@ -189,6 +188,14 @@
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
   color: var(--text-label);
+}
+
+/* The command Kit was updated with: a machine's value, so the mono face, and
+   it breaks anywhere so one long line does not run off the card. */
+.armada-lesson__command {
+  font-weight: var(--weight-body);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
 }
 
 /* The link is a word here, not a Job's handle, so it takes the label's face. */

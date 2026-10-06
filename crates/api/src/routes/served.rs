@@ -307,6 +307,13 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/servers/manifest_reach",
     },
+    // Kit's allowlist is the machine's, so no Manifest scopes it. Read through
+    // `get_kit_inventory`, which is why only the remove has a route here.
+    Route {
+        operation: "remove_kit_allowed_command",
+        method: "POST",
+        path: "/kit/allowed_commands/remove",
+    },
     // The path taken, under the Job that took it. `get_job_events` drops
     // `get_` and `job_` for the reason `redispatch` drops `_job`: the segment
     // before it already names the Job. It is not `/events`, which is the
@@ -452,6 +459,11 @@ const ROUTES: &[Route] = &[
         operation: "list_workflows",
         method: "GET",
         path: "/workflows",
+    },
+    Route {
+        operation: "get_workflow",
+        method: "GET",
+        path: "/workflows/definition",
     },
     Route {
         operation: "list_left_out_workflows",

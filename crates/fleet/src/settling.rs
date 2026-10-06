@@ -332,6 +332,7 @@ where
         // Checks where the read inside can find them beside the one before.
         let repeats = self.spotted_repeats(&job_id, &step, &ruling).await;
         self.kept_timings(&job, announcing.timings()).await;
+        self.kept_runs(&job, announcing.runs()).await;
         drop(announcing);
         // And into the step's own transcript, in Fleet's voice. **A Drone never
         // runs a Check** — that is the point of them — so nothing mechanical

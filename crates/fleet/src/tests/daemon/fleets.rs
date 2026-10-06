@@ -92,6 +92,7 @@ pub fn fitted_over<V>(
             records_root: root.clone(),
             workflows: one(two_steps()),
             left_out: Vec::new(),
+            files: Vec::new(),
             manifest: manifest(),
         }),
         host: Host {
@@ -117,6 +118,9 @@ pub fn fitted_over<V>(
                 .to_string(),
             studio_frames_dir: home.path().join("studios").to_string_lossy().to_string(),
             walk_frames_dir: home.path().join("walks").to_string_lossy().to_string(),
+            // Under the fixture's own home, so no case reads or writes a real
+            // `~/.armada`.
+            kit_home: home.path().join("kit").to_string_lossy().to_string(),
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),

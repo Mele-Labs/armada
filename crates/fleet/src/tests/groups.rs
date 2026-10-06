@@ -39,7 +39,7 @@ fn groups_judged() -> config::ResolvedWorkflow {
 
 fn groups_gated(implement_gate: &str) -> config::ResolvedWorkflow {
     let text = format!(
-        "version: 1\nworkflow_id: fixture-groups\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-groups\nname: fixture\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
          evidence: {{submitted: {{type: plan}}}}\n    mechanical_checks:\n      \
          - {{ type: plan_recorded, min_tasks: 1 }}\n    delivers: false\n    \

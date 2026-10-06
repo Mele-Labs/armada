@@ -92,7 +92,7 @@ async fn a_repository_naming_no_walk_server_starts_nothing() {
 fn implement_then_a_walked_build() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture-walked.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
          steps:\n  - id: implement\n    label: \"Implement\"\n    \
          evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      \
          - type: diff_nonempty\n    delivers: false\n    advance_gate: auto\n  - \

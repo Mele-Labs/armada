@@ -730,6 +730,15 @@ impl Queries for FakeDaemon {
         Ok(shapes::workflows())
     }
 
+    async fn get_workflow(
+        &self,
+        _workflow_id: ipc::WorkflowId,
+        _source: Option<String>,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDefinition, Refusal> {
+        Err(self.fault("the fake holds no definition files"))
+    }
+
     async fn list_left_out_workflows(
         &self,
         _manifest_id: Option<ipc::ManifestId>,

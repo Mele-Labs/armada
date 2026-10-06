@@ -27,7 +27,7 @@ use std::time::Duration;
 
 use adapter_traits::PERMISSION_WAIT;
 use core_model::{AllowedCommand, DroneId, Reach, StepId, Timestamp, WhenBlocked};
-use ipc::CommandAnswer;
+use ipc::{AlwaysAllowScope, CommandAnswer};
 use tokio::sync::oneshot;
 
 /// How long a question is held open for a person: a minute under what the
@@ -125,6 +125,10 @@ pub enum Answered {
     /// Allowed, this far, and — for [`Reach::Repository`] — the rule a person
     /// chose, where they named one.
     Allowed(Reach, Option<String>),
+    /// Always allowed in Kit's allowlist, for every Job on this machine, with
+    /// the rule a person chose where they named one. **Not a [`Reach`]**: that
+    /// is `core_model`'s and the wire's own set, which Bridge matches on.
+    AllowedInKit(Option<String>),
     /// Rejected, with the person's words where they wrote any.
     Rejected(Option<Note>),
 }
@@ -150,13 +154,27 @@ impl Answered {
         }
     }
 
+    /// An Always allow kept where `scope` says. **Any other answer is returned
+    /// as it was**, a scope sent with it being read by nothing, and so is an
+    /// Always allow with no scope, which is the repository's.
+    pub fn kept_in(self, scope: Option<AlwaysAllowScope>) -> Answered {
+        match (self, scope) {
+            (Answered::Allowed(Reach::Repository, rule), Some(AlwaysAllowScope::Kit)) => {
+                Answered::AllowedInKit(rule)
+            }
+            (answered, _) => answered,
+        }
+    }
+
     /// The same answer as one of the three offers, for the check that it was
     /// offered and the log line that records what was said. **Derived rather
     /// than carried**, so the two cannot come to disagree.
     pub fn answer(&self) -> CommandAnswer {
         match self {
             Answered::Allowed(Reach::Job, _) => CommandAnswer::AllowForJob,
-            Answered::Allowed(Reach::Repository, _) => CommandAnswer::AlwaysAllow,
+            Answered::Allowed(Reach::Repository, _) | Answered::AllowedInKit(_) => {
+                CommandAnswer::AlwaysAllow
+            }
             Answered::Rejected(_) => CommandAnswer::Reject,
         }
     }
@@ -314,7 +332,7 @@ pub fn covers(run: &str, command: &str) -> bool {
         .is_some_and(|rest| rest.starts_with(char::is_whitespace) && !chains(rest))
 }
 
-fn chains(arguments: &str) -> bool {
+pub(crate) fn chains(arguments: &str) -> bool {
     arguments.contains(['&', '|', ';', '<', '>', '`', '\n', '\r']) || arguments.contains("$(")
 }
 
@@ -580,6 +598,16 @@ impl Permitted {
                 )
             }
         })
+    }
+
+    /// [`Permitted::allowed`] for an Always allow kept in Kit, which reaches
+    /// every Job on this machine rather than this repository's.
+    pub fn allowed_in_kit(command: &str, rule: Option<&str>) -> Permitted {
+        Permitted(format!(
+            "A person allowed `{}` on this machine. Run `{command}` again now; it will not be \
+             refused.",
+            rule.unwrap_or(command)
+        ))
     }
 
     pub fn rejected(command: &str, note: Option<&Note>) -> Permitted {

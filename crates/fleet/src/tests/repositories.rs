@@ -139,7 +139,7 @@ pub(crate) fn second_repository(home: &TempDir) -> Located {
         .expect("the second Manifest loads");
     let def = config::WorkflowDef::parse(
         Path::new("second.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\nsteps:\n  \
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n  \
          - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
          mechanical_checks:\n      - type: every_manifest_check\n    delivers: false\n    \
          advance_gate: auto\n",

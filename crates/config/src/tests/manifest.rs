@@ -10,6 +10,7 @@ mod ports;
 mod seed;
 mod servers;
 mod standing;
+mod workspaces;
 mod worktrees;
 
 use crate::error::Fault;
@@ -123,7 +124,8 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "review_gate",
             "merge_by",
             "freeze",
-            "standing_rules"
+            "standing_rules",
+            "depends_on"
         ]
     );
 }

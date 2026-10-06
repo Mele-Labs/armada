@@ -68,6 +68,13 @@
   status = "Specified"
   notes = "Circle and diagonal: you declined it. Not a cross, because this is a decision and not an error. **That second sentence is why it also marks the destructive confirmation dialog**, added 10 Sep 2026: `x` had the head glyph there and `x` is reserved to system failure, its own row naming this one as where a human decision goes instead. The dialog covers more than declining — kill a Drone, kill a Job, give a worktree back, clear a terminal — and the circle-and-diagonal reads as *this will not continue* across all of them, where a cross would claim something had gone wrong. The badge and the dialog share the outline and not the hue, which rule 4 admits."
 
+  [[icons.ban.usage]]
+    means = "A workflow file Fleet left out, and the rail's warning that one is"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator, on the owner's word after walking it. A file that cannot run is declined by Fleet, which is what the circle and diagonal already say. One outline for both the row's mark and the rail row's warning, so the two read as the same fact. The tooltip names it; no count is drawn. `triangle-alert` stays Doctor's and is not drawn here."
+
 [icons.bell]
   means = "Alerts"
   group = "Navigation"
@@ -105,6 +112,13 @@
     size = "12px"
     status = "Specified"
     notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in`, `docs/concepts/retro.md`), the owner's three places. Kit is the tool set a person brings — Skills, MCP, sub-agents, the allowlist, models — and this is Kit's own glyph, so the mark says the fix lands on that surface's subject rather than borrowing it for a second meaning. 12px, --fg-muted, beside the who mark. Tooltip: Lands in Kit."
+
+  [[icons.briefcase.usage]]
+    means = "A workflow in Kit, and Kit as the scope a workflow is written to"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. Kit is where a definition goes that every repository on this machine should have, so the case is the row's mark and the scope's. The Navigation reservation to the Kit surface stands for 16px."
 
 [icons.check]
   means = "A bare checkmark"
@@ -326,6 +340,13 @@
   status = "Specified"
   notes = "Detail views only, never in a Job Board row. Precedes a mono value in --fg-muted."
 
+  [[icons.folder-git-2.usage]]
+    means = "A workflow that lives in this repository, and a step the repository decides"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. Two uses on one surface, each with its tooltip: the row's mark for a definition in `.armada/workflows`, and the gate's `Repository decides` line on a step. Both mean the repository, which is the row's own meaning."
+
 [icons.git-branch]
   means = "branch"
   group = "Git and config"
@@ -342,7 +363,7 @@
     means = "The commit a rescue Scout read a stranded slot at, on its Finding"
     group = "Worktree slot"
     size = "12px"
-    status = "Proposed"
+    status = "Specified"
     notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot. The one existing glyph for a commit, before its short hash in mono. Tooltip `Commit it read`."
 
 [icons.git-pull-request]
@@ -558,7 +579,7 @@
     means = "Stop the Scout reading a stranded worktree slot, and the mark on a Finding it was stopped on"
     group = "Worktree slot"
     size = "12px"
-    status = "Proposed"
+    status = "Specified"
     notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot, for the walk `rescuingAStrandedSlot`. A person ending a read on purpose, which is what the silhouette is for. Tooltip `Stop`, and `Stopped` on the Finding. Refused: `octagon-alert` and `x`, both reserved elsewhere and neither about a process."
 
 [icons.presentation]
@@ -668,6 +689,13 @@
   size = "12px"
   status = "Proposed"
   notes = "Within the shield reservation — the family means gates and checks. Its counterpart shield-x is already spoken for as failed a check."
+
+  [[icons.shield-check.usage]]
+    means = "Checks, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. The step's mechanical tier, in the family that already means gates and checks."
 
 [icons.ellipsis]
   means = "Three dots in a row: there is more past what is drawn"
@@ -878,6 +906,13 @@
     status = "Specified"
     notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). Whose way an item got in is a mark with its word on hover, the owner's standing rule; the person's is this glyph because its own reservation is actor=human, which is what `who = owner` says. --fg-muted, never a status hue: the mark says who, not how bad. Tooltip: You."
 
+  [[icons.user-check.usage]]
+    means = "You, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. A step that stops for a person, which is the glyph's own `actor=human`."
+
 [icons.user-pen]
   means = "A head and shoulders, with a pen across the lower right"
   group = "Criterion origin"
@@ -922,8 +957,15 @@
   group = "Canvas rail"
   size = "16px"
   status = "Specified"
-  reserved = "Run on a Studio only: the rail's press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking, and the command palette's row that opens the same menu. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
+  reserved = "Two uses, both the owner's: Run on a Studio, and a workflow step that advances on its submission alone. Run on a Studio is the rail's press that opens the checkout's Checks, Commands and servers, whose node lands where the person is looking, and the command palette's row that opens the same menu. Never a Job dispatch, never a fast path or an automation, and never a power state, which is `power`."
   notes = "Minted 2026-10-02, when the owner moved Run off the whiteboard's top-right corner and onto the rail's place group (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`). A bolt is an object standing for its verb, the construction `pin`, `stamp` and `wrench` already use, so P1 is not crossed. Against the rail it joins it collides with nothing: `sticky-note` is a square with a peeled corner, `link` a chain, `shapes` three figures, and the view group's `maximize` four corners; a zigzag is no closed outline at all. It reads against `power`, the node bar's Stop the server, as the start to that stop, which is the pair a person meets on one Run node. Refused: `play`, the obvious mark, because `rocket`'s and `flask-conical`'s rows both refused it as a triangle beside `triangle-alert`, Doctor's, and this row does not reopen that; `circle-play`, since `circle-*` is the Judge's; `square-play`, a third square in a rail that already holds `sticky-note`; `terminal` and `square-terminal`, Pilot's; `rocket`, reserved to sending a node through the proposer, which waits at the approval gate where Run starts at once."
+
+  [[icons.zap.usage]]
+    means = "A workflow step that advances on its submission alone"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator, and kept by the owner the same day against the Run reservation above: a submission-only step is its own use of the bolt, drawn on a workflow definition and never on a Studio. The two never share a surface."
 
 [icons.chevron-down]
   means = "Disclosure — the caret segment of a split button"
@@ -1051,6 +1093,13 @@
     status = "Specified"
     reserved = "The Judge part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: lit while `judging` is present and named `Judge reading`, filled once done, hollow while to come. Never a verdict, which circle-check, circle-x and circle-minus say."
     notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`, which widens the Record-kind reservation above to this one use; proposed the same day for his annotation `ouqa`. The row above already says a balance is the act of a Judge weighing work against criteria; this is that act while it is under way rather than the Record row it leaves. Refused: `circle-ellipsis`, since `circle-*` is the verdict family and an ellipsis in a ring is `circle-dot` at 12px; `eye`, reserved to Review; `scan-line`, the proposer reading a request."
+
+  [[icons.scale.usage]]
+    means = "The Judge, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. A step the Judge reads, drawn on the definition rather than on a run. It is the Step phase use above before any run exists."
 
 [icons.bot]
   means = "A robot's head \u2014 a rounded box with an antenna and a stub either side"
@@ -1240,7 +1289,7 @@
   means = "A life ring - a stranded slot a person can rescue"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "Rescuing a stranded worktree slot, the act on its bay. Never help, support or a Job's recovery."
   notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. The stranded bay is a ghost left holding work; a ring thrown to it is the one drawing that says the work can be got back, and no glyph in the set claims it. Refused: `undo-2`, which is a reversal of a change; `rotate-cw`, which is Refresh; `ghost`, the state itself. Tooltip `Rescue`."
 
@@ -1248,7 +1297,7 @@
   means = "Corner brackets round a magnifier - a Scout reading a stranded slot"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
   notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."
 
@@ -1256,7 +1305,7 @@
   means = "A page with a pen writing a line - changes on top of the commit that nobody committed"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
   notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."
 
@@ -1264,6 +1313,87 @@
   means = "An anchor - a Job that ended and still holds its slot"
   group = "Worktree slot"
   size = "12px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
   notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."
+
+  [[icons.anchor.usage]]
+    means = "A Job's worktree outside the pool that ended and still holds work, and a locked checkout's row in a tile's panel"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 5 Oct 2026 with Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. A worktree outside the pool is held for what it still carries, as a kept bay is, so it takes the kept bay's mark. A lock is a person saying not yet, which holds the checkout in place: the same drawing, since `lock` is banned for a locked file. Tooltips `Kept: ...` and `Locked`."
+
+[[icons.file-pen-line.usage]]
+  means = "The Uncommitted row in a worktree's panel, beside how long the files have sat"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The same files the Finding marks, named in the panel's own row and in Clear's confirm. Tooltip `Written and committed nowhere`."
+
+[[icons.folder-x.usage]]
+  means = "A Job's worktree whose checkout is gone and whose record is all that is left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. No directory stands, which is what the mark already says of a slot. Tooltip `Checkout gone`."
+
+[[icons.link.usage]]
+  means = "The Depended on row in a worktree's panel: another Job has not finished"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The Queued reason already says something upstream is unfinished, which is what a dependent Job is. Tooltip `Another Job has not finished`."
+
+[[icons.git-branch.usage]]
+  means = "The Base unanswered row in a worktree's panel, and a tile's branch"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Nothing could name the base`."
+
+[[icons.triangle-alert.usage]]
+  means = "The Unreadable row in a worktree's panel: version control would not say what is in the checkout"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Version control would not say`."
+
+[icons.eraser]
+  means = "An eraser - give a worktree's checkout back"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Clear, the reclaim of a Job's checkout, the act in a tile's panel. Never deleting a Job's record, which is Forget Job, and never a slot, which is Remove."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. Clear wipes what stands in a directory and leaves the branch, which is what an eraser does to a page. Refused: `trash-2`, which is Remove on a slot; `brush-cleaning`, whose bristles are interior detail at 12px."
+
+[icons.git-branch-minus]
+  means = "A branch with a minus - delete the branch a Job left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Delete branch, the act in a tile's panel on an unmerged branch left behind. Never a branch on a Studio or an issue."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. The branch glyph the set already uses for a branch, with the one stroke that says it goes. Refused: `trash-2`, Remove's."
+
+[icons.package-x]
+  means = "A box with a cross - forget a Job's record"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Forget Job, the act in a tile's panel once nothing of the Job stands. Never a Job's state on the Board."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. `box` is the Record's drawing of a Job, so a box with a cross is the Job no longer kept. Refused: `archive`, superseded's, and `archive-x` with it."
+[icons.workflow]
+  means = "Two small squares and a larger one joined by a routed line — steps connected into a flow"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Workflows surface: its rail row and its palette entry. Never a Job's own workflow, which is `scroll-text` on a row, and never a graph or a canvas."
+  notes = "Minted 5 Oct 2026 for the Workflow creator's rail row, replacing the `scroll-text` the first draft borrowed. The glyph is lucide's own drawing of the thing the surface edits, so the row names itself. It sits in the Machine panel beside Kit, Settings and Guides, which hold what this machine brings and how it runs."
+
+[icons.package]
+  means = "A box with a seam across its lid and a tape strip — something that ships whole"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  reserved = "A workflow Armada carries, compiled in. Never an export, a release or an install, and never Kit, which is `briefcase`."
+  notes = "Minted 5 Oct 2026 for the Workflow creator. A carried definition is the one the product ships with, and the tooltip says Ships with Armada. Against `archive`, the lidded box the badge set keeps as its own, this one has the seam and the strip, which hold at 12px. `briefcase`'s own row refused `package` as the Kit glyph for the same lidded-box reason, and this is a different thing, so the two do not meet."

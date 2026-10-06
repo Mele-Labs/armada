@@ -1117,6 +1117,16 @@ pub trait Commands: Send + Sync + 'static {
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::KitServers, Refusal>> + Send;
 
+    /// `remove_kit_allowed_command` — take a command out of Kit's allowlist, a
+    /// person's act. **Since 23.35.** Answers with what the allowlist holds now.
+    /// **Read by the next permission question**, so a Drone already granted
+    /// the command keeps it for the call it is on. Refused where the allowlist
+    /// holds no command spelled `run`.
+    fn remove_kit_allowed_command(
+        &self,
+        removing: ipc::RemoveKitAllowedCommand,
+    ) -> impl Future<Output = Result<ipc::KitAllowedCommands, Refusal>> + Send;
+
     /// `add_task` — a person adds a task to the Job's plan, and the plan it
     /// leaves comes back. `#897`. Refused where the Job has no plan, or
     /// `after` names no task the plan holds — `crates/ipc/operations.toml`.

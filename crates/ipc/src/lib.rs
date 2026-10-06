@@ -212,9 +212,9 @@ pub use capturing::{
 pub use checks::{CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge};
 pub use codec::{decode, encode, Undecodable, Unencodable};
 pub use commanding::{
-    AllowedCommandRow, AnswerCommand, CommandAnswer, CommandInFlight, Reach, RemoveAllowedCommand,
-    RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetModel, SetWhenBlocked,
-    WhenBlocked,
+    AllowedCommandRow, AlwaysAllowScope, AnswerCommand, CommandAnswer, CommandInFlight, Reach,
+    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetModel,
+    SetWhenBlocked, WhenBlocked,
 };
 pub use configured::ManifestConfig;
 pub use detail::{
@@ -278,7 +278,8 @@ pub use journal::{
 };
 pub use judged::{Citation, CitedAt, Cleared, Flagged, Given, Judged, KeptDeliverable};
 pub use kit::{
-    AddKitServer, ForgetKitServer, KitInventory, KitServerRow, KitServers, ServerAddress,
+    AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
+    KitInventory, KitServerRow, KitServers, RemoveKitAllowedCommand, ServerAddress,
     SetKitServerReach, SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable,
     WhatWasRead,
 };
@@ -329,7 +330,8 @@ pub use resources::{
 pub use retro::{
     AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
     RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
-    RetroAnswered, RetroItem, RetroRecord, RetroState, RetroWritten,
+    RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroState,
+    RetroWritten,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
@@ -346,8 +348,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, SaveWorkflow, StepPhase, WorkflowSaved,
-    WorkflowScope, WorkflowStep, WorkflowSummary,
+    LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
+    WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};

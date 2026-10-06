@@ -7,10 +7,13 @@
 //!
 //! **Text in, not directories**, so an acceptance test drives it with no file.
 //!
-//! **A repository's own definitions are strict, and the rest are left out.**
-//! The owner's decision: one from Kit or Armada that will not parse, or will not
-//! resolve against this repository, is set aside and named, and the next place
-//! down answers for its id. One a more specific place replaced is never
+//! **A definition that does not fit is left out, wherever it came from.** One
+//! that will not parse, will not resolve against this repository, or shares its
+//! id with another file in the same place is set aside and named, and the next
+//! place down answers for its id. The repository's own is held to the rule Kit's
+//! and Armada's are, at start and on every re-read: a file somebody wrote badly
+//! is not grounds for refusing the repository, and they are owed the reason
+//! where they look for the workflow. One a more specific place replaced is never
 //! resolved, so its Checks have no Job behind them.
 
 use std::collections::BTreeMap;
@@ -129,11 +132,8 @@ pub fn carried() -> Vec<Written> {
 /// Every definition in hand, grouped by id, and the ones already set aside.
 #[derive(Debug)]
 pub struct Catalogue {
-    held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource)>>,
+    held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource, String)>>,
     left_out: Vec<LeftOut>,
-    /// Whether the repository's own definitions refuse the set. `true` at
-    /// start, `false` when a running Fleet reads the folders again.
-    strict: bool,
 }
 
 impl Catalogue {
@@ -141,46 +141,15 @@ impl Catalogue {
     ///
     /// **The order they arrive in decides nothing**, and the source decides
     /// everything. Two definitions sharing an id *and* a place are a fault in
-    /// that place: refused, naming both, in the repository, which declared
-    /// them; left out, naming both, anywhere else. Across places, it is an
+    /// that place: both are left out, naming both. Across places, it is an
     /// override.
-    pub fn of(
-        written: impl IntoIterator<Item = Written>,
-        roster: &Roster,
-    ) -> Result<Catalogue, CatalogueRefused> {
-        Catalogue::read(written, roster, true)
-    }
-
-    /// The same merge, **with the repository's own definitions held to the rule
-    /// Kit's are**: one that will not parse, will not resolve or shares an id is
-    /// left out and named, and the others stand.
-    ///
-    /// For a Fleet that is already running. A file saved while Jobs are in
-    /// flight cannot be grounds for refusing the repository they run in, and the
-    /// person who saved it is owed the reason where they look for the workflow,
-    /// which is `left_out`. Start stays [`Catalogue::of`]: the repository
-    /// declared its own, and the owner's decision is that it is not quietly
-    /// run without them.
-    pub fn leniently(written: impl IntoIterator<Item = Written>, roster: &Roster) -> Catalogue {
-        match Catalogue::read(written, roster, false) {
-            Ok(catalogue) => catalogue,
-            Err(_) => unreachable!("a lenient read refuses nothing"),
-        }
-    }
-
-    fn read(
-        written: impl IntoIterator<Item = Written>,
-        roster: &Roster,
-        strict: bool,
-    ) -> Result<Catalogue, CatalogueRefused> {
-        let mut placed: BTreeMap<(WorkflowSource, WorkflowId), Vec<WorkflowDef>> = BTreeMap::new();
+    pub fn of(written: impl IntoIterator<Item = Written>, roster: &Roster) -> Catalogue {
+        let mut placed: BTreeMap<(WorkflowSource, WorkflowId), Vec<(WorkflowDef, String)>> =
+            BTreeMap::new();
         let mut left_out = Vec::new();
         for one in written {
             let def = match WorkflowDef::parse(&one.path, &one.text, roster) {
                 Ok(def) => def,
-                Err(why) if strict && one.source == WorkflowSource::Repository => {
-                    return Err(CatalogueRefused::Refused(why))
-                }
                 Err(why) => {
                     left_out.push(LeftOut::of(
                         None,
@@ -191,60 +160,55 @@ impl Catalogue {
                     continue;
                 }
             };
-            let same = placed.entry((one.source, def.id().clone())).or_default();
-            if let (true, WorkflowSource::Repository, Some(first)) =
-                (strict, one.source, same.first())
-            {
-                return Err(CatalogueRefused::DuplicateWorkflowId {
-                    id: def.id().as_str().to_string(),
-                    first: first.path().to_path_buf(),
-                    second: one.path,
-                });
-            }
-            same.push(def);
+            placed
+                .entry((one.source, def.id().clone()))
+                .or_default()
+                .push((def, one.text));
         }
 
-        let mut held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource)>> = BTreeMap::new();
+        let mut held: BTreeMap<WorkflowId, Vec<(WorkflowDef, WorkflowSource, String)>> =
+            BTreeMap::new();
         for ((source, id), mut defs) in placed {
             if defs.len() > 1 {
                 let also = defs
                     .drain(1..)
-                    .map(|def| def.path().to_path_buf())
+                    .map(|(def, _)| def.path().to_path_buf())
                     .collect();
-                let first = defs.remove(0).path().to_path_buf();
+                let first = defs.remove(0).0.path().to_path_buf();
                 let why = WhyLeftOut::Duplicated { also };
                 left_out.push(LeftOut::of(Some(id), source, first, why));
                 continue;
             }
-            let def = defs.remove(0);
-            held.entry(id).or_default().push((def, source));
+            let (def, text) = defs.remove(0);
+            held.entry(id).or_default().push((def, source, text));
         }
-        Ok(Catalogue {
-            held,
-            left_out,
-            strict,
-        })
+        Catalogue { held, left_out }
     }
 
     /// Resolve the most specific definition for each id against the
     /// repository's Manifest, stepping down a place past any that will not.
     ///
-    /// **A repository's own that will not resolve refuses the whole set**, as
-    /// it always has: the repository declared it, and a Fleet quietly running
-    /// Armada's in its place would be running something nobody there chose.
-    pub fn resolve(self, manifest: &Manifest) -> Result<ResolvedCatalogue, ResolveError> {
+    /// **Nothing here refuses the set.** A definition that names a Check the
+    /// repository does not declare is left out with the reason, whoever wrote
+    /// it, and the next place down answers for its id.
+    pub fn resolve(self, manifest: &Manifest) -> ResolvedCatalogue {
         let mut workflows: BTreeMap<WorkflowId, ResolvedWorkflow> = BTreeMap::new();
-        let strict = self.strict;
+        let mut files = Vec::new();
         let mut left_out = self.left_out;
         for (id, mut candidates) in self.held {
             candidates.sort_by(|a, b| b.1.cmp(&a.1));
-            for (def, source) in candidates {
+            let mut winner: Option<WorkflowSource> = None;
+            for (def, source, text) in candidates {
+                if let Some(by) = winner {
+                    files.push(WorkflowFile::of(&id, source, &def, text, Some(by)));
+                    continue;
+                }
                 match ResolvedWorkflow::resolve(&def, manifest) {
                     Ok(resolved) => {
                         workflows.insert(id.clone(), resolved.read_from(source));
-                        break;
+                        files.push(WorkflowFile::of(&id, source, &def, text, None));
+                        winner = Some(source);
                     }
-                    Err(why) if strict && source == WorkflowSource::Repository => return Err(why),
                     Err(why) => left_out.push(LeftOut::of(
                         Some(id.clone()),
                         source,
@@ -263,10 +227,11 @@ impl Catalogue {
                 .and_then(|id| workflows.get(id))
                 .map(ResolvedWorkflow::source);
         }
-        Ok(ResolvedCatalogue {
+        ResolvedCatalogue {
             workflows,
             left_out,
-        })
+            files,
+        }
     }
 }
 
@@ -275,6 +240,7 @@ impl Catalogue {
 pub struct ResolvedCatalogue {
     workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
     left_out: Vec<LeftOut>,
+    files: Vec<WorkflowFile>,
 }
 
 impl ResolvedCatalogue {
@@ -290,8 +256,72 @@ impl ResolvedCatalogue {
         &self.left_out
     }
 
-    pub fn into_parts(self) -> (BTreeMap<WorkflowId, ResolvedWorkflow>, Vec<LeftOut>) {
-        (self.workflows, self.left_out)
+    /// **Every file that parsed and was not left out**, the one that runs and
+    /// each one a more specific place replaced, with the text it was read from.
+    /// What an editor opens, and what a list draws a dashed row for.
+    pub fn files(&self) -> &[WorkflowFile] {
+        &self.files
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        BTreeMap<WorkflowId, ResolvedWorkflow>,
+        Vec<LeftOut>,
+        Vec<WorkflowFile>,
+    ) {
+        (self.workflows, self.left_out, self.files)
+    }
+}
+
+/// One definition file that was read, and what became of it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkflowFile {
+    id: WorkflowId,
+    source: WorkflowSource,
+    path: PathBuf,
+    text: String,
+    overridden_by: Option<WorkflowSource>,
+}
+
+impl WorkflowFile {
+    fn of(
+        id: &WorkflowId,
+        source: WorkflowSource,
+        def: &WorkflowDef,
+        text: String,
+        overridden_by: Option<WorkflowSource>,
+    ) -> WorkflowFile {
+        WorkflowFile {
+            id: id.clone(),
+            source,
+            path: def.path().to_path_buf(),
+            text,
+            overridden_by,
+        }
+    }
+
+    pub fn id(&self) -> &WorkflowId {
+        &self.id
+    }
+
+    pub fn source(&self) -> WorkflowSource {
+        self.source
+    }
+
+    /// Where it was read from. A bracketed name, not a path, for a carried one.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The file as it was read, whole.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// The place that answers for this id instead. `None` where this one runs.
+    pub fn overridden_by(&self) -> Option<WorkflowSource> {
+        self.overridden_by
     }
 }
 
@@ -445,17 +475,4 @@ pub fn fit(
     let def = WorkflowDef::parse(path, text, roster).map_err(Unfit::Unparsed)?;
     ResolvedWorkflow::resolve(&def, manifest).map_err(Unfit::Unresolved)?;
     Ok(def.id().clone())
-}
-
-/// Why a set of definitions could not become a catalogue.
-#[derive(Debug)]
-pub enum CatalogueRefused {
-    /// One of the repository's own definitions will not parse.
-    Refused(LoadError),
-    /// Two of the repository's own definitions name the same `workflow_id`.
-    DuplicateWorkflowId {
-        id: String,
-        first: PathBuf,
-        second: PathBuf,
-    },
 }

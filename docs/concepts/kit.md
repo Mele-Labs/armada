@@ -31,13 +31,13 @@ Resources, budget, timing, interface and notification routing are **not** here �
 | Home | Whose | What Armada does with it |
 | --- | --- | --- |
 | The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what they edit in Kit, and not yet |
-| `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows today, and anything with no counterpart in a harness |
+| `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows, and since 5 Oct 2026 the allowlist (`allowed-commands`); and anything with no counterpart in a harness |
 
 **Neither is authoritative over the other's idea of anything**, which is what makes two homes survivable where the issue that raised this feared they would not be. Nothing in `~/.armada` overrides a skill; nothing in the harness's home names a Workflow. A row Kit draws is labelled with the home it came from, so a person can always tell what they are looking at and where to go to change it.
 
 **One home was the alternative and was refused.** Putting everything in the harness's home would mean Armada writing into a directory it does not own for things that are Armada's alone rather than only for a person's own edits. Putting everything in `~/.armada` would mean copying a setup that already exists — the drift the owner refused when he decided write-back, because two copies drift the moment either is touched and nobody can then say which a Drone ran against.
 
-**Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts. A definition in `~/.armada/workflows/` replaces the one Armada carries with the same `workflow_id` in every repository on this machine, and a repository's own `.armada/workflows/` replaces both — [Workflow](workflow.md) holds the rule. #425. **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have.
+**Workflows are the first thing read from `~/.armada`.** Fleet makes the folder, with `workflows/` inside it, when it starts. A definition in `~/.armada/workflows/` replaces the one Armada carries with the same `workflow_id` in every repository on this machine, and a repository's own `.armada/workflows/` replaces both — [Workflow](workflow.md) holds the rule. #425. **A definition added to the folder while Fleet runs is read without a restart**, whether a person wrote it there or [Helm](helm.md) saved it for them with `save_workflow`; Kit's scope is what Helm writes when you ask for a workflow every repository on this machine should have. Bridge's Workflows row lists a Kit file beside the carried and repository ones, marks it with the Kit case, and writes one the same way, with scope Kit.
 
 **A folder a person can see and sync**, apart from the store, the runtime file and [Machine](machine.md)'s settings: Kit travels and the Machine does not. Everything else this page lists arrives in one of the two homes under #41.
 
@@ -47,7 +47,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **An adapter per harness**, decided with the owner on 18 Sep. Which folder, which file and how one harness spells a skill are `crates/adapters`' to know, and a second harness is a second adapter with nothing above it moving. `get_kit_inventory` is the read and `adapter_traits::HarnessSetup` is the seam.
 
-**Six kinds of the eight are read**: Skills, Plugins, Agent file, Sub agents, Commands and the servers a person connected. The allowlist and the models list answer *not read yet, and why* — a rule drawn out of its two tiers reads as a grant, and both tiers are #41. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along.
+**Seven kinds of the eight are read**: Skills, Plugins, Agent file, Sub agents, Commands, the servers a person connected, and — since 5 Oct 2026 — the allowlist, read from `~/.armada` rather than from the harness's home ([Kit's allowlist](#kits-allowlist)). The models list answers *not read yet, and why*: it has no stored tier to read. **A kind is never drawn as empty when nothing looked**, which is the defect this read exists to end rather than repeat one row along. An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 
 **Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from. A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong. What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment. So what is on the screen could not start the server it names, and a server connected outside Armada is visible here while reaching no Drone — adding one to Kit and then allowing it are the two acts they were. That is `../scope.md`'s one confinement, kept where an import would have broken it.
 
@@ -57,7 +57,7 @@ Resources, budget, timing, interface and notification routing are **not** here �
 
 **Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Drone ran against. The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
 
-**A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together. Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository. The owner's decision. One the repository replaces is never resolved against it. A repository's own definitions stay strict, because the repository declared them.
+**A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together. Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository. The owner's decision. One the repository replaces is never resolved against it. A repository's own definitions are held to the same rule, at start and on every re-read: one that does not fit is left out with its reason and the others stand, and it does not refuse Fleet.
 
 ## Navigation — two functional groups
 
@@ -89,6 +89,31 @@ The original four groups split across the two concepts: AI Behavior and the tool
 **A scout gets none of them.** [Scout](scout.md) starts with no server at all, and the sources it reads are fetched by Fleet rather than opened by the agent — so "a scout's connections" is a different question from this one, and nothing here widens a scout.
 
 **Helm's set is still the person's own, resolved by the CLI** — `#1373`, and Kit replaces none of it yet. Helm simply launches without the flag a Drone launches with.
+
+### Kit's allowlist
+
+**Built 5 Oct 2026, the owner's decision: Accept on a Kit item in Retros really changes the Kit.** It began on Job 3, where a Drone asked for `grep -a -c "arc-dispatch"` on a check log, was stopped, and the owner chose *Allow for this Job*. That allowance died with the Job, the retro listed *allow grep on check logs* as a Kit item, and Accept only set it `accepted`, so the next Job's Drone was stopped on the same command.
+
+| | |
+| --- | --- |
+| Where | `~/.armada/allowed-commands`, a plain file. One command per line, `#` starts a note. A line Armada wrote ends in a tab and where it came from (`always allow`, or `retro <item id>`); a line a person wrote needs neither |
+| Read | On every permission question, so a line added by hand while Fleet runs is in force and one taken out is not |
+| Tier | **The machine's, which is the Kit tier.** A Manifest extending or restricting it is not built: a repository's own Always allow (`#836`) is its tier, and the two are both consulted |
+| Matched by | `permitting::covers`, the rule a repository's Always allow already uses: the command itself, or it with more plain arguments after it, never one that chains another command. No glob and no regular expression |
+| Never lifts | A command a Manifest declares destructive, one it runs a Check for, one the harness cannot grant. Kit is read after all three, and widens only the two answers asking would have decided: refuse, and ask |
+| Not kept | A command that chains another, or spans lines. A standing grant on this machine for `a && b` is wider than the person who read `a` meant |
+
+**A command Kit does not list is refused as before and the refusal is recorded as before.** Kit is read in the permission question itself, not written into the Drone's toolbelt, so every call still reaches Fleet and the *denial record* the finding below flags is not bypassed.
+
+**How a line gets in, and out.** A person writes a line. An **Always allow** answered with `scope: kit` appends the command (or the rule they picked off its candidates) with source `always allow`. **Accept** on a Kit retro item that carries a `change` appends it with source `retro <item id>` and answers with what it applied. `remove_kit_allowed_command` takes a line out, and is what makes the other two reversible; it does not reopen the item that put it there. Adding a command already listed adds nothing, so agreeing twice applies once.
+
+**A retro item's `change` is copied off the record, never written by the model.** The writer names a refusal by its `cite`; Fleet takes the command from that refusal's own row, and drops the change (the item stays) where the row is not a shell call, holds no argument, holds one cut for length, or chains. The writer may name a shorter start of the command, and only one of the command's own leading cuts. An Accept for a command that is destructive in any served repository, or that the harness cannot grant, is refused (`fleet.kit_change_refused`) and the item stays open, since no listing could make it run.
+
+**Only `allow_command` exists as a change.** The models list is resolved from the harness at start (`model_choices`) and has no stored tier, so a `set_model` change would have nothing to write to; it waits for the models list to have a home.
+
+**Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
+
+**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off. It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason. A command a Drone is waiting on, in Job detail and in Helm's dock, offers **Always allow on this machine** beside the repository's own Always allow, sent as `always_allow` with `scope: kit` and the rule, and only where Fleet offered a candidate rule to send. Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
 
 **Known cost: allowlist rot.** Two-tier inheritance keeps changes scoped, but upkeep is ongoing as new tools are needed. No automated solution exists; worth monitoring rather than solving now.
 

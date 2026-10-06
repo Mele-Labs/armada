@@ -141,7 +141,6 @@
 /* One worktree Fleet is holding, and the test it did not pass. Appended, per
    the rule at the head of this file: a stylesheet the app does not import
    renders its component as a vertical stack with its class names on. */
-@import "./compositions/HeldWorktree/HeldWorktree.css";
 
 /* What one Job holds on the machine. A card and not a well: the act on it makes
    it something to be acted on. */
@@ -382,6 +381,8 @@
 @import "./compositions/LessonList/LessonList.css";
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
+@import "./compositions/PoolSlots/TileSheet.css";
+@import "./compositions/WorkflowCreator/WorkflowCreator.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
    frame is what gives the pair its edges. */

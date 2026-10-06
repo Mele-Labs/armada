@@ -38,7 +38,6 @@
   "workflow_id": "prototype",
   "name": "prototype",
   "for_requests": "Trying something out to answer a question: a spike or rough version built to see whether an idea works, shown to whoever asked and written up, then thrown away rather than landed. Something meant to ship is a feature, and a design worked out on paper is a design plan.",
-  "structure": "linear",
   "steps": [
     {
       "id": "frame",

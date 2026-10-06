@@ -5,7 +5,43 @@
 // **No vendor here.** The harness names itself over the wire, and the mock is
 // not the adapter.
 
-import type { KitInventory } from "@armada/protocol";
+import type { KitAllowedCommand, KitInventory, SetupItem } from "@armada/protocol";
+
+/** Where Fleet spells each source of an allowlist command in the inventory. */
+function sourceSpelled(one: KitAllowedCommand): string {
+  switch (one.source) {
+    case "retro_item":
+      return `retro item ${one.lesson_id ?? ""}`.trim();
+    case "always_allow":
+      return "always allow";
+    case "by_hand":
+      return "written by hand";
+  }
+}
+
+/** The allowlist kind as Fleet reads it, each command named as it was written and its source spelled as Fleet spells it. */
+export function allowlistRead(items: readonly SetupItem[]): KitInventory {
+  return withAllowlist(KIT_INVENTORY, items);
+}
+
+/** `inventory` with its allowlist kind read as `items`. */
+export function withAllowlist(inventory: KitInventory, items: readonly SetupItem[]): KitInventory {
+  return {
+    ...inventory,
+    kinds: inventory.kinds.map((one) =>
+      one.kind === "allowlist" ? { kind: "allowlist", read: { what: "read", items: [...items], unreadable: [] } } : one,
+    ),
+  };
+}
+
+/** The allowlist as the commands `remove_kit_allowed_command` answers with become its rows. */
+export function withAllowed(inventory: KitInventory, allowed: readonly KitAllowedCommand[]): KitInventory {
+  return withAllowlist(
+    inventory,
+    allowed.map((one) => ({ name: one.run, source: sourceSpelled(one) })),
+  );
+}
+
 
 /** What a person on this mock machine already has. */
 export const KIT_INVENTORY: KitInventory = {
@@ -81,13 +117,8 @@ export const KIT_INVENTORY: KitInventory = {
         unreadable: [],
       },
     },
-    {
-      kind: "allowlist",
-      read: {
-        what: "not_read",
-        why: "a rule drawn out of its two tiers reads as a grant, and both tiers are #41",
-      },
-    },
+    // Read since 23.35, from `~/.armada/allowed-commands`. Nothing in it until a command is added.
+    { kind: "allowlist", read: { what: "read", items: [], unreadable: [] } },
     {
       kind: "models",
       read: {
@@ -96,5 +127,15 @@ export const KIT_INVENTORY: KitInventory = {
       },
     },
   ],
+};
+
+/** An allowlist file that is there and will not read: the kind says so, with why, and never draws as empty. */
+export const NOT_READ_ALLOWLIST: KitInventory = {
+  ...KIT_INVENTORY,
+  kinds: KIT_INVENTORY.kinds.map((one) =>
+    one.kind === "allowlist"
+      ? { kind: "allowlist", read: { what: "not_read", why: "allowed-commands would not read: line 3 is not a command" } }
+      : one,
+  ),
 };
 

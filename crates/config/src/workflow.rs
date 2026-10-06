@@ -13,13 +13,16 @@
 //! [`mechanical`] needs one list entry and never sees a step. So the file rules
 //! cannot be written a layer down, and neither layer down can reach up.
 //!
-//! **Three closed sets, and only two are still narrowed.** [`Structure`] and
-//! [`MechanicalCheck`] carry fewer variants than the schema has; `AdvanceGate`
-//! now carries every form of it, the `manifest_rule:` pair included and
-//! unresolved. Each is an enum rather than a `String` so that widening one is a
-//! compile error at every `match` reading it. A `String` would widen silently.
-//! The two a Job freezes — `AdvanceGate` and `EvidenceType` — are
-//! `core-model`'s, because the record carries them.
+//! **[`MechanicalCheck`] carries fewer variants than the schema has**;
+//! `AdvanceGate` now carries every form of it, the `manifest_rule:` pair
+//! included and unresolved. Each is an enum rather than a `String` so that
+//! widening one is a compile error at every `match` reading it. A `String`
+//! would widen silently. The two a Job freezes — `AdvanceGate` and
+//! `EvidenceType` — are `core-model`'s, because the record carries them.
+//!
+//! **A workflow is its steps.** Any step may send the work back to an earlier
+//! one through `verdict_routing`, which is the only place a back edge is
+//! declared; there is no label to keep in step with it.
 
 mod mechanical;
 mod step;
@@ -39,53 +42,7 @@ use crate::roster::Roster;
 use crate::yaml::{self, Table};
 
 /// The keys M1 reads at the top level of a WorkflowDef.
-const TOP_LEVEL: &[&str] = &[
-    "version",
-    "workflow_id",
-    "name",
-    "for_requests",
-    "structure",
-    "steps",
-];
-
-/// How the steps are wired. **Both of the schema's two values.**
-///
-/// `loop` means a step returns to an earlier one by `verdict_routing` until it
-/// converges or spends its `iteration_cap`. What that return needs is a
-/// verdict, and a verdict now has two places to come from: `human_always` is a
-/// carried gate that `fleet::gate` holds a step at, and a Judge panel runs from
-/// `judge_checks`. The sentence that stood here until #263 said neither
-/// existed, and it had outlived both.
-///
-/// **What is still missing is underneath the parser rather than in it.** The
-/// step machine has no edge from `advanced` back to `running`, so the return
-/// itself is a move `core-model` cannot express; `iteration_count` is a
-/// `job_steps` column the schema records as deliberately absent, and it is not
-/// `retry_count`, because a plan on its fourth honest draft is not a gate
-/// failure; and `EscalationTrigger::LoopCap` exists with nothing raising it. So
-/// a `loop` definition loads here and nothing yet runs it.
-///
-/// **Two shipped definitions declare one anyway** — `design-plan.json` and
-/// `epic.json` — and both run as straight lines, because that is all there is
-/// to run them as. This said no definition declared one, which was true when it
-/// was written and stopped being true with nothing noticing. What the key buys
-/// until the machine catches up is the refusal below: a file calling itself a
-/// loop while routing no verdict is refused, so the label cannot be worn by a
-/// workflow that was never going to come back.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Structure {
-    Linear,
-    Loop,
-}
-
-const STRUCTURE_CARRIED: &[(&str, Structure)] =
-    &[("linear", Structure::Linear), ("loop", Structure::Loop)];
-/// The schema's whole set, and now also the carried set — so [`Fault::NotYetCarried`]
-/// is unreachable at this key and the third argument to [`yaml::word`] is the
-/// same list as the second. Kept as an argument rather than collapsed, because
-/// the two lists mean different things everywhere else and only the caller
-/// knows when they have converged.
-const STRUCTURE_LEGAL: &[&str] = &["linear", "loop"];
+const TOP_LEVEL: &[&str] = &["version", "workflow_id", "name", "for_requests", "steps"];
 
 /// A workflow definition, parsed and validated against nothing but itself.
 ///
@@ -100,7 +57,6 @@ pub struct WorkflowDef {
     version: u32,
     name: String,
     for_requests: Option<String>,
-    structure: Structure,
     steps: Vec<Step>,
 }
 
@@ -183,10 +139,6 @@ impl WorkflowDef {
         self.for_requests.as_deref()
     }
 
-    pub fn structure(&self) -> Structure {
-        self.structure
-    }
-
     /// The steps, in file order. **Order is the semantics** — there is no
     /// `order` field, because an array already has one and two statements of
     /// the same thing can disagree.
@@ -210,16 +162,6 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
     let for_requests = top
         .optional("for_requests")
         .and_then(|value| yaml::text("for_requests", value, out));
-    let structure = top.required("structure", out).and_then(|value| {
-        yaml::word(
-            "structure",
-            value,
-            STRUCTURE_CARRIED,
-            STRUCTURE_LEGAL,
-            STRUCTURE_LEGAL,
-            out,
-        )
-    });
 
     let items = top
         .required("steps", out)
@@ -231,26 +173,9 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
     let placed: Vec<(usize, Step)> = items
         .iter()
         .enumerate()
-        .filter_map(|(n, (at, item))| Some((n, step::read(at, item, structure, roster, out)?)))
+        .filter_map(|(n, (at, item))| Some((n, step::read(at, item, roster, out)?)))
         .collect();
     top.close(TOP_LEVEL, out);
-
-    // **The other half of the rule `loops` holds the linear half of.** The
-    // structure field is redundant with `verdict_routing` by construction and
-    // that redundancy is the whole value of the field: without this, `loop` is
-    // a label a file can wear while running as a straight line, and what
-    // surfaces is a Job that advances off the end of a workflow its author
-    // believed would come back.
-    //
-    // Reported at `structure` rather than at a step, because the absence is the
-    // file's and there is no offending step to name. Asked of what the file
-    // wrote rather than of what parsed — `yaml::any_holds` for why.
-    if structure == Some(Structure::Loop) && !yaml::any_holds(&items, "verdict_routing") {
-        out.push(Refusal::new(
-            "structure",
-            Fault::ContradictsStructure { structure: "loop" },
-        ));
-    }
 
     // Duplicate step ids, reported on the second occurrence and naming the
     // first. Every per-step counter in the system is keyed by this value, so
@@ -390,7 +315,6 @@ fn read(path: &Path, root: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> O
         version: version?,
         name: name?,
         for_requests,
-        structure: structure?,
         steps,
     })
 }

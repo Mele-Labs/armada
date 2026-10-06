@@ -111,6 +111,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/proposals/stop", post(stop_proposal::<D>))
         .route("/workflows", get(list_workflows::<D>))
         .route(
+            "/workflows/definition",
+            get(crate::repositories::get_workflow::<D>),
+        )
+        .route(
             "/workflows/left_out",
             get(crate::repositories::list_left_out_workflows::<D>),
         )
@@ -189,6 +193,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/kit/servers/manifest_reach",
             post(crate::kit::set_manifest_server_reach::<D>),
+        )
+        .route(
+            "/kit/allowed_commands/remove",
+            post(crate::kit::remove_kit_allowed_command::<D>),
         )
         .route("/jobs/:job_id", get(get_job::<D>))
         .route("/jobs/:job_id/events", get(get_job_events::<D>))

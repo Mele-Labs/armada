@@ -225,6 +225,7 @@ fn health_survives_the_wire_with_the_unprobed_half_still_on_it() {
             because: "Doctor's grid is not built".to_string(),
         }],
         helm_action_authority: HelmActionAuthority::Acting,
+        workflows_left_out: true,
     };
     let received: FleetHealth = round_trip_health(&health);
     assert_eq!(received.probes.len(), 1);
@@ -422,6 +423,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         answer: CommandAnswer::Reject,
         note: Some("not on this job".to_string()),
         rule: None,
+        scope: None,
     };
     let received = round_trip_answer_command(&answered_command);
     assert_eq!(received.call, answered_command.call);
