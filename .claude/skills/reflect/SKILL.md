@@ -114,12 +114,11 @@ was wrong with any of the measurements when they were taken. **Re-read before
 you report, not just before you act** — this repository moved 19 commits in two
 hours that day.
 
-**Land through the line, never by hand.** From the branch's worktree,
-`scripts/land preflight`, then `scripts/land`, then poll `scripts/land
---status`. The line merges today's `main` in, reruns what the combination hits
-and pushes `main` itself, so a branch that started before three other merges is
-measured against the `main` it lands on. Never rebase to catch up: a red or a
-conflict comes back, and you merge `origin/main` in and land again.
+**Open a pull request, never merge by hand.** Push the branch and
+`gh pr create --base main`; the owner merges. `ci` runs the Checks on the merged
+tree, so a branch that started before three other merges is measured against the
+`main` it lands on. Never rebase to catch up: a red or a conflict comes back, and
+you merge `origin/main` in and push again.
 `docs/practices/running-locally.md`, *Landing a branch*.
 
 **A clean merge is not an agreement.** Confirmed 2026-09-11: #634 merged 16

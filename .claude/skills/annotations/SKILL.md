@@ -93,24 +93,24 @@ The brief is the only context the agent has, so it carries:
 
 **Verify what comes back yourself.** Read the diff, rerun the tests it added,
 and look at the screen in the mock. **The whole suite the change reaches is run
-twice, by the agent and by the merge line, and not a third time here.** Check
+twice, by the agent and by `ci` on the pull request, and not a third time here.** Check
 that the report names a whole-suite run with its counts, and send it back if it
 does not: on 1 Oct 2026 the rail change in #1721 broke an existing Link test, it
 was reported to the owner as verified on its three new tests, and the next agent
-found the break. `scripts/land` reruns every Check the change hits before it
-pushes `main`, so a repeat here buys nothing. On 2 Oct 2026 it was a repeat on
+found the break. `ci` reruns every Check the change hits on the pull request, so a
+repeat here buys nothing. On 2 Oct 2026 it was a repeat on
 every change, and the owner asked for it to stop.
 
 **A brief forbids the owner's clipboard, screen and apps.** On 1 Oct 2026 an
 agent measuring paste shapes overwrote his clipboard and opened Finder, Safari
 and Terminal on his screen. Playwright's own clipboard answers the same question. An agent's report of green has been wrong here.
 
-**A visual change lands only after the owner has looked at it.** It ships with a
+**A visual change gets its pull request only after the owner has looked at it.** It ships with a
 walk committed under `apps/desktop/src/renderer/src/mock/walks/` covering every
 surface it changed, on fixture data that shows the change
 (`docs/practices/running-locally.md`, *Walks*). Serve the mock from the agent's
 worktree (`pnpm -C <worktree>/apps/desktop mock`), send him `?walk=<name>` on
-it, and wait for his OK before `scripts/land`. A renderer change with no screen
+it, and wait for his OK before you open the pull request. A renderer change with no screen
 to reach yet sends a Storybook story link instead. Confirmed 1 Oct 2026: five
 agents were dispatched on the markdown change, and the plan landed them with no
 step where he saw the app.
@@ -128,9 +128,9 @@ was in Storybook, and he had to ask what was left to walk after all four landed.
 Two of those agents also named their walk file `markdown-from-agents.ts`, and the
 second was refused by the merge line on the clash.
 
-**Any other green change lands with `scripts/land` without asking**; report the
-merge commit it landed as. Whoever merges gives the worktree back, as
-`work-issue` says.
+**Any other green change opens a pull request without asking**; report the
+pull request. The owner merges, and the worktree goes back after, as
+`work-issue` and `agent-worktrees` say.
 
 **A component change is still a component change.** `armada-components` applies:
 the contract wins, and the proof is a story or a mock test, not a screenshot.
