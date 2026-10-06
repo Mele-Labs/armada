@@ -208,6 +208,10 @@ afterwards by reading what landed, for example
 `git log --merges --first-parent main --since=yesterday`; each merge carries a
 `Landed-from:` trailer naming its branch.
 
+**The wait for a verdict is a background loop, and it dies with the session.**
+After a restart run `armada land --status <branch>` before assuming anything:
+the line itself keeps running, and the branch is usually still queued.
+
 **A visual change is the exception: it waits for the owner's look.** It ships
 with a walk, he opens its link on a mock served from your worktree, and it lands
 only on his OK. `annotations`, step 4, has the rule, and
@@ -282,6 +286,18 @@ The split that worked was by crate boundary and by side of the seam:
 Then say so in the prompt — *"another agent is working in X in parallel; do not
 touch it; if your change needs one, stop and report it rather than making it."*
 Every agent given that sentence obeyed it.
+
+**A brief says to commit and push after each piece that passes.** A restart or a
+crash loses what is uncommitted: on 5 Oct 2026 a wire agent was resumed twice
+with 36 uncommitted files and no commit, and another session died with a
+deliberate break (`if true { return; }`) still applied, found only because the
+parent read `git diff`. An agent that breaks a behaviour on purpose reverts it
+and checks `git status` is clean before the next step.
+
+**An interim "has not reported yet" notice is not a report.** On 4 Oct 2026 a
+finished agent's report sat in its transcript for 12 hours while the owner was
+told it was still running. When the notice repeats, read the agent's branch,
+`git status` and the last lines of its transcript before waiting again.
 
 **Two issues that both land in `JobDetail.tsx` do not run in parallel.** They run
 in sequence, and the one that decides the arrangement runs first.
