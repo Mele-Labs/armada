@@ -25,10 +25,11 @@ mod record;
 mod rescue;
 mod saving;
 mod shape;
+mod trim;
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use adapter_traits::{BaseSpec, SLOT_ROOT as SLOTS};
 
@@ -42,6 +43,7 @@ pub use record::Holder;
 use record::Record;
 pub use saving::{save_worktree, NotSaved};
 pub use shape::Unshaped;
+pub use trim::{sweep_repository, trim_target, Trim, Trimmed, CEILING_GIB, TRIM_AFTER_DAYS};
 
 /// Kept across every lease: what a build or an index writes and the next
 /// build reads. `setup.seed.paths` joins these.
@@ -70,6 +72,7 @@ pub struct Pool {
     base: String,
     keep: Vec<String>,
     seeds: Vec<String>,
+    trim: Trim,
 }
 
 impl Pool {
@@ -89,7 +92,14 @@ impl Pool {
             base: base.to_string(),
             keep,
             seeds,
+            trim: Trim::SHIPPED,
         }
+    }
+
+    /// This pool, trimming a released slot's `target/` as `trim` says.
+    pub fn trimming(mut self, trim: Trim) -> Pool {
+        self.trim = trim;
+        self
     }
 
     /// The checkout every worktree of the repository at `within` belongs to.
@@ -345,6 +355,7 @@ impl Pool {
         }
         git(&slot, &["switch", "--detach", "--quiet"]).map_err(ReleaseRefused::Vcs)?;
         Record::clear(&self.record_path(number)).map_err(ReleaseRefused::Vcs)?;
+        trim_target(&slot.join("target"), self.trim, SystemTime::now());
         Ok(Released {
             slot: number,
             branch: record.branch,

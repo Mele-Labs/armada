@@ -310,6 +310,7 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+pub mod sweeping;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
 /// The merge line Fleet runs for each repository, and its turn.
 mod taking_turns;

@@ -31,6 +31,7 @@ mod leasing_jobs;
 mod leasing_parking;
 mod leasing_rescue;
 mod leasing_shape;
+mod leasing_trim;
 mod mcp;
 mod merging_after_a_kill;
 mod merging_by_push;

@@ -76,6 +76,49 @@ notes = """
 Where nothing is saved, `crates/armada/src/serve.rs` supplies it as part of `PROVISIONAL_HEADROOM` and carries the argument for the number. It ships at ten gibibytes, which is about three worktrees' worth: enough that the Job being started can finish and a person has warning before the next one.
 """
 
+[settings.slot-build-trim-after-days]
+name = "Build output trim age"
+scope = "Machine"
+default = "14 days"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "adapters"
+notes = """
+**Enforced**, as `adapters::leasing::TRIM_AFTER_DAYS`. A release of a pool slot, `armada clean` giving back a Job's slot, and Fleet's sweep each drop every file under a `target/` that no build has written for this long, and the incremental session directories that leave empty. Cargo never deletes a stale artifact, and on 6 Oct 2026 24 checkouts grew `target/` to 50 GB each, about 800 GB in all, until the disk filled. A slot stays warm: what a recent build wrote is kept.
+
+**Not yet a value a person can change**: it is a constant, and the next step is a machine file read at start, as the pool's shape is.
+"""
+
+[settings.slot-build-ceiling-gib]
+name = "Build output ceiling"
+scope = "Machine"
+default = "20 GiB"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "adapters"
+notes = """
+**Enforced**, as `adapters::leasing::CEILING_GIB`. When a `target/` is still larger than this after its stale files are dropped, the whole directory is removed. That costs a cold rebuild, which is why it is the second step and not the first, and Fleet says so on its console each time.
+
+**A `target/` with a cargo build running in it is never touched.** Cargo holds a lock on each profile directory for the length of a build; the trim takes every one first and keeps them until it is done, so a build that starts meanwhile waits on the trim rather than losing files under it.
+"""
+
+[settings.build-sweep-interval-minutes]
+name = "Build sweep interval"
+scope = "Machine"
+default = "60 minutes"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "adapters"
+notes = """
+**Enforced**, as `PROVISIONAL_SWEEP_INTERVAL` in `crates/armada/src/serve.rs`. Every interval `fleet::sweeping::keep_sweeping` applies the same trim to the `target/` of every checkout of each served repository: the main checkout, each pool slot held or free, `.armada/bases`, `.armada/land`, `.armada/preview`, `.armada/worktrees` and `.claude/worktrees`. It reaches the checkouts nothing releases or cleans. The first sweep is one interval after Fleet starts.
+"""
+
 [settings.fleet-health-check-resource-poll-interval]
 name = "Fleet health-check / resource-poll interval"
 scope = "Machine"
