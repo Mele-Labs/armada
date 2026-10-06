@@ -131,6 +131,18 @@ design doc before it becomes code. `packages/tokens` and the shadcn set are
 still being stood up — as they grow, gaps like this are expected, not a sign
 you're doing something wrong. The rule is about what you do when you hit one.
 
+## A surface is its own package
+
+A surface lives in its own package under the surfaces directory of `packages`,
+on a layer between the screens and the app. Two surfaces never import each
+other. Its tests mount the whole app through the mock harness, so a
+surface's `*.test.ts(x)` and `vitest.config.ts` may import `@armada/desktop` —
+`./mock` for the harness, `./vitest-preset` for the browser settings — and
+nothing else in it may. `xtask/src/rules_layers.rs` holds the layer rule and
+`xtask/src/rules_surfaces.rs` the rule that each surface carries a
+`package.json`, a `vitest.config.ts` and an `armada.yml` with a Check and a
+`depends_on`.
+
 ## State and data flow
 
 Bridge talks to **one peer**, in the main process, to Armada API. That was
