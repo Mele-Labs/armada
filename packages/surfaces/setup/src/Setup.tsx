@@ -13,10 +13,10 @@ import { useState } from "react";
 import type { CheckoutRunSheetRead, Outcome, ProposalEdit } from "@armada/protocol";
 import { Alert, ProposalSheet, SetupPicker, VerifyPanel } from "@armada/components";
 
-import { said } from "./copy";
+import { said } from "@armada/screens/src/copy";
 import type { Setting } from "./setup-held";
 import { destructiveEdit, pickerOf, requiresEdit, runEdit, sheetOf } from "./setup-view";
-import { verifyPanelOf } from "./verify";
+import { verifyPanelOf } from "@armada/screens/src/verify";
 
 export type SetupProps = {
   setting: Setting;

@@ -20,8 +20,8 @@ import type {
   SetupPickerProps,
 } from "@armada/components";
 
-import { clockOf } from "./duration";
-import type { ProposalAnswer } from "./setup-reads";
+import { clockOf } from "@armada/screens/src/duration";
+import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 
 /** What the last edit or Write on one workspace came to, where it did not simply take. */
 export type SetupMark = {

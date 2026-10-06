@@ -11,3 +11,8 @@ export * from "./testing";
 // state, through the harness.
 export * from "./studios-fake";
 export { sheet } from "./manifest-fleet";
+
+// Setup's mock Fleet lives in `@armada/setup/fake`; its tests reach it, fixed to desktop's state,
+// through the harness.
+export * from "./setup-fake";
+export * from "./scrolled";

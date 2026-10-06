@@ -4,8 +4,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { EditManifestProposal, ProposalEdit, WriteManifestProposal } from "@armada/protocol";
 
-import { said } from "./copy";
-import type { ManifestProposalsRead, ProposalAnswer, RepositoryScanRead } from "./setup-reads";
+import { said } from "@armada/screens/src/copy";
+import type { ManifestProposalsRead, ProposalAnswer, RepositoryScanRead } from "@armada/screens/src/setup-reads";
 import { answered, readInto, type SetupHeld } from "./setup-view";
 
 /** What Setup asks of the host. */

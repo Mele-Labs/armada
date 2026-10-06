@@ -85,12 +85,8 @@ export * from "./story";
 export * from "./waiting";
 export * from "./work";
 export * from "./open-studio";
-// Setup — Journey 3: the picker and a proposal over it.
-export * from "./Setup";
-export * from "./setup-held";
+// Setup and Locate are `@armada/setup`; their reads stay here, since main, the wire types and Manifest read them.
 export type * from "./setup-reads";
-// Locate — Journey 3's *Getting in*: a repository added by folder or cloned, then Setup.
-export * from "./Locate";
 export * from "./locate-reads";
 // Overview's reads stay here, since Settings and the wire types read them; the surface is `@armada/overview`.
 export type * from "./overview-reads";

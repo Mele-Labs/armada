@@ -6,16 +6,28 @@ import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 
-import { endShownIn, pressable, scrollerOf } from "./scrolled";
-import { SCRATCH, SHEET_READ, VERIFY_ENDED, settingUp } from "./setup-fleet";
-import type { SettingUp } from "./setup-fleet";
-import { entered, mount, unmountAfterEach } from "./testing";
+import {
+  endShownIn,
+  entered,
+  mount,
+  pressable,
+  scrollerOf,
+  SCRATCH,
+  SHEET_READ,
+  settingUp,
+  unmountAfterEach,
+  VERIFY_ENDED,
+} from "@armada/desktop/mock";
+import type { SettingUp } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
+// Core and Setup only: what the tab reads is its own slice's, and the scenario answers the Verify sheet.
+const SLICES = { slices: ["core", "setup"] } as const;
+
 /** The Manifest surface by the rail, and its Set up workspaces tab. */
 async function setup(options: SettingUp = {}) {
-  mount(settingUp(options));
+  mount(settingUp(options), SLICES);
   // The rail row went when Navigation split in two; the control beside the
   // title row's picker is how the surface is reached now (#1595).
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
@@ -195,7 +207,7 @@ test("a file already there: nothing written over it, and the picker says so", as
 const TWO: SettingUp = { repositories: [repository(), SCRATCH], sheet: SHEET_READ };
 
 test("a set-up and a not-set-up repository: both listed, the one not set up grouped as such", async () => {
-  mount(settingUp(TWO));
+  mount(settingUp(TWO), SLICES);
   await page.getByRole("button", { name: MANIFEST_NAME }).click();
   await expect.element(page.getByRole("menuitem", { name: MANIFEST_NAME })).toBeInTheDocument();
   const menu = page.getByRole("menu");
@@ -207,7 +219,7 @@ test("a set-up and a not-set-up repository: both listed, the one not set up grou
 
 test("picking one not set up opens Setup alone; a workspace verifies before the root is set up", async () => {
   const onVerify = vi.fn();
-  mount(settingUp({ ...TWO, onVerify }));
+  mount(settingUp({ ...TWO, onVerify }), SLICES);
   await page.getByRole("button", { name: MANIFEST_NAME }).click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });
@@ -221,7 +233,7 @@ test("picking one not set up opens Setup alone; a workspace verifies before the 
 });
 
 test("pick one not set up, write its root, and it reads as set up with an Edit tab", async () => {
-  mount(settingUp(TWO));
+  mount(settingUp(TWO), SLICES);
   await page.getByRole("button", { name: MANIFEST_NAME }).click();
   await page.getByRole("menuitem", { name: "scratch" }).click();
   const list = page.getByRole("region", { name: "Workspaces" });

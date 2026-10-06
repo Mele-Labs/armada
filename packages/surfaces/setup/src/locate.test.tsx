@@ -8,11 +8,13 @@ import { page, userEvent } from "vitest/browser";
 import type { RepositorySummary } from "@armada/protocol";
 import { MANIFEST_NAME, repository } from "@armada/screens/src/fixtures/build/base";
 
-import { CHOSEN, settingUp } from "./setup-fleet";
-import type { SettingUp } from "./setup-fleet";
-import { entered, mount, mountTwo, unmountAfterEach } from "./testing";
+import { CHOSEN, entered, mount, mountTwo, settingUp, unmountAfterEach } from "@armada/desktop/mock";
+import type { SettingUp } from "@armada/desktop/mock";
 
 unmountAfterEach();
+
+// Core and Setup only: what the dialog and the notice read is its own slice's.
+const SLICES = { slices: ["core", "setup"] } as const;
 
 const URL = "https://forge.invalid/owner/storefront.git";
 const dialog = () => page.getByRole("dialog", { name: "Add a repository" });
@@ -46,7 +48,7 @@ async function cloneFrom(within: ReturnType<typeof page.elementLocator> | typeof
   return add;
 }
 
-const locating = (options: SettingUp = {}) => mount(settingUp(options));
+const locating = (options: SettingUp = {}) => mount(settingUp(options), SLICES);
 
 test("a folder added: the dialog closes, the picker holds it, and Setup is open for it", async () => {
   const onAdded = vi.fn();
@@ -95,7 +97,7 @@ test("a clone that finished after its dialog closed says so, and moves nothing u
 });
 
 test("a late clone is heard in another window on the same main, and neither window's pick moves", async () => {
-  const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"]);
+  const [asked, other] = mountTwo(settingUp({ clone: "late" }), ["The window that asked", "Another window"], SLICES);
   const inAsked = page.elementLocator(asked);
   const inOther = page.elementLocator(other);
   const add = await cloneFrom(inAsked);
