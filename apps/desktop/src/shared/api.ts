@@ -63,8 +63,7 @@ import type {
   ManifestSaveAnswer,
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
-import type { CheckoutRunDiffRead } from "@armada/protocol";
-import type { ManifestChecksRead } from "@armada/protocol";
+import type { CheckoutRunDiffRead, ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "./workflows";
