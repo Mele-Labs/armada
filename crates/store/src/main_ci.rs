@@ -14,7 +14,7 @@
 use core_model::{JobId, Timestamp, Ulid};
 use rusqlite::OptionalExtension;
 
-use crate::error::{fault, LoadAllError, WriteError};
+use crate::error::{fault, LoadJobError, RowError, WriteError};
 use crate::open::Store;
 
 /// Version 114 — main's CI, one row per repository, and the failed jobs of a
@@ -31,7 +31,7 @@ CREATE TABLE main_ci (
     merge_url    TEXT,
     merge_branch TEXT,
     merge_job    TEXT,
-    CHECK ((state = 'red') = (red_at IS NOT NULL))
+    unfinished   INTEGER NOT NULL DEFAULT 0 CHECK (unfinished >= 0)
 ) STRICT;
 
 CREATE TABLE main_ci_failed (
@@ -111,8 +111,13 @@ pub struct MainCi {
     pub state: MainState,
     /// When Fleet read this.
     pub read_at: Timestamp,
-    /// When Fleet first read this commit red. Set exactly where `state` is `Red`.
+    /// When Fleet first read main red, **kept while it stays red**: set from the
+    /// first red reading until a green one, so a `Running` reading on top of a
+    /// red is still red and a later green is a red turned green.
     pub red_at: Option<Timestamp>,
+    /// CI jobs on the commit with no conclusion yet. Fleet reads it again while
+    /// this is above zero.
+    pub unfinished: u32,
     pub failed: Vec<MainFailedJob>,
     pub merge: Option<MainMerge>,
 }
@@ -131,11 +136,11 @@ impl Store {
         let merge = main.merge.as_ref();
         tx.execute(
             "INSERT INTO main_ci (repository, base, commit_sha, state, read_at, red_at, \
-             merge_number, merge_url, merge_branch, merge_job) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+             merge_number, merge_url, merge_branch, merge_job, unfinished) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
              ON CONFLICT (repository) DO UPDATE SET base = ?2, commit_sha = ?3, state = ?4, \
              read_at = ?5, red_at = ?6, merge_number = ?7, merge_url = ?8, merge_branch = ?9, \
-             merge_job = ?10",
+             merge_job = ?10, unfinished = ?11",
             (
                 &main.repository,
                 &main.base,
@@ -149,6 +154,7 @@ impl Store {
                 merge
                     .and_then(|merge| merge.job.as_ref())
                     .map(|job| job.as_str().to_string()),
+                main.unfinished,
             ),
         )
         .map_err(keeping)?;
@@ -173,13 +179,13 @@ impl Store {
 
     /// What was last kept for a repository, or `None` where Fleet has never
     /// read its main.
-    pub fn main_ci(&self, repository: &str) -> Result<Option<MainCi>, LoadAllError> {
+    pub fn main_ci(&self, repository: &str) -> Result<Option<MainCi>, LoadJobError> {
         let reading = fault("reading main's CI");
         let head = self
             .conn
             .query_row(
                 "SELECT base, commit_sha, state, read_at, red_at, merge_number, merge_url, \
-                 merge_branch, merge_job FROM main_ci WHERE repository = ?1",
+                 merge_branch, merge_job, unfinished FROM main_ci WHERE repository = ?1",
                 (repository,),
                 |row| {
                     Ok((
@@ -192,17 +198,20 @@ impl Store {
                         row.get::<_, Option<String>>(6)?,
                         row.get::<_, Option<String>>(7)?,
                         row.get::<_, Option<String>>(8)?,
+                        row.get::<_, u32>(9)?,
                     ))
                 },
             )
             .optional()
             .map_err(reading)
-            .map_err(LoadAllError::Database)?;
-        let Some((base, commit, state, read_at, red_at, number, url, branch, job)) = head else {
+            .map_err(database)?;
+        let Some((base, commit, state, read_at, red_at, number, url, branch, job, unfinished)) =
+            head
+        else {
             return Ok(None);
         };
         let state = MainState::from_column(&state).ok_or_else(|| {
-            LoadAllError::Database(fault("reading main's CI")(
+            database(fault("reading main's CI")(
                 rusqlite::Error::InvalidColumnType(
                     2,
                     format!("a state {state} this build does not know"),
@@ -217,7 +226,7 @@ impl Store {
                  WHERE repository = ?1 ORDER BY position",
             )
             .map_err(fault("reading main's failed jobs"))
-            .map_err(LoadAllError::Database)?;
+            .map_err(database)?;
         let failed = asking
             .query_map((repository,), |row| {
                 let tests: String = row.get(3)?;
@@ -234,7 +243,7 @@ impl Store {
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault("reading main's failed jobs"))
-            .map_err(LoadAllError::Database)?;
+            .map_err(database)?;
         Ok(Some(MainCi {
             repository: repository.to_string(),
             base,
@@ -242,6 +251,7 @@ impl Store {
             state,
             read_at: Timestamp::from_rfc3339(read_at),
             red_at: red_at.map(Timestamp::from_rfc3339),
+            unfinished,
             failed,
             merge: number.map(|number| MainMerge {
                 number: number as u64,
@@ -255,7 +265,7 @@ impl Store {
     /// The Jobs whose pull request has this number, newest first. **The number
     /// alone cannot name a repository**, so a caller that serves more than one
     /// keeps only the Jobs that belong to the repository it is asking about.
-    pub fn jobs_with_pull_request_number(&self, number: u64) -> Result<Vec<JobId>, LoadAllError> {
+    pub fn jobs_with_pull_request_number(&self, number: u64) -> Result<Vec<JobId>, LoadJobError> {
         let reading = fault("finding the Job of a pull request");
         let mut asking = self
             .conn
@@ -264,14 +274,18 @@ impl Store {
                  ORDER BY job_id DESC",
             )
             .map_err(reading)
-            .map_err(LoadAllError::Database)?;
+            .map_err(database)?;
         let rows = asking
             .query_map((format!("%/pull/{number}"),), |row| {
                 Ok(JobId::carried(Ulid::carried(row.get::<_, String>(0)?)))
             })
             .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             .map_err(fault("finding the Job of a pull request"))
-            .map_err(LoadAllError::Database)?;
+            .map_err(database)?;
         Ok(rows)
     }
+}
+
+fn database(cause: crate::error::DatabaseFault) -> LoadJobError {
+    LoadJobError::Unreadable(RowError::Database(cause))
 }

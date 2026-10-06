@@ -159,6 +159,14 @@ mod leasing;
 /// how a save reaches admission without a restart.
 pub mod limits;
 pub mod listener;
+/// Noticing what became of a Job's pull request. **Fleet may merge, and the
+/// decision is what stays a person's** — a press from Bridge is
+/// `crate::merging` and reaches the same four things this module does about a
+/// merge it noticed. What this module is for is the other way one settles:
+/// somebody merged it on the forge, and that is only ever knowable by asking.
+/// An open one is asked a second question on the same rotation —
+/// `crate::under_review`.
+pub mod main_ci;
 /// The merge line `armada land` keeps in each served repository, read and published.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
@@ -175,13 +183,6 @@ pub mod mint;
 mod naming;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
-/// Noticing what became of a Job's pull request. **Fleet may merge, and the
-/// decision is what stays a person's** — a press from Bridge is
-/// `crate::merging` and reaches the same four things this module does about a
-/// merge it noticed. What this module is for is the other way one settles:
-/// somebody merged it on the forge, and that is only ever knowable by asking.
-/// An open one is asked a second question on the same rotation —
-/// `crate::under_review`.
 pub mod noticing;
 /// Where two Jobs claim the same paths, worked out at read time. **A
 /// warning and nothing else** — no dispatch path reaches it.
