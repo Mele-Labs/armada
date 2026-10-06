@@ -107,6 +107,17 @@ async fn a_running_job_paused_frees_its_slot_and_a_resume_continues_the_same_ste
     assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Queued);
 
     fleet.kill_job(&other).await.expect("the other ends");
+    // An agent takes the freed slot before the turn: the Drone bound has room
+    // and only the pool is short, which is what the label has to read.
+    fleet.vcs().hold_slot(&root(&home), 1, "an agent's session");
+    let still = fleet.load(&job).await.unwrap();
+    assert_eq!(
+        fleet.queued_reason(&still).await.unwrap().reason,
+        Some(QueuedReason::WaitingOnResources)
+    );
+    admit(&fleet).await.unwrap();
+    assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Queued);
+    fleet.vcs().free_slot(&root(&home), 1);
     admit(&fleet).await.unwrap();
 
     let back = fleet.load(&job).await.unwrap();
