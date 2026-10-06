@@ -37,7 +37,9 @@ impl Runner {
     /// where the Check declares none**, and then a template naming `{dir}` has
     /// nothing to put there and the Check runs whole instead — a runner whose
     /// commands are rooted at the repository needs no package and says so by
-    /// omitting it.
+    /// omitting it. A Check in a workspace manifest is the exception, and
+    /// `fleet`'s `by_its_runner` reads its omitted `dir` as `.`: it runs in
+    /// that manifest's directory already.
     pub fn dir(&self) -> Option<&str> {
         self.dir.as_deref()
     }
