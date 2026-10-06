@@ -41,7 +41,8 @@ checks:
     # Main's own state machines in node, against a `ws` server on a loopback
     # port — nothing else here runs main (#324).
     run: pnpm exec vitest run --maxWorkers=${width}
-    # No `dir`: see `components_test` in `packages/components/armada.yml`.
+    # No `dir`: a Check here runs in this directory, and a Drone's narrowed run
+    # puts `.` in the runner's `{dir}` and the paths relative to it in `{files}`.
     runner:
       name: vitest
     # One test by name, which Fleet runs against a checkout of main

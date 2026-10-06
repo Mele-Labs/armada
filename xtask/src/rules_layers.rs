@@ -19,8 +19,11 @@
 //! package to reach another through `../../`, and it is the one form that would
 //! slip past a rule reading names.
 //!
-//! **Surfaces sit between the screens and the app.** Each directory under
-//! `packages/surfaces/` is one package on layer 4, found by listing the
+//! **`@armada/bridge-api` (layer 4) sits above the screens and below the surfaces:** the
+//! types and tiny helpers a surface and the app both build on, with no React.
+//!
+//! **Surfaces sit between that and the app.** Each directory under
+//! `packages/surfaces/` is one package on layer 5, found by listing the
 //! directory because the table is static. Two surfaces cannot import each other
 //! (same layer). One exemption: a surface's `*.test.ts(x)` and `vitest.config.ts`
 //! may import `@armada/desktop`, the mock harness that mounts the whole app.
@@ -58,6 +61,7 @@ const LAYERS: &[(&str, &str)] = &[
     ("@armada/components", "packages/components"),
     ("@armada/shell", "packages/shell"),
     ("@armada/screens", "packages/screens"),
+    ("@armada/bridge-api", "packages/bridge-api"),
     ("@armada/desktop", "apps/desktop"),
 ];
 
@@ -77,8 +81,9 @@ fn layer_of(name: &str, surfaces: &[String]) -> Option<usize> {
         "@armada/components" => Some(1),
         "@armada/shell" => Some(2),
         "@armada/screens" => Some(3),
-        "@armada/desktop" => Some(5),
-        _ if surfaces.iter().any(|s| s == name) => Some(4),
+        "@armada/bridge-api" => Some(4),
+        "@armada/desktop" => Some(6),
+        _ if surfaces.iter().any(|s| s == name) => Some(5),
         _ => None,
     }
 }

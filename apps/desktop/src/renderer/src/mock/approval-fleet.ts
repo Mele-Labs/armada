@@ -18,6 +18,7 @@ import type {
   ToProposer,
 } from "@armada/protocol";
 import type { WaveJobView } from "@armada/screens/src/draft/wave";
+import { HARNESS } from "@armada/screens/src/fixtures/harness";
 
 /** The Job one press later: `queued`, carrying what the body set, approved `at`. */
 export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined, at: string): JobDetail {
@@ -92,9 +93,6 @@ export function sentBack(detail: JobDetail, body: ToProposer): JobDetail | Outco
     ...(body.landing === undefined ? {} : { landing: landingAs(body.landing) }),
   };
 }
-
-/** The one harness the mock's Fleet runs, `ModelChoices.harnesses`. */
-export const HARNESS = "mock-harness";
 
 /** A refusal, in Fleet's own code and words. */
 const refusedAs = (code: string, message: string): Outcome => ({

@@ -5,7 +5,7 @@
 
 import type { JobSummary, Outcome, WorktreeHeld, WorktreesHeld } from "@armada/protocol";
 
-import { slotsHeld } from "./slots-fleet";
+import { slotsHeld } from "@armada/screens/src/fixtures/slots";
 
 const ROOT = "/Users/user/armada/.armada/worktrees";
 const WIP_COMMIT = "d41f8a6c20be";

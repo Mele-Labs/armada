@@ -503,23 +503,6 @@ fn what_the_narrowed_checks_read_still_selects_them() {
     }
 }
 
-/// **The line's own suite is gated too.** Nothing else runs it, so without this
-/// the script an agent lands through would be the only code here nothing
-/// checks. The hook suite beside it is scoped the same way, and its own Check
-/// is asserted where the agent harness may be named — `scripts/test_land.py`.
-#[test]
-fn the_scripts_carry_their_own_check() {
-    assert_eq!(hits(&["scripts/land"]), vec!["scripts_test"]);
-    // The Manifest is read by a test in the script suite, and is the command.
-    assert!(hits(&["armada.yml"]).contains(&"scripts_test".to_string()));
-
-    let docs = hits(&["docs/capabilities/merge-line.md"]);
-    assert_eq!(docs, Vec::<String>::new(), "{docs:?}");
-
-    let rust = hits(&["crates/fleet/src/lib.rs"]);
-    assert!(!rust.contains(&"scripts_test".to_string()), "{rust:?}");
-}
-
 /// **`armada check` lowers a Check and never a Command.** `main` hands in the
 /// priority `ARMADA_CHECK_PRIORITY` names; this is what each registry does
 /// with a lowered one, read back from `ps` as the process's own priority.

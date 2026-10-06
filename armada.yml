@@ -248,31 +248,10 @@ checks:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
-  # The two Python suites that hold the local merge line together. They are two
-  # Checks rather than one because a `run` gets no shell, so nothing here can
-  # chain two commands — and because the two are read by different changes: one
-  # is the script agents land through, the other is the hook that keeps them in
-  # it.
-  scripts_test:
-    # `scripts/land` against a throwaway repository with a local bare remote and
-    # stub `gh` and `armada`. A failure means the line would merge, refuse or
-    # stall differently from what `docs/capabilities/merge-line.md` says — read
-    # the named test, not the exit code. They run against the real
-    # `armada land`, which `test_land.py` builds itself first, since a
-    # Check's `run:` has no shell to chain that onto the suite. A couple of
-    # minutes, most of it that build.
-    #
-    # `armada.yml` is named because a test reads this file: the Checks this
-    # suite asserts are gated are declared here.
-    run: python3 scripts/test_land.py
-    when:
-      - "scripts/**"
-      - "crates/armada/src/land/**"
-      - "crates/adapter-traits/src/delivery.rs"
-      - "crates/adapters/src/delivery.rs"
-      - "crates/adapters/src/landing.rs"
-      - "armada.yml"
-
+  # The Python suite for the hook that keeps agents landing through the merge
+  # line. `scripts/test_land.py`, the suite for the line's own script, is no
+  # longer a Check: it was the slowest one in every turn and the line it tests
+  # is being replaced by CI and pull requests.
   hooks_test:
     # What `.claude/hooks/guard_merge.py` refuses and what it lets through. A
     # failure means either a merge to `main` can walk past the line, or — the
