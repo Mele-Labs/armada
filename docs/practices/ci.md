@@ -17,6 +17,8 @@ A pull request is tested as its merge into `main`. Its diff runs from the event'
 base commit to that merge, so it holds what landed on `main` since the branch was
 cut. A merge group's diff runs from its base commit to its head commit.
 
+**The event's base commit does not move.** It is the commit `main` had when the pull request was opened, so a pull request that stays open runs the Checks for everything that landed on `main` since, as well as its own change. Measured.
+
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
 
@@ -79,6 +81,29 @@ reports on its own, so a red shard never blocks a change that `ci` passes.
 3. Add the name to the allowed list in the plan job's *Which Checks* step.
 4. Add the job to `ci`'s `needs`.
 
+## Measured on a trial pull request
+
+Seconds spent in each Check's own step on a 4-core, 16 GB `ubuntu-latest` runner
+and a 3-core, 7.5 GB `macos-latest` one, with every cache warm. Each job adds
+setup before the step: restoring caches, installing, building `armada`.
+
+| Check | Seconds | Note |
+|---|---|---|
+| `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada` |
+| `build`, `test` | 0 to 55 | Narrowed to what the diff touched |
+| `acceptance` | 24 to 30 | Whole |
+| `format` | 2 to 4 | |
+| `typecheck` | 45 to 48 | |
+| `bridge_build` | 5 to 8 | |
+| `storybook` | 32 to 35 | |
+| `screens_test` | 49 to 55 | |
+| `components_test` | 64 to 108 | |
+| `hooks_test` | 1 | |
+| `desktop_test` per shard | 68 to 275 | The slowest shard varied the most between runs |
+
+**A whole `test` was not measured to completion.** It stopped at the first
+failure, which was a Linux-only test failing on `main`.
+
 ## Not in CI
 
 | Check | Why |
@@ -114,6 +139,8 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | About 5 concurrent macOS jobs on the free plan; the queue can reach minutes | Measured |
 | Runner speed on macOS varies between runs | Measured |
 | Linux queue is 2 to 5 seconds | Measured |
+| An aggregate job started up to 13 minutes after the last job it needed finished, on runs with macOS shards in flight; the cause was not found | Measured |
+| A skipped shard job shows its name unexpanded, as `desktop_test shard ${{ matrix.shard }}/4` | Measured |
 | Caches hit fully on a repeat of the same lockfile and `.nvmrc` | Measured |
 | A cache written on a pull request is read by that pull request and not by another | Inferred from GitHub's cache scoping |
 | A merge queue run restores caches from `main` | Inferred from GitHub's cache scoping |
