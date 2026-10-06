@@ -24,17 +24,17 @@
 
 import { ActiveJobsList } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
-import { BoardEmpty, OverviewEmpty } from "./BoardEmpty";
-import type { BoardSection } from "./board";
-import { columnsFor, repositoryOf } from "./board";
-import { boardPressOf, verbOf } from "./keys";
+import { BoardEmpty, OverviewEmpty } from "@armada/screens/src/BoardEmpty";
+import type { BoardSection } from "@armada/screens/src/board";
+import { columnsFor, repositoryOf } from "@armada/screens/src/board";
+import { boardPressOf, verbOf } from "@armada/screens/src/keys";
 import { headlineOf } from "./lineage";
-import { useListCursor, useListKeydown } from "./list-keyboard";
-import type { PauseAct } from "./pausing";
+import { useListCursor, useListKeydown } from "@armada/screens/src/list-keyboard";
+import type { PauseAct } from "@armada/screens/src/pausing";
 import { overviewListsOf } from "./overview-lists";
-import { readingOf } from "./reading";
-import { useRecentChanges } from "./recent";
-import { isTerminal, Row } from "./Row";
+import { readingOf } from "@armada/screens/src/reading";
+import { useRecentChanges } from "@armada/screens/src/recent";
+import { isTerminal, Row } from "@armada/screens/src/Row";
 
 /** `id` on a section's own outer element, so a press elsewhere can `scrollIntoView` it by name. */
 export function overviewPanelId(section: BoardSection): string {

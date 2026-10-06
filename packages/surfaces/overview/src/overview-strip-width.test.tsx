@@ -12,7 +12,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, unmountAfterEach } from "./testing";
+import { mount, unmountAfterEach } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
@@ -55,7 +55,7 @@ function rowsOf(boxes: readonly DOMRect[]): number {
 
 async function overview(width: number, height: number): Promise<void> {
   await page.viewport(width, height);
-  mount("kinds");
+  mount("kinds", { slices: ["core", "overview"] });
   await expect.element(page.getByRole("navigation", { name: "What is on Overview" })).toBeVisible();
 }
 

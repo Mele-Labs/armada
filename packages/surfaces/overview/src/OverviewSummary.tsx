@@ -7,7 +7,7 @@
 
 import { OverviewSummaryStrip, type OverviewSummaryStripTone } from "@armada/components";
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
-import type { BoardSection } from "./board";
+import type { BoardSection } from "@armada/screens/src/board";
 import { overviewListsOf } from "./overview-lists";
 
 type StripSection = Extract<BoardSection, "needs-you" | "running" | "queued" | "recently-ended">;

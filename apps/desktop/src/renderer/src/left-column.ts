@@ -8,7 +8,7 @@ import type { Figure, StatRow, FleetPanelProps } from "@armada/components";
 import type { Connection, FleetCapacity, JobSummary, RepositorySummary } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import { fleetStateOf, shortLabelOf, silenceOf, versionsOf, type Statement } from "@armada/shell";
-import { doctorReading, driftReading, dronesReading } from "@armada/screens/src/overview";
+import { doctorReading, driftReading, dronesReading } from "@armada/overview";
 import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
 // `instant` and `lasting` are the Job elapsed-time figure's own parse-and-format
 // pair (`elapsedSince` above them). Reused rather than re-derived so a job's

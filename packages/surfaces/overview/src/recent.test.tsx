@@ -4,8 +4,8 @@ import type { JobSummary } from "@armada/protocol";
 import { afterEach, expect, test } from "vitest";
 
 import { OverviewLists, type OverviewListsProps } from "./OverviewLists";
-import { job, workflow } from "./fixtures/build/base";
-import { mount, rerender, unmount } from "./mounted";
+import { job, workflow } from "@armada/screens/src/fixtures/build/base";
+import { mount, rerender, unmount } from "@armada/screens/src/mounted";
 
 afterEach(unmount);
 
