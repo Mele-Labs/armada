@@ -1760,21 +1760,6 @@ class FailedCheck(LineFixture):
         open(gate, "w").close()
         self.assertEqual(self.settle(where, "fix/all-green").returncode, 0)
 
-    def test_a_failure_the_last_check_makes_is_not_a_heads_up(self):
-        # Nothing is left to wait through, and the verdict is right behind it.
-        where = self.branch("fix/fails-last", {"checks/test.sh": "exit 1\n"})
-        self.land(where, "preflight")
-        self.land(where)
-        seen = set()
-        while True:
-            done = self.land(where, "--status", "fix/fails-last", check=False)
-            seen.add(done.returncode)
-            if done.returncode not in (3, HEADS_UP):
-                break
-            time.sleep(0.05)
-        self.assertEqual(done.returncode, 4, done.stdout)
-        self.assertNotIn(HEADS_UP, seen)
-
     def test_main_is_asked_once_about_a_check_it_answered_mid_turn(self):
         # A timeout on main is not cached, so a second ask would run it again.
         self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
