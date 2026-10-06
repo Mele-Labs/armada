@@ -491,6 +491,30 @@ pub(crate) async fn kill_job<D: Commands>(
     }
 }
 
+/// Pause the Job: `Commands::park_job`. **The row comes back with `paused`
+/// set**, and on a Job at a gate with its status unchanged.
+pub(crate) async fn park_job<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+) -> Response {
+    match served.shared().park_job(job.id()).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Lift the pause: `Commands::resume_job`. The row comes back without `paused`,
+/// or with `resuming` set where every slot was held.
+pub(crate) async fn resume_job<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+) -> Response {
+    match served.shared().resume_job(job.id()).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Go and look at this Job now, and answer with what was found.
 ///
 /// **200 on every answer, including `not_working`.** The examination ran and

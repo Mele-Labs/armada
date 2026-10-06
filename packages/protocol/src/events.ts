@@ -64,6 +64,10 @@ export type Event =
   | ({ kind: "job.forgotten" } & JobForgotten)
   | ({ kind: "job.landed" } & JobLanded)
   | ({ kind: "job.remarks_changed" } & JobRemarksChanged)
+  /** A job was paused, which moves no status at a gate. Since 23.39. */
+  | ({ kind: "job.paused" } & JobPaused)
+  /** A job's pause was lifted, or its resume began waiting for a slot. Since 23.39. */
+  | ({ kind: "job.resumed" } & JobResumed)
   /** A Job's plan was recorded or a task changed. Since 13.21. */
   | ({ kind: "job.plan_changed" } & JobPlanChanged)
   | ({ kind: "proposal.moved" } & ProposalMoved)
@@ -140,6 +144,25 @@ export type JobLanded = {
  */
 export type JobRemarksChanged = {
   job_id: string;
+  actor: string;
+  at: string;
+};
+
+/**
+ * A job was paused. `crates/ipc/src/event.rs`. Since protocol 23.39.
+ *
+ * **The row travels whole**, `JobLanded`'s way: `paused` is the change, and a
+ * paused job at a gate moves no status, so `job.state_changed` never fires.
+ */
+export type JobPaused = {
+  job: JobSummary;
+  actor: string;
+  at: string;
+};
+
+/** A job's pause was lifted, or its resume began waiting (`paused.resuming`). The row whole. */
+export type JobResumed = {
+  job: JobSummary;
   actor: string;
   at: string;
 };

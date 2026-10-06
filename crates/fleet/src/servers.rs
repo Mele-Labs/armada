@@ -413,6 +413,39 @@ where
             .unwrap_or_default()
     }
 
+    /// `Commands::start_server`: a person starting one, for a Job or for a
+    /// checkout. **The `Arc` is handed on**, so the server is a task of its own.
+    ///
+    /// **Not `budgeted`**: a server answers through its own refusal.
+    pub(crate) async fn start_server_answered(
+        self: Arc<Self>,
+        asked: ipc::StartServer,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ServerState, Refusal> {
+        let place = match &asked.job_id {
+            Some(job_id) => Place::Job(
+                self.load(&job_id.to_domain())
+                    .await
+                    .map_err(|why| self.refusal(why))?,
+            ),
+            None => {
+                let served = self.served_named(manifest_id.as_ref())?;
+                let checkout = match asked.checkout.as_deref() {
+                    Some(path) => {
+                        Checkout::beside(served, path).map_err(|why| self.checkout_refusal(why))?
+                    }
+                    None => Checkout::main(served),
+                };
+                Place::Checkout(checkout)
+            }
+        };
+        let refusing = Arc::clone(&self);
+        Fleet::hold_server(self, place, &asked.name, ipc::StartedBy::Person, false)
+            .await
+            .map(|(state, _)| state)
+            .map_err(|why| refusing.server_refusal(why, asked.job_id.as_ref()))
+    }
+
     /// A path that is not a checkout of the repository asked about. **A 422**,
     /// `NotAServer`'s shape: a name that names nothing rather than a conflict
     /// with where things stand.

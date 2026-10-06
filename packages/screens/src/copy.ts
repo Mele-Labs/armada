@@ -57,6 +57,8 @@ export function said(outcome: Outcome): string {
       return "That answer is already in flight. It was not sent twice.";
     case "already_restarting":
       return "That restart is already in flight. It was not sent twice.";
+    case "already_pausing":
+      return "That pause or resume is already in flight. It was not sent twice.";
     case "already_overruling":
       return "That override is already in flight. It was not sent twice.";
     case "already_rereading":

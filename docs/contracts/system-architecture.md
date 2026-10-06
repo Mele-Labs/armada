@@ -416,6 +416,9 @@ rule, which prints them on every run.
 2026-09-03** — see `docs/concepts/drone.md`. It carried no Intervention Ladder
 rung, so Helm never reached it directly.
 
+Pausing a Job is `park_job` and `resume_job`, a different act: the Job is kept
+and its slot goes back. The name `pause_job` stays retired for the hold above.
+
 **`enter_pilot` is deliberately not a call.** Rung 3 is a human at a
 keyboard, so it is a UI mode switch rather than an API operation.
 

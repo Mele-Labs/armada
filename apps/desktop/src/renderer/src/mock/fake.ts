@@ -231,6 +231,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     redispatchJob: async () => OK,
     killDrone: async () => OK,
     killJob: async (jobId) => (move(jobId, { status: "killed" }), OK),
+    parkJob: async () => OK,
+    resumeJob: async () => OK,
     // Accepted, as Fleet answers a pid in the Job's tree (#1647). The mock
     // takes no second reading, so the row stays where Fleet's would drop.
     killProcess: async () => OK,

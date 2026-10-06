@@ -5,16 +5,21 @@
 //! `adapters`' tests. These are Fleet's half: what it refuses, what it records,
 //! and that a paused Job's gate, steps and review rows stay as they were.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::SlotParkRefused;
+use axum::http::StatusCode;
+use axum::Router;
 use config::{Manifest, Reloads};
 use core_model::{Job, JobId, JobStatus, QueuedReason, StepState};
+use ipc::{JobSummary, RunId, WireError};
 use testkit::FakeWorkProduct;
 
 use crate::adrift::Adrift;
 use crate::tests::admitted::admit;
 use crate::tests::daemon::{a_fleet, a_proposal, fittings, worktree_directory};
+use crate::tests::http::call;
 use crate::tests::reviewing::{a_fleet_reviewing_the_first_step, at_the_gate};
 use crate::tests::tmp::TempDir;
 
@@ -411,4 +416,176 @@ async fn paused_reads_before_frozen_and_a_resume_in_a_frozen_repository_reads_fr
     );
     fleet.turn().await.expect("a turn");
     assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Queued);
+}
+
+// ------------------------------------------------------------- the wire
+
+fn served(fleet: &Arc<Fixture>) -> Router {
+    api::router(api::Served::sharing(
+        Arc::clone(fleet),
+        RunId::carried("01RUN"),
+        fleet.events(),
+    ))
+}
+
+async fn acted(app: &Router, job: &JobId, act: &str) -> (StatusCode, Vec<u8>) {
+    call(app, "POST", &format!("/jobs/{}/{act}", job.as_str()), "").await
+}
+
+fn summary(body: &[u8]) -> JobSummary {
+    ipc::decode("a Job summary", body).expect("a JobSummary")
+}
+
+fn code(body: &[u8]) -> String {
+    ipc::decode::<WireError>("a wire error", body)
+        .expect("an error body")
+        .code
+}
+
+async fn log_of(fleet: &Fixture, home: &TempDir, job: &JobId) -> Vec<String> {
+    let handle = fleet.load(job).await.unwrap().handle();
+    crate::journal::read_from(&root(home), &handle, 0)
+        .notes
+        .into_iter()
+        .map(|note| note.msg)
+        .collect()
+}
+
+/// Every `job.paused` or `job.resumed` the stream carries, as the rows they
+/// replaced, tagged with the kind.
+fn pause_rows(delivered: Vec<ipc::Delivered>) -> Vec<(&'static str, JobSummary)> {
+    delivered
+        .into_iter()
+        .filter_map(|one| match one.event {
+            ipc::Event::JobPaused(paused) => Some(("job.paused", paused.job)),
+            ipc::Event::JobResumed(resumed) => Some(("job.resumed", resumed.job)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Everything published so far: a read that finds nothing within a beat has
+/// found the end.
+async fn heard(watching: &mut api::Subscription) -> Vec<ipc::Delivered> {
+    let mut heard = Vec::new();
+    while let Ok(Some(api::Next::Send(one))) =
+        tokio::time::timeout(Duration::from_millis(200), watching.next()).await
+    {
+        heard.push(one);
+    }
+    heard
+}
+
+#[tokio::test]
+async fn a_gate_job_paused_over_the_wire_keeps_its_status_and_says_so_to_every_client() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet_reviewing_the_first_step(&home, changed()));
+    let job = at_the_gate(&fleet, &home).await;
+    let app = served(&fleet);
+    let mut watching = fleet.events().subscribe();
+
+    let (status, body) = acted(&app, &job, "park_job").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let paused = summary(&body);
+    assert_eq!(
+        paused.status.as_wire(),
+        "awaiting_review",
+        "the real status"
+    );
+    assert_eq!(paused.queued_reason, None, "a gate Job is not queued");
+    let marker = paused.paused.as_ref().expect("the marker rides beside it");
+    assert_eq!((marker.by.as_str(), marker.resuming), ("person", false));
+    let rows = pause_rows(heard(&mut watching).await);
+    assert_eq!(rows.len(), 1, "one event, though no status moved");
+    assert_eq!(rows[0].0, "job.paused");
+    assert_eq!(rows[0].1.paused, paused.paused);
+    let log = log_of(&fleet, &home, &job).await;
+    assert!(
+        log.iter().any(|line| line.contains("was paused")),
+        "one line in the Job's log: {log:?}"
+    );
+
+    let (status, body) = acted(&app, &job, "resume_job").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let back = summary(&body);
+    assert_eq!(back.status.as_wire(), "awaiting_review");
+    assert_eq!(back.paused, None, "the marker is lifted");
+    let rows = pause_rows(heard(&mut watching).await);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "job.resumed");
+    assert_eq!(rows[0].1.paused, None);
+    let log = log_of(&fleet, &home, &job).await;
+    assert!(
+        log.iter().any(|line| line.contains("was resumed")),
+        "{log:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_running_job_paused_over_the_wire_reads_queued_for_a_pause() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_pool_of_one(&home));
+    let job = running(&fleet, &home, "fix the reader").await;
+    let app = served(&fleet);
+
+    let (status, body) = acted(&app, &job, "park_job").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let paused = summary(&body);
+    assert_eq!(paused.status.as_wire(), "queued");
+    assert_eq!(
+        paused.queued_reason.map(|reason| reason.as_wire()),
+        Some("paused")
+    );
+    assert!(paused.paused.is_some());
+
+    // A queued Job goes into admission's line, still marked until a slot is
+    // leased, and no longer reads paused.
+    let (_, body) = acted(&app, &job, "resume_job").await;
+    let resumed = summary(&body);
+    assert!(resumed.paused.is_some_and(|marker| marker.resuming));
+    assert_ne!(
+        resumed.queued_reason.map(|reason| reason.as_wire()),
+        Some("paused")
+    );
+}
+
+#[tokio::test]
+async fn each_refusal_over_the_wire_is_a_409_with_its_own_code() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet_reviewing_the_first_step(&home, changed()));
+    let job = at_the_gate(&fleet, &home).await;
+    let app = served(&fleet);
+    let refused = |(status, body): (StatusCode, Vec<u8>), expected: &str| {
+        assert_eq!(status, StatusCode::CONFLICT, "{expected}");
+        assert_eq!(code(&body), expected);
+    };
+
+    refused(acted(&app, &job, "resume_job").await, "fleet.not_paused");
+
+    let proposed = fleet.propose(a_proposal("not yet approved")).await.unwrap();
+    refused(
+        acted(&app, proposed.id(), "park_job").await,
+        "fleet.not_pausable",
+    );
+
+    let rerun = fleet.rechecking().take(&job).expect("a re-run is out");
+    refused(acted(&app, &job, "park_job").await, "fleet.checks_running");
+    drop(rerun);
+
+    fleet.vcs().refuse_next_park(SlotParkRefused::OnNoBranch);
+    let (status, body) = acted(&app, &job, "park_job").await;
+    refused((status, body.clone()), "fleet.pause_refused");
+    let error: WireError = ipc::decode("a wire error", &body).unwrap();
+    assert!(
+        error.message.contains("nothing changed"),
+        "it carries the pool's reason: {}",
+        error.message
+    );
+
+    assert_eq!(acted(&app, &job, "park_job").await.0, StatusCode::OK);
+    refused(acted(&app, &job, "park_job").await, "fleet.already_paused");
+    refused(acted(&app, &job, "approve_review").await, "fleet.paused");
 }

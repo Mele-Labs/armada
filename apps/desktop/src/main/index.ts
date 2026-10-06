@@ -508,6 +508,12 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.killJob, (_event, jobId: string) =>
     connection?.commands.killJob(jobId),
   );
+  ipcMain.handle(CHANNELS.parkJob, (_event, jobId: string) =>
+    connection?.commands.parkJob(jobId),
+  );
+  ipcMain.handle(CHANNELS.resumeJob, (_event, jobId: string) =>
+    connection?.commands.resumeJob(jobId),
+  );
   // One process of the Job, or all of them — Pulse's two kills, #1647.
   ipcMain.handle(CHANNELS.killProcess, (_event, jobId: string, pid: number) =>
     connection?.commands.killProcess(jobId, pid),

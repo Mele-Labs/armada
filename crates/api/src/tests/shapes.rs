@@ -191,6 +191,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         merged_at: None,
         reclaimed_at: None,
         tasks: None,
+        paused: None,
     }
 }
 

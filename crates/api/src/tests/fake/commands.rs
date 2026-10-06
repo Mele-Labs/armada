@@ -28,6 +28,22 @@ use super::FakeDaemon;
 use crate::{Commands, Refusal};
 
 impl FakeDaemon {
+    /// The Job with its pause marker set or lifted, **status untouched**, as a
+    /// gate Job's is.
+    fn pause_marked(&self, job_id: &JobId, paused: bool) -> Result<JobSummary, Refusal> {
+        let mut jobs = self.jobs.lock().expect("not poisoned");
+        let job = jobs
+            .iter_mut()
+            .find(|job| job.id == *job_id)
+            .ok_or_else(|| self.no_such_job(job_id))?;
+        job.paused = paused.then(|| ipc::Paused {
+            by: String::from("person"),
+            at: ipc::Instant::carried("2026-10-06T09:00:00.000Z"),
+            resuming: false,
+        });
+        Ok(job.clone())
+    }
+
     /// The Job as it stands, or the 404 every fake command gives an id that
     /// names nothing.
     fn unmoved(&self, job_id: &JobId) -> Result<JobSummary, Refusal> {
@@ -526,6 +542,12 @@ impl Commands for FakeDaemon {
     }
     async fn kill_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_kill_job(job_id).await
+    }
+    async fn park_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        self.pause_marked(&job_id, true)
+    }
+    async fn resume_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        self.pause_marked(&job_id, false)
     }
     async fn kill_process(
         self: std::sync::Arc<Self>,
