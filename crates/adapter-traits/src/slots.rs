@@ -139,6 +139,9 @@ pub struct SlotParked {
     /// The WIP commit, where there was uncommitted work to keep; `None` where
     /// the slot was clean and was only released.
     pub commit: Option<String>,
+    /// The files that commit took, as git names them. Empty where `commit` is
+    /// `None`.
+    pub files: Vec<String>,
 }
 
 /// Why a park changed nothing, or committed and could not free the slot. The

@@ -70,7 +70,10 @@ impl Pool {
             // `--no-verify`: work in progress being kept, not offered, and a
             // hook that refused it would leave it in a slot the person wants
             // freed.
-            let message = format!("WIP: parked from slot-{number}, not finished");
+            let message = format!(
+                "WIP: uncommitted files of {}, saved to free slot-{number}",
+                holder.said()
+            );
             git(&slot, &["commit", "--quiet", "--no-verify", "-m", &message])
                 .map_err(ParkRefused::Vcs)?;
             let commit = git(&slot, &["rev-parse", "HEAD"]).map_err(ParkRefused::Vcs)?;

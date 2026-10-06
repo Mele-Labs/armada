@@ -70,10 +70,17 @@ pub(crate) fn lease_existing(
 /// Commit the Job's work to its branch and give the slot back.
 pub(crate) fn park(slots: &SlotPool, slot: u32, job: &str) -> Result<SlotParked, SlotParkRefused> {
     match pool(slots).park(slot as usize, &Holder::job(job)) {
-        Ok(parked) => Ok(SlotParked {
-            branch: parked.branch,
-            commit: parked.committed.map(|committed| committed.commit),
-        }),
+        Ok(parked) => {
+            let (commit, files) = match parked.committed {
+                Some(committed) => (Some(committed.commit), committed.files),
+                None => (None, Vec::new()),
+            };
+            Ok(SlotParked {
+                branch: parked.branch,
+                commit,
+                files,
+            })
+        }
         Err(ParkRefused::NotASlot(_) | ParkRefused::NotLeased(_)) => {
             Err(SlotParkRefused::NotLeased)
         }

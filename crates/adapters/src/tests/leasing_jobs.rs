@@ -242,6 +242,12 @@ fn a_parked_jobs_work_is_at_its_branch_s_tip_in_whichever_slot_it_comes_back_to(
     let parked = GitVcs.park_slot(&pool, slot, "01JOB").expect("it parks");
     assert_eq!(parked.branch, "armada/1-a-job");
     assert!(parked.commit.is_some(), "the untracked file was committed");
+    assert_eq!(parked.files, vec!["wip.txt"]);
+    let subject = repo.git(&["log", "-1", "--format=%s", &parked.branch]);
+    assert!(
+        subject.contains("WIP") && subject.contains("job 01JOB"),
+        "the commit names the Job and says it is work in progress: {subject}"
+    );
     assert_eq!(
         GitVcs.slot_standing(&pool, slot, "01JOB"),
         SlotStanding::Free
