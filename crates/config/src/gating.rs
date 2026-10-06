@@ -55,7 +55,7 @@ pub fn gating(root: &Manifest, workspaces: &[Manifest], changed: &[String]) -> V
 }
 
 /// The directory of the nearest workspace above `path`, or empty for the root.
-fn owner<'a>(workspaces: &'a [Manifest], path: &str) -> &'a str {
+pub fn owner<'a>(workspaces: &'a [Manifest], path: &str) -> &'a str {
     workspaces
         .iter()
         .map(Manifest::dir)

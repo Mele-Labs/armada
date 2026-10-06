@@ -287,6 +287,7 @@ where
             });
         };
         let served = self.served_by(job)?;
+        let gated = self.gated_by_the_change(&served, worktree);
         let judging = self
             .judging(job, &served)
             .map_err(|cause| Adrift::NotConfigurable {
@@ -379,7 +380,8 @@ where
         let held_off = self.held_off(job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
-                .holding_handoff(at_group.is_some_and(|g| g.follows)),
+                .holding_handoff(at_group.is_some_and(|g| g.follows))
+                .over(gated.as_ref()),
             Request::of(job),
             submission,
             declared.as_ref(),
@@ -409,6 +411,8 @@ where
         let coord = at_group.map(|g| (g.group, g.run));
         self.recorded_checks(job_id, &job.handle(), step, attempt, coord, &ruling)
             .await?;
+        self.kept_gates(job_id, at.step(), gated.as_ref(), &ruling)
+            .await;
         self.kept_what_the_gate_checked(job, &ruling).await;
         self.kept_timings(job, announcing.timings()).await;
         self.kept_runs(job, announcing.runs()).await;

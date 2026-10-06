@@ -29,7 +29,7 @@ pub(crate) fn gate_manifests(served: &Served, paths: Option<&[String]>) -> Vec<G
     let root = served.manifest();
     let gating: Vec<&Manifest> = match paths {
         None => std::iter::once(root).chain(workspaces).collect(),
-        Some(paths) => config::gating(root, workspaces, paths)
+        Some(paths) => config::gating(root, workspaces, &naming_workspaces(workspaces, paths))
             .iter()
             .filter_map(|gate| {
                 std::iter::once(root)
@@ -43,6 +43,22 @@ pub(crate) fn gate_manifests(served: &Served, paths: Option<&[String]>) -> Vec<G
         .map(|manifest| GateManifest {
             manifest_id: manifest.id().clone(),
             outcome: GateOutcome::DidNotRun(NotRunReason::PathConditionUnmet),
+        })
+        .collect()
+}
+
+/// A path naming a workspace's directory, `packages/a`, owned by that
+/// workspace as `packages/a/` is: `config::gating` reads a directory by its
+/// trailing slash.
+fn naming_workspaces(workspaces: &[Manifest], paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|path| {
+            let bare = path.trim_start_matches('/').trim_end_matches('/');
+            match workspaces.iter().any(|manifest| manifest.dir() == bare) {
+                true => format!("{bare}/"),
+                false => path.clone(),
+            }
         })
         .collect()
 }

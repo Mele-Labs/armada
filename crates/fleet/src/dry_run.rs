@@ -331,7 +331,8 @@ where
         let declared = plan.record.workflow().step(&plan.step)?;
         let checks = mid_step_named(&declared, ask.check.as_deref());
         let check = checks.first()?;
-        if !check.requires().is_empty() {
+        // A bare string runs from the worktree root, not a workspace's directory.
+        if !check.requires().is_empty() || !check.manifest_dir().is_empty() {
             return None;
         }
         let whole = check.run()?;
@@ -712,6 +713,7 @@ where
             // it a measurement.
             None,
             read.attempt,
+            None,
             None,
         );
         for done in self.heard_while(caller, run, running, hearing).await {

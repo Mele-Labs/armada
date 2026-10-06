@@ -257,7 +257,7 @@ where
             ruling
                 .checks()
                 .iter()
-                .any(|row| row.name == check.label() && row.outcome.advances())
+                .any(|row| row.name == check.key() && row.outcome.advances())
         };
         if !wanted.iter().all(passed) {
             return;
@@ -353,6 +353,7 @@ where
             &checking::Stop::never(),
             None,
             attempt,
+            None,
             None,
         )
         .await;
@@ -471,7 +472,7 @@ fn gated_on(job: &Job) -> Vec<ResolvedCheck> {
         .iter()
         .flat_map(|step| step.checks())
         .filter(|check| matches!(check, ResolvedCheck::ManifestCheck { .. }))
-        .filter(|check| seen.insert(check.label().to_string()))
+        .filter(|check| seen.insert(check.key().to_string()))
         .cloned()
         .collect()
 }

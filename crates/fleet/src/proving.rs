@@ -289,6 +289,7 @@ fn spawn_the_run(
             None,
             core_model::Attempt::FIRST,
             None,
+            None,
         )
         .await;
         let observed: Vec<Observed> = completed.iter().map(|one| one.observed.clone()).collect();
@@ -298,7 +299,7 @@ fn spawn_the_run(
             .iter()
             .zip(completed.iter())
             .filter_map(|(check, done)| match &done.observed {
-                Observed::Command(Exit::Code(_)) => Some((check.label().to_string(), done.took)),
+                Observed::Command(Exit::Code(_)) => Some((check.key().to_string(), done.took)),
                 _ => None,
             })
             .collect();

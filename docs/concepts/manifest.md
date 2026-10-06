@@ -76,13 +76,23 @@ checks:
 - **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did.
 - **`Job::gate_manifests` is empty for a repository with no workspaces**, where the root gates every Job and nothing needs saying. Where workspaces exist it lists every manifest that gates, the root included. It is first written at dispatch from `write_targets`: undetermined gates every manifest, determined and empty gates none.
 
-**What the gate must do** (not built; the step gate and the merge line own it):
+**What the step gate does where a repository has workspaces.** The merge line is not built (A5).
 
-- **Refresh `gate_manifests` from the actual diff** with `Store::replace_gate_manifests`, and record each manifest's real outcome. Dispatch writes a placeholder, since no Check has run.
-- **Run a Check in its manifest's directory**, keyed by `(manifest_dir, name)`: two manifests may each declare `test`.
-- **Read the changed paths, not the list alone.** An empty `gate_manifests` means the root alone in a repository with no workspaces and nothing in one that has them.
-- **Resolve at startup over every manifest**, because a workflow resolves once with no diff. The gate then skips the Checks whose manifest the diff does not gate.
-- **Stop `not_covered` reading no paths as always.** It asks `Covers::reach` with the step's paths, and an empty list must skip every Check before that question is asked.
+- **It reads the changed paths, never the list alone.** `gate_manifests` is empty for a repository with no workspaces, where the root alone gates and nothing is read; where workspaces exist, `config::gating` over the diff says which manifests gate, and an empty diff gates none. A repository with no workspaces gates as it always did, so an empty diff there still runs a Check that declares no `when`.
+- **A Check runs in its manifest's directory**, with its prerequisites, its `one_test` and the whole run alone that confirms a red. Its `when` and its narrowing read the paths that manifest owns, relative to it, so a root Check never sees a workspace's path.
+- **A Check is keyed by its manifest and name.** `ResolvedCheck::key` is the bare name for the root's and `<dir>:<name>` for a workspace's, and every row, live entry, past duration and reused answer is found by it. A Drone naming a Check for a test broken on main names that key.
+- **A manifest the change does not gate skips its Checks.** The workflow resolves once, over every manifest, and the gate skips the Checks whose manifest the diff does not reach. Nothing loads a repository's workspaces at startup yet, so only a test resolves this way.
+- **The gate replaces `gate_manifests` with what each gating manifest came to**, and writes the same to the Job's log. Dispatch wrote a placeholder, since no Check had run. Where a step declares no manifest Check, the list stays as it was.
+
+| A gating manifest's Checks on the step | Outcome |
+|---|---|
+| none declared | did not run, not declared |
+| any did not pass | ran and failed |
+| any passed | ran and passed |
+| all skipped, none covers what the manifest owns | did not run, path condition unmet |
+| all skipped, one covers it | did not run, scope narrowed |
+
+- **A Drone's own run and `armada check` still read the root.** Both pass no manifests, so they run each Check in its directory and read `when` under it, but gate nothing. A bare command handed to a Drone's harness is refused for a workspace Check.
 
 ### Seeding a worktree's build
 
