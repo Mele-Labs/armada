@@ -496,6 +496,34 @@ notes = """
 **Agents only, so far.** Fleet's Jobs still cut their own worktree under `.armada/worktrees/`, and do not count against the pool. `docs/concepts/fleet.md`, *Worktree slots*.
 """
 
+[settings.manifest-auto-release]
+name = "Auto-release of parked Jobs"
+scope = "Manifest only"
+default = "on"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+`setup.auto_release` in the root `armada.yml`. **On**, Fleet pauses a parked Job by itself when work is waiting for a worktree slot and the pool is full, so the waiting work can start. Off, it never does, and a person's Pause is the only way a slot comes back. The owner's decision of 5 Oct 2026: Pause and Resume, plus auto-release, with a grace window and an off switch. `docs/concepts/fleet.md`, *A paused Job gives its slot back*.
+
+**Read each turn from the Manifest Fleet booted with**, as `setup.worktrees` is, so a save applies at the next restart. Root only; a workspace's file that says it is refused.
+"""
+
+[settings.manifest-auto-release-grace-minutes]
+name = "Auto-release grace window"
+scope = "Manifest only"
+default = "15"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+`setup.auto_release_grace_minutes` in the root `armada.yml`, a positive whole number of minutes. Fleet never auto-releases a Job whose last event is younger than this, because Fleet cannot see what Bridge shows and a person may have just opened it. The window is measured from the later of the Job's last event and the moment a person last resumed it or Fleet last failed to pause it. The owner chose fifteen on 5 Oct 2026.
+"""
+
 [settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only]
 name = "Helm action authority (Tier 1 Redirect enabled vs read-only)"
 scope = "Machine"
