@@ -121,6 +121,8 @@ export type OverviewTabProps = JobDetailProps & {
   onOpenCheck: (at: CheckAt) => void;
   /** Open a boundary Check's log in the log panel. **The screen's**, which holds the panel. */
   onOpenCheckLog: (log: JobCheckLog) => void;
+  /** Open main's failed Check's log, which a Job that took main's red leads with. The shell's, which holds the panel. */
+  onOpenMainLog?: (at: { check: string; branch: string }) => void;
   /**
    * The Job header's own acts, drawn again as the lead's where the lead's act
    * is approving the dispatch. **The same element, not a second control**, so
@@ -678,9 +680,14 @@ export function OverviewTab(props: OverviewTabProps) {
   const leadAct =
     lead.act === undefined || waiting !== undefined ? undefined : lead.approves === true ? (
       props.headerActs
-    ) : open === undefined ? undefined : (
+    ) : open === undefined && !(opens !== undefined && "mainLog" in opens) ? undefined : (
       <Button
         onClick={() => {
+          if (opens !== undefined && "mainLog" in opens) {
+            props.onOpenMainLog?.(opens.mainLog);
+            return;
+          }
+          if (open === undefined) return;
           if (opens === undefined) {
             // Selecting the step is what opens the inspector on it, which is
             // where the question box and the gate's own acts already are.

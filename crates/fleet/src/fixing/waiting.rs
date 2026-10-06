@@ -96,7 +96,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Point this Job at every claimed fix in its repository whose test one of
-    /// its failed Checks printed. **Nothing here can fail the gate or the dry
+    /// its failed Checks printed. **Nothing here can fail the gate or the asked
     /// run that reached it**: a read that will not answer points nothing. A
     /// name cut from the output is missed: `[fleet-fix-pointing-reads-a-cut-output]`.
     pub(crate) async fn pointed_at_fixes(&self, job: &JobId, failed: &[(String, String)]) {
@@ -124,7 +124,7 @@ where
         }
     }
 
-    /// The same, from a dry run's report: each row that did not advance, with
+    /// The same, from a asked run's report: each row that did not advance, with
     /// the tail of what it printed.
     pub(crate) async fn pointed_at_fixes_in(&self, job: &JobId, report: &CheckReport) {
         let failed: Vec<(String, String)> = report

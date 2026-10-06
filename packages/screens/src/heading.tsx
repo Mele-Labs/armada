@@ -16,12 +16,13 @@
 // one decision: the badge is the header, so there is no partial render to fall
 // back to.
 
-import { JOB_LIFECYCLE, JOB_STATUS, PausedMark, type JobDetailHeading } from "@armada/components";
+import { FixingMainMark, JOB_LIFECYCLE, JOB_STATUS, PausedMark, type JobDetailHeading } from "@armada/components";
 import type { FileReport, JobDetail as JobWhole, JobSummary, Outcome } from "@armada/protocol";
 import { Acts, type ConfirmableAct, type HeldAct } from "./Acts";
 import { factsOf } from "./facts";
 import type { ActAnswer, ActingAct } from "./pending";
 import { openPullRequest, type OpenPullRequest } from "./opening";
+import { fixesMainOf, fixesMainSaid } from "./main-red";
 import { pausedSaid } from "./pausing";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
@@ -118,7 +119,18 @@ export function headingOf({
     statusLabel: leading(reading.verb),
     // Beside the badge and never instead of it: a Job at a review gate reads
     // Needs review with this next to it.
-    ...(job.paused === undefined ? {} : { mark: <PausedMark said={pausedSaid(job, now)!} /> }),
+    ...(job.paused === undefined && fixesMainOf(job) === undefined
+      ? {}
+      : {
+          mark: (
+            <>
+              {fixesMainOf(job) === undefined ? null : (
+                <FixingMainMark state={fixesMainOf(job)!.state} said={fixesMainSaid(fixesMainOf(job)!)} />
+              )}
+              {job.paused === undefined ? null : <PausedMark said={pausedSaid(job, now)!} />}
+            </>
+          ),
+        }),
     headline: titleOf(job),
     // **The number, with the whole handle one click away.** The handle is the
     // Job's number and a slug of its title — a branch name and a worktree

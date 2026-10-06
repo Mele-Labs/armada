@@ -60,7 +60,7 @@ where
             &env,
             None,
             stop,
-            // No Drone and no dry run: proving a fix against main is not
+            // No Drone and no asked run: proving a fix against main is not
             // anything a Drone asked about first.
             None,
             core_model::Attempt::FIRST,

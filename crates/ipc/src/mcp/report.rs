@@ -58,7 +58,7 @@ pub struct CheckExcerpt {
     pub capture_truncated: bool,
 }
 
-/// One Check, as a dry run found it.
+/// One Check, as a asked run found it.
 ///
 /// **`detail` and `log` are `Option` because both are legitimately absent**: a
 /// Check that passed has the outcome as its whole sentence, and a built-in

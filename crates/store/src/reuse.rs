@@ -1,6 +1,6 @@
-//! Whether a step's Check result came from a Drone's own dry run. `#1014`.
+//! Whether a step's Check result came from a Drone's own asked run. `#1014`.
 
-/// Version 69 — a Check's row says when it was answered from a dry run
+/// Version 69 — a Check's row says when it was answered from a asked run
 /// instead of the gate's own run.
 ///
 /// **Nullable, and no `DEFAULT`**: `NULL` is a Check the gate ran itself,

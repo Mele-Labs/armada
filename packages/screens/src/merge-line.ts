@@ -5,7 +5,7 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
+import type { MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
 import type { MergeLine, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
@@ -25,13 +25,15 @@ export type MergeLineView = {
   sentBack: readonly MergeLineEntry[];
   /** The turn's failed Check, while it runs on. */
   notice?: MergeLineNotice;
+  /** Main's state and the repository's open pull requests, where Fleet serves them. */
+  hub?: MergeLineHub;
 };
 
 /**
  * A line as the mock serves it ahead of the wire: `notice` is not a field of protocol 23 yet, so a
  * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
  */
-type NoticedLine = MergeLine & { notice?: MergeLineNotice };
+type NoticedLine = MergeLine & { notice?: MergeLineNotice; hub?: MergeLineHub };
 
 /** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
 type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
@@ -75,6 +77,7 @@ export function mergeLineViews(
     landed: one.landed.map((row) => entryOf(row)),
     sentBack: one.sent_back.map((row) => entryOf(row)),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
+    ...((one as NoticedLine).hub === undefined ? {} : { hub: (one as NoticedLine).hub }),
   }));
 }
 

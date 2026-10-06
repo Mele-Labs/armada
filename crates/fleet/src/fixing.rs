@@ -2,7 +2,7 @@
 //! running just that test against main before anything is drafted. #999.
 //!
 //! **The call answers at once, and what the run came to is a later turn**, for
-//! `crate::dry_run`'s reason (#1020): the checkout of main may never have been
+//! `crate::asked_run`'s reason (#1020): the checkout of main may never have been
 //! built, and a build outlasts what the agent CLI waits on one call.
 //!
 //! **Three bounds.** A Drone waits on one run at a time, a step asks for at most
@@ -41,7 +41,7 @@ use crate::session::{LiveSession, Occasion};
 
 /// How many fixes one step may ask for.
 ///
-/// **A newtype with one constructor and no `Default`**, for [`crate::DryRuns`]'
+/// **A newtype with one constructor and no `Default`**, for [`crate::AskedRuns`]'
 /// reason: the composition root names it once and says there what it is worth.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Fixes(u32);
@@ -177,8 +177,8 @@ where
             }
             return Ok(FixAnswer::AlreadyClaimed(claim.fix));
         }
-        // One counter with the dry runs, so a run one ended cannot end the other.
-        let run = crate::dry_run::RUNS.fetch_add(1, Ordering::Relaxed);
+        // One counter with the asked runs, so a run one ended cannot end the other.
+        let run = crate::asked_run::RUNS.fetch_add(1, Ordering::Relaxed);
         let (going, stop) = Stop::when_dropped();
         self.fix_begins(caller, &request, run, going).await?;
         let fleet = Arc::clone(self);

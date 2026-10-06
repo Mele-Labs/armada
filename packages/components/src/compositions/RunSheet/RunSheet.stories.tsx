@@ -92,7 +92,7 @@ const GROUPS: RunSheetGroup[] = [
         run: "cargo fmt --all --check",
         note: "Runs fmt first.",
         narrowRun:
-          "rustfmt --check --edition 2021 crates/fleet/src/working/dry_run.rs " +
+          "rustfmt --check --edition 2021 crates/fleet/src/working/asked_run.rs " +
           "crates/api/src/routes/jobs.rs",
         narrowed: true,
       },
@@ -303,7 +303,7 @@ export const UnexpectedExit: Story = {
 // What `fmt` actually touches: Rust source, run through rustfmt. Neither
 // Cargo.lock nor a package.json is a file `cargo fmt` ever rewrites.
 const CHANGED_FILES: ChangedFile[] = [
-  { path: "crates/fleet/src/working/dry_run.rs", change: "modified", added: 3, deleted: 3 },
+  { path: "crates/fleet/src/working/asked_run.rs", change: "modified", added: 3, deleted: 3 },
   { path: "crates/api/src/routes/jobs.rs", change: "modified", added: 2, deleted: 1 },
 ];
 

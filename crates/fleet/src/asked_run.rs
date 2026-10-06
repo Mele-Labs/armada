@@ -10,7 +10,7 @@
 //! | Bound | What it stops |
 //! |---|---|
 //! | A refusal while one runs | Two builds in one worktree |
-//! | [`DryRuns`], per step | Ask, change a line, ask again, for the whole step |
+//! | [`AskedRuns`], per step | Ask, change a line, ask again, for the whole step |
 //! | A step that ends mid-run | A report on whatever follows; its Checks stop |
 //! | A Check that fails | The rest of the run; the Drone hears the failure at once |
 
@@ -44,11 +44,11 @@ use crate::working::Working;
 /// How many times one step may ask. **One constructor and no `Default`**, for
 /// [`CheckBudget`](crate::CheckBudget)'s reason.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DryRuns(u32);
+pub struct AskedRuns(u32);
 
-impl DryRuns {
-    pub const fn of(allowed: u32) -> DryRuns {
-        DryRuns(allowed)
+impl AskedRuns {
+    pub const fn of(allowed: u32) -> AskedRuns {
+        AskedRuns(allowed)
     }
 
     pub fn allowed(&self) -> u32 {
@@ -283,7 +283,7 @@ fn mid_step_named(step: &ResolvedStep, named: Option<&str>) -> Vec<ResolvedCheck
     }
 }
 
-/// What one dry run is against: read under the slot lock, held while it is not.
+/// What one asked run is against: read under the slot lock, held while it is not.
 struct Plan {
     record: Job,
     step: StepId,
@@ -325,7 +325,7 @@ struct Readings {
     attempt: Attempt,
     records_root: String,
     /// What the worktree held before any Check started. **The reading
-    /// `crate::reuse::KeptDryRun` is built against**, never one taken once
+    /// `crate::reuse::KeptAskedRun` is built against**, never one taken once
     /// the run has finished — a Drone may keep editing while its Checks run
     /// (#1020), and a footprint taken then would vouch for content the
     /// Checks never saw.
@@ -351,9 +351,10 @@ where
         caller: &JobId,
         ask: ipc::mcp::ChecksAsk,
     ) -> Result<ChecksRunning, NotRun> {
-        let plan = self.dry_run_looks(caller, &ask).await?;
-        let read = self.dry_run_reads(&plan, &ask).await?;
-        self.dry_run_begins(caller, plan, read, spends(&ask)).await
+        let plan = self.asked_run_looks(caller, &ask).await?;
+        let read = self.asked_run_reads(&plan, &ask).await?;
+        self.asked_run_begins(caller, plan, read, spends(&ask))
+            .await
     }
 
     /// The command the named Check would run against what this Drone has
@@ -381,8 +382,8 @@ where
         caller: &JobId,
         ask: ipc::mcp::ChecksAsk,
     ) -> Option<String> {
-        let plan = self.dry_run_looks(caller, &ask).await.ok()?;
-        let read = self.dry_run_reads(&plan, &ask).await.ok()?;
+        let plan = self.asked_run_looks(caller, &ask).await.ok()?;
+        let read = self.asked_run_reads(&plan, &ask).await.ok()?;
         let declared = plan.record.workflow().step(&plan.step)?;
         let checks = mid_step_named(&declared, ask.check.as_deref());
         let check = checks.first()?;
@@ -411,7 +412,7 @@ where
     /// seconds; charging it what a rehearsal of the whole gate costs is what
     /// made a Drone hoard all three and run the commands by hand instead.
     /// #1456.
-    fn dry_run_refused(&self, caller: &JobId, at_work: &Working, spends: bool) -> Option<NotRun> {
+    fn asked_run_refused(&self, caller: &JobId, at_work: &Working, spends: bool) -> Option<NotRun> {
         if at_work.session().unheard() {
             return Some(NotRun::Unheard);
         }
@@ -428,8 +429,8 @@ where
         if !spends {
             return None;
         }
-        let allowed = self.dry_runs().allowed();
-        (at_work.dry_runs() >= allowed).then_some(NotRun::Spent { allowed })
+        let allowed = self.asked_runs().allowed();
+        (at_work.asked_runs() >= allowed).then_some(NotRun::Spent { allowed })
     }
 
     /// Where the run in flight stands, off the slot's mark and the live view
@@ -438,7 +439,7 @@ where
         let (job, step, _) = at_work.drone();
         let rows = self
             .underway()
-            .dry_run_on(&ipc::JobId::from(&job), &ipc::StepId::from(&step))
+            .asked_run_on(&ipc::JobId::from(&job), &ipc::StepId::from(&step))
             .map(|underway| underway.checks)
             .unwrap_or_default();
         let running: Vec<String> = rows
@@ -468,7 +469,7 @@ where
     }
 
     /// Whether there is a run to make, and what it is against.
-    async fn dry_run_looks(
+    async fn asked_run_looks(
         &self,
         caller: &JobId,
         ask: &ipc::mcp::ChecksAsk,
@@ -480,7 +481,7 @@ where
         let Some(at_work) = working.as_ref() else {
             return Err(NotRun::NothingIsWorking);
         };
-        if let Some(why) = self.dry_run_refused(caller, at_work, spends(ask)) {
+        if let Some(why) = self.asked_run_refused(caller, at_work, spends(ask)) {
             return Err(why);
         }
         let (job, step, worktree) = at_work.standing();
@@ -534,7 +535,7 @@ where
     }
 
     /// Every reading the run needs, with no lock held.
-    async fn dry_run_reads(
+    async fn asked_run_reads(
         &self,
         plan: &Plan,
         ask: &ipc::mcp::ChecksAsk,
@@ -572,7 +573,7 @@ where
         // coverage skip and the narrowing, and are not checked against it: a
         // Drone asking about a file it has not finished changing is asking a
         // question it is entitled to an answer to, and the gate reads the diff
-        // for itself regardless. `reuse::KeptDryRun` drops every narrowed
+        // for itself regardless. `reuse::KeptAskedRun` drops every narrowed
         // Check, so nothing measured this way reaches a gate as a pass. #1456.
         let touched: Vec<String> = match ask.files.is_empty() {
             false => ask.files.clone(),
@@ -617,7 +618,7 @@ where
             .work_plan(plan.record.id())
             .map_err(|cause| unread(cause.to_string()))?
             .map(|recorded| recorded.counts());
-        // The attempt keeps a reattempt's dry runs from overwriting earlier ones.
+        // The attempt keeps a reattempt's asked runs from overwriting earlier ones.
         let attempt = self
             .store()
             .lock()
@@ -641,7 +642,7 @@ where
     }
 
     /// Put the mark on and start the run, inside the lock that read the count.
-    async fn dry_run_begins(
+    async fn asked_run_begins(
         self: &Arc<Self>,
         caller: &JobId,
         plan: Plan,
@@ -658,7 +659,7 @@ where
         else {
             return Err(NotRun::NothingIsWorking);
         };
-        if let Some(why) = self.dry_run_refused(caller, at_work, spends) {
+        if let Some(why) = self.asked_run_refused(caller, at_work, spends) {
             return Err(why);
         }
         let run = RUNS.fetch_add(1, Ordering::Relaxed);
@@ -677,7 +678,7 @@ where
             .iter()
             .map(|check| check.label().to_string())
             .collect();
-        self.noted_dry_started(&plan, &read, &named);
+        self.noted_asked_started(&plan, &read, &named);
         let asked = self.asked_begins(&plan, &read, named, &began).await;
         let read_attempt = read.attempt;
         let fleet = Arc::clone(self);
@@ -688,7 +689,7 @@ where
             tokio::spawn(async move {
                 let (heard, hearing) = tokio::sync::mpsc::unbounded_channel();
                 // A narrowed run's durations are its narrower commands', not the Checks'.
-                let showing = fleet.announcing_dry_run(
+                let showing = fleet.announcing_asked_run(
                     &plan.record,
                     &plan.step,
                     read.attempt,
@@ -697,11 +698,11 @@ where
                     plan.requester(),
                 );
                 let whole = fleet.budget().whole_run();
-                let running = fleet.dry_run(&caller, run, &plan, &read, &stop, &showing, hearing);
+                let running = fleet.asked_run(&caller, run, &plan, &read, &stop, &showing, hearing);
                 match tokio::time::timeout(whole, running).await {
                     Ok(ran) => {
                         fleet
-                            .dry_run_ends(
+                            .asked_run_ends(
                                 &caller,
                                 &plan,
                                 run,
@@ -718,7 +719,7 @@ where
                         let said = fleet.timed_out(&plan, whole);
                         let cause = said.text().to_string();
                         fleet
-                            .dry_run_ends(
+                            .asked_run_ends(
                                 &caller,
                                 &plan,
                                 run,
@@ -734,7 +735,7 @@ where
             })
         };
         // **The mark's life is the run's.** A task that panics or is aborted
-        // never reaches `dry_run_ends`, and nothing else would take the mark
+        // never reaches `asked_run_ends`, and nothing else would take the mark
         // off or tell the Drone: a part left "already running" for good.
         Ok(ChecksRunning(tokio::spawn(async move {
             match task.await {
@@ -743,7 +744,7 @@ where
                     let cause = ChecksReported::lost(lost.is_panic()).text().to_string();
                     let said = ChecksReported::lost(lost.is_panic());
                     let (heard, _) = tokio::sync::mpsc::unbounded_channel();
-                    let showing = fleet.announcing_dry_run(
+                    let showing = fleet.announcing_asked_run(
                         &plan.record,
                         &plan.step,
                         read_attempt,
@@ -752,7 +753,7 @@ where
                         plan.requester(),
                     );
                     fleet
-                        .dry_run_ends(
+                        .asked_run_ends(
                             &caller,
                             &plan,
                             run,
@@ -775,15 +776,15 @@ where
     /// else.** `at_work.checked(now, run)` is the one place this run is known
     /// to be the one the slot is still waiting on: a submission, a kill or a
     /// step boundary already cleared it and answers `false`, and keeps nothing.
-    /// A run its own first failure stopped does finish, and `KeptDryRun::of`
+    /// A run its own first failure stopped does finish, and `KeptAskedRun::of`
     /// keeps only what passed, so a Check it stopped is never reused (#1014).
     #[allow(clippy::too_many_arguments)]
-    async fn dry_run_ends(
+    async fn asked_run_ends(
         &self,
         caller: &JobId,
         plan: &Plan,
         run: u64,
-        ran: Result<(CheckReport, crate::reuse::KeptDryRun), String>,
+        ran: Result<(CheckReport, crate::reuse::KeptAskedRun), String>,
         showing: Announcing,
         said: Option<ChecksReported>,
         asked: asked::Asked,
@@ -818,16 +819,16 @@ where
             Err(cause) => (Err(cause), None),
         };
         if let Some(kept) = kept {
-            at_work.kept_dry_run(kept);
+            at_work.kept_asked_run(kept);
         }
-        at_work.show_dry_run(showing);
+        at_work.show_asked_run(showing);
         let told = said.unwrap_or_else(|| ChecksReported::of(&ran));
         // Written down before the send, `Fleet::tell`'s order.
         at_work.instructed(Occasion::Checks, told.text());
         let _ = at_work.session().checks(&told).await;
         drop(working);
         if let Ok(report) = &ran {
-            self.noted_dry_run(plan, report, asked.attempt);
+            self.noted_asked_run(plan, report, asked.attempt);
             self.pointed_at_fixes_in(plan.record.id(), report).await;
         }
         Some(ran)
@@ -838,7 +839,7 @@ where
     fn timed_out(&self, plan: &Plan, whole: Duration) -> ChecksReported {
         let rows = self
             .underway()
-            .dry_run_on(
+            .asked_run_on(
                 &ipc::JobId::from(plan.record.id()),
                 &ipc::StepId::from(&plan.step),
             )
@@ -855,11 +856,11 @@ where
     /// The run itself, with no lock held.
     ///
     /// **Returns what is kept beside what is told.** The report is the
-    /// Drone's; [`crate::reuse::KeptDryRun`] is Fleet's own, and
-    /// [`dry_run_ends`](Fleet::dry_run_ends) is what puts it where the gate
+    /// Drone's; [`crate::reuse::KeptAskedRun`] is Fleet's own, and
+    /// [`asked_run_ends`](Fleet::asked_run_ends) is what puts it where the gate
     /// can find it — never here, which has no slot to write into.
     #[allow(clippy::too_many_arguments)]
-    async fn dry_run(
+    async fn asked_run(
         &self,
         caller: &JobId,
         run: u64,
@@ -868,7 +869,7 @@ where
         stop: &Stop,
         showing: &Announcing,
         hearing: UnboundedReceiver<Heard>,
-    ) -> Result<(CheckReport, crate::reuse::KeptDryRun), String> {
+    ) -> Result<(CheckReport, crate::reuse::KeptAskedRun), String> {
         let Some(declared) = plan.record.workflow().step(&plan.step) else {
             return Err(format!(
                 "step `{}` is not in the workflow",
@@ -907,9 +908,9 @@ where
             &read.port_env,
             read.tasks,
             stop,
-            // **A dry run never reuses.** It is the reading `crate::reuse`
+            // **A asked run never reuses.** It is the reading `crate::reuse`
             // keeps for the gate to trust later; trusting an earlier one of
-            // its own here would be a dry run measuring nothing and calling
+            // its own here would be a asked run measuring nothing and calling
             // it a measurement.
             None,
             read.attempt,
@@ -927,7 +928,7 @@ where
         }
         // Unreachable while `ran` answers one per Check; carried, as a panic ends Fleet.
         let ran = Ran::against(&checks, &observed).map_err(|cause| cause.to_string())?;
-        let rows = check_output::kept_dry(
+        let rows = check_output::kept_asked(
             &read.records_root,
             &plan.record.handle(),
             &plan.step,
@@ -938,13 +939,13 @@ where
         // **Kept before the rows are consumed below**, and from the same
         // `rows` and `narrowed_to` the report is about to render — a second
         // reading of either here is a second place they could disagree.
-        // `read.footprint` is the reading `dry_run_reads` took before any
+        // `read.footprint` is the reading `asked_run_reads` took before any
         // Check started, never one taken here: the Drone may have kept
         // editing while they ran (#1020), and a footprint taken now would
-        // vouch for content the Checks never saw. `KeptDryRun::of` is what
+        // vouch for content the Checks never saw. `KeptAskedRun::of` is what
         // decides which of these rows the gate may ever trust; everything
         // not eligible is dropped there, not here.
-        let kept = crate::reuse::KeptDryRun::of(
+        let kept = crate::reuse::KeptAskedRun::of(
             read.attempt,
             self.now(),
             read.footprint.clone(),
@@ -983,7 +984,7 @@ where
 
     /// Write the run into the Job's log, as fields a query can count, and the
     /// names of the Checks that failed, which a retro reads — `crate::retro`.
-    fn noted_dry_run(&self, plan: &Plan, report: &CheckReport, attempt: u32) {
+    fn noted_asked_run(&self, plan: &Plan, report: &CheckReport, attempt: u32) {
         let failed: Vec<&str> = report
             .ran
             .iter()
@@ -1010,7 +1011,7 @@ where
 
     /// The same fields as the line for the end, so one query reads both.
     /// `ran` is how many Checks the run is about, and `failed` is nothing yet.
-    fn noted_dry_started(&self, plan: &Plan, read: &Readings, named: &[String]) {
+    fn noted_asked_started(&self, plan: &Plan, read: &Readings, named: &[String]) {
         let envelope = Envelope::new(
             self.now(),
             Level::Info,

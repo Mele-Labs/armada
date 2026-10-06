@@ -59,7 +59,7 @@ use verification::{Artifact, Exit, NeverRan, Observed};
 use crate::gated::{within, Gated};
 use crate::places::{Ask, Place, Room};
 use crate::ports::resolve_ports;
-use crate::reuse::{self, KeptDryRun};
+use crate::reuse::{self, KeptAskedRun};
 use crate::underway::Announcing;
 
 mod narrowing;
@@ -263,7 +263,7 @@ impl NotMet {
 /// Run every prerequisite the batch's runnable Checks name, in order, once each.
 ///
 /// **A context is one call to [`ran`]** — one gate evaluation of one step, or
-/// one dry run — and that is what "skipped if already run in the same context"
+/// one asked run — and that is what "skipped if already run in the same context"
 /// means here. It follows from where a prerequisite's effect lives: in the
 /// worktree, over the span nothing else is editing it. A Drone edits between
 /// attempts, so the next attempt is a new context and `fmt` runs again, which
@@ -399,13 +399,13 @@ fn looked_for(worktree: &Path, target: &str) -> Artifact {
 /// `reading` is which run this is, and so what each Check reads and how many
 /// run at once — [`Reading`].
 ///
-/// `dry_run`, `attempt` and `footprint_now` are what a gate hands in to reuse a
-/// Check instead of asking it again; a dry run itself, and `crate::proving`'s
+/// `asked_run`, `attempt` and `footprint_now` are what a gate hands in to reuse a
+/// Check instead of asking it again; a asked run itself, and `crate::proving`'s
 /// commit sweep, hand in `None` and answer every position by running it.
 ///
 /// **Looked up by name, per Check, inside the loop below — never a second
-/// sequence.** [`reuse::trusted`] decides once whether `dry_run` is good for
-/// anything against `attempt` and `footprint_now`; [`KeptDryRun::passed`] is
+/// sequence.** [`reuse::trusted`] decides once whether `asked_run` is good for
+/// anything against `attempt` and `footprint_now`; [`KeptAskedRun::passed`] is
 /// then asked once per Check, by the name that Check already carries. There is
 /// no parallel `Vec` here for that loop's length to disagree with, which is
 /// what a `zip` over one used to risk — see this module's own history on
@@ -424,7 +424,7 @@ pub(crate) async fn ran(
     env: &[(String, String)],
     plan: Option<TaskCounts>,
     stop: &Stop,
-    dry_run: Option<&KeptDryRun>,
+    asked_run: Option<&KeptAskedRun>,
     attempt: Attempt,
     footprint_now: Option<&Footprint>,
     gated: Option<&Gated>,
@@ -434,8 +434,8 @@ pub(crate) async fn ran(
     // reason. #1444.
     let width = room.width();
     let env = &room.handing_down(env);
-    let trusted = reuse::trusted(dry_run, attempt, footprint_now);
-    // **A reused row is a whole pass**, since `KeptDryRun::of` keeps no other,
+    let trusted = reuse::trusted(asked_run, attempt, footprint_now);
+    // **A reused row is a whole pass**, since `KeptAskedRun::of` keeps no other,
     // so it stands in for a narrowed gate run as well: it measured more.
     let mut planned: Vec<Planned> = checks
         .iter()

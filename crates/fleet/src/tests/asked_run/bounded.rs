@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::gate::CheckBudget;
 use crate::places::{Asking, ChecksAtOnce};
-use crate::tests::dry_run::{
+use crate::tests::asked_run::{
     a_fleet_budgeted, a_quiet_drone, checks_in, one_step, started, the_one_drone, transcript,
     Fixture, Held, A_CHECK_RUN_HAS_LONG_ENOUGH,
 };

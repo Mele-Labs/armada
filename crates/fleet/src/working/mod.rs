@@ -24,8 +24,8 @@
 //! keeps in the slot because it can only be read under the same lock, one
 //! module per reader, each of them stating its own half.
 mod answering;
+mod asked_run;
 mod converging;
-mod dry_run;
 mod saying;
 mod scope;
 mod silence;
@@ -259,7 +259,7 @@ pub(crate) struct Working {
     /// suspended" means** — see [`Working::quiet_for`] and
     /// [`Working::running_for`], which are the only two readers.
     ///
-    /// It is also the refusal that stops two dry runs overlapping: a second
+    /// It is also the refusal that stops two asked runs overlapping: a second
     /// `cargo build` in one worktree is two processes fighting over one target
     /// directory, and neither answer would be about the work.
     checking_since: Option<Timestamp>,
@@ -267,28 +267,28 @@ pub(crate) struct Working {
     /// Subtracted from the wall clock, because a Drone waiting on Fleet is not
     /// a Drone failing to converge.
     checked_for: Duration,
-    /// How many dry runs this step has asked for. **The step's budget**, like
+    /// How many asked runs this step has asked for. **The step's budget**, like
     /// the pokes — and unlike the pokes it is not refunded by anything the
     /// Drone does, because what it bounds is money rather than patience.
-    dry_runs: u32,
+    asked_runs: u32,
     /// The run [`checking_since`](Working::is_checking) is timing, and what
     /// keeps its Checks going. Dropped with the slot, which stops them.
     in_flight: Option<(u64, crate::checking::Going)>,
-    /// How many fixes this step has asked for, capped like `dry_runs`. #999.
+    /// How many fixes this step has asked for, capped like `asked_runs`. #999.
     fixes: u32,
-    /// What the step's latest dry run found, for the gate to reuse instead of
+    /// What the step's latest asked run found, for the gate to reuse instead of
     /// asking again. `None` where the Drone has not called `run_checks` this
-    /// step, or where a fresh dry run has not yet landed to replace one that
+    /// step, or where a fresh asked run has not yet landed to replace one that
     /// no longer applies.
     ///
     /// **In memory only, like `entered_with`, and for the same reason.** A
     /// `Footprint` is comparable only within the process that read it, so a
     /// column here would outlive the one thing that could ever tell it apart
     /// from a stale reading — `#1014`.
-    dry_run_kept: Option<crate::reuse::KeptDryRun>,
-    /// What the step's latest dry run shows a person, held so its results stay
+    asked_run_kept: Option<crate::reuse::KeptAskedRun>,
+    /// What the step's latest asked run shows a person, held so its results stay
     /// on Job detail once it is over. Dropped, the view comes down. #1062.
-    dry_run_shown: Option<crate::underway::Announcing>,
+    asked_run_shown: Option<crate::underway::Announcing>,
     /// The task this Drone was put on, and whether it has handed it in. `None`
     /// on a Drone working its whole step. [`task`](mod@task) has the rest.
     task: Option<task::OnTask>,
@@ -392,11 +392,11 @@ impl Working {
             entered_with: None,
             checking_since: None,
             checked_for: Duration::ZERO,
-            dry_runs: 0,
+            asked_runs: 0,
             in_flight: None,
             fixes: 0,
-            dry_run_kept: None,
-            dry_run_shown: None,
+            asked_run_kept: None,
+            asked_run_shown: None,
             task: None,
             inherited: None,
         }
@@ -463,11 +463,11 @@ impl Working {
             entered_with: None,
             checking_since: None,
             checked_for: Duration::ZERO,
-            dry_runs: 0,
+            asked_runs: 0,
             in_flight: None,
             fixes: 0,
-            dry_run_kept: None,
-            dry_run_shown: None,
+            asked_run_kept: None,
+            asked_run_shown: None,
             task: None,
             inherited: None,
         }
@@ -494,7 +494,7 @@ impl Working {
     /// same write end, so the pipe outlives the process and this is on the turn
     /// loop's own task — see [`Watching::drained`].
     pub(crate) async fn stood_down(mut self, at: &Timestamp) -> StoodDown {
-        // First, so a dry run's Checks do not outlast the terminate and drain.
+        // First, so a asked run's Checks do not outlast the terminate and drain.
         self.in_flight = None;
         let terminated = self.session.terminate().await;
         let drained = self.transcript.drained().await;

@@ -1,6 +1,6 @@
 //! A Check run Fleet is making for the Drone, and the clocks it suspends.
 //!
-//! **The slot's half of `crate::dry_run`**, and a module of its own rather
+//! **The slot's half of `crate::asked_run`**, and a module of its own rather
 //! than a field beside either clock because both of them read it and neither
 //! writes it: [`super::silence`] returns zero while
 //! [`is_checking`](Working::is_checking) holds, and [`super::converging`]
@@ -17,7 +17,7 @@ use core_model::Timestamp;
 
 use crate::checking::Going;
 use crate::converging::elapsed;
-use crate::reuse::KeptDryRun;
+use crate::reuse::KeptAskedRun;
 use crate::working::Working;
 
 impl Working {
@@ -33,13 +33,13 @@ impl Working {
     /// allowance.** The clocks suspend either way — a Drone waiting on Fleet is
     /// waiting whatever it asked for — and only the count moves with it, so a
     /// Drone asking about one Check as often as it likes never runs out.
-    /// `crate::dry_run::spends` is where that is decided. #1456.
+    /// `crate::asked_run::spends` is where that is decided. #1456.
     pub(crate) fn checking(&mut self, at: Timestamp, run: u64, going: Going, spends: bool) {
-        self.dry_run_shown = None;
+        self.asked_run_shown = None;
         self.checking_since = Some(at);
         self.in_flight = Some((run, going));
         if spends {
-            self.dry_runs += 1;
+            self.asked_runs += 1;
         }
     }
 
@@ -66,8 +66,8 @@ impl Working {
 
     /// Keep a finished run's view up until the Drone asks again, submits or
     /// the step ends, each of which drops it. #1062.
-    pub(crate) fn show_dry_run(&mut self, shown: crate::underway::Announcing) {
-        self.dry_run_shown = Some(shown);
+    pub(crate) fn show_asked_run(&mut self, shown: crate::underway::Announcing) {
+        self.asked_run_shown = Some(shown);
     }
 
     /// End the run in flight, where there is one: its Checks are stopped, and
@@ -75,14 +75,14 @@ impl Working {
     /// the same Checks in the same worktree.
     pub(crate) fn checks_cut_short(&mut self, at: Timestamp) {
         self.in_flight = None;
-        self.dry_run_shown = None;
+        self.asked_run_shown = None;
         if let Some(began) = self.checking_since.take() {
             self.checked_for += elapsed(&began, &at);
             self.waiting(at);
         }
     }
 
-    /// Whether a dry run is in flight. **The refusal a second call gets**, and
+    /// Whether a asked run is in flight. **The refusal a second call gets**, and
     /// the switch [`quiet_for`](Working::quiet_for) reads.
     pub(crate) fn is_checking(&self) -> bool {
         self.checking_since.is_some()
@@ -93,14 +93,14 @@ impl Working {
         self.checking_since.as_ref()
     }
 
-    /// How many dry runs this step has spent.
-    pub(crate) fn dry_runs(&self) -> u32 {
-        self.dry_runs
+    /// How many asked runs this step has spent.
+    pub(crate) fn asked_runs(&self) -> u32 {
+        self.asked_runs
     }
 
     /// Fleet has started run `run`, one test against main, for the Drone. **The
-    /// clocks suspend and a submission stops it as for a dry run**, and the
-    /// step's fixes are spent, not its dry runs. #999.
+    /// clocks suspend and a submission stops it as for a asked run**, and the
+    /// step's fixes are spent, not its asked runs. #999.
     pub(crate) fn fixing(&mut self, at: Timestamp, run: u64, going: Going) {
         self.checking_since = Some(at);
         self.in_flight = Some((run, going));
@@ -112,22 +112,22 @@ impl Working {
         self.fixes
     }
 
-    /// Keep what the step's latest dry run found, for the gate to weigh
+    /// Keep what the step's latest asked run found, for the gate to weigh
     /// against what it reads when this step is submitted.
     ///
     /// **The latest replaces whatever was kept before**, never merges with
-    /// it: a second dry run is a fresh reading of the same worktree, and a
+    /// it: a second asked run is a fresh reading of the same worktree, and a
     /// Check that passed on the first and was never asked about on the second
     /// has not been re-confirmed by it.
-    pub(crate) fn kept_dry_run(&mut self, kept: KeptDryRun) {
-        self.dry_run_kept = Some(kept);
+    pub(crate) fn kept_asked_run(&mut self, kept: KeptAskedRun) {
+        self.asked_run_kept = Some(kept);
     }
 
-    /// What the step's last dry run found, where `run_checks` has been called
+    /// What the step's last asked run found, where `run_checks` has been called
     /// at all this step. `crate::reuse` is what decides whether any of it
     /// still applies.
-    pub(crate) fn dry_run_kept(&self) -> Option<&KeptDryRun> {
-        self.dry_run_kept.as_ref()
+    pub(crate) fn asked_run_kept(&self) -> Option<&KeptAskedRun> {
+        self.asked_run_kept.as_ref()
     }
 
     /// How long of the window ending at `now` was Fleet running Checks.

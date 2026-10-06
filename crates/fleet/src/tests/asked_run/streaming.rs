@@ -12,15 +12,15 @@ use config::ResolvedWorkflow;
 use core_model::{DroneId, JobId};
 use testkit::{FakeJudge, FakeWorkProduct, Gate, Sketch};
 
+use crate::asked_run::AskedRuns;
 use crate::converging::StepNorms;
 use crate::daemon::Fleet;
-use crate::dry_run::DryRuns;
 use crate::silence::Liveness;
-use crate::tests::daemon::{fitted_with, one};
-use crate::tests::dry_run::{
+use crate::tests::asked_run::{
     a_quiet_drone, checks_in, started, the_one_drone, transcript, Fixture, Held,
     A_CHECK_RUN_HAS_LONG_ENOUGH, QUIET_AFTER, WALL_CLOCK,
 };
+use crate::tests::daemon::{fitted_with, one};
 use crate::tests::tmp::TempDir;
 
 /// A Fleet whose step is gated on `workflow`'s Checks, `at_once` at a time.
@@ -35,8 +35,8 @@ fn a_fleet_at_once(home: &TempDir, workflow: ResolvedWorkflow, at_once: usize) -
     fittings.clock = clock;
     fittings.liveness = Liveness::of(QUIET_AFTER, 2);
     fittings.norms = StepNorms::of(60, WALL_CLOCK, Duration::from_secs(120));
-    fittings.dry_runs = DryRuns::of(3);
-    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a dry run"));
+    fittings.asked_runs = AskedRuns::of(3);
+    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a asked run"));
     fittings.checks_at_once = crate::ChecksAtOnce::of(at_once);
     Fleet::assembled(fittings)
 }
@@ -153,7 +153,7 @@ async fn a_build_that_fails_reaches_the_drone_at_once_and_stops_the_slower_check
         .lock()
         .await
         .as_ref()
-        .and_then(|at_work| at_work.dry_run_kept().cloned())
+        .and_then(|at_work| at_work.asked_run_kept().cloned())
         .expect("a finished run is kept");
     assert!(
         kept.passed("slow").is_none(),

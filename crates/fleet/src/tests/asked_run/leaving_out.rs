@@ -7,7 +7,7 @@ use config::{Manifest, ResolvedWorkflow, Roster, WorkflowDef};
 use core_model::StepId;
 
 use crate::terms::Checking;
-use crate::tests::dry_run::{a_fleet_checking, ask, router, started, Held};
+use crate::tests::asked_run::{a_fleet_checking, ask, router, started, Held};
 use crate::tests::tmp::TempDir;
 
 /// `implement` and `tests` each gating on every Check, then `handoff`, against

@@ -3,7 +3,7 @@
 //!
 //! **Never the last turn.** A result that ends the run — the last to finish,
 //! or the failure that stops the rest — is in the report
-//! [`Fleet::dry_run_ends`] sends, so no result is told twice.
+//! [`Fleet::asked_run_ends`] sends, so no result is told twice.
 
 use std::future::Future;
 
@@ -164,7 +164,7 @@ where
 
     /// Tell the Drone where its run stands, only while it is still the one in flight.
     async fn told_standing(&self, caller: &JobId, run: u64, plan: &Plan) {
-        let Some(underway) = self.underway().dry_run_on(
+        let Some(underway) = self.underway().asked_run_on(
             &ipc::JobId::from(plan.record.id()),
             &ipc::StepId::from(&plan.step),
         ) else {

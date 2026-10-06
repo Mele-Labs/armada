@@ -592,7 +592,7 @@ pub fn widen_tool() -> &'static str {
     WIDEN_TOOL
 }
 
-/// The dry-run tool's name. The one this file's [`EVIDENCE_TOOL`] comment is
+/// The asked run tool's name. The one this file's [`EVIDENCE_TOOL`] comment is
 /// about: a Drone that cannot ask whether its work passes has no way to find
 /// out except by submitting.
 pub fn checks_tool() -> &'static str {

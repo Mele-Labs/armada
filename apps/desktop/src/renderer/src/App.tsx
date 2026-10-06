@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dockCardsOf, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/screens";
 import type { Outstanding } from "@armada/screens";
-import type { HelmContext, JobSummary } from "@armada/protocol";
+import type { HelmContext, JobSummary, LandCheckAt } from "@armada/protocol";
 import { useDockAnswering } from "./dock-answering";
 import { HelmDock, helmReplying } from "./HelmDock";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, NO_CHIP, opened, screenOf } from "./helm-context";
@@ -53,7 +53,7 @@ import { Worktrees } from "@armada/cleanup";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
 import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
-import { JobDetail } from "@armada/screens";
+import { JobDetail, LandCheckLogSheet } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
@@ -126,6 +126,7 @@ import {
   stopRun,
   stopCheckoutRun,
   stopServer,
+  followLandCheck,
   useCommands,
   useWatching,
   watchRunSheet,
@@ -300,6 +301,9 @@ export function App({ draft }: AppProps = {}) {
   // leaves the list — superseded, or gone from a resync — closes its own detail
   // rather than leaving a row on screen that Fleet no longer has.
   const reading = openJob === null ? null : (state.jobs.find((job) => job.id === openJob) ?? null);
+  // Main's log, opened from a Job that took main's red: the merge line head's own log, held here
+  // because the Job's detail is not where that panel lives.
+  const [mainLog, setMainLog] = useState<LandCheckAt | null>(null);
   useEffect(() => {
     void window.armada.state().then(setState);
     return window.armada.subscribe(setState);
@@ -740,6 +744,10 @@ export function App({ draft }: AppProps = {}) {
                   // The replacement opens over the board, the way a Studio's Job
                   // node does — the same state, so Escape still returns here.
                   onOpenJob={setOpenJob}
+                  onOpenMainLog={(at) => {
+                    const owner = repositories.find((one) => one.manifest?.id === reading.owner_manifest_id) ?? repositories[0];
+                    if (owner !== undefined) setMainLog({ root: owner.root, ...at });
+                  }}
                   onOpenStudio={openStudioFrom}
                   onReadCheckOutput={readCheckOutput}
                   onReadBrief={readBrief}
@@ -876,6 +884,15 @@ export function App({ draft }: AppProps = {}) {
                     ...runSheetServers,
                   }}
                 />
+                {mainLog === null ? null : (
+                  <LandCheckLogSheet
+                    at={mainLog}
+                    followed={state.landFollowed}
+                    onFollow={followLandCheck}
+                    floor={floor}
+                    onClose={() => setMainLog(null)}
+                  />
+                )}
               </Boundary>
             ) : auditing ? (
               /* Read across every Job rather than through one. The rate is the
@@ -889,7 +906,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.

@@ -21,6 +21,7 @@ import { onlyCurrentAttempt } from "./facts";
 import { flagSaid, flagsOf, heldByAFlag } from "./gaming";
 
 import type { DetailTab } from "./detail-tabs";
+import { fixesMainOf } from "./main-red";
 import type { CheckAt } from "./tab-record";
 
 /**
@@ -32,7 +33,7 @@ import type { CheckAt } from "./tab-record";
  * Drone's question and a command it was not given are answered in the lead's
  * own region, not at a destination.
  */
-export type LeadOpens = { tab: DetailTab } | { check: CheckAt };
+export type LeadOpens = { tab: DetailTab } | { check: CheckAt } | { mainLog: { check: string; branch: string } };
 
 /**
  * The line that leads Overview. `waiting` colours the edge, exactly as it does
@@ -566,6 +567,19 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
       ...parkedOn(job, whole),
       tone: "awaiting-review",
       act: "Review it",
+    };
+  }
+
+  // **A Job that took main's red leads with it**, ahead of a Check of its own: the Check is main's,
+  // and its log is the one the merge line's head opens too.
+  const fixes = fixesMainOf(job);
+  if (!over && fixes?.state === "fixing") {
+    return {
+      said: "Fixing main",
+      because: fixes.test === undefined ? `${fixes.check} · #${fixes.merge}` : `${fixes.test} · #${fixes.merge}`,
+      tone: "completed-failed",
+      act: "Read the log",
+      opens: { mainLog: { check: fixes.check, branch: "main" } },
     };
   }
 
