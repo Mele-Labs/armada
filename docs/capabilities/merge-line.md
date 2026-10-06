@@ -34,7 +34,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A gate does not run on once `main` has moved | A look at `origin/main` before the first Check and after each; a move stops the gate there and gates again |
 | A failed Check is told while the turn runs | Right after it fails, with a Check still to run, `main` is asked about it; green is `--status` exit 10, naming the Check and its log |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
-| An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
+| An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 | A branch that appends a migration or changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
