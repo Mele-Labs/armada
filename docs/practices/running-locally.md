@@ -261,7 +261,7 @@ abandoned. Use it, and land from the branch.
 
 **The worktree is `.armada/preview/`, kept and reused** the way the merge line's
 `.armada/land/candidate` is: made on first use, reset and cleaned between runs
-with `target/`, `node_modules/` and Bridge's `apps/desktop/out/` kept, so
+with `target/`, `node_modules/` and Bridge's build output kept, so
 builds stay warm.
 
 **`--watch` never restarts Fleet.** It merges again when a branch head or `main`
