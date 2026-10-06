@@ -44,7 +44,7 @@ use crate::tests::planted::Held;
 use crate::tests::tmp::TempDir;
 use crate::tests::transcript::reading::Transcript;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 /// How long a case waits for a real child to speak before it calls itself
 /// broken. Generous for `crate::tests::resting`'s reason: every wait polls and
@@ -64,7 +64,7 @@ fn one_step() -> ResolvedWorkflow {
     }])
 }
 
-fn called() -> DroneEvent {
+pub(crate) fn called() -> DroneEvent {
     DroneEvent::Called {
         tool: String::from("Read"),
         call: String::from("a-call"),
@@ -83,7 +83,7 @@ fn called() -> DroneEvent {
 /// `waitpid` because it was never this test's child. `exec` collapses the two
 /// into one process at one pid, which is the one Fleet ever records and the
 /// one every case here already waits on.
-fn a_drone_that_keeps_working() -> FakeHarness {
+pub(crate) fn a_drone_that_keeps_working() -> FakeHarness {
     FakeHarness::running("/bin/sh", &["-c", "echo CALLED; exec sleep 30"])
         .reading("CALLED", vec![called()])
 }
@@ -93,8 +93,23 @@ fn a_drone_that_keeps_working() -> FakeHarness {
 /// **Nothing here may ask a model anything**, for `crate::tests::silence`'s
 /// reason: a Judge that answered would let a regression into the free half pass
 /// unseen.
-fn a_fleet(home: &TempDir, harness: FakeHarness) -> Fixture {
+pub(crate) fn a_fleet(home: &TempDir, harness: FakeHarness) -> Fixture {
     a_fleet_on(home, harness, one_step())
+}
+
+/// [`a_fleet`], minting ids from `next`, for a case where several Fleets spawn
+/// Drones for one Job: a fresh mint restarts at one and repeats a Drone's id.
+pub(crate) fn a_fleet_numbered(home: &TempDir, harness: FakeHarness, next: u64) -> Fixture {
+    let mut fittings = fitted_with(
+        home,
+        FakeWorkProduct::changed(&["src/parse.rs"]).showing("+    panic!();\n"),
+        harness,
+    );
+    fittings.starting().workflows = one(one_step());
+    fittings.liveness = Liveness::of(Duration::from_secs(120), 2);
+    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about an adoption"));
+    fittings.mint = Arc::new(crate::tests::planted::Counted::from_next(next));
+    Fleet::assembled(fittings)
 }
 
 /// The same, over a workflow the case chooses.
@@ -111,7 +126,7 @@ fn a_fleet_on(home: &TempDir, harness: FakeHarness, workflow: ResolvedWorkflow) 
 }
 
 /// Approve the Job and hand back its id, with a worktree on disk.
-async fn started(fleet: &Fixture, home: &TempDir) -> JobId {
+pub(crate) async fn started(fleet: &Fixture, home: &TempDir) -> JobId {
     let job = fleet
         .propose(a_proposal("make the parser take it"))
         .await
@@ -122,7 +137,7 @@ async fn started(fleet: &Fixture, home: &TempDir) -> JobId {
 }
 
 /// The pid in the slot, read while the Drone is demonstrably held.
-async fn pid_of(fleet: &Fixture) -> u32 {
+pub(crate) async fn pid_of(fleet: &Fixture) -> u32 {
     fleet
         .the_only_slot()
         .await
@@ -136,7 +151,7 @@ async fn pid_of(fleet: &Fixture) -> u32 {
 
 /// Wait until the child has produced `how_many` events, so the transcript has
 /// something in it before the Fleet holding it is thrown away.
-async fn spoke(fleet: &Fixture, how_many: usize) -> bool {
+pub(crate) async fn spoke(fleet: &Fixture, how_many: usize) -> bool {
     let deadline = tokio::time::Instant::now() + A_CHILD_HAS_LONG_ENOUGH;
     while tokio::time::Instant::now() < deadline {
         let heard = fleet
@@ -156,7 +171,7 @@ async fn spoke(fleet: &Fixture, how_many: usize) -> bool {
 }
 
 /// Whether a pid is held, asked the way an operator would.
-fn alive(pid: u32) -> bool {
+pub(crate) fn alive(pid: u32) -> bool {
     std::process::Command::new("/bin/kill")
         .args(["-0", &pid.to_string()])
         .stderr(std::process::Stdio::null())
@@ -304,7 +319,8 @@ async fn an_adopted_drone_can_still_be_killed_by_a_person() {
 
 /// A Drone whose process really has gone: the answer reconciliation always
 /// gave, now reached **by asking**. The pid is recorded, the process is not
-/// there, and the Job escalates as it always did.
+/// there, and the Job is interrupted. Fleet then restarts its step
+/// (`crate::boot_restart`), so the interruption is read off the log.
 #[tokio::test]
 async fn a_drone_whose_process_is_gone_still_interrupts_its_job() {
     let home = TempDir::new();
@@ -341,18 +357,33 @@ async fn a_drone_whose_process_is_gone_still_interrupts_its_job() {
         reconciled.adopted
     );
     assert_eq!(reconciled.interrupted, vec![job.clone()]);
-    assert_eq!(
-        second.last_reason(&job).await.unwrap(),
-        Some(TransitionReason::Escalation(EscalationTrigger::Interrupted)),
-    );
+    assert_eq!(reconciled.restarted, vec![job.clone()]);
+    let interrupted = second
+        .store()
+        .lock()
+        .await
+        .events_for(&job)
+        .unwrap()
+        .iter()
+        .any(|event| {
+            matches!(
+                event.moved(),
+                store::Moved::Job {
+                    to: JobStatus::Escalated,
+                    reason: TransitionReason::Escalation(EscalationTrigger::Interrupted),
+                }
+            )
+        });
+    assert!(interrupted, "the process is gone having left nothing");
+    end(pid_of(&second).await).await;
 }
 
 /// **`#792`, reached the way a Fleet restart reaches it.** The Drone found
 /// gone above interrupts the Job through `reconciled_jobs`'s `JobMoves` arm.
 /// Before the fix that arm moved the Job to `escalated` and never stopped the
 /// step the vanished Drone was on, so it stayed `running` underneath — and a
-/// `running` step is one `restart_step` refuses, leaving redispatch as the
-/// only way a person could recover the Job.
+/// `running` step is one `restart_step` refuses. The restart Fleet now takes
+/// itself is that same act, so it landing is the proof the step stopped first.
 #[tokio::test]
 async fn a_drone_found_gone_on_restart_leaves_a_step_restart_step_accepts() {
     let home = TempDir::new();
@@ -371,27 +402,17 @@ async fn a_drone_found_gone_on_restart_leaves_a_step_restart_step_accepts() {
     let second = a_fleet(&home, a_drone_that_keeps_working());
     let reconciled = second.reconcile().await.expect("the boot read");
     assert_eq!(reconciled.interrupted, vec![job.clone()]);
-
-    let escalated = second.load(&job).await.unwrap();
-    assert_eq!(escalated.status(), JobStatus::Escalated);
-    let (_, trigger) = escalated
-        .stopped_on()
-        .expect("the step the vanished Drone was on stopped on the restart");
     assert_eq!(
-        trigger.trigger(),
-        EscalationTrigger::RunEnded,
-        "Fleet acted on the Drone being gone, not a person's decision"
+        reconciled.restarted,
+        vec![job.clone()],
+        "the step stopped under `run_ended`, which is what `restart_step` accepts"
     );
-
-    let restarted = second
-        .restart_step(&job, None)
-        .await
-        .expect("a step stopped under `run_ended` is one `restart_step` accepts");
     assert_ne!(
-        restarted.status(),
+        second.load(&job).await.unwrap().status(),
         JobStatus::Escalated,
         "restarting put the Job back to work rather than leaving it stuck"
     );
+    end(pid_of(&second).await).await;
 }
 
 /// **The recycled pid, which is the case a bare pid column could not tell from
@@ -467,7 +488,7 @@ fn a_pid_nothing_holds_is_gone() {
 /// child, `ps -o ppid=` still names the spawning process once the language's
 /// own handle to it is gone) — so `libc::waitpid` on the pid is legal here
 /// the whole time the Rust `Child` inside a dropped `Fleet` is not.
-async fn end(pid: u32) {
+pub(crate) async fn end(pid: u32) {
     let _ = std::process::Command::new("/bin/kill")
         .args(["-9", &pid.to_string()])
         .status();
@@ -482,7 +503,7 @@ async fn end(pid: u32) {
 /// race to collect it — `waitpid` then finds no child left to wait on, which
 /// means the process is exactly as gone as this call was asked to leave it.
 #[allow(unsafe_code)]
-async fn reap(pid: u32) {
+pub(crate) async fn reap(pid: u32) {
     tokio::task::spawn_blocking(move || {
         let mut status: libc::c_int = 0;
         // SAFETY: `pid` is a real OS child of this test binary (see `end`'s

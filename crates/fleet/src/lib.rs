@@ -48,6 +48,8 @@ mod attention;
 /// Saving a workflow definition, and reading the workflow folders again.
 mod authoring;
 pub mod basing;
+/// A Job this boot interrupted has its step restarted.
+mod boot_restart;
 mod boundary;
 pub mod briefing;
 /// Racing a plain command's work against [`budget::CommandBudget`],

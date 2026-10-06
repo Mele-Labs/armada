@@ -199,6 +199,9 @@ where
                 let job = self.stopped_at_rest(&job).await?;
                 self.move_job(&job, target, Actor::Fleet).await?;
                 reconciled.interrupted.push(job.id().clone());
+                if self.restarted_after_boot(job.id()).await? {
+                    reconciled.restarted.push(job.id().clone());
+                }
             }
         }
         Ok(())

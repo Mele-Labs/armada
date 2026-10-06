@@ -32,6 +32,7 @@ mod attribution;
 mod authoring;
 mod auto_merging;
 mod basing;
+mod boot_restart;
 mod boundary;
 mod bounding;
 mod brief_read;

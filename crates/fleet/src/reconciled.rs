@@ -16,6 +16,9 @@ pub struct Reconciled {
     /// `interrupted`. A Job whose probe would not run is here too, and its log
     /// line says the process may still be there.
     pub interrupted: Vec<JobId>,
+    /// The Jobs of `interrupted` whose step Fleet then restarted. A Job missing
+    /// from here stayed `escalated`, and its log says why. `crate::boot_restart`.
+    pub restarted: Vec<JobId>,
     /// Jobs whose Drone outlived this Fleet's predecessor and was taken back
     /// over. **Each is still where it was** — ordinarily `running` — with the
     /// process in a slot, its pid attributing its own calls again, and a row in

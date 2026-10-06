@@ -344,6 +344,20 @@ where
         note: Option<&Redirection>,
         ending: Ending,
     ) -> Result<Job, Adrift> {
+        self.restart_step_by(job_id, note, ending, Actor::Human)
+            .await
+    }
+
+    /// [`restart_step_ending`](Fleet::restart_step_ending), saying who asked.
+    /// **Fleet is the one other asker**: `crate::boot_restart` puts a step
+    /// back after a Fleet restart, and the Job's log signs the move as Fleet's.
+    pub(crate) async fn restart_step_by(
+        &self,
+        job_id: &JobId,
+        note: Option<&Redirection>,
+        ending: Ending,
+        by: Actor,
+    ) -> Result<Job, Adrift> {
         // Looked up rather than opened: this act starts nothing, so it needs no
         // place in the roster. What it wants the slot for is the one question
         // only the slot can answer — whether a Drone is still standing here —
@@ -505,7 +519,7 @@ where
         // an approval no longer dispatches for itself. The doc above already
         // said this act asks for a Drone rather than starting one; until now
         // the code did both.
-        self.move_job(&job, Target::Queued, Actor::Human).await
+        self.move_job(&job, Target::Queued, by).await
     }
 
     /// The Job is one a person may say something to. **All a redirect asks of
