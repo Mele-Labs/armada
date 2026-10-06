@@ -25,4 +25,14 @@ A release refused any commit on neither the remote nor the base, though `git swi
 - **The sweep never parks.** It takes only what is provably safe, and a tree with uncommitted files is not.
 - **Release on a session's slot** is the same act for a slot an agent session holds, sent for the holder shown, so a slot re-leased since is refused.
 
-**Not decided here:** whether a killed or failed Job's dirty slot should be parked the moment it ends, so it never sits `kept`.
+**Decided afterwards:** see the next section.
+
+## A killed or failed Job is parked the moment it ends
+
+**Decided 2026-10-05**, asked whether a killed or failed Job's dirty slot should be saved and released as it ends so it never sits `kept`: **yes, on a killed or failed Job.** Job 3 sat on slot-2 for 68 hours and Job 4 on slot-3 for the same reason.
+
+**Chosen:** at `killed` and `completed_failed`, where the pool refuses the release for uncommitted files, Fleet makes the same park a Clear does, a WIP commit on the Job's branch and the slot freed, and writes one line in the Job's log naming the commit, the branch and the files. It is called from the end of the Job (`slot_at_the_end`) and from forgetting a Job's record.
+
+- **Refusals that stay:** the same park refusals as a Clear. The slot stays `kept` and the log says why.
+- **Not changed:** a `completed_success` Job holds its slot until a person clears it; `rejected` and `superseded` keep the pool's plain release; a Job that has not ended, and a paused one, are never parked. The sweep still never parks.
+- **Startup recovery needs nothing:** `reconcile` never moves a Job to `killed` or `completed_failed`, it escalates, so no Job reaches either end without passing the call above.
