@@ -855,6 +855,12 @@ are standing in. `ARMADA_LAND_ARMADA` names another `armada`, by absolute path.
 An `armada` that does not know the verb is refused with exit 9, naming
 `scripts/restart`.
 
+**What gates the line itself:** `armada check hooks_test` runs
+`.claude/hooks/test_guard_merge.py` against the hook. It is a Check in
+`armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs nothing
+built or signed in and takes under a second. `scripts/test_land.py` is no longer a
+Check: run it by hand with `python3 scripts/test_land.py` if you change the script.
+
 ## Clearing up
 
 **Destructive. Read this before running `armada clean`.**

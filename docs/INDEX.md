@@ -50,6 +50,10 @@ Each ends with the questions it found and did not answer.
   checking and stopping a local Fleet: what it prints, what it refuses before it
   binds a port, what `armada clean` will not delete, and Bridge on a mock Fleet
   with `pnpm mock`, with a walk to show somebody one thing in it
+- [`practices/ci.md`](practices/ci.md) — the GitHub workflow that runs the
+  Checks: what runs on a pull request, in the merge queue and on `main`, how
+  `armada covers` chooses, the names a ruleset will require, what is not in CI,
+  and what is owed at the cutover
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see
