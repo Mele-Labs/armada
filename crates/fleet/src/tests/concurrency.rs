@@ -170,6 +170,7 @@ async fn each_drones_call_lands_on_its_own_step_and_not_on_the_others() {
         .declare_scope(
             &job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: vec!["src/reader.rs".to_string()],
             },
         )
@@ -184,6 +185,7 @@ async fn each_drones_call_lands_on_its_own_step_and_not_on_the_others() {
         .declare_scope(
             &job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: vec!["src/writer.rs".to_string()],
             },
         )
@@ -229,6 +231,7 @@ async fn the_declaration_follows_the_connection_and_not_the_admission_order() {
         .declare_scope(
             &job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: vec!["src/writer.rs".to_string()],
             },
         )

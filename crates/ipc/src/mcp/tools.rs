@@ -71,7 +71,7 @@ pub const CHECKS_TOOL: &str = "run_checks";
 pub const EVIDENCE_FIELDS: &[&str] =
     &["claimed", "shown_by", "not_claimed", "in_the_way", "review"];
 /// The one field the scope tool takes. Public for [`EVIDENCE_FIELDS`]' reason.
-pub const SCOPE_FIELDS: &[&str] = &["context_paths"];
+pub const SCOPE_FIELDS: &[&str] = &["context_paths", "needs"];
 /// The one field the Checks tool takes. Public for [`EVIDENCE_FIELDS`]' reason,
 /// and the transcript decoder now has an argument to put on the row: which of
 /// the two runs a Drone asked for is the whole of what a person reading it back
@@ -149,6 +149,9 @@ pub struct DeclareScope {
     /// Repository-relative. Legitimately empty: a step that will change nothing
     /// has declared that, and it is a different answer from not calling at all.
     pub context_paths: Vec<String>,
+    /// What the Drone needs on a file others may need too, declared as it
+    /// corrects its scope. Empty is the ordinary call. `#1059`.
+    pub needs: Vec<super::needing::NeedClaim>,
 }
 
 /// Why a tool call did not read as a call of the tool it named.
@@ -458,6 +461,7 @@ pub(crate) fn declaration(arguments: &Map<String, Value>) -> Result<DeclareScope
     closed(arguments, SCOPE_TOOL, SCOPE_FIELDS)?;
     Ok(DeclareScope {
         context_paths: list(arguments, "context_paths")?,
+        needs: super::needing::read(arguments, SCOPE_TOOL)?,
     })
 }
 
@@ -835,6 +839,7 @@ fn scope_tool() -> Value {
                          what has to be read to judge the change. Use [] if this \
                          part changes nothing.",
                 },
+                "needs": super::needing::property(),
             },
             "required": ["context_paths"],
             "additionalProperties": false,
