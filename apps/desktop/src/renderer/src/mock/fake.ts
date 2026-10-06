@@ -16,6 +16,7 @@ import type { BridgeState, Summons } from "../../../shared/bridge";
 import { unanswered } from "./scenario";
 import type { Scenario } from "./scenario";
 import { keeping } from "./studio-fleet";
+import { branchDeletedIn, forgottenIn, reclaimedIn } from "./cleanup-fleet";
 import { workflowsServed } from "./workflows-fleet";
 import { reshaped, rescued, scoutRead } from "./slots-fleet";
 import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
@@ -303,7 +304,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       return { reclaimed: [], failed: [] };
     },
     forgetTerminalJobs: async (jobIds) => (forget(jobIds), { cleared: [...jobIds], failed: [] }),
-    reclaimWorktree: async (jobId) => (move(jobId, { reclaimed_at: new Date().toISOString() }), OK),
+    reclaimWorktree: async (jobId) => {
+      const after = held === undefined ? undefined : reclaimedIn(held, jobId);
+      if (after === undefined) return (move(jobId, { reclaimed_at: new Date().toISOString() }), OK);
+      held = after.held;
+      if (state.held.state === "read") publish({ held: { state: "read", held } });
+      return after.outcome;
+    },
     changeSlotPool: async (manifestId, change) => {
       if (held === undefined) return unanswered(`/worktrees/slots?manifest_id=${manifestId}`);
       const after = reshaped(held, manifestId, change);
@@ -321,8 +328,21 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       publish(state.held.state === "read" ? { ...proposing, held: { state: "read", held } } : proposing);
       return after.outcome;
     },
-    deleteBranch: async () => OK,
-    forgetJob: async (jobId) => (forget([jobId]), OK),
+    deleteBranch: async (jobId, tip) => {
+      const after = held === undefined ? undefined : branchDeletedIn(held, jobId, tip);
+      if (after === undefined) return OK;
+      held = after.held;
+      if (state.held.state === "read") publish({ held: { state: "read", held } });
+      return after.outcome;
+    },
+    forgetJob: async (jobId) => {
+      forget([jobId]);
+      if (held !== undefined) {
+        held = forgottenIn(held, jobId);
+        if (state.held.state === "read") publish({ held: { state: "read", held } });
+      }
+      return OK;
+    },
     redirectDrone: async () => OK,
     answerQuestion: async () => OK,
     answerCommand: async () => OK,

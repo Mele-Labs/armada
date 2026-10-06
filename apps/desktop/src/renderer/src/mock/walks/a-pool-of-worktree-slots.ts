@@ -1,12 +1,13 @@
 // The worktree pool on Cleanup as a grid of bays, one per slot, styled by
 // availability: held is a filled card under a band, free an open dashed
-// outline, stranded hatched, not made a ghost. A Job holding a bay opens it.
+// outline, stranded hatched, not made a ghost. A Job holding a bay opens it, and
+// a press anywhere else on a bay opens its panel.
 
 import { button, inside, role, text, walk } from "../walk";
 
 const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
-/** The bay's Job, by its title: any button there but the bay's own acts. */
-const JOB = inside(BAY(1), role("button", /^(?!(Close|Reopen|Remove)$)/));
+/** The bay's Job, by its title: any button there but the bay's own name. */
+const JOB = inside(BAY(1), role("button", /^(?!slot-1$)/));
 
 export const aPoolOfWorktreeSlots = walk("cleanup/slots", [
   { press: button("Cleanup", { exact: true }), say: "Cleanup, from the rail" },

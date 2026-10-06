@@ -2,6 +2,7 @@
 //! base, then every Check the combination hits. `scripts/land`'s own `gate`.
 
 use std::path::Path;
+use std::time::Duration;
 
 use checks_runner::{reached, Reach};
 
@@ -14,6 +15,7 @@ use super::gate::{foundations_delta, not_installed, FoundationsComparison};
 use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
+use super::repo::remote_head_within;
 use super::shell::spoken;
 use super::stop::Stopped;
 
@@ -95,9 +97,33 @@ pub fn foundations_red(env: &Env, moved: bool, lines: Vec<String>, log: &Path) -
     )
 }
 
+/// What one gate of the Checks came to, short of a stop.
+pub enum Gated {
+    /// Green, with each Check that ran narrowed and what to, said for the outcome.
+    Green(String),
+    /// The base moved from outside while the Checks ran, so the gate stopped at
+    /// a Check boundary and the turn gates again against the new base.
+    BaseMoved,
+}
+
+/// How long the look at the base at a Check boundary is given. A remote that
+/// does not answer in this is read as a base that has not moved.
+const LOOK: Duration = Duration::from_secs(3);
+
+/// The base's new head where it is no longer `base`, which only a push from
+/// outside this line moves while a turn gates. Written to `moved.log` too,
+/// since the status line is overwritten by the next gate.
+fn moved_from(repo: &Path, env: &Env, base: &str, logs: &Path, said: &str) -> Option<String> {
+    let now = remote_head_within(repo, &env.remote, &env.base, LOOK).filter(|now| now != base)?;
+    let _ = std::fs::write(
+        logs.join("moved.log"),
+        format!("{} moved from {base} to {now}: {said}\n", env.base),
+    );
+    Some(now)
+}
+
 /// Run every Check the candidate hits, once `verify-foundations` passed.
-/// `Ok` is green, with each Check that ran narrowed and what to, said for the
-/// outcome; nothing is pushed here.
+/// `Ok` is green or a base that moved under the gate; nothing is pushed here.
 #[allow(clippy::too_many_arguments)]
 pub fn checks(
     repo: &Path,
@@ -108,7 +134,7 @@ pub fn checks(
     built: &Built,
     logs: &Path,
     passed: Passed,
-) -> Result<String, Stopped> {
+) -> Result<Gated, Stopped> {
     let (where_, moved, regenerated) = (&built.worktree, built.moved, built.regenerated);
     let rerun = covers(&env.armada, where_, &built.hit)?;
     let Passed { crashed, log } = passed;
@@ -127,7 +153,40 @@ pub fn checks(
         .collect();
     let mut narrowed = Vec::new();
     let mut reach = None;
+    // Where the base moved, said as the status line says it, once it has.
+    let moved_while = |now: &str, said: &str, left: &[String]| {
+        let skipped = match left {
+            [] => String::new(),
+            _ => format!("; skipped {}", left.join(", ")),
+        };
+        format!(
+            "{} moved to {}{said}{skipped}, so gating again against it",
+            env.base,
+            now.get(..10).unwrap_or(now)
+        )
+    };
+    let moved_tell = |detail: String, runs: &[CheckRun], log_paths: &[String]| {
+        tell(
+            state,
+            group,
+            OutcomeState::Gating,
+            detail,
+            OutcomePatch {
+                logs: Some(log_paths.to_vec()),
+                checks: Some(runs.to_vec()),
+                ..OutcomePatch::default()
+            },
+        )
+    };
     if !rerun.is_empty() {
+        if let Some(now) = moved_from(repo, env, base, logs, "before the first Check") {
+            moved_tell(
+                moved_while(&now, " before the first Check", &rerun),
+                &runs,
+                &log_paths,
+            )?;
+            return Ok(Gated::BaseMoved);
+        }
         setup(&where_, env, logs)?;
         nothing_left(&where_, "preparing the gate")?;
         // Logged because a whole run of a narrowable Check says nothing else.
@@ -178,6 +237,16 @@ pub fn checks(
             (false, true) => CheckState::TimedOut,
             (false, false) => CheckState::Failed,
         };
+        // The boundary: a Check that ran is never cut short, but the next one
+        // does not start against a base that has moved.
+        if let Some(now) = moved_from(repo, env, base, logs, &format!("while {name} ran")) {
+            moved_tell(
+                moved_while(&now, &format!(" while {name} ran"), &rerun[n + 1..]),
+                &runs,
+                &log_paths,
+            )?;
+            return Ok(Gated::BaseMoved);
+        }
         if ran.passed {
             continue;
         }
@@ -359,7 +428,7 @@ pub fn checks(
             ..OutcomePatch::default()
         },
     )?;
-    Ok(said_narrowed(&narrowed, ". Gated with "))
+    Ok(Gated::Green(said_narrowed(&narrowed, ". Gated with ")))
 }
 
 /// Each Check that ran narrowed and what to, after `lead`; nothing where none did.
