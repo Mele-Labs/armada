@@ -48,8 +48,8 @@
 
 import { JOB_LIFECYCLE, RESUMPTION } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
-import { instant } from "./duration";
-import { titleOf } from "./title";
+import { instant } from "@armada/screens/src/duration";
+import { titleOf } from "@armada/screens/src/title";
 
 /** Which dispatch of one piece of work a Job is. */
 export type Dispatch = {

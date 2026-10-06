@@ -43,6 +43,7 @@
     "@armada/bridge-api": "workspace:*",
     "@armada/cleanup": "workspace:*",
     "@armada/components": "workspace:*",
+    "@armada/overview": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",
     "@armada/settings": "workspace:*",

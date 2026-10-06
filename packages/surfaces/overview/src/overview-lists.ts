@@ -15,11 +15,11 @@
 // Board makes for the same case.
 
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
-import { DEFAULT_SORT, ofPicked, sectionsOf, sorted } from "./board";
-import type { BoardSection } from "./board";
+import { DEFAULT_SORT, ofPicked, sectionsOf, sorted } from "@armada/screens/src/board";
+import type { BoardSection } from "@armada/screens/src/board";
 import { foldLineages } from "./lineage";
 import type { Dispatch } from "./lineage";
-import { readingOf } from "./reading";
+import { readingOf } from "@armada/screens/src/reading";
 
 export type OverviewSection = { id: BoardSection; label: string; jobs: JobSummary[] };
 

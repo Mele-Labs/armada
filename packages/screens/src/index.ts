@@ -62,7 +62,6 @@ export * from "./frozen";
 export * from "./gates";
 export * from "./held";
 export * from "./keys";
-export * from "./lineage";
 export * from "./Kit";
 export * from "./manifest-file";
 export * from "./manifest-kit";
@@ -93,13 +92,8 @@ export type * from "./setup-reads";
 // Locate — Journey 3's *Getting in*: a repository added by folder or cloned, then Setup.
 export * from "./Locate";
 export * from "./locate-reads";
-// Overview — #1091: the summary strip that replaced the tile band.
-export * from "./OverviewSummary";
-export * from "./overview";
+// Overview's reads stay here, since Settings and the wire types read them; the surface is `@armada/overview`.
 export type * from "./overview-reads";
-// Overview — #920: Needs you, Running, Queued and Other, as the Board's own rows.
-export * from "./OverviewLists";
-export * from "./overview-lists";
 // Workflow — the Job's run drawn as the workflow it froze, on the canvas or
 // stacked, with the inspector beside it. #1539.
 export * from "./tab-workflow";
