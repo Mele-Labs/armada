@@ -294,6 +294,10 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **The step's baseline is read after the rebase, never before.** A rebase writes content: a clean one replays the branch onto a base that itself moved, and a conflicted one leaves markers in the files it could not merge. A baseline taken before it credits the step with git's output, and a Drone that resolved nothing then passes `diff_nonempty` on what it was handed.
 
+**The baseline is taken once, when the step first begins, and kept in the store.** A requeue, a retry and a Fleet that restarted all put a Drone back on a worktree that already holds the step's uncommitted work, so a baseline read again would count that work as inherited and the step could never pass. Every later entry loads the stored one instead, and a gate that rules at boot on a submission the last Fleet never ruled on is measured against it too. The row goes when the step advances, so a step a later one sends work back to starts afresh. A step with no stored baseline fails `diff_nonempty` rather than passing it.
+
+**The exception is a rebase on a re-entry, which reads the baseline again.** The stored one cannot be told what the rebase wrote into the tree, and carrying it over would pass a Drone that resolved nothing on the markers it was handed. The cost is that work the step did before such a rebase stops counting toward it.
+
 ### Network loss mid-Job
 
 **The Drone and Job auto-retry on reconnect** and resume where they left off. A Fleet restart flags `interrupted` and then restarts the step — see the daemon lifecycle above.

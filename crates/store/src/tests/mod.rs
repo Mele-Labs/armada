@@ -64,6 +64,7 @@ mod roundtrip;
 mod showing;
 mod signers;
 mod spend;
+mod step_baseline;
 mod studio;
 mod studio_authors;
 mod studio_files;

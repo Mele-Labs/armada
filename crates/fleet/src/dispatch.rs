@@ -211,35 +211,75 @@ where
             .map(|()| Dispatched::Started)
     }
 
-    /// Read what the worktree holds now, and hold it as this step's baseline.
+    /// Hold this step's baseline on the slot: the one kept from when the step
+    /// first began where there is one, and a reading of the worktree now where
+    /// there is not.
     ///
-    /// **The reading `diff_nonempty` is decided against**, taken at the moment
-    /// a step starts so that what the gate compares is the step's own work
-    /// rather than the branch's. `WorkProduct` measures from the commit the
-    /// branch was cut from, which credits every step with everything its
-    /// predecessors wrote.
+    /// **The reading `diff_nonempty` is decided against**, so that what the gate
+    /// compares is the step's own work rather than the branch's. `WorkProduct`
+    /// measures from the commit the branch was cut from, which credits every
+    /// step with everything its predecessors wrote.
+    ///
+    /// **Read once, on a step's first entry, and kept in the store.** Every later
+    /// entry (a requeue, a retry, a resume after Fleet restarted) loads it
+    /// instead of reading again, because the worktree by then holds the step's
+    /// own uncommitted work and a baseline taken over it makes that work
+    /// inherited: the step could then never pass. The row goes when the step
+    /// advances, so `store::Store::forget_step_baseline` is what makes a step
+    /// sent back to start afresh.
     ///
     /// **After the rebase, on every path — because every path has one now.**
     /// What a rebase moves is inherited rather than done: a conflicting one
     /// leaves markers and a clean one replays the branch onto a base that
     /// itself moved. Both are content, so a baseline read before it makes git's
     /// output the next step's work, and a Drone that resolved nothing passes
-    /// `diff_nonempty` on the markers it was handed. This used to except a
-    /// Job's first step and an approved one; `#150` and `#180` closed both.
+    /// `diff_nonempty` on the markers it was handed. `#150` and `#180` closed
+    /// the paths that used to be excepted.
+    ///
+    /// **A rebase on a re-entry reads again and keeps what it read.** The
+    /// stored baseline cannot be told what the rebase wrote into the tree, and
+    /// carrying it over would pass a Drone that resolved nothing on the markers
+    /// it was handed. The cost is that the step's work from before the rebase
+    /// stops counting toward it, which is the direction an unknown baseline has
+    /// to fail in.
     ///
     /// **A failure leaves the step with no baseline, and that is deliberate.**
     /// A reading that did not happen is not a worktree that did not move, so
     /// there is no arm here that stores an empty footprint — the gate reads
     /// `None` as nothing known to have moved and fails the check. An unread
     /// baseline must not be able to advance a step, which is
-    /// `Changed::nothing`'s rule applied one level up.
-    pub(crate) fn marked(&self, working: &mut Option<Working>) {
+    /// `Changed::nothing`'s rule applied one level up. A store that will not
+    /// answer is read the same way and falls back to reading the worktree.
+    pub(crate) async fn marked(&self, working: &mut Option<Working>, rebased: bool) {
         let Some(at_work) = working.as_ref() else {
             return;
         };
-        let (_, _, worktree) = at_work.standing();
-        let Ok(footprint) = self.work().footprint(&worktree) else {
-            return;
+        let (job_id, step, worktree) = at_work.standing();
+        let kept = match rebased {
+            true => None,
+            false => self
+                .store()
+                .lock()
+                .await
+                .step_baseline(&job_id, &step)
+                .ok()
+                .flatten(),
+        };
+        let footprint = match kept {
+            Some(kept) => kept,
+            None => {
+                let Ok(read) = self.work().footprint(&worktree) else {
+                    return;
+                };
+                // A baseline that will not write is still this attempt's: the
+                // step runs, and only a later restart loses it.
+                let _ = self
+                    .store()
+                    .lock()
+                    .await
+                    .keep_step_baseline(&job_id, &step, &read);
+                read
+            }
         };
         if let Some(at_work) = working.as_mut() {
             at_work.entering_with(footprint);
@@ -933,6 +973,7 @@ where
         by: Actor,
     ) -> Result<Job, Adrift> {
         let (by, via) = crate::retro::signed(by);
+        let finishes = matches!(to, StepTarget::Advanced | StepTarget::Overridden(_));
         let moved = job
             .transition_step(step, to, by, self.now())
             .map_err(Adrift::IllegalStepMove)?;
@@ -942,6 +983,13 @@ where
                 .record_step_transition(&moved)
                 .map_err(Adrift::Writing)?;
             crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
+            // **The step's work is done, so its start is no longer the one a
+            // later entry is measured from.** A step a later one sends back
+            // is new work on a worktree that holds the old, and the baseline it
+            // began with would count that old work as the new. `marked`.
+            if finishes {
+                let _ = store.forget_step_baseline(moved.job.id(), step);
+            }
         }
         // The row whole, so a client replaces it rather than re-reading it —
         // with the reason its last transition stored, for `published`'s

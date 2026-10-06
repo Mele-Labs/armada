@@ -286,10 +286,13 @@ impl Counted {
 /// Content rather than paths, because a step that edits a file an earlier step
 /// created changes nothing about which paths are listed.
 ///
-/// **Comparable only against another reading of the same worktree by the same
-/// implementation, in the same process.** The strings are opaque here — an
-/// implementation says what a path holds in whatever way it can, and nothing
-/// reads them except [`differs_from`](Footprint::differs_from).
+/// **Comparable against any other reading of the same worktree by the same
+/// implementation, including one an earlier process took.** An implementation
+/// must say what a path holds in a way that is stable across runs and builds,
+/// because a step's baseline is written to the store when it begins and compared
+/// after a restart. The strings are opaque here, and nothing reads them except
+/// [`differs_from`](Footprint::differs_from) and the store, which keeps them
+/// through [`entries`](Footprint::entries).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Footprint {
     of: Vec<(String, String)>,
@@ -317,6 +320,13 @@ impl Footprint {
     /// that only knows *that* something did.
     pub fn differs_from(&self, before: &Footprint) -> bool {
         self.of != before.of
+    }
+
+    /// The readings as recorded, for the store to keep a baseline across a
+    /// restart and for nothing else. **Not a way to ask what changed**:
+    /// comparison goes through [`differs_from`](Footprint::differs_from).
+    pub fn entries(&self) -> &[(String, String)] {
+        &self.of
     }
 
     /// How many paths this reading found. Never compared against another

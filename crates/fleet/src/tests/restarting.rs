@@ -81,7 +81,7 @@ fn called() -> Vec<DroneEvent> {
 /// **It leaves after it has been told**, and `crate::tests::planted` owns why:
 /// `echo BUSY` alone races `start`'s first write, and a busy machine turns this
 /// into a spawn that failed rather than a Drone that left.
-fn a_drone_that_leaves() -> FakeHarness {
+pub(super) fn a_drone_that_leaves() -> FakeHarness {
     crate::tests::planted::a_drone_that_leaves("BUSY").reading("BUSY", called())
 }
 
@@ -126,7 +126,7 @@ fn a_fleet_with(home: &TempDir, harness: FakeHarness, vcs: FakeVcs) -> Fixture {
 
 /// A Job dispatched, then stopped at its step with the Job escalated over it —
 /// the state all four acts on an escalated Job start from.
-async fn stopped(fleet: &Fixture, home: &TempDir) -> JobId {
+pub(super) async fn stopped(fleet: &Fixture, home: &TempDir) -> JobId {
     let job = fleet
         .propose(a_proposal("make the parser take it"))
         .await
@@ -158,7 +158,7 @@ async fn stopped(fleet: &Fixture, home: &TempDir) -> JobId {
 
 /// Until the slot is empty, driving the loop rather than sleeping — the same
 /// path a Drone dying in the field takes.
-async fn until_reaped(fleet: &Fixture) {
+pub(super) async fn until_reaped(fleet: &Fixture) {
     for _ in 0..400 {
         fleet.turn().await.expect("a turn");
         if fleet.the_only_slot().await.lock().await.is_none() {

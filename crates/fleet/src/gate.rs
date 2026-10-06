@@ -124,9 +124,13 @@ pub struct CheckOutput {
 /// from where it stopped (#1105).
 #[derive(Clone, Copy, Debug)]
 pub enum Began<'a> {
-    /// What the worktree held when the step began, kept in the slot.
+    /// What the worktree held when the step first began, kept on the slot and in
+    /// the store, so a step put back to work or ruled on after Fleet restarted
+    /// is measured from the same start.
     At(&'a Footprint),
-    /// A step Fleet never saw start, so nothing is known to have moved.
+    /// A step no baseline was ever kept for: one that began before baselines
+    /// were stored, or whose reading failed. Nothing is known to have moved,
+    /// and the check fails.
     Unseen,
     /// The stopped run's recorded outcome — `crate::rechecking`.
     AsRecorded(bool),

@@ -261,3 +261,23 @@ fn upstream_commits_a_stale_local_base_lacks_are_not_this_job_s_work() {
         changed.paths()
     );
 }
+
+/// **A footprint is the same in every process.** A step's baseline is kept in
+/// the store and compared after Fleet restarts, so what a path holds is the
+/// blob id of its bytes and not a hash that is only stable inside one run.
+/// The id below is what hashing `hello\n` as a blob prints.
+#[test]
+fn a_footprint_names_each_file_by_its_blob_id() {
+    let repo = TempRepo::with_a_commit();
+    let worktree = worktree_for(&repo);
+    std::fs::write(format!("{}/written.txt", worktree.path()), "hello\n").expect("the file");
+
+    let footprint = GitVcs::new().footprint(&worktree).expect("a reading");
+    assert_eq!(
+        footprint.entries(),
+        [(
+            "written.txt".to_string(),
+            "ce013625030ba8dba906f756967f9e9ca394464a".to_string()
+        )]
+    );
+}

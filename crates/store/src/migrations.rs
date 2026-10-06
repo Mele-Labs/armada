@@ -142,6 +142,7 @@ pub const MIGRATIONS: &[&str] = &[
     crate::pausing::V111,
     crate::asked_runs::V113,
     crate::main_ci::V114,
+    crate::step_baseline::V115,
 ];
 
 /// Every table whose rows belong to one Job, asked of the file rather than

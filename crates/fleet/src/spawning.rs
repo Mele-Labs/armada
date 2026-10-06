@@ -25,6 +25,7 @@
 //! now, which is what makes that true by construction rather than by care.
 
 use std::sync::Arc;
+use verification::TheBaseMoved;
 
 use adapter_traits::{
     AgentHarness, Delivery, DroneSpawnConfig, Effort, Grant, McpConfig, Model, Prompt,
@@ -335,7 +336,14 @@ where
         // `diff_nonempty` is asking whether *this* attempt wrote something, and
         // a Drone that resolved nothing would pass it on the markers it was
         // handed.
-        self.marked(working);
+        //
+        // **Kept across entries, and read again only where a rebase wrote into
+        // the tree.** See `marked`.
+        let rebased = matches!(
+            moved.as_ref(),
+            Some(TheBaseMoved::BroughtUpToDate { .. } | TheBaseMoved::Conflicted { .. })
+        );
+        self.marked(working, rebased).await;
         Ok(())
     }
 
