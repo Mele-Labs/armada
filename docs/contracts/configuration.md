@@ -750,7 +750,8 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   `checks.<name>.requires`, `checks.<name>.narrow`,
   `commands.<name>.run`,
   `commands.<name>.destructive`, `commands.<name>.serve`,
-  `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed`, `setup.worktrees` and, in a
+  `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed`, `setup.worktrees`, `setup.auto_release`,
+  `setup.auto_release_grace_minutes` and, in a
   workspace, `depends_on` (`manifest.md`, *Workspace gating*) — with every
   other key (`permissions`, `knowledge`, `policy`,
   `commands.*.description`) hard-failing as unknown until Reach. Beyond that, what is still open: the

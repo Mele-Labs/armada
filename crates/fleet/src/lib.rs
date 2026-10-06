@@ -245,6 +245,8 @@ mod regating;
 /// A person's run of one Manifest entry in a Job's worktree, and Undo from
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
+/// A parked Job paused by Fleet when work waits for a full pool.
+mod releasing;
 pub mod remarks;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
@@ -386,6 +388,7 @@ pub use reconciled::Reconciled;
 pub use redaction::Redactor;
 pub use redispatch::Replacement;
 pub use rehearsing::verify_steps;
+pub use releasing::{release_order, Parked};
 pub use reporting::{Counted, Filed, NotFiled};
 pub use resume::Roused;
 pub use reuse::KeptDryRun;

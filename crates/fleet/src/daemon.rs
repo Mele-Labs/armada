@@ -242,6 +242,8 @@ pub struct Fleet<H, V, W> {
     /// `.await`, and what it guards is a map of a handful of integers.
     drones: std::sync::Mutex<Drones>,
     peers: Arc<dyn PeerOf>,
+    /// Jobs `crate::releasing` leaves alone, and since when.
+    spared: crate::releasing::Spared,
     /// The rebase-and-push tail, held by one Job at a time.
     ///
     /// **Every worktree is cut from one `.git`**, and whether two of them can

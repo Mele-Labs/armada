@@ -55,6 +55,22 @@ where
     /// for a running Job whose Drone had to go before the pool could refuse,
     /// which is left `escalated`.
     pub async fn pause_job(&self, job_id: &JobId) -> Result<Job, Adrift> {
+        self.paused_by(job_id, PausedBy::Person, None).await
+    }
+
+    /// [`Fleet::pause_job`] for whoever asked. **Fleet asks only through
+    /// `crate::releasing`**, naming the Job whose start needed the slot; the
+    /// path is the same one, so the park, the marker and the event are too.
+    pub(crate) async fn paused_by(
+        &self,
+        job_id: &JobId,
+        by: PausedBy,
+        needed_by: Option<&Job>,
+    ) -> Result<Job, Adrift> {
+        let actor = match by {
+            PausedBy::Person => Actor::Human,
+            PausedBy::Fleet => Actor::Fleet,
+        };
         let job = self.load(job_id).await?;
         let refused = |why: fn(JobId) -> Adrift| why(job_id.clone());
         match job.status() {
@@ -73,7 +89,7 @@ where
         // Paused again while it waits for a slot: nothing to park, and the
         // wait is called off.
         if let Some(pause) = job.pause() {
-            if !pause.resuming {
+            if by == PausedBy::Fleet || !pause.resuming {
                 return Err(refused(|job| Adrift::AlreadyPaused { job }));
             }
             let again = job.paused(PausedBy::Person, self.now());
@@ -88,7 +104,7 @@ where
                 "the Job was paused again before it was resumed",
                 None,
             );
-            self.published_paused(&again).await;
+            self.published_paused(&again, actor).await;
             return Ok(again);
         }
         self.not_while_checks_run_again(&job)?;
@@ -129,25 +145,28 @@ where
                 return Err(cannot(why));
             }
         };
-        let paused = job.paused(PausedBy::Person, self.now());
+        let paused = job.paused(by, self.now());
         self.store()
             .lock()
             .await
             .record_pause(&paused)
             .map_err(Adrift::Writing)?;
-        self.noted_pause(
-            &paused,
-            Some(slot),
-            "the Job was paused and its slot given back",
-            parked.commit.as_deref(),
-        );
+        let said = match needed_by {
+            Some(waiter) => format!(
+                "the Job was paused by Fleet and its slot given back so \"{}\" ({}) could start",
+                waiter.title().as_str(),
+                waiter.id().as_str()
+            ),
+            None => String::from("the Job was paused and its slot given back"),
+        };
+        self.noted_pause(&paused, Some(slot), &said, parked.commit.as_deref());
         // **The marker first, then the move**: admission reads the marker, and a
         // `queued` Job without one is a Job it would start again at once.
         if standing == JobStatus::Running {
-            self.move_job(&paused, Target::Queued, Actor::Human).await?;
+            self.move_job(&paused, Target::Queued, actor).await?;
         }
         let job = self.load(job_id).await?;
-        self.published_paused(&job).await;
+        self.published_paused(&job, actor).await;
         Ok(job)
     }
 
@@ -243,6 +262,8 @@ where
             return Ok(Reseat::Full);
         };
         let seated = job.in_slot(slot).unpaused();
+        // A person took it back: Fleet must not take it out again at once.
+        self.spare(job.id());
         self.store()
             .lock()
             .await
@@ -309,13 +330,13 @@ where
 
     /// Tell every client the Job was paused. **A gate Job moves no status**, so
     /// `job.state_changed` never fires for it and this is the only word.
-    async fn published_paused(&self, job: &Job) {
+    async fn published_paused(&self, job: &Job, actor: Actor) {
         // A summary that will not build is a refusal for the caller's own
         // read to raise; the pause itself is already written.
         if let Ok(job) = self.summarised(job).await {
             self.publish(ipc::Event::JobPaused(ipc::JobPaused {
                 job,
-                actor: Actor::Human.into(),
+                actor: actor.into(),
                 at: (&self.now()).into(),
             }));
         }

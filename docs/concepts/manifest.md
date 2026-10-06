@@ -70,13 +70,13 @@ checks:
 - **`when:` in a workspace file is relative to that workspace's directory.** A pattern like `src/**` in a workspace file means `src/**` under that workspace's directory. `depends_on` is the one key written repository-relative, because it names paths the manifest does not own.
 - **A `depends_on` hit runs the Checks that declare no `when`.** A workspace's `when` is read from its own directory, so it cannot match a path the manifest does not own. A Check meant to run when a dependency changes writes no `when`.
 - **A root Check's path condition is implicit.** It runs when the diff touches a root-owned path, which is a path no workspace claims, and the root's own `when:` narrows that further. Root `when:` is repository-relative and is intersected with root ownership; there is no key to write the ownership half.
-- **A workspace may name a root Command in `setup.requires`.** The name resolves against the workspace's own Commands first and then the root's.
-- **`setup.worktrees` and `setup.seed` are refused in a workspace file.** It is read from the root at every lease, so a second value of either would be one nothing reads.
+- **A workspace may name a root Command in `setup.requires`.** The name resolves against the workspace's own Commands first and then the root's. Where only the root declares it, it runs in the root, once per worktree, and not in the workspace.
+- **`setup.worktrees`, `setup.seed`, `setup.auto_release` and `setup.auto_release_grace_minutes` are refused in a workspace file.** Each is read from the root, so a second value would be one nothing reads.
 - **An empty diff gates nothing.** Decided 6 Oct 2026. A Job that changed no files runs no Checks, in every repository, and `config::gating` returns no manifest for it. A Check with no `when` still reads as always on a non-empty diff; the two are kept apart by asking the gating set first and never handing an empty path list to `Covers::reach`.
 - **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did.
 - **`Job::gate_manifests` is empty for a repository with no workspaces**, where the root gates every Job and nothing needs saying. Where workspaces exist it lists every manifest that gates, the root included. It is first written at dispatch from `write_targets`: undetermined gates every manifest, determined and empty gates none.
 
-**What the step gate does where a repository has workspaces.** The merge line is not built (A5).
+**What the step gate does where a repository has workspaces.**
 
 - **It reads the changed paths, never the list alone.** `gate_manifests` is empty for a repository with no workspaces, where the root alone gates and nothing is read; where workspaces exist, `config::gating` over the diff says which manifests gate, and an empty diff gates none. A repository with no workspaces gates as it always did, so an empty diff there still runs a Check that declares no `when`.
 - **A Check runs in its manifest's directory**, with its prerequisites, its `one_test` and the whole run alone that confirms a red. Its `when` and its narrowing read the paths that manifest owns, relative to it, so a root Check never sees a workspace's path.
@@ -92,7 +92,10 @@ checks:
 | all skipped, none covers what the manifest owns | did not run, path condition unmet |
 | all skipped, one covers it | did not run, scope narrowed |
 
-- **A Drone's own run and `armada check` still read the root.** Both pass no manifests, so they run each Check in its directory and read `when` under it, but gate nothing. A bare command handed to a Drone's harness is refused for a workspace Check.
+- **`armada check` takes the key.** `armada check a:test` runs `a`'s `test` in `a`'s directory, with its prerequisites, its `one_test` and its `--changed` narrowing all read there. The bare name is the root's, and the root's is run from the root. `armada run a:gen` does the same for a Command. A key whose directory is no workspace reads as a bare name, and is refused as one.
+- **`armada covers` prints keys.** It reads the changed paths on stdin and answers with the keys of the Checks that cover them: the root's first, then each gating workspace's in directory order. Each manifest is asked about what it owns of the change, relative to it, so a root Check never sees a workspace's path. A repository with no workspace `armada.yml` answers as before, and its empty diff still names a Check with no `when`. Where workspaces exist, an empty diff names nothing, as above.
+- **The merge line sets up in the root, then in each gating workspace.** Decided 6 Oct 2026. Once a Check is about to run it runs the root's `setup.requires`, then, for each workspace that has a Check in the set, that workspace's own, in directory order. **A Command a workspace names that only the root declares runs in the root**, once per worktree, and a Command already run is not run again. A workspace's own Command runs in its directory. A workspace's Checks run in its directory whichever Command prepared it. The same setup runs on `main`'s rerun of a Check that failed.
+- **A Drone's own run still reads the root.** A Drone's harness passes no manifests, so it runs each Check in its directory, reads `when` under it, and gates nothing. A bare command handed to a Drone's harness is refused for a workspace Check.
 
 ### Seeding a worktree's build
 
@@ -112,6 +115,21 @@ setup:
 - **Read from the root `armada.yml` at every lease**, so a change applies to the next one. Lowering it leaves the slots above the new number on disk and unleased.
 - **A machine's own pool overrides it.** Once a person adds or removes a slot, from Cleanup or `armada worktree add|remove`, that machine's list of slots stands in for this number, and a change here no longer moves it — [Fleet](fleet.md), *Worktree slots*.
 - **It is enough on its own**: `setup` with `worktrees` and nothing else needs no `requires`.
+
+### Pausing a parked Job for waiting work
+
+**`setup.auto_release` lets Fleet pause a Job parked at a gate when other work is waiting for a slot and the pool is full**, and `setup.auto_release_grace_minutes` is how long a Job must have been still first — [Fleet](fleet.md), *A paused Job gives its slot back*.
+
+```yaml
+setup:
+  auto_release: true
+  auto_release_grace_minutes: 15
+```
+
+- **Absent means on, and fifteen minutes.** The owner's choice of 5 Oct 2026: a grace window and an off switch.
+- **`auto_release` is `true` or `false`; the window is a positive whole number.** Anything else is refused at load.
+- **Read when Fleet starts**, as the pool's size is. A change applies at the next restart.
+- **Either is enough on its own**, as `worktrees` is: `setup` with them and nothing else needs no `requires`.
 
 ### Cross-Workspace Jobs
 
