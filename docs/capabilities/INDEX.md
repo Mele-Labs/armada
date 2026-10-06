@@ -27,4 +27,4 @@ only its steps does not need one.
   whose base moved is merged with it and reruns the Checks the combination hits
   before it lands, and a branch that declared a need on a path (`armada need`)
   lands after the ones ahead of it; `scripts/land` is the local stand-in,
-  mapped onto Fleet.
+  mapped onto Fleet, and is being retired for pull requests and CI.

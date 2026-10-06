@@ -51,7 +51,7 @@ An order between members is not one thing. Three repositories give three answers
 
 | Setting | What it chooses | Where it stands |
 | --- | --- | --- |
-| Target | `main`, or a named branch | **Not built.** `main` by construction, and the merge line takes turns onto it |
+| Target | `main`, or a named branch | **Not built.** `main` by construction, and the merge line takes turns onto it. The line this repository's own code used is retired for GitHub's merge queue; Bridge's line becomes a thin view of pull requests, and Armada will prompt when `main` goes red (`.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`) |
 | Pull requests | One for the Job, or one per group | **Not built.** One per Job |
 | Link between members | `stacked`, `merged` or `published`, per edge, defaulted by the Manifest | Only `merged` exists. Bridge draws all three (`packages/components/src/compositions/JobMembers/JobMembers.tsx`), and a link derived from today's wire always reads `merged` |
 | Pull request mode | Ready, or draft | **Not built** |
