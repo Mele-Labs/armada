@@ -14,7 +14,7 @@ import { expect, test, describe } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { JobDetail, JobSummary, ProposalSettled } from "@armada/protocol";
-import { filled } from "@armada/jobs";
+import { filled } from "./index";
 
 import { listed, mount, rows, scenarioNamed, unmountAfterEach } from "@armada/desktop/mock";
 import type { FleetHandle } from "@armada/desktop/mock";
