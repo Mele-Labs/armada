@@ -918,6 +918,8 @@ the lexicon exists to prevent.
 
 **Workflows is a Machine row.** The definitions a Job runs come from this machine's Kit and from each repository, so the surface that edits them sits with Kit. Its glyph is `workflow`, and the row carries `ban` while Fleet has left a workflow file out. The mark takes no count, and `triangle-alert` stays Doctor's. It joins after Guides and takes no digit.
 
+**Checks is a Work row.** Every Check the Manifest has had requested or run is read there, beside the Jobs and the merge line that asked for them. Its glyph is `shield-check`, the Check family's, drawn at 16px in the rail; the 12px result marks keep their meaning in a table. It joins after Workflows and takes no digit.
+
 ```
 default     200px
 drag range  160-320px
@@ -1517,7 +1519,7 @@ the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
 **`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
-Doctor, Manifest, Cleanup, Kit, Settings, Guides, and no digit for Workflows — since Active Jobs, Reviews and the
+Doctor, Manifest, Cleanup, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
 Activity Feed folded into the Board and Cleanup joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the
 numbers.

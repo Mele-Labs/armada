@@ -37,7 +37,7 @@ import {
   type LandingRule,
 } from "./draft";
 import { settledBadgeOf } from "./facts";
-import { LANDED } from "./Row";
+import { LANDED } from "./landed-words";
 
 /** The one Job status this board is drawn for: work that finished. */
 const FINISHED = "completed_success";

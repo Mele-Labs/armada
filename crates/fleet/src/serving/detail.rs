@@ -60,6 +60,7 @@ where
             frames,
             started_at,
             ended_at,
+            asked,
         ) = {
             let store = self.store().lock().await;
             let ran = store
@@ -104,6 +105,10 @@ where
             // `started_at`'s own reason, and `JobSummary::ended_at`'s.
             let ended_at = crate::wire::job_ended_at(&store, job.id())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            // The Checks a Drone asked for, apart from the gate's rows above.
+            let asked = store
+                .asked_runs(job.id(), self.run())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             (
                 ran,
                 flagged,
@@ -114,6 +119,7 @@ where
                 frames,
                 started_at,
                 ended_at,
+                asked,
             )
         };
         // The plans are read with the footprint and only with it: they are what
@@ -279,6 +285,7 @@ where
                 flagged,
                 resolved,
                 frames,
+                asked,
                 &moves,
             ),
             recorded

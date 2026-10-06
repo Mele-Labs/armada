@@ -27,6 +27,17 @@ armada worktree --status                 # who holds each, and since when
 armada worktree release <path>           # after the branch lands
 ```
 
+**A lease belongs to the process that took it, and a restart orphans it.** The
+slot then reads free or stranded, and the next lease takes a clean one back for
+another branch. Confirmed 6 Oct 2026: after a cmux crash a session ran
+`git merge origin/main` in what it still thought was its slot, which another
+session had been given, and put a merge commit on that session's branch (undone
+with `git reset --keep`). After any restart run `git -C <slot> branch
+--show-current` before another git command there, and re-attach a branch with
+`armada worktree lease --existing <branch>`. A lease started from a subshell
+(`( ... &)`) fails with "the process this was run from could not be read"; run
+it in the foreground or as the shell tool's own background task.
+
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
 closed slot reads `closed` in `--status` and is never leased; a lease that

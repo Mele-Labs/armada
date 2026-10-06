@@ -95,6 +95,10 @@ pub enum PullRequestSettled {
 pub struct CheckRun {
     pub name: String,
     pub state: CheckState,
+    /// When the runner began this Check. **Absent while it waits**, and on a
+    /// state file written before the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
 }
 
 /// What a batch member's `detail` ends with, before the others it gates with.

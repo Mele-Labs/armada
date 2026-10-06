@@ -77,6 +77,8 @@ pub struct Forgotten {
     pub step_plan_paths: usize,
     /// What each Drone of the Job spent, one row per Drone.
     pub drone_spend: usize,
+    /// The checks a Drone asked for, one row per ask.
+    pub asked_runs: usize,
     /// The comments on the Job's pull request that have already reached a
     /// Drone, one row each. A Job whose pull request nobody commented on, and
     /// one nobody chose a comment off, both count zero.
@@ -173,6 +175,7 @@ impl Forgotten {
             "job_step_plan_paths" => &mut self.step_plan_paths,
             "job_drone_process" => &mut self.drone_process,
             "job_drone_spend" => &mut self.drone_spend,
+            "asked_runs" => &mut self.asked_runs,
             "job_remarks_taken_up" => &mut self.remarks_taken_up,
             "job_allowed_commands" => &mut self.allowed_commands,
             "port_claims" => &mut self.port_claims,

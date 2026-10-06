@@ -51,7 +51,15 @@ impl TempRepo {
         // reads the machine's git config is a test that fails elsewhere.
         let mut options = git2::RepositoryInitOptions::new();
         options.initial_head("main");
-        Repository::init_opts(&root, &options).expect("a repository");
+        let repo = Repository::init_opts(&root, &options).expect("a repository");
+        // The code under test runs `git commit` itself (parks, rescues, saves),
+        // and a runner with no global identity refuses it. Linked worktrees
+        // share this file, so one place covers every checkout of the repo.
+        let mut config = repo.config().expect("the repository's config");
+        config.set_str("user.name", "armada").expect("a name");
+        config
+            .set_str("user.email", "armada@example.invalid")
+            .expect("an email");
         TempRepo { root }
     }
 
