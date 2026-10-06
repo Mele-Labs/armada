@@ -31,6 +31,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A stale generated file never fails a turn | Its generators run on the candidate first, and their commit lands |
 | What lands is exactly what was gated | A `--no-ff` merge commit over the candidate's own tree, made by the runner |
 | Nothing lands on a `main` it was not gated against | The runner's own push, never forced; a refusal gates again |
+| A gate does not run on once `main` has moved | A look at `origin/main` before the first Check and after each; a move stops the gate there and gates again |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
@@ -59,6 +60,8 @@ runner (holds the turn lock) ----------------------+
         | new lines, every path each names touched by one member -> those members red; regate the rest
         | new lines, otherwise -> red, no Check runs (several members: split)
   covers(each branch's paths, + what landed since it was cut) -> setup -> armada check each --changed
+        | main moved (looked at before setup and after each Check) -> stop, skip the rest, gate again
+        |   (a Check already running is let finish; the same bounded rounds as a refused push)
         | red, one member -> outcome red, nothing pushed
         | red, several    -> split the batch in half, first half first, and take each
   git push origin <top>:main  -- not a fast-forward -> gate again (bounded rounds)
@@ -209,6 +212,7 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 - **A `--no-ff` merge commit, never a rebase or a squash.** It is made with `git commit-tree` over the candidate's own tree, with the gated base and the candidate as its parents, which is the commit `git merge --no-ff` would make there because the candidate already holds the base. So the tree that lands is the tree the Checks ran on, by construction.
 - **Its message names the branch in a `Landed-from:` trailer**, and the pull request in its subject where one is open.
 - **The push of `main` is never forced.** A `main` that moved since the gate refuses it as not a fast-forward, and the turn gates again against the new `main`, the same bounded rounds as before. Nothing is pushed that was not gated against the `main` it lands on.
+- **A gate stops at the next Check boundary once `main` has moved.** Only this line pushes `main` from this machine, one turn at a time, so a `main` that moves mid-gate was pushed from somewhere else, and every Check still to run would measure a base nothing can land on. The runner asks the remote for `main`'s head before `setup` and after each Check, one `ls-remote` that fetches nothing; a head other than the gated one ends the gate there, says so on the status line (`main moved to <sha> while <Check> ran; skipped <Checks>, so gating again against it`) and in `moved.log` beside the turn's other logs, and starts the next gate, which merges the new `main` in. A Check already running is let finish. **This spends a round**, from the same `ROUNDS` a refused push spends, so a remote that keeps moving ends the turn the same way: stopped, `main moved during each of <ROUNDS> gates`. A look that fails or takes longer than three seconds reads as "has not moved", and the push's refusal stays the guard. Fleet's own line does not do this yet.
 - **Only `origin/main` moves.** Local `main` is checked out in the owner's checkout, and moving it under that would show as a change nobody made.
 - **A runner killed after its push** leaves the entry queued. The next turn finds the queued head already in `main` and reports it landed, naming the merge the killed turn recorded, rather than merging it twice.
 - **The gate runs in a throwaway worktree**, never the agent's own tree. A clean tree is required at preflight and at land, and the stamp is the tree id.

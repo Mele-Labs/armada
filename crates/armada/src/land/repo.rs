@@ -4,7 +4,10 @@
 //! `scripts/land`'s own `current_branch`, `remote_head` and the
 //! `merge-base --is-ancestor` calls scattered through it name once.
 
+use std::io::Read;
 use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use super::git::{best_effort, checked, GitFailed};
 
@@ -24,6 +27,45 @@ pub fn remote_head(cwd: &Path, remote: &str, branch: &str) -> Result<Option<Stri
     let output = checked(cwd, &["ls-remote", remote, &format!("refs/heads/{branch}")])?;
     let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok(text.split_whitespace().next().map(str::to_string))
+}
+
+/// [`remote_head`] given `limit` to answer: `None` for a remote that is
+/// slow, unreachable or without the branch, since the caller asks only
+/// whether it moved and cannot tell those from "no". One `ls-remote`, so
+/// nothing is fetched and no ref here changes.
+pub fn remote_head_within(
+    cwd: &Path,
+    remote: &str,
+    branch: &str,
+    limit: Duration,
+) -> Option<String> {
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(cwd)
+        .args(["ls-remote", remote, &format!("refs/heads/{branch}")])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let until = Instant::now() + limit;
+    let status = loop {
+        if let Some(status) = child.try_wait().ok()? {
+            break status;
+        }
+        if Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let mut said = String::new();
+    child.stdout.take()?.read_to_string(&mut said).ok()?;
+    status
+        .success()
+        .then(|| said.split_whitespace().next().map(str::to_string))?
 }
 
 /// Whether `ancestor` is reachable from `descendant` — `false` on any git
