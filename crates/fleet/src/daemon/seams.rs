@@ -111,13 +111,16 @@ where
     /// so the answer is true at the instant it is taken and no longer — which
     /// is why every caller asks again rather than passing one down.
     ///
-    /// **One Manifest per Job today, and the fold is still called.** A Job gated by several
-    /// is gated by several, and this is the one function that grows when
-    /// `Job::gate_manifests` can be resolved to files. `crate::policy` carries
-    /// the argument, and `docs/concepts/manifest.md` the rule.
+    /// **The root and every workspace the repository holds.** A Job's own
+    /// gate list is not read here: this has no Job, and over-folding errs
+    /// toward the stricter value. `crate::policy` carries the argument, and
+    /// `docs/concepts/manifest.md` the rule.
     pub(crate) fn gating_policies(&self, served: &crate::repositories::Served) -> Policies {
-        let manifest = served.manifest();
-        Policies::gating([(manifest.auto_merge(), manifest.review_gate())])
+        Policies::gating(
+            std::iter::once(served.manifest())
+                .chain(served.workspaces())
+                .map(|manifest| (manifest.auto_merge(), manifest.review_gate())),
+        )
     }
     pub(crate) fn host(&self) -> &Local {
         &self.host

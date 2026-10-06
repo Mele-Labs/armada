@@ -84,6 +84,7 @@ mod freezing;
 mod frozen;
 mod gaming;
 mod gate;
+mod gating;
 mod group;
 mod groups;
 mod handoff_checks;

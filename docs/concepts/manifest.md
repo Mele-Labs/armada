@@ -71,7 +71,18 @@ checks:
 - **A `depends_on` hit runs the Checks that declare no `when`.** A workspace's `when` is read from its own directory, so it cannot match a path the manifest does not own. A Check meant to run when a dependency changes writes no `when`.
 - **A root Check's path condition is implicit.** It runs when the diff touches a root-owned path, which is a path no workspace claims, and the root's own `when:` narrows that further. Root `when:` is repository-relative and is intersected with root ownership; there is no key to write the ownership half.
 - **A workspace may name a root Command in `setup.requires`.** The name resolves against the workspace's own Commands first and then the root's.
-- **`setup.worktrees` is refused in a workspace file.** It is read from the root at every lease, so a second value would be one nothing reads.
+- **`setup.worktrees` and `setup.seed` are refused in a workspace file.** It is read from the root at every lease, so a second value of either would be one nothing reads.
+- **An empty diff gates nothing.** Decided 6 Oct 2026. A Job that changed no files runs no Checks, in every repository, and `config::gating` returns no manifest for it. A Check with no `when` still reads as always on a non-empty diff; the two are kept apart by asking the gating set first and never handing an empty path list to `Covers::reach`.
+- **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did.
+- **`Job::gate_manifests` is empty for a repository with no workspaces**, where the root gates every Job and nothing needs saying. Where workspaces exist it lists every manifest that gates, the root included. It is first written at dispatch from `write_targets`: undetermined gates every manifest, determined and empty gates none.
+
+**What the gate must do** (not built; the step gate and the merge line own it):
+
+- **Refresh `gate_manifests` from the actual diff** with `Store::replace_gate_manifests`, and record each manifest's real outcome. Dispatch writes a placeholder, since no Check has run.
+- **Run a Check in its manifest's directory**, keyed by `(manifest_dir, name)`: two manifests may each declare `test`.
+- **Read the changed paths, not the list alone.** An empty `gate_manifests` means the root alone in a repository with no workspaces and nothing in one that has them.
+- **Resolve at startup over every manifest**, because a workflow resolves once with no diff. The gate then skips the Checks whose manifest the diff does not gate.
+- **Stop `not_covered` reading no paths as always.** It asks `Covers::reach` with the step's paths, and an empty list must skip every Check before that question is asked.
 
 ### Seeding a worktree's build
 
