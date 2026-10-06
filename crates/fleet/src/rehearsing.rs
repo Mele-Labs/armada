@@ -13,6 +13,7 @@
 //! owners do not share is at the edges — the entrances here and in
 //! [`checkout`], and the shapes [`record`] projects.
 
+mod asker;
 mod checkout;
 mod entries;
 mod in_flight;
@@ -139,6 +140,7 @@ where
                 .narrowed(&entry, &tree)
                 .map_err(|why| self.refused_run(&owner, why))?,
         };
+        let requester = self.asked_by().await;
         let underway = Arc::clone(&self)
             .started_at(
                 place,
@@ -147,6 +149,7 @@ where
                 command,
                 narrowed,
                 asked.worktree_version,
+                requester,
                 None,
             )
             .await

@@ -20,6 +20,7 @@ use axum::response::Response;
 use ipc::Via;
 
 use crate::door::{DoorCalled, HelmCalled};
+use crate::mcp::Caller;
 
 /// The header Bridge sends on every request, with [`BRIDGE`] as its value.
 pub const CALLER_HEADER: &str = "x-armada-caller";
@@ -30,6 +31,30 @@ pub const BRIDGE: &str = "bridge";
 tokio::task_local! {
     static VIA: Via;
 }
+
+tokio::task_local! {
+    static ASKING: Caller;
+}
+
+/// The connection an agent's call through the door arrived on, where this
+/// request is one. **A connection and not an identity**: Fleet places it
+/// against the Drones it holds, and says nothing of a caller it cannot place.
+pub fn asking() -> Option<Caller> {
+    ASKING.try_with(|caller| *caller).ok()
+}
+
+/// `work`, answered as the call that arrived on `caller`'s connection.
+pub async fn asked_by<F: std::future::Future>(caller: Option<Caller>, work: F) -> F::Output {
+    match caller {
+        Some(caller) => ASKING.scope(caller, work).await,
+        None => work.await,
+    }
+}
+
+/// Set on every call the door makes, so the move it leads to can be placed.
+/// [`HelmCalled`]'s reason for an extension.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DoorCaller(pub(crate) Caller);
 
 /// The door the request being answered came through, or `None` where nothing
 /// is being answered: a turn, a spawned task, a test calling Fleet directly.
@@ -49,7 +74,8 @@ pub async fn carrying<F: std::future::Future>(via: Option<Via>, work: F) -> F::O
 /// The layer: name the door, then answer inside it.
 pub(crate) async fn named_the_door(request: Request, next: Next) -> Response {
     let via = door_of(&request);
-    VIA.scope(via, next.run(request)).await
+    let caller = request.extensions().get::<DoorCaller>().map(|held| held.0);
+    VIA.scope(via, asked_by(caller, next.run(request))).await
 }
 
 fn door_of(request: &Request) -> Via {

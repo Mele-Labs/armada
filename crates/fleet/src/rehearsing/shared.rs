@@ -86,6 +86,7 @@ where
         command: String,
         narrowed: bool,
         worktree_version: bool,
+        requester: ipc::Requester,
         verify: Option<tokio::sync::oneshot::Sender<super::verifying::Handed>>,
     ) -> Result<Underway, Unrehearsable> {
         let whose = place.whose();
@@ -99,9 +100,7 @@ where
                 .within
                 .as_ref()
                 .map(|within| within.dir.to_string_lossy().into_owned()),
-            // A person's press, or an agent's `start_run`, through this door:
-            // nothing inside Armada asked for it.
-            requester: ipc::Requester::outside(),
+            requester,
         };
         let (stop, stopped) = watch::channel(false);
         let (done, ended) = watch::channel(None);

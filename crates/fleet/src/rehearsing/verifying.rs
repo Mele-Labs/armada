@@ -258,7 +258,16 @@ where
             let (handing, handed) = oneshot::channel();
             let command = entry.run.clone();
             let started = Arc::clone(&self)
-                .started_at(place, tree, entry, command, false, false, Some(handing))
+                .started_at(
+                    place,
+                    tree,
+                    entry,
+                    command,
+                    false,
+                    false,
+                    ipc::Requester::outside(),
+                    Some(handing),
+                )
                 .await;
             match started {
                 Ok(underway) => verifies.moved(
