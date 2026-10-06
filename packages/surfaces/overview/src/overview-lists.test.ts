@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RepositorySummary } from "@armada/protocol";
-import { job } from "./fixtures/build/base";
+import { job } from "@armada/screens/src/fixtures/build/base";
 import { overviewListsOf } from "./overview-lists";
 
 const manifest = (id: string) => ({ id, repository: id, path: `${id}/armada.yml`, records_root: `/records/${id}`, version: 1, checks: [] });

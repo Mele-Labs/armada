@@ -9,9 +9,9 @@ import { ADMISSION_HOLD } from "@armada/components";
 import type { Connection, FleetCapacity, ManifestDrift, RepositorySummary } from "@armada/protocol";
 import type { ReactNode } from "react";
 import { statementOf } from "@armada/shell/src/fleet";
-import { said } from "./copy";
+import { said } from "@armada/screens/src/copy";
 import type { FleetHealth } from "@armada/protocol";
-import type { DriftsRead, HealthRead, RepositoryDrift } from "./overview-reads";
+import type { DriftsRead, HealthRead, RepositoryDrift } from "@armada/screens/src/overview-reads";
 
 /** One of the state machine's own hues, or none — never a colour picked for its own sake. */
 export type ReadingTone = "completed-success" | "awaiting-review" | "completed-failed" | "notice-caution";

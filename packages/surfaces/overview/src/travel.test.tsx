@@ -10,8 +10,8 @@ import type { JobSummary } from "@armada/protocol";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { OverviewLists } from "./OverviewLists";
-import { job, workflow } from "./fixtures/build/base";
-import { motion, mount, rerender, unmount } from "./mounted";
+import { job, workflow } from "@armada/screens/src/fixtures/build/base";
+import { motion, mount, rerender, unmount } from "@armada/screens/src/mounted";
 
 // Travel is the claim, and reduced motion — which this project runs under — moves nothing, so
 // "nothing travelled" would hold whatever `useTravel` did. The test that takes the preference takes
