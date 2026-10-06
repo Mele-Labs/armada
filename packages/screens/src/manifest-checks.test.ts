@@ -28,7 +28,7 @@ const sheet: CheckoutRunSheet = {
   },
 };
 
-test("a Check is listed out, then waiting, then ended newest first, and a Command or Setup entry is not", () => {
+test("Checks are listed by when each was requested, and a Command or Setup entry is not", () => {
   const runs = [ran("fmt", "2026-10-06T14:05:00Z"), ran("build", "2026-10-06T13:00:00Z"), ran("bootstrap", "2026-10-06T12:00:00Z"), ran("build", "2026-10-06T13:30:00Z", { id: "crun_build2", exit_code: 1 })];
   const rows = checkEntriesOf(sheet, runs).map((one) => checkRowOf(one));
   expect(rows.map((one) => [one.name, one.status])).toEqual([
@@ -65,21 +65,26 @@ test("every kind but outside opens its requester", () => {
   expect(askerOf({ kind: "outside" }, label)).toEqual({ label: "Started outside a Job" });
 });
 
-test("gate and asked-run rows join the history newest first, with their requester and handle", () => {
+test("mixed sources sort newest request first, with their requester and handle", () => {
   const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "fix", attempt: 1 };
   const reported = [
     { ...base, source: "gate", name: "test", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "timed_out", ended_at: "2026-10-06T13:00:00Z" },
-    { ...base, source: "asked_run", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d", handle: "1-a-job" }, state: "lost", started_at: "2026-10-06T14:00:00Z", logs: [{ check: "build", kept: "k.log" }], asked_run_id: 4 },
+    { ...base, source: "asked_run", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d", handle: "1-a-job" }, state: "lost", started_at: "2026-10-06T14:01:00Z", logs: [{ check: "build", kept: "k.log" }], asked_run_id: 4 },
   ];
-  const entries = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [], reported);
+  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
+  const entries = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [line], reported);
   const rows = entries.map((one) => checkRowOf(one, label));
-  expect(rows.slice(2).map((one) => [one.name, one.by, one.says])).toEqual([
+  // One list, newest request first across every source: the line's Check is live now, so it leads.
+  expect(rows.map((one) => [one.name, one.by, one.says])).toEqual([
+    ["lint", "Merge line · b", "running"],
     ["build", "Drone d · 1-a-job · fix", "lost"],
+    ["test", "Started outside a Job", "running"],
+    ["format", "Started outside a Job", "waiting"],
     ["build", "Started outside a Job", "passed"],
     ["test", "Gate · 1-a-job · fix", "outran its budget"],
   ]);
-  expect(entries[2]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
-  expect(entries[2]?.job).toEqual({ id: "1", handle: "1-a-job" });
+  expect(entries[1]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
+  expect(entries[1]?.job).toEqual({ id: "1", handle: "1-a-job" });
 });
 
 test("a merge line Check is a row with the line's requester and the names its log is asked by", () => {

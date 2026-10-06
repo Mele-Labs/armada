@@ -10,7 +10,7 @@ import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCh
 import { CHECK_OUTCOME } from "@armada/components";
 import type { CheckDetail, CheckListRow, CheckListStatus } from "@armada/components";
 
-import { absoluteOf, clockOf, lasting } from "./duration";
+import { absoluteOf, clockOf, instant, lasting } from "./duration";
 import { runOutcomeOf } from "./rehearsal";
 
 /** One Check, asked for, out, or ended. */
@@ -55,8 +55,8 @@ const SAYS: Record<CheckListStatus, string> = {
 };
 
 /**
- * Every Check the sheet declares that has been asked for or run: out now, then waiting, then the
- * finished, newest first. **Nothing here for a Check nobody asked for**, which is the rows' whole
+ * Every Check the sheet declares that has been asked for or run, as one list ordered by when each
+ * was requested, newest first (`requestedOf`). **Nothing here for a Check nobody asked for**, which is the rows' whole
  * point against the Manifest surface's declared list.
  */
 export function checkEntriesOf(
@@ -84,16 +84,31 @@ export function checkEntriesOf(
     if (step.state === "waiting") {
       waiting.push({ id: `${verify!.id}:${step.name}`, name: step.name, status: "waiting", command: step.run, requestedAt: verify!.started_at, requester: requesterOf(verify!) });
     } else if (step.state === "running" && !out.has(step.run_id)) {
-      out.set(step.run_id, { id: step.run_id, name: step.name, status: "running", command: step.run, runId: step.run_id, requester: requesterOf(verify!) });
+      out.set(step.run_id, { id: step.run_id, name: step.name, status: "running", command: step.run, runId: step.run_id, requestedAt: verify!.started_at, requester: requesterOf(verify!) });
     } else if (step.state === "ran" && !finished.has(step.record.id)) {
       finished.set(step.record.id, step.record);
     }
   }
-  // Ended runs and reported Checks read as one history, newest first.
-  const ended = [...[...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord), ...reported.map(entryOfReported)].sort(
-    (one, two) => (two.startedAt ?? two.finishedAt ?? "").localeCompare(one.startedAt ?? one.finishedAt ?? ""),
-  );
-  return [...out.values(), ...waiting, ...land, ...ended];
+  const ended = [...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord);
+  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...reported.map(entryOfReported)]);
+}
+
+/**
+ * When a Check was asked for: its own start, else when Verify asked for it, else when its ruling
+ * was written (a gate row has only that). **A merge line Check has none on the wire**, and is
+ * live on the line now, so it reads as the newest.
+ */
+export function requestedOf(entry: CheckEntry): number {
+  const at = entry.startedAt ?? entry.requestedAt ?? entry.finishedAt;
+  return at === undefined ? Number.POSITIVE_INFINITY : (instant(at) ?? Number.NEGATIVE_INFINITY);
+}
+
+/** Newest request first; equal times keep the order they were gathered in. */
+function byRequested(entries: CheckEntry[]): CheckEntry[] {
+  return entries
+    .map((entry, at) => ({ entry, at, when: requestedOf(entry) }))
+    .sort((one, two) => (two.when === one.when ? one.at - two.at : two.when > one.when ? 1 : -1))
+    .map((one) => one.entry);
 }
 
 function entryOfRecord(record: CheckoutRunRecord): CheckEntry {
