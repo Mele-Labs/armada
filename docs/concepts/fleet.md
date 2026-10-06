@@ -374,7 +374,7 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Act | What happens |
 |---|---|
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
-| Release | Refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
+| Release | `armada worktree release` is refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Refused on a checkout on no branch, on the base, on a branch the lease does not name, and while a take or release is under way. It answers with the commit and the paths it took |
 | Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist and for one another checkout already has, naming where. `armada worktree lease --existing <branch>` |
 | Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
@@ -426,6 +426,41 @@ checkouts. [Job](job.md), *Pausing a Job*, has what the Job reads as meanwhile.
 > Why: it has no worktree to act on, and a derived path nothing is at would read
 > as a worktree that is gone.
 
+**Fleet pauses a parked Job itself when work is waiting for a slot.** The owner's
+words of 5 Oct 2026: stopped and parked Jobs "are holding onto worktree slots ...
+the work can't start because the stopped jobs are holding the leases." He chose
+Pause and Resume plus this, with a grace window and an off switch. A pass in the
+turn, after admission, finds each waiter and pauses one Job for it through the
+same path a person's Pause takes, as Fleet: the park, the marker with `by: fleet`,
+`job.paused` with `actor: fleet`, and a line in the victim's log naming the waiter.
+
+| | |
+|---|---|
+| **A waiter** | A queued Job that was never started or was re-queued, with no pause marker, clear to run in every way a start asks (dependency, children, budget, freeze, volume) and for room under the Drone bound and the machine's memory, whose own repository's pool has no free slot |
+| **A victim** | A Job in the same repository's pool at `awaiting_review`, `awaiting_repair` or `escalated`, holding a slot the pool says it holds, working no Drone, not paused, with no redirect note waiting, and still for the grace window |
+| **The order** | The Job that has been longest at its status first, ties by Job id. One victim per waiter per turn |
+| **Never** | `completed_success`, `running` or a piloted Job, which are not in the list above |
+
+**Still, for the grace window**: fifteen minutes since the Job's last event, read
+from the Job's own event log. Fleet cannot see what Bridge shows, so a Job a
+person has just opened is left alone. A person's resume, and a park the pool
+refused, count as a move at that moment, so a resumed Job is not taken back at
+once and a refusal is not asked again every tick. Both are held in memory, so a
+restart forgets them. `setup.auto_release` turns the pass off and
+`setup.auto_release_grace_minutes` sets the window — [Manifest](manifest.md),
+*Pausing a parked Job for waiting work*.
+
+> **Rule.** Fleet never resumes a Job it paused, and a person's Resume waits for
+> a free slot without forcing another Job out.
+> Why: a Job comes back when a person acts on it, and a resume that paused a
+> third Job to make room would be a loop the owner has no way to watch.
+
+**What a person finds.** The Job reads at the status it had, with a paused chip
+whose `by` is `fleet`. Resume puts it back where it was, review rows and steps
+untouched, once a slot is free. A pool that is full and a waiter whose slot an
+agent takes between turns pauses another Job the next turn, one per waiter, so
+the pass is bounded by the waiters and never by the ticks.
+
 ### Cleaning up from the grid
 
 **Cleanup is one grid of tiles, and a press on a tile opens the panel that manages
@@ -438,9 +473,10 @@ one bulk act, and nothing on a screen reaches for it.
 | In the panel | Offered |
 |---|---|
 | What it holds | One row per reason Fleet holds the worktree, in git's words: uncommitted changes and how long ago the Job last moved, unmerged commits with what they are not on and their tip, a locked worktree, Jobs that need it, an unknown base branch, a failed `git status`. A Job that has not finished shows its status badge under the Job's name. A worktree holding nothing shows no row |
-| Clear | The reclaim, where the worktree is on disk and the Job has ended. **On a bay it releases the slot**: HEAD is detached and the directory stays, and the pool refuses while anything is uncommitted. **Outside the pool it runs `git worktree remove`**, uncommitted files with it. Either way the branch is deleted only where the base has all its commits, and kept otherwise. The confirm lists those effects. A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
+| Clear | The reclaim, where the worktree is on disk and the Job has ended. **Uncommitted files are committed first**, untracked in and ignored out, to the Job's branch as a WIP commit naming the Job, and never pushed. **On a bay it then releases the slot**: HEAD is detached and the directory stays. **Outside the pool it then runs `git worktree remove`**, which is safe because the files are on the branch. A branch holding that commit is kept; one with nothing uncommitted is deleted only where the base has all its commits. The confirm lists the commit, the files, the release or removal and the kept branch, with no counts, and the receipt reads *Committed to X, slot released*. A detached HEAD, the base branch, another branch than the lease names or a busy slot keeps the refusal, said in git words; a locked worktree and a Job that has not ended are refused as before. The Job's own Clear says the same | A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
 | Delete branch | Only once the worktree is gone, because Fleet refuses it with a 409 while the directory stands. The confirm names the branch, its tip and the commits not on the base, which stay reachable only from that tip, and the tip is what is sent |
 | Forget Job | Only once the worktree and the branch are gone, and with a confirm: the record has no undo, and the worktree and branch are not touched |
+| Release | On a slot an agent session holds, which offered only Close slot before. The confirm names the holder, with its pid on a tooltip, and the branch, then does what Clear does for a Job's: commit the uncommitted files to the branch as a WIP commit, release the slot, keep the branch. The holder shown is sent, and a slot re-leased since is refused with `fleet.slot_holder_changed`. The session's process is not touched |
 | Close, Reopen, Remove, Rescue | A bay's own, as above. Its Finding, and Scrap, Stash and Pick up, are in the same panel |
 
 **What an act did, and what Fleet refused, is said in the panel and never on the tile.**
@@ -521,7 +557,8 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
-| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or commits on no branch, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| `completed_failed`, `killed` | Released the moment it ends. Where the pool refuses for uncommitted files, they are committed to the Job's branch as a WIP commit first, never pushed, and the Job's log says which commit and files. A park git refuses (detached HEAD, the base branch, another branch than the lease names, a busy slot) keeps the slot, the log says why, and `armada worktree --status` reads `kept` |
+| `rejected`, `superseded` | Released by the pool's rules. Refused for a dirty tree or commits on no branch, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
 | Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is

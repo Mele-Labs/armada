@@ -1,39 +1,12 @@
-import { Box, FilePenLine, Folder, GitBranch, GitBranchMinus } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { Box, Folder, GitBranch, GitBranchMinus } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { PauseEffects } from "../PauseConfirm/PauseConfirm";
+import { ClearSaves } from "./ClearSaves";
+import { Line, Mono } from "./ConfirmLine";
 import type { Confirming } from "./TileActs";
 import { nameOf } from "./tiles";
 import type { ClearCost, TileRow } from "./tiles";
-
-function Line({ Glyph, said, word, figure, children }: { Glyph: LucideIcon; said: string; word: string; figure?: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="armada-confirm__row">
-      <div className="armada-confirm__line">
-        <Tooltip label={said}>
-          <span className="armada-confirm__mark" role="img" aria-label={said}>
-            <Glyph size={12} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-        <span className="armada-confirm__word">{word}</span>
-        {figure}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Mono({ items, label }: { items: readonly string[]; label: string }) {
-  return (
-    <ul className="armada-confirm__names" aria-label={label}>
-      {items.map((one) => (
-        <li key={one}>{one}</li>
-      ))}
-    </ul>
-  );
-}
 
 const commitsOf = (n: number) => (n === 1 ? "1 commit" : `${n} commits`);
 
@@ -61,11 +34,11 @@ function BranchEffect({ row, cost }: { row: TileRow; cost: ClearCost }) {
 
 /**
  * What an act will do, listed as the git effects it has and nothing else,
- * before it is sent. **Clear lists the worktree it removes or the slot it
- * releases, the uncommitted files that go with it or hold the release up, and
- * what becomes of the branch.** A bay is released to the pool and its directory
- * stays; a worktree outside the pool is removed. The act is destructive in
- * colour only where something is ended for good.
+ * before it is sent. **Clear with uncommitted files commits them to the
+ * branch first** (`ClearSaves`); with none it lists the worktree it removes or
+ * the slot it releases, and what becomes of the branch. A bay is released to
+ * the pool and its directory stays; a worktree outside the pool is removed.
+ * Delete branch and Forget Job are destructive in colour: Clear loses nothing.
  */
 export function TileConfirm({
   which,
@@ -83,16 +56,14 @@ export function TileConfirm({
   const held = row.held!;
   const name = nameOf(row);
   const pooled = row.slot !== undefined;
-  const ends = which !== "clear" || (cost.files.length > 0 && !pooled);
-  const verb = which === "clear" ? "Clear" : which === "branch" ? "Delete branch" : "Forget Job";
-  const sat = row.sat === undefined ? null : (
-    <Tooltip label="The files were written then or earlier">
-      <span className="armada-confirm__figure">{`Job last moved ${row.sat} ago`}</span>
-    </Tooltip>
-  );
+  const ends = which !== "clear" && which !== "pause";
+  const verb = which === "clear" ? "Clear" : which === "pause" ? "Pause" : which === "branch" ? "Delete branch" : "Forget Job";
   return (
     <div className="armada-confirm" role="group" aria-label={`${verb} ${name}`}>
-      {which === "clear" ? (
+      {which === "clear" && cost.files.length > 0 ? (
+        <ClearSaves branch={cost.branch?.name ?? held.branch} files={cost.files} path={held.path} {...(pooled ? { slot: name } : {})} />
+      ) : null}
+      {which === "clear" && cost.files.length === 0 ? (
         <>
           {pooled ? (
             <>
@@ -106,18 +77,16 @@ export function TileConfirm({
           ) : (
             <Line Glyph={Folder} said="git worktree remove, with its files" word={`Removes the worktree at ${held.path}`} />
           )}
-          {cost.files.length === 0 ? null : (
-            <Line
-              Glyph={FilePenLine}
-              said={pooled ? "A release is refused while the worktree has uncommitted changes" : "No commit holds these, so nothing gets them back"}
-              word={pooled ? "Refused while these are uncommitted" : "Deletes uncommitted files"}
-              figure={sat}
-            >
-              <Mono label="Uncommitted files" items={cost.files} />
-            </Line>
-          )}
           <BranchEffect row={row} cost={cost} />
         </>
+      ) : null}
+      {which === "pause" ? (
+        <PauseEffects
+          branch={cost.branch?.name ?? held.branch}
+          files={cost.files}
+          {...(pooled ? { slot: name } : {})}
+          running={held.status === "running"}
+        />
       ) : null}
       {which === "branch" && cost.branch !== undefined ? (
         <>

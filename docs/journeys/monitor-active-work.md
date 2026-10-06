@@ -251,6 +251,9 @@ Two tiers, and drawing them as one row of chips risks reading as one kind of thi
 | Needs review | Review, accent |
 | Evidence disputed | Redispatch as a new job, accent |
 | Killed, failed | Redispatch as a new job |
+| Paused | Resume |
+
+**Pause sits behind the caret, and a paused Job leads with Resume.** A working Job keeps its held Kill as the face, so Pause is the first entry behind it, on a Job at a gate as well. The same two acts are in a Board row's caret and on a Cleanup tile's panel. Pause opens a confirm that lists what it does in git's words; Resume is sent at once. A paused Job reads its real status with a mark beside the badge, and any other act on it opens a confirm that offers Resume and does not send the act. `docs/concepts/job.md`, *Pausing a Job*.
 
 **Within the panel header, the step acts take the accent.** Why: the object of attention on this screen is the open step. The Job header's fill is decided by state, above, and the two headers do not compete.
 

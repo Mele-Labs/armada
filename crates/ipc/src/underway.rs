@@ -43,7 +43,7 @@ pub struct ChecksUnderway {
     /// current run narrows this the same way.
     pub attempt: u32,
     /// Who asked for this run: the gate on `checking`, the Drone on `dry_run`.
-    /// **Never absent**; `outside` where Fleet cannot say. Since 23.38.
+    /// **Never absent**; `outside` where Fleet cannot say. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
     /// Every Check the step declares, in the step's order — waiting ones

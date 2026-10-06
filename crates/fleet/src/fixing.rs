@@ -232,30 +232,34 @@ where
             .workflow()
             .step(&step)
             .ok_or(NotFixed::NothingIsWorking)?;
-        let (expect_exit_code, requires, template, places, width) = declared
-            .checks()
-            .iter()
-            .find_map(|c| match c {
-                ResolvedCheck::ManifestCheck {
-                    name,
-                    expect_exit_code,
-                    requires,
-                    one_test,
-                    places,
-                    width,
-                    ..
-                } if name == check => Some((
-                    *expect_exit_code,
-                    requires.clone(),
-                    one_test.clone(),
-                    *places,
-                    *width,
-                )),
-                _ => None,
-            })
-            .ok_or_else(|| NotFixed::NoSuchCheck {
-                check: check.to_string(),
-            })?;
+        let (expect_exit_code, requires, template, places, width, manifest_dir, bare_name) =
+            declared
+                .checks()
+                .iter()
+                .find_map(|c| match c {
+                    ResolvedCheck::ManifestCheck {
+                        name,
+                        expect_exit_code,
+                        requires,
+                        one_test,
+                        places,
+                        width,
+                        manifest_dir,
+                        ..
+                    } if c.key() == check => Some((
+                        *expect_exit_code,
+                        requires.clone(),
+                        one_test.clone(),
+                        *places,
+                        *width,
+                        manifest_dir.clone(),
+                        name.clone(),
+                    )),
+                    _ => None,
+                })
+                .ok_or_else(|| NotFixed::NoSuchCheck {
+                    check: check.to_string(),
+                })?;
         let template = template.ok_or_else(|| NotFixed::NoWayToRunOneTest {
             check: check.to_string(),
         })?;
@@ -274,7 +278,8 @@ where
             repository: ManifestId::carried(Ulid::carried(owner)),
             root: served.root().to_string(),
             run: ResolvedCheck::ManifestCheck {
-                name: check.to_string(),
+                manifest_dir: manifest_dir.clone(),
+                name: bare_name,
                 run: command,
                 expect_exit_code,
                 when: None,

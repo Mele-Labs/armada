@@ -5,8 +5,9 @@
 
 use std::path::Path;
 
-use super::git::{count, dirty, git, git_ok};
-use super::{Committed, Holder, ParkRefused, Parked, Pool, Record};
+use super::git::{count, git, git_ok};
+use super::saving::commit_all;
+use super::{Holder, ParkRefused, Parked, Pool, Record};
 
 impl Pool {
     /// Commits reachable from `HEAD` in `at` that `branch`, the remotes and
@@ -62,20 +63,11 @@ impl Pool {
                 on,
             });
         }
-        let files = dirty(&slot).map_err(ParkRefused::Vcs)?;
-        let committed = if files.is_empty() {
-            None
-        } else {
-            git(&slot, &["add", "--all"]).map_err(ParkRefused::Vcs)?;
-            // `--no-verify`: work in progress being kept, not offered, and a
-            // hook that refused it would leave it in a slot the person wants
-            // freed.
-            let message = format!("WIP: parked from slot-{number}, not finished");
-            git(&slot, &["commit", "--quiet", "--no-verify", "-m", &message])
-                .map_err(ParkRefused::Vcs)?;
-            let commit = git(&slot, &["rev-parse", "HEAD"]).map_err(ParkRefused::Vcs)?;
-            Some(Committed { commit, files })
-        };
+        let message = format!(
+            "WIP: uncommitted files of {}, saved to free slot-{number}",
+            holder.said()
+        );
+        let committed = commit_all(&slot, &message).map_err(ParkRefused::Vcs)?;
         let released = self
             .give_back_locked(number, Some(holder))
             .map_err(ParkRefused::Release)?;

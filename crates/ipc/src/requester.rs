@@ -1,5 +1,5 @@
 //! Who asked for a Check run, as a typed value a client can follow to the place
-//! that asked. Since 23.38.
+//! that asked. Since 23.40.
 //!
 //! **`kind` is an opaque string**, the way a Record row's kind is: a new
 //! kind of requester is then a minor bump, and a client that has not heard of

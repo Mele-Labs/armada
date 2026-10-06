@@ -207,6 +207,7 @@ async fn a_dry_run_from_a_different_attempt_is_never_reused() {
 async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
     let declared = vec![
         ResolvedCheck::ManifestCheck {
+            manifest_dir: String::new(),
             name: "build".to_string(),
             run: "/usr/bin/true".to_string(),
             expect_exit_code: 0,
@@ -220,6 +221,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
             runner: None,
         },
         ResolvedCheck::ManifestCheck {
+            manifest_dir: String::new(),
             name: "test".to_string(),
             run: "/usr/bin/true".to_string(),
             expect_exit_code: 0,
@@ -260,6 +262,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
         Some(&dry_run),
         Attempt::FIRST,
         Some(&footprint),
+        None,
     )
     .await;
     assert_eq!(

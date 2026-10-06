@@ -31,6 +31,7 @@ import {
   everyTaskState,
   executingAtOnce,
   executingConcurrent,
+  executingHeld,
   executingSequential,
   groupFailed,
 } from "./arc-executing";
@@ -54,7 +55,7 @@ export {
   proposingSlow,
 };
 export { plannedMoment, planReview, planRevisionRefused };
-export { doneTouched, everyTaskState, executingConcurrent, executingSequential, groupFailed };
+export { doneTouched, everyTaskState, executingConcurrent, executingHeld, executingSequential, groupFailed };
 export { landed };
 
 /** Every moment, in the order the work happens. */

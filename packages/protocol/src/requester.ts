@@ -1,5 +1,5 @@
 // Who asked for a Check run, and a Drone's own runs as rows of their own.
-// Since 23.38. The Rust half is `crates/ipc/src/requester.rs` and `asked.rs`.
+// Since 23.40. The Rust half is `crates/ipc/src/requester.rs` and `asked.rs`.
 
 /**
  * Who asked for one run, as a value a surface can follow to the place that
@@ -19,7 +19,7 @@
  * | `outside` | Nothing in Armada: a person's press, a bare `armada check` | none |
  *
  * **`outside` is a value, and an absent requester reads as it** — a Fleet
- * before 23.38 sends none, and a fixture may not.
+ * before 23.40 sends none, and a fixture may not.
  */
 export type Requester = {
   kind: string;
@@ -32,7 +32,7 @@ export type Requester = {
   /**
    * What a person calls the Job, `1-a-job`. **A Drone's handle**: its transcript
    * is named under it and it has no other name than its id. Present on every kind
-   * that names a Job, where Fleet knows it. Since 23.38.
+   * that names a Job, where Fleet knows it. Since 23.40.
    */
   handle?: string;
 };

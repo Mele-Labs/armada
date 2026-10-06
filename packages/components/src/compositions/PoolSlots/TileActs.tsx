@@ -1,4 +1,4 @@
-import { DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Power, Trash2 } from "lucide-react";
+import { CirclePause, DoorClosedLocked, DoorOpen, Eraser, GitBranchMinus, LifeBuoy, PackageX, Play, Power, Trash2, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RescueAct, SlotAct, WorktreeSlot } from "@armada/protocol";
 
@@ -51,7 +51,7 @@ export function rescuable(slot: WorktreeSlot): boolean {
 }
 
 /** Which confirm an act opens in the panel, before it is sent. */
-export type Confirming = "clear" | "branch" | "forget";
+export type Confirming = "clear" | "branch" | "forget" | "release" | "pause";
 
 export type TileActsProps = {
   row: TileRow;
@@ -60,28 +60,36 @@ export type TileActsProps = {
   onAct?: ((act: SlotAct, slot?: number) => void) | undefined;
   onRescue?: ((act: RescueAct, slot: number) => void) | undefined;
   onConfirm?: ((which: Confirming) => void) | undefined;
+  /** Resume a paused Job. Sent at once: nothing is lost by it. */
+  onResume?: (() => void) | undefined;
 };
 
 /**
  * What each reclaim act does, from `reclaim_worktree`, `delete_branch` and
  * `forget_job`. **A bay is released to the pool**: its worktree stays and HEAD
- * is detached, and the release is refused while anything is uncommitted. A
- * worktree outside the pool is removed with `git worktree remove`. Either way
- * the branch is deleted only where the base has all its commits, and kept
- * otherwise. Delete branch is refused while the worktree is on disk.
+ * is detached. A worktree outside the pool is removed with `git worktree
+ * remove`. **Uncommitted files are committed to the branch first, either way**,
+ * and the branch is kept. With none, the branch is deleted only where the base
+ * has all its commits. Delete branch is refused while the worktree is on disk.
  */
-export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget", string> {
+export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget" | "pause", string> {
   const { slot, held } = row;
   const name = nameOf(row);
   const branch = row.cost?.branch?.name ?? held?.branch ?? slot?.branch ?? "its branch";
   const base = row.cost?.branch?.base ?? slot?.base ?? "main";
   const tip = row.cost?.branch?.tip;
   const keeps = `Deletes branch ${branch} only if ${base} has all its commits, otherwise keeps it.`;
+  const saves = (row.cost?.files.length ?? 0) > 0;
+  const saved = `Commits the uncommitted files to branch ${branch} as a WIP commit`;
   return {
-    clear:
-      slot === undefined
+    pause: `${row.held?.status === "running" ? "Stops the Drone and its processes. " : ""}${saves ? `${saved}, then releases` : "Releases"} ${name}. The work stays on branch ${branch}.`,
+    clear: saves
+      ? slot === undefined
+        ? `${saved}, then removes the worktree at ${held?.path ?? name}. Keeps branch ${branch}.`
+        : `${saved}, then releases ${name} to the pool. Keeps branch ${branch}.`
+      : slot === undefined
         ? `Removes the worktree at ${held?.path ?? name}. ${keeps}`
-        : `Releases ${name} to the pool: detaches its worktree at .armada/slots/${name} from ${branch} and keeps the directory. Refused while it has uncommitted changes. ${keeps}`,
+        : `Releases ${name} to the pool: detaches its worktree at .armada/slots/${name} from ${branch} and keeps the directory. ${keeps}`,
     branch: `Deletes branch ${branch}${tip === undefined ? "" : ` at ${tip}`}. Its commits not on ${base} stay reachable only from that commit.`,
     forget: `Deletes the record of Job ${row.job ?? held?.job_title ?? ""}. The worktree and branch are not touched.`,
   };
@@ -95,7 +103,7 @@ export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget", stri
  * them** for acts that land later, which are the screen's to offer and not this
  * row's to guess.
  */
-export function TileActs({ row, waiting, onAct, onRescue, onConfirm }: TileActsProps) {
+export function TileActs({ row, waiting, onAct, onRescue, onConfirm, onResume }: TileActsProps) {
   const { slot, offered } = row;
   const name = nameOf(row);
   const tips = tipsOf(row);
@@ -116,6 +124,31 @@ export function TileActs({ row, waiting, onAct, onRescue, onConfirm }: TileActsP
     ) : null,
     onRescue !== undefined && slot !== undefined && rescuable(slot) && rescue?.state === "reading" ? (
       <Act key="stop" label="Stop" said={`Stops the Scout reading ${name}.`} Glyph={Power} tone="neutral" waiting={waiting} onPress={() => onRescue("stop", slot.slot)} />
+    ) : null,
+    onConfirm !== undefined && slot?.held.state === "session" ? (
+      <Act
+        key="release"
+        label="Release"
+        said={`Commits any uncommitted files in ${name} to ${slot.branch ?? "its branch"} as a WIP commit, then releases the slot. Keeps the branch.`}
+        Glyph={Unplug}
+        tone="neutral"
+        waiting={waiting}
+        onPress={() => onConfirm("release")}
+      />
+    ) : null,
+    onConfirm !== undefined && offered?.pause === true ? (
+      <Act key="pause" label="Pause" said={tips.pause} Glyph={CirclePause} tone="neutral" waiting={waiting} onPress={() => onConfirm("pause")} />
+    ) : null,
+    onResume !== undefined && offered?.resume === true ? (
+      <Act
+        key="resume"
+        label="Resume"
+        said={`Puts branch ${row.held?.branch ?? slot?.branch ?? "its branch"} back in a slot. The Job is not started.`}
+        Glyph={Play}
+        tone="neutral"
+        waiting={waiting}
+        onPress={onResume}
+      />
     ) : null,
     onConfirm !== undefined && offered?.clear === true ? (
       <Act key="clear" label="Clear" said={tips.clear} Glyph={Eraser} tone="destructive" waiting={waiting} onPress={() => onConfirm("clear")} />

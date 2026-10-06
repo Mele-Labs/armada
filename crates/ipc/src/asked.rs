@@ -1,4 +1,4 @@
-//! A Drone's own run of a step's Checks, as a row of its own. Since 23.38.
+//! A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
 //!
 //! **Never a [`CheckRun`](crate::CheckRun).** A Check row is what a gate ruled
 //! on, and a dry result readable as one is a pass nobody measured at the gate.

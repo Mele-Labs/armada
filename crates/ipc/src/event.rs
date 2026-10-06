@@ -128,6 +128,10 @@ pub enum Event {
     JobLanded(JobLanded),
     #[serde(rename = "job.remarks_changed")]
     JobRemarksChanged(JobRemarksChanged),
+    #[serde(rename = "job.paused")]
+    JobPaused(JobPaused),
+    #[serde(rename = "job.resumed")]
+    JobResumed(JobResumed),
     // The counts and not the plan; `crate::work_plan` says why.
     #[serde(rename = "job.plan_changed")]
     JobPlanChanged(JobPlanChanged),
@@ -347,6 +351,28 @@ pub struct JobRemarksChanged {
     pub actor: Actor,
     /// When the sweep read this, not when the comment was written. The forge
     /// is where the exact instant lives.
+    pub at: Instant,
+}
+
+/// A Job was paused. **Often no status moved** — a Job at a review gate keeps
+/// the status it reads at — so `job.state_changed` would never have told a
+/// client, and this is what does.
+///
+/// The row travels whole, for [`JobLanded`]'s reason: [`JobSummary::paused`] is
+/// the change, and a client replaces the row rather than re-reading it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobPaused {
+    pub job: JobSummary,
+    pub actor: Actor,
+    pub at: Instant,
+}
+
+/// A Job's pause was lifted, or a resume began waiting for a slot
+/// (`paused.resuming`). The row travels whole, as [`JobPaused`]'s does.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobResumed {
+    pub job: JobSummary,
+    pub actor: Actor,
     pub at: Instant,
 }
 

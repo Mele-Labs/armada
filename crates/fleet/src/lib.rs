@@ -121,6 +121,8 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gated;
+mod gating;
 mod group;
 mod grouping;
 pub mod headroom;
@@ -142,6 +144,7 @@ mod joining_the_line;
 pub mod journal;
 pub mod judging;
 pub mod keeping;
+mod keeping_gates;
 mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
@@ -243,6 +246,8 @@ mod regating;
 /// A person's run of one Manifest entry in a Job's worktree, and Undo from
 /// the snapshot taken before it. **A rehearsal, never a verdict.**
 mod rehearsing;
+/// A parked Job paused by Fleet when work waits for a full pool.
+mod releasing;
 pub mod remarks;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
@@ -264,6 +269,7 @@ pub mod reviewing;
 mod rostered;
 mod ruling;
 pub mod runtime;
+mod saving;
 pub mod saying;
 /// Scan: reading a repository nobody set up for Armada. **It writes nothing,
 /// because a [`scanning::Tree`] has no write on it.**
@@ -336,6 +342,7 @@ pub mod widening;
 mod wire;
 mod work_plan;
 pub mod working;
+pub mod workspaces;
 
 #[cfg(test)]
 mod tests;
@@ -383,6 +390,7 @@ pub use reconciled::Reconciled;
 pub use redaction::Redactor;
 pub use redispatch::Replacement;
 pub use rehearsing::verify_steps;
+pub use releasing::{release_order, Parked};
 pub use reporting::{Counted, Filed, NotFiled};
 pub use resume::Roused;
 pub use reuse::KeptDryRun;

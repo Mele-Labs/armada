@@ -206,6 +206,22 @@ export type JobSummary = {
   reclaimed_at?: string;
   /** How many plan tasks stand where. Absent is a job with no plan. Since 13.21. */
   tasks?: TaskCounts;
+  /**
+   * The pause marker, **beside the status and never instead of it**. A job
+   * paused at a review gate reads `awaiting_review` with this set; a running
+   * one reads `queued` with `queued_reason` `paused` and this set. Absent is a
+   * job that is not paused, and every row from a Fleet before 23.39.
+   */
+  paused?: Paused;
+};
+
+/** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */
+export type Paused = {
+  /** `person` or `fleet`. */
+  by: string;
+  at: string;
+  /** A resume found every slot held, and the job waits for the first to free. */
+  resuming: boolean;
 };
 
 /** One Check a step declares. `crates/ipc/src/checks.rs`. */
@@ -312,7 +328,7 @@ export type CheckRun = {
   /** Which run of that group, from one. Present exactly where `group` is. Since 23.4. */
   group_attempt?: number;
   /**
-   * Who asked for this run. Present from 23.38; **absent reads as `outside`**
+   * Who asked for this run. Present from 23.40; **absent reads as `outside`**
    * (`requesterOf`). `StepDetail` stamps `gate` on every row it carries.
    */
   requester?: Requester;
@@ -573,6 +589,7 @@ export type {
   BranchDeleted,
   DeleteBranch,
   ReclaimedBranch,
+  ReclaimedSaved,
   ReclaimedWorktree,
   WorktreeReclaimed,
 } from "./reclaimed";
@@ -598,6 +615,8 @@ export type {
   JobFilesChanged,
   JobJudging,
   JobLanded,
+  JobPaused,
+  JobResumed,
   JobStateChanged,
   JobStepAdvanced,
   Missed,

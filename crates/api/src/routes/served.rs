@@ -876,6 +876,18 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/redirect",
     },
+    // A pause is not a kill and not a hold on a Drone: the Job's work is
+    // parked and its slot freed, and the Job itself is kept.
+    Route {
+        operation: "park_job",
+        method: "POST",
+        path: "/jobs/:job_id/park_job",
+    },
+    Route {
+        operation: "resume_job",
+        method: "POST",
+        path: "/jobs/:job_id/resume_job",
+    },
     Route {
         operation: "restart_step",
         method: "POST",

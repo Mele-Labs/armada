@@ -40,7 +40,7 @@ session that will release it.
 
 **Release at the merge, never remove.** A release refuses while anything is
 uncommitted, because an untracked or modified file does not survive the detach.
-A commit on the slot's branch is enough: the branch keeps it, so a push is
+Bridge's Clear and Release commit the files first, and so does Fleet for a Job that is killed or fails, so that refusal is the pool's alone. A commit on the slot's branch is enough: the branch keeps it, so a push is
 optional and an unmerged branch releases. It detaches the slot and leaves its
 `target/`; the branch stays until you delete it, so do not `git branch -D` one
 whose commits are not landed. A slot whose session ended without releasing is

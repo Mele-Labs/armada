@@ -202,8 +202,8 @@ pub struct CheckRun {
     /// Which run of that group, from one. Present exactly where `group` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_attempt: Option<u32>,
-    /// Who asked for this run. **Never absent**: a row from before 23.38 reads
-    /// as `outside`. `StepDetail` stamps `gate` on every row it carries. Since 23.38.
+    /// Who asked for this run. **Never absent**: a row from before 23.40 reads
+    /// as `outside`. `StepDetail` stamps `gate` on every row it carries. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
 }

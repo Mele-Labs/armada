@@ -993,7 +993,7 @@ export type StepDetail = {
   /**
    * Every run of this step's Checks a Drone asked for, **each its own row and
    * never among `check_runs`**. Oldest first; absent where none was asked.
-   * Since 23.38.
+   * Since 23.40.
    */
   asked_runs?: AskedRun[];
   /** Entered, then moved on entering `running`. To `updated_at` is how long. */

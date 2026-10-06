@@ -24,7 +24,7 @@ import type { ProtocolVersion } from "./version";
 export type ChecksUnderway = {
   /** Which run of the step these belong to. Joins to `check_runs` by `attempt`. */
   attempt: number;
-  /** Who asked for the run: the gate on `checking`, the Drone on `dry_run`. Since 23.38. */
+  /** Who asked for the run: the gate on `checking`, the Drone on `dry_run`. Since 23.40. */
   requester?: Requester;
   /** Every declared Check, in the step's order, waiting ones included. */
   checks: CheckUnderway[];

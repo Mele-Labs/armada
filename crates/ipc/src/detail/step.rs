@@ -103,7 +103,7 @@ pub struct StepFacts {
     /// `returned_by` column — `store::step_iteration`'s reading, less its one.
     /// Zero on every step of every linear workflow.
     pub returns: u32,
-    /// The Checks a Drone asked for on this step, oldest first. Since 23.38.
+    /// The Checks a Drone asked for on this step, oldest first. Since 23.40.
     pub asked_runs: Vec<crate::AskedRun>,
 }
 
@@ -329,7 +329,7 @@ pub struct StepDetail {
     pub dry_run: Option<ChecksUnderway>,
     /// Every run of this step's Checks a Drone asked for, **each its own row and
     /// never a `check_runs` row**: a dry result is not a gate's. Oldest first;
-    /// absent where none was asked. Since 23.38.
+    /// absent where none was asked. Since 23.40.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asked_runs: Vec<crate::AskedRun>,
     /// When the step was entered. Stamped at creation and moved on entering

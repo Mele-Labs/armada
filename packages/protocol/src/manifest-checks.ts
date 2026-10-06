@@ -1,5 +1,5 @@
 // Every Check run one repository's Jobs asked for or ran, in one read.
-// `GET /manifest/checks`, `list_manifest_checks`. Since 23.38.
+// `GET /manifest/checks`, `list_manifest_checks`. Since 23.40.
 // The Rust half is `crates/ipc/src/manifest_checks.rs`.
 
 import type { Outcome } from "./reads";

@@ -75,11 +75,11 @@ pub struct MergeLineCheck {
     /// Its name in `armada.yml`.
     pub name: String,
     pub state: LandCheckState,
-    /// The merge line, for the entry's branch. **Never absent.** Since 23.38.
+    /// The merge line, for the entry's branch. **Never absent.** Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
     /// When the runner began it, off the line's own state. **Absent while it
-    /// waits**, and on a line state written before the field. Since 23.38.
+    /// waits**, and on a line state written before the field. Since 23.40.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub started_at: Option<crate::ids::Instant>,
 }

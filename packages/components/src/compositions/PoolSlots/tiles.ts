@@ -6,7 +6,14 @@
 import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
 
 /** Which of a worktree's reclaim acts apply: Clear, Delete branch, Forget Job. */
-export type Offered = { clear: boolean; deleteBranch: boolean; forget: boolean };
+export type Offered = {
+  clear: boolean;
+  deleteBranch: boolean;
+  forget: boolean;
+  /** Pause a Job that holds this bay, and Resume one that is paused: the screen reads the Job. */
+  pause?: boolean;
+  resume?: boolean;
+};
 
 /** What Clear ends and leaves standing, named in its confirm. */
 export type ClearCost = {
@@ -39,6 +46,8 @@ export type TileRow = {
   said?: string;
   /** What the last Clear or Delete branch did, a fact to a line. */
   receipt?: readonly string[];
+  /** The tooltip of the mark beside the Job's state, where its Job is paused. */
+  paused?: string;
   /** An act on this tile is out, so its acts wait. */
   acting?: boolean;
 };

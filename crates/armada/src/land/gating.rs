@@ -15,7 +15,7 @@ use super::env::Env;
 use super::gate::{foundations_delta, not_installed, FoundationsComparison};
 use super::heads_up::Asked;
 use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
-use super::prepare::{nothing_left, setup};
+use super::prepare::{nothing_left, setup_for};
 use super::queue::QueueEntry;
 use super::repo::remote_head_within;
 use super::shell::spoken;
@@ -193,7 +193,7 @@ pub fn checks(
             )?;
             return Ok(Gated::BaseMoved);
         }
-        setup(&where_, env, logs)?;
+        setup_for(&where_, env, logs, &rerun)?;
         nothing_left(&where_, "preparing the gate")?;
         // Logged because a whole run of a narrowable Check says nothing else.
         let (said, paths) = match reached(where_, &built.hit) {

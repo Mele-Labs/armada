@@ -192,6 +192,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         merged_at: None,
         reclaimed_at: None,
         tasks: None,
+        paused: None,
     }
 }
 
@@ -592,6 +593,7 @@ pub fn reclaimed(job_id: JobId) -> WorktreeReclaimed {
             base: Some("main".to_string()),
             unmerged_commits: Some(3),
         },
+        saved: None,
     }
 }
 

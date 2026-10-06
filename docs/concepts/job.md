@@ -492,10 +492,45 @@ marker is the Job's own, and lifting a freeze would not start it. Resuming in a
 frozen repository leaves the Job `queued` reading `frozen`. The queued reasons'
 other readings are derived at read time; this one is derived from a stored marker.
 
+**A person is not the only one who pauses.** Fleet pauses a Job parked at
+`awaiting_review`, `awaiting_repair` or `escalated` when other work is waiting for
+a slot and the pool is full, and the marker then reads `by: fleet`. Fleet never
+resumes it: a person's Resume does, and puts the gate back as it was. A `running`
+Job and a finished one are never taken. [Fleet](fleet.md), *A paused Job gives its
+slot back*, has the rule.
+
 **A paused Job is still non-terminal**, so a Job that depends on it stays
 blocked, and its port span is kept. A person's act on it that needs a worktree
 is refused as `fleet.paused` ("resume it first"); Kill works. A pause is
 refused while its Checks run, and on a status with no worktree to give back.
+
+**The acts are `park_job` and `resume_job`**, each answering the Job's row, and
+both `Helm only`: Helm pauses on a person's ask. The row carries `paused`
+beside the status, so a Job at a review gate reads "Needs review" with a paused
+chip, and `job.paused` and `job.resumed` tell every window, since no status moved. Each
+act writes one line in the Job's log.
+
+| Refused as | When |
+|---|---|
+| `fleet.not_pausable` | the status cannot hold a pause, or the Job holds no slot |
+| `fleet.already_paused`, `fleet.not_paused` | a pause on a paused Job, a resume on one that is not |
+| `fleet.checks_running` | its Checks are running again on the worktree |
+| `fleet.pause_refused` | the pool or git would not park the work, or take it back |
+| `fleet.paused` | a person's act on a paused Job: resume it first |
+
+**Bridge offers the acts where the status can hold a pause.** Pause is offered on `running`, `awaiting_review`, `awaiting_repair` and `escalated`, and on a `queued` Job only where the pool shows it holding a slot, which a Board row does not carry, so it is Cleanup's alone. It is not offered on a paused Job or while the Job's own Checks run again. Resume is the face of a paused Job's header and sits in its row's caret and its tile's panel.
+
+| Where | Pause | Resume |
+|---|---|---|
+| Board row | in the caret, behind a confirm | in the caret, behind the Resume confirm |
+| Job detail | behind the caret, behind a confirm | the face, behind the Resume confirm |
+| Cleanup tile | on a bay a pausable Job holds, behind a confirm | on the Job's tile, sent at once |
+
+**The Pause confirm lists git effects and no counts**: the Drone and its processes that stop, uncommitted files committed to the branch as a WIP commit, the slot released, and the step that restarts on Resume. A Job at a gate has no process, so it lists the release and the commit only where files are uncommitted.
+
+**A paused Job reads its real status with a mark beside the badge**, on the Board row, the wave's Job card, the Job's header and its Cleanup tile. The mark is an icon, `circle-pause`, and its tooltip says who paused it (`person` or `fleet`), when, and the branch the work is on; a resume waiting for a slot says so instead.
+
+**An act on a paused Job opens the Resume confirm.** Approve, request changes, restart and override come back `fleet.paused`, and Bridge shows Resume and Cancel instead of a refusal. Resume only resumes: the act is pressed again after. Where the pool is full the Job reads waiting for a slot, and the confirm says nothing about it. Each refusal of Pause or Resume is said inside the confirm or panel that sent it, in git's words.
 
 ## Step state
 

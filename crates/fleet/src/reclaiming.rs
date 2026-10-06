@@ -36,6 +36,7 @@ use core_model::{Component, Envelope, FieldValue, JobId, JobStatus, Level};
 use crate::adrift::Adrift;
 use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
+use crate::saving::{Freed, SavedWork};
 
 /// Why a person's `delete_branch` was refused. Nothing was touched.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -123,6 +124,19 @@ where
     /// dispatch path already is; the seam that would move it off this thread is
     /// the `Vcs` trait, and reclaiming is not on it.
     pub async fn reclaim_worktree(&self, job_id: &JobId) -> Result<Reclaimed, Adrift> {
+        self.cleared_worktree(job_id)
+            .await
+            .map(|(reclaimed, _)| reclaimed)
+    }
+
+    /// [`reclaim_worktree`](Fleet::reclaim_worktree) and what it committed to
+    /// the Job's branch to free the worktree, which is the Clear a person asked
+    /// for. **Uncommitted files are committed, never deleted**: a slot is parked
+    /// and a Job's own worktree is saved before it is removed. `crate::saving`.
+    pub(crate) async fn cleared_worktree(
+        &self,
+        job_id: &JobId,
+    ) -> Result<(Reclaimed, Option<SavedWork>), Adrift> {
         let job = self.load(job_id).await?;
         if !job.status().is_terminal() {
             return Err(Adrift::NotReclaimable {
@@ -134,7 +148,11 @@ where
         // A slot is given back to the pool rather than removed. One the Job
         // still holds after that is one the pool refused, and nothing here
         // takes it instead.
-        let kept = self.released_slot(&job).await;
+        let (mut saved, kept) = match self.freed_by_a_clear(&job).await {
+            Freed::Saved(saved) => (Some(saved), None),
+            Freed::Kept(why) => (None, Some(why)),
+            Freed::Released | Freed::NotHeld => (None, None),
+        };
         let spec = self.reclaimed_spec(&served, &job)?;
         if let Some(slot) = spec.slot() {
             return Err(Adrift::SlotKept {
@@ -142,6 +160,9 @@ where
                 slot,
                 why: kept.unwrap_or_else(|| String::from("the Job still holds it")),
             });
+        }
+        if saved.is_none() {
+            saved = self.saved_before_removal(&spec, job_id)?;
         }
         // `base:` in `armada.yml` is the repository's own answer to what this
         // branch would have merged into. Where it declares none, `adapters`
@@ -168,7 +189,7 @@ where
             .await
             .retain_job(job_id, &self.now())
             .map_err(Adrift::Writing)?;
-        Ok(reclaimed)
+        Ok((reclaimed, saved))
     }
 
     /// Delete this terminal Job's branch, unmerged commits and all, once its
@@ -233,14 +254,14 @@ where
         job_id: ipc::JobId,
     ) -> Result<ipc::WorktreeReclaimed, Refusal> {
         let id = job_id.to_domain();
-        let gave_back = budgeted_for(self.command_budget(), job_id, {
+        let (gave_back, saved) = budgeted_for(self.command_budget(), job_id, {
             let fleet = Arc::clone(&self);
             let id = id.clone();
-            async move { Fleet::reclaim_worktree(&fleet, &id).await }
+            async move { Fleet::cleared_worktree(&fleet, &id).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
-        Ok(crate::wire::reclaimed(&id, gave_back))
+        Ok(crate::wire::reclaimed(&id, gave_back, saved))
     }
 
     /// `Commands::delete_branch`, redacting nothing for the reason above.

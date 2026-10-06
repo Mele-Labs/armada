@@ -1122,7 +1122,7 @@ description = "The merge line `armada land` keeps in each served repository that
 notes = """
 A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
 
-**Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.38).
+**Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.40).
 
 A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
@@ -1925,6 +1925,46 @@ no longer bounds Helm's reach on its own — Helm may end a Job the same way it 
 redispatch or restart one, when asked to.
 """
 
+[operations.park_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Pauses a Job: its Drones end, its work is parked on its branch and its slot goes back to the pool"
+notes = """
+`POST /jobs/:job_id/park_job`, no body. Answers the Job's `JobSummary` with `paused` set (`by`, `at`, `resuming`). `docs/concepts/job.md`, *Pausing a Job*, has the model.
+
+**Named `park_job`, not `pause_job`.** `pause_job` above is a retired row for a hold on a healthy Drone, kept so a reader who finds no row can tell a refused call from one nobody thought of; `xtask`'s unserved-operation allowance names it, and giving it a route would delete the record that says why. The act here is the one Fleet's `pause_job` method does.
+
+**A pause is not a status.** A running Job goes `queued` and reads `queued_reason: paused`. A Job at a review gate, or held for repair or an escalation, keeps the status it reads at, so a paused Job at a review gate reads `awaiting_review` with `paused` beside it. The summary carries the marker next to the real status and never replaces it. A Job with a pause marker does not read `paused` in `queued_reason` while it waits for a slot after a resume.
+
+**What it keeps is the work.** The record, the steps and the review rows are untouched; the Drones, the process and the slot are what go. The work is committed to the Job's branch as a `WIP:` commit.
+
+Refused with a 409 and nothing changed: `fleet.not_pausable` on a status that cannot hold a pause (a terminal one, or one before work began) and on a Job holding no slot; `fleet.already_paused`; `fleet.checks_running` while its Checks run again, since the pause would take the worktree they read; `fleet.pause_refused` where the pool or git will not take the work, carrying which. One exception to "nothing changed": a running Job whose Drone had to end before the pool could refuse is left `escalated`, as `kill_drone` leaves one.
+
+**An act on a paused Job** (approve, request changes, restart, override) is refused `fleet.paused` and says to resume it first. Bridge turns that refusal into a confirm that offers `resume_job`. Kill works.
+
+Publishes `job.paused` and writes one line in the Job's log.
+
+`agent_access` is `Helm only`, `restart_step`'s: Helm pauses a Job on a person's ask and never on its own reading.
+"""
+
+[operations.resume_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Lifts a Job's pause: a gate Job takes a slot now if one is free, and a queued one goes back in the line"
+notes = """
+`POST /jobs/:job_id/resume_job`, no body. Answers the Job's `JobSummary`, without `paused` where the Job is seated again.
+
+**It starts no Drone.** A Job that was working is let into admission's line and a Drone opens when admission starts one. A Job at a gate takes a slot for its branch where one is free and is where it was; where every slot is held it waits and the summary carries `paused.resuming`, and the first slot to free is its.
+
+**Refused with a 409** `fleet.not_paused` on a Job that is not paused, and `fleet.pause_refused` where its branch could not be put in a slot, with the git reason. The Job is still paused after either. Resuming a Job already waiting for a slot answers the same row and changes nothing.
+
+Publishes `job.resumed` and writes one line in the Job's log.
+
+`agent_access` is `Helm only`, for `park_job`'s reason.
+"""
+
 [operations.kill_process]
 kind = "command"
 transport = "HTTP"
@@ -2000,6 +2040,8 @@ notes = """
 
 **`remove` gives a made slot's checkout back with `git worktree remove`**, and only a free or unmade one. A held, stranded or busy slot, a directory that is not a checkout, uncommitted files, and the last slot are each a 409 with its own code — `fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`, `fleet.slot_dirty`, `fleet.slot_last` — so Bridge says why on the slot. A slot the pool does not have is a 422, `fleet.no_such_slot`.
 
+**`release` hands back a slot an agent session holds** (since 23.37), as Clear does for a Job's. The body names `slot` and the `holder` the person was shown, as the slot read it (`claude (pid 44698)`). The pool commits whatever is uncommitted there, untracked in and ignored out, to the slot's branch as a WIP commit and frees the slot; nothing is pushed and the session's process is not touched. The answer's `released` names the branch and, where files were committed, the commit and the files. A slot held by anyone else now, or by nobody, is a 409 `fleet.slot_holder_changed` and is left as it is; a release with no holder is a 422 `fleet.slot_holder_unnamed`. A detached HEAD, the base branch, another branch than the lease names, or a refused release after the commit is a 409 `fleet.slot_not_parkable` with git's own words; a lease or release under way is `fleet.slot_busy`.
+
 **`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
 
 `Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
@@ -2030,6 +2072,13 @@ is no disk to reclaim while a Drone might still write to it.
 **A pool slot is given back rather than removed**, by the pool's rules. This
 is the act that gives back the slot a completed Job holds until a person
 clears it; one the pool refuses stays held, and the answer says why.
+
+**Uncommitted files are committed, not refused** (since 23.37). A slot the pool
+refuses for them is parked: everything uncommitted, untracked in and ignored
+out, goes to the Job's branch as a WIP commit and the slot is freed. A Job's own
+worktree is committed the same way before it is removed. Nothing is pushed, and
+the answer's `saved` names the commit and the files. A detached HEAD, the base
+branch or a busy slot keeps the refusal, in git words.
 
 **Runs with `UnmergedWork::Keep`**, matching `armada clean` without `--force`.
 A branch holding commits the base cannot reach survives, is named in the answer
@@ -2789,7 +2838,7 @@ description = "One Job's earlier runs from the run sheet: name, exit code, when,
 notes = """
 **Read off the run directories, not a table.** Each run keeps a directory under the repository's records root — its log and a small record — and this lists them, newest first. A run from the sheet is a rehearsal and writes no `job_step_checks` row and no Evidence, so there is no row to read. A record that will not read is answered in `unreadable` rather than dropped.
 
-**`asked_runs` is the one part read from a table**: the Checks a Drone asked for on this Job, each its own row and never among `runs` (since 23.38). A dry result is not a rehearsal's, and no row here is a `job_step_checks` row either.
+**`asked_runs` is the one part read from a table**: the Checks a Drone asked for on this Job, each its own row and never among `runs` (since 23.40). A dry result is not a rehearsal's, and no row here is a `job_step_checks` row either.
 
 Kept for the Machine's ad-hoc run log retention, thirty days, swept when the Job's sheet next starts a run.
 
@@ -3230,6 +3279,32 @@ Only for a Job the merge sweep found still open — `notice_a_merge` calls `read
 `agent_access` is `Bridge only`, on `job.judging`'s reasoning: this is a wake-up about a screen a person is looking at rather than a fact worth a Helm session's tokens, and Helm already has `get_remarks` for the answer.
 
 It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names. The rotation produces at most one of these per `Noticing` interval across every open pull request Fleet holds, which is `job.asking`'s own bound one order slower — a person answers faster than a sweep rotates.
+"""
+
+[operations."job.paused"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job was paused"
+notes = """
+Since 23.39. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` set.
+
+Published once per act that sets the marker: a pause, and a pause that called off a resume's wait.
+
+`agent_access` is `Bridge only`, `job.remarks_changed`'s: a screen's wake-up, and Helm has `get_job` for the answer.
+"""
+
+[operations."job.resumed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's pause was lifted, or its resume began waiting for a slot"
+notes = """
+Since 23.39. `job.paused`'s counterpart and shape: the row whole, with `paused` absent where the Job holds a slot again, and present with `resuming` where every slot was held.
+
+Published by a resume that seated the Job or began its wait, and by the turn that seats a waiting Job when a slot frees. A queued Job that admission seats moves status, so `job.state_changed` tells it. A resume of a Job already waiting changes nothing and publishes nothing.
+
+`agent_access` is `Bridge only`, for `job.paused`'s reason.
 """
 
 [operations."job.plan_changed"]

@@ -16,6 +16,7 @@ import type { SplitButtonItem } from "@armada/components";
 import { JOB_LIFECYCLE } from "@armada/components";
 import type { Outcome } from "@armada/protocol";
 import type { FileReport, JobDetail as JobWhole, JobSummary } from "@armada/protocol";
+import { canPause, canResume } from "./pausing";
 import { ACT_LABEL, HOLD_LABEL, HOLD_SAID, MENU_LABEL, RAISE_CAP_LABEL, RAISE_TURN_CAP_LABEL, REPORT_LABEL } from "./copy";
 import type { ActAnswer, ActingAct } from "./pending";
 import { RaiseCapControl } from "./RaiseCap";
@@ -54,7 +55,12 @@ export type JobAct =
   // the row `reclaim_worktree` leaves — `crates/ipc/operations.toml` argues
   // the split on the same row that argues this one's — so a person wanting
   // both sends both, and this is never the act a stray `Enter` reaches.
-  | "forget_job";
+  | "forget_job"
+  // The eleventh and twelfth, and the only two that keep the Job: a pause saves
+  // its work on its branch and gives its slot back, and Resume takes one again.
+  // Neither ends anything, so neither is plain red.
+  | "pause_job"
+  | "resume_job";
 
 /**
  * The acts that confirm through the shared dialog. **Redirect and the override
@@ -191,6 +197,7 @@ export function Acts({
   answered,
   approving,
   stale,
+  rerunningChecks = false,
   onAct,
   onActHeld,
   onApprove,
@@ -224,6 +231,8 @@ export function Acts({
   answered?: ActAnswer | undefined;
   approving: boolean;
   stale: boolean;
+  /** This Job's Checks are running again on its worktree, which Fleet refuses a pause under. */
+  rerunningChecks?: boolean;
   onAct: (act: ConfirmableAct, jobId: string) => void;
   /** A kill held for `--duration-hold`. **Sends, with no dialog**: the hold was the confirmation. */
   onActHeld: (act: HeldAct, jobId: string) => void;
@@ -273,6 +282,8 @@ export function Acts({
   // Mildest first, so the act that ends the Job is last and furthest from the
   // reading a person arrived to do.
   const acts: ConfirmableAct[] = [
+    // First on a paused Job, because it is the one act that gets it going again.
+    ...(canResume(job) ? (["resume_job"] as ConfirmableAct[]) : []),
     // Fleet's answer and not the status: a replacement also needs the workflow
     // this Job named to be one Fleet still holds, which no row carries.
     ...(recourse?.redispatch === true ? (["redispatch"] as ConfirmableAct[]) : []),
@@ -294,6 +305,8 @@ export function Acts({
     // Drones sheet's act; the header's kill ends the whole Job (owner, 29 Sep
     // 2026).
     ...(over ? [] : (["kill_job"] as ConfirmableAct[])),
+    // Behind the kill, so the held kill stays the face of a Job that is working.
+    ...(canPause(job, { checksRunning: rerunningChecks }) ? (["pause_job"] as ConfirmableAct[]) : []),
   ];
   // The lead, on the render that has one. Redispatch where Fleet offers it,
   // and the report where it does not — the two are the only non-destructive
@@ -316,7 +329,7 @@ export function Acts({
   const act = (name: ConfirmableAct): Entry => ({
     face: ACT_LABEL[name],
     label: MENU_LABEL[name],
-    danger: true,
+    danger: name !== "pause_job" && name !== "resume_job",
     actName: name,
     ...(isHeldAct(name) ? { held: name } : {}),
     onSelect: () => onAct(name, job.id),
@@ -558,14 +571,21 @@ const APPROVE_LABEL = "Approve dispatch";
  * What each act this header can open a dialog for says on its own control
  * while it is out and Fleet has not answered. **The six this header ever
  * sends** — `kill_job`, `redispatch`, `reclaim_worktree`, `forget_job`,
- * `raise_cost_cap`, `raise_turn_cap` — read as `ActingAct` because every one
+ * `raise_cost_cap`, `raise_turn_cap`, `pause_job`, `resume_job` — read as `ActingAct` because every one
  * of the eleven `JobAct`s that never reaches this header (`redirect`,
  * `restart_step`, `override_verdict`, `rerun_gate`, `rerun_checks`) is
  * `StepActs.tsx`'s. `kill_drone` is the Drones sheet's and the Workflow
  * panel's, so an answer to it is not this header's to mark. #1117.
  */
 const ACTING_LABEL: Record<
-  "kill_job" | "redispatch" | "reclaim_worktree" | "forget_job" | "raise_cost_cap" | "raise_turn_cap",
+  | "kill_job"
+  | "redispatch"
+  | "reclaim_worktree"
+  | "forget_job"
+  | "raise_cost_cap"
+  | "raise_turn_cap"
+  | "pause_job"
+  | "resume_job",
   string
 > = {
   kill_job: "Killing job…",
@@ -574,6 +594,8 @@ const ACTING_LABEL: Record<
   forget_job: "Deleting the record…",
   raise_cost_cap: "Raising the cost cap…",
   raise_turn_cap: "Raising the turn cap…",
+  pause_job: "Pausing…",
+  resume_job: "Resuming…",
 };
 
 function isHeaderActingAct(act: ActingAct): act is keyof typeof ACTING_LABEL {

@@ -45,6 +45,9 @@ struct Held {
     /// Every definition file that parsed, with its text: the ones that run and
     /// the ones a more specific place replaced.
     files: Arc<Vec<WorkflowFile>>,
+    /// The workspaces' own manifests, the root's excluded, in the order they
+    /// gate. Empty for a repository with none.
+    workspaces: Arc<Vec<Manifest>>,
 }
 
 /// What reading the workflow folders again came to, for a Fleet that is
@@ -63,11 +66,31 @@ impl SetUp {
         SetUp {
             manifest,
             held: Arc::new(RwLock::new(Held {
+                workspaces: Arc::new(Vec::new()),
                 workflows: Arc::new(workflows),
                 left_out: Arc::new(Vec::new()),
                 files: Arc::new(Vec::new()),
             })),
         }
+    }
+
+    /// The manifests of the workspaces below the root, in the order they gate.
+    pub fn with_workspaces(self, workspaces: Vec<Manifest>) -> SetUp {
+        self.workspaces_read(workspaces);
+        self
+    }
+
+    /// The workspaces as of the last read, as one snapshot.
+    pub fn workspaces(&self) -> Arc<Vec<Manifest>> {
+        Arc::clone(&self.held().workspaces)
+    }
+
+    /// Replace the workspaces held, whole: one whose file is gone is gone.
+    pub(crate) fn workspaces_read(&self, workspaces: Vec<Manifest>) {
+        self.held
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .workspaces = Arc::new(workspaces);
     }
 
     /// The definition files this repository read, as the catalogue kept them.
@@ -99,11 +122,10 @@ impl SetUp {
     /// The workflows this repository runs as of a re-read, replacing every one
     /// held. **Whole, never merged**: a definition whose file is gone is gone.
     pub(crate) fn catalogued(&self, read: Catalogued) {
-        *self.held.write().unwrap_or_else(PoisonError::into_inner) = Held {
-            workflows: Arc::new(read.workflows),
-            left_out: Arc::new(read.left_out),
-            files: Arc::new(read.files),
-        };
+        let mut held = self.held.write().unwrap_or_else(PoisonError::into_inner);
+        held.workflows = Arc::new(read.workflows);
+        held.left_out = Arc::new(read.left_out);
+        held.files = Arc::new(read.files);
     }
 
     fn held(&self) -> Held {
@@ -199,7 +221,7 @@ pub trait Locating: Send + Sync {
     ) -> Result<SavedWorkflow, WorkflowNotSaved>;
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.
-    fn workflows(&self, root: &Path, manifest: &Manifest) -> Catalogued;
+    fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;
     /// Read `folder`. **No side effects**: Fleet may still refuse what comes back.
     fn located(&self, folder: &Path) -> Result<Located, NotLocated>;
     /// Fleet now serves the Manifest at `root`: watch it, and publish what a
@@ -293,6 +315,17 @@ impl Served {
 
     pub fn manifest(&self) -> &Manifest {
         self.set_up().manifest()
+    }
+
+    /// The workspaces' manifests, as one snapshot. Empty for a repository with
+    /// none.
+    pub fn workspaces(&self) -> Arc<Vec<Manifest>> {
+        self.set_up().workspaces()
+    }
+
+    /// Hold the workspaces a re-read found, replacing every one held.
+    pub(crate) fn workspaces_read(&self, workspaces: Vec<Manifest>) {
+        self.set_up().workspaces_read(workspaces);
     }
 
     /// Every workflow this repository runs, **as one snapshot**: a re-read

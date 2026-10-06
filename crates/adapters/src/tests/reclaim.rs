@@ -378,3 +378,78 @@ fn point_origin_head_at(repo: &TempRepo, branch: &str) {
         )
         .expect("origin/HEAD");
 }
+
+/// `git worktree remove` takes uncommitted files with it, so a Clear saves
+/// them to the branch first and the reclaim then keeps that branch.
+#[test]
+fn a_dirty_worktree_is_committed_to_its_branch_before_it_goes() {
+    let repo = TempRepo::with_a_commit();
+    let spec = spec_for(&repo, JOB);
+    GitVcs::new().create_worktree(&spec).expect("a worktree");
+    std::fs::write(
+        std::path::Path::new(&spec.worktree_path()).join("half.txt"),
+        "half a thought\n",
+    )
+    .expect("a file to keep");
+
+    let saved = crate::leasing::save_worktree(&spec, JOB)
+        .expect("it saves")
+        .expect("there was something to save");
+    assert_eq!(saved.files, vec!["half.txt"]);
+    let given_back = reclaim(&spec, None, UnmergedWork::Keep).expect("the repository opens");
+
+    assert!(matches!(given_back.worktree, WorktreeGone::Removed { .. }));
+    assert!(matches!(
+        given_back.branch,
+        BranchGone::Kept { commits: 1, .. }
+    ));
+    let subject = repo.git(&["log", "-1", "--format=%s", &format!("armada/{JOB}")]);
+    assert!(
+        subject.starts_with("WIP") && subject.contains(JOB),
+        "{subject}"
+    );
+    assert_eq!(
+        repo.git(&["show", &format!("armada/{JOB}:half.txt")]),
+        "half a thought"
+    );
+}
+
+#[test]
+fn a_clean_or_locked_worktree_is_not_committed_to() {
+    let repo = TempRepo::with_a_commit();
+    let spec = spec_for(&repo, JOB);
+    GitVcs::new().create_worktree(&spec).expect("a worktree");
+    assert!(crate::leasing::save_worktree(&spec, JOB)
+        .expect("nothing to refuse")
+        .is_none());
+
+    std::fs::write(
+        std::path::Path::new(&spec.worktree_path()).join("half.txt"),
+        "x\n",
+    )
+    .expect("a file");
+    repo.git(&["worktree", "lock", &spec.worktree_path()]);
+    let saved = crate::leasing::save_worktree(&spec, JOB).expect("a lock is not a failure");
+    assert!(
+        saved.is_none(),
+        "a locked worktree keeps its files as they are"
+    );
+}
+
+/// A plain directory where a worktree should be answers git with the base
+/// checkout, and a Clear must not commit what that holds.
+#[test]
+fn a_plain_directory_at_the_worktree_path_is_not_committed_to() {
+    let repo = TempRepo::with_a_commit();
+    let spec = spec_for(&repo, JOB);
+    std::fs::create_dir_all(spec.worktree_path()).expect("a plain directory");
+    std::fs::write(repo.root().join("base-checkout.txt"), "not the Job's\n").expect("a file");
+
+    let saved = crate::leasing::save_worktree(&spec, JOB).expect("nothing to refuse");
+
+    assert!(saved.is_none());
+    assert_eq!(
+        repo.git(&["status", "--porcelain"]).trim(),
+        "?? base-checkout.txt"
+    );
+}

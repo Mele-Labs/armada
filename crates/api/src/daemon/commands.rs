@@ -158,6 +158,27 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `park_job` — pauses the Job: its Drones end, its work is parked on its
+    /// branch and its slot goes back to the pool. **Not a status**: a running
+    /// Job reads `queued` with `queued_reason` `paused`, and a Job at a gate
+    /// keeps the status it reads at and gains [`JobSummary::paused`].
+    ///
+    /// 409 on a status that cannot pause, on a Job already paused, while its
+    /// Checks run, and where the pool or git will not take the work.
+    fn park_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
+    /// `resume_job` — lifts the pause. **A gate Job takes a slot now if one is
+    /// free** and waits for the first to free if not; a queued one is let into
+    /// admission's line. Neither starts a Drone itself. 409 where the Job is
+    /// not paused.
+    fn resume_job(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `kill_one_drone` — stops one of the Job's live Drones, by its id. The
     /// Job's kept Drone is [`Commands::kill_drone`]; one beside it ends alone
     /// and the Job goes on. Refused with a 409 where the Drone is not live.

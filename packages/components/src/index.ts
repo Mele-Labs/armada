@@ -57,6 +57,7 @@ export * from "./compositions/JobLogReference/JobLogReference";
 export * from "./compositions/JobOutcome/JobOutcome";
 export * from "./compositions/JobLedger/JobLedger";
 export * from "./compositions/JobDrones/JobDrones";
+export * from "./compositions/CanvasAsk/CanvasAsk";
 export * from "./compositions/DronePeek/DronePeek";
 export * from "./compositions/JobRowStacked/JobRowStacked";
 export * from "./compositions/Panel/Panel";
@@ -413,3 +414,7 @@ export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/RetroSheet/RetroSheet";
+
+// A Job's pause: the mark beside its badge, and the two confirms around it.
+export * from "./compositions/PausedMark/PausedMark";
+export * from "./compositions/PauseConfirm/PauseConfirm";

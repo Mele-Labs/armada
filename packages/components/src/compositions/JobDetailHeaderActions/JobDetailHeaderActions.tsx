@@ -139,6 +139,8 @@ export type JobDetailHeaderActionsProps = {
   statusIcon: LucideIcon;
   /** The verb, from the enum→verb map. Never written by hand where it ships. */
   statusLabel: ReactNode;
+  /** Stands beside the badge and never in place of it: a paused Job's mark. */
+  mark?: ReactNode;
   /** The Job's title, in the person's own words. Sans. Truncates in the
    *  trail; the untruncated title is the element's own `title`. */
   headline: ReactNode;
@@ -198,6 +200,7 @@ export function JobDetailHeaderActions({
   status,
   statusIcon,
   statusLabel,
+  mark,
   headline,
   jobId,
   jobIdWhole,
@@ -256,6 +259,7 @@ export function JobDetailHeaderActions({
           <Badge status={status} icon={statusIcon}>
             {statusLabel}
           </Badge>
+          {mark}
         </div>
         {actions ? <div className="armada-job-head__actions">{actions}</div> : null}
       </div>

@@ -1,4 +1,4 @@
-//! Every Check run one repository's Jobs asked for or ran, in one read. Since 23.38.
+//! Every Check run one repository's Jobs asked for or ran, in one read. Since 23.40.
 //!
 //! **A read across Jobs and no new record.** The gate's rows and a Drone's asked
 //! runs are kept per Job, and a surface that draws Checks for a repository has

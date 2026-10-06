@@ -30,6 +30,7 @@ use super::record::Record;
 use super::unrehearsable::{Unrehearsable, Whose};
 use super::workspace;
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 
 /// How long a finished step waits for its Verify to take the hand-over before
 /// it is published anyway: the next step's start is a directory made.
@@ -175,8 +176,12 @@ where
     ) -> Result<CheckoutVerify, Refusal> {
         let checkout = checkout.into();
         let owner = Place::of_checkout(checkout.clone()).owner;
-        let workspace = workspace::resolved(checkout.root(), asked)
-            .map_err(|why| self.refused_run(&owner, why))?;
+        let workspace = workspace::resolved(
+            checkout.root(),
+            asked,
+            checkout.served().map(Served::manifest),
+        )
+        .map_err(|why| self.refused_run(&owner, why))?;
         let (manifest, workspace) = match (workspace, checkout.served()) {
             (Some(one), _) => (one.manifest.clone(), Some(one)),
             (None, Some(served)) => (served.manifest().clone(), None),

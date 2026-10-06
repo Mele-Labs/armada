@@ -29,6 +29,7 @@ use std::num::NonZeroU32;
 use core_model::{Prerequisite, ResolvedCheck};
 use serde_yaml_ng::Value;
 
+use super::auto_release::{self, AutoRelease};
 use super::declared::{Check, Command, Preparation};
 use super::seed::Seed;
 use super::workspace::Placed;
@@ -54,15 +55,31 @@ pub(super) fn preparation(
     serves: &BTreeSet<String>,
     placed: &Placed,
     out: &mut Vec<Refusal>,
-) -> (Vec<Preparation>, Option<Seed>, Option<NonZeroU32>) {
+) -> (
+    Vec<Preparation>,
+    Option<Seed>,
+    Option<NonZeroU32>,
+    Option<AutoRelease>,
+) {
     let Some(mut table) = Table::open("setup", value, out) else {
-        return (Vec::new(), None, Some(WORKTREES_UNSTATED));
+        return (
+            Vec::new(),
+            None,
+            Some(WORKTREES_UNSTATED),
+            Some(AutoRelease::unstated()),
+        );
     };
     // `requires` is required unless another key is there, because `setup:` with
     // nothing under it says nothing and `close` would report no fault for it.
-    let seed = table
-        .optional("seed")
-        .and_then(|value| super::seed::read(value, declares, commands, serves, out));
+    let seed = match table.optional("seed") {
+        None => None,
+        // Read from the root at every lease, as `worktrees` is.
+        Some(_) if placed.is_a_workspace() => {
+            out.push(Refusal::new(table.at("seed"), Fault::RootOnly));
+            None
+        }
+        Some(value) => super::seed::read(value, declares, commands, serves, out),
+    };
     // Zero is refused: a pool of none would make every lease wait for ever.
     let worktrees = match table.optional("worktrees") {
         None => Some(WORKTREES_UNSTATED),
@@ -74,9 +91,16 @@ pub(super) fn preparation(
         }
         Some(value) => yaml::positive(&table.at("worktrees"), value, out).and_then(NonZeroU32::new),
     };
+    let auto_release = auto_release::read(&mut table, placed.is_a_workspace(), out);
     let items = match table.optional("requires") {
         Some(value) => yaml::list(&table.at("requires"), value, out),
-        None if table.present("seed") || table.present("worktrees") => None,
+        None if table.present("seed")
+            || table.present("worktrees")
+            || table.present("auto_release")
+            || table.present("auto_release_grace_minutes") =>
+        {
+            None
+        }
         None => {
             out.push(Refusal::new(table.at("requires"), Fault::Missing));
             None
@@ -98,7 +122,7 @@ pub(super) fn preparation(
         .collect(),
         None => Vec::new(),
     };
-    (prepared, seed, worktrees)
+    (prepared, seed, worktrees, auto_release)
 }
 
 /// `after_merge:`, the Checks this repository asks to be run against the tree a
@@ -117,6 +141,7 @@ pub(super) fn after_merge(
     value: &Value,
     checks: &BTreeMap<String, Check>,
     commands: &BTreeMap<String, Command>,
+    dir: &str,
     out: &mut Vec<Refusal>,
 ) -> Vec<ResolvedCheck> {
     let Some(mut table) = Table::open("after_merge", value, out) else {
@@ -182,6 +207,7 @@ pub(super) fn after_merge(
                 // Dropped for `narrow`'s reason: a proof after a merge reads
                 // the whole tree, so there is no narrowing to resolve.
                 runner: None,
+                manifest_dir: dir.to_string(),
             }),
             None => out.push(Refusal::new(
                 key,

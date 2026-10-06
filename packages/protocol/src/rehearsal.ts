@@ -91,7 +91,7 @@ export type RunUnderway = {
   narrowed: boolean;
   /** Elapsed time is counted from here; nothing ticks on the wire. */
   started_at: string;
-  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
   requester?: Requester;
 };
 
@@ -124,7 +124,7 @@ export type RunRecord = {
   undone_at?: string;
   /** The log, relative to `ManifestSummary.records_root`. */
   log: string;
-  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
   requester?: Requester;
 };
 
@@ -135,7 +135,7 @@ export type RunList = {
   unreadable: { id: string; why: string }[];
   /**
    * The Checks a Drone asked for on this Job, **as rows of their own and never
-   * among `runs`**: a dry result is not a rehearsal's. Oldest first. Since 23.38.
+   * among `runs`**: a dry result is not a rehearsal's. Oldest first. Since 23.40.
    */
   asked_runs?: AskedRun[];
 };
@@ -271,7 +271,7 @@ export type CheckoutRunUnderway = {
   started_at: string;
   /** The workspace whose own file declared it. Absent is the root's. */
   workspace?: string;
-  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
   requester?: Requester;
 };
 
@@ -303,7 +303,7 @@ export type CheckoutRunRecord = {
   undone_at?: string;
   /** The log, relative to `ManifestSummary.records_root`. */
   log: string;
-  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
   requester?: Requester;
 };
 
@@ -430,7 +430,7 @@ export type CheckoutVerify = {
   ended_at?: string;
   /** The workspace whose own `armada.yml` this ran, relative to the root. Absent is the root's. */
   workspace?: string;
-  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  /** Who asked for it. Since 23.40; **absent reads as `outside`** (`requesterOf`). */
   requester?: Requester;
   /** Setup in `setup.requires` order, then every Check in written order. */
   steps: VerifyStep[];

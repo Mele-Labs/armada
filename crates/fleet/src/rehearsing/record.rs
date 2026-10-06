@@ -60,7 +60,7 @@ pub(crate) struct Record {
     /// The workspace whose own file declared it. Absent is the root's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) workspace: Option<String>,
-    /// Who asked for it. **Absent on a record written before 23.38 reads as
+    /// Who asked for it. **Absent on a record written before 23.40 reads as
     /// outside a Job**, which is what every such run was.
     #[serde(default)]
     pub(crate) requester: ipc::Requester,

@@ -33,6 +33,7 @@ const AT_ONCE: usize = 4;
 
 fn named(name: &str, run: &str) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: name.to_string(),
         run: run.to_string(),
         expect_exit_code: 0,
@@ -111,6 +112,7 @@ async fn heard_over(
         &crate::checking::Stop::never(),
         None,
         Attempt::FIRST,
+        None,
         None,
     )
     .await;
@@ -299,6 +301,7 @@ async fn saying_each_check_changes_nothing_the_gate_rules_on() {
             None,
             Attempt::FIRST,
             None,
+            None,
         )
         .await
     };
@@ -317,6 +320,7 @@ async fn saying_each_check_changes_nothing_the_gate_rules_on() {
         &crate::checking::Stop::never(),
         None,
         Attempt::FIRST,
+        None,
         None,
     )
     .await;
@@ -372,6 +376,7 @@ async fn a_drones_run_is_shown_apart_from_the_gate_and_stops_at_its_first_failur
         &stop,
         None,
         Attempt::FIRST,
+        None,
         None,
     )
     .await;
@@ -475,6 +480,7 @@ async fn checks_waiting_for_room_other_work_holds_say_how_much() {
         &stop,
         None,
         Attempt::FIRST,
+        None,
         None,
     );
     tokio::pin!(gate);

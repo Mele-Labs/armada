@@ -26,7 +26,7 @@ impl Past {
         queued: Vec<(usize, String)>,
         checks: &[ResolvedCheck],
     ) -> VecDeque<(usize, String)> {
-        let took = |at: usize| self.0.get(checks[at].label()).copied();
+        let took = |at: usize| self.0.get(&*checks[at].key()).copied();
         let timed: Vec<usize> = queued
             .iter()
             .enumerate()
@@ -52,6 +52,7 @@ mod tests {
 
     fn named(name: &str) -> ResolvedCheck {
         ResolvedCheck::ManifestCheck {
+            manifest_dir: String::new(),
             name: name.to_string(),
             run: format!("run {name}"),
             expect_exit_code: 0,

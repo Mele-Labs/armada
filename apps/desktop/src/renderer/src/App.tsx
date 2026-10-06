@@ -273,7 +273,12 @@ export function App({ draft }: AppProps = {}) {
   // Two of them end somewhere this file owns, so both are answered to rather
   // than reached for: a redispatch opens its replacement, and a re-read
   // publishes what came back.
-  const commands = useCommands({ onOpen: setOpenJob, onRead: setState, jobs: state.jobs });
+  const commands = useCommands({
+    onOpen: setOpenJob,
+    onRead: setState,
+    jobs: state.jobs,
+    onPaused: (jobId) => setConfirming({ act: "resume_job", jobId, pressed: true }),
+  });
   // Whether the window is at `--window-floor`, `JobDetail`'s own reading —
   // Fleet settings is the same trailing layer and takes it the same way.
   const floor = useAtFloor();
@@ -471,23 +476,14 @@ export function App({ draft }: AppProps = {}) {
     setOpenJob(null);
   }
 
-  /**
-   * Do the act the dialog collected, and put the dialog away first.
-   *
-   * **The note is read here rather than in the command.** Only the restart has
-   * one, and the field that holds it belongs to the dialog below. A blank field
-   * is not sent: `restartStep` drops it, so a person who opened the dialog and
-   * typed nothing gets the restart they pressed for rather than the 422 a blank
-   * note earns.
-   */
+  /** Send what the dialog collected. A pause or a resume stays up until Fleet takes it, to say what it refused. */
   function confirmed(what: Confirming): void {
-    setConfirming(null);
+    const stays = what.act === "pause_job" || what.act === "resume_job";
+    if (!stays) setConfirming(null);
+    void commands.confirmed(what, restartNote).then((sent) => {
+      if (stays && sent) setConfirming(null);
+    });
     setRestartNote("");
-    // Pulse's two kills are commands of their own, not Job acts — `ConfirmAct`.
-    if (what.act === "kill_process") return void commands.killProcess(what.jobId, what.pid);
-    if (what.act === "kill_processes") return void commands.killProcess(what.jobId);
-    const note = what.act === "restart_step" ? restartNote : undefined;
-    void commands.act(what.act, what.jobId, note, "droneId" in what ? what.droneId : undefined);
   }
 
   /**
@@ -1089,6 +1085,7 @@ export function App({ draft }: AppProps = {}) {
                   // `reclaim_worktree` is that header's own word for Clear.
                   onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
                   onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
+                  onPausing={(act, jobId) => setConfirming({ act, jobId })}
                   onCompose={() => setComposing(true)}
                   onCopied={setCopied}
                   onCursor={setCursor}
@@ -1119,6 +1116,11 @@ export function App({ draft }: AppProps = {}) {
 
         <ConfirmAct
           confirming={confirming}
+          held={state.held}
+          jobs={state.jobs}
+          refused={commands.pauseSaid ?? undefined}
+          onWant={readHeld}
+          cleanupOpen={clearing}
           restartNote={restartNote}
           onRestartNote={setRestartNote}
           onCancel={() => {

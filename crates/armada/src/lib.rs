@@ -48,6 +48,7 @@ pub mod land;
 pub mod leasing;
 pub mod locating;
 pub mod loopback;
+pub mod manifests;
 pub mod mcp;
 pub mod need;
 pub mod reaching;

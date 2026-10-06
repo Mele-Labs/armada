@@ -52,6 +52,9 @@ pub(crate) struct Again<'a> {
     /// The gate's own writer: each run here is said on the step's own rows,
     /// so a red being run again reads running rather than red.
     pub announcing: &'a Announcing,
+    /// Which manifests the gate's change reached, so the whole run alone runs
+    /// the Checks the gate did. `None` where the repository has no workspaces.
+    pub gated: Option<&'a crate::gated::Gated>,
 }
 
 /// One red Check this can confirm, the tests it named, and its `one_test`.
@@ -116,6 +119,7 @@ pub(crate) async fn confirmed(
         None,
         again.attempt,
         None,
+        again.gated,
     )
     .await;
     for (at, done) in rerun.into_iter().zip(done) {
@@ -157,14 +161,13 @@ fn confirmable(
             return None;
         };
         let ResolvedCheck::ManifestCheck {
-            name,
             one_test: Some(template),
             ..
         } = check
         else {
             return None;
         };
-        let printed = output.iter().find(|kept| &kept.check == name)?;
+        let printed = output.iter().find(|kept| kept.check == check.key())?;
         // The reader `crate::fixing::repeated` compares two attempts with.
         let failing = checks_runner::failing_tests(&printed.output);
         if failing.is_empty() {
@@ -211,6 +214,7 @@ async fn one_alone(
         None,
         again.attempt,
         None,
+        None,
     )
     .await
     .into_iter()
@@ -246,6 +250,7 @@ pub(crate) fn holding_every_place(
         one_test,
         runs_at,
         width,
+        manifest_dir,
         ..
     } = check
     else {
@@ -253,6 +258,7 @@ pub(crate) fn holding_every_place(
     };
     let one = run.is_some();
     Some(ResolvedCheck::ManifestCheck {
+        manifest_dir: manifest_dir.clone(),
         name: name.clone(),
         run: run.unwrap_or_else(|| whole.clone()),
         expect_exit_code: *expect_exit_code,

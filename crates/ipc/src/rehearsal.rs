@@ -99,8 +99,8 @@ pub struct RunUnderway {
     pub narrowed: bool,
     /// Elapsed time is counted from here; nothing ticks on the wire.
     pub started_at: Instant,
-    /// Who asked for this run. **Never absent**: a record from before 23.38
-    /// reads as `outside`. Since 23.38.
+    /// Who asked for this run. **Never absent**: a record from before 23.40
+    /// reads as `outside`. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
 }
@@ -146,8 +146,8 @@ pub struct RunRecord {
     pub undone_at: Option<Instant>,
     /// The log, relative to `ManifestSummary::records_root`.
     pub log: String,
-    /// Who asked for this run. **Never absent**: a record from before 23.38
-    /// reads as `outside`. Since 23.38.
+    /// Who asked for this run. **Never absent**: a record from before 23.40
+    /// reads as `outside`. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
 }
@@ -160,7 +160,7 @@ pub struct RunList {
     pub runs: Vec<RunRecord>,
     pub unreadable: Vec<UnreadableRun>,
     /// The Checks a Drone asked for on this Job, as their own rows and never
-    /// among `runs`: a dry result is not a rehearsal's. Oldest first. Since 23.38.
+    /// among `runs`: a dry result is not a rehearsal's. Oldest first. Since 23.40.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asked_runs: Vec<crate::AskedRun>,
 }
@@ -315,8 +315,8 @@ pub struct CheckoutRunUnderway {
     /// The workspace whose own file declared it. Absent is the root's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<String>,
-    /// Who asked for this run. **Never absent**: a record from before 23.38
-    /// reads as `outside`. Since 23.38.
+    /// Who asked for this run. **Never absent**: a record from before 23.40
+    /// reads as `outside`. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
 }
@@ -359,8 +359,8 @@ pub struct CheckoutRunRecord {
     pub undone_at: Option<Instant>,
     /// The log, relative to `ManifestSummary::records_root`.
     pub log: String,
-    /// Who asked for this run. **Never absent**: a record from before 23.38
-    /// reads as `outside`. Since 23.38.
+    /// Who asked for this run. **Never absent**: a record from before 23.40
+    /// reads as `outside`. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
 }
@@ -475,8 +475,8 @@ pub struct CheckoutVerify {
     /// repository root. **Absent is the root's Manifest.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<String>,
-    /// Who asked for this run. **Never absent**: a record from before 23.38
-    /// reads as `outside`. Since 23.38.
+    /// Who asked for this run. **Never absent**: a record from before 23.40
+    /// reads as `outside`. Since 23.40.
     #[serde(default)]
     pub requester: crate::Requester,
     /// Setup in `setup.requires` order, then every Check in the order the

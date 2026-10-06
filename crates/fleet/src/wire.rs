@@ -683,9 +683,17 @@ pub(crate) fn step_facts(
 /// **`Absent` reads as gone.** A Job whose worktree was already swept is a Job
 /// whose disk is back, and answering "not removed" would send a person looking
 /// for a directory that is not there. The same for a branch nothing has.
-pub(crate) fn reclaimed(job_id: &core_model::JobId, gave_back: Reclaimed) -> WorktreeReclaimed {
+pub(crate) fn reclaimed(
+    job_id: &core_model::JobId,
+    gave_back: Reclaimed,
+    saved: Option<crate::saving::SavedWork>,
+) -> WorktreeReclaimed {
     WorktreeReclaimed {
         job_id: ipc::JobId::from(job_id),
+        saved: saved.map(|saved| ipc::ReclaimedSaved {
+            commit: saved.commit,
+            files: saved.files,
+        }),
         worktree: match gave_back.worktree {
             WorktreeGone::Removed { path }
             | WorktreeGone::RecordCleared { path }

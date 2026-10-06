@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, JobRowStacked, SettlingMark, SplitButton, StepBar } from "@armada/components";
+import { Button, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { GitMerge, GitPullRequestClosed, ScrollText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -90,6 +90,8 @@ import { activityFor } from "./frozen";
 import { rowFreezeOf } from "./freeze";
 import { ROW_VERBS, verbOf } from "./keys";
 import { originReading } from "./origin";
+import { canPause, canResume, pausedSaid } from "./pausing";
+import type { PauseAct } from "./pausing";
 import { leading, readingOf } from "./reading";
 import type { Recent } from "./recent";
 import { titleOf } from "./title";
@@ -155,6 +157,7 @@ export function Row({
   onKill,
   onRedispatch,
   onClear,
+  onPausing,
   onCopied,
 }: {
   job: JobSummary;
@@ -188,6 +191,11 @@ export function Row({
    * worktree`.
    */
   onClear: (jobId: string) => void;
+  /**
+   * Ask to pause or resume the Job, in the caret beside its verb. **It asks**,
+   * as `onKill` does: `App` opens the confirm.
+   */
+  onPausing?: (act: PauseAct, jobId: string) => void;
   onCopied: (value: string) => void;
 }) {
   const reading = readingOf(job);
@@ -229,6 +237,8 @@ export function Row({
   const workflowValue =
     workflow === undefined ? job.workflow_id : `${workflow.name}, ${steps.length} steps`;
   const freeze = rowFreezeOf(job);
+  const paused = pausedSaid(job, now);
+  const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
   // workflow at all, so there is no workflow to name, no step machine to place
@@ -376,6 +386,7 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
+      {...(paused === undefined ? {} : { mark: <PausedMark said={paused} /> })}
       headline={headline}
       jobId={job.id}
       handle={job.handle}
@@ -441,7 +452,12 @@ export function Row({
             menuLabel={`More for ${titleOf(job)}`}
             // The binding is displayed here and bound in `keys.ts`, which is
             // the only way a person finds `x` without reading a contract.
-            items={[{ label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) }]}
+            items={[
+              ...(pausing === null || onPausing === undefined
+                ? []
+                : [{ label: ACT_LABEL[pausing], onSelect: () => onPausing(pausing, job.id) }]),
+              { label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) },
+            ]}
           >
             {ROW_VERBS[verb].label}
           </SplitButton>

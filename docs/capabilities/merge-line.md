@@ -36,6 +36,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
+| A branch that appends a migration or changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
 ## One turn
 
@@ -120,6 +121,8 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 ## Choosing what reruns
 
 **Which Checks a set of paths hits is one answer, shared with Fleet's gate.** `armada covers` reads paths on stdin and asks each Check's `covers`, which calls `Covers::reach` in `crates/core-model/src/job/covers.rs`. `ResolvedCheck::covers`, which the gate's skip decision asks, calls the same function.
+
+**Where the repository has workspaces, the keys are `<dir>:<name>`.** `armada covers` answers with the Checks of each manifest the paths gate, root first, and the line runs `armada check <key>` for each, in that workspace's directory. Setup follows: the root's `setup.requires` once, then each workspace's own for the workspaces that have a Check in the set, and a root Command a workspace names runs in the root and is not repeated. A repository with no workspace `armada.yml` sees none of this. [Manifest](../concepts/manifest.md), *Workspace gating*.
 
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
@@ -256,6 +259,19 @@ directory, with its branch, path, what was said, what the branch took, and when.
 - **Nothing expires by time.** Whether a stalled need should is open, so a person
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
+
+- **A number taken with no need is refused** (6 Oct 2026: a branch took 23.34 and
+  23.35 undeclared and the branch that held them renumbered). `armada land
+  preflight`, and Fleet's press to merge, refuse a branch whose diff from the
+  base appends an entry to `MIGRATIONS` or changes `minor` in
+  `protocol-version.toml` while no need stands for that branch on that path. The
+  answer names `armada need <path> "<what>"` and both paths, and the branch keeps
+  its place: declare, then land again. An appended migration is read from the
+  list's entries, not a name pattern; a minor change is the two parsed values
+  differing, and a `major` change passes, being hand-made and outside needs. The
+  watched paths are `WATCHED` in `crates/adapters/src/undeclared.rs`, the one
+  place another repository would name its own. Fleet answers with
+  `fleet.merge_waiting_behind`; the sentence says which.
 
 This is the half for agents outside Fleet, and Fleet's half is the same files.
 A Job's branch is its identity, so a Drone declares through `declare_scope` or a

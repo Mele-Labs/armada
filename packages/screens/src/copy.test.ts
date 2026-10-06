@@ -24,6 +24,14 @@ describe("a reclaim an older Fleet answered with nulls", () => {
     );
   });
 
+  it("says a Clear committed files to the branch, and what was freed", () => {
+    const saved = { commit: "d41f8a6c20be", files: ["src/log.rs"] };
+    expect(reclaimed({ ...answer({ deleted: false }), saved })).toBe("Committed to armada/01JOB, worktree removed");
+    expect(
+      reclaimed({ ...answer({ deleted: false }), worktree: { path: "/r/.armada/slots/slot-2", removed: true }, saved }),
+    ).toBe("Committed to armada/01JOB, slot released");
+  });
+
   it("reads a null unmerged count as a branch left alone, not a deliberate keep", () => {
     expect(reclaimed(answer({ deleted: false }))).toBe(
       "The worktree at /worktrees/01JOB is gone. Branch armada/01JOB was left alone — no reason was given.",

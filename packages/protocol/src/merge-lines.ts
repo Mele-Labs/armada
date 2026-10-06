@@ -51,11 +51,11 @@ export type MergeLineRow = {
 export type MergeLineCheck = {
   name: string;
   state: string;
-  /** The merge line, for the entry's branch. Since 23.38; **absent reads as `outside`**. */
+  /** The merge line, for the entry's branch. Since 23.40; **absent reads as `outside`**. */
   requester?: Requester;
   /**
    * When the runner began it, off the line's own state. **Absent while it waits**,
-   * and on a line state written before the field. Since 23.38.
+   * and on a line state written before the field. Since 23.40.
    */
   started_at?: string;
 };

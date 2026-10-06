@@ -4,6 +4,7 @@ import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
 import { reclaimable } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { PausedMark } from "../PausedMark/PausedMark";
 import { Mark } from "./SlotFinding";
 import { holdsSaid } from "./TileHolds";
 import { nameOf } from "./tiles";
@@ -166,7 +167,10 @@ export function PoolTile({
     // it would be open is the tooltip's.
     return (
       <li className="armada-bay" data-bay={closed ? "closed" : state.bay} {...common}>
-        <div className="armada-bay__top">{named}</div>
+        <div className="armada-bay__top">
+          {named}
+          {row.paused === undefined ? null : <PausedMark said={row.paused} />}
+        </div>
         <div className="armada-bay__open">
           {closed ? (
             <Tooltip label={state.said}>
@@ -201,6 +205,7 @@ export function PoolTile({
       </div>
       <div className="armada-bay__body">
         <Holder row={row} onOpenJob={onOpenJob} />
+        {row.paused === undefined ? null : <PausedMark said={row.paused} />}
         {(slot?.branch ?? held?.branch) === undefined ? null : (
           <Tooltip label={(slot?.branch ?? held?.branch)!}>
             <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>

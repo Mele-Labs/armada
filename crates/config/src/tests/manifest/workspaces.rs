@@ -169,9 +169,29 @@ fn a_checks_requires_does_not_reach_the_roots_commands() {
 // ------------------------------------------------------- setup.worktrees
 
 #[test]
+fn auto_release_is_refused_in_a_workspace() {
+    let refused = refusals(workspace(&format!(
+        "{HEAD}setup:\n  auto_release: false\n  auto_release_grace_minutes: 5\n"
+    )));
+    assert_eq!(fault_at(&refused, "setup.auto_release"), &Fault::RootOnly);
+    assert_eq!(
+        fault_at(&refused, "setup.auto_release_grace_minutes"),
+        &Fault::RootOnly
+    );
+}
+
+#[test]
 fn setup_worktrees_is_refused_in_a_workspace() {
     let refused = refusals(workspace(&format!("{HEAD}setup:\n  worktrees: 3\n")));
     assert_eq!(fault_at(&refused, "setup.worktrees"), &Fault::RootOnly);
+}
+
+#[test]
+fn setup_seed_is_refused_in_a_workspace() {
+    let refused = refusals(workspace(&format!(
+        "{HEAD}setup:\n  seed:\n    paths: [target]\n"
+    )));
+    assert_eq!(fault_at(&refused, "setup.seed"), &Fault::RootOnly);
 }
 
 #[test]

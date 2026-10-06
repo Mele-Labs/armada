@@ -38,6 +38,7 @@ mod rules_protocol;
 mod rules_stories;
 mod rules_studio;
 mod rules_stylesheets;
+mod rules_surfaces;
 mod rules_tests;
 mod rules_tokens;
 mod rules_toolbelt;
@@ -136,6 +137,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_guides::every_guides_piece_is_drawn,
     rules_layers::every_package_imports_downward,
     rules_layers::nothing_in_the_main_process_reads_the_draft_schema,
+    rules_surfaces::every_surface_is_a_whole_package,
     rules_bundled::no_workspace_package_is_left_for_node,
     rules_node::the_pinned_node_satisfies_the_declared_floor,
     rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads,

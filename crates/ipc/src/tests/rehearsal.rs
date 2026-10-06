@@ -217,7 +217,7 @@ fn a_verify_step_carries_its_state_flat_and_reads_back() {
     assert_eq!(back, verify);
 }
 
-/// **A record written before 23.38 reads as outside a Job**, which is what it
+/// **A record written before 23.40 reads as outside a Job**, which is what it
 /// was: nothing in Armada asked for it.
 #[test]
 fn a_run_record_from_before_the_requester_reads_as_outside_a_job() {

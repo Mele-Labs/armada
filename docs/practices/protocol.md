@@ -3063,8 +3063,65 @@ given back goes through. No shape moves.
 need through, `declare_scope` and the tasks of `record_plan` and `add_task`, is the Drone seam and not
 this one: it takes an optional `needs`, which is why it moves no number here.
 
+## Protocol 23.37: Clear commits uncommitted files
 
-## Protocol 23.38: who asked for a run, and a Drone's asked runs
+The owner, 5 Oct 2026: freeing a worktree loses nothing once its work is committed on a branch.
+`../../.claude/decisions/2026-10-05-a-branch-commit-is-enough-to-free-a-slot.md`; `../concepts/fleet.md`,
+*Worktree slots*.
+
+**Additive only.** One optional field; a Bridge before 23.37 reads past it and says nothing about
+what was committed.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `saved` | `WorktreeReclaimed` | `{ "commit", "files" }`: the WIP commit a Clear made on `branch.branch`, and the files it took | No uncommitted files, and every answer before 23.37 |
+| `release` | `SlotAct`, in `ChangeSlotPool` | Commit a session-held slot's uncommitted files to its branch and free it | An older Fleet refuses the unknown act |
+| `holder` | `ChangeSlotPool` | For `release`: the holder the person was shown, `claude (pid 44698)`. Required by it | Every other act |
+| `stranded` | `WorktreeSlot` | Also on a session-held slot with uncommitted files, as `uncommitted` alone, with no commits | Every slot a session holds clean, and every read before 23.37 |
+| `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
+| `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
+| `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |
+
+A release hands a slot an agent session holds back by the same park, and only for the holder named, so a slot re-leased since is refused. The session's process is not touched.
+
+`reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
+branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same
+way before it is removed.
+
+**Bridge's half**, mirrored by hand: `ReclaimedSaved` and `WorktreeReclaimed.saved` in `reclaimed.ts`; `SlotAct`'s `release`, `ChangeSlotPool.holder`, `SlotPoolChanged.released` and `SlotReleased` in `holding.ts`.
+
+## Protocol 23.39: pause and resume a Job
+
+`park_job` and `resume_job` are Fleet's pause and resume as commands, `POST /jobs/:job_id/park_job` and
+`/resume_job`, no body, each answering the Job's `JobSummary`. `../concepts/job.md`, *Pausing a Job*.
+
+**The names are `park_job` and `resume_job`**, because `pause_job` is a retired row for a different act
+(a hold on a healthy Drone) that `xtask`'s unserved-operation allowance keeps on purpose.
+
+**Additive only.** A new field, a new queued reason, two commands, two events and six refusal codes; a
+Bridge before 23.39 reads past the field and the event, and draws a paused Job by its status.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `paused` | `JobSummary` | `{ "by", "at", "resuming" }`: `person` or `fleet`, when, and whether a resume waits for a slot | A Job that is not paused, and every row before 23.39 |
+| `paused` | `queued_reason` | A running Job that was paused reads `queued` with this reason | Every other queued Job |
+| `park_job`, `resume_job` | commands | The Job's row, `paused` set or lifted | |
+| `job.paused`, `job.resumed` | events | `{ "job", "actor", "at" }`, the row whole; a resume that waits carries `paused.resuming` | |
+| `fleet.not_pausable` | 409 | A status that cannot hold a pause, or no slot to park | |
+| `fleet.already_paused`, `fleet.not_paused` | 409 | A pause on a paused Job, a resume on one that is not | |
+| `fleet.checks_running` | 409 | Checks are running again on the worktree; wait | |
+| `fleet.pause_refused` | 409 | The pool or git would not park the work, or take it back, and why | |
+| `fleet.paused` | 409 | A person's act on a paused Job: resume it first | |
+
+**The marker rides beside the status.** A paused Job at a review gate reads `awaiting_review` with
+`paused` set, so `queued_reason` is no place to look for it; it is only the reading of a running Job
+that went back to `queued`. `job.state_changed` is silent for a gate Job, which is why a pause has its
+own event.
+
+`fleet.checks_running` was `fleet.not_resumable` for a re-run of the Checks and a merge gating a moved
+base before this, and is now its own code for every act that meets it. No Bridge code read the old one.
+
+## Protocol 23.40: who asked for a run, and a Drone's asked runs
 
 The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run shown anywhere said who asked for it. `../concepts/manifest.md`, *Who asked for a run*.
 
@@ -3072,10 +3129,10 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 
 | Field | Lands on | Carries | Absent |
 | --- | --- | --- | --- |
-| `Requester` | new, `ipc::Requester` | `kind` (an opaque string: `gate`, `drone_task`, `drone_step`, `merge_line`, `outside`) and `job_id`, `step`, `task_id`, `drone_id`, `branch` where the kind needs them | Never on the wire from 23.38; a reader treats none as `outside` |
-| `requester` | `CheckRun` (every `StepDetail.check_runs` row, stamped `gate`) | who asked | A Fleet before 23.38 |
+| `Requester` | new, `ipc::Requester` | `kind` (an opaque string: `gate`, `drone_task`, `drone_step`, `merge_line`, `outside`) and `job_id`, `step`, `task_id`, `drone_id`, `branch` where the kind needs them | Never on the wire from 23.40; a reader treats none as `outside` |
+| `requester` | `CheckRun` (every `StepDetail.check_runs` row, stamped `gate`) | who asked | A Fleet before 23.40 |
 | `requester` | `ChecksUnderway`: `gate` on `checking`, the Drone on `dry_run` | who asked | As above |
-| `requester` | `RunUnderway`, `RunRecord`, `CheckoutRunUnderway`, `CheckoutRunRecord`, `CheckoutVerify` | `outside` | A record written before 23.38 reads `outside` |
+| `requester` | `RunUnderway`, `RunRecord`, `CheckoutRunUnderway`, `CheckoutRunRecord`, `CheckoutVerify` | `outside` | A record written before 23.40 reads `outside` |
 | `requester` | `MergeLineCheck` | `merge_line`, with the entry's `branch` | As above |
 | `started_at` | `MergeLineCheck` | When the runner began the Check, an `Instant`, written by `armada land` into the line's state as the Check goes `running` | A Check still waiting, and a line state from before the field |
 | `handle` | `Requester` | What a person calls the Job; a Drone's handle | Where Fleet does not know it |
@@ -3085,7 +3142,7 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 
 **An asked run is never a `CheckRun`**, so a dry result cannot be read as a gate's pass. It is its own row in `asked_runs`; a `running` row begun by a Fleet that is gone reads `lost`.
 
-**One migration, V113**, `asked_runs`, pointing at `jobs`. **Bridge's half**, mirrored by hand in `packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.38 still type.
+**One migration, V113**, `asked_runs`, pointing at `jobs`. **Bridge's half**, mirrored by hand in `packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.40 still type.
 
 
 ## Open questions

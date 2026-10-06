@@ -27,7 +27,7 @@
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
-/// A Drone's own run of a step's Checks, as a row of its own. Since 23.38.
+/// A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
 mod asked;
 /// A form's edits to `armada.yml`, as edits — the half of Journey 9's *Editing*
 /// that changes only the lines it touches.
@@ -113,7 +113,7 @@ mod manifest_proposal;
 /// its types are in `operations.toml`.
 pub mod mcp;
 /// The merge line `armada land` keeps in each served repository, as Fleet reads it.
-/// Every Check run one repository's Jobs asked for or ran. Since 23.38.
+/// Every Check run one repository's Jobs asked for or ran. Since 23.40.
 mod manifest_checks;
 mod merge_line;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
@@ -137,7 +137,7 @@ mod reclaimed;
 /// checkout. **A rehearsal, never a verdict** — nothing in it is a Check row
 /// or Evidence.
 mod rehearsal;
-/// Who asked for a Check run, as a typed value. Since 23.38.
+/// Who asked for a Check run, as a typed value. Since 23.40.
 mod requester;
 /// What people wrote on a Job's pull request, and which of it a person picks.
 /// **The one place this seam carries text from outside this machine.**
@@ -252,8 +252,8 @@ pub use error::{RunId, WireError, WireValue};
 pub use event::{
     ChangeKind, ChangedFile, Cursor, Delivered, DroneExited, DroneSpawned, Event,
     EvidenceSubmitted, JobAsking, JobChecking, JobCommandWaiting, JobCreated, JobDryRun,
-    JobFilesChanged, JobJudging, JobLanded, JobRemarksChanged, JobStateChanged, JobStepAdvanced,
-    Missed, ProposalMoved, Reason, Resync, StreamMessage,
+    JobFilesChanged, JobJudging, JobLanded, JobPaused, JobRemarksChanged, JobResumed,
+    JobStateChanged, JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
 };
 pub use explaining::CommandExplained;
 pub use files::FilesFound;
@@ -271,17 +271,17 @@ pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText}
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
 pub use holding::{
     ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit,
-    SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotRescued, SlotStranded,
-    SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
+    SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotReleased, SlotRescued,
+    SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
 pub use job::{
-    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, ProposeJob,
-    ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested, Subject,
-    UnreadableJob,
+    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
+    ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
+    Subject, UnreadableJob,
 };
 pub use journal::{
     JobLog, JournalClosed, JournalMessage, JournalOpened, LogNote, NoteLevel, NotedField, Quiet,
@@ -319,7 +319,8 @@ pub use read_in::{
 };
 pub use reading::{ManifestFault, ManifestMoved, ManifestReading, ManifestRefused};
 pub use reclaimed::{
-    BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedWorktree, WorktreeReclaimed,
+    BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedSaved, ReclaimedWorktree,
+    WorktreeReclaimed,
 };
 pub use requester::Requester;
 pub use rehearsal::{

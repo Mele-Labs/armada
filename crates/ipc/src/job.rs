@@ -296,6 +296,23 @@ pub struct JobSummary {
     /// `core_model::Job` holds no plan. Since 13.21.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tasks: Option<crate::TaskCounts>,
+    /// The pause marker, **beside the status and never instead of it**: a Job
+    /// paused at a review gate reads `awaiting_review` with this set, and a
+    /// running one reads `queued` with `queued_reason` `paused` and this set.
+    /// Absent is a Job that is not paused. Since 23.39.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<Paused>,
+}
+
+/// A Job's pause marker, as a row carries it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Paused {
+    /// Who paused it: `person` or `fleet`. A string and not a registry enum
+    /// because Bridge draws one chip either way and nothing matches on it.
+    pub by: String,
+    pub at: Instant,
+    /// A resume found every slot held, and the Job waits for the first to free.
+    pub resuming: bool,
 }
 
 impl JobSummary {
@@ -369,6 +386,11 @@ impl JobSummary {
             merged_at: None,
             // Filled by the caller that holds a store, for `landed`'s reason.
             tasks: None,
+            paused: job.pause().map(|pause| Paused {
+                by: pause.by.as_str().to_string(),
+                at: Instant::from(&pause.at),
+                resuming: pause.resuming,
+            }),
         }
     }
 }

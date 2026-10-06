@@ -28,9 +28,9 @@ use crate::tests::reviewing::{a_fleet_reviewing_the_first_step, at_the_gate};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
-fn root(home: &TempDir) -> String {
+pub(crate) fn root(home: &TempDir) -> String {
     home.path().to_string_lossy().to_string()
 }
 
@@ -39,7 +39,7 @@ fn slot(home: &TempDir, n: u32) -> PathBuf {
 }
 
 /// Propose and approve a Job, and admit what there is room for.
-async fn approved(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+pub(crate) async fn approved(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
     let job = fleet.propose(a_proposal(title)).await.expect("proposed");
     worktree_directory(home, &job);
     fleet.approve(job.id()).await.expect("approved");
@@ -205,7 +205,7 @@ async fn terminal_states_release_the_slot_and_waiting_ones_do_not() {
 
 /// Worked through the gate to `completed_success`, which is guarded on every
 /// step having advanced, so it cannot be moved there by hand.
-async fn finished(fleet: &Fixture, job: JobId) -> JobId {
+pub(crate) async fn finished(fleet: &Fixture, job: JobId) -> JobId {
     submitted_by_the_one(fleet, diff_evidence())
         .await
         .expect("a diff");
@@ -326,6 +326,9 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
     fleet
         .vcs()
         .keep_next_release("armada/1-x has 2 commits on neither the remote nor the base");
+    fleet
+        .vcs()
+        .refuse_next_park(adapter_traits::SlotParkRefused::OnNoBranch);
 
     let loaded = fleet.load(&job).await.expect("the Job");
     fleet
@@ -351,7 +354,7 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
     let said = std::fs::read_to_string(crate::transcript::log_of(&root(&home), &handle))
         .unwrap_or_default();
     assert!(
-        said.contains("2 commits on neither the remote nor the base"),
+        said.contains("HEAD is detached"),
         "the Job's own log says why: {said}"
     );
 }
@@ -492,4 +495,75 @@ async fn the_pool_crosses_the_wire_with_each_slot_and_its_job() {
     assert_eq!((kept, completed), (&None, &false));
     assert_eq!(first.base, "main");
     assert_eq!(answer.slots[1].held, ipc::SlotHolding::Unmade);
+}
+
+const DIRTY: &str =
+    "/slots/slot-1 has 13 uncommitted, first src/log.rs. Commit or remove them, then release";
+
+/// The pool refuses a slot holding uncommitted files. Clear commits them to the
+/// Job's branch, which is what keeps them, and frees the slot.
+#[tokio::test]
+async fn clearing_a_slot_holding_uncommitted_files_commits_them_and_frees_it() {
+    let home = TempDir::new();
+    a_repository(&home);
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+    fleet.vcs().keep_next_release(DIRTY);
+
+    let (_, saved) = Fleet::cleared_worktree(&fleet, &job)
+        .await
+        .expect("a dirty slot is saved, not refused");
+
+    let saved = saved.expect("the receipt names what was committed");
+    assert_eq!(saved.files, vec!["wip.txt"]);
+    assert_eq!(
+        fleet.vcs().parked_slots(),
+        vec![(1, job.as_str().to_string())]
+    );
+    assert_eq!(fleet.vcs().slot_holders(&root(&home))[0], None);
+}
+
+/// A park git refuses keeps today's refusal, said in git words and without the
+/// instruction to run git.
+#[tokio::test]
+async fn a_slot_that_cannot_be_parked_stays_held_and_names_the_obstacle() {
+    let home = TempDir::new();
+    a_repository(&home);
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+    fleet.vcs().keep_next_release(DIRTY);
+    fleet
+        .vcs()
+        .refuse_next_park(adapter_traits::SlotParkRefused::OnNoBranch);
+
+    let refused = Fleet::cleared_worktree(&fleet, &job)
+        .await
+        .expect_err("nothing to commit them to");
+
+    let Adrift::SlotKept { why, .. } = refused else {
+        panic!("{refused:?}");
+    };
+    assert!(why.contains("HEAD is detached"), "{why}");
+    assert!(!why.contains("Commit or remove"), "{why}");
+    assert!(fleet.vcs().parked_slots().is_empty());
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home))[0],
+        Some(job.as_str().to_string())
+    );
+}
+
+/// A clean slot is released as before, with nothing committed.
+#[tokio::test]
+async fn clearing_a_clean_slot_commits_nothing() {
+    let home = TempDir::new();
+    a_repository(&home);
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let job = completed(&fleet, &home, "fix the off-by-one").await;
+
+    let (_, saved) = Fleet::cleared_worktree(&fleet, &job)
+        .await
+        .expect("cleared");
+
+    assert!(saved.is_none());
+    assert!(fleet.vcs().parked_slots().is_empty());
 }
