@@ -173,6 +173,24 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
             // reading it and `format` could never fail — unformatted Rust
             // merged unnoticed until that line was found and removed.
             ("format", "cargo fmt --all --check"),
+            // Then each workspace's, in directory order, each in the order its
+            // own `armada.yml` writes them. The name is bare here; the key
+            // carries the directory.
+            ("typecheck", "pnpm typecheck"),
+            ("bridge_build", "pnpm build"),
+            ("desktop_test", "pnpm exec vitest run --maxWorkers=${width}"),
+            (
+                "xtask_test",
+                "cargo nextest run -p xtask --test-threads ${width}"
+            ),
+            ("typecheck", "pnpm typecheck"),
+            ("storybook", "pnpm build-storybook"),
+            (
+                "components_test",
+                "pnpm exec vitest run --maxWorkers=${width}"
+            ),
+            ("typecheck", "pnpm typecheck"),
+            ("screens_test", "pnpm exec vitest run --maxWorkers=${width}"),
         ]
     );
     let hooks = resolved

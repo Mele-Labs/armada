@@ -60,7 +60,6 @@ fn keeps_every_line(before: &str, after: &str) -> bool {
 }
 
 const WHEN: &[&str] = &[
-    "apps/**",
     "packages/**",
     "crates/core-model/domain/**",
     "protocol-version.toml",
@@ -343,16 +342,13 @@ fn removing_an_entry_takes_the_comment_block_directly_above_it_and_nothing_else(
     assert!(crate::Manifest::parse(at(), &edited).is_ok());
 }
 
-/// A comment set off by a blank line is not the entry's. The `storybook`
-/// Check has one above it and none attached, so only its own lines go.
+/// A comment set off by a blank line is not the entry's. The `hooks_test`
+/// Check has one above it and one below, so only its own lines go.
 #[test]
 fn removing_an_entry_with_a_blank_line_above_it_leaves_the_comments_around_it() {
-    let edited = amended(OWN, &[check("storybook", CheckEdit::Remove)]);
-    let key = line_of(OWN, "  storybook:");
-    let last = line_of(
-        OWN,
-        "    # Shorter than the two above: nothing under `apps/` concerns it.",
-    ) + 5;
+    let edited = amended(OWN, &[check("hooks_test", CheckEdit::Remove)]);
+    let key = line_of(OWN, "  hooks_test:");
+    let last = line_of(OWN, "      - \".claude/hooks/**\"");
     assert_eq!(OWN.lines().nth(key - 1), Some(""), "a blank line above it");
     assert_eq!(edited, without(OWN, key - 1, last));
 }
@@ -397,7 +393,7 @@ fn a_value_that_would_read_as_something_else_is_written_so_it_does_not() {
     let edited = amended(
         OWN,
         &[check(
-            "storybook",
+            "typecheck",
             CheckEdit::When(strings(&[
                 "packages/**",
                 "package.json",
