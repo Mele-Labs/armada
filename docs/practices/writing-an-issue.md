@@ -100,7 +100,7 @@ That is exactly what the owner wants and exactly what would break an agent. The
 These name the machine and make the reader open the issue to find out why they
 should care:
 
-> Carry the loop: structure, verdict_routing and iteration_cap
+> Carry the loop: verdict_routing and iteration_cap
 > HealthReport carries launchd intent for Fleet
 > Doctor: the condition strip
 

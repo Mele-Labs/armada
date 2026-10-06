@@ -191,7 +191,7 @@ fn two_steps_gated(
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
-            "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+            "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
              steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
              mechanical_checks:\n      - type: diff_nonempty\n{judge}    \
              delivers: {}\n    advance_gate: {}\n  - \
@@ -227,7 +227,7 @@ pub fn one(
 pub fn plan_and_implement() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture-plan.yml"),
-        "version: 1\nworkflow_id: fixture-plan\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-plan\nname: fixture\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
          evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
          - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \
@@ -266,7 +266,7 @@ fn workflow_named_and(id: &str, gated: bool) -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
-            "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: \
+            "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: \
              {step_id}\n    label: \"{step_id}\"\n    evidence: {{submitted: {{type: diff}}}}\n{mechanical}    \
              delivers: true\n    advance_gate: auto\n"
         ),
@@ -306,7 +306,6 @@ pub fn shown_step_with_no_harness() -> config::ResolvedWorkflow {
 version: 1
 workflow_id: fixture-shown-bare
 name: fixture
-structure: linear
 steps:
   - id: show
     label: "Show"
@@ -356,7 +355,6 @@ pub fn shown_step(
 version: 1
 workflow_id: fixture-shown
 name: fixture
-structure: linear
 steps:
   - id: show
     label: "Show"

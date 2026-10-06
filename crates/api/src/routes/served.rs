@@ -454,6 +454,11 @@ const ROUTES: &[Route] = &[
         path: "/workflows",
     },
     Route {
+        operation: "get_workflow",
+        method: "GET",
+        path: "/workflows/definition",
+    },
+    Route {
         operation: "list_left_out_workflows",
         method: "GET",
         path: "/workflows/left_out",

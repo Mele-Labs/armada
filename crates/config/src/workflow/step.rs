@@ -21,7 +21,6 @@ use core_model::{
 use serde_yaml_ng::Value;
 
 use super::mechanical::{self, MechanicalCheck};
-use super::Structure;
 use crate::error::{Fault, Refusal};
 use crate::judge;
 use crate::loops::{self, Looping};
@@ -62,9 +61,7 @@ const STEP_KEYS: &[&str] = &[
 /// than as a feature that has not landed.
 ///
 /// **The carried set has converged on it**, so [`Fault::NotYetCarried`] is
-/// unreachable at this key and the second list is gone — `structure` kept its
-/// pair because [`yaml::word`] takes both as arguments, and this reader takes
-/// neither.
+/// unreachable at this key and the second list is gone.
 const GATE_LEGAL: &[&str] = &[
     "auto",
     "auto_if_judge_passes",
@@ -245,9 +242,7 @@ impl Step {
 
     /// Where this step goes on a verdict that neither advances nor ends.
     /// **Empty on every step of a linear workflow**, and empty is what makes a
-    /// step's only exit forward. This is the edge that declares the loop —
-    /// `structure` only labels it, which is why the two are checked against
-    /// each other.
+    /// step's only exit forward. This is the one place a back edge is declared.
     pub fn verdict_routing(&self) -> &BTreeMap<GateVerdict, StepId> {
         &self.verdict_routing
     }
@@ -316,21 +311,15 @@ impl Step {
 
 /// One step, or [`None`] where something on it was refused.
 ///
-/// `structure` is the workflow's, and is a parameter for [`loops::looping`]'s
-/// reason: what the routing map means is a fact about the file rather than
-/// about the step.
 pub(super) fn read(
     at: &str,
     value: &Value,
-    structure: Option<Structure>,
     roster: &Roster,
     out: &mut Vec<Refusal>,
 ) -> Option<Step> {
     let mut table = Table::open(at, value, out)?;
 
-    // Read first, because the routing map's refusal depends on the structure
-    // the file declared and every other key on the step does not.
-    let looping = loops::looping(&mut table, structure == Some(Structure::Linear), out);
+    let looping = loops::looping(&mut table, out);
 
     let id = table
         .required("id", out)

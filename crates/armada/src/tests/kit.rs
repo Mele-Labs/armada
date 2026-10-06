@@ -51,7 +51,7 @@ fn a_kit_definition_that_does_not_fit_is_left_out_and_named() {
     );
     kit.write(
         &format!("{KIT_WORKFLOWS}/bug.yml"),
-        "version: 1\nworkflow_id: bug\nname: bug\nstructure: linear\nsteps:\n  - id: only\n    \
+        "version: 1\nworkflow_id: bug\nname: bug\nsteps:\n  - id: only\n    \
          label: Only\n    evidence: {submitted: {type: diff}}\n    delivers: true\n    \
          advance_gate: auto\n    mechanical_checks:\n      - { type: manifest_check, check: build }\n",
     );

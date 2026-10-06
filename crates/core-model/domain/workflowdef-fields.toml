@@ -298,7 +298,7 @@ concern = "Retry and loops"
 parent = "steps[]"
 purpose = "How many passes a loop may make over this step. Distinct from retry_limit, which counts failures."
 notes = """
-Defaulted from `default_gate_policy.iteration_cap`. Renders as "iteration 3 of 5".
+Defaulted from `default_gate_policy.iteration_cap`, which is five (`config::DEFAULT_ITERATION_CAP`), on any step that declares `verdict_routing` and no cap. Renders as "iteration 3 of 5". This is the guard against a Job that never terminates: nothing else declares a loop, so the passes cap is what bounds one.
 
 Lives on the same step as `verdict_routing` — the one that emits the verdict — because a cap split from the count it bounds never fires.
 
@@ -608,29 +608,16 @@ concern = "Structure"
 sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "on_gaming_flag", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "drone_per_task", "phase"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
-Ordered, and loop-capable: `structure: "loop"` means a step returns to an earlier one by `verdict_routing`, not that the array is unordered.
+Ordered, and any step may send the work back to an earlier one through `verdict_routing`; there is no workflow-level label for it.
 
 A step is the unit everything else in the system counts against: `retry_count` and `iteration_count` are per step, escalations name the step they tripped on, the rail renders one row per step, and evidence carries step attribution. That is why this array is the WorkflowDef's only structural field of substance — the rest of the top-level fields describe how the whole thing is set up, not what it does.
 """
-
-[fields.structure]
-type = "enum"
-concern = "Structure"
-purpose = "linear or loop. Declared intent, validated at config load against how the steps are actually wired."
-notes = """
-`linear` is a fixed sequence; `loop` means a step returns to an earlier one by `verdict_routing` until converged or capped. Both values are instantiated in the samples. The value alone does not declare the loop edge — `verdict_routing` on the emitting step does, which is what lets one workflow carry more than one loop.
-
-Validated at config load against the wiring: `linear` carrying any `verdict_routing` is rejected, `loop` carrying none is rejected, and both name the offending step. The field is redundant with `verdict_routing` by construction, and that redundancy is its entire value — declared intent checked against what was actually wired. Without it, a `verdict_routing` added to a workflow the author believes is linear is legal config that surfaces as a Job which never terminates.
-
-Same shape as `id` versus the package manifest name: two statements kept deliberately so they can be compared.
-"""
-why = "Unlike `root: true` — cut for being declarable wrongly, since position is discoverable from the filesystem and could contradict it — `structure` and `verdict_routing` are both author-written in one file, so the comparison is the point rather than the hazard."
 
 [fields.verdict_routing]
 type = "map"
 concern = "Retry and loops"
 parent = "steps[]"
-purpose = "Maps a non-terminal verdict to the step_id it returns to. This is what declares the loop edge."
+purpose = "Maps a non-terminal verdict to the step_id it returns to. The only declaration of a back edge, and the step named must come earlier in the list."
 notes = """
 `{ "request_changes": "draft" }` on Design Plan's `present` step. Lives on the step that emits the verdict, not on the `WorkflowDef`, so one workflow can carry more than one loop — it sits beside `on_fail` and `on_gaming_flag`, which are already step-level targets.
 

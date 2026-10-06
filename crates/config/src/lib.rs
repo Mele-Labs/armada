@@ -49,8 +49,8 @@ pub use amending::{
     NewLink, NewNarrowing, NewPort, NewRunner, NotAmended, PortEdit, Unplaceable,
 };
 pub use catalogue::{
-    carried, fit, Catalogue, CatalogueRefused, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut,
-    Written, CARRIED_AT,
+    carried, fit, Catalogue, LeftOut, ResolvedCatalogue, Unfit, WhyLeftOut, WorkflowFile, Written,
+    CARRIED_AT,
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
 pub use fields::{workflow_fields, Field};
@@ -59,10 +59,10 @@ pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
     BadSeedPath, Check, Command, Harness, Link, Manifest, MergeBy, Preparation, Seed, Server,
 };
-pub use resolve::ResolvedWorkflow;
+pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;
 pub use runners::{detected, shipped, RunnerDescription};
-pub use workflow::{MechanicalCheck, Step, Structure, WorkflowDef};
+pub use workflow::{MechanicalCheck, Step, WorkflowDef};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these
 // are spelled in `core-model` where the record is — and every caller that
