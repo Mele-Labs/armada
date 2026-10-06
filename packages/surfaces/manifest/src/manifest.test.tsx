@@ -15,18 +15,24 @@ import {
   PULLED_TEXT,
   VERIFY_ENDED,
   VERIFY_UNDERWAY,
+  entered,
   manifesting,
+  mount,
+  rootlessSheet,
   sheet,
-} from "./manifest-fleet";
-import type { Manifesting } from "./manifest-fleet";
-import { rootlessSheet, WEB_DEV_RUN } from "./manifest-rootless";
-import { entered, mount, unmountAfterEach } from "./testing";
+  unmountAfterEach,
+  WEB_DEV_RUN,
+} from "@armada/desktop/mock";
+import type { Manifesting } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
+// Core and Manifest only: the surface's own members, and the scenario answers the rest.
+const SLICES = { slices: ["core", "manifest"] } as const;
+
 /** The Manifest surface, by the rail. */
 async function manifest(options: Manifesting = {}): Promise<void> {
-  mount(manifesting(options));
+  mount(manifesting(options), SLICES);
   // The rail row went when Navigation split in two; the control beside the
   // title row's picker is how the surface is reached now (#1595).
   await page.getByRole("button", { name: "Open the Manifest", exact: true }).click();
