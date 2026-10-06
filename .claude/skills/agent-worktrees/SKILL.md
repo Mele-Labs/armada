@@ -24,7 +24,7 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 ```
 path=$(armada worktree lease <branch>)   # waits while every slot is held
 armada worktree --status                 # who holds each, and since when
-armada worktree release <path>           # after the branch lands
+armada worktree release <path>           # after the owner merges the pull request
 ```
 
 **A lease belongs to the process that took it, and a restart orphans it.** The
@@ -83,9 +83,13 @@ git branch -D <branch>
 Do both. A branch left behind with no worktree is cheap; a worktree left behind
 is not.
 
-**`scripts/land` prints these two commands when it lands a branch and runs
-neither**, deliberately: it cannot tell your worktree from one another agent is
-still writing in. The three checks below come first, every time.
+**The cleanup happens after the owner merges the pull request**, never when you
+open it. Check it merged with `gh pr view <branch> --json state` (it reads
+`MERGED`) before removing a worktree, and run the three checks below first,
+every time: nothing here can tell your worktree from one another agent is still
+writing in. Delete the remote branch with `git push origin --delete <branch>` or
+GitHub's delete-branch button. A branch still queued on the merge line is
+cleaned up by `scripts/land`, which prints these two commands when it lands it.
 
 **Removing the worktree is the fix. Deleting its `target/` is not.** A build
 directory rebuilds; a worktree that nobody removes stays forever and takes a new
@@ -99,9 +103,9 @@ and needed an unlock and a `prune` afterwards to clear the listing. Both trees
 were clean and pushed, so nothing was lost — but that was the three checks
 below, not the fallback.
 
-**`scripts/land` deletes the branch it lands, and GitHub closes every pull
-request based on it.** Confirmed 1 Oct 2026: #1729 was stacked on #1721's
-branch, #1721 landed, and #1729 closed unmerged with its base gone. The work
+**Deleting a merged branch closes every pull request based on it.**
+Confirmed 1 Oct 2026: #1729 was stacked on #1721's branch, #1721 was merged and
+its branch deleted, and #1729 closed unmerged with its base gone. The work
 survived on its own branch and came back as #1731 after a rebase. Stack a
 branch only if it will be rebased onto `main` before it opens, or open it
 against `main` from the start.

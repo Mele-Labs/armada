@@ -6,6 +6,10 @@ milestone: Throughput
 
 # Merges take turns, and each one is checked against the main it lands on
 
+> New work goes through pull requests and the `ci` check, and the line takes
+> nothing new. It drains what is already queued and is retired at the cutover;
+> `docs/practices/ci.md` lists what is owed.
+
 Two branches can each pass every Check, merge a minute apart, and leave `main`
 red. Each one's Checks ran against a `main` that had moved by the time it
 merged.
