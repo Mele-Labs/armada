@@ -245,6 +245,7 @@ mod wave_rounds;
 mod waves;
 mod widening;
 mod workflow_promise;
+mod workspace_gate;
 mod workspace_ports;
 mod workspace_runs;
 mod workspace_verify;
