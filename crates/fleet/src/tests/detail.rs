@@ -119,7 +119,7 @@ async fn a_job_at_the_gate_carries_no_branch_key_at_all() {
 }
 
 /// The branch survives the process that recorded it. A Job read back by a
-/// second Fleet is where the complaint's Job is: escalated, after a restart.
+/// second Fleet is where the complaint's Job is: interrupted, after a restart.
 #[tokio::test]
 async fn the_branch_survives_a_fleet_restart() {
     let home = TempDir::new();
@@ -140,13 +140,13 @@ async fn the_branch_survives_a_fleet_restart() {
     };
     let restarted = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     restarted.reconcile().await.expect("a boot read");
+    the_drone_it_holds_is_gone(&restarted).await;
     let events = restarted.events();
     let app = api::router(api::Served::by(restarted, RunId::carried("01RUN"), events));
 
     let (status, body) = get(&app, &format!("/jobs/{}", job_id.as_str())).await;
     assert_eq!(status, StatusCode::OK);
     let detail: JobDetail = ipc::decode("a Job in full", &body).expect("a JobDetail");
-    assert_eq!(detail.job.status.as_wire(), "escalated");
     assert_eq!(
         detail.branch.as_deref(),
         Some(format!("armada/{}", detail.job.handle).as_str()),

@@ -529,8 +529,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     }
     let reconciled = fleet.reconcile().await?;
     println!(
-        "reconciled: {} interrupted, {} adopted, {} repaired, {} unreadable, {} mended{}",
+        "reconciled: {} interrupted, {} restarted, {} adopted, {} repaired, {} unreadable, {} mended{}",
         reconciled.interrupted.len(),
+        reconciled.restarted.len(),
         reconciled.adopted.len(),
         reconciled.repaired,
         reconciled.unreadable.len(),

@@ -12,10 +12,13 @@ use crate::transcript::Rekeyed;
 #[derive(Debug, Default)]
 pub struct Reconciled {
     /// Jobs the store says were `running` and whose Drone is gone — **asked
-    /// about and answered**, not assumed. Every one is now `escalated`, reason
-    /// `interrupted`. A Job whose probe would not run is here too, and its log
+    /// about and answered**, not assumed. Every one was escalated, reason
+    /// `interrupted`, and then Fleet tried to restart its step (`restarted`). A Job whose probe would not run is here too, and its log
     /// line says the process may still be there.
     pub interrupted: Vec<JobId>,
+    /// The Jobs of `interrupted` whose step Fleet then restarted. A Job missing
+    /// from here stayed `escalated`, and its log says why. `crate::boot_restart`.
+    pub restarted: Vec<JobId>,
     /// Jobs whose Drone outlived this Fleet's predecessor and was taken back
     /// over. **Each is still where it was** — ordinarily `running` — with the
     /// process in a slot, its pid attributing its own calls again, and a row in
