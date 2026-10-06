@@ -7,13 +7,15 @@ import { page } from "vitest/browser";
 
 import { sheet, mountApp, type Mounted, studying } from "@armada/desktop/mock";
 
+const SLICES = { slices: ["core", "studios"] } as const;
+
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 
 function open(scenario: Parameters<typeof mountApp>[0]): Mounted {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  const app = mountApp(scenario, host);
+  const app = mountApp(scenario, host, undefined, SLICES);
   windows.push({ app, host });
   return app;
 }

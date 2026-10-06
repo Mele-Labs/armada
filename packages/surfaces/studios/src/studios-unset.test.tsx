@@ -10,6 +10,8 @@ import { page } from "vitest/browser";
 
 import { mount, unmountAfterEach, scenarioNamed } from "@armada/desktop/mock";
 
+const SLICES = { slices: ["core", "studios"] } as const;
+
 unmountAfterEach();
 
 /** Studios, from the rail, on a window that opens on Overview. */
@@ -27,7 +29,7 @@ const picker = () => page.getByRole("combobox", { name: "Repository", exact: tru
 test("no repository set up: Studios says so and offers Setup, rather than a picker holding nothing", async () => {
   // `nothing-set-up` is the moment: repositories served, none of them with a Manifest, and the
   // rail on All repositories because nobody picked one.
-  mount("nothing-set-up");
+  mount("nothing-set-up", SLICES);
   await openStudios();
 
   await expect
@@ -49,7 +51,7 @@ test("no repository set up: Studios says so and offers Setup, rather than a pick
 test("every-state has repositories with Manifests, so Studios keeps its picker", async () => {
   // The other half of the rule: the ask stands wherever a repository could answer it.
   const scenario = scenarioNamed("every-state")!;
-  mount({ ...scenario, state: { ...scenario.state, repository: null } });
+  mount({ ...scenario, state: { ...scenario.state, repository: null } }, SLICES);
   await openStudios();
 
   await expect.element(page.getByText("Pick a repository to open its Studios")).toBeVisible();
@@ -61,7 +63,7 @@ test("every-state serves one repository nobody set up, so the picker draws it gr
   // The state the greyed-out half was written for, and until `every-state` served an unset
   // repository nobody browsing the mock reached it: the two groups in one open picker.
   const scenario = scenarioNamed("every-state")!;
-  mount({ ...scenario, state: { ...scenario.state, repository: null } });
+  mount({ ...scenario, state: { ...scenario.state, repository: null } }, SLICES);
   await openStudios();
   await expect.element(picker()).toBeVisible();
 

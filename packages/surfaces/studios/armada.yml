@@ -10,9 +10,8 @@ id: armada-studios
 # `mountApp` loads from `apps/desktop` is here: the App and its renderer folders,
 # the mock's composition (not another surface's `*-fleet.ts`: that file reaches
 # the composition only through `slices/`) and the shared types. `main` and
-# `preload` are not, since the mock bridge does not run them. Tests mount every
-# slice, so `mock/slices/**` is whole; a test that mounts `slices: ["studios"]`
-# could narrow it.
+# `preload` are not, since the mock bridge does not run them.
+# Its tests mount `slices: ["core", "studios"]`, so of `mock/slices/` only those two files are here.
 depends_on:
   - "packages/bridge-api/**"
   - "packages/screens/**"
@@ -36,7 +35,8 @@ depends_on:
   - "apps/desktop/src/renderer/src/mock/slices.ts"
   - "apps/desktop/src/renderer/src/mock/studios-fake.ts"
   - "apps/desktop/src/renderer/src/mock/testing.ts"
-  - "apps/desktop/src/renderer/src/mock/slices/**"
+  - "apps/desktop/src/renderer/src/mock/slices/core.ts"
+  - "apps/desktop/src/renderer/src/mock/slices/studios.ts"
   - "apps/desktop/src/shared/**"
   - "apps/desktop/package.json"
   - "apps/desktop/vitest.browser.preset.ts"

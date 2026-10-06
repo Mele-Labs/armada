@@ -7,13 +7,15 @@ import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
 
+const SLICES = { slices: ["core", "studios"] } as const;
+
 let open: { app: Mounted; host: HTMLElement } | null = null;
 
 function window_(scenario: Parameters<typeof mountApp>[0]): void {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  open = { app: mountApp(scenario, host), host };
+  open = { app: mountApp(scenario, host, undefined, SLICES), host };
 }
 
 afterEach(() => {
