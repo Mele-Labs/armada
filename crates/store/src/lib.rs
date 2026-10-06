@@ -69,6 +69,8 @@ mod kit;
 mod limits;
 /// A redispatch read backwards: which Job replaced this one.
 mod lineage;
+/// Main's CI on the forge, per repository, and the failed jobs of a red.
+mod main_ci;
 /// Commands a person always-allowed for a whole Manifest, kept here instead
 /// of a commit on some Job's branch.
 mod manifest_allowed;
@@ -182,6 +184,7 @@ pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
+pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
 pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;

@@ -351,6 +351,23 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **Nothing depends on the answer, and that is a constraint rather than a caveat.** The work is already merged. A red cannot fail the Job, cannot reopen it — `completed_success` is terminal — and rolls nothing back. A merge that breaks main is raised by a person, and the response is a new Job pointing back through `subject`. See [Job](job.md). Whether Fleet should watch the merges it did perform is open (see Open questions).
 
+### What Fleet knows about main's CI
+
+**Fleet reads whether `main` is green or red on the forge's CI, for every repository it serves that names a `base:`.** It goes on the forge's facts, so it works on a repository whatever its CI: the failing job's name as the forge reports it, that job's log, and the merge that turned main red. A repository whose Manifest names no base is not read, since Fleet would be guessing which branch main is.
+
+**It adds Check meaning only where a CI job maps to a Check.** A job maps when its name is a Check's name, or when that Check lists it under `ci_jobs` ([Configuration](../contracts/configuration.md), *Which CI jobs a Check answers for*). A job that maps to nothing is the ordinary case and is kept under the forge's name alone. A failing test is read out of the job's log by the same nextest and vitest reading the gate uses, and where the log names none there is no test.
+
+| What Fleet asks | When |
+|---|---|
+| Where main stands on the forge | One ref lookup per repository per sweep interval, one repository a turn, rotating |
+| The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
+| A failed job's log, its last 256 KiB | Once per failed job per commit |
+| The pull request that merged the commit | Once per commit while this process lives, and only for a red |
+
+**A red stays red until a green.** A newer commit still running does not end it, and a commit that fails on top of a red is the same red unless it fails a job the red did not have. A commit nothing ran on is not a green and does not end a red.
+
+**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. Nothing is served over the wire yet, and no Job acts on it.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.

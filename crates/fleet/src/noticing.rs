@@ -130,6 +130,13 @@ pub(crate) struct Sweep {
     /// being asked about, so keeping its last signature here would only be
     /// memory nothing reads again.
     pub(crate) commented: BTreeMap<String, crate::under_review::RemarkSignature>,
+    /// When main's CI was last read, and which served repository is next. Their
+    /// own, for `crate::issue_noticing`'s reason: `crate::main_ci` reads a
+    /// repository and this rotation reads a pull request.
+    pub(crate) main_last: Option<Timestamp>,
+    pub(crate) main_next: usize,
+    /// The commits whose merging pull request was asked about, as `repository@commit`.
+    pub(crate) culprit_asked: std::collections::BTreeSet<String>,
 }
 
 /// What the record's state says on the wire, where it says anything.
