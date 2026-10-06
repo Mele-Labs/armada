@@ -26,7 +26,7 @@ import { useEffect, type ReactNode } from "react";
 import { Alert, Button } from "@armada/components";
 
 import type { ChangeSlotPool, HeldWorktrees, JobSummary, Outcome, RescueSlot } from "@armada/protocol";
-import { said } from "./copy";
+import { said } from "@armada/screens/src/copy";
 import { SlotPools } from "./SlotPools";
 import type { RescueOutcome } from "./slot-rescue";
 

@@ -10,7 +10,7 @@ import type {
   WorktreeSlot,
   WorktreesHeld,
 } from "@armada/protocol";
-import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
+import type { RescueOutcome } from "../slot-rescue";
 import { slot, slotsHeld } from "@armada/screens/src/fixtures/slots";
 
 export { slotsHeld };

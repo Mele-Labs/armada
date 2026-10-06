@@ -21,7 +21,7 @@ import type {
   WorktreeSlot,
 } from "@armada/protocol";
 
-import { mount, unmount } from "./mounted";
+import { mount, unmount } from "@armada/screens/src/mounted";
 import { Worktrees } from "./Worktrees";
 import type { WorktreesProps } from "./Worktrees";
 

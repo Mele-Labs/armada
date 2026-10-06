@@ -15,7 +15,7 @@
 // what makes "kill the Drone" a request to the daemon that spawned it.
 
 import type { CommandExplainedRead } from "../shared/api";
-import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
+import type { RescueOutcome } from "@armada/cleanup/api";
 import type { BridgeState } from "../shared/bridge";
 import type {
   CaptureWalkNote,

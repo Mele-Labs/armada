@@ -49,7 +49,7 @@ import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { nodeNamed, studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
-import { Worktrees } from "@armada/screens";
+import { Worktrees } from "@armada/cleanup";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
 import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
