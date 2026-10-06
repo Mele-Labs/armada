@@ -323,3 +323,8 @@
   height: var(--leading-sm);
   color: var(--fg-muted);
 }
+
+/* The branch a press elsewhere asked for, on the selected-row fill every list uses. */
+.armada-merge-line__row[aria-current="true"] {
+  background: var(--accent-muted);
+}

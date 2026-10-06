@@ -13,6 +13,9 @@ importers:
       '@armada/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@armada/bridge-api':
+        specifier: workspace:*
+        version: link:../../packages/bridge-api
       '@armada/components':
         specifier: workspace:*
         version: link:../../packages/components
@@ -108,6 +111,19 @@ importers:
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.18
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
+  packages/bridge-api:
+    dependencies:
+      '@armada/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@armada/screens':
+        specifier: workspace:*
+        version: link:../screens
+    devDependencies:
       typescript:
         specifier: ^5.9.0
         version: 5.9.3

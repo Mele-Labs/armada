@@ -176,3 +176,100 @@ fn a_sibling_sharing_a_prefix_is_not_under_the_dir() {
         None
     );
 }
+
+/// A root and one workspace, `packages/screens`, each with a vitest Check that
+/// declares no runner `dir`. The root's `run` fails, so a whole run shows.
+mod in_a_workspace {
+    use std::path::Path;
+
+    use config::{Manifest, ResolvedWorkflow, Roster, WorkflowDef};
+
+    use super::paths;
+    use crate::checking::{narrowed, Planned};
+    use crate::gated::{local, Gated};
+
+    const STEP: &str =
+        "version: 1\nworkflow_id: fixture\nname: fixture\nsteps:\n  - id: implement\n    \
+        label: Implement\n    evidence: {submitted: {type: diff}}\n    delivers: false\n    \
+        advance_gate: auto\n    mechanical_checks: [{ type: every_manifest_check }]\n";
+
+    fn manifests() -> (Manifest, Manifest) {
+        let body =
+            "checks:\n  test:\n    run: pnpm exec vitest run\n    runner:\n      name: vitest\n";
+        let root = Manifest::parse(
+            Path::new("armada.yml"),
+            &format!("version: 1\nid: 01WSROOT\n{body}"),
+        )
+        .expect("the root parses");
+        let screens = Manifest::parse_workspace(
+            Path::new("packages/screens/armada.yml"),
+            "packages/screens",
+            &format!("version: 1\nid: 01WSSCRN\n{body}"),
+            &root,
+        )
+        .expect("the workspace parses");
+        (root, screens)
+    }
+
+    /// What each Check of the step plans for a Drone's change, by key.
+    fn planned(changed: &[&str], narrow: bool) -> Vec<(String, Option<String>)> {
+        let (root, screens) = manifests();
+        let def = WorkflowDef::parse(Path::new("fixture.yml"), STEP, &Roster::offering_nothing())
+            .expect("the workflow parses");
+        let all = [&root, &screens];
+        let workflow = ResolvedWorkflow::resolve_gated(&def, &root, &all).expect("resolves");
+        let changed = paths(changed);
+        let gated = Gated::of(&root, std::slice::from_ref(&screens), &changed);
+        workflow.steps()[0]
+            .checks()
+            .iter()
+            .map(|check| {
+                let local = local(Some(&gated), check, &changed);
+                let Planned::Command { narrowed_to, .. } = narrowed(
+                    check,
+                    &check.key(),
+                    check.run().expect("a command"),
+                    &local,
+                    narrow,
+                ) else {
+                    panic!("{} plans a command", check.key());
+                };
+                (check.key().into_owned(), narrowed_to)
+            })
+            .collect()
+    }
+
+    /// `{dir}` is `.`, since the Check runs in the workspace, and the files are
+    /// relative to it.
+    #[test]
+    fn an_omitted_dir_is_the_manifests_own_directory() {
+        let planned = planned(&["packages/screens/src/a.ts"], true);
+        assert_eq!(
+            planned,
+            [
+                ("test".to_string(), None),
+                (
+                    "packages/screens:test".to_string(),
+                    Some(
+                        "pnpm --dir . exec vitest related src/a.ts --run --passWithNoTests=false"
+                            .to_string()
+                    )
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn without_a_narrowed_ask_the_workspace_check_runs_whole() {
+        let planned = planned(&["packages/screens/src/a.ts"], false);
+        assert!(planned.iter().all(|(_, to)| to.is_none()), "{planned:?}");
+    }
+
+    /// The root's Check never sees a workspace's path, and with a root path of
+    /// its own it still has no `dir` to put in the template.
+    #[test]
+    fn a_root_check_with_no_dir_runs_whole_as_before() {
+        let planned = planned(&["README.md"], true);
+        assert_eq!(planned[0], ("test".to_string(), None));
+    }
+}

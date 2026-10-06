@@ -1,0 +1,40 @@
+# Runs one Check's command, prints the machine it ran on, writes the Check's own
+# wall time to the job summary, and fails the job with the command's exit code.
+# `$WIDTH` is the runner's core count, which armada.yml calls `${width}`.
+name: run-check
+inputs:
+  name:
+    required: true
+  cmd:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Run ${{ inputs.name }}
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        CMD: ${{ inputs.cmd }}
+      run: |
+        WIDTH=$(getconf _NPROCESSORS_ONLN)
+        export WIDTH ARMADA_CHECK_WIDTH=$WIDTH
+        if [ "$RUNNER_OS" = macOS ]; then
+          echo "MACHINE $NAME cores=$WIDTH memsize=$(sysctl -n hw.memsize)"
+        else
+          echo "MACHINE $NAME cores=$WIDTH $(grep MemTotal /proc/meminfo)"
+        fi
+        set +e
+        start=$(date +%s)
+        bash -c "$CMD" 2>&1 | tee check.log
+        code=${PIPESTATUS[0]}
+        secs=$(( $(date +%s) - start ))
+        echo "RESULT $NAME exit=$code seconds=$secs"
+        {
+          echo "### $NAME: exit $code, ${secs}s in the Check step"
+          if [ "$code" != 0 ]; then
+            echo '```'
+            tail -n 40 check.log
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$code"

@@ -2,9 +2,6 @@
 
 import type { Watched } from "@armada/protocol";
 
-/** Open the Studio a job came off, landing on the job's own node. */
-export type OpenStudioFrom = (studioId: string, nodeId: string) => void;
-
 /**
  * Whether this Job's own read has yet to answer, `read` or `failed`. `whole` is
  * `null` both while it has not and once Fleet refused, and only the first draws

@@ -197,7 +197,8 @@ export const ReadOnly: Story = {
 export const OpenedAtANode: Story = {
   args: { nodes, edges, pick: "job", onNodeMoved: fn(), onSelectionChange: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
-    const job = canvas.getByRole("group", { name: /^Job: / });
+    // The board draws its nodes after it has measured them, so one is found rather than got.
+    const job = await canvas.findByRole("group", { name: /^Job: / });
     await waitFor(() => expect(job).toBeVisible());
 
     await step("the node it was opened at is selected, with nothing pressed", async () => {

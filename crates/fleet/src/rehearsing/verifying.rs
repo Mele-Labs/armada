@@ -93,6 +93,7 @@ impl Verifies {
             started_at: one.started_at.clone(),
             ended_at: one.ended_at.clone(),
             workspace: one.workspace.clone(),
+            requester: ipc::Requester::outside(),
             steps: one
                 .steps
                 .iter()

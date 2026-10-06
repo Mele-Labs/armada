@@ -126,6 +126,19 @@ miss that Drone or refuse a restart nothing is using. A queued Job, a Job at a
 human gate, or one a person is piloting holds no process the restart would
 interrupt, so none of those refuse it.
 
+**`--adopt` restarts anyway.** Fleet adopts a Drone that outlives it
+(`docs/concepts/drone.md`), so a working Drone is survivable. With `--adopt` the
+script still reads the live roster, prints each Job with a working Drone, then
+prints what adopting costs, once: its pipes die so it cannot be redirected,
+poked or handed a verdict; its recorded spend is an undercount; its Job shows as
+`unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
+dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
+is open, so a surviving Check group is not swept at boot); a Drone that cannot
+be adopted is ended. A roster that does not answer still refuses. Without
+`--adopt` the refusal is as above. It combines with `--from`, and
+`--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
+`scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
+
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
 runtime file. macOS has no `flock(1)`, so the lock is a symlink naming its
@@ -229,7 +242,7 @@ moving between trees rebuilds and reopens Bridge whatever either stamp says.
 scripts/preview                         # merge every in-flight branch, print what happened
 scripts/preview --only a,b --skip c     # narrow it; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
-scripts/preview --restart [--dry-run]   # then scripts/restart --from .armada/preview
+scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
 ```
 
 **It merges every branch that is in flight on top of `main`, in a worktree of
@@ -486,7 +499,7 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 |---|---|
 | **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
-| **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **The test** | Every walk in `walks/` runs in one of the `walks-*of4.test.tsx` files, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
 | **Inside Bridge** | A Prototype held at Build serves its own worktree's mock, and opening the Job opens it in Bridge's window; **Walk in Bridge** on the Job's lead opens it again. The picker chooses a walk, and ⌥⌘A there leaves a note on the Job that goes to its Drone with Request changes. The `prototype-walked` scenario plays it in a browser |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
 
@@ -540,6 +553,8 @@ use`. `../concepts/manifest.md`, *How many Checks run at once*.
 on a loaded machine it takes longer than the same Check run by `scripts/land`.
 `ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
 `../concepts/manifest.md`, *At what priority a Check runs*.
+
+**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check packages/screens:screens_test`, `armada check apps/desktop:typecheck`. It runs in that directory, and `armada covers` prints the keys a change reaches.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough
@@ -752,49 +767,41 @@ recorded is the wrapper, which ends at once.
 
 ## Landing a branch
 
+New work goes in on a pull request, and the owner merges it.
+
 ```sh
-scripts/land preflight              # once the branch's self-check has passed
-scripts/land                        # straight after, without waiting to be told
-scripts/land --status [<branch>]    # poll, in short foreground calls
-scripts/land --withdraw [<branch>]  # out of the line; this branch by default
+git push -u origin <branch>     # once the branch's self-check has passed
+gh pr create --base main        # then stop
 ```
 
-**It merges your branch to `main` and pushes `main` itself, in turn with every
-other branch landing from this clone.** Every turn runs `cargo xtask verify-foundations`
-against the commit being merged and reads it as a delta against `main`'s own run,
-and runs every Check whose `when:` matches what your branch changed. Where `main`
-moved since your branch was cut or caught up, it merges `main` in first and adds
-every Check what landed on `main` hits. The design is
-[Merge line](../capabilities/merge-line.md).
+**The self-check comes first** (`work-issue` step 4): a quick build, typecheck
+and the tests of what you changed, once. The pull request carries the full run.
 
-| `main` has | What the turn runs |
-|---|---|
-| Not moved | The gate, and every Check the branch hits |
-| Moved | The gate, and every Check either side hits |
+**GitHub runs the `checks` workflow on the pull request.** The `ci` job is the
+gate, and `desktop_test` reports beside it. `docs/practices/ci.md` says what the
+workflow runs and what is owed before it gates.
 
-**`test` and `build` run over the crates the turn reaches, not the workspace.**
-That is every crate the change touched and every crate depending on one, and
-`xtask` for `test`. A change to a lockfile, any `Cargo.toml`, a build script, `.cargo/`,
-a file under a crate that is not Rust source, or anything outside `crates/`
-those two read, runs both whole. The status line and the outcome say `test
-narrowed to -p …` when it was; nothing said is a whole run, and the turn's
-`reach.log` says why. A `main` rerun of a red is always whole.
-[Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
+**The description says what the diff cannot** (`commit-message`) and ends with
+"Merge with Create a merge commit".
 
-**A new gate line ends the turn red before any Check runs.** It is red whatever
-they say, and they take minutes. The red names the lines.
+**The owner merges, with the merge button and "Create a merge commit".** Main's
+history is one merge per branch, so nothing is squashed or rebased. An agent
+never merges: `gh pr merge`, a push to `main` and a `git merge` in the checkout
+at `main` are refused by `.claude/hooks/guard_merge.py`, which names the pull
+request instead. `armada check hooks_test` proves the hook, and needs nothing
+built.
 
-**Your step 4 self-check is not the full run; this is.** A Check that fails here
-is asked of `main` too, so only a red `main` lacks is the branch's.
+**A red `ci` comes back to you.** Read `gh pr checks <n>`, then
+`gh run view --log-failed`, fix on the same branch and push again. The pull
+request updates.
 
-**When you run it:** from the branch's own worktree, as soon as the work is
-committed and its quick self-check passed (`work-issue` step 4). Nobody approves
-it first: the line is the guard, and the owner reads what landed afterwards.
-`gh pr merge` and a push to `main` are refused by
-`.claude/hooks/guard_merge.py`, which names this command instead — they land a
-combination nothing checked. The line's own push of `main` is made by its
-runner, outside the Bash tool, so the hook never sees it. `armada check
-hooks_test` proves the hook, and needs nothing built.
+**A moved `main` is brought in by merging it**, never by rebasing.
+
+**Cleanup waits for the merge.** `gh pr view <branch> --json state` reads
+`MERGED` first, then the worktree goes back as `agent-worktrees` says.
+
+Fleet's own Jobs that merge through the forge (`merge_by`, `auto_merge`) are
+unchanged.
 
 **A branch that declared a need waits behind the ones ahead of it.**
 `armada need <path> "<what>"` records what the branch needs on a path
@@ -802,7 +809,7 @@ hooks_test` proves the hook, and needs nothing built.
 "a minor"), says which branches are ahead and what they took, and the first to
 declare goes first. `armada need --took <path> "<value>"` records the value
 chosen, `--status` lists the needs by path, `--release <path>` gives one back.
-`armada land` keeps a branch with a need queued until every need ahead of it on
+The merge line keeps a branch with a need queued until every need ahead of it on
 the same path has landed or been given back, and `--status` says what it waits
 behind. A need is spent when its branch lands and given back when the branch no
 longer exists here. **Nothing expires by time**: a stalled need holds the
@@ -812,57 +819,20 @@ branch, or deletes the branch. The state is under the git common directory, in
 migration or changes the protocol minor with no need declared for that path**,
 and says to run `armada need <path> "<what>"`; a major change passes.
 
-**What it needs:** a clean tree with commits ahead of `main`, push access to
-`origin`, and an `armada` on `PATH` that knows the `land` verb — `scripts/land`
-is a shim that execs into `armada land`. The branch need not be pushed and
-needs no pull request: the runner reads it from this clone. Where a pull request
-is open for it, the push of `main` closes it as merged on GitHub; if GitHub has
-not read it so within 30 seconds (`ARMADA_LAND_PR_WAIT`), the line closes it with
-a comment naming the merge. A remote branch whose head landed is deleted; one
-holding commits that did not land is kept, and so is its pull request.
-`ARMADA_LAND_ARMADA` is the one knob for which `armada` that is, read both for this and for what a
-*gated turn* shells out to for `covers`, `check` and `run`; unset, both
-default to `PATH`. Give it an **absolute** path when you set it — the gate
-runs in a worktree of its own, so a relative one is refused.
+### The merge line is draining
 
-**A change to the line needs `scripts/restart` before it is what runs.**
-`armada land` comes from the *installed* binary on `PATH`, not from the tree
-you are standing in, so editing `crates/armada/src/land/` and running
-`scripts/land` again still runs whatever was installed before your edit.
-`scripts/restart` rebuilds and reinstalls it; until you run that (or point
-`ARMADA_LAND_ARMADA` at a binary you built yourself, by its absolute path),
-you are testing the old one. **An `armada` that does not know the verb is
-refused, exit 9, naming `scripts/restart`** — nothing is queued and nothing
-is merged. A Python implementation stood behind the shim for one release,
-while every installed binary still predated the verb; it is gone.
+`scripts/land` and `armada land` are being retired and are not for new work. The
+line takes nothing new; it finishes what is already queued, and goes at the
+cutover (`docs/practices/ci.md` lists what is owed). A branch already queued
+there is left alone. Its design is [Merge line](../capabilities/merge-line.md).
 
-**A gated turn takes minutes.** It keeps two worktrees under `.armada/land/` —
-one for the candidate, one for `main` itself — resets each to the commit it
-needs, keeps their build directories, and runs `verify-foundations` in both,
-then installs and runs each Check that either side hits. They are inside the
-repository because that is where this project's tooling works, and they are the
-only two: nothing accumulates per turn but its logs. What does accumulate is Fleet's own
-`.armada/bases/`, which `armada clean` gives back. What landed is measured from the merge base, so an old branch meets
-nearly every Check on the way in.
+```sh
+scripts/land --status [<branch>]    # read a branch already queued
+scripts/land --withdraw [<branch>]  # out of the line; this branch by default
+```
 
-**`scripts/land` returns at once**, and a runner in the background does the work.
-Poll `--status`, which answers from disk in well under a second, until it stops
-saying the branch is in line.
-
-**A Check that fails while others still run is told to you then**, not when the
-turn ends. When `main` is green for it, `--status` exits 10 and prints, for
-example, `test failed (log <path>); main is green for it. The turn is still
-running its other Checks; do not push this branch, a push is dropped as stale.`
-Read the log and start fixing. The turn goes on and ends red as before. A Check
-that fails on `main` too is `main`'s, and stays exit 3 until the turn says so.
-While your branch gates with others, the line says it is a heads-up for the whole
-batch: the failure cannot be pinned on one member until the split, which names
-the one at fault, and each member's own verdict follows at the end.
-
-**`--withdraw` takes a branch out of the line**, and says what it did. A waiting
-branch is never gated and reads `stopped`. One in a turn now is dropped from any
-gate it is waiting for, but a gate already running finishes and can still land
-it, and the command says so.
+`--status` answers from disk in well under a second. Each outcome has an exit
+code.
 
 | Exit | Outcome | What to do |
 |---|---|---|
@@ -875,62 +845,21 @@ it, and the command says so.
 | 7 | Stopped | Read the reason; nothing was merged unless it says so. A Check naming a command this machine does not have lands here, not in red |
 | 8 | Nothing known | This branch has never been queued from this clone |
 
-**A Check that failed is rerun against `main` before you are blamed for it.**
-One that fails there too is reported as `main`'s, by name, and the turn stops
-rather than reddening — fix `main` and land that first. One that times out on
-`main` says so, with the limit, rather than that it fails there; land again. That
-rerun happens only on a turn that went red, and only for the Checks that failed.
-With a Check still to run after the failure, it is asked right away, once per
-Check and `main` commit, and a green answer is the exit 10 above. A Check that
-failed last is asked as before.
-
 **Each turn's logs stay on disk for two weeks**, under
-`.git/armada-land/logs/<entry>/<turn>/` in the main checkout, one directory per
-gate, named by when it started. `--status` prints the paths of the latest turn's
-files; an earlier turn's, red or not, is the directory beside it. `main`'s
-reruns are there too, as `<check>-on-main.log`.
+`.git/armada-land/logs/<entry>/<turn>/` in the main checkout. `--status`
+prints the paths of the latest turn's files.
 
-**A red names only what the merged tree added.** A Check that failed on the
-branch and not on `main`, or a `verify-foundations` failing line `main`'s own run
-does not print. Red already on
-`main` does not stop a merge, and a line that only moved down the file is not a
-new one. A red and a conflict both keep their place, so a branch that comes back
-is served where it was.
+**A change to the line needs `scripts/restart` before it is what runs.**
+`armada land` comes from the installed binary on `PATH`, not from the tree you
+are standing in. `ARMADA_LAND_ARMADA` names another `armada`, by absolute path.
+An `armada` that does not know the verb is refused with exit 9, naming
+`scripts/restart`.
 
-**Nothing is pushed onto your branch.** What the turn adds, `main` merged in
-and any regenerated file, goes into the merge on `main` and nowhere else, so
-your branch is never ahead of your worktree. Each merge on `main` is a `--no-ff`
-merge commit carrying a `Landed-from: <branch>` trailer, and names the pull
-request where there is one.
-
-**A push of `main` that is not a fast-forward means `main` moved** while the
-turn ran. The turn gates again against the new `main`, up to five times, so
-nothing reaches `main` that was not gated against it.
-
-**A turn takes up to eight branches in line and gates them together**
-(`ARMADA_LAND_BATCH`), each still landing as its own merge commit. A red turn
-halves how many the next takes and a green one doubles it back, and
-`--status` says how many and why. A red, or
-two of them that clash, splits the batch until each is alone, so a red you are
-told about is your branch's own. A new gate line naming a file only your branch
-touched comes straight to you, and the others are gated again without you.
-While yours is gating, `--status` ends its line with the branches it is gating
-together with.
-
-**A conflict in a generated file is not one.** A file whose head says
-`GENERATED by` is rebuilt with the command it names, such as
-`cargo xtask verify-docs --write` for `docs/OPEN.md`.
-
-**Nor is a stale one.** Every turn reruns `verify-docs --write` and
-`verify-tokens --write` on the candidate before the gate, and commits what they
-change into what lands.
-
-**What gates the line itself:** `armada check scripts_test` runs
-`scripts/test_land.py` against a throwaway repository with a stub `gh` and
-`armada`, and `armada check hooks_test` runs `.claude/hooks/test_guard_merge.py`
-against the hook. Both are Checks in `armada.yml`, so a Job touching `scripts/`
-or `.claude/hooks/` runs them too; neither needs anything built or signed in.
-The script suite takes about a minute, the hook suite under a second.
+**What gates the line itself:** `armada check hooks_test` runs
+`.claude/hooks/test_guard_merge.py` against the hook. It is a Check in
+`armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs nothing
+built or signed in and takes under a second. `scripts/test_land.py` is no longer a
+Check: run it by hand with `python3 scripts/test_land.py` if you change the script.
 
 ## Clearing up
 

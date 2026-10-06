@@ -6,6 +6,27 @@ milestone: Throughput
 
 # Merges take turns, and each one is checked against the main it lands on
 
+> New work goes through pull requests and the `ci` check, and the line takes
+> nothing new. It drains what is already queued and is retired at the cutover;
+> `docs/practices/ci.md` lists what is owed.
+
+## What replaces each part
+
+GitHub's pull requests and the `checks` workflow land this repository's code
+([the decision](../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md)).
+**The rest of this page describes the line being retired.** It is kept for the
+reasoning, and for Fleet's own line, which is a product concern
+(`docs/concepts/landing.md`).
+
+| The line's part | What replaces it |
+|---|---|
+| Queue and turn | GitHub's merge queue |
+| Rerunning what `main` moved under | The `plan` job, through `armada covers`, as in *Choosing what reruns* |
+| `verify-foundations` on every turn | A `foundations` job, on the branch `ci-foundations` and not merged. Until it lands CI does not run it |
+| Needs | A required check Fleet will publish. Not built |
+| Batching | The merge queue's own grouping |
+| Bridge's panel | A thin view of every open pull request and how Fleet knows them to connect, by needs and Job links. Not built |
+
 Two branches can each pass every Check, merge a minute apart, and leave `main`
 red. Each one's Checks ran against a `main` that had moved by the time it
 merged.
@@ -34,7 +55,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A gate does not run on once `main` has moved | A look at `origin/main` before the first Check and after each; a move stops the gate there and gates again |
 | A failed Check is told while the turn runs | Right after it fails, with a Check still to run, `main` is asked about it; green is `--status` exit 10, naming the Check and its log |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
-| An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
+| An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 | A branch that appends a migration or changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
@@ -339,11 +360,13 @@ holding a branch behind it. Nothing is added to the store or to a plan's task.
 
 **`.claude/hooks/guard_merge.py` refuses `gh pr merge`, any `git push` whose destination is `main`**, including `--delete main`, **and any `git merge` run in the checkout that has `main` checked out**, and splits a compound command so `cd x && git push origin main` is caught too. The merge rule reads `.git/HEAD` of the checkout the command runs in, so a branch catching up with `origin/main` in its own worktree is left alone, and `--ff-only`, `--abort`, `--continue` and `--quit` are too: none adds a commit nobody gated. Added 5 Oct 2026, after a plain `git merge --no-ff` in the checkout at `main` went around the line. Its refusal names `scripts/land preflight`, `scripts/land`, `scripts/land --status` and this page. `.claude/settings.json` registers it as a `PreToolUse` matcher on Bash.
 
-**Both halves are gated by the Manifest.** `scripts_test` runs the script's suite when anything under `scripts/` or `armada.yml` changes, and `hooks_test` runs the hook's when anything under `.claude/hooks/` does — two Checks rather than one, because a `run` gets no shell to chain them with and because the two are read by different changes.
+**The hook is gated by the Manifest.** `hooks_test` runs the hook's suite when anything under `.claude/hooks/` changes. The script's own suite, `scripts/test_land.py`, stopped being a Check when CI and pull requests began to replace the line: it was the slowest Check in every turn.
 
 **It cannot see the line's own push, and so needs no way to let it through.** That runs in the detached runner, outside the Bash tool. An allowance keyed on something a command can carry, such as an environment variable, would be one any typed command could claim, so the hook refuses `ARMADA_LAND_RUNNER=1 git push origin main` like any other push to `main`. An agent who goes around it lands a combination nothing checked, and nothing says so afterwards.
 
 ## In Bridge
+
+**Planned: this panel becomes the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Nothing below changes until that is built.
 
 **Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. Bridge's labels are its own and the words on disk and in `--status` do not change: `gating` reads *Preparing to land* (`git-merge`) until the turn's first Check starts and *Running Checks before landing* from then, which Bridge tells apart by whether Fleet serves any `checks` (`packages/screens/src/merge-line.ts`); `merging` reads *Pushing onto main* and `red` *Checks failed*. A conflict's mark is `unplug` and the rail row's is `merge`. The strip carries no `?`: `GroupBoundary`'s guide is the caller's, and guide 5 is a plan group's. The mock's lines are `?walk=theMergeLine`.
 

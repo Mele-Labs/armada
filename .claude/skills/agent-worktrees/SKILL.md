@@ -24,8 +24,19 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 ```
 path=$(armada worktree lease <branch>)   # waits while every slot is held
 armada worktree --status                 # who holds each, and since when
-armada worktree release <path>           # after the branch lands
+armada worktree release <path>           # after the owner merges the pull request
 ```
+
+**A lease belongs to the process that took it, and a restart orphans it.** The
+slot then reads free or stranded, and the next lease takes a clean one back for
+another branch. Confirmed 6 Oct 2026: after a cmux crash a session ran
+`git merge origin/main` in what it still thought was its slot, which another
+session had been given, and put a merge commit on that session's branch (undone
+with `git reset --keep`). After any restart run `git -C <slot> branch
+--show-current` before another git command there, and re-attach a branch with
+`armada worktree lease --existing <branch>`. A lease started from a subshell
+(`( ... &)`) fails with "the process this was run from could not be read"; run
+it in the foreground or as the shell tool's own background task.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
@@ -72,9 +83,13 @@ git branch -D <branch>
 Do both. A branch left behind with no worktree is cheap; a worktree left behind
 is not.
 
-**`scripts/land` prints these two commands when it lands a branch and runs
-neither**, deliberately: it cannot tell your worktree from one another agent is
-still writing in. The three checks below come first, every time.
+**The cleanup happens after the owner merges the pull request**, never when you
+open it. Check it merged with `gh pr view <branch> --json state` (it reads
+`MERGED`) before removing a worktree, and run the three checks below first,
+every time: nothing here can tell your worktree from one another agent is still
+writing in. Delete the remote branch with `git push origin --delete <branch>` or
+GitHub's delete-branch button. A branch still queued on the merge line is
+cleaned up by `scripts/land`, which prints these two commands when it lands it.
 
 **Removing the worktree is the fix. Deleting its `target/` is not.** A build
 directory rebuilds; a worktree that nobody removes stays forever and takes a new
@@ -88,9 +103,9 @@ and needed an unlock and a `prune` afterwards to clear the listing. Both trees
 were clean and pushed, so nothing was lost — but that was the three checks
 below, not the fallback.
 
-**`scripts/land` deletes the branch it lands, and GitHub closes every pull
-request based on it.** Confirmed 1 Oct 2026: #1729 was stacked on #1721's
-branch, #1721 landed, and #1729 closed unmerged with its base gone. The work
+**Deleting a merged branch closes every pull request based on it.**
+Confirmed 1 Oct 2026: #1729 was stacked on #1721's branch, #1721 was merged and
+its branch deleted, and #1729 closed unmerged with its base gone. The work
 survived on its own branch and came back as #1731 after a rebase. Stack a
 branch only if it will be rebased onto `main` before it opens, or open it
 against `main` from the start.
@@ -237,6 +252,17 @@ shell. Prefer a `python3` heredoc over a pipeline for anything that has to parse
 **32 GB to 1.8 GB** on this workspace with every test still passing. Rust links
 statically, so without it each of a thousand-odd test binaries carries its own
 copy of the full debug info for the whole dependency graph.
+
+**Stale build output is trimmed, and a slot stays warm.** Cargo never deletes an
+old dependency build, incremental session or test binary, and on 6 Oct 2026 24
+checkouts reached 50 GB each. A `release` (and `armada clean` giving back a
+Job's slot) drops every file under the slot's `target/` that no build has
+written in 14 days, and removes the whole `target/` if it is still over 20 GiB.
+Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
+slots held or free, bases, land trees, preview, and the Job and agent worktrees.
+A `target/` with a cargo build running in it is skipped. Settings:
+`slot-build-trim-after-days`, `slot-build-ceiling-gib`,
+`build-sweep-interval-minutes`. Do not delete `target/` by hand to save space.
 
 **Do not share one `CARGO_TARGET_DIR` between worktrees to save space.** It was
 tried: two manifest directories against one target poisoned the incremental cache

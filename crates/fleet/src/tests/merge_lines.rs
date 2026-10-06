@@ -70,6 +70,7 @@ fn runs(states: &[(&str, CheckState)]) -> Option<Vec<CheckRun>> {
             .map(|(name, state)| CheckRun {
                 name: (*name).to_string(),
                 state: *state,
+                started_at: None,
             })
             .collect(),
     )
@@ -378,5 +379,64 @@ async fn a_line_that_moves_on_disk_is_published_whole() {
         landed,
         ["bridge/land-board-reads-plainly", "fleet/an-older-landing"],
         "the stop pushes no landing out"
+    );
+}
+
+/// **When a Check began is the line's own record**, so a Check that has started
+/// says when and one still waiting says nothing.
+#[tokio::test]
+async fn a_check_the_line_started_says_when_and_one_waiting_does_not() {
+    let home = TempDir::new();
+    git(
+        home.path(),
+        &["-c", "init.defaultBranch=main", "init", "--quiet"],
+    );
+    let origin = format!("https://{}armada-dev/armada.git", adapters::FORGE_HOST);
+    git(home.path(), &["remote", "add", "origin", &origin]);
+    let state = StateDir::resolve(home.path()).expect("a state directory");
+    queue(&state, "fleet/a-branch", 100, None);
+    let started = |name: &str, state, at: Option<&str>| CheckRun {
+        name: name.to_string(),
+        state,
+        started_at: at.map(str::to_string),
+    };
+    say(
+        &state,
+        "fleet/a-branch",
+        OutcomeState::Gating,
+        "running screens_test",
+        OutcomePatch {
+            checks: Some(vec![
+                started("build", CheckState::Passed, Some("2026-10-06T10:00:00Z")),
+                started(
+                    "screens_test",
+                    CheckState::Running,
+                    Some("2026-10-06T10:01:00Z"),
+                ),
+                started("desktop_test", CheckState::Waiting, None),
+            ]),
+            ..OutcomePatch::default()
+        },
+    );
+    let fleet = Arc::new(Fleet::assembled(fitted_with(
+        &home,
+        FakeWorkProduct::untouched(),
+        FakeHarness::that_listens(),
+    )));
+
+    let (_, body) = call(&served(&fleet), "GET", "/merge_lines", "").await;
+    let lines = as_shared(&body, home.path());
+    let checks = &lines.lines[0].line[0].checks;
+    let at: Vec<Option<&str>> = checks
+        .iter()
+        .map(|check| check.started_at.as_ref().map(|at| at.as_str()))
+        .collect();
+    assert_eq!(
+        at,
+        [
+            Some("2026-10-06T10:00:00Z"),
+            Some("2026-10-06T10:01:00Z"),
+            None
+        ]
     );
 }

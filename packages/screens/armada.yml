@@ -1,0 +1,52 @@
+# Bridge's screens: pure modules in node, and screens in a browser project.
+# Commands run here, in this directory. `docs/concepts/manifest.md`,
+# *Workspace gating*; the comments on `${width}` and `exec` are the root's, at
+# the top of its `checks:`.
+version: 1
+id: armada-screens
+
+# What this package reads from elsewhere, repo-relative. A hit runs every Check
+# below, since none declares a `when`.
+#
+# Not `packages/icons`: nothing here imports it, and the registry reaches this
+# package through `components`. `crates/core-model/domain/**` carries the Studio
+# kinds the screens fold over, and `protocol-version.toml` is the root's own
+# line for the generated wire types.
+depends_on:
+  - "packages/components/**"
+  - "packages/shell/**"
+  - "packages/tokens/**"
+  - "packages/brand/**"
+  - "packages/protocol/**"
+  - "crates/core-model/domain/**"
+  - "protocol-version.toml"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+    - browsers
+
+checks:
+  typecheck:
+    # `--noEmit -p`: one project, no build info. Named rather than left to
+    # `pnpm -r`, which skips a package that declares no `typecheck`. No
+    # `narrow`: `tsc` reads whatever its tsconfig references.
+    run: pnpm typecheck
+
+  screens_test:
+    # Pure modules in node, and screens in a browser project, because a screen
+    # cannot be storied: `xtask/src/rules_layers.rs` refuses the import.
+    run: pnpm exec vitest run --maxWorkers=${width}
+    # No `dir`: a Check here runs in this directory, and a Drone's narrowed run
+    # puts `.` in the runner's `{dir}` and the paths relative to it in `{files}`.
+    runner:
+      name: vitest
+    # `vitest -t`, as `desktop_test`'s `one_test`. #1203.
+    one_test:
+      run: pnpm exec vitest run -t {}
+    # A dozen Chromium processes against a shipped limit of 5 timed out
+    # unrelated browser tests sharing the machine on 14 Sep. #1102.
+    places: 3

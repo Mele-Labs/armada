@@ -22,7 +22,7 @@ function named(files: Record<string, Record<string, Walk>>, into = new Map<strin
   return into;
 }
 
-/** The walks in `walks/`. Each runs as a test in `walks.test.tsx`. */
+/** The walks in `walks/`. Each runs as a test in one of the `walks-*of4.test.tsx` files. */
 export const WALKS: ReadonlyMap<string, Walk> = named(import.meta.glob<Record<string, Walk>>("./walks/*.ts", { eager: true }));
 
 /** Every walk the mock plays: the checked-in ones and the scratch ones. */

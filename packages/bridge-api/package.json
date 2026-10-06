@@ -1,0 +1,18 @@
+{
+  "name": "@armada/bridge-api",
+  "private": true,
+  "version": "0.0.0",
+  "description": "What a surface and the app share about Bridge's Fleet API: types and tiny helpers, no React.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@armada/protocol": "workspace:*",
+    "@armada/screens": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

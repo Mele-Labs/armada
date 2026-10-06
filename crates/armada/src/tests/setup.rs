@@ -66,31 +66,25 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         Err(refused) => panic!("{} and {WORKFLOWS} must load:\n{refused}", MANIFEST),
     };
 
-    // Sorted, because `check_names` walks a `BTreeMap` — so `bridge_build`
-    // leads and the reading order of the file is not the reading order here.
+    // Sorted, because `check_names` walks a `BTreeMap` — so the reading order
+    // of the file is not the reading order here.
     assert_eq!(
         setup.manifest().check_names(),
         vec![
             "acceptance".to_string(),
-            "bridge_build".to_string(),
             "build".to_string(),
-            "components_test".to_string(),
-            "desktop_test".to_string(),
             "format".to_string(),
             "hooks_test".to_string(),
-            "screens_test".to_string(),
-            "scripts_test".to_string(),
-            "storybook".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
         ],
         "the Checks this workspace is built and tested with — Rust, `acceptance` \
          on its own so a red one names a broken milestone claim rather than a \
-         unit test (#1130), the Bridge (#200: every Check used to compile \
-         Rust), `format` (PR #199 merged unformatted files), and the Bridge's \
-         tests one per package, so the story tests can stay out of a Drone's \
-         run (#849), and the merge line's own two Python suites, which no \
-         other Check reads. There is no `clippy` — `[clippy-as-a-check]` in \
+         unit test (#1130), the Bridge's packages nobody owns (#200: every \
+         Check used to compile Rust), `format` (PR #199 merged unformatted \
+         files), and the merge line's own two Python suites, which no other \
+         Check reads. The rest of the Bridge's Checks are in `packages/` and \
+         `apps/desktop`, one `armada.yml` each. There is no `clippy` — `[clippy-as-a-check]` in \
          `docs/OPEN.md` says why"
     );
     assert_eq!(bug(&setup).name(), "bug");
@@ -167,32 +161,34 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
             // Check could never pass. The chain lives in a `package.json`
             // script, where a shell exists and the packages stay named.
             ("typecheck", "pnpm typecheck"),
-            ("bridge_build", "pnpm -C apps/desktop build"),
-            ("storybook", "pnpm -C packages/components build-storybook"),
-            // The Bridge's tests, one Check per package since #849.
-            (
-                "desktop_test",
-                "pnpm --dir apps/desktop exec vitest run --maxWorkers=${width}"
-            ),
-            (
-                "screens_test",
-                "pnpm --dir packages/screens exec vitest run --maxWorkers=${width}",
-            ),
-            (
-                "components_test",
-                "pnpm --dir packages/components exec vitest run --maxWorkers=${width}",
-            ),
-            // The local merge line's own two suites, which nothing else runs.
             // `hooks_test` is checked below instead of here: its command names
             // the agent harness, and this file is under the gate rule that
             // keeps a vendor's name out of everything but the adapters.
-            ("scripts_test", "python3 scripts/test_land.py"),
             // **Last, where `armada.yml` put it, not for any claim this test
             // makes about scheduling.** `#387` once gave this `requires:
             // [fmt]`, so a gate evaluation reformatted the tree before
             // reading it and `format` could never fail — unformatted Rust
             // merged unnoticed until that line was found and removed.
             ("format", "cargo fmt --all --check"),
+            // Then each workspace's, in directory order, each in the order its
+            // own `armada.yml` writes them. The name is bare here; the key
+            // carries the directory.
+            ("typecheck", "pnpm typecheck"),
+            ("bridge_build", "pnpm build"),
+            ("desktop_test", "pnpm exec vitest run --maxWorkers=${width}"),
+            (
+                "xtask_test",
+                "cargo nextest run -p xtask --test-threads ${width}"
+            ),
+            ("typecheck", "pnpm typecheck"),
+            ("typecheck", "pnpm typecheck"),
+            ("storybook", "pnpm build-storybook"),
+            (
+                "components_test",
+                "pnpm exec vitest run --maxWorkers=${width}"
+            ),
+            ("typecheck", "pnpm typecheck"),
+            ("screens_test", "pnpm exec vitest run --maxWorkers=${width}"),
         ]
     );
     let hooks = resolved
@@ -200,39 +196,6 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .find(|(name, _)| *name == "hooks_test")
         .expect("the hook suite is declared");
     assert!(hooks.1.ends_with("hooks/test_guard_merge.py"), "{hooks:?}");
-}
-
-/// **#849 in this repository.** A Drone's own run on `bug`'s `implement` leaves
-/// out `storybook` and the story tests, and the gate still runs both.
-#[test]
-fn a_drones_run_here_skips_storybook_and_the_story_tests_and_the_gate_does_not() {
-    let setup =
-        Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    let implement = &bug(&setup).steps()[1];
-    let mid_step: Vec<String> = implement
-        .mid_step_checks()
-        .iter()
-        .filter_map(|check| check.name().map(str::to_string))
-        .collect();
-    let gated: Vec<&str> = implement
-        .checks()
-        .iter()
-        .filter_map(ResolvedCheck::name)
-        .collect();
-    for slow in ["storybook", "components_test"] {
-        assert!(
-            !mid_step.iter().any(|name| name == slow),
-            "`{slow}` is not in a Drone's run: {mid_step:?}"
-        );
-        assert!(
-            gated.contains(&slow),
-            "the gate still runs `{slow}`: {gated:?}"
-        );
-    }
-    assert!(
-        mid_step.iter().any(|name| name == "screens_test"),
-        "the fast Bridge tests stay in it: {mid_step:?}"
-    );
 }
 
 /// **`every_manifest_check` expands in the order `armada.yml` writes, and that
@@ -279,17 +242,11 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "test",
             "acceptance",
             "typecheck",
-            "bridge_build",
-            "storybook",
-            "desktop_test",
-            "screens_test",
-            "components_test",
-            "scripts_test",
             "hooks_test",
             "format",
         ],
         "the order `armada.yml` declares them in, which is the order they answer \
-         in — not `check_names`' alphabetical, which leads with the two slowest"
+         in — not `check_names`' alphabetical"
     );
     // The same seven, and no eighth: the expansion is the registry and the
     // registry is what `check_names` lists.

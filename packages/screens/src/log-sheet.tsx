@@ -31,6 +31,8 @@ export type LogSheetProps = {
    * control that is off.
    */
   goes?: { label: string; onGo: () => void };
+  /** Bands under the head that stay while the log scrolls: the facts of what it is of. */
+  bands?: ReactNode;
   /**
    * Inside the screen it was opened from, or over the whole work area. Pulse's panel sits inside
    * its tab; a Check's opens from a card or a row anywhere, so it floats, as Record's and Drones'
@@ -42,7 +44,7 @@ export type LogSheetProps = {
   children: ReactNode;
 };
 
-export function LogSheet({ kind, title, about, live, grows, wrap, goes, placement, floor, onClose, children }: LogSheetProps) {
+export function LogSheet({ kind, title, about, live, grows, wrap, goes, bands, placement, floor, onClose, children }: LogSheetProps) {
   const body = useRef<HTMLDivElement>(null);
   // The tail, while it is written. A reader that follows its own (`DroneTurns`) is not moved by
   // this either way: it is already at the bottom.
@@ -86,6 +88,7 @@ export function LogSheet({ kind, title, about, live, grows, wrap, goes, placemen
               </>
             ),
           })}
+      {...(bands === undefined ? {} : { bands })}
       closeLabel="Close"
       closeBinding="Esc"
       bodyRef={body}

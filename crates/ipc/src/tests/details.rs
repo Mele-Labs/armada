@@ -39,6 +39,7 @@ fn an_ungated_step_says_so_and_an_unanswerable_one_carries_no_key() {
             checking: None,
             dry_run: None,
             returns: 0,
+            asked_runs: Vec::new(),
         }],
     );
     let json = encode(&ungated).expect("a detail is plain data");
@@ -62,6 +63,7 @@ fn an_ungated_step_says_so_and_an_unanswerable_one_carries_no_key() {
             checking: None,
             dry_run: None,
             returns: 0,
+            asked_runs: Vec::new(),
         }],
     );
     let json = encode(&unanswerable).expect("a detail is plain data");
@@ -98,6 +100,7 @@ fn a_step_with_no_label_reads_as_its_id() {
             checking: None,
             dry_run: None,
             returns: 0,
+            asked_runs: Vec::new(),
         }],
     );
     assert_eq!(detail.steps[0].label, "repro");
@@ -133,6 +136,7 @@ fn a_check_run_crosses_with_which_of_the_five_outcomes_it_was() {
                 produced: Some("`suite` is not installed".to_string()),
                 output_path: Some(".armada/checks/01JOB/repro.0.log".to_string()),
                 reused_from_dry_run: None,
+                requester: crate::Requester::default(),
             }],
             judged: Vec::new(),
             flagged: Vec::new(),
@@ -144,6 +148,7 @@ fn a_check_run_crosses_with_which_of_the_five_outcomes_it_was() {
             checking: None,
             dry_run: None,
             returns: 0,
+            asked_runs: Vec::new(),
         }],
     );
     let json = encode(&detail).expect("a detail is plain data");
@@ -221,6 +226,7 @@ fn a_judge_refusal_crosses_with_the_three_lines_it_cited() {
             checking: None,
             dry_run: None,
             returns: 0,
+            asked_runs: Vec::new(),
         }],
     );
     let json = encode(&detail).expect("a detail is plain data");
@@ -597,6 +603,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
         checking,
         dry_run: None,
         returns: 0,
+        asked_runs: Vec::new(),
     };
 
     let quiet = encode(&detail_of(&job, &[facts(None)])).expect("plain data");
@@ -607,6 +614,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
 
     let underway = ChecksUnderway {
         attempt: 2,
+        requester: crate::Requester::default(),
         checks: vec![
             CheckUnderway {
                 name: "build".to_string(),
@@ -622,6 +630,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
                     produced: None,
                     output_path: None,
                     reused_from_dry_run: None,
+                    requester: crate::Requester::default(),
                 }),
                 output_path: Some(".armada/checks/j/repro.2.live.0.log".to_string()),
                 stopped_by: None,
@@ -671,6 +680,7 @@ fn a_drones_own_run_rides_apart_from_the_gates() {
     let job = job();
     let underway = ChecksUnderway {
         attempt: 1,
+        requester: crate::Requester::default(),
         checks: vec![CheckUnderway {
             name: "build".to_string(),
             started_at: Some(Instant::carried("2026-09-14T09:00:00.000Z")),
@@ -698,6 +708,7 @@ fn a_drones_own_run_rides_apart_from_the_gates() {
         checking: None,
         dry_run: Some(underway.clone()),
         returns: 0,
+        asked_runs: Vec::new(),
     };
     let detail = encode(&detail_of(&job, &[facts])).expect("plain data");
     assert!(detail.contains("\"dry_run\":{\"attempt\":1"), "{detail}");
@@ -744,4 +755,70 @@ fn a_model_override_is_absent_until_a_person_chooses_one() {
         decode::<JobDetail>("a detail", json.as_bytes()).expect("it reads back"),
         detail
     );
+}
+
+/// **Every row a step's gate wrote says the gate asked for it**, whatever the
+/// row carried in, so a client reads the requester off the row and never off
+/// where it is drawn. A Drone's asked runs ride beside, as rows of their own.
+#[test]
+fn a_steps_check_rows_name_the_gate_that_asked_and_asked_runs_ride_beside() {
+    let job = job();
+    let by_gate = crate::Requester::gate(
+        &crate::JobId::from(job.id()),
+        &crate::StepId::carried("repro"),
+    )
+    .with_handle(&job.handle());
+    let asked = crate::AskedRun {
+        id: 4,
+        requester: crate::Requester::drone_on_step(
+            &crate::JobId::from(job.id()),
+            &crate::StepId::carried("repro"),
+            &crate::DroneId::carried("01DRONE"),
+        ),
+        attempt: 1,
+        started_at: crate::Instant::carried("2026-10-06T10:00:00.000Z"),
+        finished_at: None,
+        state: crate::AskedRunState::Running,
+        checks: vec!["suite".to_string()],
+        narrowed: false,
+        only_check: None,
+        logs: Vec::new(),
+    };
+    let detail = detail_of(
+        &job,
+        &[StepFacts {
+            step_id: crate::StepId::carried("repro"),
+            held_for_handoff: Vec::new(),
+            label: None,
+            declares: None,
+            ran: vec![CheckRun {
+                group: None,
+                group_attempt: None,
+                attempt: 1,
+                name: "suite".to_string(),
+                outcome: core_model::CheckOutcome::Passed.into(),
+                expected: None,
+                produced: None,
+                output_path: None,
+                reused_from_dry_run: None,
+                requester: crate::Requester::default(),
+            }],
+            judged: Vec::new(),
+            flagged: Vec::new(),
+            deliverables: Vec::new(),
+            frames: Vec::new(),
+            attempts: Vec::new(),
+            verdicts: Vec::new(),
+            judging: None,
+            checking: None,
+            dry_run: None,
+            returns: 0,
+            asked_runs: vec![asked.clone()],
+        }],
+    );
+    assert_eq!(detail.steps[0].check_runs[0].requester, by_gate);
+    assert_eq!(detail.steps[0].asked_runs, vec![asked]);
+    let json = encode(&detail).expect("plain data");
+    assert!(json.contains(r#""kind":"gate""#), "{json}");
+    assert!(json.contains(r#""state":"running""#), "{json}");
 }

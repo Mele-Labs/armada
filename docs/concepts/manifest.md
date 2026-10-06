@@ -93,6 +93,7 @@ checks:
 | all skipped, none covers what the manifest owns | did not run, path condition unmet |
 | all skipped, one covers it | did not run, scope narrowed |
 
+- **A workspace Check's runner `dir` is omitted, and means that workspace.** A Drone's narrowed run of a Check naming `runner: {name: vitest}` puts `.` in the template's `{dir}` and the paths the manifest owns, relative to it, in `{files}`: `pnpm --dir . exec vitest related src/a.ts ...`, run in the workspace directory. A root Check with no `dir` has none to put there and runs whole, as before. `armada check --changed` is not read through a runner at all, only through `narrow`.
 - **`armada check` takes the key.** `armada check a:test` runs `a`'s `test` in `a`'s directory, with its prerequisites, its `one_test` and its `--changed` narrowing all read there. The bare name is the root's, and the root's is run from the root. `armada run a:gen` does the same for a Command. A key whose directory is no workspace reads as a bare name, and is refused as one.
 - **`armada covers` prints keys.** It reads the changed paths on stdin and answers with the keys of the Checks that cover them: the root's first, then each gating workspace's in directory order. Each manifest is asked about what it owns of the change, relative to it, so a root Check never sees a workspace's path. A repository with no workspace `armada.yml` answers as before, and its empty diff still names a Check with no `when`. Where workspaces exist, an empty diff names nothing, as above.
 - **The merge line sets up in the root, then in each gating workspace.** Decided 6 Oct 2026. Once a Check is about to run it runs the root's `setup.requires`, then, for each workspace that has a Check in the set, that workspace's own, in directory order. **A Command a workspace names that only the root declares runs in the root**, once per worktree, and a Command already run is not run again. A workspace's own Command runs in its directory. A workspace's Checks run in its directory whichever Command prepared it. The same setup runs on `main`'s rerun of a Check that failed.
@@ -314,6 +315,7 @@ Rules that follow:
 
 - **Absent means whole.** A Check with nothing narrower to run declares nothing, and runs exactly as it did before the key existed. That is most Checks and always will be.
 - **The derivation from a path to an argument is the Manifest's.** `under: crates` is this repository saying where its packages live. Nothing in Fleet or the runner knows it, which is what keeps the same key right for a repository that keeps its packages somewhere else.
+- **A runner narrows a Check that declares no `narrow`**, from the `run_changed` of its shipped description. `{dir}` is the Check's runner `dir`, and a workspace Check that declares none gets its own manifest's directory, `.`. Where a root Check declares none and the template names `{dir}`, the Check runs whole.
 - **A Drone's narrowed run gates nothing.** The Drone asks for it mid-step, the gate takes its own reading regardless, and the report says in its own words that a narrowed pass is the smaller claim. `after_merge` drops `narrow` for the reason it drops `when`.
 - **The step gate narrows the merge line's way.** Only through `under`, over every crate the step's own change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026, after Job 3); a verbatim `narrow` never narrows there. The ruling carries the command it narrowed to, and a red run again alone runs that command. Decided 4 Oct 2026 after Job 3, whose gate ran every Check whole until then. [Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
 - **A Check that narrows to nothing the change touched is skipped, not passed.** The third answer, the same one a `when` skip records.
@@ -399,7 +401,26 @@ Rules that follow:
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 - **A Drone's `run_checks` is time-boxed as a whole**, the wait for a slot included: the per-command budget plus ten minutes of waiting. Past that Fleet stops the run, frees its slots and tells the Drone, naming the Check that was running or saying it was still waiting. The Drone is also told, once, when its run has to wait for a slot. Decided 5 Oct 2026, after a Drone waited 43 minutes on Job 3 with no result and no signal.
+- **A run Fleet is still making tells the Drone where it stands every two minutes**: what is running and for how long, what waits for a slot, and what is done. It is a turn of its own and ends when the run does, so the Drone never has to ask.
+- **A run's mark lasts as long as the run.** Fleet supervises the task that makes the run, so a task that panics or is cancelled takes the mark off, frees the slots and tells the Drone the run was lost, saying it is a fault in Fleet and not in the work. A Drone is never left refused with "already running" and nothing behind it.
+- **A second ask while one is going is refused with where the first stands**: how long it has gone, the Check it is on, and whether it is waiting for a slot. It still says to wait for the report, which arrives as a later turn, and gives the Drone nothing to look at in the meantime.
+- **An asked run is a record of its own, never a Check row.** It is written when the run starts and closed when it ends by any route; `running`, `passed`, `failed`, `stopped` (cut off by the time-box or a fault, so measured to no end) and `lost` (its task died, or Fleet restarted while it was `running`). It names who asked, the step, the attempt, the Checks, whether it was narrowed and each Check's log. It reads on `StepDetail.asked_runs` and `list_runs`, and the Record draws a row for each under Checks, signed by the Drone and never hued as a pass. The Job's log says when it started and when it ended, with the Drone, task and attempt on both.
 - **A step's gate runs its own Checks one at a time**, fastest first, each still asking for its places. A Drone's own run is not the gate and keeps running several at once. Decided 4 Oct 2026 after Job 3, whose `desktop_test` ran beside its own step's `components_test` and whole Rust `test` and failed on timeouts three times; the merge line has run a turn's Checks one at a time since 2 Oct.
+
+### Who asked for a run
+
+**Every Check run a surface shows says who asked for it**, as a `Requester` the surface can follow: `kind` is an opaque string and the ids each kind needs are beside it.
+
+| `kind` | Who | Ids |
+|---|---|---|
+| `gate` | A Job's step gate | `job_id`, `step` |
+| `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
+| `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
+| `merge_line` | The merge line, for one branch | `branch` |
+| `outside` | A person's press, an agent's `start_run`, a Verify | none |
+
+- **`outside` is a value and never an absence.** A record from before the field reads as it.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 

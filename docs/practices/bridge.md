@@ -133,8 +133,17 @@ you're doing something wrong. The rule is about what you do when you hit one.
 
 ## A surface is its own package
 
+The layers, ground up: tokens, brand, icons and protocol (0), components (1),
+shell (2), screens (3), `@armada/bridge-api` (4), surfaces (5), desktop (6). A
+package imports only one strictly below it. `bridge-api` holds the types and
+tiny helpers a surface and the app share, with no React: today the generic
+`Scenario`, `FleetHandle`, `unanswered`, `connected` and `onBoard` that
+`mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
+fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
+moves each surface's slice and fleet into its own package, step by step.
+
 A surface lives in its own package under the surfaces directory of `packages`,
-on a layer between the screens and the app. Two surfaces never import each
+on a layer between `bridge-api` and the app. Two surfaces never import each
 other. Its tests mount the whole app through the mock harness, so a
 surface's `*.test.ts(x)` and `vitest.config.ts` may import `@armada/desktop` —
 `./mock` for the harness, `./vitest-preset` for the browser settings — and
@@ -177,6 +186,20 @@ What it settled for the next surface:
   would have unwatched Studios without a red.
 - **Typecheck is the surface's own Check**, declared in its `armada.yml`; the root
   script does not need to name it.
+
+### Where the API slices live
+
+`BridgeApi`, `BridgeState`, `NOTHING_YET` and `CHANNELS` are composed from one
+file per surface in `apps/desktop/src/shared/api/`: `core`, `studios`,
+`manifest`, `setup`, `workflows`, `helm`, `settings`, `overview`, `cleanup`,
+`reports` and `jobs`. Each exports `<X>Api`, `<X>State`, `<X>_NOTHING_YET` and
+`<X>_CHANNELS`; `shared/api.ts` and `shared/bridge.ts` intersect and spread them
+under the old names, so no importer changes. **A slice imports protocol, screens
+and the shared helper types beside it, never another slice.** Core's `state` and
+`subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
+not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
+typecheck if the composition drifts from them. The slices move into their
+surface packages one at a time, as above.
 
 ## State and data flow
 

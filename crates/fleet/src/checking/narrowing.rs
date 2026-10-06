@@ -120,6 +120,10 @@ pub(crate) fn narrows_at_the_gate(
 /// The command this Check's runner narrows it to for these paths, where it has
 /// one.
 ///
+/// **A workspace Check with no runner `dir` gets `.`**, and its `touched` are
+/// the manifest-relative paths `crate::gated::local` made. A root Check with
+/// none still has nothing to put in `{dir}`.
+///
 /// **`None` is every reason a runner cannot answer**, and they are all the same
 /// answer to the caller: the Check runs whole. It names no runner; no shipped
 /// description answers to that name; the description declares no `run_changed`;
@@ -132,7 +136,10 @@ pub(crate) fn by_its_runner(check: &ResolvedCheck, touched: &[String]) -> Option
     let runner = check.runner()?;
     let described = config::shipped(runner.name())?;
     let Some(dir) = runner.dir() else {
-        return checks_runner::run_changed(described.run_changed()?, None, touched);
+        // A workspace Check runs in its own manifest's directory, so an omitted
+        // `dir` is that directory, and its paths already arrive relative to it.
+        let here = (!check.manifest_dir().is_empty()).then_some(".");
+        return checks_runner::run_changed(described.run_changed()?, here, touched);
     };
     // The template runs from `dir`, so `{files}` must be dir-relative. A covered
     // path outside it cannot be named, and dropping it would narrow to a subset

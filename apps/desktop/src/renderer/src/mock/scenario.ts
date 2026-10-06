@@ -59,13 +59,8 @@ import { NOTHING_YET } from "../../../shared/bridge";
 import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
-import { talking } from "./helm-fleet";
-import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, RUNS, manifesting } from "./manifest-fleet";
-import { SCRATCH, SHEET_READ, settingUp } from "./setup-fleet";
-import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, studying, untitled } from "./studio-fleet";
-import { zoning } from "./studio-read-in";
-import { zoneProposing } from "./studio-zone-proposal";
-import { readingNothing } from "./studio-read-nothing";
+import { SCRATCH } from "./setup-fleet";
+import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "./studio-fleet";
 import { retroFixtures } from "./job-3-retro";
 import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";
@@ -75,8 +70,8 @@ import { answeringTheHeldCommand } from "./held-fleet";
 import { gridHeld } from "./cleanup-fleet";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { slotsHeld } from "./slots-fleet";
-import { workflowing } from "./workflows-fleet";
 import { asRow, holding, servedFrom } from "./holding";
+import { scenariosOf } from "./slices";
 import * as rows from "./scenario-rows";
 
 export { connected, onBoard, unanswered } from "./moment";
@@ -417,14 +412,8 @@ export const SCENARIOS: readonly Scenario[] = [
     ),
   ),
   failingCheck(),
-  settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
-  manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
-  studying().scenario,
-  workflowing(),
-  zoning().scenario,
-  zoneProposing().scenario,
-  readingNothing().scenario,
-  talking(),
+  // Each surface's own Fleet, listed by its slice: `slices.ts`.
+  ...scenariosOf("setup", "manifest", "studios", "workflows", "helm"),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per
   // moment. **The roster is walked**, so a moment added to `ARC_MOMENTS` is a
   // scenario here without a second edit.

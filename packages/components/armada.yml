@@ -1,0 +1,75 @@
+# Bridge's component library: its stories in a real browser, the Storybook
+# build and its own typecheck. Commands run here, in this directory.
+#
+# Moved out of the root file so a change to one package gates that package's
+# Checks and what depends on it. `docs/concepts/manifest.md`, *Workspace
+# gating*. The comments on `${width}`, `exec` and `runs_at` are the root's, at
+# the top of its `checks:`.
+version: 1
+id: armada-components
+
+# What this package reads from elsewhere, repo-relative. A hit runs every Check
+# below, since none declares a `when`: a workspace's `when` reads this
+# directory and cannot match these paths.
+#
+# `crates/core-model/domain/**` and `protocol-version.toml` are what the root's
+# `components_test` named: codegen emits TypeScript from them, and
+# `src/generated/` is in this package.
+depends_on:
+  - "packages/tokens/**"
+  - "packages/brand/**"
+  - "packages/protocol/**"
+  - "packages/icons/**"
+  - "crates/core-model/domain/**"
+  - "protocol-version.toml"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+    - browsers
+
+checks:
+  typecheck:
+    # One project that writes no build info, so `--noEmit -p` is the whole job.
+    # Named rather than left to `pnpm -r`, which skips a package that declares
+    # no `typecheck`, silently. `storybook` below is not a substitute: Vite
+    # transpiles per file and typechecks none of it, and desktop's own pass
+    # reaches only the components it imports, never a story. A `ShieldMinus`
+    # used without importing it threw on render, on main, until #235.
+    #
+    # No `narrow`: a project is the unit a TypeScript compilation has, and `tsc`
+    # reads the files its tsconfig references whatever it is handed.
+    run: pnpm typecheck
+
+  storybook:
+    run: pnpm build-storybook
+    # Built at the gate, never in a Drone's run: see `runs_at` atop the root's
+    # `checks`.
+    runs_at: gate
+    # A dozen Chromium processes against a shipped limit of 5 timed out
+    # unrelated browser tests sharing the machine on 14 Sep. #1102.
+    places: 3
+
+  components_test:
+    # Every component story in a real browser through `@storybook/addon-vitest`;
+    # a `play` function has its assertions run. Whole screens are tested
+    # through `App` on the mock Fleet instead, in `apps/desktop`'s `desktop_test`.
+    run: pnpm exec vitest run --maxWorkers=${width}
+    # No `dir`: the root wrote `packages/components` there, and a template
+    # that names it would run `pnpm --dir packages/components` from inside it.
+    # A Drone's narrowed run reads the omission as this directory, `.`.
+    runner:
+      name: vitest
+    runs_at: gate
+    # `vitest -t` in place of `nextest -E`, as the root's Rust `one_test` lines.
+    # The Storybook interaction tests' own names (a story's `name`, not its
+    # export) are what a Drone names here — confirmed against
+    # `ALongBatchScrolled`'s "A long batch, scrolled" in #1145/#1192. #1203.
+    one_test:
+      run: pnpm exec vitest run -t {}
+    # A dozen Chromium processes against a shipped limit of 5 timed out
+    # unrelated browser tests sharing the machine on 14 Sep. #1102.
+    places: 3

@@ -60,7 +60,6 @@ fn keeps_every_line(before: &str, after: &str) -> bool {
 }
 
 const WHEN: &[&str] = &[
-    "apps/**",
     "packages/**",
     "crates/core-model/domain/**",
     "protocol-version.toml",
@@ -343,18 +342,38 @@ fn removing_an_entry_takes_the_comment_block_directly_above_it_and_nothing_else(
     assert!(crate::Manifest::parse(at(), &edited).is_ok());
 }
 
-/// A comment set off by a blank line is not the entry's. The `storybook`
-/// Check has one above it and none attached, so only its own lines go.
+/// A comment set off by a blank line is not the entry's. `second` has a comment
+/// block and a blank above it and a blank and a comment block below, so only its
+/// own lines go. **A small manifest written here**, so an edit to the real one
+/// cannot move what this test stands on.
 #[test]
 fn removing_an_entry_with_a_blank_line_above_it_leaves_the_comments_around_it() {
-    let edited = amended(OWN, &[check("storybook", CheckEdit::Remove)]);
-    let key = line_of(OWN, "  storybook:");
-    let last = line_of(
-        OWN,
-        "    # Shorter than the two above: nothing under `apps/` concerns it.",
-    ) + 5;
-    assert_eq!(OWN.lines().nth(key - 1), Some(""), "a blank line above it");
-    assert_eq!(edited, without(OWN, key - 1, last));
+    let text = "\
+version: 1
+id: sample
+
+checks:
+  first:
+    run: echo first
+
+  # Set off above by a blank line.
+
+  second:
+    # Inside the entry.
+    run: echo second
+
+  # Set off below by a blank line.
+
+  third:
+    run: echo third
+";
+    let edited = amended(text, &[check("second", CheckEdit::Remove)]);
+    let key = line_of(text, "  second:");
+    let last = line_of(text, "    run: echo second");
+    assert_eq!(text.lines().nth(key - 1), Some(""), "a blank line above it");
+    assert_eq!(edited, without(text, key - 1, last));
+    assert!(edited.contains("  # Set off above by a blank line.\n\n  # Set off below"));
+    assert!(crate::Manifest::parse(at(), &edited).is_ok());
 }
 
 /// A Check with a comment block written directly over it takes the block, and
@@ -397,7 +416,7 @@ fn a_value_that_would_read_as_something_else_is_written_so_it_does_not() {
     let edited = amended(
         OWN,
         &[check(
-            "storybook",
+            "typecheck",
             CheckEdit::When(strings(&[
                 "packages/**",
                 "package.json",

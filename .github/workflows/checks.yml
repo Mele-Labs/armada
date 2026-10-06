@@ -1,0 +1,474 @@
+# Runs this repository's Checks on pull requests, in the merge queue and after
+# a merge to main, and reports them as `ci`, `needs` and `desktop_test`.
+# docs/practices/ci.md says what each trigger is for and how a Check is added.
+#
+# This workflow gates nothing by itself: a ruleset that requires `ci` does.
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the run it supersedes. A merge group or
+# a push to main is keyed by its own commit, so nothing else cancels it.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # Decides which Checks run. `armada covers` is the same answer the merge line
+  # and Fleet's gate ask, so a path hits the same Checks here as there.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      checks: ${{ steps.covers.outputs.checks }}
+      whole: ${{ steps.paths.outputs.whole }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: plan
+
+      - name: Build armada
+        run: cargo build -p armada --locked
+
+      # The merge line's rule (docs/capabilities/merge-line.md, *Choosing what
+      # reruns*): a Check runs when it covers what the branch changed or what
+      # landed on main since the branch was cut, either side. Only when the
+      # branch's own change hits a Check: one that hits none merges into main's
+      # code unchanged, and main was checked when that landed. HEAD is the merge
+      # GitHub tests, HEAD^1 is current main and HEAD^2 the branch. The event's
+      # own base sha is the main of the day the PR opened, so it is not used.
+      # `--no-renames` lists both sides of a rename.
+      - name: Changed paths
+        id: paths
+        env:
+          EVENT: ${{ github.event_name }}
+          MG_BASE: ${{ github.event.merge_group.base_sha }}
+          MG_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          mkdir plan
+          case "$EVENT" in
+            pull_request)
+              mb=$(git merge-base HEAD^1 HEAD^2)
+              git diff --name-only --no-renames "$mb" HEAD^2 | sort -u > plan/branch.txt
+              { cat plan/branch.txt; git diff --name-only --no-renames "$mb" HEAD^1; } | sort -u > plan/changed.txt
+              whole=false ;;
+            merge_group) git diff --name-only --no-renames "$MG_BASE" "$MG_HEAD" > plan/changed.txt; whole=false ;;
+            *) : > plan/changed.txt; whole=true ;;
+          esac
+          echo "whole=$whole" >> "$GITHUB_OUTPUT"
+          echo "MACHINE plan cores=$(nproc) $(grep MemTotal /proc/meminfo)"
+          echo "CHANGED $EVENT whole=$whole"
+          cat plan/changed.txt
+
+      # A failure here fails the job, so a plan that cannot be made never
+      # reads as a plan that runs nothing. Checks that are not in CI are
+      # dropped from the answer: docs/practices/ci.md, *Not in CI*.
+      - name: Which Checks
+        id: covers
+        env:
+          WHOLE: ${{ steps.paths.outputs.whole }}
+        run: |
+          set -euo pipefail
+          ci='["build","test","acceptance","typecheck","bridge_build","storybook","screens_test","components_test","format","hooks_test","desktop_test"]'
+          if [ "$WHOLE" = true ]; then
+            checks=$ci
+          elif [ -f plan/branch.txt ] && ./target/debug/armada covers < plan/branch.txt > plan/branch-covers.txt && [ ! -s plan/branch-covers.txt ]; then
+            # The branch's own change hits no Check, so main's side is not rerun.
+            checks='[]'
+          else
+            ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
+            checks=$(jq -R -s -c --argjson ci "$ci" 'split("\n") | map(select(length > 0)) | map(select(. as $c | $ci | index($c)))' plan/covers.txt)
+          fi
+          echo "checks=$checks" >> "$GITHUB_OUTPUT"
+          echo "CHECKS $checks"
+          echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: plan
+          path: plan
+          retention-days: 3
+
+  build:
+    name: build
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'build')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: plan
+          path: plan
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: build
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: build
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check build; else armada check build --changed < plan/changed.txt; fi
+
+  test:
+    name: test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: plan
+          path: plan
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          nextest: "true"
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: test
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
+
+  # Whole, with no `--changed`: the Check has no narrowing, and it is the one
+  # run of a milestone's claim.
+  acceptance:
+    name: acceptance
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'acceptance')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: acceptance
+          nextest: "true"
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: acceptance
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            armada check acceptance
+
+  format:
+    name: format
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'format')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: format
+          cache: "false"
+      - uses: ./.github/actions/run-check
+        with:
+          name: format
+          cmd: cargo fmt --all --check
+
+  typecheck:
+    name: typecheck
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'typecheck')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: typecheck
+          cmd: pnpm typecheck
+
+  bridge_build:
+    name: bridge_build
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'bridge_build')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: bridge_build
+          cmd: pnpm -C apps/desktop build
+
+  storybook:
+    name: storybook
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'storybook')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: storybook
+          cmd: pnpm -C packages/components build-storybook
+
+  screens_test:
+    name: screens_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'screens_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: screens_test
+          cmd: pnpm --dir packages/screens exec vitest run --maxWorkers=$WIDTH
+
+  components_test:
+    name: components_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'components_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: components_test
+          cmd: pnpm --dir packages/components exec vitest run --maxWorkers=$WIDTH
+
+  hooks_test:
+    name: hooks_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'hooks_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: hooks_test
+          cmd: python3 .claude/hooks/test_guard_merge.py
+
+  # macOS, because desktop_test is the one Check that needs it, sharded four
+  # ways to stay inside the runners the free plan gives at once. Kept out of
+  # `ci` until it is stable: docs/practices/ci.md.
+  desktop_test_shard:
+    name: desktop_test_shard
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'desktop_test')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: desktop_test shard ${{ matrix.shard }}/4
+          cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2
+
+  # The name a ruleset will require, once desktop_test is stable. Passes when
+  # the plan skipped the shards, fails when any shard failed or was cancelled.
+  desktop_test:
+    name: desktop_test
+    if: always()
+    needs: [plan, desktop_test_shard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Read the shards
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
+          echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
+
+  # Not chosen by `armada covers`: the foundations apply to every change, docs
+  # included. Read as the merge line read it, docs/practices/ci.md, *Foundations*:
+  # HEAD is the candidate, HEAD^1 is main's own tip, and only a failing line the
+  # candidate has more of than main is red.
+  foundations:
+    name: foundations
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      # The privacy rule bans the name the gate runs as. On a runner that is
+      # `runner`, which is an ordinary word all over the tree, so it is unset.
+      USER: ""
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 2
+
+      # A bare path in a doc means v1-final, and the path rule reads that tag's
+      # tree. Without it every v1 citation reads as a path that does not exist.
+      - name: The v1-final tag
+        run: git fetch --depth=1 origin tag v1-final
+
+      - name: Self-test of the reading
+        run: |
+          echo "OUT=$RUNNER_TEMP/foundations" >> "$GITHUB_ENV"
+          python3 -m unittest discover -s .github/ci
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: foundations
+
+      - name: Main's tip
+        id: base
+        run: echo "sha=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
+
+      # One entry per main commit. The key is the commit alone: its xtask and
+      # its tree are both fixed by it, so a hash of xtask would add nothing.
+      - name: Main's reading, cached
+        id: cached
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/foundations/base
+          key: foundations-main-v2-${{ steps.base.outputs.sha }}
+
+      # The merge line regenerated and committed these. CI cannot commit onto
+      # a pull request, so a change here is the author's to push.
+      - name: Generated files
+        id: generated
+        run: |
+          cargo xtask verify-docs --write
+          cargo xtask verify-tokens --write
+          changed=$(git status --porcelain)
+          if [ -n "$changed" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### foundations: generated files are stale"
+              echo
+              echo "Run \`cargo xtask verify-docs --write\` and \`cargo xtask verify-tokens --write\`, then commit what they change:"
+              echo
+              echo '```'
+              echo "$changed"
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Main's own run
+        if: steps.cached.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$OUT/base"
+          git worktree add --detach "$RUNNER_TEMP/main" HEAD^1
+          cd "$RUNNER_TEMP/main"
+          set +e
+          cargo xtask verify-foundations --timings > "$OUT/base/out" 2> "$OUT/base/err"
+          echo $? > "$OUT/base/exit"
+          cat "$OUT/base/err"
+          cd "$GITHUB_WORKSPACE"
+          if ! python3 .github/ci/foundations_delta.py report "$OUT/base/out" "$(cat "$OUT/base/exit")"; then
+            echo "::error::main's own run names no rule, so there is nothing to compare against"
+            tail -n 10 "$OUT/base/out" "$OUT/base/err"
+            exit 1
+          fi
+
+      - name: Cache main's reading
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/foundations/base
+          key: foundations-main-v2-${{ steps.base.outputs.sha }}
+
+      - name: The candidate's run
+        id: run
+        run: |
+          mkdir -p "$OUT/run"
+          set +e
+          cargo xtask verify-foundations --timings > "$OUT/run/out" 2> "$OUT/run/err"
+          echo $? > "$OUT/run/exit"
+          cat "$OUT/run/err" "$OUT/run/out"
+          python3 .github/ci/foundations_delta.py report "$OUT/run/out" "$(cat "$OUT/run/exit")" && echo "report=true" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # On main the candidate is main, so its own reading is what the next pull
+      # request needs. A pull request's cache is not visible to another one.
+      - name: Cache this commit as main's reading
+        if: github.event_name == 'push' && steps.run.outputs.report == 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/foundations/run
+          key: foundations-main-v2-${{ github.sha }}
+
+      - name: Read against main
+        run: |
+          set -o pipefail
+          python3 .github/ci/foundations_delta.py delta "$OUT/base/out" "$OUT/run/out" "$(cat "$OUT/run/exit")" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on stale generated files
+        if: always() && steps.generated.outputs.stale == 'true'
+        run: |
+          echo "::error::generated files are stale: run cargo xtask verify-docs --write and cargo xtask verify-tokens --write, then commit"
+          exit 1
+
+  # The one name the ruleset requires for everything but desktop_test. A Check
+  # the plan skipped passes; one that failed or was cancelled fails; a plan
+  # that failed fails, so a change is never green because nothing was chosen.
+  ci:
+    name: ci
+    if: always()
+    needs:
+      - plan
+      - build
+      - test
+      - acceptance
+      - format
+      - typecheck
+      - bridge_build
+      - storybook
+      - screens_test
+      - components_test
+      - hooks_test
+      - foundations
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Read the Checks
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
+          echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'

@@ -432,12 +432,16 @@ pub(crate) const MOST: usize = 256 * 1024;
 /// window is not the whole, which is what lets `from_line` be the file's own
 /// numbering rather than the window's: a reader citing line 1,940 means the
 /// file's 1,940th line.
+/// **A Drone's asked runs are a second allowlist**, `asked`, each log with the
+/// run's attempt and the Check it belongs to: they write no row, so the gate's
+/// rows alone would never name them.
 pub fn kept_output(
     records_root: &str,
     kept: &str,
     ran: &[Attempted<Vec<StepCheck>>],
+    asked: &[(u32, String, String)],
 ) -> Option<ipc::CheckOutput> {
-    let (attempt, name, path) = named(kept, ran)?;
+    let (attempt, name, path) = named(kept, ran).or_else(|| named_asked(kept, asked))?;
     let file = std::fs::File::open(Path::new(records_root).join(&path)).ok()?;
     let bytes = file.metadata().map(|at| at.len()).unwrap_or_default();
 
@@ -527,6 +531,17 @@ pub(crate) fn windowed(
         }
     }
     (window, first, total)
+}
+
+/// The asked run that kept a file under this name.
+fn named_asked(kept: &str, asked: &[(u32, String, String)]) -> Option<(u32, String, String)> {
+    if !one_component(kept) {
+        return None;
+    }
+    asked
+        .iter()
+        .find(|(_, _, path)| path.rsplit('/').next() == Some(kept))
+        .cloned()
 }
 
 /// Which recorded run of which Check kept a file under this name, and where.

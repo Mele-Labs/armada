@@ -145,6 +145,7 @@ fn what_armada_said_and_what_fleet_did_reach_the_viewer_with_their_voice() {
                 produced: None,
                 output_path: None,
                 reused_from_dry_run: None,
+                requester: crate::Requester::default(),
             },
         })
     };

@@ -54,7 +54,7 @@ pub fn read(roots: &[String], found: &mut Found, now: SystemTime) -> (MergeLines
 }
 
 /// The served roots, Manifest or none, in the order they were added.
-async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
+pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
         .list_repositories()
         .await
@@ -311,14 +311,21 @@ fn ended(
                     OutcomeState::Gating | OutcomeState::Red | OutcomeState::Stopped
                 )
             })
-            .map(|held| held.checks.iter().map(check_of).collect())
+            .map(|held| {
+                held.checks
+                    .iter()
+                    .map(|run| check_of(run, branch))
+                    .collect()
+            })
             .unwrap_or_default(),
     }
 }
 
-fn check_of(run: &CheckRun) -> MergeLineCheck {
+fn check_of(run: &CheckRun, branch: &str) -> MergeLineCheck {
     MergeLineCheck {
         name: run.name.clone(),
+        requester: ipc::Requester::merge_line(branch),
+        started_at: run.started_at.as_deref().map(ipc::Instant::carried),
         state: match run.state {
             CheckState::Waiting => LandCheckState::Waiting,
             CheckState::Running => LandCheckState::Running,
