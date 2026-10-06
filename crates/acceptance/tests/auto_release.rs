@@ -4,10 +4,9 @@
 //! on its own — a Job paused for a waiter comes back, gate and all, when a
 //! person resumes it.**
 //!
-//! Both halves are asserted against what exists without a repository: the
-//! victim rule is `fleet::release_order`, a function over instants, and the
-//! gate is a Job the two machines moved to `awaiting_review` and then paused
-//! and resumed through the record's own writers.
+//! Asserted without a repository: the victim rule is `fleet::release_order`,
+//! a function over instants, and the gate is a Job the two machines moved to
+//! `awaiting_review`, then paused and resumed through the record's writers.
 //!
 //! | Proved | Not proved |
 //! |---|---|
