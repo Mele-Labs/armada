@@ -21,6 +21,8 @@ import type {
   SaveManifestFile,
 } from "@armada/protocol";
 
+export { fileNameOf } from "./file-name";
+
 /** `GET /manifest/file`, read into the app. */
 export type ManifestFileRead = { ok: true; file: ManifestFile } | { ok: false; outcome: Outcome };
 
@@ -80,15 +82,6 @@ export type HeldFile =
       /** The last save did not reach the disk. */
       failure?: Outcome;
     };
-
-/**
- * The file's own name, off the path Fleet resolved — what the toggle is
- * called. **Never the format**: the lexicon bans naming a Manifest as one.
- */
-export function fileNameOf(path: string): string {
-  const parts = path.split("/").filter((part) => part !== "");
-  return parts[parts.length - 1] ?? path;
-}
 
 /**
  * Whether Fleet has read the file since this save.

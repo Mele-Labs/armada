@@ -321,3 +321,22 @@ async fn a_failed_setup_leaves_the_checks_not_run() {
     };
     assert_eq!(why, "setup `bootstrap` exited 1");
 }
+
+/// **A Verify a person pressed asks from outside any Job**, as does each step
+/// record it kept.
+#[tokio::test]
+async fn a_verify_says_it_was_asked_from_outside_a_job() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, MANIFEST, &api::Broadcaster::new());
+    Arc::clone(&fleet)
+        .begin_checkout_verify(fleet.first(), None)
+        .await
+        .expect("underway");
+    let verify = ended(&fleet).await;
+    assert_eq!(verify.requester, ipc::Requester::outside());
+    for step in &verify.steps {
+        if let ipc::VerifyStepState::Ran { record } = &step.state {
+            assert_eq!(record.requester, ipc::Requester::outside());
+        }
+    }
+}

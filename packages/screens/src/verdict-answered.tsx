@@ -61,7 +61,7 @@ import {
   type VerdictSlotAtGateArgs,
 } from "./verdict";
 import { openPullRequest, type OpenPullRequest } from "./opening";
-import { LANDED } from "./Row";
+import { LANDED } from "./landed-words";
 
 /** The steps a Job froze, ordered. `facts.ts`'s own read, kept local rather than adding a dependency for one line. */
 function orderedSteps(whole: JobWhole | null): StepDetail[] {

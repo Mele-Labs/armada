@@ -2,9 +2,9 @@
 // repository Fleet serves; this decides what each card says.
 
 import { JUDGE_ANSWER, Prose, type DockAnswer, type DockQuestion } from "@armada/components";
-import type { JobSummary, JudgeAnswer, Outcome, RepositorySummary } from "@armada/protocol";
+import type { JobSummary, JudgeAnswer, RepositorySummary } from "@armada/protocol";
 import { manifestLabel } from "@armada/shell/src/repository-label";
-import { helmOfferedOf, offeredOf, said } from "./copy";
+import { helmOfferedOf, offeredOf } from "./copy";
 import { span } from "./duration";
 import { outstandingId, type Outstanding } from "./outstanding";
 
@@ -19,11 +19,6 @@ export type DockActs = {
   /** Point Helm at the card's repository and Job. #944. */
   onDiscuss?: (question: Outstanding, job: JobSummary) => void;
 };
-
-/** A card's own refusal, in words — Fleet's for a real refusal, Bridge's own sentence otherwise. */
-export function refusalWords(outcome: Outcome): string {
-  return outcome.ok ? "" : outcome.why === "refused" ? outcome.error.message : said(outcome);
-}
 
 /** When it was asked, whichever kind it is. */
 export function askedAt(question: Outstanding): string {

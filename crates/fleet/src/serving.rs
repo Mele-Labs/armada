@@ -595,12 +595,30 @@ where
                 .step_checks_every_attempt(&id)
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?
         };
+        let asked = {
+            let store = self.store().lock().await;
+            store
+                .asked_runs(&id, self.run())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?
+        };
+        let asked: Vec<(u32, String, String)> = asked
+            .iter()
+            .flat_map(|run| {
+                run.checks
+                    .iter()
+                    .zip(&run.logs)
+                    .filter_map(|(check, path)| {
+                        (!path.is_empty()).then(|| (run.attempt, check.clone(), path.clone()))
+                    })
+            })
+            .collect();
         crate::check_output::kept_output(
             self.served_by_id(&id)
                 .map_err(|why| self.refusal(why))?
                 .records_root(),
             &kept,
             &ran,
+            &asked,
         )
         .ok_or_else(|| self.refusal(Adrift::NoSuchCheckOutput { named: kept }))
     }
@@ -744,6 +762,13 @@ where
     ) -> Result<ipc::CheckoutRunSheet, Refusal> {
         let checkout = self.checkout_named(manifest_id.as_ref(), repository.as_deref())?;
         self.checkout_run_sheet(checkout).await
+    }
+
+    async fn list_manifest_checks(
+        &self,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::ManifestChecks, Refusal> {
+        self.manifest_checks(manifest_id).await
     }
 
     async fn list_checkout_runs(

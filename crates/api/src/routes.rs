@@ -54,8 +54,8 @@ use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
     explain_command, get_brief, get_call, get_capacity, get_check_output, get_diff, get_evidence,
     get_frame, get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
-    get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifests, list_models,
-    list_reports, list_workflows, list_worktrees, search_files,
+    get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifest_checks,
+    list_manifests, list_models, list_reports, list_workflows, list_worktrees, search_files,
 };
 use crate::rehearsing::{
     get_checkout_run_diff, get_checkout_run_output, get_checkout_run_sheet, get_run_output,
@@ -283,6 +283,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/undo_run", post(undo_run::<D>))
         .route("/manifest/run_sheet", get(get_checkout_run_sheet::<D>))
         .route("/manifest/runs", get(list_checkout_runs::<D>))
+        .route("/manifest/checks", get(list_manifest_checks::<D>))
         .route(
             "/manifest/runs/:run_id/output",
             get(get_checkout_run_output::<D>),

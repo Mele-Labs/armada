@@ -21,8 +21,7 @@ import type {
   WhenRefused,
   WorktreeReclaimed,
 } from "@armada/protocol";
-import type { HeldAct } from "./Acts";
-import type { ConfirmableAct, JobAct } from "./JobDetail";
+import type { ConfirmableAct, HeldAct, JobAct } from "./act-types";
 import { NOTHING_SERVED, servesNothing } from "./locate-reads";
 import type { PauseAct } from "./pausing";
 

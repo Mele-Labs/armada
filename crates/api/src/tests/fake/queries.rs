@@ -615,6 +615,17 @@ impl Queries for FakeDaemon {
         })
     }
 
+    async fn list_manifest_checks(
+        &self,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::ManifestChecks, Refusal> {
+        Ok(ipc::ManifestChecks {
+            rows: Vec::new(),
+            total: 0,
+            truncated: false,
+        })
+    }
+
     async fn list_checkout_runs(
         &self,
         manifest_id: Option<ipc::ManifestId>,
