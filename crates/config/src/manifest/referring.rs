@@ -31,6 +31,7 @@ use serde_yaml_ng::Value;
 
 use super::declared::{Check, Command, Preparation};
 use super::seed::Seed;
+use super::workspace::Placed;
 use super::{texts, DraftCheck, AFTER_MERGE_KEYS, SETUP_KEYS, WORKTREES_UNSTATED};
 use crate::error::{Fault, Refusal};
 use crate::yaml::{self, Table};
@@ -51,6 +52,7 @@ pub(super) fn preparation(
     declares: &BTreeSet<String>,
     commands: &BTreeMap<String, Command>,
     serves: &BTreeSet<String>,
+    placed: &Placed,
     out: &mut Vec<Refusal>,
 ) -> (Vec<Preparation>, Option<Seed>, Option<NonZeroU32>) {
     let Some(mut table) = Table::open("setup", value, out) else {
@@ -64,6 +66,12 @@ pub(super) fn preparation(
     // Zero is refused: a pool of none would make every lease wait for ever.
     let worktrees = match table.optional("worktrees") {
         None => Some(WORKTREES_UNSTATED),
+        // Read from the root at every lease, so a second value is one nothing
+        // reads.
+        Some(_) if placed.is_a_workspace() => {
+            out.push(Refusal::new(table.at("worktrees"), Fault::RootOnly));
+            None
+        }
         Some(value) => yaml::positive(&table.at("worktrees"), value, out).and_then(NonZeroU32::new),
     };
     let items = match table.optional("requires") {
@@ -75,11 +83,19 @@ pub(super) fn preparation(
         }
     };
     table.close(SETUP_KEYS, out);
+    // A workspace may name the root's Commands as well as its own.
+    let (requirable, requirable_serves) = placed.requirable(commands, serves);
     let prepared = match items {
-        Some(items) => named_commands(texts(items, out), declares, commands, serves, out)
-            .into_iter()
-            .map(|(name, run)| Preparation { name, run })
-            .collect(),
+        Some(items) => named_commands(
+            texts(items, out),
+            declares,
+            &requirable,
+            &requirable_serves,
+            out,
+        )
+        .into_iter()
+        .map(|(name, run)| Preparation { name, run })
+        .collect(),
         None => Vec::new(),
     };
     (prepared, seed, worktrees)

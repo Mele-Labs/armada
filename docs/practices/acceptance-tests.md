@@ -41,6 +41,7 @@ the gate asserts about it.
 | Overview | Everything in flight and everything waiting on me, across my repositories, on one surface — and I can answer it, or ask Helm about it, without leaving | `crates/acceptance/tests/overview.rs` |
 | Studio | I can work something out on a Studio — notes from using the app, what a scout read, what I pasted in — turn what holds up into a Job, and come back later to see how I got there | `crates/acceptance/tests/studio.rs` |
 | The new Job, spike 022 | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
+| Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and
