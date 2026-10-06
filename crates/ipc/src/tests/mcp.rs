@@ -229,7 +229,9 @@ fn a_scope_call_reads_as_a_declaration_and_not_as_evidence() {
     assert!(matches!(
         called,
         Incoming::Declare {
-            declaration: DeclareScope { ref context_paths },
+            declaration: DeclareScope {
+                ref context_paths, ..
+            },
             ..
         } if context_paths == &["docs".to_string(), "crates/config/src".to_string()]
     ));
@@ -248,7 +250,9 @@ fn an_empty_path_list_is_a_declaration_rather_than_a_refusal() {
     assert!(matches!(
         called,
         Incoming::Declare {
-            declaration: DeclareScope { ref context_paths },
+            declaration: DeclareScope {
+                ref context_paths, ..
+            },
             ..
         } if context_paths.is_empty()
     ));

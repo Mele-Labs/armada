@@ -480,6 +480,7 @@ pub(super) async fn told_across_the_boundary(
     worktree_directory(home, &job);
     dispatched(&fleet, job.id()).await.expect("it is approved");
     let plan = DeclareScope {
+        needs: Vec::new(),
         context_paths: vec!["docs".to_string()],
     };
     declared_by_the_one(&fleet, &plan)

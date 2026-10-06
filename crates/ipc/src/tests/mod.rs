@@ -39,6 +39,7 @@ mod history;
 mod journal;
 mod limits;
 mod mcp;
+mod needing;
 /// The one tool the harness calls rather than the model, and the two answers.
 mod permission;
 mod planning;

@@ -426,6 +426,7 @@ async fn a_scope_declared_on_an_earlier_run_still_stands_when_the_checks_run_aga
     crate::tests::tools::declared_by_the_one(
         &fleet,
         &ipc::mcp::DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )

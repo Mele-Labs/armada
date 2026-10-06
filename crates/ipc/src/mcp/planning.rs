@@ -32,8 +32,9 @@ pub const TASK_FIELDS: &[&str] = &[
     "group",
     "tier",
     "concurrent_with",
+    "needs",
 ];
-pub const ADD_TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "after"];
+pub const ADD_TASK_FIELDS: &[&str] = &["title", "note", "scope", "expects", "after", "needs"];
 pub const UPDATE_TASK_FIELDS: &[&str] = &["task", "state", "reason", "shown"];
 
 /// One call of a plan tool, read as the change it asks for.
@@ -42,6 +43,10 @@ pub struct PlanCall {
     /// Which of the three was called. Fleet gives each to a different step.
     pub tool: &'static str,
     pub change: PlanChange,
+    /// What its tasks need on files others may need too, across every task of
+    /// the call. **Not on the task**: a need belongs to the Job's branch, and
+    /// Fleet declares it once the change is kept. `#1059`.
+    pub needs: Vec<super::needing::NeedClaim>,
 }
 
 /// Why a plan tool's arguments did not read as a change.
@@ -121,20 +126,26 @@ pub(super) fn read(
     tool: &'static str,
     arguments: &Map<String, Value>,
 ) -> Option<Result<PlanCall, NotAnArgument>> {
-    let change = match tool {
+    let read = match tool {
         RECORD_PLAN_TOOL => recorded(arguments),
         ADD_TASK_TOOL => added(arguments),
-        UPDATE_TASK_TOOL => updated(arguments),
+        UPDATE_TASK_TOOL => updated(arguments).map(|change| (change, Vec::new())),
         _ => return None,
     };
-    Some(change.map(|change| PlanCall { tool, change }))
+    Some(read.map(|(change, needs)| PlanCall {
+        tool,
+        change,
+        needs,
+    }))
 }
 
 fn not_a_list() -> NotAnArgument {
     NotAnArgument::Planning(PlanArgument::NotATaskList)
 }
 
-fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument> {
+type WithNeeds = (PlanChange, Vec<super::needing::NeedClaim>);
+
+fn recorded(arguments: &Map<String, Value>) -> Result<WithNeeds, NotAnArgument> {
     closed(arguments, RECORD_PLAN_TOOL, RECORD_PLAN_FIELDS)?;
     let approach = Approach::new(&filled(arguments, "approach")?)
         .ok_or(NotAnArgument::Blank { field: "approach" })?;
@@ -144,6 +155,7 @@ fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument>
         .as_array()
         .ok_or_else(not_a_list)?;
     let mut tasks = Vec::with_capacity(listed.len());
+    let mut needs = Vec::new();
     for entry in listed {
         let entry = entry.as_object().ok_or_else(not_a_list)?;
         closed(entry, RECORD_PLAN_TOOL, TASK_FIELDS)?;
@@ -181,8 +193,9 @@ fn recorded(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument>
                 .ok_or(NotAnArgument::Planning(PlanArgument::NotBeside))?,
         };
         tasks.push(task(entry)?.in_group(group).at_tier(tier).beside(&beside));
+        needs.extend(super::needing::read(entry, RECORD_PLAN_TOOL)?);
     }
-    Ok(PlanChange::Recorded { approach, tasks })
+    Ok((PlanChange::Recorded { approach, tasks }, needs))
 }
 
 fn task(arguments: &Map<String, Value>) -> Result<NewTask, NotAnArgument> {
@@ -218,14 +231,15 @@ fn paths(arguments: &Map<String, Value>) -> Result<Vec<String>, NotAnArgument> {
 }
 
 /// `after` is required and may be empty, which is the end of the list.
-fn added(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument> {
+fn added(arguments: &Map<String, Value>) -> Result<WithNeeds, NotAnArgument> {
     closed(arguments, ADD_TASK_TOOL, ADD_TASK_FIELDS)?;
+    let needs = super::needing::read(arguments, ADD_TASK_TOOL)?;
     let task = task(arguments)?;
     let after = match text(arguments, "after")?.trim() {
         "" => None,
         named => Some(task_id("after", named)?),
     };
-    Ok(PlanChange::Added { task, after })
+    Ok((PlanChange::Added { task, after }, needs))
 }
 
 fn updated(arguments: &Map<String, Value>) -> Result<PlanChange, NotAnArgument> {
@@ -327,6 +341,7 @@ pub(super) fn record_plan_tool() -> Value {
                                     that edit one file anyway are done again one after the \
                                     other. Leave it out to do this task on its own.",
                             },
+                            "needs": super::needing::property(),
                         },
                         "required": ["title", "note", "scope", "expects"],
                         "additionalProperties": false,
@@ -370,6 +385,7 @@ pub(super) fn add_task_tool() -> Value {
                     "type": "string",
                     "description": "The id of the task it comes after, such as T2. \"\" for the end.",
                 },
+                "needs": super::needing::property(),
             },
             "required": ["title", "note", "scope", "expects", "after"],
             "additionalProperties": false,
