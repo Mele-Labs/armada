@@ -242,6 +242,13 @@ after the dispatching session merged and pushed on his say-so.
 Audit before deleting, and print what will be kept rather than what will go — the
 keep list is short and readable, and a mistake in it is visible.
 
+**When the disk is already full, clear `target/` first and audit worktrees
+second.** Confirmed 6 Oct 2026: a `du` of every worktree was still running five
+minutes in while the owner waited at 7 GiB free, and was abandoned. Removing
+every `target/` took the disk to 535 GiB free and lost no work. Skip any
+checkout where a build is running. That run also removed slot-9's `target/`
+while an agent was compiling there, and two of its builds failed.
+
 `sed`, `cut` and `sort` have been unavailable in this environment's non-interactive
 shell. Prefer a `python3` heredoc over a pipeline for anything that has to parse
 `git worktree list`.
@@ -262,7 +269,8 @@ Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
 slots held or free, bases, land trees, preview, and the Job and agent worktrees.
 A `target/` with a cargo build running in it is skipped. Settings:
 `slot-build-trim-after-days`, `slot-build-ceiling-gib`,
-`build-sweep-interval-minutes`. Do not delete `target/` by hand to save space.
+`build-sweep-interval-minutes` (constants until #1821). Outside a full disk, do
+not delete `target/` by hand to save space.
 
 **Do not share one `CARGO_TARGET_DIR` between worktrees to save space.** It was
 tried: two manifest directories against one target poisoned the incremental cache
