@@ -39,7 +39,7 @@ fn every_origin_is_spelled_the_same_way_by_serde_and_by_as_wire() {
 
 /// Only two of the three claims say anything about the Judge. A wrong pass and
 /// a wrong refusal are both verdicts disputed; Armada misbehaving is not a
-/// verdict at all, and counting it as one would put the dry-run case into a
+/// verdict at all, and counting it as one would put the asked run case into a
 /// number about the Judge.
 #[test]
 fn only_a_disputed_verdict_counts_toward_the_judge() {
@@ -62,7 +62,7 @@ fn a_claim_the_set_does_not_hold_is_refused() {
 fn a_report_about_the_whole_job_carries_no_scope() {
     let filing = FileReport {
         claim: Claim::ArmadaMisbehaved,
-        said: "the dry run said it created a worktree and created none".to_string(),
+        said: "the asked run said it created a worktree and created none".to_string(),
         step_id: None,
         criterion_id: None,
     };

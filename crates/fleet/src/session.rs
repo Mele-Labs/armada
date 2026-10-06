@@ -32,8 +32,8 @@ use tokio::process::{Child, ChildStdin};
 use tokio::sync::Mutex;
 use verification::OutcomeTurn;
 
+use crate::asked_run::ChecksReported;
 use crate::converging::ReportNow;
-use crate::dry_run::ChecksReported;
 use crate::fixing::FixReported;
 use crate::group::{end_the_group, run_is_over};
 use crate::peers::PeersChanged;

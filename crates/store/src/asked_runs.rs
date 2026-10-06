@@ -1,7 +1,7 @@
 //! The Checks a Drone asked for mid-step, one row per ask. `docs/concepts/manifest.md`,
 //! *A Drone's own run*.
 //!
-//! **Never a Check row.** `job_step_checks` is what a gate ruled on, and a dry
+//! **Never a Check row.** `job_step_checks` is what a gate ruled on, and an asked
 //! result read as one is a pass nobody measured at the gate. An asked run is
 //! its own table, so nothing that reads the gate's rows can count it.
 //!

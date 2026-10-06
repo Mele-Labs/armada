@@ -249,7 +249,7 @@ pub use enums::{
 pub use error::{RunId, WireError, WireValue};
 pub use event::{
     ChangeKind, ChangedFile, Cursor, Delivered, DroneExited, DroneSpawned, Event,
-    EvidenceSubmitted, JobAsking, JobChecking, JobCommandWaiting, JobCreated, JobDryRun,
+    EvidenceSubmitted, JobAskedRun, JobAsking, JobChecking, JobCommandWaiting, JobCreated,
     JobFilesChanged, JobJudging, JobLanded, JobPaused, JobRemarksChanged, JobResumed,
     JobStateChanged, JobStepAdvanced, Missed, ProposalMoved, Reason, Resync, StreamMessage,
 };

@@ -1314,7 +1314,7 @@ stalls on every step. Measured in
 The rule they all serve — that no block a Drone is given is written from a
 Check's command — is on [Drone](../concepts/drone.md), since it governs
 every Drone-facing surface rather than only these samples. **A Check's
-name is not its command**, and the dry-run offer names the step's Checks
+name is not its command**, and the asked-run offer names the step's Checks
 by name for the reason the offer exists at all: a Drone that cannot tell
 what a call would check can only spend one to find out.
 

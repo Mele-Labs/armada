@@ -1,4 +1,4 @@
-//! The gate reusing a passing dry run instead of running a Check again.
+//! The gate reusing a passing asked run instead of running a Check again.
 //! `#1014`.
 //!
 //! Every case shares one `FakeWorkProduct`: `footprint()` on a fake built with
@@ -20,7 +20,7 @@ use verification::{Lifted, Request};
 use crate::at_step::AtStep;
 use crate::gate::{rule_on, CheckBudget, Ruling};
 use crate::policy::Policies;
-use crate::reuse::KeptDryRun;
+use crate::reuse::KeptAskedRun;
 use crate::tests::admitted::dispatched;
 use crate::tests::daemon::{a_proposal, fitted_with, one, worktree_directory};
 use crate::tests::detail::get;
@@ -40,16 +40,16 @@ fn row(name: &str, outcome: CheckOutcome) -> StepCheck {
         expected: None,
         produced: None,
         output_path: None,
-        reused_from_dry_run: None,
+        reused_from_asked_run: None,
     }
 }
 
-/// A dry run that already answered `checks`, read against `work`'s worktree
+/// A asked run that already answered `checks`, read against `work`'s worktree
 /// as it stands right now.
-fn kept(work: &FakeWorkProduct, attempt: Attempt, checks: Vec<StepCheck>) -> KeptDryRun {
+fn kept(work: &FakeWorkProduct, attempt: Attempt, checks: Vec<StepCheck>) -> KeptAskedRun {
     let footprint = work.footprint(&worktree()).expect("a fake worktree reads");
     let narrowed_to = vec![None; checks.len()];
-    KeptDryRun::of(
+    KeptAskedRun::of(
         attempt,
         Timestamp::from_rfc3339("2026-09-13T09:00:00Z"),
         footprint,
@@ -58,7 +58,11 @@ fn kept(work: &FakeWorkProduct, attempt: Attempt, checks: Vec<StepCheck>) -> Kep
     )
 }
 
-async fn ruled(gates: &[Gate<'_>], work: &FakeWorkProduct, dry_run: Option<&KeptDryRun>) -> Ruling {
+async fn ruled(
+    gates: &[Gate<'_>],
+    work: &FakeWorkProduct,
+    asked_run: Option<&KeptAskedRun>,
+) -> Ruling {
     let workflow = testkit::resolved(&[Sketch {
         id: "implement",
         label: "Implement",
@@ -93,7 +97,7 @@ async fn ruled(gates: &[Gate<'_>], work: &FakeWorkProduct, dry_run: Option<&Kept
         core_model::WhenRefused::default(),
         &[],
         None,
-        dry_run,
+        asked_run,
     )
     .await
 }
@@ -108,14 +112,14 @@ fn checks() -> Vec<Gate<'static>> {
 }
 
 #[tokio::test]
-async fn a_passing_dry_run_over_an_unchanged_worktree_is_reused_and_nothing_runs() {
+async fn a_passing_asked_run_over_an_unchanged_worktree_is_reused_and_nothing_runs() {
     let work = still();
-    let dry_run = kept(
+    let asked_run = kept(
         &work,
         Attempt::FIRST,
         vec![row("build", CheckOutcome::Passed)],
     );
-    let ruling = ruled(&checks(), &work, Some(&dry_run)).await;
+    let ruling = ruled(&checks(), &work, Some(&asked_run)).await;
     let build = ruling
         .checks()
         .iter()
@@ -123,88 +127,88 @@ async fn a_passing_dry_run_over_an_unchanged_worktree_is_reused_and_nothing_runs
         .expect("build's row");
     assert_eq!(build.outcome, CheckOutcome::Passed);
     assert!(
-        build.reused_from_dry_run.is_some(),
-        "a Check the dry run already passed, over a worktree that has not \
+        build.reused_from_asked_run.is_some(),
+        "a Check the asked run already passed, over a worktree that has not \
          moved, is answered from it rather than run again"
     );
 }
 
 #[tokio::test]
-async fn an_edit_after_the_dry_run_means_every_check_runs_fresh() {
+async fn an_edit_after_the_asked_run_means_every_check_runs_fresh() {
     let work = still();
-    let dry_run = kept(
+    let asked_run = kept(
         &work,
         Attempt::FIRST,
         vec![row("build", CheckOutcome::Passed)],
     );
-    // The worktree moves between the dry run and the gate.
+    // The worktree moves between the asked run and the gate.
     work.wrote(&[("src/lib.rs", adapter_traits::Change::Modified)]);
-    let ruling = ruled(&checks(), &work, Some(&dry_run)).await;
+    let ruling = ruled(&checks(), &work, Some(&asked_run)).await;
     let build = ruling
         .checks()
         .iter()
         .find(|check| check.name == "build")
         .expect("build's row");
     assert_eq!(
-        build.reused_from_dry_run, None,
-        "the worktree the dry run measured is not the worktree the gate is \
+        build.reused_from_asked_run, None,
+        "the worktree the asked run measured is not the worktree the gate is \
          looking at, so nothing from it may be trusted"
     );
 }
 
 #[tokio::test]
-async fn a_check_that_failed_in_the_dry_run_is_run_again() {
+async fn a_check_that_failed_in_the_asked_run_is_run_again() {
     let work = still();
-    // `KeptDryRun::of` already drops a failed Check; this pins that a step
+    // `KeptAskedRun::of` already drops a failed Check; this pins that a step
     // still reaches it at the gate rather than reading it as answered.
-    let dry_run = kept(
+    let asked_run = kept(
         &work,
         Attempt::FIRST,
         vec![row("build", CheckOutcome::Failed)],
     );
-    let ruling = ruled(&checks(), &work, Some(&dry_run)).await;
+    let ruling = ruled(&checks(), &work, Some(&asked_run)).await;
     let build = ruling
         .checks()
         .iter()
         .find(|check| check.name == "build")
         .expect("build's row");
-    assert_eq!(build.reused_from_dry_run, None);
+    assert_eq!(build.reused_from_asked_run, None);
     // `/usr/bin/true` is what actually ran, so the fresh answer is a pass —
-    // never the dry run's stale failure.
+    // never the asked run's stale failure.
     assert_eq!(build.outcome, CheckOutcome::Passed);
 }
 
 #[tokio::test]
-async fn a_dry_run_from_a_different_attempt_is_never_reused() {
+async fn a_asked_run_from_a_different_attempt_is_never_reused() {
     let work = still();
-    let dry_run = kept(
+    let asked_run = kept(
         &work,
         Attempt::stored(2).expect("a second attempt"),
         vec![row("build", CheckOutcome::Passed)],
     );
     // `ruled` always asks on the first attempt.
-    let ruling = ruled(&checks(), &work, Some(&dry_run)).await;
+    let ruling = ruled(&checks(), &work, Some(&asked_run)).await;
     let build = ruling
         .checks()
         .iter()
         .find(|check| check.name == "build")
         .expect("build's row");
     assert_eq!(
-        build.reused_from_dry_run, None,
-        "a dry run kept against a different attempt says nothing about this one"
+        build.reused_from_asked_run, None,
+        "a asked run kept against a different attempt says nothing about this one"
     );
 }
 
 /// **What `#1014`'s review caught.** `checking::ran` used to pair `checks`
 /// with a second, caller-built sequence by `Iterator::zip`, which stops at
 /// the shorter one without a word — one hand-written test call passed an
-/// empty one and ran zero of six declared Checks. `ran` now takes the dry
+/// empty one and ran zero of six declared Checks. `ran` now takes the asked
 /// run itself and looks a Check's row up by name, inside the one loop that
 /// already walks `checks`; there is no second sequence left for a caller to
-/// get the length of wrong. This pins the row count directly, against a dry
+/// get the length of wrong. This pins the row count directly, against an asked
 /// run built to have nothing to say about either declared Check.
 #[tokio::test]
-async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
+async fn every_declared_check_gets_a_row_whatever_the_asked_run_names() {
     let declared = vec![
         ResolvedCheck::ManifestCheck {
             manifest_dir: String::new(),
@@ -236,7 +240,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
         },
     ];
     let footprint = Footprint::nothing();
-    let dry_run = KeptDryRun::of(
+    let asked_run = KeptAskedRun::of(
         Attempt::FIRST,
         Timestamp::from_rfc3339("2026-09-13T09:00:00Z"),
         footprint.clone(),
@@ -259,7 +263,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
         &[],
         None,
         &crate::checking::Stop::never(),
-        Some(&dry_run),
+        Some(&asked_run),
         Attempt::FIRST,
         Some(&footprint),
         None,
@@ -268,14 +272,14 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
     assert_eq!(
         observed.len(),
         declared.len(),
-        "every declared Check gets a row, whatever the dry run does or does not name"
+        "every declared Check gets a row, whatever the asked run does or does not name"
     );
 }
 
 type Fixture = crate::daemon::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
 /// One step, one Check that takes real time, so a test can act while it runs
-/// — `crate::tests::dry_run::later`'s own shape, for the same reason.
+/// — `crate::tests::asked_run::later`'s own shape, for the same reason.
 fn a_slow_step() -> config::ResolvedWorkflow {
     testkit::resolved(&[Sketch {
         id: "implement",
@@ -313,7 +317,7 @@ async fn dispatched_onto(home: &crate::tests::tmp::TempDir) -> (Arc<Fixture>, co
 }
 
 /// The gate's own reading of this Job's one step, over the wire — whether
-/// `check_runs` names the run the dry run answered, or the gate's own.
+/// `check_runs` names the run the asked run answered, or the gate's own.
 async fn gated_check_runs(fleet: &Arc<Fixture>, job: &core_model::JobId) -> Vec<ipc::CheckRun> {
     fleet.turn().await.expect("the gate ruled");
     let events = fleet.events();
@@ -327,16 +331,16 @@ async fn gated_check_runs(fleet: &Arc<Fixture>, job: &core_model::JobId) -> Vec<
     detail.steps[0].check_runs.clone()
 }
 
-/// **An edit made while the dry run is still in flight.** The Drone starts
+/// **An edit made while the asked run is still in flight.** The Drone starts
 /// `run_checks`, the worktree moves before the background run finishes, and
 /// every Check the run itself observed still passed. #1035 let the two
 /// overlap for the first time — `run_checks` answers before the run ends, so
 /// the worktree is no longer the Drone's alone while it runs. This is what
 /// pins `crate::reuse` against a footprint taken at the end instead of the
-/// one `dry_run_reads` takes before any Check starts: that bug would still
+/// one `asked_run_reads` takes before any Check starts: that bug would still
 /// see the passing report and reuse it.
 #[tokio::test]
-async fn an_edit_while_the_dry_run_is_in_flight_means_every_check_runs_fresh_at_the_gate() {
+async fn an_edit_while_the_asked_run_is_in_flight_means_every_check_runs_fresh_at_the_gate() {
     let home = crate::tests::tmp::TempDir::new();
     let (fleet, job) = dispatched_onto(&home).await;
 
@@ -370,7 +374,7 @@ async fn an_edit_while_the_dry_run_is_in_flight_means_every_check_runs_fresh_at_
             .ran
             .iter()
             .all(|row| row.outcome.as_wire() == "passed"),
-        "the dry run itself saw every Check pass: {:?}",
+        "the asked run itself saw every Check pass: {:?}",
         report.ran
     );
 
@@ -380,19 +384,19 @@ async fn an_edit_while_the_dry_run_is_in_flight_means_every_check_runs_fresh_at_
     let check_runs = gated_check_runs(&fleet, &job).await;
     assert_eq!(check_runs.len(), 1);
     assert_eq!(
-        check_runs[0].reused_from_dry_run, None,
-        "the dry run measured a worktree that moved before the gate looked \
+        check_runs[0].reused_from_asked_run, None,
+        "the asked run measured a worktree that moved before the gate looked \
          at it, so nothing from it may be trusted"
     );
 }
 
-/// **A submission that stops a dry run mid-run.** The gate runs every Check
+/// **A submission that stops a asked run mid-run.** The gate runs every Check
 /// fresh — never a stale pass off a run that never finished — and no
-/// `KeptDryRun` exists to have answered from: `dry_run_ends` only writes one
+/// `KeptAskedRun` exists to have answered from: `asked_run_ends` only writes one
 /// inside the same guard that keeps this run from being reported at all, and
 /// a stopped run never reaches it.
 #[tokio::test]
-async fn a_submission_that_stops_the_dry_run_means_every_check_runs_fresh_at_the_gate() {
+async fn a_submission_that_stops_the_asked_run_means_every_check_runs_fresh_at_the_gate() {
     let home = crate::tests::tmp::TempDir::new();
     let (fleet, job) = dispatched_onto(&home).await;
 
@@ -424,7 +428,7 @@ async fn a_submission_that_stops_the_dry_run_means_every_check_runs_fresh_at_the
     let check_runs = gated_check_runs(&fleet, &job).await;
     assert_eq!(check_runs.len(), 1);
     assert_eq!(
-        check_runs[0].reused_from_dry_run, None,
-        "a stopped dry run kept nothing the gate could ever have reused"
+        check_runs[0].reused_from_asked_run, None,
+        "a stopped asked run kept nothing the gate could ever have reused"
     );
 }

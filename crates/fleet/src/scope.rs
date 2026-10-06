@@ -336,7 +336,7 @@ where
 }
 
 /// Why a scope declaration was not taken. **Beside the act it refuses**, for
-/// the reason `dry_run` gives for [`NotRun`](crate::dry_run::NotRun): a module
+/// the reason `asked_run` gives for [`NotRun`](crate::asked_run::NotRun): a module
 /// every refusal has to be opened to add one to is a module two changes
 /// collide in, and this one is raised nowhere but here.
 ///

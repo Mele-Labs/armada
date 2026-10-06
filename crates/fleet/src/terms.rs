@@ -184,7 +184,7 @@ impl Capturing {
     }
 }
 
-/// What a step tells its Drone about the dry run, where it has Checks to run.
+/// What a step tells its Drone about the asked run, where it has Checks to run.
 ///
 /// **A tool nothing points at is the defect this whole capability is about.**
 /// Spike 6 measured that a description alone does not make a Drone call a tool
@@ -202,13 +202,13 @@ impl Capturing {
 ///
 /// **It says twice that this is not the gate**, in the two places a Drone could
 /// stop reading: a pass here is not a pass, and submitting is still the only
-/// way to report. A Drone reading a green dry run as a finished step would have
+/// way to report. A Drone reading a green asked run as a finished step would have
 /// been made worse off by being offered this at all.
 ///
 /// **Drafted wording**, like [`Redeclaring`] and the gaming half of [`Stopped`].
 /// Keeping a Drone ignorant of the Checks was never the defence against it
 /// satisfying the bar rather than doing the work — `docs/concepts/judge.md` and
-/// the gaming patterns are. What the wider rule cost is `crate::dry_run`'s.
+/// the gaming patterns are. What the wider rule cost is `crate::asked_run`'s.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Checking(String);
 
@@ -216,7 +216,7 @@ impl Checking {
     /// The offer this step makes, or `None` where it has nothing to run.
     ///
     /// **The step's own declared Checks are the switch**, and it is the same
-    /// switch `crate::dry_run` refuses on: a step declaring none would answer
+    /// switch `crate::asked_run` refuses on: a step declaring none would answer
     /// every call with a refusal, and a Drone pointed at a tool that refuses it
     /// is a Drone reading a denial as a broken system. That is the defect this
     /// capability exists to close, arriving from the other side.
@@ -238,7 +238,7 @@ impl Checking {
     /// **And the caveat rides only where it is true.** A named list a Drone
     /// acts on is worse than the vague sentence it replaces if what runs is
     /// sometimes less, so a step holding a path-scoped Check says so — on the
-    /// same reading `crate::dry_run` skips by, and never in schema words.
+    /// same reading `crate::asked_run` skips by, and never in schema words.
     pub fn at(
         workflow: &FrozenWorkflow,
         step: &ResolvedStep,

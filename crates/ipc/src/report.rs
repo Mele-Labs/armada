@@ -67,7 +67,7 @@ pub enum Claim {
     /// in the system surfaces on its own.
     WronglyPassed,
     /// Armada itself did the wrong thing, with no verdict involved: a Judge
-    /// handed an empty patch, a dry run that reported work it had not done.
+    /// handed an empty patch, a asked run that reported work it had not done.
     /// Neither of the two above, and the reason this is a report rather than a
     /// mark on a verdict.
     ArmadaMisbehaved,

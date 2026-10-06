@@ -181,7 +181,7 @@ describe("what a Check's output sheet should read", () => {
   });
 });
 
-describe("a Check the gate reused from the Drone's own dry run", () => {
+describe("a Check the gate reused from the Drone's own asked run", () => {
   const passed: CheckRun = { attempt: 1, name: "build", outcome: "passed" };
   const reused: CheckRun = { ...passed, reused_from_dry_run: "2026-09-13T09:00:00Z" };
 

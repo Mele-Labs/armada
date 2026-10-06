@@ -39,6 +39,7 @@ mod amending;
 mod approved;
 pub mod approving;
 pub mod asked;
+pub mod asked_run;
 pub mod asking;
 /// A red Check in a merge line turn, asked of the base before the branch is blamed.
 mod asking_the_base;
@@ -98,7 +99,6 @@ mod drifting;
 pub mod drone;
 mod drone_moves;
 mod drones_had;
-pub mod dry_run;
 /// Which task wrote which file, off its Drone's edit calls. Slice 5.
 pub mod edit_calls;
 /// The Manifest file itself, read and written — the half of Journey 9's
@@ -356,6 +356,7 @@ pub use adopting::{reattaching, Adopted, Gap, Reattachment, Session};
 pub use adrift::Adrift;
 pub use allowance::{Allowance, Micros, Overspent};
 pub use asked::Asked;
+pub use asked_run::{AskedRuns, ChecksReported, NotRun};
 pub use at_step::AtStep;
 pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
@@ -368,7 +369,6 @@ pub use detach::Detached;
 pub use drone::{
     aftermath, environment, Aftermath, DroneNotStarted, Ending, HostPaths, Left, Started,
 };
-pub use dry_run::{ChecksReported, DryRuns, NotRun};
 pub use evidence::{
     Call, Decline, EvidenceInbox, EvidenceTool, Landed, NotSubmitted, Recorded, Standing,
 };
@@ -398,7 +398,7 @@ pub use rehearsing::verify_steps;
 pub use releasing::{release_order, Parked};
 pub use reporting::{Counted, Filed, NotFiled};
 pub use resume::Roused;
-pub use reuse::KeptDryRun;
+pub use reuse::KeptAskedRun;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
     Staleness, Vacancy, FILE_NAME,
