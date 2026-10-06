@@ -224,7 +224,8 @@ async fn a_second_approved_job_waits_while_one_is_worked() {
 }
 
 /// A Job the store says was `running` whose Drone this Fleet does not have is
-/// `interrupted`. **Never resumed silently.**
+/// `interrupted`, and its step is then restarted by Fleet, which the Job's
+/// log signs as Fleet's own act — see `crate::tests::boot_restart`.
 #[tokio::test]
 async fn a_running_job_with_no_drone_is_interrupted_at_startup() {
     let home = TempDir::new();
@@ -251,22 +252,30 @@ async fn a_running_job_with_no_drone_is_interrupted_at_startup() {
 
     assert_eq!(reconciled.interrupted, vec![job_id.clone()]);
     assert!(reconciled.unreadable.is_empty());
-    assert_eq!(
-        restarted.load(&job_id).await.unwrap().status(),
-        JobStatus::Escalated
-    );
-    assert_eq!(
-        restarted.last_reason(&job_id).await.unwrap(),
-        Some(core_model::TransitionReason::Escalation(
-            core_model::EscalationTrigger::Interrupted
-        )),
+    assert_eq!(reconciled.restarted, vec![job_id.clone()]);
+    let escalated_as_interrupted = restarted
+        .store()
+        .lock()
+        .await
+        .events_for(&job_id)
+        .unwrap()
+        .iter()
+        .any(|event| {
+            matches!(
+                event.moved(),
+                store::Moved::Job {
+                    to: JobStatus::Escalated,
+                    reason: core_model::TransitionReason::Escalation(
+                        core_model::EscalationTrigger::Interrupted
+                    ),
+                }
+            )
+        });
+    assert!(
+        escalated_as_interrupted,
         "the trigger the registry gives for a Job marked running with no process"
     );
-    assert_eq!(
-        restarted.working_on().await,
-        Vec::new(),
-        "an interrupted Job is not picked back up"
-    );
+    the_drone_it_holds_is_gone(&restarted).await;
 }
 
 /// **#1034, the Fleet-restart half.** A Job escalates `stalled` over a Drone
