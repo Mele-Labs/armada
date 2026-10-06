@@ -170,6 +170,8 @@ export type PlanTaskDroneRow = {
   state: JobDroneState;
   /** The state, spelled: the mark's tooltip and accessible name. */
   stateSays: string;
+  /** Held inside a call, waiting on a person: the waiting mark, holding still. */
+  needsYou?: boolean;
   /** Turns, and cost once it stopped. Absent draws nothing. */
   spent?: string;
   /** The model it ran on, `JobDrone.model`. Absent draws nothing. */
@@ -373,10 +375,10 @@ export function PlanTaskSheet({
               {drones.map((one) => (
                 <li key={one.id}>
                   <StepActivityMark
-                    activity={DRONE_ACTIVITY[one.state]}
+                    activity={one.needsYou === true ? "awaiting_human" : DRONE_ACTIVITY[one.state]}
                     label={one.stateSays}
                     says={one.stateSays}
-                    pulsing={one.state === "running"}
+                    pulsing={one.state === "running" && one.needsYou !== true}
                   />
                   {one.onOpen === undefined ? (
                     <span>{one.label}</span>

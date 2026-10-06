@@ -64,6 +64,7 @@ import type { TrailProps } from "./trail";
 import { ADD_TASK_LABEL } from "./copy";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import { AddTaskDialog, refusalSaid } from "./PlanWell";
+import { NEEDS_YOU, type HeldCommand } from "./drone-held";
 
 /** The `DeclaredCheck.kind` a step recording a plan declares. `plan.ts`'s own read. */
 const PLAN_RECORDED = "plan_recorded";
@@ -169,6 +170,12 @@ export type PlanReviewProps = {
    * draft's**, and then the working task's from the plan alone.
    */
   drones?: readonly DroneView[];
+  /**
+   * The command a Drone is held on, where one is. **Drawn on that Drone** — its
+   * card, and its row in the task's list — so the ask is answered where the
+   * Drone is read, not only on Overview.
+   */
+  holding?: HeldCommand | undefined;
   /** Now, injected, so a running Drone's run time moves with the header's. */
   now?: number;
   /**
@@ -248,6 +255,7 @@ export function usePlanReview({
   opensGroup,
   onOpenDrone,
   drones,
+  holding,
   now,
   onOpenCheckLog,
   trail,
@@ -327,7 +335,14 @@ export function usePlanReview({
   const board = read === undefined || moving === null ? read : { ...read, groups: movedGroups(read.groups, moving) };
   // The same plan, placed. **One press for one task either way** — a toggle
   // that opened a different surface from each view would be two screens.
-  const graph = planGraphOf({ groups, onOpenTask: openTaskAt, openTask, onOpenGroup: openGroupAt, openGroup });
+  const graph = planGraphOf({
+    groups,
+    onOpenTask: openTaskAt,
+    openTask,
+    onOpenGroup: openGroupAt,
+    openGroup,
+    ...(holding === undefined ? {} : { held: holding }),
+  });
   const group = openGroup === null ? undefined : board?.groups.find((one) => one.id === openGroup);
   const cameFrom = fromGroup === null ? undefined : board?.groups.find((one) => one.id === fromGroup);
   const toGroup =
@@ -402,7 +417,7 @@ export function usePlanReview({
       ? []
       : tasksOf(groups)
           .filter((one) => reading.beside.includes(one.id))
-          .map((one) => taskCard(one, () => openTaskAt(one.id)));
+          .map((one) => taskCard(one, () => openTaskAt(one.id), one.id === holding?.taskId));
   // **A failed task offers four acts** (owner, 29 Sep 2026): the message box
   // below, these two, and Edit this task, each ahead of its route. A done task
   // in a group the Judge refused offers Restart alone (owner, 2 Oct 2026).
@@ -484,7 +499,8 @@ export function usePlanReview({
               id: one.id,
               label: droneOfTask(whole, { ...open, drone_id: one.id })?.label ?? `Drone on ${open.id}`,
               state: one.state,
-              stateSays: droneSays(one),
+              stateSays: holding?.droneId === one.id ? NEEDS_YOU : droneSays(one),
+              ...(holding?.droneId === one.id ? { needsYou: true } : {}),
               ...(one.model === undefined ? {} : { model: one.model }),
               ...(spent === "" ? {} : { spent }),
               ...(onOpenDrone === undefined ? {} : { onOpen: () => onOpenDrone(one.id) }),
@@ -506,7 +522,8 @@ export function usePlanReview({
       : {
           title: droneOfTask(whole, { ...open, drone_id: own.id })?.label ?? `Drone on ${open.id}`,
           state: own.state,
-          stateSays: droneSays(own),
+          stateSays: holding?.droneId === own.id ? NEEDS_YOU : droneSays(own),
+          ...(holding?.droneId === own.id ? { needsYou: true, asking: holding.node } : {}),
           ...(ran === undefined ? {} : { ranFor: ran }),
           turns: peekTurns,
           live: own.state === "running",

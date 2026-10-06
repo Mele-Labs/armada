@@ -17,6 +17,7 @@ import {
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
   type WorkflowStepCardProps,
+  type WorkflowStepNeed,
   type StepActivity,
 } from "@armada/components";
 
@@ -24,6 +25,8 @@ import type { GroupState, GroupView } from "./draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
 import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
+import type { HeldCommand } from "./drone-held";
+import { askNodeId, withAsk } from "./held-card";
 
 /**
  * The layout, in the canvas's own coordinates.
@@ -39,6 +42,11 @@ import type { TaskState, TaskView } from "./draft/task";
 const TASK_ACROSS = 316;
 const TASK_APART = 104;
 const AFTER_GROUP = 24;
+/** The row a need adds under a card's name, as `workflow-canvas.ts`'s `ROW`. */
+const NEED_ROW = 28;
+
+/** What a Drone held on a command shows on its task, and on the group holding it. */
+const HELD_NEED: WorkflowStepNeed = { says: "Needs you", tone: "waiting" };
 /**
  * What a task carrying the awaiting line adds to its pitch. The line wraps
  * rather than clips ("Submitted · awaiting checks" is the fact), so the node
@@ -87,7 +95,11 @@ export const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
 };
 
 /** One group's card. Its registry row's glyph, hue and verb — what the list says. */
-function groupCard(group: GroupView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+function groupCard(
+  group: GroupView,
+  onOpen: (() => void) | undefined,
+  held = false,
+): WorkflowStepCardProps {
   const row = GROUP_STATE[group.state];
   const facts: { value: string; hint?: string }[] = [{ value: plural(group.tasks.length, "task") }];
   if (group.checks_selected.length > 0) facts.push({ value: plural(group.checks_selected.length, "check") });
@@ -100,6 +112,7 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
     ...(row?.icon && row.statusToken ? { mark: { icon: row.icon, token: row.statusToken } } : {}),
     said: row?.verb ?? group.state,
     facts,
+    ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
   };
 }
@@ -113,7 +126,11 @@ function groupCard(group: GroupView, onOpen: (() => void) | undefined): Workflow
  * what there is to say before, and what it has taken is what there is to say
  * after.
  */
-export function taskCard(task: TaskView, onOpen: (() => void) | undefined): WorkflowStepCardProps {
+export function taskCard(
+  task: TaskView,
+  onOpen: (() => void) | undefined,
+  held = false,
+): WorkflowStepCardProps {
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
@@ -130,6 +147,7 @@ export function taskCard(task: TaskView, onOpen: (() => void) | undefined): Work
       : {}),
     said: awaiting ?? row?.verb ?? task.state,
     facts,
+    ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
   };
 }
@@ -153,6 +171,8 @@ export type PlanGraphReading = {
   onOpenGroup?: (groupId: string) => void;
   /** The group a person has open, drawn selected the way an open task is. */
   openGroup?: string | null;
+  /** The command a Drone is held on. Its task's card and its group's say so, and a card beside the task asks. */
+  held?: HeldCommand;
 };
 
 export type PlanGraph = {
@@ -173,14 +193,23 @@ export type PlanGraph = {
  * it; on this tab there is no step to hang from, so the plan is as many small
  * trees as it has groups.
  */
-export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGroup }: PlanGraphReading): PlanGraph {
+export function planGraphOf({
+  groups,
+  onOpenTask,
+  openTask,
+  onOpenGroup,
+  openGroup,
+  held,
+}: PlanGraphReading): PlanGraph {
   const nodes: WorkflowCanvasNode[] = [];
   const edges: WorkflowCanvasEdge[] = [];
 
   let down = 0;
   for (const group of groups) {
     const groupId = groupNodeId(group.id);
-    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id));
+    const heldTask = held?.taskId;
+    const holds = heldTask !== undefined && group.tasks.some((task) => task.id === heldTask);
+    const card = groupCard(group, onOpenGroup === undefined ? undefined : () => onOpenGroup(group.id), holds);
     nodes.push({
       id: groupId,
       position: { x: 0, y: down },
@@ -190,13 +219,15 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
     let under = down;
     group.tasks.forEach((task) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);
-      const card = taskCard(task, open);
+      const isHeld = task.id === heldTask;
+      const card = taskCard(task, open, isHeld);
       nodes.push({
         id: taskNodeId(task.id),
         position: { x: TASK_ACROSS, y: under },
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
-      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA);
+      // The held task's card draws a row more, so what is under it moves down.
+      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA) + (isHeld ? NEED_ROW : 0);
       edges.push({
         id: `${groupId}>${taskNodeId(task.id)}`,
         source: groupId,
@@ -207,5 +238,15 @@ export function planGraphOf({ groups, onOpenTask, openTask, onOpenGroup, openGro
     down = Math.max(down + GROUP_APART, under + AFTER_GROUP);
   }
 
-  return { nodes, edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };
+  const asked = withAsk(nodes, edges, held?.taskId === undefined ? undefined : taskNodeId(held.taskId), held);
+  const around = held?.taskId === undefined || asked.nodes.length === nodes.length ? undefined : taskNodeId(held.taskId);
+  const groupIds = groups.map((group) => groupNodeId(group.id));
+  // A held task's card and the one beside it are what a fit that cannot show the
+  // whole plan opens on, so the prompt is never cut off by the frame.
+  return {
+    nodes: asked.nodes,
+    edges: asked.edges,
+    opensOn:
+      around === undefined ? [groupIds] : [[...groupIds, askNodeId(around)], [around, askNodeId(around)]],
+  };
 }

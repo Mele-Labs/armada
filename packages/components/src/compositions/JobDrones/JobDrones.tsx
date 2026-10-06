@@ -58,6 +58,8 @@ export type JobDronesRow = {
    * not at work. **Its mark holds still**: what pulses is what is working.
    */
   resting?: boolean;
+  /** Held inside a call, waiting on a person: the waiting mark, holding still. */
+  needsYou?: boolean;
   /** The model it ran on. Absent draws nothing: a Drone Fleet kept none for. */
   model?: ReactNode;
   /** Turns, and cost once it stopped. Absent draws nothing. */
@@ -80,6 +82,8 @@ export type JobDroneReading = {
   live: boolean;
   /** What the transcript says with no rows. Absent draws nothing. */
   emptyNote?: string;
+  /** What it is held on, answered here. Drawn over the transcript. */
+  asking?: ReactNode;
   /** The redirect box, where this Drone can be reached. */
   footer?: ReactNode;
   /** In the head beside Close: the kill, where this Drone can be ended. */
@@ -190,10 +194,10 @@ export function JobDrones({
                     </TableCell>
                     <TableCell className="armada-drones__state">
                       <StepActivityMark
-                        activity={DRONE_ACTIVITY[row.state]}
+                        activity={row.needsYou === true ? "awaiting_human" : DRONE_ACTIVITY[row.state]}
                         label={row.stateSays}
                         says={row.stateSays}
-                        pulsing={row.state === "running" && row.resting !== true}
+                        pulsing={row.state === "running" && row.resting !== true && row.needsYou !== true}
                       />
                     </TableCell>
                     <TableCell variant="metadata" className="armada-drones__model">
@@ -231,6 +235,7 @@ export function JobDrones({
           : { footer: <div className="armada-drones__foot">{reading.footer}</div> })}
         onClose={() => onOpenRow?.(null)}
       >
+        {reading?.asking === undefined ? null : <div className="armada-drones__asking">{reading.asking}</div>}
         {reading === undefined ? null : (
           <DroneTurns
             key={reading.title}
