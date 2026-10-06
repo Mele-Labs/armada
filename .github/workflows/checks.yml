@@ -335,6 +335,11 @@ jobs:
         with:
           fetch-depth: 2
 
+      # A bare path in a doc means v1-final, and the path rule reads that tag's
+      # tree. Without it every v1 citation reads as a path that does not exist.
+      - name: The v1-final tag
+        run: git fetch --depth=1 origin tag v1-final
+
       - name: Self-test of the reading
         run: |
           echo "OUT=$RUNNER_TEMP/foundations" >> "$GITHUB_ENV"
@@ -355,7 +360,7 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/foundations/base
-          key: foundations-main-v1-${{ steps.base.outputs.sha }}
+          key: foundations-main-v2-${{ steps.base.outputs.sha }}
 
       # The merge line regenerated and committed these. CI cannot commit onto
       # a pull request, so a change here is the author's to push.
@@ -400,7 +405,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/foundations/base
-          key: foundations-main-v1-${{ steps.base.outputs.sha }}
+          key: foundations-main-v2-${{ steps.base.outputs.sha }}
 
       - name: The candidate's run
         id: run
@@ -420,7 +425,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/foundations/run
-          key: foundations-main-v1-${{ github.sha }}
+          key: foundations-main-v2-${{ github.sha }}
 
       - name: Read against main
         run: |
