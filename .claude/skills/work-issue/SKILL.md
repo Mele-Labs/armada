@@ -220,6 +220,12 @@ scripts/land             # joins the line and returns at once
 scripts/land --status    # poll in short foreground calls
 ```
 
+**Exit 3 is still going; exit 10 is still going and already failing.** A Check
+of your branch failed that `main` is green for, and the turn is running its
+other Checks. The status names the Check and its log. Read the log and start the
+fix now; do not push the branch, since a push is dropped as stale. The turn
+still ends red, and that is the verdict.
+
 **A red turn comes back to you.** Read the logs it names, fix on the branch,
 then preflight and land again.
 
