@@ -33,7 +33,7 @@ use checks_runner::{
 use config::Manifest;
 use verification::{Exit, NeverRan};
 
-use crate::setup::MANIFEST;
+use crate::manifests::Manifests;
 
 /// Which registry a name was looked up in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,10 +90,22 @@ pub async fn execute(
         Asked::OneTest(test) => Some(test),
         _ => None,
     };
-    let manifest = Manifest::load(&root.join(MANIFEST)).map_err(|why| NotDeclared::NoManifest {
-        path: root.join(MANIFEST),
-        why: Box::new(why),
-    })?;
+    // **A key names its manifest**: `<dir>:<name>` runs in that workspace's
+    // directory, and a bare name is the root's. `key` is kept for what is said.
+    let manifests = Manifests::load(root)?;
+    let key = name;
+    let (manifest, name) = manifests.named(key);
+    let run_in = root.join(manifest.dir());
+    let root = run_in.as_path();
+    // A workspace's Check reads the paths its manifest owns, relative to it.
+    let owned;
+    let asked = match asked {
+        Asked::Changed(changed) => {
+            owned = manifests.owned(manifest, changed);
+            Asked::Changed(&owned)
+        }
+        other => other,
+    };
 
     let (command, destructive) = match registry {
         Registry::Checks => (
@@ -106,7 +118,7 @@ pub async fn execute(
         },
     };
     let Some(command) = command else {
-        return Err(unknown(&manifest, registry, name));
+        return Err(unknown(manifest, registry, name));
     };
     let command = match (test, manifest.check(name)) {
         (None, _) => command,
@@ -121,7 +133,7 @@ pub async fn execute(
     };
     let (command, narrowed) = match (asked, manifest.check(name)) {
         (Asked::Changed(changed), Some(check)) => match crate::reaching::reached(check, changed) {
-            (_, Reached::Nothing) => return Ok(crate::reaching::ran_nothing(name)),
+            (_, Reached::Nothing) => return Ok(crate::reaching::ran_nothing(key)),
             (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
         },
         _ => (command, None),
@@ -186,7 +198,7 @@ pub async fn execute(
 
     if let Some(blocked) = first_unmet(requires, root, budget, width, env, priority).await {
         return Ok(Ran {
-            name: name.to_string(),
+            name: key.to_string(),
             command,
             test: test.map(str::to_string),
             destructive,
@@ -198,7 +210,7 @@ pub async fn execute(
 
     let attempt = run_at(&command, root, budget, env, priority).await;
     Ok(Ran {
-        name: name.to_string(),
+        name: key.to_string(),
         command,
         test: test.map(str::to_string),
         destructive,
@@ -243,26 +255,14 @@ pub fn machine_slots_for_fleet() -> Option<CheckSlots> {
 }
 
 /// Every Check the Manifest in `root` would run on a change to `changed`, in
-/// the order `armada.yml` writes them.
+/// the order `armada.yml` writes them, as keys: bare at the root, `<dir>:<name>`
+/// in a workspace. [`Manifests::covering`] says which manifests are asked.
 ///
 /// **One answer with a Job's gate**: each Check is asked through the same
 /// [`config::Check::covers`], so `scripts/land` choosing what to rerun and
 /// Fleet choosing what to skip cannot come apart. `docs/capabilities/merge-line.md`.
 pub fn covering(root: &Path, changed: &[String]) -> Result<Vec<String>, NotDeclared> {
-    let manifest = Manifest::load(&root.join(MANIFEST)).map_err(|why| NotDeclared::NoManifest {
-        path: root.join(MANIFEST),
-        why: Box::new(why),
-    })?;
-    Ok(manifest
-        .checks_as_written()
-        .iter()
-        .filter(|name| {
-            manifest
-                .check(name)
-                .is_some_and(|check| check.covers(changed))
-        })
-        .cloned()
-        .collect())
+    Ok(Manifests::load(root)?.covering(changed))
 }
 
 /// Run a Check's prerequisites in order and answer with the first that failed.
