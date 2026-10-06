@@ -134,7 +134,7 @@ test("the split rows are still listed, in the order they had", () => {
   expect(at).not.toContain(-1);
   expect(at).toEqual([...at].sort((a, b) => a - b));
   // The ones that followed them, and the one before, kept their places around the block.
-  expect(names.slice(-3)).toEqual(["retro/lessons", "retro/job-3", "cleanup/slots"]);
+  expect(names.slice(-4)).toEqual(["retro/lessons", "retro/job-3", "cleanup/slots", "cleanup/grid"]);
   expect(names[names.indexOf("real/job-2-landed") - 1]).toBe("recorded/landed-and-merged");
 });
 

@@ -29,3 +29,14 @@ He asked for *"somewhere in Bridge where I can see the worktrees that are set up
 - `door-closed-locked`, `folder-plus`, and the `door-open` and `trash-2` uses for Reopen and Remove are Specified, accepted on the walk `reshapingTheSlotPool`. `--slot-closed` aliases rejected's violet.
 
 **Where it landed:** `fleet/slot-pool-controls`.
+
+## Cleanup as one grid, and a panel per tile
+
+**Decided 5 Oct 2026.** He found Cleanup confusing: *"The section below the bays is very wordy but maybe I should have been looking there. Why are they two separate sections. I should be able to clean up by clicking on a bay to open a panel and manage that bay."*
+
+- **The lower list is gone**, folded into the grid. It predates the pool: each Job's worktree is a slot, so the same worktree showed twice with different acts. A Job's worktree outside the pool is a tile after the bays and opens the same panel.
+- **The bulk "Clean up what you choose" press is gone** for a per-tile Clear. The safety stays: its confirm names the files it destroys and how long they have sat, and the branch it keeps. Delete branch and Forget Job confirm too.
+- **One trailing panel for every tile**, holding what the worktree holds and the acts that fit it. The bay's own icon acts and the separate Finding sheet moved into it, so a tile says only its state.
+- **Pause and Resume are not here.** Another branch adds them; the acts row has room.
+
+**Where it landed:** `bridge/cleanup-one-grid`.

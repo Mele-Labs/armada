@@ -357,7 +357,7 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Release | Refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Refused on a checkout on no branch, on the base, on a branch the lease does not name, and while a take or release is under way. It answers with the commit and the paths it took |
 | Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist and for one another checkout already has, naming where. `armada worktree lease --existing <branch>` |
-| Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one row per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
+| Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, and also refuses commits on neither the remote nor the base, since it then deletes the branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
 | Remove | The slot named, and only a free or unmade one, never the last. A made one's checkout goes by `git worktree remove`, which refuses one holding anything uncommitted; held, stranded and busy slots are refused by name. The other slots keep their numbers |
@@ -387,7 +387,27 @@ remove, close and open write `.armada/slots/pool` beside the slots' own
 records, which is never committed; `armada worktree lease` and Fleet both read
 it. Once a slot is added or removed, that list stands in for `setup.worktrees`,
 which stays the size a fresh machine starts at. Bridge's Cleanup offers each act
-on the slot's bay, and `change_slot_pool` is the act on the wire.
+in the panel of the slot's tile, and `change_slot_pool` is the act on the wire.
+
+### Cleaning up from the grid
+
+**Cleanup is one grid of tiles, and a press on a tile opens the panel that manages
+that worktree.** A bay is a tile; so is each Job's worktree that stands outside the
+pool, drawn after the bays. A Job that holds a slot is one tile, joined by job id,
+so its panel carries the slot's acts and the worktree's together. There is no list
+below the grid and no act on more than one tile: `armada clean --everything` is the
+one bulk act, and nothing on a screen reaches for it.
+
+| In the panel | Offered |
+|---|---|
+| What it holds | One row per reason Fleet holds the worktree, in git's words: uncommitted changes and how long ago the Job last moved, unmerged commits with what they are not on and their tip, a locked worktree, Jobs that need it, an unknown base branch, a failed `git status`. A Job that has not finished shows its status badge under the Job's name. A worktree holding nothing shows no row |
+| Clear | The reclaim, where the worktree is on disk and the Job has ended. **On a bay it releases the slot**: HEAD is detached and the directory stays, and the pool refuses while anything is uncommitted. **Outside the pool it runs `git worktree remove`**, uncommitted files with it. Either way the branch is deleted only where the base has all its commits, and kept otherwise. The confirm lists those effects. A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
+| Delete branch | Only once the worktree is gone, because Fleet refuses it with a 409 while the directory stands. The confirm names the branch, its tip and the commits not on the base, which stay reachable only from that tip, and the tip is what is sent |
+| Forget Job | Only once the worktree and the branch are gone, and with a confirm: the record has no undo, and the worktree and branch are not touched |
+| Close, Reopen, Remove, Rescue | A bay's own, as above. Its Finding, and Scrap, Stash and Pick up, are in the same panel |
+
+**What an act did, and what Fleet refused, is said in the panel and never on the tile.**
+A tile says its state and its figures, each named on hover.
 
 ### Rescuing a stranded slot
 

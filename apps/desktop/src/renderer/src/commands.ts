@@ -31,6 +31,7 @@ import type { ChangeSlotPool, LandCheckAt, RescueSlot, SketchToKeep } from "@arm
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
+import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
@@ -126,13 +127,20 @@ export const changeSlotPool = (manifestId: string, change: ChangeSlotPool) =>
   window.armada.changeSlotPool(manifestId, change);
 export const rescueSlot = (manifestId: string, rescue: RescueSlot) =>
   window.armada.rescueSlot(manifestId, rescue);
-/** A worktree slot's pool reshaped or rescued, as Cleanup's bays act on them. */
+export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
+export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
+/**
+ * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, and a
+ * worktree given back. Each receipt is answered to the press that asked for it,
+ * because a published notice would outlive the screen it was made on.
+ */
 export const slotActs = {
   onChangeSlotPool: changeSlotPool,
   onRescueSlot: rescueSlot,
+  onReclaim: reclaimOne,
+  onDeleteBranch: deleteBranchOne,
+  onForget: forgetOne,
 };
-export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
-export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
 export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
 /** Pulse's own 10 s tick, held open for as long as the board is drawn. #1571. */
@@ -232,6 +240,11 @@ export const removeRepositoryAllowedCommand = (run: string) =>
 /** Kit's MCP servers, and the two tiers of reach over each — #1275. */
 export const readKitInventory = () => window.armada.readKitInventory();
 export const listKitServers = () => window.armada.listKitServers();
+/** The Workflow creator: the list, one definition, and a save. */
+export const readWorkflows = () => window.armada.readWorkflows();
+export const readWorkflowDefinition = (workflowId: string, source: string) =>
+  window.armada.readWorkflowDefinition(workflowId, source);
+export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>

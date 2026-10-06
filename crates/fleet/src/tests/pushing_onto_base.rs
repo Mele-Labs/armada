@@ -32,7 +32,7 @@ const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nmerge_by: push\n\
 pub(super) fn workflow(manifest: &Manifest) -> ResolvedWorkflow {
     let def = WorkflowDef::parse(
         Path::new("fixture.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
          steps:\n  - id: implement\n    label: \"Implement\"\n    \
          evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      \
          - type: every_manifest_check\n      - type: diff_nonempty\n    \

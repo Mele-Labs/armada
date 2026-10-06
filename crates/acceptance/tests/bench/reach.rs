@@ -171,7 +171,7 @@ pub const OWN_AT: &str = "/repos/storefront/.armada/workflows";
 /// workflow without caring what it did.
 pub fn one_step(id: &str) -> String {
     format!(
-        "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+        "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
          label: Only\n    delivers: true\n    advance_gate: auto\n"
     )
 }
@@ -208,10 +208,7 @@ pub fn catalogued(kit: &[(&str, String)], own: &[(&str, String)]) -> ResolvedCat
             own.iter()
                 .map(|(file, text)| Written::in_repository(at(OWN_AT, file), text.clone())),
         );
-    Catalogue::of(written, &Roster::of(named))
-        .unwrap_or_else(|why| panic!("the three places merge: {why:?}"))
-        .resolve(&self::written())
-        .unwrap_or_else(|why| panic!("nothing the storefront wrote is refused: {why}"))
+    Catalogue::of(written, &Roster::of(named)).resolve(&self::written())
 }
 
 /// The `armada.yml` a finished Setup would write for that repository.
@@ -340,7 +337,6 @@ pub const CARRYABLE: &str = r#"{
   "version": 1,
   "workflow_id": "bug",
   "name": "bug",
-  "structure": "linear",
   "steps": [
     {
       "id": "plan",
@@ -395,7 +391,6 @@ pub const NAMING_ARMADAS_CHECKS: &str = r#"{
   "version": 1,
   "workflow_id": "bug",
   "name": "bug",
-  "structure": "linear",
   "steps": [
     {
       "id": "implement",

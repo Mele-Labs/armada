@@ -15,9 +15,8 @@
 //! the document and returns them together. A parser that stops at the first
 //! makes fixing an `armada.yml` a sequence of round trips, and — the reason
 //! that actually decides it — would hide the finding this milestone step exists
-//! to surface: four checked-in workflow samples declare `structure: "linear"`
-//! and carry `verdict_routing`, and every one of them also carries keys M1 does
-//! not read. Under a bail-on-first parser the contradiction is never reached.
+//! to surface: a checked-in sample that is wrong in one key and also carries keys
+//! M1 does not read. Under a bail-on-first parser the first fault hides the rest.
 //!
 //! Same shape as `store`'s [`LoadAllError::SomeJobsUnreadable`], for the same
 //! reason: the caller decides what a partial answer is worth.
@@ -149,20 +148,6 @@ pub enum Fault {
     /// Two steps in one workflow carry one `id`. Reported on the second, and
     /// names where the first was, because the fix is to look at both.
     DuplicateStepId { first_at: usize },
-    /// **The declared structure and the wiring disagree**, in either direction:
-    /// `verdict_routing` on a `linear` workflow, or a `loop` no step declares an
-    /// edge for. The `structure` field is redundant with `verdict_routing` by
-    /// construction and that redundancy is its whole value: declared intent,
-    /// checked against what was wired. Without the first half, a routing edge
-    /// added to a workflow the author believes is linear is legal config that
-    /// surfaces as a Job which never terminates; without the second, `loop` is
-    /// a label a file can wear while running as a straight line.
-    ///
-    /// The two halves are one variant because they are one rule, and they are
-    /// reported at different keys: the linear half names the offending step,
-    /// and the loop half names `structure`, because the absence it found is the
-    /// whole file's.
-    ContradictsStructure { structure: &'static str },
     /// **`iteration_cap` on a step that declares no `verdict_routing`.** A cap
     /// bounds a count, and the count is `iteration_count` on the step that
     /// emits the verdict — so a cap on a step with no edge is a number nothing
@@ -221,6 +206,10 @@ pub enum Fault {
     /// value produces the same argument however many paths changed — a narrowed
     /// run that is narrowed to nothing and says so nowhere.
     NothingToSubstitute,
+    /// **A key only the root `armada.yml` may carry, written in a workspace's.**
+    /// `setup.worktrees` is read from the root at every lease, so a value
+    /// beside a workspace's reads as set and is read by nothing.
+    RootOnly,
     /// **An `artifact_exists` target that cannot name one file.** Refused where
     /// the definition is parsed rather than discovered at the gate, because
     /// every one of these fails at the gate whatever the Drone wrote: v1
@@ -475,15 +464,6 @@ impl fmt::Display for Fault {
                 "is a second step that sends the work out, and steps[{first_at}] \
                  already does. A workflow delivers once"
             ),
-            Fault::ContradictsStructure { structure: "loop" } => write!(
-                f,
-                "is `loop`, and no step declares a `verdict_routing` edge for \
-                 the loop to return by"
-            ),
-            Fault::ContradictsStructure { structure } => write!(
-                f,
-                "declares a routing edge, and the workflow declares `structure: {structure}`"
-            ),
             Fault::NotAReturn { value, why } => write!(
                 f,
                 "is `{value}`, which is not a step this one returns to: {why}"
@@ -526,6 +506,10 @@ impl fmt::Display for Fault {
                 "holds no `{}`, so there is nowhere for a changed path to go. \
                  Write the argument with `{}` where the value belongs, as in \
                  `-p {}`",
+            ),
+            Fault::RootOnly => f.write_str(
+                "is read from the root `armada.yml` only, and a workspace's \
+                 own value would be read by nothing",
             ),
             Fault::TwoDeliverables { first } => write!(
                 f,

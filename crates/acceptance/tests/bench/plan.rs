@@ -48,7 +48,6 @@ pub fn bug_workflow_with_a_plan() -> FrozenWorkflow {
 version: 1
 workflow_id: bug-with-a-plan
 name: bug
-structure: linear
 steps:
   - id: plan
     label: "Plan the change"
@@ -109,7 +108,6 @@ pub fn bug_workflow_with_a_plan_beside_a_product() -> FrozenWorkflow {
 version: 1
 workflow_id: bug-with-a-plan-beside-a-product
 name: bug
-structure: linear
 steps:
   - id: read
     label: "Read the code"
@@ -160,7 +158,6 @@ pub fn revert_shaped_workflow() -> FrozenWorkflow {
 version: 1
 workflow_id: revert-shaped
 name: revert-shaped
-structure: linear
 steps:
   - id: revert_shaped
     label: "Undo the change"

@@ -249,7 +249,7 @@ The declared edge is a *second* edge, not the only one. `running -> escalated` i
 [triggers.loop_cap]
 kind = "Trigger"
 level = "Step"
-meaning = "A loop workflow's step hit its iteration_cap."
+meaning = "A step that routes back hit its iteration_cap."
 in_code = "Partly"
 open_questions = ["Is there an aggregate attempt bound on a looping step, given retry_count resets each iteration?"]
 notes = """

@@ -15,7 +15,7 @@ use crate::workflow::WorkflowDef;
 fn parsed(steps: &str) -> Result<WorkflowDef, crate::error::LoadError> {
     WorkflowDef::parse(
         &named("scope.yml"),
-        &format!("version: 1\nworkflow_id: scoped\nname: scoped\nstructure: linear\nsteps:{steps}"),
+        &format!("version: 1\nworkflow_id: scoped\nname: scoped\nsteps:{steps}"),
         &roster(),
     )
 }

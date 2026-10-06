@@ -15,7 +15,7 @@
 
 use config::{Fault, LoadError, ResolvedCheck, Roster, WorkflowDef, WorkflowSource};
 
-use crate::setup::{Setup, SetupRefused, MANIFEST, WORKFLOWS};
+use crate::setup::{Setup, MANIFEST, WORKFLOWS};
 use crate::tests::{repository, TempDir};
 
 /// What this machine can run a Drone as, resolved the way `serve` resolves it.
@@ -40,7 +40,7 @@ pub(super) fn a_repository() -> TempDir {
 /// against a Manifest that declares no Checks.
 pub(super) fn a_workflow(id: &str) -> String {
     format!(
-        "version: 1\nworkflow_id: {id}\nname: {id}\nstructure: linear\nsteps:\n  - id: only\n    \
+        "version: 1\nworkflow_id: {id}\nname: {id}\nsteps:\n  - id: only\n    \
          label: \"Only step\"\n    delivers: true\n    advance_gate: auto\n"
     )
 }
@@ -258,7 +258,7 @@ fn a_drones_run_here_skips_storybook_and_the_story_tests_and_the_gate_does_not()
 fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    let text = "version: 1\nworkflow_id: sweeping\nname: sweeping\nstructure: linear\nsteps:\n  \
+    let text = "version: 1\nworkflow_id: sweeping\nname: sweeping\nsteps:\n  \
                 - id: implement\n    label: Implement\n    evidence: {submitted: {type: diff}}\n    \
                 delivers: false\n    advance_gate: auto\n    mechanical_checks:\n      \
                 - { type: every_manifest_check }\n      - { type: diff_nonempty }\n";
@@ -331,13 +331,8 @@ fn the_test_check_excludes_acceptance_and_a_separate_check_runs_it() {
 ///
 /// `crates/core-model/domain/workflow-samples/bug.json` is the authority on
 /// what Bug becomes: seven steps, a Judge on every gate, and a `review` step
-/// that routes `request_changes` back to `fix`. It declares `structure: "loop"`
-/// and says so correctly.
-///
-/// **The structure is no longer what refuses it.** Until #263 that was this
-/// test's subject — `loop` was `NotYetCarried`, one of two values the milestone had
-/// not built — and both are carried now, so the claim is asked of the next
-/// deferral instead: `test_run` is a check type the schema sanctions and M1 has
+/// that routes `request_changes` back to `fix`. What refuses it is the
+/// next deferral: `test_run` is a check type the schema sanctions and M1 has
 /// no per-step test invocation for.
 ///
 /// That distinction is why the two `bug.json` files in this repository are not
@@ -354,10 +349,6 @@ fn the_designed_bug_workflow_is_refused_for_a_reason_a_later_milestone_removes()
     let LoadError::Refused { refusals, .. } = &refused else {
         panic!("a document that parsed and was refused, not {refused}");
     };
-    assert!(
-        !refusals.iter().any(|refusal| refusal.key == "structure"),
-        "`loop` is carried, and the file declares it correctly: {refusals:?}"
-    );
     let deferred = refusals
         .iter()
         .find(|refusal| refusal.key == "steps[0].mechanical_checks[0].type")
@@ -437,7 +428,7 @@ fn a_repository_whose_workflow_names_no_check_starts_and_keeps_its_order() {
     );
     dir.write(
         ".armada/workflows/sweeping.yml",
-        "version: 1\nworkflow_id: sweeping\nname: sweeping\nstructure: linear\nsteps:\n  \
+        "version: 1\nworkflow_id: sweeping\nname: sweeping\nsteps:\n  \
          - id: only\n    label: \"Only step\"\n    evidence: {submitted: {type: diff}}\n    delivers: true\n    \
          advance_gate: auto\n    mechanical_checks:\n      - { type: every_manifest_check }\n",
     );
@@ -465,19 +456,22 @@ fn a_repository_whose_workflow_names_no_check_starts_and_keeps_its_order() {
     );
 }
 
-/// Two files naming the same `workflow_id` is refused, and the refusal names
-/// both paths — a person reading it must not have to search the directory to
-/// find the second.
+/// **Two files naming the same `workflow_id` in one place are both left out,
+/// and named together**, and the repository still starts: a duplicate is not
+/// grounds for refusing it, and nothing picks between the two.
 #[test]
-fn a_duplicate_workflow_id_across_two_files_is_refused_naming_both() {
+fn a_duplicate_workflow_id_across_two_files_leaves_both_out_and_the_repository_starts() {
     let dir = a_repository();
     dir.write(".armada/workflows/first.yml", &a_workflow("shared"));
     dir.write(".armada/workflows/second.yml", &a_workflow("shared"));
 
-    let refused = Setup::at(dir.path(), TempDir::new().path(), &roster())
-        .expect_err("two files agree on one id");
-    assert!(matches!(refused, SetupRefused::DuplicateWorkflowId { .. }));
-    let said = refused.to_string();
+    let setup = Setup::at(dir.path(), TempDir::new().path(), &roster())
+        .expect("a duplicate does not refuse the repository");
+    assert!(!setup.workflows().keys().any(|id| id.as_str() == "shared"));
+    let said: Vec<String> = setup.left_out().iter().map(ToString::to_string).collect();
+    let [said] = said.as_slice() else {
+        panic!("one sentence for the pair: {said:?}");
+    };
     assert!(said.contains("first.yml"), "{said}");
     assert!(said.contains("second.yml"), "{said}");
     assert!(said.contains("shared"), "{said}");

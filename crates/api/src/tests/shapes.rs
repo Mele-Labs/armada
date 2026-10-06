@@ -705,6 +705,11 @@ pub fn workflows() -> Vec<WorkflowSummary> {
         version: 1,
         source: "armada".to_string(),
         for_requests: Some("A change somebody asked for by name".to_string()),
+        file: "<carried by Armada>/a-workflow.json".to_string(),
+        overrides: vec![ipc::OverriddenWorkflow {
+            source: "kit".to_string(),
+            file: "/kit/workflows/a-workflow.json".to_string(),
+        }],
         steps: vec![
             // Gated, and ungated. The pair is the distinction [`detail`]'s rail
             // turns on, so the fake carries both rather than one — and the
@@ -907,6 +912,7 @@ pub fn health() -> FleetHealth {
             because: "it owns talking to anything outside Armada".to_string(),
         }],
         helm_action_authority: HelmActionAuthority::Acting,
+        workflows_left_out: true,
     }
 }
 

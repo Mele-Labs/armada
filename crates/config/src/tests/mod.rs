@@ -17,6 +17,7 @@ mod catalogue;
 mod fences;
 mod freezing;
 mod from_nothing;
+mod gating;
 mod harness;
 mod live;
 mod loops;
