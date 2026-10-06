@@ -40,7 +40,8 @@ checks:
     # Pure modules in node, and screens in a browser project, because a screen
     # cannot be storied: `xtask/src/rules_layers.rs` refuses the import.
     run: pnpm exec vitest run --maxWorkers=${width}
-    # No `dir`: see `components_test` in `packages/components/armada.yml`.
+    # No `dir`: a Check here runs in this directory, and a Drone's narrowed run
+    # puts `.` in the runner's `{dir}` and the paths relative to it in `{files}`.
     runner:
       name: vitest
     # `vitest -t`, as `desktop_test`'s `one_test`. #1203.

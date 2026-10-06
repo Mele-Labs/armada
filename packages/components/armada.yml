@@ -60,6 +60,7 @@ checks:
     run: pnpm exec vitest run --maxWorkers=${width}
     # No `dir`: the root wrote `packages/components` there, and a template
     # that names it would run `pnpm --dir packages/components` from inside it.
+    # A Drone's narrowed run reads the omission as this directory, `.`.
     runner:
       name: vitest
     runs_at: gate
