@@ -419,6 +419,14 @@ vocabulary = "Group state"
 in_code = ""
 notes = "The group's work reached the branch. `check` and the success hue, shared with `passed` — see that row."
 
+[verbs.queued_reason.paused]
+verb = "paused"
+icon = ""
+status_token = "--status-not-started"
+vocabulary = "Queued reason"
+in_code = ""
+notes = "A person paused the Job, which killed its Drone and gave its worktree slot back; the work is parked on its branch and nothing starts it until they resume. It reads before every other reason, `frozen` included, because the marker is the Job's own and lifting a freeze would not start it. Derived from the stored pause marker. A Job paused at a gate keeps that gate's status and never reads this: it is `awaiting_review` and a paused chip. No glyph yet: `pause` is Freeze dispatch's, and which one this takes is Bridge's slice."
+
 [verbs.queued_reason.frozen]
 verb = "frozen"
 icon = "pause"

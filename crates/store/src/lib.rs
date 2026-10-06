@@ -85,6 +85,8 @@ mod model_per_task;
 mod note;
 mod numbering;
 mod open;
+/// The marker on a paused Job, and the slot it gave up. Since V109.
+mod pausing;
 /// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
 mod pending_evidence;
 /// What a step said its work would be, kept after the slot that held it is
