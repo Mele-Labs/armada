@@ -7,6 +7,8 @@ import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, studying } from "@armada/desktop/mock";
 
+const SLICES = { slices: ["core", "studios"] } as const;
+
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
 
 afterEach(() => {
@@ -31,7 +33,7 @@ async function openEditable(): Promise<void> {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(fleet.scenario, host), host };
+  mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: "The Board's legend", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();

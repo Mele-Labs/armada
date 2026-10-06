@@ -192,10 +192,10 @@ What it settled for the next surface:
 - **`depends_on` is what the tests read, not the renderer whole**: `bridge-api`,
   screens, shell, components, tokens, brand, protocol, the App files and
   renderer folders, `mock/{fake,fake-context,harness,moment,mount,scenario,slices,testing}`,
-  `mock/<x>-fake.ts`, `mock/slices/**` and `shared/**`; never another surface's
+  `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Overview does.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings and Helm do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's

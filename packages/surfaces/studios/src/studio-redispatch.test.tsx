@@ -14,6 +14,8 @@ import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 
 import { studying, mount, unmountAfterEach, type Scenario } from "@armada/desktop/mock";
 
+const SLICES = { slices: ["core", "studios"] } as const;
+
 unmountAfterEach();
 
 const AT = "2026-09-18T09:00:00Z";
@@ -64,7 +66,7 @@ async function openTheStudio(): Promise<void> {
 }
 
 test("both jobs are on the Studio, the one that stopped and the one the work carried on as", async () => {
-  mount(aRedispatch());
+  mount(aRedispatch(), SLICES);
   await openTheStudio();
   // Nothing is deleted: the job that was killed keeps reading what it did.
   await expect.element(page.getByRole("group", { name: `Job: ${STOPPED.title}, killed` })).toBeVisible();
@@ -74,7 +76,7 @@ test("both jobs are on the Studio, the one that stopped and the one the work car
 });
 
 test("the edge from the one that stopped to the one that took over is produced, not blocks", async () => {
-  mount(aRedispatch());
+  mount(aRedispatch(), SLICES);
   await openTheStudio();
   // One job made the next and neither waits on the other, so the relation is the Studio's own —
   // which is why it carries no label, and why no act on it is offered.

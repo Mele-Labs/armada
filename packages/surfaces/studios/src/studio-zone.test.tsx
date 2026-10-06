@@ -6,6 +6,8 @@ import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, zoning, zoneProposing } from "@armada/desktop/mock";
+
+const SLICES = { slices: ["core", "studios"] } as const;
 import { READ_IN_NAME, ZONE_PROPOSAL_NAME } from "./fake";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
@@ -44,7 +46,7 @@ async function openEditable() {
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(fleet.scenario, host), host };
+  mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: READ_IN_NAME, exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
@@ -150,7 +152,7 @@ test("a proposal whose line runs across a Note moves its dot along the line, off
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(zoneProposing().scenario, host), host };
+  mounted = { app: mountApp(zoneProposing().scenario, host, undefined, SLICES), host };
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: ZONE_PROPOSAL_NAME, exact: true }).click();
 
