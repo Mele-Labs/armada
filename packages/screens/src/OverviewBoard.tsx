@@ -34,7 +34,7 @@ import type { ReactNode } from "react";
 import type { DetailTab } from "./detail-tabs";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "./studio";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /** The run, as the Workflow destination's own canvas draws it. */
 export type OverviewWorkflow = {

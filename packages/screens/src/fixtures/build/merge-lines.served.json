@@ -3,7 +3,11 @@
     {
       "root": "/repo",
       "line": [
-        { "branch": "fleet/helm-kills-processes", "place": 1, "state": "waiting" },
+        {
+          "branch": "fleet/helm-kills-processes",
+          "place": 1,
+          "state": "waiting"
+        },
         {
           "branch": "docs/wire-lock-signed",
           "place": 2,
@@ -17,9 +21,30 @@
           "state": "gating",
           "batch": "docs/wire-lock-signed",
           "checks": [
-            { "name": "build", "state": "passed" },
-            { "name": "screens_test", "state": "running" },
-            { "name": "desktop_test", "state": "waiting" }
+            {
+              "name": "build",
+              "state": "passed",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "worktree-agent-a"
+              }
+            },
+            {
+              "name": "screens_test",
+              "state": "running",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "worktree-agent-a"
+              }
+            },
+            {
+              "name": "desktop_test",
+              "state": "waiting",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "worktree-agent-a"
+              }
+            }
           ]
         },
         {
@@ -38,7 +63,10 @@
         {
           "branch": "fleet/read-in-cluster-membership",
           "place": 6,
-          "pull_request": { "number": 1770, "url": "https://git.example/armada-dev/armada/pull/1770" },
+          "pull_request": {
+            "number": 1770,
+            "url": "https://git.example/armada-dev/armada/pull/1770"
+          },
           "state": "waiting"
         }
       ],
@@ -46,17 +74,46 @@
         {
           "branch": "bridge/overview-strip-width",
           "state": "conflict",
-          "conflicts": ["apps/desktop/src/renderer/src/App.tsx"]
+          "conflicts": [
+            "apps/desktop/src/renderer/src/App.tsx"
+          ]
         },
         {
           "branch": "fleet/pulse-log-rows",
-          "pull_request": { "number": 1768, "url": "https://git.example/armada-dev/armada/pull/1768" },
+          "pull_request": {
+            "number": 1768,
+            "url": "https://git.example/armada-dev/armada/pull/1768"
+          },
           "state": "red",
-          "failed": ["desktop_test", "screens_test"],
+          "failed": [
+            "desktop_test",
+            "screens_test"
+          ],
           "checks": [
-            { "name": "build", "state": "passed" },
-            { "name": "desktop_test", "state": "failed" },
-            { "name": "screens_test", "state": "timed_out" }
+            {
+              "name": "build",
+              "state": "passed",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            },
+            {
+              "name": "desktop_test",
+              "state": "failed",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            },
+            {
+              "name": "screens_test",
+              "state": "timed_out",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            }
           ]
         },
         {
@@ -81,23 +138,55 @@
           "state": "landed",
           "merge_commit": "29064cc27aaf70cbbb924eee1d2212693540c9ad"
         },
-        { "branch": "fleet/an-older-landing", "state": "landed" }
+        {
+          "branch": "fleet/an-older-landing",
+          "state": "landed"
+        }
       ],
       "sent_back": [
         {
           "branch": "bridge/overview-strip-width",
           "state": "conflict",
-          "conflicts": ["apps/desktop/src/renderer/src/App.tsx"]
+          "conflicts": [
+            "apps/desktop/src/renderer/src/App.tsx"
+          ]
         },
         {
           "branch": "fleet/pulse-log-rows",
-          "pull_request": { "number": 1768, "url": "https://git.example/armada-dev/armada/pull/1768" },
+          "pull_request": {
+            "number": 1768,
+            "url": "https://git.example/armada-dev/armada/pull/1768"
+          },
           "state": "red",
-          "failed": ["desktop_test", "screens_test"],
+          "failed": [
+            "desktop_test",
+            "screens_test"
+          ],
           "checks": [
-            { "name": "build", "state": "passed" },
-            { "name": "desktop_test", "state": "failed" },
-            { "name": "screens_test", "state": "timed_out" }
+            {
+              "name": "build",
+              "state": "passed",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            },
+            {
+              "name": "desktop_test",
+              "state": "failed",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            },
+            {
+              "name": "screens_test",
+              "state": "timed_out",
+              "requester": {
+                "kind": "merge_line",
+                "branch": "fleet/pulse-log-rows"
+              }
+            }
           ]
         }
       ]

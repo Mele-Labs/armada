@@ -54,9 +54,10 @@ import type { JobDetail as JobWhole, JobSummary, StepDetail } from "@armada/prot
 import { freezeLineOf } from "./freeze";
 import { fromAStudio, originReading } from "./origin";
 import { leading } from "./reading";
-import { LANDED, LANDED_BADGE, elapsedOf } from "./Row";
+import { LANDED, LANDED_BADGE } from "./landed-words";
+import { elapsedOf } from "./Row";
 import { studioName } from "./studio";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /**
  * The run, in the order the drawing runs it: what is holding this Job, what

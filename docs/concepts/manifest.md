@@ -399,7 +399,26 @@ Rules that follow:
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 - **A Drone's `run_checks` is time-boxed as a whole**, the wait for a slot included: the per-command budget plus ten minutes of waiting. Past that Fleet stops the run, frees its slots and tells the Drone, naming the Check that was running or saying it was still waiting. The Drone is also told, once, when its run has to wait for a slot. Decided 5 Oct 2026, after a Drone waited 43 minutes on Job 3 with no result and no signal.
+- **A run Fleet is still making tells the Drone where it stands every two minutes**: what is running and for how long, what waits for a slot, and what is done. It is a turn of its own and ends when the run does, so the Drone never has to ask.
+- **A run's mark lasts as long as the run.** Fleet supervises the task that makes the run, so a task that panics or is cancelled takes the mark off, frees the slots and tells the Drone the run was lost, saying it is a fault in Fleet and not in the work. A Drone is never left refused with "already running" and nothing behind it.
+- **A second ask while one is going is refused with where the first stands**: how long it has gone, the Check it is on, and whether it is waiting for a slot. It still says to wait for the report, which arrives as a later turn, and gives the Drone nothing to look at in the meantime.
+- **An asked run is a record of its own, never a Check row.** It is written when the run starts and closed when it ends by any route; `running`, `passed`, `failed`, `stopped` (cut off by the time-box or a fault, so measured to no end) and `lost` (its task died, or Fleet restarted while it was `running`). It names who asked, the step, the attempt, the Checks, whether it was narrowed and each Check's log. It reads on `StepDetail.asked_runs` and `list_runs`, and the Record draws a row for each under Checks, signed by the Drone and never hued as a pass. The Job's log says when it started and when it ended, with the Drone, task and attempt on both.
 - **A step's gate runs its own Checks one at a time**, fastest first, each still asking for its places. A Drone's own run is not the gate and keeps running several at once. Decided 4 Oct 2026 after Job 3, whose `desktop_test` ran beside its own step's `components_test` and whole Rust `test` and failed on timeouts three times; the merge line has run a turn's Checks one at a time since 2 Oct.
+
+### Who asked for a run
+
+**Every Check run a surface shows says who asked for it**, as a `Requester` the surface can follow: `kind` is an opaque string and the ids each kind needs are beside it.
+
+| `kind` | Who | Ids |
+|---|---|---|
+| `gate` | A Job's step gate | `job_id`, `step` |
+| `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
+| `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
+| `merge_line` | The merge line, for one branch | `branch` |
+| `outside` | A person's press, an agent's `start_run`, a Verify | none |
+
+- **`outside` is a value and never an absence.** A record from before the field reads as it.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 

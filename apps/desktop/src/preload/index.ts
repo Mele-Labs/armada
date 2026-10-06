@@ -42,6 +42,7 @@ import type {
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
+import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
@@ -435,6 +436,7 @@ const api: BridgeApi = {
   editManifest: (body: EditManifest): Promise<ManifestEditAnswer> =>
     ipcRenderer.invoke(CHANNELS.editManifest, body),
   readManifestSpend: (): Promise<ManifestSpendRead> => ipcRenderer.invoke(CHANNELS.readManifestSpend),
+  readManifestChecks: (): Promise<ManifestChecksRead> => ipcRenderer.invoke(CHANNELS.readManifestChecks),
   // Setup: Scan, the proposals, one edit, Write — one operation each.
   readRepositoryScan: (): Promise<RepositoryScanRead> => ipcRenderer.invoke(CHANNELS.readRepositoryScan),
   readManifestProposals: (): Promise<ManifestProposalsRead> =>

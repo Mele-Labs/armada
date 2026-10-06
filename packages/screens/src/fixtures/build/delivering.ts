@@ -31,7 +31,6 @@ import {
   droneEnded,
   evidenceRead,
   droneLogs,
-  foldedReads,
   holdsRead,
   instructed,
   job,
@@ -50,6 +49,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 /** The pull request address this Job's branch went out on. Same style as `terminal.ts`'s. */
 const PULL_REQUEST = "https://git.example/armada/settings/pull/512";

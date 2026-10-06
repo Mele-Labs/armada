@@ -7,7 +7,6 @@ import {
   BUILD_CHECK,
   consumersStep,
   detail,
-  foldedReads,
   freshStep,
   holdsRead,
   job,
@@ -23,6 +22,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 const RECLAIMED = {
   job_id: JOB_ID,

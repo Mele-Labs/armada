@@ -47,6 +47,10 @@ pub(crate) mod lines {
         "a person answered a command the drone was waiting on";
     pub(crate) const A_DRONE_RAN_CHECKS: &str =
         "the Drone asked for the step's checks and they were run";
+    /// The same ask, when it began. **Not counted by a retro**, which reads the
+    /// line above alone.
+    pub(crate) const A_DRONE_STARTED_CHECKS: &str =
+        "the Drone asked for the step's checks and they were started";
     /// A gate's red run again alone before it was ruled on — `crate::confirming`.
     pub(crate) const A_RED_RUN_ALONE: &str =
         "a check failed with other checks running beside it, and was run again alone";

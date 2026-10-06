@@ -24,7 +24,7 @@ import type {
 } from "@armada/protocol";
 
 import { CHECK_ADVANCES, CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
-import { fileNameOf } from "../editing";
+import { fileNameOf } from "../file-name";
 import { repositorySaid } from "../gate-policy";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";
@@ -123,6 +123,7 @@ const FAMILY_OF: Readonly<Record<string, LedgerFamily>> = {
   file_written: "files",
   task_files: "files",
   checked: "checks",
+  asked_run: "checks",
   judged: "judges",
   flagged: "judges",
   drone_spawned: "drones",
@@ -354,6 +355,7 @@ export function ledgerOf(reads: LedgerReads): LedgerRow[] {
   if (moves.length === 0) rows.push(...jobRowsOf(detail, mint));
   for (const step of detail.steps) {
     rows.push(...checkRowsOf(detail, step, mint));
+    rows.push(...askedRowsOf(step, mint));
     rows.push(...judgeRowsOf(detail, step, mint));
     rows.push(...evidenceKeptOf(step, mint));
     if (moves.length === 0) rows.push(...droneRowsOf(step, mint));
@@ -484,6 +486,24 @@ function checkRowsOf(detail: JobDetail, step: StepDetail, mint: () => number): L
       cursor: mint(),
     };
   });
+}
+
+/**
+ * **A Drone's asked run is its own row, signed by the Drone and filed under
+ * Checks.** It is never a `checked` row: a dry result must not read as a gate's
+ * pass, so the actor is `drone` and the kind is its own. The outcome is the
+ * run's state in words, which is `running` until it ends.
+ */
+function askedRowsOf(step: StepDetail, mint: () => number): LedgerRow[] {
+  return (step.asked_runs ?? []).map((run) => ({
+    at: run.started_at,
+    coord: { step: step.step_id, step_attempt: run.attempt },
+    actor: "drone" as const,
+    kind: "asked_run",
+    what: `Asked run · ${run.checks.join(", ")}`,
+    outcome: sentenceCase(run.state),
+    cursor: mint(),
+  }));
 }
 
 /**

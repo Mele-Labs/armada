@@ -99,6 +99,9 @@ where
                 .within
                 .as_ref()
                 .map(|within| within.dir.to_string_lossy().into_owned()),
+            // A person's press, or an agent's `start_run`, through this door:
+            // nothing inside Armada asked for it.
+            requester: ipc::Requester::outside(),
         };
         let (stop, stopped) = watch::channel(false);
         let (done, ended) = watch::channel(None);
