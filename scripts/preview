@@ -55,15 +55,17 @@ def repo_root():
     return os.path.dirname(common.stdout.strip())
 
 
-def armada(root, *args):
+def armada(root, *args, answered_by=None):
     binary = os.environ.get("ARMADA_LAND_ARMADA") or "armada"
     try:
         done = subprocess.run([binary, *args], cwd=root, capture_output=True, text=True)
     except OSError as why:
         sys.exit(f"preview: cannot run `{binary}` to ask what is in flight: {why}")
-    if done.returncode not in (0, 3, 10):
-        # Every `--status` exit but a refusal is an answer; an `armada` that
-        # does not know the verb said so instead of answering.
+    # `land --status` exits with the state it found (8 with no branch named,
+    # 3 for a red), so its exit says nothing about whether it answered: its
+    # first line does. An `armada` that does not know the verb says so instead.
+    answered = answered_by in done.stdout if answered_by else done.returncode in (0, 3, 10)
+    if not answered:
         sys.exit(f"preview: `{binary} {' '.join(args)}` said: "
                  f"{(done.stderr or done.stdout).strip()}")
     return done.stdout
@@ -80,7 +82,7 @@ def slots(root):
 
 
 def queued(root):
-    return [m.group(1) for line in armada(root, "land", "--status").splitlines()
+    return [m.group(1) for line in armada(root, "land", "--status", answered_by="merge line:").splitlines()
             if (m := re.match(r"^\s*\d+\.\s+(\S+)", line))]
 
 
