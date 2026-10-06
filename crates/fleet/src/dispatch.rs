@@ -818,6 +818,9 @@ where
             // again can be claimed again (#999) — or holds it until its pull
             // request settles, telling the Jobs pointed at it either way (#1001).
             self.fix_ended(&moved.job).await;
+            // Its needs are spent where it landed and given back where it was
+            // dropped, so nothing waits behind a Job that is over. #1059.
+            self.needs_ended(&moved.job).await;
         }
         self.publish(ipc::Event::JobStateChanged((&moved.event).into()));
         Ok(moved.job)

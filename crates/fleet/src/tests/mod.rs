@@ -125,6 +125,7 @@ mod merging_by_push;
 mod migrating;
 mod model_per_task;
 mod modelling;
+mod needs;
 mod noticing;
 mod out_of_bounds;
 mod overlap;

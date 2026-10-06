@@ -250,6 +250,8 @@ where
     ) -> Result<Receipt, NotRecorded> {
         let (job, drone) = self.placed(&caller)?;
         let plan = as_caller(drone, Fleet::change_plan(self, &job, &call.change)).await?;
+        // The plan's tasks carry their needs: declared once the plan is kept. #1059.
+        self.needs_declared(&job, &call.needs).await;
         Ok(Receipt {
             word: crate::work_plan::receipt_word(&call.change, &plan),
         })
