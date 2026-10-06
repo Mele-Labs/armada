@@ -122,6 +122,8 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **Which Checks a set of paths hits is one answer, shared with Fleet's gate.** `armada covers` reads paths on stdin and asks each Check's `covers`, which calls `Covers::reach` in `crates/core-model/src/job/covers.rs`. `ResolvedCheck::covers`, which the gate's skip decision asks, calls the same function.
 
+**Where the repository has workspaces, the keys are `<dir>:<name>`.** `armada covers` answers with the Checks of each manifest the paths gate, root first, and the line runs `armada check <key>` for each, in that workspace's directory. Setup follows: the root's `setup.requires` once, then each workspace's own for the workspaces that have a Check in the set, and a root Command a workspace names runs in the root and is not repeated. A repository with no workspace `armada.yml` sees none of this. [Manifest](../concepts/manifest.md), *Workspace gating*.
+
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
 **Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
