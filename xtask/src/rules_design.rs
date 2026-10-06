@@ -55,6 +55,11 @@ pub fn no_off_contract_design_value(root: &Path) -> Report {
         &root.join("packages").join("screens"),
         &EXT,
     ));
+    files.extend(files_with_ext(
+        root,
+        &root.join("packages").join("bridge-api"),
+        &EXT,
+    ));
     for path in files {
         // The renderer's own stylesheet is where the token files are imported.
         if path.ends_with("styles/index.css") {

@@ -181,6 +181,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 "cargo nextest run -p xtask --test-threads ${width}"
             ),
             ("typecheck", "pnpm typecheck"),
+            ("typecheck", "pnpm typecheck"),
             ("storybook", "pnpm build-storybook"),
             (
                 "components_test",

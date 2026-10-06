@@ -133,8 +133,17 @@ you're doing something wrong. The rule is about what you do when you hit one.
 
 ## A surface is its own package
 
+The layers, ground up: tokens, brand, icons and protocol (0), components (1),
+shell (2), screens (3), `@armada/bridge-api` (4), surfaces (5), desktop (6). A
+package imports only one strictly below it. `bridge-api` holds the types and
+tiny helpers a surface and the app share, with no React: today the generic
+`Scenario`, `FleetHandle`, `unanswered`, `connected` and `onBoard` that
+`mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
+fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
+moves each surface's slice and fleet into its own package, step by step.
+
 A surface lives in its own package under the surfaces directory of `packages`,
-on a layer between the screens and the app. Two surfaces never import each
+on a layer between `bridge-api` and the app. Two surfaces never import each
 other. Its tests mount the whole app through the mock harness, so a
 surface's `*.test.ts(x)` and `vitest.config.ts` may import `@armada/desktop` —
 `./mock` for the harness, `./vitest-preset` for the browser settings — and
