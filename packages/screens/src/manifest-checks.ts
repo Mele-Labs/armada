@@ -30,6 +30,10 @@ export type CheckEntry = {
   requester: Requester;
   /** The merge line Check's own names, which its log is asked for by. */
   land?: LandCheckAt;
+  /** When a reported Check ended. A checkout run's end is on its record. */
+  finishedAt?: string;
+  /** Which run of its step, on a reported Check. */
+  attempt?: number;
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
   says?: string;
 };
@@ -52,6 +56,7 @@ export function checkEntriesOf(
   sheet: CheckoutRunSheet | undefined,
   runs: readonly CheckoutRunRecord[],
   lines: readonly MergeLine[] = [],
+  reported: readonly ReportedCheck[] = [],
 ): CheckEntry[] {
   const land = landEntriesOf(lines);
   if (sheet === undefined) return land;
@@ -77,10 +82,10 @@ export function checkEntriesOf(
       finished.set(step.record.id, step.record);
     }
   }
-  const ended = [...finished.values()]
-    .filter((record) => !out.has(record.id))
-    .sort((one, two) => two.started_at.localeCompare(one.started_at))
-    .map(entryOfRecord);
+  // Ended runs and reported Checks read as one history, newest first.
+  const ended = [...[...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord), ...reported.map(entryOfReported)].sort(
+    (one, two) => (two.startedAt ?? "").localeCompare(one.startedAt ?? ""),
+  );
   return [...out.values(), ...waiting, ...land, ...ended];
 }
 
@@ -129,31 +134,83 @@ function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
   );
 }
 
+/** Where a press on who asked goes: a Job, at a step or a Drone, or the merge line at a branch. */
+export type AskerOpens = { to: "job"; jobId: string; step?: string; drone?: string } | { to: "merge-line"; branch?: string };
+
 /**
- * Who asked, as the words and the one place a press goes. **A bare fact per kind**, joined by the
- * caller; the Job and the merge line are the two places a route exists, so only they link. A step,
- * a task and a Drone are named beside the link and are not links: nothing opens a Job at one.
+ * Who asked, as one line of bare facts, and where pressing it goes. **Every kind but `outside` opens
+ * its requester**: a gate its Job at the step, a Drone its Job at that Drone, the merge line at the
+ * branch. Absent `opens` is plain text, which is `outside` and any kind with no id to go to.
  */
-export type Asker = { parts: (string | { link: "job" | "merge-line"; label: string; jobId?: string })[] };
+export type Asker = { label: string; opens?: AskerOpens };
 
 export function askerOf(requester: Requester, jobLabel: (jobId: string) => string): Asker {
   const { kind, job_id: jobId, step, task_id: task, drone_id: drone, branch } = requester;
-  const job = jobId === undefined ? [] : [{ link: "job" as const, label: jobLabel(jobId), jobId }];
-  const named = (...parts: (string | undefined)[]) => parts.filter((one): one is string => one !== undefined);
+  const said = (...parts: (string | undefined)[]) => parts.filter((one): one is string => one !== undefined).join(" · ");
+  const job = jobId === undefined ? undefined : jobLabel(jobId);
   switch (kind) {
     case "gate":
-      return { parts: ["Gate", ...job, ...named(step)] };
+      return {
+        label: said("Gate", job, step),
+        ...(jobId === undefined ? {} : { opens: { to: "job", jobId, ...(step === undefined ? {} : { step }) } as const }),
+      };
     case "drone_task":
-      return { parts: [drone === undefined ? "Drone" : `Drone ${drone}`, ...job, ...named(step, task)] };
     case "drone_step":
-      return { parts: [drone === undefined ? "Drone" : `Drone ${drone}`, ...job, ...named(step)] };
+      return {
+        label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task),
+        ...(jobId === undefined
+          ? {}
+          : { opens: { to: "job", jobId, ...(drone === undefined ? {} : { drone }), ...(step === undefined ? {} : { step }) } as const }),
+      };
     case "merge_line":
-      return { parts: [{ link: "merge-line", label: "Merge line" }, ...named(branch)] };
+      return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
     case "outside":
-      return { parts: ["Started outside a Job"] };
+      return { label: "Started outside a Job" };
     default:
-      return { parts: [...named(kind), ...job, ...named(step, task, drone, branch)] };
+      return { label: said(kind, job, step, task, drone, branch), ...(jobId === undefined ? {} : { opens: { to: "job", jobId } as const }) };
   }
+}
+
+/**
+ * A Check Fleet reports for a requester other than the checkout: a Job's gate, or a Drone's own
+ * run. **Shaped from `requester.ts` ahead of the manifest-wide read that will serve them**, so the
+ * wire type replaces this one and `checkEntriesOf` takes the rows as they are.
+ */
+export type ReportedCheck = {
+  /** Unique across the list: a gate row's key, or an asked run's own number with the Check. */
+  id: string;
+  name: string;
+  requester: Requester;
+  /** `waiting`, `running`, `passed`, `failed`, `stopped`, or an asked run's `lost`. */
+  state: string;
+  started_at?: string;
+  finished_at?: string;
+  /** Which run of the step it was. */
+  attempt?: number;
+};
+
+const REPORTED_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
+  waiting: { status: "waiting" },
+  running: { status: "running" },
+  passed: { status: "passed" },
+  failed: { status: "failed" },
+  stopped: { status: "stopped" },
+  lost: { status: "stopped", says: "lost" },
+};
+
+function entryOfReported(one: ReportedCheck): CheckEntry {
+  const held = REPORTED_STATE[one.state] ?? { status: "waiting" as const };
+  return {
+    id: `reported:${one.id}`,
+    name: one.name,
+    status: held.status,
+    command: "",
+    requester: one.requester,
+    ...(held.says === undefined ? {} : { says: held.says }),
+    ...(one.started_at === undefined ? {} : { startedAt: one.started_at }),
+    ...(one.finished_at === undefined ? {} : { finishedAt: one.finished_at }),
+    ...(one.attempt === undefined ? {} : { attempt: one.attempt }),
+  };
 }
 
 /** One row of the list. */
@@ -166,9 +223,7 @@ export function checkRowOf(entry: CheckEntry, jobLabel: (jobId: string) => strin
     name: entry.name,
     status: entry.status,
     says: entry.says ?? SAYS[entry.status],
-    by: askerOf(entry.requester, jobLabel)
-      .parts.map((one) => (typeof one === "string" ? one : one.label))
-      .join(" · "),
+    by: askerOf(entry.requester, jobLabel).label,
     ...(started === undefined ? {} : { started }),
     ...(startedExact === undefined ? {} : { startedExact }),
     ...(record === undefined ? {} : { duration: lasting(record.duration_ms) }),
@@ -182,8 +237,10 @@ export function checkDetailsOf(entry: CheckEntry, requestedBy?: CheckDetail["val
   if (entry.command !== "") details.push({ label: "Command", value: entry.command, mono: true });
   if (requestedBy !== undefined) details.push({ label: "Requested by", value: requestedBy });
   if (entry.land !== undefined) details.push({ label: "Branch", value: entry.land.branch, mono: true });
+  if (entry.attempt !== undefined) details.push({ label: "Run of the step", value: String(entry.attempt) });
   if (entry.requestedAt !== undefined) details.push({ label: "Requested", value: absoluteOf(entry.requestedAt) ?? entry.requestedAt });
   if (entry.startedAt !== undefined) details.push({ label: "Started", value: absoluteOf(entry.startedAt) ?? entry.startedAt });
+  if (record === undefined && entry.finishedAt !== undefined) details.push({ label: "Ended", value: absoluteOf(entry.finishedAt) ?? entry.finishedAt });
   if (record !== undefined) {
     details.push({ label: "Ended", value: absoluteOf(record.ended_at) ?? record.ended_at });
     details.push({ label: "Took", value: lasting(record.duration_ms) });

@@ -664,7 +664,7 @@ pub(crate) fn step_facts(
                 asked_runs: asked
                     .iter()
                     .filter(|run| &run.step == step.step_id())
-                    .map(|run| crate::dry_run::asked::wired(job.id(), run))
+                    .map(|run| crate::dry_run::asked::wired(job, run))
                     .collect(),
             }
         })

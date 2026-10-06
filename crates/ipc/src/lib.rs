@@ -113,6 +113,8 @@ mod manifest_proposal;
 /// its types are in `operations.toml`.
 pub mod mcp;
 /// The merge line `armada land` keeps in each served repository, as Fleet reads it.
+/// Every Check run one repository's Jobs asked for or ran. Since 23.38.
+mod manifest_checks;
 mod merge_line;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
@@ -195,6 +197,9 @@ mod tests;
 
 pub use alerts::{Alert, AlertList};
 pub use asked::{AskedRun, AskedRunState};
+pub use manifest_checks::{
+    ManifestCheckLog, ManifestCheckRow, ManifestChecks, SOURCE_ASKED_RUN, SOURCE_GATE,
+};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft, PolicyWords,

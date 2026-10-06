@@ -703,6 +703,11 @@ const ROUTES: &[Route] = &[
         path: "/manifest/run_sheet",
     },
     Route {
+        operation: "list_manifest_checks",
+        method: "GET",
+        path: "/manifest/checks",
+    },
+    Route {
         operation: "list_checkout_runs",
         method: "GET",
         path: "/manifest/runs",

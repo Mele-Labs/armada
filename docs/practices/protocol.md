@@ -3077,7 +3077,10 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 | `requester` | `ChecksUnderway`: `gate` on `checking`, the Drone on `dry_run` | who asked | As above |
 | `requester` | `RunUnderway`, `RunRecord`, `CheckoutRunUnderway`, `CheckoutRunRecord`, `CheckoutVerify` | `outside` | A record written before 23.38 reads `outside` |
 | `requester` | `MergeLineCheck` | `merge_line`, with the entry's `branch` | As above |
+| `handle` | `Requester` | What a person calls the Job; a Drone's handle | Where Fleet does not know it |
 | `asked_runs` | `StepDetail`, `RunList` | `AskedRun`: `id`, `requester`, `attempt`, `started_at`, `finished_at`, `state` (`running`, `passed`, `failed`, `stopped`, `lost`), `checks`, `narrowed`, `only_check`, `logs` | No run was asked |
+
+**One read across Jobs, `list_manifest_checks`.** `GET /manifest/checks?manifest_id=` answers `ManifestChecks { rows, total, truncated? }`: every gate row and every asked run of the repository's Jobs (every served repository's where none is named), newest first, at most 200. A `ManifestCheckRow` is `source` (`gate` or `asked_run`), `requester`, `job_id`, `job_handle`, `job_title`, `step`, `attempt`, `group?`, `name`, `state`, `started_at?`, `ended_at?`, `took_ms?`, `logs[]` (`{ check, kept }`) and `asked_run_id?`. A gate row has no start or duration, only the write of its ruling as `ended_at`. A log opens through `get_check_output` on the row's `job_id` and `kept`, which now also resolves an asked run's logs. Merge-line Checks and checkout runs are not in it. `requester.handle` is the Job's handle, which is the Drone's handle: a Drone has no other name than its id.
 
 **An asked run is never a `CheckRun`**, so a dry result cannot be read as a gate's pass. It is its own row in `asked_runs`; a `running` row begun by a Fleet that is gone reads `lost`.
 

@@ -20,7 +20,7 @@ use ipc::{
     AlertList, BriefContents, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet,
     CommandExplained, DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth,
     FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
-    JobResources, KeptFrame, ManifestConfig, ManifestDrift, ManifestFile, ManifestId,
+    JobResources, KeptFrame, ManifestChecks, ManifestConfig, ManifestDrift, ManifestFile, ManifestId,
     ManifestReading, ManifestSummary, ModelChoices, ReportList, RunList, RunOutput, RunSheet,
     WorkflowSummary, WorktreesHeld,
 };
@@ -771,6 +771,14 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
         repository: Option<String>,
     ) -> impl Future<Output = Result<CheckoutRunSheet, Refusal>> + Send;
+
+    /// `list_manifest_checks` — every Check run this repository's Jobs asked for
+    /// or ran: gate rows and Drones' asked runs, newest first and cut. Absent a
+    /// name, every served repository's.
+    fn list_manifest_checks(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ManifestChecks, Refusal>> + Send;
 
     /// `list_checkout_runs` — the main checkout's earlier runs, newest first,
     /// with the records that would not read answered beside them.

@@ -32,6 +32,7 @@ pub(super) struct Asked {
 /// Who asked: a Drone on a task or on a step.
 pub(crate) fn requester(
     job: &JobId,
+    handle: &str,
     step: &StepId,
     drone: &DroneId,
     task: Option<TaskId>,
@@ -45,13 +46,14 @@ pub(crate) fn requester(
         Some(task) => ipc::Requester::drone_on_task(&job, &step, &task.to_string(), &drone),
         None => ipc::Requester::drone_on_step(&job, &step, &drone),
     }
+    .with_handle(handle)
 }
 
 /// One stored row as the wire has it.
-pub(crate) fn wired(job: &JobId, run: &store::AskedRun) -> ipc::AskedRun {
+pub(crate) fn wired(job: &core_model::Job, run: &store::AskedRun) -> ipc::AskedRun {
     ipc::AskedRun {
         id: run.id,
-        requester: requester(job, &run.step, &run.drone, run.task),
+        requester: requester(job.id(), &job.handle(), &run.step, &run.drone, run.task),
         attempt: run.attempt,
         started_at: ipc::Instant::from(&run.started_at),
         finished_at: run.finished_at.as_ref().map(ipc::Instant::from),

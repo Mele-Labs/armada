@@ -252,7 +252,7 @@ impl Announcing {
         records_root: &str,
         handle: &str,
     ) -> Announcing {
-        let requester = ipc::Requester::gate(&job, &ipc::StepId::from(&step));
+        let requester = ipc::Requester::gate(&job, &ipc::StepId::from(&step)).with_handle(handle);
         Announcing(Some(Bound {
             job,
             step,

@@ -29,6 +29,12 @@ export type Requester = {
   task_id?: string;
   drone_id?: string;
   branch?: string;
+  /**
+   * What a person calls the Job, `1-a-job`. **A Drone's handle**: its transcript
+   * is named under it and it has no other name than its id. Present on every kind
+   * that names a Job, where Fleet knows it. Since 23.38.
+   */
+  handle?: string;
 };
 
 export const REQUESTER = {
@@ -75,6 +81,6 @@ export type AskedRun = {
   narrowed: boolean;
   /** The one Check the ask named, where it named one. */
   only_check?: string;
-  /** Each Check's log, relative to the records root, once written. */
+  /** One per entry of `checks`, in its order, empty where that Check kept none. Absent while it runs. */
   logs?: string[];
 };

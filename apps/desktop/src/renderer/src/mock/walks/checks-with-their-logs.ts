@@ -4,6 +4,7 @@
 
 import { button, inside, role, text, walk } from "../walk";
 
+const RAIL = role("navigation", "Work");
 const PANEL = role("dialog", "Check");
 
 export const checksWithTheirLogs = walk("checks", [
@@ -25,6 +26,18 @@ export const checksWithTheirLogs = walk("checks", [
   { press: inside(PANEL, button("Close")), say: "Close" },
   { press: button("desktop_test", { exact: true }), say: "A Check the merge line is running for a branch" },
   { look: inside(PANEL, text("fleet/pulse-log-rows")), say: "Its branch, with its log followed" },
-  { look: inside(PANEL, button("Merge line")), say: "Requested by: the Merge line, a link to it" },
-  { press: inside(PANEL, button("Merge line")), say: "The link opens the Merge line" },
+  { press: inside(PANEL, button(/Merge line/)), say: "Requested by: the Merge line, at that branch" },
+  { look: role("listitem", /fleet\/pulse-log-rows/), say: "The branch's row, marked" },
+  { press: inside(RAIL, button("Checks", { exact: true })), say: "Back to Checks" },
+  { press: button("components_test", { exact: true }), say: "A gate's Check on a Job" },
+  { press: inside(PANEL, button(/Gate/)), say: "Requested by: the Job's gate, at its step" },
+  { look: role("dialog", /root cause/i), say: "The Job opens on that step in Workflow" },
+  { press: inside(RAIL, button("Checks", { exact: true })), say: "Back to Checks" },
+  { press: button("scripts_test", { exact: true }), say: "A Check a Drone asked for on a task" },
+  { press: inside(PANEL, button(/Drone/)), say: "Requested by: that Drone, on its Job" },
+  { look: role("dialog", /drone/i), say: "The Job opens on that Drone" },
+  { press: inside(RAIL, button("Checks", { exact: true })), say: "Back to Checks" },
+  { press: button("hooks_test", { exact: true }), say: "A Check a Drone asked for on a step" },
+  { press: inside(PANEL, button(/Drone/)), say: "Requested by: that Drone, on its Job" },
+  { look: role("dialog", /drone/i), say: "The Job opens on that Drone" },
 ]);

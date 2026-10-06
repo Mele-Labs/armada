@@ -42,7 +42,9 @@ pub struct AskedRun {
     /// The one Check the ask named, where it named one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub only_check: Option<String>,
-    /// Each Check's log, relative to the repository's records root, once written.
+    /// Each Check's log, relative to the repository's records root, **one per
+    /// entry of `checks` and in its order**, empty where that Check kept none.
+    /// Written when the run ends, so absent while it runs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub logs: Vec<String>,
 }

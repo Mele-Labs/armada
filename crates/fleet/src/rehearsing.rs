@@ -196,6 +196,7 @@ where
     /// This Job's earlier runs, newest first.
     pub(crate) async fn rehearsal_history(&self, job_id: &JobId) -> Result<ipc::RunList, Refusal> {
         let job = self.load(job_id).await.map_err(|why| self.refusal(why))?;
+        let named = job.clone();
         let place = self.job_place(job)?;
         let (kept, unreadable) = self.history_at(&place);
         // The Drone's asked runs ride beside, as rows of their own.
@@ -211,7 +212,7 @@ where
             unreadable,
             asked_runs: asked
                 .iter()
-                .map(|run| crate::dry_run::asked::wired(job_id, run))
+                .map(|run| crate::dry_run::asked::wired(&named, run))
                 .collect(),
         })
     }

@@ -763,7 +763,8 @@ fn a_model_override_is_absent_until_a_person_chooses_one() {
 #[test]
 fn a_steps_check_rows_name_the_gate_that_asked_and_asked_runs_ride_beside() {
     let job = job();
-    let by_gate = crate::Requester::gate(&crate::JobId::from(job.id()), &crate::StepId::carried("repro"));
+    let by_gate = crate::Requester::gate(&crate::JobId::from(job.id()), &crate::StepId::carried("repro"))
+        .with_handle(&job.handle());
     let asked = crate::AskedRun {
         id: 4,
         requester: crate::Requester::drone_on_step(

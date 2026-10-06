@@ -41,6 +41,11 @@ pub struct Requester {
     pub drone_id: Option<DroneId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
+    /// What a person calls the Job, `1-a-job`: **a Drone's handle**, since the
+    /// Drone's transcript is named under it and a Drone has no other name than
+    /// its id. Present on every kind that names a Job, where Fleet knows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
 }
 
 impl Requester {
@@ -52,6 +57,15 @@ impl Requester {
             task_id: None,
             drone_id: None,
             branch: None,
+            handle: None,
+        }
+    }
+
+    /// The same requester, with the Job's handle on it.
+    pub fn with_handle(self, handle: &str) -> Requester {
+        Requester {
+            handle: Some(handle.to_string()),
+            ..self
         }
     }
 

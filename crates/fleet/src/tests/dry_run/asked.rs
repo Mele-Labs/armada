@@ -36,12 +36,13 @@ fn futures_handle(fleet: &super::Fixture, job: &JobId) -> String {
     fleet.name_of(job).expect("the Job has a handle")
 }
 
-fn by_the_drone(job: &JobId, drone: &DroneId) -> ipc::Requester {
+fn by_the_drone(fleet: &super::Fixture, job: &JobId, drone: &DroneId) -> ipc::Requester {
     ipc::Requester::drone_on_step(
         &ipc::JobId::from(job),
         &ipc::StepId::carried("implement"),
         &ipc::DroneId::from(drone),
     )
+    .with_handle(&futures_handle(fleet, job))
 }
 
 /// **The row exists while the run goes**, saying who asked and what for, and
@@ -88,7 +89,7 @@ async fn an_asked_run_is_a_row_from_its_start_and_closed_when_it_ends() {
     })
     .await
     .expect("the run is shown");
-    assert_eq!(live.requester, by_the_drone(&job, &drone));
+    assert_eq!(live.requester, by_the_drone(&fleet, &job, &drone));
 
     let _ = running.finished().await;
     let rows = kept(&fleet, &job).await;
@@ -220,7 +221,7 @@ async fn the_job_detail_and_the_run_list_return_the_asked_run() {
         .find(|step| step.step_id.as_str() == "implement")
         .expect("the step");
     assert_eq!(step.asked_runs.len(), 1);
-    assert_eq!(step.asked_runs[0].requester, by_the_drone(&job, &drone));
+    assert_eq!(step.asked_runs[0].requester, by_the_drone(&fleet, &job, &drone));
     assert_eq!(step.asked_runs[0].state, ipc::AskedRunState::Failed);
     assert!(step.check_runs.is_empty(), "never among the gate's rows");
 
@@ -229,31 +230,22 @@ async fn the_job_detail_and_the_run_list_return_the_asked_run() {
     assert!(list.runs.is_empty());
 }
 
-/// A drone on a plan task is a `drone_task`, with the task named.
+/// A drone on a plan task is a `drone_task`, with the task and the Job's
+/// handle named.
 #[test]
-fn a_run_on_a_task_names_the_task() {
+fn a_run_on_a_task_names_the_task_and_the_handle() {
     let job = JobId::carried(core_model::Ulid::carried("01JOB"));
-    let run = store::AskedRun {
-        id: 7,
-        drone: DroneId::carried(core_model::Ulid::carried("01DRONE")),
-        task: core_model::TaskId::read("T3"),
-        step: core_model::StepId::new("implement"),
-        attempt: 2,
-        started_at: core_model::Timestamp::from_rfc3339("2026-10-06T10:00:00.000Z"),
-        finished_at: None,
-        state: store::AskedState::Running,
-        checks: vec!["suite".to_string()],
-        narrowed: true,
-        only_check: Some("suite".to_string()),
-        logs: Vec::new(),
-    };
-    let wired = crate::dry_run::asked::wired(&job, &run);
-    assert_eq!(wired.requester.kind, "drone_task");
-    assert_eq!(wired.requester.task_id.as_deref(), Some("T3"));
-    assert_eq!(wired.requester.drone_id.as_ref().map(|d| d.as_str()), Some("01DRONE"));
-    assert_eq!(wired.state, ipc::AskedRunState::Running);
-    assert_eq!(wired.attempt, 2);
-    assert_eq!(wired.only_check.as_deref(), Some("suite"));
+    let asked = crate::dry_run::asked::requester(
+        &job,
+        "7-a-job",
+        &core_model::StepId::new("implement"),
+        &DroneId::carried(core_model::Ulid::carried("01DRONE")),
+        core_model::TaskId::read("T3"),
+    );
+    assert_eq!(asked.kind, "drone_task");
+    assert_eq!(asked.task_id.as_deref(), Some("T3"));
+    assert_eq!(asked.handle.as_deref(), Some("7-a-job"));
+    assert_eq!(asked.drone_id.as_ref().map(|d| d.as_str()), Some("01DRONE"));
 }
 
 /// **A line when it starts and a line when it ends**, the same fields on
@@ -370,4 +362,108 @@ async fn a_second_ask_says_when_the_run_is_waiting_for_a_check_slot() {
     .expect("the refusal never said it was waiting for a slot");
     assert!(refused.contains("later turn"), "{refused}");
     drop(held);
+}
+
+/// **One read across the repository's Jobs**: the gate's rows and the Drone's
+/// asked runs together, each with who asked, newest first, and a log the
+/// existing reader opens — the asked run's included.
+#[tokio::test]
+async fn the_manifest_wide_read_carries_gate_rows_and_asked_runs_with_openable_logs() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet_checking(
+        &home,
+        one_step("/usr/bin/false"),
+        Arc::new(Held::started()),
+        3,
+    ));
+    started(&fleet, &home).await;
+    let (job, drone) = the_one_drone(&fleet).await.expect("a Drone at work");
+    let _ = fleet
+        .run_checks(&job, ChecksAsk::everything(false))
+        .await
+        .expect("the run starts")
+        .finished()
+        .await;
+    // A gate's row, written the way a ruling writes it.
+    fleet
+        .store()
+        .lock()
+        .await
+        .record_step_checks(
+            &job,
+            &core_model::StepId::new("implement"),
+            &[core_model::StepCheck {
+                name: "suite".to_string(),
+                outcome: core_model::CheckOutcome::Passed,
+                expected: None,
+                produced: None,
+                output_path: Some(".armada/checks/the-job/implement.1.0.log".to_string()),
+                reused_from_dry_run: None,
+            }],
+            &core_model::Timestamp::from_rfc3339("2099-01-01T00:00:00.000Z"),
+        )
+        .expect("the gate's row");
+
+    let read = fleet.manifest_checks(None).await.expect("the read");
+    assert_eq!(read.total, 2);
+    assert!(!read.truncated);
+    assert_eq!(read.rows[0].source, "gate", "newest first: {:?}", read.rows);
+    assert_eq!(read.rows[0].requester.kind, "gate");
+    assert_eq!(read.rows[0].state, "passed");
+    assert_eq!(read.rows[0].took_ms, None, "a gate keeps no duration");
+    assert_eq!(read.rows[0].logs[0].kept, "implement.1.0.log");
+
+    let asked = &read.rows[1];
+    assert_eq!(asked.source, "asked_run");
+    assert_eq!(asked.requester, by_the_drone(&fleet, &job, &drone));
+    assert_eq!(asked.state, "failed");
+    assert_eq!(asked.name, "suite, diff_nonempty");
+    assert_eq!(asked.job_id.as_str(), job.as_str());
+    assert!(asked.started_at.is_some() && asked.ended_at.is_some());
+    let log = asked
+        .logs
+        .iter()
+        .find(|log| log.check == "suite")
+        .expect("the Check's log is named");
+    assert_eq!(log.kept, "implement.1.dry.0.log");
+
+    use api::Queries;
+    // **The existing reader opens it**, with the Check's own name on it.
+    let opened = fleet
+        .get_check_output(asked.job_id.clone(), log.kept.clone())
+        .await
+        .expect("the asked run's log opens");
+    assert_eq!(opened.name, "suite");
+    assert_eq!(opened.attempt, 1);
+}
+
+#[test]
+fn an_answer_is_cut_to_the_newest_and_says_so() {
+    let row = |at: &str| ipc::ManifestCheckRow {
+        source: "gate".to_string(),
+        requester: ipc::Requester::outside(),
+        job_id: ipc::JobId::carried("01JOB"),
+        job_handle: "1-a".to_string(),
+        job_title: "a".to_string(),
+        step: ipc::StepId::carried("implement"),
+        attempt: 1,
+        group: None,
+        name: "suite".to_string(),
+        state: "passed".to_string(),
+        started_at: None,
+        ended_at: Some(ipc::Instant::carried(at)),
+        took_ms: None,
+        logs: Vec::new(),
+        asked_run_id: None,
+    };
+    let rows = vec![row("2026-10-01T00:00:00Z"), row("2026-10-03T00:00:00Z"), row("2026-10-02T00:00:00Z")];
+    let read = crate::manifest_checks::newest(rows, 2);
+    assert_eq!(read.total, 3);
+    assert!(read.truncated);
+    let at: Vec<&str> = read
+        .rows
+        .iter()
+        .map(|row| row.ended_at.as_ref().expect("an end").as_str())
+        .collect();
+    assert_eq!(at, ["2026-10-03T00:00:00Z", "2026-10-02T00:00:00Z"]);
 }

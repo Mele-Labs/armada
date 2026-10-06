@@ -65,3 +65,28 @@ fn a_requester_reads_back_whole() {
         gate
     );
 }
+
+#[test]
+fn a_requester_carries_the_jobs_handle_where_it_is_given_one() {
+    let gate = Requester::gate(&JobId::carried("01JOB"), &StepId::carried("implement"))
+        .with_handle("7-a-job");
+    assert_eq!(
+        spelled(&gate),
+        r#"{"kind":"gate","job_id":"01JOB","step":"implement","handle":"7-a-job"}"#
+    );
+}
+
+#[test]
+fn an_answer_cut_short_says_so_and_a_whole_one_says_nothing() {
+    let whole = crate::ManifestChecks {
+        rows: Vec::new(),
+        total: 0,
+        truncated: false,
+    };
+    assert_eq!(encode(&whole).expect("plain data"), r#"{"rows":[],"total":0}"#);
+    let cut = crate::ManifestChecks {
+        truncated: true,
+        ..whole
+    };
+    assert!(encode(&cut).expect("plain data").contains(r#""truncated":true"#));
+}

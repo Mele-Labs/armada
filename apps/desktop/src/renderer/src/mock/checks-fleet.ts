@@ -4,10 +4,14 @@
 // the same name plays.
 
 import type { CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, MergeLines } from "@armada/protocol";
-import { repository } from "@armada/screens/src/fixtures/build/base";
+import type { ReportedCheck } from "@armada/screens";
+import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
+import { DRONE_ID, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
+import { holding } from "./holding";
 import { sheet, manifesting } from "./manifest-fleet";
+import { setReportedChecks } from "../reported-checks";
 import type { FleetHandle, Scenario } from "./moment";
 
 /** How far apart the running Check's lines arrive: inside a walk step's five-second wait. */
@@ -115,14 +119,53 @@ const LAND_LOGS: Record<string, string[]> = {
   "fleet/pulse-log-rows desktop_test": [" RUN  v4.1.11 /Users/user/armada/apps/desktop", " ✓ src/main/connection.test.ts (18 tests) 211ms"],
 };
 
+/**
+ * What Fleet will report for the Job's gate and its Drones, in the shape `requester.ts` gives each
+ * kind. A fixture ahead of the manifest-wide read: the real rows replace it.
+ */
+const REPORTED: ReportedCheck[] = [
+  {
+    id: "gate-root_cause-components_test",
+    name: "components_test",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause" },
+    state: "passed",
+    started_at: "2026-10-06T13:20:00Z",
+    finished_at: "2026-10-06T13:23:10Z",
+    attempt: 2,
+  },
+  {
+    id: "asked-17-scripts_test",
+    name: "scripts_test",
+    requester: { kind: "drone_task", job_id: JOB_ID, step: "fix", task_id: "T2", drone_id: DRONE_ID },
+    state: "running",
+    started_at: "2026-10-06T14:18:30Z",
+    attempt: 1,
+  },
+  {
+    id: "asked-9-hooks_test",
+    name: "hooks_test",
+    requester: { kind: "drone_step", job_id: JOB_ID, step: "repro", drone_id: "01M1HHJ6XB001BZJZ4BE2RPR0A" },
+    state: "failed",
+    started_at: "2026-10-06T13:05:00Z",
+    finished_at: "2026-10-06T13:05:09Z",
+    attempt: 1,
+  },
+];
+
 export function checking(): Scenario {
   const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
+  // The Job the gate's and the Drones' requesters open, with its steps and Drones.
+  const jobs = holding("checks", "", [everyDroneHad()]);
   return {
     ...base,
     name: "checks",
-    state: { ...base.state, mergeLines: LINE },
-    says: "A repository with Checks out, waiting and ended, and the logs behind them",
-    behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet) }),
+    state: { ...jobs.state, repository: base.state.repository, mergeLines: LINE },
+    reads: jobs.reads,
+    says: "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them",
+    behaves: (fleet) => {
+      setReportedChecks(REPORTED);
+      return { ...base.behaves?.(fleet), ...printing(fleet) };
+    },
   };
 }
 

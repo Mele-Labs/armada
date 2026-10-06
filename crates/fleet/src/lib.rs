@@ -160,6 +160,7 @@ pub mod manifest_proposal;
 /// presses, and Fleet merges the pull request their Job opened.
 mod mending;
 /// The merge line `armada land` keeps in each served repository, read and published.
+mod manifest_checks;
 pub mod merge_lines;
 mod merging;
 pub mod mint;

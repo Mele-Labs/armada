@@ -2867,6 +2867,21 @@ Under `/manifest` beside `get_manifest_reading`, for that operation's reason —
 `agent_access` is `Helm only`, `list_checkout_runs`' reason: it is where a Helm session finds what it may be asked to start. No other agent is offered it — `get_run_sheet` is what an agent working a Job needs, and the main checkout is the tree a Drone is confined out of.
 """
 
+[operations.list_manifest_checks]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every Check run a repository's Jobs asked for or ran: the gate's rows and Drones' asked runs, newest first, each with who asked"
+notes = """
+**`?manifest_id=` narrows it to one repository**; absent, every served repository's, as `list_jobs` is. It reads no new record: the gate's `job_step_checks` rows and the Drones' `asked_runs` rows are folded across the Jobs, so the Checks page does not open every Job to see them.
+
+**Newest first, and at most `ManifestChecks::MOST` rows**: `total` is how many there were and `truncated` says the rest were cut. A row is one Check's gate result (`source: gate`) or one whole run a Drone asked for (`source: asked_run`, its Checks joined in `name`), each carrying the `requester` and the Job's id, handle and title. A gate row records when its ruling was written, as `ended_at`, and no start or duration; an asked run has all three.
+
+**A log opens through `get_check_output`**: each row's `logs` name the file, and `get_check_output` on the row's `job_id` and the log's `kept` reads it. An asked run's logs are an allowlist beside the gate's rows, so the one reader serves both. Merge-line Checks are `get_merge_lines`' and checkout runs are `list_checkout_runs`', and neither is here.
+
+`agent_access` is `No`: it is the Checks page's read, across Jobs, and an agent reads its own Job's through `get_job`.
+"""
+
 [operations.list_checkout_runs]
 kind = "query"
 transport = "HTTP"

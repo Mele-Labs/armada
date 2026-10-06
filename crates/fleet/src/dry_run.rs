@@ -297,7 +297,13 @@ struct Plan {
 impl Plan {
     /// Who asked, as the wire says it.
     fn requester(&self) -> ipc::Requester {
-        asked::requester(self.record.id(), &self.step, &self.drone, self.task)
+        asked::requester(
+            self.record.id(),
+            &self.record.handle(),
+            &self.step,
+            &self.drone,
+            self.task,
+        )
     }
 }
 
@@ -763,7 +769,11 @@ where
         // **Closed first, and whether or not the step still waits**: the record
         // is of the run, and a step that ended under it does not unask it.
         let logs: Vec<String> = match &ran {
-            Ok((report, _)) => report.ran.iter().filter_map(|row| row.log.clone()).collect(),
+            Ok((report, _)) => report
+                .ran
+                .iter()
+                .map(|row| row.log.clone().unwrap_or_default())
+                .collect(),
             Err(_) => Vec::new(),
         };
         self.asked_ends(asked, asked::state_of(&ran, ending), &logs).await;

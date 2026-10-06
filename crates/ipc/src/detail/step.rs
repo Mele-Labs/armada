@@ -421,7 +421,7 @@ pub struct JudgeInFlight {
 
 impl StepDetail {
     pub(super) fn of(
-        job: &core_model::JobId,
+        job: &core_model::Job,
         step: &core_model::JobStep,
         declared: Option<&core_model::ResolvedStep>,
         facts: Option<&StepFacts>,
@@ -445,10 +445,13 @@ impl StepDetail {
                         .iter()
                         .cloned()
                         .map(|run| {
-                            run.requested_by(crate::Requester::gate(
-                                &crate::JobId::from(job),
-                                &StepId::from(step.step_id()),
-                            ))
+                            run.requested_by(
+                                crate::Requester::gate(
+                                    &crate::JobId::from(job.id()),
+                                    &StepId::from(step.step_id()),
+                                )
+                                .with_handle(&job.handle()),
+                            )
                         })
                         .collect()
                 })
