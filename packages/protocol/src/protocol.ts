@@ -567,6 +567,7 @@ export type {
   BranchDeleted,
   DeleteBranch,
   ReclaimedBranch,
+  ReclaimedSaved,
   ReclaimedWorktree,
   WorktreeReclaimed,
 } from "./reclaimed";

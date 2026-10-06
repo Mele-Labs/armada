@@ -27,6 +27,8 @@ import { droneViewsOf, type DroneView } from "./draft/drone";
 import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type GroupView } from "./draft/group";
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "./facts";
+import type { HeldCommand } from "./drone-held";
+import { askNodeId, withAsk } from "./held-card";
 import { frozenBeneath } from "./frozen";
 import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
@@ -172,7 +174,8 @@ function needsOf(
   } else if (activity === "awaiting_human") {
     needs.push({ says: "Waiting on you", tone: "waiting" });
   }
-  if (here && whole.command_waiting !== undefined) needs.push({ says: "Command to allow", tone: "waiting" });
+  // The wire names the step it is held on, so the card says it wherever that is.
+  if (whole.command_waiting?.step_id === step.step_id) needs.push({ says: "Needs you", tone: "waiting" });
   for (const read of checksOf(step)) {
     if (!isRunning(read) && read.run?.outcome === "failed") needs.push({ says: `${read.name} failed`, tone: "failed" });
   }
@@ -239,6 +242,8 @@ export type WorkflowRunReading = {
   selected?: string | null;
   /** What a running step measures to. The caller's clock, so a test can hold it. */
   now?: number;
+  /** The command a Drone is held on: a card beside the step it is held at asks. */
+  held?: HeldCommand;
 };
 
 /**
@@ -252,6 +257,7 @@ export function workflowRunOf({
   onOpen,
   selected,
   now = Date.now(),
+  held,
 }: WorkflowRunReading): WorkflowRun {
   let y = 0;
   const steps = ordered(whole);
@@ -310,7 +316,17 @@ export function workflowRunOf({
 
   const at = whole.job.current_step_id;
   const running = at !== undefined && steps.some((step) => step.step_id === at) ? stepNodeId(at) : null;
-  return { nodes, rows, edges, running, opensOn: opensOn(steps, at) };
+  const asked = withAsk(nodes, edges, held === undefined ? undefined : stepNodeId(held.stepId), held);
+  const hosted = held !== undefined && asked.nodes.length > nodes.length ? stepNodeId(held.stepId) : undefined;
+  const reading = opensOn(steps, at);
+  // The held step and its card, so a fit that cannot show the run opens on the prompt.
+  return {
+    nodes: asked.nodes,
+    rows,
+    edges: asked.edges,
+    running,
+    opensOn: hosted === undefined ? reading : [...reading.map((ids) => [...ids, askNodeId(hosted)]), [hosted, askNodeId(hosted)]],
+  };
 }
 
 /**

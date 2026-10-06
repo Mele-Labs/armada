@@ -12,7 +12,7 @@ use adapter_traits::{
 };
 
 use super::git::{count, dirty, git, git_ok};
-use super::{Pool, Record, SlotState};
+use super::{Holder, Pool, Record, SlotState};
 
 /// How many of a branch's commits a reading lists. The rest are still counted
 /// in `unpushed`.
@@ -22,6 +22,27 @@ impl Pool {
     /// What stranded slot `number` holds.
     pub fn stranded_work(&self, number: usize) -> Result<StrandedWork, RescueRefused> {
         let path = self.stranded(number)?;
+        self.work_at(&path)
+    }
+
+    /// What slot `number` holds while an agent session holds it. **Read only**:
+    /// `stranded` still refuses it, so no rescue act reaches a live holder's
+    /// checkout.
+    pub fn session_work(&self, number: usize) -> Result<StrandedWork, RescueRefused> {
+        if !self.bays().contains(&number) {
+            return Err(RescueRefused::NoSuchSlot(number as u32));
+        }
+        match self.state_of(number) {
+            SlotState::Held {
+                holder: Holder::Process { .. },
+                ..
+            } => self.work_at(&self.path_of(number)),
+            other => Err(RescueRefused::NotStranded(word(&other).to_string())),
+        }
+    }
+
+    fn work_at(&self, path: &Path) -> Result<StrandedWork, RescueRefused> {
+        let path = path.to_path_buf();
         let commit = git(&path, &["rev-parse", "HEAD"]).map_err(RescueRefused::Vcs)?;
         let uncommitted = dirty(&path).map_err(RescueRefused::Vcs)?;
         let range = format!("{}..HEAD", self.base_ref());

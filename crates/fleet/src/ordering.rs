@@ -52,6 +52,7 @@ mod tests {
 
     fn named(name: &str) -> ResolvedCheck {
         ResolvedCheck::ManifestCheck {
+            manifest_dir: String::new(),
             name: name.to_string(),
             run: format!("run {name}"),
             expect_exit_code: 0,

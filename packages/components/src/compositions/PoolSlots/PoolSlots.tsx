@@ -9,6 +9,7 @@ import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 export type { ClearCost, Offered, TileRow } from "./tiles";
+export { ClearSaves } from "./ClearSaves";
 
 /**
  * Cleanup's grid, one tile per worktree and each styled by what holds it. A
@@ -42,6 +43,8 @@ export type PoolSlotsProps = {
   onRescue?: (act: RescueAct, slot: number) => void;
   /** Give a worktree back. Sent only from Clear's confirm. Absent draws no Clear. */
   onClear?: (jobId: string) => void;
+  /** Release a slot an agent session holds, for the holder it showed. Sent only from its confirm. */
+  onRelease?: (slot: number, holder: string) => void;
   /** Delete a worktree's branch at the tip its confirm named. Absent draws no Delete branch. */
   onDeleteBranch?: (jobId: string, tip: string) => void;
   /** Delete a Job's record. Sent only from its confirm. Absent draws no Forget Job. */
@@ -86,6 +89,7 @@ export function PoolSlots({
   onAct,
   onRescue,
   onClear,
+  onRelease,
   onDeleteBranch,
   onForget,
   onCopied,
@@ -118,6 +122,7 @@ export function PoolSlots({
           {...(onAct === undefined ? {} : { onAct })}
           {...(onRescue === undefined ? {} : { onRescue })}
           {...(onClear === undefined ? {} : { onClear })}
+          {...(onRelease === undefined ? {} : { onRelease })}
           {...(onDeleteBranch === undefined ? {} : { onDeleteBranch })}
           {...(onForget === undefined ? {} : { onForget })}
           {...(onCopied === undefined ? {} : { onCopied })}

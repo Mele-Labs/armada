@@ -133,9 +133,9 @@ export const WhatItHolds: Story = {
 
 /**
  * **Clear is sent only from its confirm**, which lists the git effects it will
- * have: the worktree it removes, the uncommitted files it deletes with how long
- * ago the Job last moved, and the branch it keeps with its commits not on main.
- * Cancel sends nothing.
+ * have: the uncommitted files it commits to the branch as a WIP commit, the
+ * worktree it removes, and the branch it keeps. Nothing is deleted and nothing
+ * is counted. Cancel sends nothing.
  */
 export const ClearConfirm: Story = {
   name: "Clear confirm",
@@ -155,12 +155,18 @@ export const ClearConfirm: Story = {
 
     const confirm = within(canvas.getByRole("group", { name: "Clear dirty" }));
     await expect(confirm.getByText("Removes the worktree at /Users/user/armada/.armada/worktrees/01JOB0001")).toBeInTheDocument();
-    await expect(confirm.getByText("Deletes uncommitted files")).toBeInTheDocument();
+    await expect(confirm.getByText("Commits the uncommitted files to branch armada/job-a as a WIP commit")).toBeInTheDocument();
     await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/a.rs");
     await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes/b.md");
-    await expect(confirm.getByText("Job last moved 4 days ago")).toBeInTheDocument();
-    await expect(confirm.getByText("Keeps branch armada/job-a: 3 commits not on main")).toBeInTheDocument();
-    await expect(confirm.getByRole("list", { name: "Branch tip" })).toHaveTextContent(TIP);
+    await expect(confirm.getByText("Keeps branch armada/job-a")).toBeInTheDocument();
+    // Nothing is deleted, so nothing is said to be lost, aged or counted.
+    await expect(confirm.queryByText("Deletes uncommitted files")).toBeNull();
+    await expect(confirm.queryByText(/last moved/)).toBeNull();
+    await expect(confirm.queryByText(/commits not on/)).toBeNull();
+    await expect(confirm.queryByRole("list", { name: "Branch tip" })).toBeNull();
+    await expect(within(open.getByRole("group", { name: "Acts" })).getByRole("button", { name: "Clear" })).toHaveAccessibleDescription(
+      "Commits the uncommitted files to branch armada/job-a as a WIP commit, then removes the worktree at /Users/user/armada/.armada/worktrees/01JOB0001. Keeps branch armada/job-a.",
+    );
     // Nothing else can be pressed while a confirm is up: the acts wait.
     await expect(within(open.getByRole("group", { name: "Acts" })).getByRole("button", { name: "Clear" })).toHaveAttribute(
       "aria-disabled",
@@ -180,9 +186,8 @@ export const ClearConfirm: Story = {
 
 /**
  * **A bay is released, not removed.** Its worktree stays at its slot path on a
- * detached HEAD, and the pool refuses the release while anything is
- * uncommitted, so the confirm lists those files as what holds it up and never
- * as deleted.
+ * detached HEAD. Uncommitted files are committed to the branch first, so the
+ * confirm lists them under that commit and never as refused or deleted.
  */
 export const ClearConfirmOnABay: Story = {
   name: "Clear confirm on a bay",
@@ -202,12 +207,70 @@ export const ClearConfirmOnABay: Story = {
     const open = await openTile(canvas, userEvent, "slot-2");
     await userEvent.click(open.getByRole("button", { name: "Clear" }));
     const confirm = within(canvas.getByRole("group", { name: "Clear slot-2" }));
-    await expect(confirm.getByText("Releases slot-2 to the pool")).toBeInTheDocument();
-    await expect(confirm.getByText("Keeps the worktree at .armada/slots/slot-2, detached from armada/job-a")).toBeInTheDocument();
-    await expect(confirm.getByText("Refused while these are uncommitted")).toBeInTheDocument();
+    await expect(confirm.getByText("Commits the uncommitted files to branch armada/job-a as a WIP commit")).toBeInTheDocument();
+    await expect(confirm.getByText("Releases slot-2")).toBeInTheDocument();
+    await expect(confirm.getByText("Keeps branch armada/job-a")).toBeInTheDocument();
+    await expect(confirm.queryByText(/Refused/)).toBeNull();
     await expect(confirm.queryByText("Deletes uncommitted files")).toBeNull();
     await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/a.rs");
     await expect(confirm.queryByText(/^Removes the worktree/)).toBeNull();
+  },
+};
+
+/**
+ * **A slot an agent session holds is released from its confirm**, which names
+ * the holder with its pid on a tooltip, and the branch, and commits the files
+ * it lists as a WIP commit before releasing. Nothing is sent before it.
+ */
+export const ReleaseConfirm: Story = {
+  name: "Release confirm",
+  args: {
+    rows: [
+      {
+        slot: slot(2, {
+          held: { state: "session", holder: "nvim (pid 44698)" },
+          branch: "fleet/by-hand",
+          stranded: { uncommitted: ["src/a.rs", "notes/b.md"], commits: [], unpushed: 0 },
+        }),
+      },
+      { slot: slot(3, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/clean" }) },
+    ],
+    onRelease: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const open = await openTile(canvas, userEvent, "slot-2");
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    await expect(args.onRelease).not.toHaveBeenCalled();
+    const confirm = within(canvas.getByRole("group", { name: "Release slot-2" }));
+    await expect(confirm.getByText("Held by nvim, on branch fleet/by-hand")).toBeInTheDocument();
+    await expect(confirm.getByText("pid 44698")).toBeInTheDocument();
+    await expect(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
+    await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes/b.md");
+    await expect(confirm.getByText("Releases slot-2")).toBeInTheDocument();
+    await expect(confirm.getByText("Keeps branch fleet/by-hand")).toBeInTheDocument();
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
+    await expect(args.onRelease).not.toHaveBeenCalled();
+
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    await userEvent.click(within(canvas.getByRole("group", { name: "Release slot-2" })).getByRole("button", { name: "Release" }));
+    await expect(args.onRelease).toHaveBeenCalledWith(2, "nvim (pid 44698)");
+  },
+};
+
+/** A session's slot with nothing uncommitted commits nothing. */
+export const ReleaseConfirmClean: Story = {
+  name: "Release confirm, nothing uncommitted",
+  args: {
+    rows: [{ slot: slot(3, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/clean" }) }],
+    onRelease: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    const open = await openTile(canvas, userEvent, "slot-3");
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    const confirm = within(canvas.getByRole("group", { name: "Release slot-3" }));
+    await expect(confirm.queryByText(/^Commits the uncommitted files/)).toBeNull();
+    await expect(confirm.queryByRole("list", { name: "Uncommitted files" })).toBeNull();
+    await expect(confirm.getByText("Releases slot-3")).toBeInTheDocument();
   },
 };
 
@@ -308,7 +371,7 @@ export const ActTooltips: Story = {
     await tip(
       "slot-2",
       "Clear",
-      "Releases slot-2 to the pool: detaches its worktree at .armada/slots/slot-2 from armada/job-a and keeps the directory. Refused while it has uncommitted changes. Deletes branch armada/job-a only if main has all its commits, otherwise keeps it.",
+      "Releases slot-2 to the pool: detaches its worktree at .armada/slots/slot-2 from armada/job-a and keeps the directory. Deletes branch armada/job-a only if main has all its commits, otherwise keeps it.",
     );
     await tip(
       "slot-2",

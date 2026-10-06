@@ -36,6 +36,20 @@ pub struct WorktreeReclaimed {
     pub job_id: JobId,
     pub worktree: ReclaimedWorktree,
     pub branch: ReclaimedBranch,
+    /// The uncommitted files a Clear committed to the branch before it freed
+    /// the worktree. Absent where there were none. Since 23.37.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved: Option<ReclaimedSaved>,
+}
+
+/// What a Clear committed to the Job's branch so that freeing the worktree
+/// loses nothing. Nothing is pushed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReclaimedSaved {
+    /// The WIP commit, on [`ReclaimedBranch::branch`].
+    pub commit: String,
+    /// The files it took, as git names them.
+    pub files: Vec<String>,
 }
 
 /// What became of the checkout.

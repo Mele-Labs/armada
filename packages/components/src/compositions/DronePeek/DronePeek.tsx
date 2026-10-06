@@ -26,6 +26,11 @@ export type DronePeekProps = {
   state: JobDroneState;
   /** The state, spelled — Job drones' own words. */
   stateSays: string;
+  /**
+   * The Drone is held inside a call, waiting on a person. **Its mark is the
+   * waiting one and holds still**: a pulse says it is working, and it is not.
+   */
+  needsYou?: boolean;
   /** How long it ran, on Job drones' `Run time` terms. Absent draws nothing. */
   ranFor?: ReactNode;
   /** Its transcript, in order. The peek shows the tail. */
@@ -34,6 +39,12 @@ export type DronePeekProps = {
   live: boolean;
   /** What the transcript says with no rows. Absent draws nothing. */
   emptyNote?: string;
+  /**
+   * What it is waiting on, answered here — the caller's own block, so the
+   * peek asks with the words and answers every other surface asks with.
+   * Drawn between the tail and the message box.
+   */
+  asking?: ReactNode;
   /** Open the whole Drone. Absent draws no Open. */
   onOpen?: () => void;
   /** The message box at the foot. Absent where the Drone cannot be reached. */
@@ -44,10 +55,12 @@ export function DronePeek({
   title,
   state,
   stateSays,
+  needsYou = false,
   ranFor,
   turns,
   live,
   emptyNote,
+  asking,
   onOpen,
   message,
 }: DronePeekProps) {
@@ -69,10 +82,10 @@ export function DronePeek({
         {/* Job drones' own mark, named on hover, so a state reads the same in
             both — never the word (owner, 2 Oct 2026). */}
         <StepActivityMark
-          activity={DRONE_ACTIVITY[state]}
+          activity={needsYou ? "awaiting_human" : DRONE_ACTIVITY[state]}
           label={stateSays}
           says={stateSays}
-          pulsing={state === "running"}
+          pulsing={state === "running" && !needsYou}
         />
         {ranFor === undefined ? null : (
           <Tooltip label="Run time">
@@ -89,6 +102,7 @@ export function DronePeek({
       <div ref={tail} className="armada-drone-peek__tail" tabIndex={0} aria-label="Transcript">
         <DroneTurns turns={turns} {...(emptyNote === undefined ? {} : { emptyNote })} live={live} steps={false} />
       </div>
+      {asking === undefined ? null : <div className="armada-drone-peek__asking">{asking}</div>}
       {message === undefined ? null : <DroneMessageBox {...message} />}
     </Card>
   );

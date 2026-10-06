@@ -390,8 +390,10 @@ pub enum NotMerged {
     /// The branch's head carries a tree its Checks never passed on, so nothing
     /// was pushed. Only `merge_by: push` says this; the answer is to run them.
     Unchecked { said: String },
-    /// A need ahead of this Job's on the same file has not landed, so Fleet did
-    /// not ask for the merge. Under `merge_by: forge` as under `push`: it is
+    /// A need stands in this Job's way, so Fleet did not ask for the merge:
+    /// one ahead of it on the same file has not landed, or the Job changes a
+    /// watched file (`adapters::undeclared`) with no need declared. The
+    /// sentence says which. Under `merge_by: forge` as under `push`: it is
     /// Fleet that presses, and the forge's own button is not held. #1059.
     WaitingBehind { said: String },
     /// The forge refused and said something this vocabulary has no name for.
@@ -422,7 +424,7 @@ impl NotMerged {
             NotMerged::Unchecked { said } => {
                 ("the branch's head is not what its Checks passed on", said)
             }
-            NotMerged::WaitingBehind { said } => ("a need ahead of this Job has not landed", said),
+            NotMerged::WaitingBehind { said } => ("a need stands in this Job's way", said),
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");

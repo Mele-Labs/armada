@@ -218,6 +218,7 @@ impl FakeSlots {
         Ok(SlotParked {
             branch,
             commit: Some(format!("wip-{job}")),
+            files: vec![String::from("wip.txt")],
         })
     }
 

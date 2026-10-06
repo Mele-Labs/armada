@@ -26,6 +26,14 @@ export type WorktreeReclaimed = {
   job_id: string;
   worktree: ReclaimedWorktree;
   branch: ReclaimedBranch;
+  /** The uncommitted files a Clear committed to the branch before freeing the worktree. Since 23.37. */
+  saved?: ReclaimedSaved | null;
+};
+
+/** The WIP commit a Clear made on the Job's branch, and the files it took. Nothing is pushed. */
+export type ReclaimedSaved = {
+  commit: string;
+  files: string[];
 };
 
 /** What became of the checkout. */

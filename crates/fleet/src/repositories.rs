@@ -34,6 +34,9 @@ pub use cloning::{folder_named_by, CLONE_BUDGET};
 #[derive(Clone, Debug)]
 pub struct SetUp {
     manifest: Manifest,
+    /// The workspaces' own manifests, the root's excluded. **Empty until the
+    /// loader that finds them is wired**, which is every repository today.
+    workspaces: Vec<Manifest>,
     held: Arc<RwLock<Held>>,
 }
 
@@ -62,12 +65,23 @@ impl SetUp {
     pub fn of(manifest: Manifest, workflows: BTreeMap<WorkflowId, ResolvedWorkflow>) -> SetUp {
         SetUp {
             manifest,
+            workspaces: Vec::new(),
             held: Arc::new(RwLock::new(Held {
                 workflows: Arc::new(workflows),
                 left_out: Arc::new(Vec::new()),
                 files: Arc::new(Vec::new()),
             })),
         }
+    }
+
+    /// The manifests of the workspaces below the root, in the order they gate.
+    pub fn with_workspaces(mut self, workspaces: Vec<Manifest>) -> SetUp {
+        self.workspaces = workspaces;
+        self
+    }
+
+    pub fn workspaces(&self) -> &[Manifest] {
+        &self.workspaces
     }
 
     /// The definition files this repository read, as the catalogue kept them.
@@ -293,6 +307,11 @@ impl Served {
 
     pub fn manifest(&self) -> &Manifest {
         self.set_up().manifest()
+    }
+
+    /// The workspaces' manifests. Empty for a repository with none.
+    pub fn workspaces(&self) -> &[Manifest] {
+        self.set_up().workspaces()
     }
 
     /// Every workflow this repository runs, **as one snapshot**: a re-read

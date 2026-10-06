@@ -69,11 +69,43 @@ pub(crate) fn lease_existing(
 
 /// Commit the Job's work to its branch and give the slot back.
 pub(crate) fn park(slots: &SlotPool, slot: u32, job: &str) -> Result<SlotParked, SlotParkRefused> {
-    match pool(slots).park(slot as usize, &Holder::job(job)) {
-        Ok(parked) => Ok(SlotParked {
-            branch: parked.branch,
-            commit: parked.committed.map(|committed| committed.commit),
-        }),
+    parked_as(slots, slot, &Holder::job(job))
+}
+
+/// [`park`] for a slot an agent session holds, only while it is still held by
+/// the holder the person was shown.
+pub(crate) fn release_session(
+    slots: &SlotPool,
+    slot: u32,
+    expected: &str,
+) -> Result<SlotParked, SlotParkRefused> {
+    match pool(slots).state(slot as usize) {
+        SlotState::Held {
+            holder: holder @ Holder::Process { .. },
+            ..
+        } if holder.said() == expected => parked_as(slots, slot, &holder),
+        SlotState::Held { holder, .. } => Err(SlotParkRefused::HolderChanged(holder.said())),
+        SlotState::Free | SlotState::Abandoned { .. } => {
+            Err(SlotParkRefused::HolderChanged(String::from("nobody")))
+        }
+        SlotState::Busy => Err(SlotParkRefused::Busy),
+        _ => Err(SlotParkRefused::NotLeased),
+    }
+}
+
+fn parked_as(slots: &SlotPool, slot: u32, holder: &Holder) -> Result<SlotParked, SlotParkRefused> {
+    match pool(slots).park(slot as usize, holder) {
+        Ok(parked) => {
+            let (commit, files) = match parked.committed {
+                Some(committed) => (Some(committed.commit), committed.files),
+                None => (None, Vec::new()),
+            };
+            Ok(SlotParked {
+                branch: parked.branch,
+                commit,
+                files,
+            })
+        }
         Err(ParkRefused::NotASlot(_) | ParkRefused::NotLeased(_)) => {
             Err(SlotParkRefused::NotLeased)
         }
@@ -139,6 +171,10 @@ pub(crate) fn change(slots: &SlotPool, change: SlotChange) -> Result<u32, SlotRe
         Unshaped::LastSlot => SlotRefused::LastSlot,
         Unshaped::Vcs(why) => SlotRefused::Vcs(why),
     })
+}
+
+pub(crate) fn session_work(slots: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
+    pool(slots).session_work(slot as usize)
 }
 
 pub(crate) fn stranded_work(slots: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {

@@ -121,6 +121,7 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gating;
 mod group;
 mod grouping;
 pub mod headroom;
@@ -263,6 +264,7 @@ pub mod reviewing;
 mod rostered;
 mod ruling;
 pub mod runtime;
+mod saving;
 pub mod saying;
 /// Scan: reading a repository nobody set up for Armada. **It writes nothing,
 /// because a [`scanning::Tree`] has no write on it.**

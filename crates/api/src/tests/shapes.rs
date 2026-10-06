@@ -591,6 +591,7 @@ pub fn reclaimed(job_id: JobId) -> WorktreeReclaimed {
             base: Some("main".to_string()),
             unmerged_commits: Some(3),
         },
+        saved: None,
     }
 }
 

@@ -149,6 +149,21 @@ where
             .take()
             .map(|paths| WriteTargets::of(paths.into_iter().map(RepoPath::new).collect()));
         let served = self.the_repository_named(&proposal.owner_manifest_id)?;
+        // Paths not yet determined gate every manifest; determined and empty
+        // gates none.
+        let gate_manifests = crate::gating::gate_manifests(
+            &served,
+            write_targets
+                .as_ref()
+                .map(|targets| {
+                    targets
+                        .paths()
+                        .iter()
+                        .map(|path| path.as_str().to_string())
+                        .collect::<Vec<_>>()
+                })
+                .as_deref(),
+        );
         let workflow = self.the_workflow_named(&served, &proposal.workflow_id)?;
         let owner_manifest_id = served.manifest().id().clone();
         let model = self.the_model_named(proposal.model.as_deref())?;
@@ -190,7 +205,7 @@ where
                 })
                 .collect(),
             steps,
-            gate_manifests: Vec::new(),
+            gate_manifests,
             // Null is not empty: absent is scope not yet determined, present
             // and empty is determined to write nothing.
             write_targets: write_targets.clone(),

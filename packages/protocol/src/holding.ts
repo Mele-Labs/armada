@@ -25,6 +25,8 @@
  * person who came looking for a worktree that is not on it could not tell
  * "already given back" from "held and not said".
  */
+import type { ReclaimedSaved } from "./reclaimed";
+
 export type WorktreesHeld = {
   worktrees: WorktreeHeld[];
   /**
@@ -141,16 +143,29 @@ export type SlotRescued = {
 };
 
 /** What a person does to the pool from Cleanup's bay grid. Since 23.17. */
-export type SlotAct = "add" | "remove" | "close" | "open";
+export type SlotAct = "add" | "remove" | "close" | "open" | "release";
 
 /**
  * `change_slot_pool`'s body, `POST /worktrees/slots?manifest_id=`. `slot` names
  * the slot for all but `add`, which picks its own. On this machine only.
  */
-export type ChangeSlotPool = { act: SlotAct; slot?: number };
+export type ChangeSlotPool = {
+  act: SlotAct;
+  slot?: number;
+  /** For `release`: the holder the person was shown, as the slot named it. Since 23.37. */
+  holder?: string;
+};
 
 /** The slot `change_slot_pool` changed: the new one, for `add`. */
-export type SlotPoolChanged = { manifest_id: string; slot: number };
+export type SlotPoolChanged = {
+  manifest_id: string;
+  slot: number;
+  /** What a `release` did to the branch. Absent for every other act. Since 23.37. */
+  released?: SlotReleased | null;
+};
+
+/** The branch a released slot's work is on, and what was committed to it. */
+export type SlotReleased = { branch: string; saved?: ReclaimedSaved | null };
 
 /**
  * Who holds a slot, or why nothing can. Discriminated on `state`, and matched

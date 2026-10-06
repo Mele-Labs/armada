@@ -498,6 +498,15 @@ async function waitingInTheDock(answered: "clears" | "refused"): Promise<void> {
   await expect.element(page.getByRole("region", { name: "A question from the drone" })).toBeVisible();
 }
 
+test("answered in the dock, the card the Workflow canvas hangs beside the held step goes too", async () => {
+  await waitingInTheDock("clears");
+  await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+  await expect.element(page.getByRole("group", { name: "Needs you" })).toHaveTextContent("pnpm add -D reselect@5.1.1");
+  await openHelm();
+  await page.getByRole("article").getByRole("button", { name: "Reject" }).click();
+  await expect.poll(() => page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+});
+
 test("answered in the dock, Job detail agrees: the band and the card both go", async () => {
   await waitingInTheDock("clears");
   await openHelm();

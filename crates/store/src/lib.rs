@@ -55,6 +55,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
