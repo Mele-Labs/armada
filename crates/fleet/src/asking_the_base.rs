@@ -65,7 +65,7 @@ where
         let (mut branch, mut main) = (Vec::new(), Vec::new());
         for red in reds {
             let named = shown(&red);
-            let Some(check) = checks.iter().find(|one| one.label() == red.name) else {
+            let Some(check) = checks.iter().find(|one| one.key() == red.name) else {
                 branch.push(named);
                 continue;
             };
@@ -166,7 +166,7 @@ where
         let key = (
             served.root().to_string(),
             at.clone(),
-            check.label().to_string(),
+            check.key().to_string(),
         );
         let remembered = self
             .lines()
@@ -192,6 +192,7 @@ where
             &checking::Stop::never(),
             None,
             Attempt::FIRST,
+            None,
             None,
         )
         .await;

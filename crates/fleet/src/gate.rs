@@ -280,7 +280,7 @@ where
     // change reaches and every crate depending on one, and run whole on any
     // covered path that cannot be named. `cargo tree` is asked only where a
     // Check could narrow. The owner's decision of 4 Oct 2026, after Job 3.
-    let reach = match checking::narrows_at_the_gate(step.checks(), &touched) {
+    let reach = match checking::narrows_at_the_gate(step.checks(), &touched, at.gated()) {
         false => checks_runner::Reach::Whole("no Check here narrows by directory".into()),
         true => {
             let (worktree, changed) = (at.worktree().path().to_string(), touched.clone());
@@ -309,6 +309,7 @@ where
         dry_run,
         at.attempt(),
         footprint_now.as_ref(),
+        at.gated(),
     )
     .await
     {
@@ -339,6 +340,7 @@ where
             attempt: at.attempt(),
             reach: &reach,
             announcing,
+            gated: at.gated(),
         },
     )
     .await;

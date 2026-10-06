@@ -184,6 +184,7 @@ where
         // authenticates as Fleet, and a value that could not be built is a
         // configuration failure against this Job rather than a verdict.
         let served = self.served_by(&job)?;
+        let gated = self.gated_by_the_change(&served, &worktree);
         let judging = self
             .judging(&job, &served)
             .map_err(|cause| Adrift::NotConfigurable {
@@ -288,7 +289,8 @@ where
         let held_off = self.held_off(&job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
-                .holding_handoff(at_group.is_some_and(|g| g.follows)),
+                .holding_handoff(at_group.is_some_and(|g| g.follows))
+                .over(gated.as_ref()),
             request,
             &landed.submission,
             declared.as_ref(),
@@ -327,6 +329,8 @@ where
         // never written down is a verdict with no trace.
         self.recorded_checks(&job_id, &job.handle(), &step, attempt, coord, &ruling)
             .await?;
+        self.kept_gates(&job_id, at.step(), gated.as_ref(), &ruling)
+            .await;
         self.kept_what_the_gate_checked(&job, &ruling).await;
         // After `recorded_checks`, which is what puts this attempt's own
         // Checks where the read inside can find them beside the one before.

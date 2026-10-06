@@ -431,7 +431,7 @@ impl Announcing {
             .iter()
             .zip(settled)
             .map(|(check, known)| ipc::CheckUnderway {
-                name: check.label().to_string(),
+                name: check.key().to_string(),
                 started_at: None,
                 took_ms: known.map(|_| 0),
                 ran: known.and_then(|observed| row(attempt, check, observed)),
@@ -556,7 +556,7 @@ impl Announcing {
         let Some(bound) = self.0.as_ref() else { return };
         if let (Some(timed), Observed::Command(Exit::Code(_))) = (&bound.timed, observed) {
             if let Ok(mut timed) = timed.lock() {
-                timed.push((check.label().to_string(), took));
+                timed.push((check.key().to_string(), took));
             }
         }
         if bound.again.as_ref().is_some_and(|again| !again.finishes) {

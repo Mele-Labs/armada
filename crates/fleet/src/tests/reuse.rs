@@ -262,6 +262,7 @@ async fn every_declared_check_gets_a_row_whatever_the_dry_run_names() {
         Some(&dry_run),
         Attempt::FIRST,
         Some(&footprint),
+        None,
     )
     .await;
     assert_eq!(

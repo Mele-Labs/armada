@@ -602,7 +602,7 @@ impl Ran {
         }
         let mut each = Vec::with_capacity(checks.len());
         for (at, (check, observed)) in checks.iter().zip(observed).enumerate() {
-            each.push((check.label().to_string(), verdict(at, check, observed)?));
+            each.push((check.key().to_string(), verdict(at, check, observed)?));
         }
         Ok(Ran { each })
     }
