@@ -24,7 +24,7 @@ import type {
 } from "@armada/protocol";
 
 import { CHECK_ADVANCES, CHECK_OUTCOME, JOB_LIFECYCLE, JOB_STATUS } from "@armada/components";
-import { fileNameOf } from "../editing";
+import { fileNameOf } from "../file-name";
 import { repositorySaid } from "../gate-policy";
 import { caseRunsOf } from "./cases";
 import { coordOfStep, type RunCoord } from "./coord";

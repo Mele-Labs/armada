@@ -12,7 +12,7 @@ import { GAMING_PATTERN_HEADLINE, type DiffLine } from "@armada/components";
 import type { Diff, Flagged, JobDetail as JobWhole, StepDetail } from "@armada/protocol";
 
 import { onlyCurrentAttempt } from "./facts";
-import { drawnOf } from "./review";
+import { drawnOf } from "./drawn-patch";
 
 /** One attempt's flags, split into those that hold the step and those cleared. */
 export type FlagsRead = { held: Flagged[]; cleared: Flagged[] };

@@ -26,7 +26,7 @@ import { pausedSaid } from "./pausing";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
 import { titleOf } from "./title";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /** What the header is built from. The Job's, never a step's. */
 export type Heading = {

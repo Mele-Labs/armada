@@ -10,7 +10,7 @@
 // Neither word is a status and neither is minted here.
 
 import { money } from "./facts";
-import { LANDED } from "./Row";
+import { LANDED } from "./landed-words";
 import type { WaveJobView, WaveView } from "./draft/wave";
 import type { WaveCanvasEdge, WaveCanvasFact, WaveCanvasNode } from "@armada/components";
 
