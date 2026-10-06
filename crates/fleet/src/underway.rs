@@ -216,6 +216,9 @@ struct Bound {
     /// Each command that ran to an exit code, and how long it took. `None`
     /// where the run's durations are not the Checks' own, as a narrowed run's.
     timed: Option<Mutex<Vec<(String, Duration)>>>,
+    /// Each run of a Check that ended, for the history. Shared with a red's run
+    /// alone, so it is flushed with the gate's own.
+    history: Arc<Mutex<Vec<store::CheckRun>>>,
     /// Set where this writer tells a red's run alone on the gate's own rows.
     again: Option<Again>,
 }
@@ -260,6 +263,7 @@ impl Announcing {
             hearing: None,
             queued: AtomicBool::new(false),
             timed: Some(Mutex::new(Vec::new())),
+            history: Arc::default(),
             again: None,
         }))
     }
@@ -291,6 +295,7 @@ impl Announcing {
             hearing: Some(hearing),
             queued: AtomicBool::new(false),
             timed: whole.then(|| Mutex::new(Vec::new())),
+            history: Arc::default(),
             again: None,
         }))
     }
@@ -320,6 +325,7 @@ impl Announcing {
             hearing: None,
             queued: AtomicBool::new(false),
             timed: None,
+            history: Arc::clone(&bound.history),
             again: Some(Again {
                 slots,
                 finishes,
@@ -634,6 +640,28 @@ impl Announcing {
             .as_ref()
             .and_then(|bound| bound.timed.as_ref())
             .and_then(|timed| timed.lock().ok().map(|held| held.clone()))
+            .unwrap_or_default()
+    }
+
+    /// The clock's reading, for a run's start. `None` where this is nowhere.
+    pub(crate) fn stamp(&self) -> Option<core_model::Timestamp> {
+        self.0.as_ref().map(|bound| bound.clock.now())
+    }
+
+    /// Note one run that ended, for [`Announcing::runs`].
+    pub(crate) fn ran(&self, run: store::CheckRun) {
+        if let Some(bound) = self.0.as_ref() {
+            if let Ok(mut held) = bound.history.lock() {
+                held.push(run);
+            }
+        }
+    }
+
+    /// Every run noted so far, in the order they ended.
+    pub(crate) fn runs(&self) -> Vec<store::CheckRun> {
+        self.0
+            .as_ref()
+            .and_then(|bound| bound.history.lock().ok().map(|held| held.clone()))
             .unwrap_or_default()
     }
 

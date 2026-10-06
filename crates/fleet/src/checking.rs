@@ -699,6 +699,7 @@ pub(crate) async fn ran(
         halting = None;
     }
     let mut stopped = vec![false; planned.len()];
+    let mut ledger = crate::check_history::Ledger::begin(planned.len());
     // **The place comes back out with the answer**, so it is given back here
     // rather than wherever the spawned future happens to end. A place dropped
     // inside the task frees a slot the moment the command exits, which is
@@ -750,6 +751,7 @@ pub(crate) async fn ran(
                 .front()
                 .map_or(std::num::NonZeroU32::MIN, |(at, _)| checks[*at].places());
             ask = Some(room.ask_for(places));
+            ledger.asking();
         }
         tokio::select! {
             place = next_place(room, ask.as_mut(), own_places, announcing), if wants_a_turn => {
@@ -758,6 +760,7 @@ pub(crate) async fn ran(
                 let Some((at, run)) = queued.pop_front() else {
                     continue;
                 };
+                ledger.granted(at, announcing);
                 own_places += checks[at].places().get() as usize;
                 let worktree: PathBuf = worktree.clone();
                 // **Cloned and added to per Check, not once for the batch**:
@@ -823,6 +826,11 @@ pub(crate) async fn ran(
                     }
                     None => {
                         announcing.finished(at, &checks[at], &observed, took);
+                        let narrowed_to = match &planned[at] {
+                            Planned::Command { narrowed_to, .. } => narrowed_to.as_deref(),
+                            _ => None,
+                        };
+                        ledger.ran(at, &checks[at], &observed, narrowed_to, took, width_of(&checks[at], width), announcing);
                         if stop.at_first_failure
                             && failed_first.is_none()
                             && !advances(&checks[at], &observed)

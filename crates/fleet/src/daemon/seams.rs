@@ -486,6 +486,29 @@ where
             let _ = store.record_check_took(repository, &check, took, &at);
         }
     }
+    /// Append each run of this Job's Checks to the history. A row that will
+    /// not write is said in the Job's log and fails nothing.
+    pub(crate) async fn kept_runs(&self, job: &Job, runs: Vec<store::CheckRun>) {
+        if runs.is_empty() {
+            return;
+        }
+        let mut store = self.store().lock().await;
+        for run in runs {
+            if let Err(why) = store.append_check_run(job.owner_manifest_id(), Some(job.id()), &run)
+            {
+                let envelope = core_model::Envelope::new(
+                    self.now(),
+                    core_model::Level::Warn,
+                    core_model::Component::Fleet,
+                    self.run().clone(),
+                    "a Check run was not added to the history",
+                )
+                .in_job(job.id().as_ulid().clone())
+                .with_field("said", core_model::FieldValue::Str(why.to_string()));
+                self.noted_in_the_log(job.id(), &envelope);
+            }
+        }
+    }
     /// A fix draft's one-test run, kept apart from a whole Check's. #1072.
     pub(crate) async fn kept_one_test_timing(
         &self,
