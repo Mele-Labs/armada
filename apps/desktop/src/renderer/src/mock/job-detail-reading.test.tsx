@@ -29,7 +29,19 @@ async function openedReading(): Promise<{ answer: (with_: JobFixture) => void }>
       return {};
     },
   });
+  // **Fleet's answer waits for the app's ask.** The Job being on screen does not mean the effect that
+  // sends `watchJob` has run, and its reply is this fixture's unread read: an answer published first
+  // is replaced by it and never comes back. The effect has not run yet when `mount` returns, so
+  // wrapping here sees the call.
+  const asked = new Promise<void>((resolve) => {
+    const watchJob = window.armada.watchJob;
+    window.armada.watchJob = async (jobId) => {
+      await watchJob(jobId);
+      if (jobId !== null) resolve();
+    };
+  });
   await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
+  await asked;
   return { answer: (with_) => fleet?.publish({ watched: with_.watched }) };
 }
 
