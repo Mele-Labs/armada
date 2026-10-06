@@ -1,0 +1,37 @@
+# The Rust toolchain and one rust-cache per job. docs/practices/ci.md.
+name: rust-setup
+inputs:
+  key:
+    description: Cache key, one per job, so no two jobs write the same entry.
+    required: true
+  nextest:
+    default: "false"
+  cache:
+    description: Off for a job that compiles nothing.
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      with:
+        toolchain: stable
+        components: rustfmt
+
+    - name: Rust cache
+      id: rc
+      if: inputs.cache == 'true'
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        prefix-key: ci1
+        key: ${{ inputs.key }}
+        cache-on-failure: true
+
+    - name: cargo-nextest
+      if: inputs.nextest == 'true'
+      uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+      with:
+        tool: cargo-nextest
+
+    - name: Cache report
+      shell: bash
+      run: echo "CACHE rust=${{ steps.rc.outputs.cache-hit }}"
