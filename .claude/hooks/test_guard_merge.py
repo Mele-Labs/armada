@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """What `guard_merge.py` refuses, and what it must let through.
 
-`python3 .claude/hooks/test_guard_merge.py`. Nothing here runs git or `gh`: the
-hook reads a payload and answers, so a test is one string in and one decision
+`python3 .claude/hooks/test_guard_merge.py`. Nothing here runs git or the real
+`gh`: the hook reads a payload and answers, and where it asks about a pull
+request's checks it asks a stand-in, so a test is one string in and one decision
 out. The false-positive half is the half that matters — a hook that refuses an
 ordinary branch push stops every agent in the repository.
 """
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -15,8 +17,38 @@ import unittest
 
 HOOK = pathlib.Path(__file__).with_name("guard_merge.py")
 
+# What `gh pr view --json …` answers, as the stand-in prints it. Unset, the
+# stand-in fails, which is a pull request whose checks cannot be read.
+STAND_IN = """#!/usr/bin/env python3
+import os, sys
+view = os.environ.get("FAKE_VIEW")
+if view is None:
+    sys.exit(1)
+print(view)
+"""
+_tmp = tempfile.TemporaryDirectory()
+GH = pathlib.Path(_tmp.name) / "gh"
+GH.write_text(STAND_IN)
+GH.chmod(0o755)
 
-def decide(command: str, cwd: str | None = None) -> str | None:
+
+def view(ci: str | None, state: str = "OPEN", base: str = "main") -> str:
+    """The stand-in's answer for a pull request whose `ci` came to `ci`."""
+    rollup = [{"name": "needs", "conclusion": "SUCCESS"}]
+    if ci:
+        rollup.append({"name": "ci", "conclusion": ci})
+    return json.dumps({"state": state, "baseRefName": base, "statusCheckRollup": rollup})
+
+
+def env_with(fake_view: str | None) -> dict[str, str]:
+    env = {**os.environ, "GUARD_MERGE_GH": str(GH)}
+    env.pop("FAKE_VIEW", None)
+    if fake_view is not None:
+        env["FAKE_VIEW"] = fake_view
+    return env
+
+
+def decide(command: str, cwd: str | None = None, fake_view: str | None = None) -> str | None:
     """The hook's decision on one Bash command, or None where it stayed silent."""
     payload = {"tool_name": "Bash", "tool_input": {"command": command}}
     if cwd:
@@ -27,6 +59,7 @@ def decide(command: str, cwd: str | None = None) -> str | None:
         capture_output=True,
         text=True,
         check=True,
+        env=env_with(fake_view),
     )
     if not run.stdout.strip():
         return None
@@ -48,27 +81,43 @@ class Refuses(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(decide(command), "deny")
 
-    def test_a_merge_pressed_by_hand(self) -> None:
+    def test_a_merge_that_is_not_a_merge_commit_of_one_named_pull_request(self) -> None:
+        green = view("SUCCESS")
         for command in (
-            "gh pr merge 1327 --merge",
             "gh pr merge --squash 1327",
-            "git fetch && gh pr merge 1327 --merge --delete-branch",
+            "gh pr merge 1327 --rebase",
+            "gh pr merge 1327 --merge --admin",
+            "gh pr merge 1327",
+            "gh pr merge --merge",
+            "gh pr merge 1327 1328 --merge",
         ):
             with self.subTest(command=command):
-                self.assertEqual(decide(command), "deny")
+                self.assertEqual(decide(command, fake_view=green), "deny")
+
+    def test_a_merge_whose_ci_has_not_passed(self) -> None:
+        for answer in (None, view(None), view("FAILURE"), view("CANCELLED"), view("SUCCESS", state="MERGED"), view("SUCCESS", base="dev")):
+            with self.subTest(answer=answer):
+                self.assertEqual(decide("gh pr merge 1327 --merge", fake_view=answer), "deny")
 
     def test_the_shapes_that_used_to_walk_past_it(self) -> None:
         # Each of these was allowed until an adversarial review typed it.
         for command in (
             "GIT_AUTHOR_NAME=x git push origin main",
-            "gh -R NickMele/armada pr merge 1327 --merge",
-            "GH_TOKEN=x gh pr merge 1327 --merge",
             'sh -c "git push origin main"',
-            'bash -c "gh pr merge 1327 --merge"',
             "gh api -X PUT repos/NickMele/armada/pulls/1327/merge",
         ):
             with self.subTest(command=command):
                 self.assertEqual(decide(command), "deny")
+
+    def test_the_wrapped_shapes_still_ask_the_checks(self) -> None:
+        # Wrapping a merge in env, -R or a shell does not skip the question.
+        for command in (
+            "gh -R NickMele/armada pr merge 1327 --merge",
+            "GH_TOKEN=x gh pr merge 1327 --merge",
+            'bash -c "gh pr merge 1327 --merge"',
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(decide(command, fake_view=view("FAILURE")), "deny")
 
     def test_a_command_claiming_to_be_the_runner(self) -> None:
         # The runner's own push never reaches this hook, so nothing typed
@@ -84,11 +133,12 @@ class Refuses(unittest.TestCase):
         run = subprocess.run(
             [sys.executable, str(HOOK)],
             input=json.dumps({"tool_input": {"command": "gh pr merge 1"}}),
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, env=env_with(None),
         )
         reason = json.loads(run.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn("gh pr create --base main", reason)
         self.assertIn("Create a merge commit", reason)
+        self.assertIn("gh pr merge <n> --merge", reason)
         self.assertIn("docs/practices/ci.md", reason)
         self.assertNotIn("scripts/land", reason)
 
@@ -163,6 +213,28 @@ class MergesByHand(unittest.TestCase):
 
 
 class Allows(unittest.TestCase):
+    def test_a_merge_commit_of_a_pull_request_whose_ci_passed(self) -> None:
+        green = view("SUCCESS")
+        for command in (
+            "gh pr merge 1327 --merge",
+            "gh pr merge 1327 --merge --delete-branch",
+            "gh pr merge --merge 1327",
+            "gh -R Mele-Labs/armada pr merge 1327 --merge",
+            "GH_TOKEN=x gh pr merge 1327 --merge",
+            'bash -c "gh pr merge 1327 --merge"',
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, fake_view=green))
+
+    def test_auto_merge_leaves_the_wait_to_github(self) -> None:
+        # No checks are read: GitHub merges it when `ci` passes, and not before.
+        for command in (
+            "gh pr merge 1327 --merge --auto",
+            "gh pr merge --auto --merge 1327",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, fake_view=None))
+
     def test_an_ordinary_branch_push(self) -> None:
         for command in (
             "git push -u origin tools/merge-line",

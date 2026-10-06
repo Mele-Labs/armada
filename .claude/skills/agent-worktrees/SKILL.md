@@ -24,7 +24,7 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 ```
 path=$(armada worktree lease <branch>)   # waits while every slot is held
 armada worktree --status                 # who holds each, and since when
-armada worktree release <path>           # after the owner merges the pull request
+armada worktree release <path>           # after the pull request merges
 ```
 
 **A lease belongs to the process that took it, and a restart orphans it.** The
@@ -83,7 +83,7 @@ git branch -D <branch>
 Do both. A branch left behind with no worktree is cheap; a worktree left behind
 is not.
 
-**The cleanup happens after the owner merges the pull request**, never when you
+**The cleanup happens after the pull request merges**, never when you
 open it. Check it merged with `gh pr view <branch> --json state` (it reads
 `MERGED`) before removing a worktree, and run the three checks below first,
 every time: nothing here can tell your worktree from one another agent is still
