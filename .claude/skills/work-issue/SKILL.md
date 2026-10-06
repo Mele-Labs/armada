@@ -92,7 +92,9 @@ took. `armada land` then holds your branch until every need ahead of yours has
 landed, so you land in order and nothing is renumbered. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
-`armada need --release <path>` gives one back; a branch deleted locally gives its
+**`armada land preflight` and Fleet's merge refuse a branch that appends a
+migration or changes the protocol minor with no need declared**, so declare
+first. `armada need --release <path>` gives one back; a branch deleted locally gives its
 needs back by itself, and a need that stalls is given back by a person, since
 nothing expires. `armada need --status` lists every need by path.
 

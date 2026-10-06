@@ -3,6 +3,10 @@
 
 use std::path::Path;
 
+use adapters::undeclared::undeclared;
+
+use crate::need::Needs;
+
 use super::armada_cli::covers;
 use super::dir::StateDir;
 use super::env::Env;
@@ -64,6 +68,12 @@ pub fn preflight(cwd: &Path, env: &Env) -> Result<Preflighted, Refused> {
         return Err(Refused(format!(
             "{branch} has nothing ahead of {upstream} — commit the work first"
         )));
+    }
+    // The cheapest refusal that needs the base: nothing below is worth running
+    // for a branch that took a number it never declared. `#1059`.
+    let needs = Needs::of(cwd).map_err(Refused)?;
+    if let Some(said) = undeclared(cwd, &upstream, &branch, &needs).map_err(Refused)? {
+        return Err(Refused(said));
     }
     let number = open_pull_request(cwd, env, &branch);
 
