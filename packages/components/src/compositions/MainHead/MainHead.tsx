@@ -114,59 +114,65 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
   return (
     <div className="armada-main-red">
       <div className="armada-main-red__frame" role="status" aria-label="Main is red">
-        <span className="armada-main-red__facts">
-          {onOpenCheck === undefined ? (
-            <Tooltip label="Check" asChild>
-              <span className="mono">{red.check}</span>
-            </Tooltip>
-          ) : (
-            <Tooltip label="Check, opens its log">
+        <div className="armada-main-red__head">
+          <span className="armada-main-red__title">Main is red</span>
+          {taken !== undefined ? null : (
+            <span className="armada-main-red__ask">
+              <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
+                Dispatch a new Job
+              </Button>
+              <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                Send back to a Job
+              </Button>
+            </span>
+          )}
+        </div>
+        <dl className="armada-main-red__rows mono">
+          <dt>Check</dt>
+          <dd>
+            {onOpenCheck === undefined ? (
+              red.check
+            ) : (
               <button type="button" className="armada-main-red__link mono" onClick={() => onOpenCheck(red.check)}>
                 {red.check}
               </button>
-            </Tooltip>
-          )}
-          <Tooltip label="Test">
+            )}
+          </dd>
+          <dt>Test</dt>
+          <dd>
             <a className="armada-main-red__link mono" href={red.testUrl} onClick={link(red.testUrl)}>
               {red.test}
             </a>
-          </Tooltip>
-          <Tooltip label="Pull request that merged">
+          </dd>
+          <dt>Broke in</dt>
+          <dd className="armada-main-red__merge">
             <a className="armada-main-red__link mono" href={red.merge.url} onClick={link(red.merge.url)}>
               #{red.merge.number}
             </a>
-          </Tooltip>
-          <Tooltip label="Branch">
             <a className="armada-main-red__link mono" href={red.merge.branchUrl} onClick={link(red.merge.branchUrl)}>
               {red.merge.branch}
             </a>
-          </Tooltip>
-        </span>
-        {taken !== undefined ? (
-          <span className="armada-main-red__taken">
-            <Tooltip label="Working on it" asChild>
-              <span className="armada-fixing-mark" data-state="fixing" role="img" aria-label="Working on it">
-                <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
-              </span>
-            </Tooltip>
-            {onOpenJob === undefined ? (
-              <span>{taken.title}</span>
-            ) : (
-              <button type="button" className="armada-main-red__link" onClick={() => onOpenJob(taken.id)}>
-                {taken.title}
-              </button>
-            )}
-          </span>
-        ) : (
-          <span className="armada-main-red__ask">
-            <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
-              Dispatch a new Job
-            </Button>
-            <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
-              Send back to a Job
-            </Button>
-          </span>
-        )}
+          </dd>
+          {taken === undefined ? null : (
+            <>
+              <dt>Fixing</dt>
+              <dd className="armada-main-red__taken">
+                <Tooltip label="Working on it" asChild>
+                  <span className="armada-fixing-mark" data-state="fixing" role="img" aria-label="Working on it">
+                    <Hammer size={SMALL} strokeWidth={STROKE} aria-hidden />
+                  </span>
+                </Tooltip>
+                {onOpenJob === undefined ? (
+                  <span>{taken.title}</span>
+                ) : (
+                  <button type="button" className="armada-main-red__link" onClick={() => onOpenJob(taken.id)}>
+                    {taken.title}
+                  </button>
+                )}
+              </dd>
+            </>
+          )}
+        </dl>
       </div>
       {asking === null ? null : (
         <FixDialog
