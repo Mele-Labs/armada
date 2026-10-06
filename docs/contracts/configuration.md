@@ -516,8 +516,8 @@ Rules that follow:
   no line.
 - **It is the repository's word, kept in the Manifest** and never read from the
   forge's configuration, because naming the forge's files is the adapter's.
-- **It is Manifest-only and read when main is read**, so a save is adopted
-  without a restart. `after_merge` ignores it.
+- **It is not `Live`.** Fleet reads it from the Manifest it started with, so a
+  save is adopted at the next restart.
 
 ## What a passing run of a Check looks like
 
