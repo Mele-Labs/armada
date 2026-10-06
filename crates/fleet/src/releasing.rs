@@ -66,17 +66,21 @@ where
     /// room for: what is still waiting for a slot now is waiting for a pool
     /// that is full. Answers the Jobs paused.
     pub(crate) async fn release_for_waiters(&self) -> Result<Vec<JobId>, Adrift> {
-        // A waiter that the Drone bound or the machine would hold back anyway
-        // gains nothing from a slot.
+        // A waiter the Drone bound would hold back gains nothing from a slot.
+        // The bound is asked first because it reads nothing; the machine is
+        // asked only once there is a waiter, so an idle turn takes no reading.
+        if !self.slots().lock().await.room() {
+            return Ok(Vec::new());
+        }
+        let waiters = self.waiting_for_a_slot().await?;
+        if waiters.is_empty() {
+            return Ok(Vec::new());
+        }
         let room = {
             let mut slots = self.slots().lock().await;
             self.room_for(&mut slots).await.granted()
         };
         if !room {
-            return Ok(Vec::new());
-        }
-        let waiters = self.waiting_for_a_slot().await?;
-        if waiters.is_empty() {
             return Ok(Vec::new());
         }
         let (loaded, _) = self.every_job().await?;
