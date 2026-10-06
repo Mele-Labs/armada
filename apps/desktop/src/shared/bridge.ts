@@ -9,49 +9,34 @@
 // Nothing here runs in more than one process — the preload is a wire and not an
 // import path, and this file is the shape of what crosses it.
 
-import type {
-  BridgeIdentity,
-  Connection,
-  Diff,
-  Evidence,
-  Examination,
-  Footprint,
-  Handed,
-  Crewed,
-  Holds,
-  HeldWorktrees,
-  HelmThread,
-  History,
-  Holdings,
-  FollowedLog,
-  Journalled,
-  Observed,
-  Remarks,
-  Reports,
-  Watched,
-} from "@armada/protocol";
-import type {
-  FleetCapacity,
-  FleetLimits,
-  JobSummary,
-  MergeLines,
-  Preferences,
-  ProposalInFlight,
-  RepositorySummary,
-  UnreadableJob,
-} from "@armada/protocol";
-import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
-import type { FollowedLandLog } from "@armada/protocol";
-import type { RunFollowed, RunSheetRead, ServerList } from "@armada/protocol";
 import type { CheckoutRunFollowed, CheckoutRunSheetRead, ManifestDriftRead } from "@armada/protocol";
+import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
 import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
-import type { Outstanding } from "@armada/screens/src/outstanding";
-import type { StudioRead, StudiosRead } from "@armada/screens/src/studio-reads";
 import { spoken } from "@armada/protocol";
+import { CORE_CHANNELS, CORE_NOTHING_YET } from "./api/core";
+import type { CoreState } from "./api/core";
+import { STUDIOS_CHANNELS, STUDIOS_NOTHING_YET } from "./api/studios";
+import type { StudiosState } from "./api/studios";
+import { MANIFEST_CHANNELS, MANIFEST_NOTHING_YET } from "./api/manifest";
+import type { ManifestState } from "./api/manifest";
+import { SETUP_CHANNELS, SETUP_NOTHING_YET } from "./api/setup";
+import type { SetupState } from "./api/setup";
+import { WORKFLOWS_CHANNELS, WORKFLOWS_NOTHING_YET } from "./api/workflows";
+import type { WorkflowsState } from "./api/workflows";
+import { HELM_CHANNELS, HELM_NOTHING_YET } from "./api/helm";
+import type { HelmState } from "./api/helm";
+import { SETTINGS_CHANNELS, SETTINGS_NOTHING_YET } from "./api/settings";
+import type { SettingsState } from "./api/settings";
+import { OVERVIEW_CHANNELS, OVERVIEW_NOTHING_YET } from "./api/overview";
+import type { OverviewState } from "./api/overview";
+import { CLEANUP_CHANNELS, CLEANUP_NOTHING_YET } from "./api/cleanup";
+import type { CleanupState } from "./api/cleanup";
+import { REPORTS_CHANNELS, REPORTS_NOTHING_YET } from "./api/reports";
+import type { ReportsState } from "./api/reports";
+import { JOBS_CHANNELS, JOBS_NOTHING_YET } from "./api/jobs";
+import type { JobsState } from "./api/jobs";
 
-
-
-
+export type { Summons } from "./api/core";
 
 /**
  * The state with its identity current, which today means Fleet's version.
@@ -78,18 +63,6 @@ export function identifying(state: BridgeState): BridgeState {
 }
 
 /**
- * Where a pressed notification lands.
- *
- * **A job, or the set.** A telling about one job opens that job. A telling
- * about several cannot open one of them without choosing for somebody, so it
- * lands on the Needs-you tab — which is the set the notification was derived
- * from, and the same one keyboard `2` reaches.
- *
- * It travels main → renderer only. Nothing the renderer sends can produce one.
- */
-export type Summons = { jobId: string | null };
-
-/**
  * Everything one window's own pick decides, or reads against its own scope: the root, the
  * Manifest reading, Overview's health and drift, the workflows left out on this scope, and the
  * Manifest surface's own run sheet, its followed run and its drift.
@@ -109,327 +82,21 @@ export type PickedView = {
   manifestDrift: ManifestDriftRead;
 };
 
-/** Everything the renderer draws, published by main and never assembled twice. */
-export type BridgeState = {
-  connection: Connection;
-  /** Where a Bridge failure points. Never a Job's identity. */
-  bridge: BridgeIdentity;
-  jobs: JobSummary[];
-  /** Rows the store refused. Shown, never merged into `jobs` as a placeholder. */
-  unreadable: UnreadableJob[];
-  /**
-   * How full the fleet is, and what holds the next Drone back.
-   *
-   * **`null` until Fleet has answered once**, which is a Bridge that has not
-   * asked rather than a Fleet with room — the two are drawn differently and a
-   * zeroed placeholder would make them one. Re-read whenever a Job moves,
-   * because a Job moving is the only thing that changes the occupancy, and the
-   * machine reading rides along on the same call.
-   */
-  capacity: FleetCapacity | null;
-  /**
-   * Fleet's three admission limits, and what Armada ships them at, or `null`
-   * before the first read.
-   *
-   * **Read once per connection and republished on every save** — `capacity`'s
-   * reason for `null` rather than a stale figure, and `manifestReading`'s for
-   * not re-reading on a timer: nothing but a save changes it.
-   */
-  limits: FleetLimits | null;
-  /**
-   * A person's Bridge preferences, and what is in force for each.
-   *
-   * **Never `null`, unlike `limits`.** A screen reading this draws the
-   * shipped default until the first read lands and its own choice after —
-   * there is no "not read yet" state worth a screen's own branch, because the
-   * default is itself a real, showable value. Read once per connection and
-   * republished on every save, `limits`' terms otherwise.
-   */
-  preferences: Preferences;
-  /**
-   * What Fleet's last read of `armada.yml` came to, or `null` because there
-   * has not been one.
-   *
-   * **The second piece of state here that is not about a Job**, beside
-   * `proposing` and for a related reason: a Manifest is Fleet's own, so there
-   * is no row it belongs to.
-   *
-   * **This window's own**, like `repository` below — `PickedView`. Two windows
-   * on two repositories each hold their own repository's reading.
-   *
-   * **Read on connect as well as folded from `manifest.reread`.** A refusal is
-   * a standing condition, not an instant: the file and the values in force go
-   * on disagreeing until somebody fixes the file, so a window opened a minute
-   * after the save has to be able to find out. An event alone would tell only
-   * whoever happened to be looking.
-   */
-  manifestReading: ManifestReading | null;
-  /** Events Fleet dropped before Bridge saw them, since the window opened. */
-  missed: number;
-  /** When the Jobs above were last current, in epoch milliseconds. */
-  readAt: number | null;
-  /** Jobs with an approval in flight. What stops a second dispatch. */
-  approving: string[];
-  /**
-   * The proposal this window is waiting on, or `null` where it is waiting on
-   * none.
-   *
-   * **The one piece of state here that is not about a Job**, because a proposal
-   * is the interval before any Job exists. It appears when Fleet says the call
-   * went out, moves as the call gets somewhere, and is `null` again the moment
-   * the call comes back — however it came back.
-   *
-   * **This window's own, matched on the token it sent.** Fleet publishes every
-   * proposal on one stream and two windows may be dispatching at once; a state
-   * that folded whichever arrived last would draw somebody else's call as
-   * yours, and offer a stop that killed it.
-   */
-  proposing: ProposalInFlight | null;
-  /**
-   * What Fleet holds, and therefore what a proposal may name.
-   *
-   * Read over the one connection like everything else here. The composer used
-   * to offer a text field for a pasted id, because nothing served these — and a
-   * pasted id was accepted by Fleet unchecked. Both halves of that are fixed:
-   * Fleet refuses an id it does not hold, and this is what the form offers so
-   * nobody has to guess at one.
-   *
-   * **`leftOut` is this window's own**, off `PickedView` — every other field here is shared.
-   */
-  holds: Holdings;
-  /**
-   * The root of the repository this window's own rail picked, which every per-repository read
-   * and act this window sends names. `null` is no one repository: All repositories, where a
-   * window opens, or a Fleet that lists none.
-   *
-   * **This window's own** — `PickedView`, `main/picked.ts`'s `PickedByWindow`. Two windows may
-   * each have a different one; picking in one never moves the other's.
-   */
-  repository: string | null;
-  /**
-   * The last clone Fleet finished serving, and when. Every window receives it so a clone that
-   * outlasts its dialog is announced wherever the person is (#926). It moves no pick.
-   */
-  located: { repository: RepositorySummary; at: number } | null;
-  /**
-   * The one Job read whole, where a detail is open.
-   *
-   * **Published, not fetched by the component that draws it.** The detail is
-   * re-read whenever an event names its Job, which is what makes the rail move
-   * without a reload — a renderer holding its own copy would go stale the
-   * moment a step advanced.
-   */
-  watched: Watched;
-  /**
-   * The Job being watched turn by turn, where somebody opened one.
-   *
-   * **Its own socket, and its own piece of state.** Transcript rows arrive at
-   * Drone speed, and putting them on the stream the Board is drawn from would
-   * evict the state changes that draw it. Separate here for the same reason.
-   */
-  observed: Observed;
-  /**
-   * What Fleet has done to the Job being watched — its own log, live.
-   *
-   * **Its own piece of state beside `observed`, and its own socket.** The two
-   * answer different questions and neither substitutes for the other: a Drone's
-   * transcript exists only while a Drone does, and this is the only thing there
-   * is to draw while a worktree is being cut. A Job with all its steps
-   * `not_started` has an empty `observed` and a full `journalled`, which is
-   * exactly the moment somebody opens the panel.
-   */
-  journalled: Journalled;
-  /**
-   * The running Check's log somebody opened, as it is written. **Its own
-   * socket**, for `journalled`'s reason: a Check's output is a file still
-   * growing, and the event stream is bounded to keep payloads that size off
-   * it. `following.ts`.
-   */
-  followed: FollowedLog;
-  /**
-   * What the open Job's Drone has changed in its worktree.
-   *
-   * **Only the open Job's, and only while the event arrives.**
-   * `job.files_changed` is published for every Job on the one stream; keeping
-   * every Job's footprint would make the Board pay for a detail nobody has
-   * open, which is the thing this read is meant to stay off.
-   */
-  footprint: Footprint;
-  /**
-   * The moment the open Job's Drone handed in, before the gate started.
-   *
-   * **Only the open Job's, `footprint`'s terms** — `evidence.submitted` is
-   * published for every Job on the one stream, and a submission on a Job
-   * nobody has open moves nothing on the Board. What was submitted is
-   * `evidence`, which is fetched; this is only that it happened. `#813`.
-   */
-  handed: Handed;
-  /**
-   * One Job's transition history, where a surface asked for one.
-   *
-   * **Read when it is asked for, not on every open.** It is its own operation
-   * for that reason: a detail is fetched to draw a summary and a history has no
-   * bound — it grows for as long as the Job lives, and a retried step is a row
-   * per attempt plus the moves around it.
-   */
-  history: History;
-  /**
-   * What one Job's Drones claimed, where a surface asked for it. The cheap half
-   * of the pair, and still asked for rather than paid for on every open.
-   */
-  evidence: Evidence;
-  /**
-   * One Job's worktree against the branch it was cut from, where a surface asked
-   * for it. **The expensive half, and the one place the patch bytes are spent.**
-   * `crates/adapter-traits/src/work_product.rs` splits it off the file list
-   * because the bytes are large and most steps ask no semantic question; this is
-   * read on the act they were split for, never folded into `watched`, which is
-   * re-read every time an event names the open Job.
-   */
-  diff: Diff;
-  /**
-   * What people wrote on one Job's open pull request, where the surface a
-   * person decides on asked for it. **The one read in this state that costs a
-   * forge** — nothing takes it on a timer and no event refreshes it, so it is
-   * opened by that surface and dropped when it closes.
-   */
-  remarks: Remarks;
-  /**
-   * Every report filed, and the calibration counts, where a surface asked.
-   *
-   * **Not per Job, and that is the point of it.** A report outlives the Job it
-   * is about — `armada clean` forgets the Job and the report stays whole — so
-   * this is the one read here that no Job id scopes, and the one that would be
-   * lost if it were reachable only through a Job.
-   *
-   * Read when the surface that draws it opens, like the folded reads under a
-   * Job and for the same reason: the bodies travel with the list, so nothing
-   * pays for them until somebody is reading them.
-   */
-  reports: Reports;
-  /**
-   * What the open Job holds on this machine — its processes, what each is
-   * burning, and the disk its worktree has taken.
-   *
-   * **Opened with the Job and re-read while it is open**, which is what makes
-   * it a live panel rather than a snapshot: a figure that stopped moving while
-   * a Job ran would be a panel claiming a stall that is not there. It keeps its
-   * last good reading through a failed re-read for `watched`'s reason — a
-   * blanked panel reads as a Job holding nothing, which is the exact answer
-   * this exists to make loud.
-   */
-  resources: Holds;
-  /**
-   * Every Drone the open Job has had, running or not — `list_job_drones`.
-   *
-   * **Opened with the Job and re-read on every event naming it**, for
-   * `resources`' reason, and kept through a failed re-read for it too.
-   */
-  jobDrones: Crewed;
-  /**
-   * What Fleet found when somebody pressed for a look — and only then.
-   *
-   * **Not read on opening a Job.** It is a thing a person did, it costs a
-   * process table and a directory walk, and an answer that appeared without
-   * anybody asking would be the automatic bound rather than the person's half
-   * of it. It stays on screen until they press again or leave the Job.
-   */
-  examination: Examination;
-  /**
-   * What Fleet is holding disk for, where a surface asked.
-   *
-   * **The second read here no Job scopes**, and not for the reports' reason: a
-   * report outlives the Job it names, while this is a question that only makes
-   * sense of the set — which of these to give back. A field on a Job could
-   * carry the reasons and could not carry the choice.
-   *
-   * Read when the surface opens and dropped when it closes, like the reports.
-   */
-  held: HeldWorktrees;
-  /** The run sheet — Journey 9. Opened with the sheet, not the Job, `diff`'s
-   * rule: most Jobs are never rehearsed, so nothing pays for one nobody asked. */
-  runSheet: RunSheetRead;
-  /** The run a window is reading, as it prints — its own socket, `followed`'s
-   * shape one subject over. One at a time. */
-  runFollowed: RunFollowed;
-  /**
-   * Every server Fleet holds, each Job's and the main checkout's.
-   *
-   * **Read once per connection, kept current by folding `server.*` off
-   * `/events`**, `capacity`'s terms. Not scoped to the open Job — *Where
-   * things are* keeps a *Serving* row up after the sheet that started it
-   * closes.
-   */
-  servers: ServerList;
-  /**
-   * The line `armada land` keeps in each served repository that has one, or `null` before Fleet
-   * has answered. **Read once per connection and replaced whole by `merge_lines.changed`**,
-   * `servers`' terms: Fleet reads the files, and Bridge keeps no timer of its own. Shared, not
-   * this window's own: the panels fold it against the window's pick (`mergeLineViews`).
-   */
-  mergeLines: MergeLines | null;
-  /**
-   * The merge line Check's log somebody opened, running or ended. **Its own socket**, `followed`'s
-   * reason, keyed by the line's names rather than a Job. `land-following.ts`.
-   */
-  landFollowed: FollowedLandLog;
-  /**
-   * What this repository's Manifest declares, for the Manifest surface.
-   *
-   * **The second read here no Job scopes, and not for the reports' reason.**
-   * It is the file Fleet is already holding, read before any Job exists —
-   * which is the whole of why that surface can answer with the Board empty.
-   *
-   * Held open while the surface is showing **or the palette is up**: the
-   * palette lists one row per Check and Command off this reading, and a read
-   * scoped to the surface alone would leave those rows missing everywhere a
-   * person would think to look for them. **This window's own** — `PickedView`.
-   */
-  checkoutRunSheet: CheckoutRunSheetRead;
-  /** The checkout run a window is reading, as it prints. Its own socket,
-   * `runFollowed`'s shape one owner over. One at a time, and this window's own. */
-  checkoutRunFollowed: CheckoutRunFollowed;
-  /**
-   * Whether the repository still has what `armada.yml` names — drift, the
-   * Manifest surface's free read on opening. **Held open by that surface
-   * alone**, and read again when Fleet re-reads the file. This window's own.
-   */
-  manifestDrift: ManifestDriftRead;
-  /**
-   * `GET /health` — what Fleet can say of its own health, and what it did not probe. Overview's
-   * Doctor tile, and the left column's Fleet panel. **Held open for the life of the window**
-   * since Bridge/1088: the Fleet panel draws it on every surface, not only Overview's.
-   *
-   * **This window's own** — `PickedView`.
-   */
-  health: HealthRead;
-  /**
-   * Drift for every repository in the scope — each served on All, or the one picked — beside
-   * `manifestDrift`, which is the Manifest surface's one. Overview's drift tile, and the left
-   * column's Manifest row. Held open for the life of the window, `health`'s reason.
-   *
-   * **This window's own**, `health`'s reason: the scope is this window's own pick.
-   */
-  drifts: DriftsRead;
-  /**
-   * Every question waiting on a person — a Drone's, a held command, a Judge refusal — from every
-   * repository Fleet serves, **whatever the rail picked**. Helm's dock draws them. `questions.ts`.
-   */
-  questions: Outstanding[];
-  /**
-   * One repository's Helm conversation — the dock's own thread, under the
-   * questions above. Which repository it answers for is main's own decision;
-   * see `main/helm.ts`.
-   */
-  helm: HelmThread;
-  /**
-   * One repository's Studios, held while the Studios surface shows, and kept current by
-   * `studio.changed`. `main/studios.ts`. #1287.
-   */
-  studios: StudiosRead;
-  /** The Studio open on that surface, replaced whole by every `studio.changed` about it. */
-  studio: StudioRead;
-};
+/**
+ * Everything the renderer draws, published by main and never assembled twice.
+ * **Composed from the slices in `api/`**; each owns the fields its surface reads.
+ */
+export type BridgeState = CoreState &
+  StudiosState &
+  ManifestState &
+  SetupState &
+  WorkflowsState &
+  HelmState &
+  SettingsState &
+  OverviewState &
+  CleanupState &
+  ReportsState &
+  JobsState;
 
 /**
  * What Bridge holds before anything has answered.
@@ -437,280 +104,33 @@ export type BridgeState = {
  * **One statement, not two.** Main and the renderer each used to declare their
  * own, and the two drifted the first time a field was added — a renderer
  * missing a key main publishes reads as a field that is always absent.
+ * Spread from the slices' own, which a type check holds to `BridgeState`.
  */
 export const NOTHING_YET: BridgeState = {
-  connection: { state: "reading" },
-  // Main resolves the log path from the home it can see. Until it answers, the
-  // renderer does not know it and does not name one.
-  bridge: { auditPath: null, fleetProtocol: null },
-  jobs: [],
-  unreadable: [],
-  capacity: null,
-  limits: null,
-  preferences: { where_things_are_open: false },
-  manifestReading: null,
-  missed: 0,
-  readAt: null,
-  approving: [],
-  proposing: null,
-  holds: { workflows: [], manifests: [], models: null, repositories: [] },
-  repository: null,
-  located: null,
-  watched: { state: "none" },
-  observed: { state: "none" },
-  journalled: { state: "none" },
-  followed: { state: "none" },
-  footprint: { state: "none" },
-  handed: { state: "none" },
-  history: { state: "none" },
-  evidence: { state: "none" },
-  diff: { state: "none" },
-  remarks: { state: "none" },
-  reports: { state: "none" },
-  resources: { state: "none" },
-  jobDrones: { state: "none" },
-  examination: { state: "none" },
-  held: { state: "none" },
-  runSheet: { state: "none" },
-  runFollowed: { state: "none" },
-  servers: { servers: [] },
-  mergeLines: null,
-  landFollowed: { state: "none" },
-  checkoutRunSheet: { state: "none" },
-  checkoutRunFollowed: { state: "none" },
-  manifestDrift: { state: "none" },
-  health: { state: "none" },
-  drifts: { state: "none" },
-  questions: [],
-  helm: { state: "none" },
-  studios: { state: "none" },
-  studio: { state: "none" },
+  ...CORE_NOTHING_YET,
+  ...STUDIOS_NOTHING_YET,
+  ...MANIFEST_NOTHING_YET,
+  ...SETUP_NOTHING_YET,
+  ...WORKFLOWS_NOTHING_YET,
+  ...HELM_NOTHING_YET,
+  ...SETTINGS_NOTHING_YET,
+  ...OVERVIEW_NOTHING_YET,
+  ...CLEANUP_NOTHING_YET,
+  ...REPORTS_NOTHING_YET,
+  ...JOBS_NOTHING_YET,
 };
 
 /** The channels the preload is allowed to name. There is no general `invoke`. */
 export const CHANNELS = {
-  state: "bridge:state",
-  changed: "bridge:changed",
-  /** A walk window took or gave up focus, so Bridge dims behind it or lifts the dim. */
-  walkFocused: "bridge:walk-focused",
-  proposeFromRequest: "bridge:propose-from-request",
-  stopProposal: "bridge:stop-proposal",
-  stageAttachment: "bridge:stage-attachment",
-  searchFiles: "bridge:search-files",
-  approveDispatch: "bridge:approve-dispatch",
-  listBranches: "bridge:list-branches",
-  redispatchJob: "bridge:redispatch-job",
-  killDrone: "bridge:kill-drone",
-  killJob: "bridge:kill-job",
-  parkJob: "bridge:park-job",
-  resumeJob: "bridge:resume-job",
-  killProcess: "bridge:kill-process",
-  killProcesses: "bridge:kill-processes",
-  pilotTask: "bridge:pilot-task",
-  restartTask: "bridge:restart-task",
-  editTask: "bridge:edit-task",
-  movePlan: "bridge:move-plan",
-  approveWave: "bridge:approve-wave",
-  editJob: "bridge:edit-job",
-  setLandingTarget: "bridge:set-landing-target",
-  toProposer: "bridge:to-proposer",
-  clearTerminalJobs: "bridge:clear-terminal-jobs",
-  forgetTerminalJobs: "bridge:forget-terminal-jobs",
-  reclaimWorktree: "bridge:reclaim-worktree",
-  changeSlotPool: "bridge:change-slot-pool",
-  rescueSlot: "bridge:rescue-slot",
-  deleteBranch: "bridge:delete-branch",
-  forgetJob: "bridge:forget-job",
-  redirectDrone: "bridge:redirect-drone",
-  answerQuestion: "bridge:answer-question",
-  answerCommand: "bridge:answer-command",
-  // One call helm was held on, answered in the dock. No job id: it names the
-  // call fleet minted, and nothing on the board moves. #1389.
-  answerHelmCall: "bridge:answer-helm-call",
-  // What a command does, read for the person deciding about it. A read: it
-  // moves nothing, and the three answers are live while it is out.
-  explainCommand: "bridge:explain-command",
-  setWhenBlocked: "bridge:set-when-blocked",
-  answerJudge: "bridge:answer-judge",
-  setWhenRefused: "bridge:set-when-refused",
-  setModel: "bridge:set-model",
-  setReviewModel: "bridge:set-review-model",
-  removeAllowedCommand: "bridge:remove-allowed-command",
-  restartStep: "bridge:restart-step",
-  overrideVerdict: "bridge:override-verdict",
-  rerunGate: "bridge:rerun-gate",
-  rerunChecks: "bridge:rerun-checks",
-  showAgain: "bridge:show-again",
-  raiseCostCap: "bridge:raise-cost-cap",
-  raiseTurnCap: "bridge:raise-turn-cap",
-  saveLimits: "bridge:save-limits",
-  savePreference: "bridge:save-preference",
-  fileReport: "bridge:file-report",
-  addTask: "bridge:add-task",
-  dropTask: "bridge:drop-task",
-  watchJob: "bridge:watch-job",
-  observeJob: "bridge:observe-job",
-  followCheckOutput: "bridge:follow-check-output",
-  followLandCheck: "bridge:follow-land-check",
-  readHistory: "bridge:read-history",
-  readEvidence: "bridge:read-evidence",
-  readResources: "bridge:read-resources",
-  watchPulse: "bridge:watch-pulse",
-  watchRunSheet: "bridge:watch-run-sheet",
-  observeRun: "bridge:observe-run",
-  startRun: "bridge:start-run",
-  stopRun: "bridge:stop-run",
-  undoRun: "bridge:undo-run",
-  listRuns: "bridge:list-runs",
-  getRunOutput: "bridge:get-run-output",
-  // The same rehearsal in the main checkout — Journey 9's *Running one*.
-  // Channels beside the Job's rather than a Job id that may be `null` on each:
-  // a route under `/manifest` and a route under `/jobs/:id` are two
-  // operations, and one capability taking which would read as one act and
-  // perform two. The last is the checkout's own — a Job's diff is `readDiff`.
-  watchCheckoutRunSheet: "bridge:watch-checkout-run-sheet",
-  observeCheckoutRun: "bridge:observe-checkout-run",
-  startCheckoutRun: "bridge:start-checkout-run",
-  stopCheckoutRun: "bridge:stop-checkout-run",
-  undoCheckoutRun: "bridge:undo-checkout-run",
-  listCheckoutRuns: "bridge:list-checkout-runs",
-  getCheckoutRunOutput: "bridge:get-checkout-run-output",
-  getCheckoutRunDiff: "bridge:get-checkout-run-diff",
-  // Journey 9's *Verify*, as two channels: drift is a read the surface holds
-  // open, and Verify is an act behind its own button.
-  watchManifestDrift: "bridge:watch-manifest-drift",
-  // Overview's health and per-repository drift: one read the surface holds open.
-  watchOverview: "bridge:watch-overview",
-  startCheckoutVerify: "bridge:start-checkout-verify",
-  // The Manifest file — Journey 9's *Editing*. Two entries, a read and a
-  // write, and neither takes a path: Fleet names the file.
-  readManifestFile: "bridge:read-manifest-file",
-  saveManifestFile: "bridge:save-manifest-file",
-  // The forms' two: edits as keys rather than text, and what past Jobs cost.
-  editManifest: "bridge:edit-manifest",
-  readManifestSpend: "bridge:read-manifest-spend",
-  readManifestChecks: "bridge:read-manifest-checks",
-  // Setup: four entries, one per operation, on `readManifestFile`'s terms.
-  readRepositoryScan: "bridge:read-repository-scan",
-  readManifestProposals: "bridge:read-manifest-proposals",
-  editManifestProposal: "bridge:edit-manifest-proposal",
-  writeManifestProposal: "bridge:write-manifest-proposal",
-  // A repository-wide always-allow, kept in Fleet's own table since 13.5 —
-  // #836. Two entries, a read and a remove, on `readManifestFile`'s terms:
-  // Fleet names the repository, so neither takes a path or an id.
-  listRepositoryAllowedCommands: "bridge:list-repository-allowed-commands",
-  removeRepositoryAllowedCommand: "bridge:remove-repository-allowed-command",
-  // Kit's MCP servers — #1275. Five entries, on the same terms: Fleet names
-  // the repository, so the Manifest tier needs no id from here.
-  // The setup a person already has, read to be shown — #1491. Machine-wide
-  // like Kit itself, and a read with nothing under it.
-  readKitInventory: "bridge:read-kit-inventory",
-  // Take a command out of Kit's allowlist, since 23.35. Machine-wide, as the read is.
-  removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
-  listKitServers: "bridge:list-kit-servers",
-  addKitServer: "bridge:add-kit-server",
-  forgetKitServer: "bridge:forget-kit-server",
-  setKitServerReach: "bridge:set-kit-server-reach",
-  setManifestServerReach: "bridge:set-manifest-server-reach",
-  // The Workflow creator: the list, one definition, and a save. Fleet names the
-  // repository for the first two; a save names the Manifest it is written under.
-  readWorkflows: "bridge:read-workflows",
-  readWorkflowDefinition: "bridge:read-workflow-definition",
-  saveWorkflow: "bridge:save-workflow",
-  // The rail's pick. A root and nothing else; main ignores one Fleet does not list.
-  pickRepository: "bridge:pick-repository",
-  // Locate: the OS folder dialog, and a repository added or cloned. Main asks Fleet; the renderer names paths.
-  chooseFolder: "bridge:choose-folder",
-  resolveFolder: "bridge:resolve-folder",
-  addRepository: "bridge:add-repository",
-  cloneRepository: "bridge:clone-repository",
-  startServer: "bridge:start-server",
-  stopServer: "bridge:stop-server",
-  openServerLink: "bridge:open-server-link",
-  openLink: "bridge:open-link",
-  examineJob: "bridge:examine-job",
-  readDiff: "bridge:read-diff",
-  readRemarks: "bridge:read-remarks",
-  readCheckOutput: "bridge:read-check-output",
-  readBrief: "bridge:read-brief",
-  readRetro: "bridge:read-retro",
-  readLessons: "bridge:read-lessons",
-  agreeLesson: "bridge:agree-lesson",
-  disagreeLesson: "bridge:disagree-lesson",
-  readFrame: "bridge:read-frame",
-  readReports: "bridge:read-reports",
-  readHeld: "bridge:read-held",
-  approveReview: "bridge:approve-review",
-  mergePullRequest: "bridge:merge-pull-request",
-  rerunFailedChecks: "bridge:rerun-failed-checks",
-  investigateFailedChecks: "bridge:investigate-failed-checks",
-  queueAfterFinding: "bridge:queue-after-finding",
-  fileFindingIssue: "bridge:file-finding-issue",
-  openFindingIssue: "bridge:open-finding-issue",
-  requestChanges: "bridge:request-changes",
-  removeWalkNote: "bridge:remove-walk-note",
-  rejectWork: "bridge:reject-work",
-  takeUpRemarks: "bridge:take-up-remarks",
-  dismissFinding: "bridge:dismiss-finding",
-  openArtifact: "bridge:open-artifact",
-  openPullRequest: "bridge:open-pull-request",
-  openRemarkLink: "bridge:open-remark-link",
-  summoned: "bridge:summoned",
-  // New job's own reads for the repository its ask answered, on All — #959.
-  // A request/response like `readCheckOutput`, answered to the
-  // caller and published nowhere: `BridgeState` carries nothing about it.
-  readComposing: "bridge:read-composing",
-  // Helm's conversation: say something, forget it, and point it at a
-  // repository without moving the rail's own pick. #944.
-  askHelm: "bridge:ask-helm",
-  // The session as one record, read once when a person opens it — #1367.
-  helmDebugInfo: "bridge:helm-debug-info",
-  startHelmFresh: "bridge:start-helm-fresh",
-  pointHelm: "bridge:point-helm",
-  // A repository's Studios — #1287. Two reads a surface holds open, and one act per operation:
-  // a Studio is started, named (#1364), a node added by hand (#1364), moved or removed, a
-  // proposed relation decided.
-  watchStudios: "bridge:watch-studios",
-  watchStudio: "bridge:watch-studio",
-  createStudio: "bridge:create-studio",
-  renameStudio: "bridge:rename-studio",
-  addStudioNode: "bridge:add-studio-node",
-  addStudioPicture: "bridge:add-studio-picture",
-  addStudioSketch: "bridge:add-studio-sketch",
-  saveStudioSketch: "bridge:save-studio-sketch",
-  moveStudioNode: "bridge:move-studio-node",
-  // Everything picked, deleted as one write — #1411. Its own channel because it
-  // is its own operation on the wire, not a loop over the one above.
-  removeStudioNodes: "bridge:remove-studio-nodes",
-  decideStudioEdge: "bridge:decide-studio-edge",
-  // Studio capture — #1290. One channel: the renderer says where it pointed and
-  // main takes the frame of its own window, so no image ever reaches the renderer.
-  captureStudioNote: "bridge:capture-studio-note",
-  readStudioFrame: "bridge:read-studio-frame",
-  // One rung of promotion — #1291. One channel across six operations: what a
-  // person does on a Studio is one capability, and `act` picks the route.
-  promoteOnStudio: "bridge:promote-on-studio",
-  // Starting one entry from a Studio — #1289, #1345. **Two channels and not
-  // one**, because they are two operations: a run ends and a server is held,
-  // and a single channel taking "which" as an argument would make that a flag.
-  startStudioRun: "bridge:start-studio-run",
-  startStudioServer: "bridge:start-studio-server",
-  openStudioNode: "bridge:open-studio-node",
-  // The capture window — #1294. **Opened from Bridge, driven from its own
-  // bar**: the first channel is the Studio surface's, and the rest are the
-  // bar's own document talking to the window it belongs to. The page below the
-  // bar reaches none of them, because it holds no preload at all.
-  openCaptureWindow: "bridge:open-capture-window",
-  captureWindowChanged: "bridge:capture-window-changed",
-  captureWindowRead: "bridge:capture-window-read",
-  captureWindowArm: "bridge:capture-window-arm",
-  captureWindowAim: "bridge:capture-window-aim",
-  captureWindowHold: "bridge:capture-window-hold",
-  captureWindowRelease: "bridge:capture-window-release",
-  captureWindowSave: "bridge:capture-window-save",
-  captureWindowReload: "bridge:capture-window-reload",
-  captureWindowFollowRefused: "bridge:capture-window-follow-refused",
-  captureWindowScroll: "bridge:capture-window-scroll",
-  // A press Fleet answered, felt on the trackpad. Sent, never invoked: nothing waits on it.
-  tap: "bridge:tap",
+  ...CORE_CHANNELS,
+  ...STUDIOS_CHANNELS,
+  ...MANIFEST_CHANNELS,
+  ...SETUP_CHANNELS,
+  ...WORKFLOWS_CHANNELS,
+  ...HELM_CHANNELS,
+  ...SETTINGS_CHANNELS,
+  ...OVERVIEW_CHANNELS,
+  ...CLEANUP_CHANNELS,
+  ...REPORTS_CHANNELS,
+  ...JOBS_CHANNELS,
 } as const;

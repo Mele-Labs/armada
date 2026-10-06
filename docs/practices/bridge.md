@@ -152,6 +152,20 @@ nothing else in it may. `xtask/src/rules_layers.rs` holds the layer rule and
 `package.json`, a `vitest.config.ts` and an `armada.yml` with a Check and a
 `depends_on`.
 
+### Where the API slices live
+
+`BridgeApi`, `BridgeState`, `NOTHING_YET` and `CHANNELS` are composed from one
+file per surface in `apps/desktop/src/shared/api/`: `core`, `studios`,
+`manifest`, `setup`, `workflows`, `helm`, `settings`, `overview`, `cleanup`,
+`reports` and `jobs`. Each exports `<X>Api`, `<X>State`, `<X>_NOTHING_YET` and
+`<X>_CHANNELS`; `shared/api.ts` and `shared/bridge.ts` intersect and spread them
+under the old names, so no importer changes. **A slice imports protocol, screens
+and the shared helper types beside it, never another slice.** Core's `state` and
+`subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
+not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
+typecheck if the composition drifts from them. The slices move into their
+surface packages one at a time, as above.
+
 ## State and data flow
 
 Bridge talks to **one peer**, in the main process, to Armada API. That was
