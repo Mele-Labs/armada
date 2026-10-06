@@ -168,7 +168,7 @@ What it settled for the next surface:
   the Job composer's, `whiteboard-resize` mounts one component, and
   `job-detail-from-studio` starts on a Job. They keep `mountApp` and
   `@armada/desktop/mock`.
-- **The mock fleet stays in `apps/desktop/.../mock`.** `studio-fleet.ts` is built
+- **The mock fleet stays in `apps/desktop/src/renderer/src/mock`.** `studio-fleet.ts` is built
   on `moment.ts`, which a surface's source may not import, and `fake.ts` and
   `scenario.ts` compose it. `harness.ts` re-exports what the surface's tests
   need from it; add to the harness by name, not by moving the fleet.
