@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "description": "Bridge \u2014 the desktop application.",
   "main": "./out/main/index.js",
+  "exports": {
+    "./mock": "./src/renderer/src/mock/harness.ts",
+    "./vitest-preset": "./vitest.browser.preset.ts"
+  },
   "scripts": {
     "codegen": "node codegen/vocabulary.mjs",
     "tones": "node sounds/tones.mjs",
