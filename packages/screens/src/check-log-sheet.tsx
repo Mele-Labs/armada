@@ -11,7 +11,7 @@
 // printed nothing to yet, is an empty panel; only a failure says anything. **No count over the
 // lines either** (`design-system.md`, hard rule 7): each line carries the file's own number.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { ConsoleOutput, type ConsoleRow } from "@armada/components";
 import type { FollowedLandLog, LandCheckAt } from "@armada/protocol";
@@ -113,12 +113,15 @@ export function LandCheckLogSheet({
   at,
   followed,
   onFollow,
+  bands,
   floor,
   onClose,
 }: {
   at: LandCheckAt;
   followed: FollowedLandLog;
   onFollow: (at: LandCheckAt | null) => void;
+  /** Facts of the Check, held under the head while the log scrolls. */
+  bands?: ReactNode;
   floor: boolean;
   onClose: () => void;
 }) {
@@ -144,6 +147,7 @@ export function LandCheckLogSheet({
       live={following !== undefined && following.ended === undefined}
       rows={rows}
       {...(note === undefined ? {} : { emptyNote: note })}
+      {...(bands === undefined ? {} : { bands })}
       floor={floor}
       onClose={onClose}
     />
@@ -157,6 +161,7 @@ function CheckLogPanel({
   rows,
   emptyNote,
   onOpenRecord,
+  bands,
   floor,
   onClose,
 }: {
@@ -166,6 +171,7 @@ function CheckLogPanel({
   emptyNote?: string;
   /** A merge line Check has no Record row, so it never passes one. */
   onOpenRecord?: () => void;
+  bands?: ReactNode;
   floor: boolean;
   onClose: () => void;
 }) {
@@ -180,6 +186,7 @@ function CheckLogPanel({
       grows={rows.length}
       wrap={{ wrap, onToggle: () => setWrap((was) => !was) }}
       {...(onOpenRecord === undefined ? {} : { goes: { label: TO_THE_RECORD, onGo: onOpenRecord } })}
+      {...(bands === undefined ? {} : { bands })}
       floor={floor}
       onClose={onClose}
     >

@@ -33,6 +33,8 @@ export type CheckListRow = {
   status: CheckListStatus;
   /** The state, spelled: the mark's tooltip and accessible name. */
   says: string;
+  /** Who asked for it, in a line. */
+  by?: string;
   /** When it started. Absent on a Check still waiting. */
   started?: string;
   /** The full instant, for the pointer. */
@@ -57,6 +59,7 @@ export function CheckList({ rows, openRow = null, onOpenRow }: CheckListProps) {
             <TableRow>
               <TableHeaderCell>State</TableHeaderCell>
               <TableHeaderCell>Check</TableHeaderCell>
+              <TableHeaderCell>Requested by</TableHeaderCell>
               <TableHeaderCell>Started</TableHeaderCell>
               <TableHeaderCell>Took</TableHeaderCell>
             </TableRow>
@@ -96,6 +99,7 @@ export function CheckList({ rows, openRow = null, onOpenRow }: CheckListProps) {
                     </button>
                   )}
                 </TableCell>
+                <TableCell variant="secondary">{row.by}</TableCell>
                 <TableCell variant="metadata" title={row.startedExact}>
                   {row.started}
                 </TableCell>

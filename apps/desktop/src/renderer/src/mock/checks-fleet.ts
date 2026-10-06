@@ -3,7 +3,8 @@
 // Command and a Setup entry, which the Checks page leaves out. `checks`, the scenario the walk of
 // the same name plays.
 
-import type { CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify } from "@armada/protocol";
+import type { CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, MergeLines } from "@armada/protocol";
+import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
 import { sheet, manifesting } from "./manifest-fleet";
@@ -84,11 +85,42 @@ const LOGS: Record<string, string[]> = {
 const OUT_NOW = [" Nextest run ID 4a1c in 12 binaries", "        PASS [   0.412s] core-model tests::state_machine"];
 const ARRIVING = ["        PASS [   1.904s] fleet tests::reads_the_runtime_file", "        PASS [   0.090s] ipc tests::version_skew"];
 
+/** The line's turn for one branch: its Checks, each as the runner asked for them. */
+const LINE: MergeLines = {
+  lines: [
+    {
+      root: repository().root,
+      line: [
+        {
+          branch: "fleet/pulse-log-rows",
+          place: 1,
+          state: "gating",
+          doing: "running its Checks",
+          checks: [
+            { name: "build", state: "passed", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+            { name: "desktop_test", state: "running", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+            { name: "screens_test", state: "waiting", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+          ],
+        },
+      ],
+      off: [],
+      landed: [],
+      sent_back: [],
+    },
+  ],
+};
+
+const LAND_LOGS: Record<string, string[]> = {
+  "fleet/pulse-log-rows build": ["   Compiling fleet v0.0.0", "    Finished `dev` profile in 38.0s"],
+  "fleet/pulse-log-rows desktop_test": [" RUN  v4.1.11 /Users/user/armada/apps/desktop", " ✓ src/main/connection.test.ts (18 tests) 211ms"],
+};
+
 export function checking(): Scenario {
   const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
   return {
     ...base,
     name: "checks",
+    state: { ...base.state, mergeLines: LINE },
     says: "A repository with Checks out, waiting and ended, and the logs behind them",
     behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet) }),
   };
@@ -115,6 +147,16 @@ function printing(fleet: FleetHandle): Partial<BridgeApi> {
       show(OUT_NOW);
       ARRIVING.forEach((_, n) => {
         timers.push(setTimeout(() => show([...OUT_NOW, ...ARRIVING.slice(0, n + 1)]), ARRIVING_MS * (n + 1)));
+      });
+    },
+    followLandCheck: async (at) => {
+      const lines = at === null ? undefined : LAND_LOGS[`${at.branch} ${at.check}`];
+      if (at === null || lines === undefined) {
+        fleet.publish({ landFollowed: { state: "none" } });
+        return;
+      }
+      fleet.publish({
+        landFollowed: { state: "following", root: at.root, branch: at.branch, check: at.check, fromLine: 1, lines, ...(at.check === "build" ? { ended: "finished" } : {}) },
       });
     },
     getCheckoutRunOutput: async (runId) => {
