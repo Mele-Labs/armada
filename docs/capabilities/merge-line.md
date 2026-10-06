@@ -10,6 +10,23 @@ milestone: Throughput
 > nothing new. It drains what is already queued and is retired at the cutover;
 > `docs/practices/ci.md` lists what is owed.
 
+## What replaces each part
+
+GitHub's pull requests and the `checks` workflow land this repository's code
+([the decision](../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md)).
+**The rest of this page describes the line being retired.** It is kept for the
+reasoning, and for Fleet's own line, which is a product concern
+(`docs/concepts/landing.md`).
+
+| The line's part | What replaces it |
+|---|---|
+| Queue and turn | GitHub's merge queue |
+| Rerunning what `main` moved under | The `plan` job, through `armada covers`, as in *Choosing what reruns* |
+| `verify-foundations` on every turn | A `foundations` job, on the branch `ci-foundations` and not merged. Until it lands CI does not run it |
+| Needs | A required check Fleet will publish. Not built |
+| Batching | The merge queue's own grouping |
+| Bridge's panel | A thin view of every open pull request and how Fleet knows them to connect, by needs and Job links. Not built |
+
 Two branches can each pass every Check, merge a minute apart, and leave `main`
 red. Each one's Checks ran against a `main` that had moved by the time it
 merged.
@@ -348,6 +365,8 @@ holding a branch behind it. Nothing is added to the store or to a plan's task.
 **It cannot see the line's own push, and so needs no way to let it through.** That runs in the detached runner, outside the Bash tool. An allowance keyed on something a command can carry, such as an environment variable, would be one any typed command could claim, so the hook refuses `ARMADA_LAND_RUNNER=1 git push origin main` like any other push to `main`. An agent who goes around it lands a combination nothing checked, and nothing says so afterwards.
 
 ## In Bridge
+
+**Planned: this panel becomes the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Nothing below changes until that is built.
 
 **Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. Bridge's labels are its own and the words on disk and in `--status` do not change: `gating` reads *Preparing to land* (`git-merge`) until the turn's first Check starts and *Running Checks before landing* from then, which Bridge tells apart by whether Fleet serves any `checks` (`packages/screens/src/merge-line.ts`); `merging` reads *Pushing onto main* and `red` *Checks failed*. A conflict's mark is `unplug` and the rail row's is `merge`. The strip carries no `?`: `GroupBoundary`'s guide is the caller's, and guide 5 is a plan group's. The mock's lines are `?walk=theMergeLine`.
 
