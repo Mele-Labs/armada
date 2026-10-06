@@ -192,8 +192,14 @@ What it settled for the next surface:
 - **`depends_on` is what the tests read, not the renderer whole**: `bridge-api`,
   screens, shell, components, tokens, brand, protocol, the App files and
   renderer folders, `mock/{fake,fake-context,harness,moment,mount,scenario,slices,testing}`,
-  `mock/<x>-fake.ts`, `mock/slices/**` (tests mount every slice) and `shared/**`;
-  never another surface's `*-fleet.ts`. `armada covers` proves it.
+  `mock/<x>-fake.ts` where the surface has scenarios, and `shared/**`; never
+  another surface's `*-fleet.ts`. **Its whole-app tests mount with a slice list**,
+  `mount(..., { slices: ["core", "<x>"] })`, so of `mock/slices/` only `core.ts`
+  and `<x>.ts` are listed, not `slices/**`. A surface with no fleet of its own (Settings)
+  has no `<x>-fake.ts` and no scenarios, and its `/fake` is the slice's route stubs.
+  `armada covers` proves it. The module graph is wider than the list, since
+  `slices.ts` imports every slice and the harness re-exports other surfaces'
+  fakes; those are caught by their own surface's Checks and by desktop's.
 - **A rule that scans `packages/screens` must scan the surfaces.**
   `no_off_contract_design_value` read only `components` and `screens`, so the move
   would have unwatched Studios without a red.
