@@ -1,0 +1,222 @@
+/* A tile's panel: its acts, what it did, what the worktree holds, and where it is.
+   Rows are a mark and a word, with what the reason carries under them. */
+
+.armada-tile-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--fg-default);
+}
+
+.armada-tile-sheet__about {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.armada-tile-sheet__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* An act reads as a button at rest, in the hue of what it does: an edge, a tint
+   and its label in `--act-hue`. Destructive acts take the error red the
+   destructive Button takes, a rescue the bay's warning amber, the rest the
+   default text. Hover takes the full edge and the 14% tint; the focus ring is
+   the shared one. **The tint stops at 14%**: worked from the tokens on
+   `--bg-overlay`, error red as text is 4.54:1 on it and 3.53:1 at 28%, so the
+   deeper step the bays take fails here. Amber is 5.78:1 and `--fg-default`
+   8.72:1 at 14%. */
+.armada-tile-act {
+  --act-hue: var(--fg-default);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--act-hue) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--act-hue) calc(var(--row-tint) * 2), transparent);
+  color: var(--act-hue);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.armada-tile-act[data-tone="destructive"] {
+  --act-hue: var(--status-completed-failed);
+}
+
+.armada-tile-act[data-tone="rescue"] {
+  --act-hue: var(--slot-stranded);
+}
+
+.armada-tile-act > svg {
+  flex: none;
+}
+
+.armada-tile-act:hover {
+  border-color: var(--act-hue);
+  background: color-mix(in srgb, var(--act-hue) var(--row-tint-recent), transparent);
+}
+
+.armada-tile-act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--act-hue);
+}
+
+.armada-tile-act[aria-disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* What Fleet said when it would not, and what an act did: bare facts, a line each. */
+.armada-tile-sheet__refused {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--slot-stranded);
+  border-radius: var(--radius-sm);
+}
+
+.armada-tile-sheet__said {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-tile-sheet__where {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-tile-sheet__value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+button.armada-tile-sheet__value {
+  cursor: pointer;
+}
+
+button.armada-tile-sheet__value:hover {
+  color: var(--fg-default);
+}
+
+button.armada-tile-sheet__value:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.armada-tile-holds__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-tile-holds__row,
+.armada-confirm__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.armada-tile-holds__line,
+.armada-confirm__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-tile-holds__mark,
+.armada-confirm__mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--slot-stranded);
+}
+
+.armada-tile-holds__word,
+.armada-confirm__word {
+  font-weight: var(--weight-medium);
+}
+
+.armada-tile-holds__status {
+  display: inline-flex;
+}
+
+.armada-tile-holds__figure,
+.armada-confirm__figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-tile-holds__names,
+.armada-confirm__names {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-tile-holds__names > li,
+.armada-confirm__names > li {
+  overflow-wrap: anywhere;
+}
+
+.armada-tile-holds__detail {
+  padding-left: var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A confirm, set off in the warning hue as the Scrap's is. */
+.armada-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--slot-stranded);
+  border-radius: var(--radius-sm);
+}
+
+.armada-confirm__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

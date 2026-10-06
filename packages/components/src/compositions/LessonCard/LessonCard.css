@@ -1,10 +1,9 @@
 /* One retro item, read top to bottom. The Lessons list and the retro sheet draw
    it, so it is one rule set.
 
-   Learned from the places that already scan well: `HeldWorktree`'s card (a raised
-   surface, `--edge-card`, a title line over a well holding the reading) and the
-   Overview lead (a leading edge, the headline one size above its line). The edge
-   is neutral: where a fix lands is a word, never a hue. */
+   Learned from a place that already scans well: the Overview lead (a leading
+   edge, the headline one size above its line). The edge is neutral: where a fix
+   lands is a word, never a hue. */
 .armada-lesson {
   display: flex;
   flex-direction: column;

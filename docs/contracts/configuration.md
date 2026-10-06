@@ -750,22 +750,20 @@ That day also closes the one gap it cannot close now. A setting nothing reads is
   `checks.<name>.requires`, `checks.<name>.narrow`,
   `commands.<name>.run`,
   `commands.<name>.destructive`, `commands.<name>.serve`,
-  `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed` and `setup.worktrees` — with every
+  `commands.<name>.ready`, `commands.<name>.links`, `setup.requires`, `setup.seed`, `setup.worktrees` and, in a
+  workspace, `depends_on` (`manifest.md`, *Workspace gating*) — with every
   other key (`permissions`, `knowledge`, `policy`,
   `commands.*.description`) hard-failing as unknown until Reach. Beyond that, what is still open: the
   file syntax for how a Check declares its command; how the Commands
   registry is structured and relates to the allowlist; how Checks and
-  Commands are told apart on disk; the syntax for a root Check's path
-  condition (its meaning — root paths are the paths no workspace claims —
-  is already settled); and how a Manifest declares its own values for
+  Commands are told apart on disk; and how a Manifest declares its own values for
   two-tier Kit settings. A design pass proposes a concrete schema —
   sections for `version`, `id`, `checks`, `commands`, `setup`,
   `permissions`, `knowledge` and `policy`, with `permissions` intersecting
   across a Job's gating Manifests and `knowledge` unioning — tested against
   the Armada Job
   Scenarios, but is explicitly not a decision: scenarios it cannot express
-  (a Workspace created mid-Job becoming a gate; a workspace depending on a
-  sibling workspace's output) are named, and further gaps are filed as
+  (a Workspace created mid-Job becoming a gate) are named, and further gaps are filed as
   their own open items, including a Drone's ability to weaken its own gate
   by editing the file that defines it, and no tombstone for a deleted
   Manifest's `id`. Position validation, the VCS-root walk, one schema

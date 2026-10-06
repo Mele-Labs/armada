@@ -113,12 +113,9 @@ import {
   readEvidence,
   readRemarks,
   watchPulse,
-  deleteBranchOne,
-  forgetOne,
   captureStudioNote,
   readHeld,
   readReports,
-  reclaimOne,
   slotActs,
   showAgain,
   startRun,
@@ -897,20 +894,14 @@ export function App({ draft }: AppProps = {}) {
               /* What Fleet is holding disk for, read across every Job at once.
                  The half of the reclaim rule that is a person's: Fleet has
                  already taken back everything it could prove nobody needs, and
-                 this is where the rest is chosen from, item by item. */
+                 this is where the rest is given back, one tile at a time. */
               <Boundary region="Cleanup" {...guarded}>
                 <Worktrees
                   held={state.held}
-                  // Read for the handle a `depended_on` reason names its
-                  // blocker by — the only fact this screen borrows from the
-                  // board rather than from `held` itself.
+                  // Read for the handle that names a worktree outside the
+                  // pool, and a `depended_on` reason's blocker.
                   jobs={state.jobs}
                   onWant={readHeld}
-                  // Each receipt is answered to the press that asked for it: a
-                  // published notice would outlive the screen it was made on.
-                  onReclaim={reclaimOne}
-                  onDeleteBranch={deleteBranchOne}
-                  onForget={forgetOne}
                   // The app's one `now`, because two clocks in one window drift.
                   now={now}
                   onClose={() => setClearing(false)}
