@@ -8,7 +8,8 @@
 // answers: where each step stands, the brief, and the open step's own reading.
 
 import type { JobFixture } from "../fixture";
-import { foldedReads, job, JOB_ID, manifest, NO_JOURNALLED, NO_OBSERVED, NOW, workflow } from "./base";
+import { job, JOB_ID, manifest, NO_JOURNALLED, NO_OBSERVED, NOW, workflow } from "./base";
+import { foldedReads } from "./folded";
 
 export function reading(): JobFixture {
   return {

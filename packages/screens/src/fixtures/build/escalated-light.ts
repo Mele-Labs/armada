@@ -9,7 +9,6 @@ import {
   BUILD_CHECK,
   consumersStep,
   detail,
-  foldedReads,
   freshStep,
   holdsRead,
   job,
@@ -26,6 +25,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 const REFUSED_POLICY: Refusal = {
   tool: "Bash",

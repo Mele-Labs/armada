@@ -5,7 +5,7 @@
 
 import type { DiffLine, ViewSheetStep } from "@armada/components";
 import type { Diff, ViewStepRow } from "@armada/protocol";
-import { drawnOf } from "./review";
+import { drawnOf } from "./drawn-patch";
 
 /** Each step of a View, with its hunk's lines out of this Job's patch. */
 export function viewStepsOf(diff: Diff, jobId: string, steps: readonly ViewStepRow[]): ViewSheetStep[] {

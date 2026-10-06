@@ -57,14 +57,14 @@ import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
 import type { FrameSrc, ReadFrame } from "./frames";
-import type { FoldedReads } from "./mine";
+import type { FoldedReads } from "./folded-reads";
 import type { OpenArtifact, OpenPullRequest } from "./opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
 import type { ReadBrief } from "./pulse-brief";
 import type { AnswerLesson, ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import type { RunSheetSlice } from "./rehearsal";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /**
  * Where a Job opens, when something other than its own Board row opened it: a Check's requester
