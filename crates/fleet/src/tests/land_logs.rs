@@ -58,6 +58,7 @@ fn say(state: &StateDir, said: OutcomeState, logs_in: &Path, checks: &[(&str, Ch
         .map(|(name, state)| CheckRun {
             name: (*name).to_string(),
             state: *state,
+            started_at: None,
         })
         .collect();
     merge_outcome(

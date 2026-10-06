@@ -47,7 +47,6 @@ import type {
   Watched,
   WorkflowSummary,
 } from "@armada/protocol";
-import type { FoldedReads } from "../../JobDetail";
 
 /** The Job every fixture is a moment of. Reused across states on purpose. */
 export const JOB_ID = "01M2C1TJ8G0016YK5SPLITSEL";
@@ -637,11 +636,6 @@ export function diffRead(files: ChangedFile[], patch?: string): Diff {
 /** What a person left on this Job's escalation — `Stuck`, read off `stopped_by`. */
 export function stuck(over: Partial<Stuck> & { recourse: string[]; worktree_on_disk: boolean; drone_unheard: boolean }): Stuck {
   return { refused: [], refusals: 0, ...over };
-}
-
-/** The default folded reads — every read `JobDetail.recorded` needs, empty. */
-export function foldedReads(over: Partial<FoldedReads> = {}): FoldedReads {
-  return { footprint: NO_FOOTPRINT, handed: { state: "none" }, evidence: NO_EVIDENCE, diff: NO_DIFF, remarks: NO_REMARKS, ...over };
 }
 
 /** `now`, fixed a few minutes after the narrative's latest timestamp. */

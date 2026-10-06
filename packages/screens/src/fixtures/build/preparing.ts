@@ -21,7 +21,6 @@ import type { JobFixture } from "../fixture";
 import {
   BUILD_CHECK,
   detail,
-  foldedReads,
   freshStep,
   holdsRead,
   job,
@@ -36,6 +35,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 export function preparing(): JobFixture {
   const theJob = job("running", {

@@ -6,7 +6,7 @@ import type { RunDiffReading, RunPageProps } from "@armada/components";
 import type { CheckoutRunDiffRead, CheckoutRunRecord } from "@armada/protocol";
 import { said } from "./copy";
 import { clockOf } from "./duration";
-import { drawnOf } from "./review";
+import { drawnOf } from "./drawn-patch";
 
 /**
  * Whether Undo is offered for a run. **Only the newest**: Undo belongs to the

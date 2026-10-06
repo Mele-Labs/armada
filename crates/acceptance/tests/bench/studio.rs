@@ -566,6 +566,7 @@ pub fn a_failed_run() -> ipc::CheckoutRunRecord {
         undoable: false,
         undone_at: None,
         log: format!(".armada/runs/main/{THE_RUN}/output.log"),
+        requester: ipc::Requester::outside(),
     }
 }
 

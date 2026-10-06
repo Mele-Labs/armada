@@ -61,7 +61,7 @@ import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
 import { studioName } from "./studio";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 import type { TaskView } from "./draft/task";
 import { taskCard } from "./plan-canvas";
 import { baseBranch } from "./draft/branches";

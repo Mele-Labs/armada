@@ -604,3 +604,28 @@ async fn a_sheet_run_of_a_command_sees_the_jobs_claimed_port() {
         "${{port.storybook}} and $ARMADA_PORT_STORYBOOK named the same claim"
     );
 }
+
+/// **A person's press asks from outside any Job**, said as a value on the run
+/// in flight and on the record it leaves, and read back from the history.
+#[tokio::test]
+async fn a_run_a_person_pressed_says_it_was_asked_from_outside_a_job() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_rehearsing(&home, &events);
+    let (job, _) = a_job_with_work_in_it(&fleet, &home).await;
+    let mut watching = events.subscribe();
+
+    let underway = Arc::clone(&fleet)
+        .start_rehearsal(job.id(), asked("test", true))
+        .await
+        .expect("underway");
+    assert_eq!(underway.requester, ipc::Requester::outside());
+    fleet
+        .stop_rehearsal(job.id(), underway.id.clone())
+        .await
+        .expect("stopped");
+    let record = finished(&mut watching, &underway.id).await;
+    assert_eq!(record.requester, ipc::Requester::outside());
+    let history = fleet.rehearsal_history(job.id()).await.expect("a history");
+    assert_eq!(history.runs[0].requester, ipc::Requester::outside());
+}

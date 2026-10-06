@@ -7,6 +7,7 @@
 // and every closed set left as `string`.
 
 import type { ProtocolVersion } from "./version";
+import type { Requester } from "./requester";
 
 /** Every served repository that has a line. One nobody has run `armada land` in is not here. */
 export type MergeLines = { lines: MergeLine[] };
@@ -47,7 +48,17 @@ export type MergeLineRow = {
 };
 
 /** One Check a turn runs. `state` is `waiting`, `running`, `passed`, `failed` or `timed_out`. */
-export type MergeLineCheck = { name: string; state: string };
+export type MergeLineCheck = {
+  name: string;
+  state: string;
+  /** The merge line, for the entry's branch. Since 23.40; **absent reads as `outside`**. */
+  requester?: Requester;
+  /**
+   * When the runner began it, off the line's own state. **Absent while it waits**,
+   * and on a line state written before the field. Since 23.40.
+   */
+  started_at?: string;
+};
 
 /**
  * One message on a merge line Check's log socket, `observe_land_check`. Since 23.7.
