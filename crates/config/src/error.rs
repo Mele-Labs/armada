@@ -221,6 +221,10 @@ pub enum Fault {
     /// value produces the same argument however many paths changed — a narrowed
     /// run that is narrowed to nothing and says so nowhere.
     NothingToSubstitute,
+    /// **A key only the root `armada.yml` may carry, written in a workspace's.**
+    /// `setup.worktrees` is read from the root at every lease, so a value
+    /// beside a workspace's reads as set and is read by nothing.
+    RootOnly,
     /// **An `artifact_exists` target that cannot name one file.** Refused where
     /// the definition is parsed rather than discovered at the gate, because
     /// every one of these fails at the gate whatever the Drone wrote: v1
@@ -526,6 +530,10 @@ impl fmt::Display for Fault {
                 "holds no `{}`, so there is nowhere for a changed path to go. \
                  Write the argument with `{}` where the value belongs, as in \
                  `-p {}`",
+            ),
+            Fault::RootOnly => f.write_str(
+                "is read from the root `armada.yml` only, and a workspace's \
+                 own value would be read by nothing",
             ),
             Fault::TwoDeliverables { first } => write!(
                 f,
