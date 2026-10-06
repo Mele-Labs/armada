@@ -101,6 +101,10 @@ user-level skills as well as this repository.** A Drone loads them. That commit
 came from a leftover v1 skill that told it to "commit before you finish", and no
 search of the repository could find it (#786).
 
+## A worktree marked `(gone)` may still hold the work
+
+**`(gone)` means the Job's own path is absent, not that its files are.** Confirmed 5 Oct 2026: a Job whose Drone wrote thirteen files and ran none of them showed `(gone)` and a branch with none of its commits, and the files were sitting uncommitted in `.armada/slots/slot-N`. Find the slot with `git worktree list | grep <handle>` and read `git -C <slot> status` before calling the work lost.
+
 ## What it cannot tell you
 
 | | |
