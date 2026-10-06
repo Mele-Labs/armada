@@ -388,6 +388,7 @@ pub use reconciled::Reconciled;
 pub use redaction::Redactor;
 pub use redispatch::Replacement;
 pub use rehearsing::verify_steps;
+pub use releasing::{release_order, Parked};
 pub use reporting::{Counted, Filed, NotFiled};
 pub use resume::Roused;
 pub use reuse::KeptDryRun;

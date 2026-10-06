@@ -29,10 +29,27 @@ pub(crate) type Spared = std::sync::Mutex<BTreeMap<JobId, Timestamp>>;
 
 const MINUTE_MILLIS: i64 = 60_000;
 
-/// A parked Job as a victim, and when it reached the status it is parked at.
-struct Candidate {
-    job: Job,
-    in_status_since: i64,
+/// A Job parked at a gate, as the victim rule reads it. Instants are epoch
+/// milliseconds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Parked {
+    pub job: JobId,
+    /// When it reached the status it is parked at.
+    pub in_status_since: i64,
+    /// Its latest event, or the moment a person last resumed it or a park of
+    /// it was refused, whichever is later.
+    pub last_moved: i64,
+}
+
+/// The Jobs Fleet may take, in the order it tries them: those not moved within
+/// `grace_millis` of `now`, the longest at their status first, ties by Job id.
+pub fn release_order(parked: &[Parked], now: i64, grace_millis: i64) -> Vec<JobId> {
+    let mut eligible: Vec<&Parked> = parked
+        .iter()
+        .filter(|one| now - one.last_moved >= grace_millis)
+        .collect();
+    eligible.sort_by(|a, b| (a.in_status_since, &a.job).cmp(&(b.in_status_since, &b.job)));
+    eligible.into_iter().map(|one| one.job.clone()).collect()
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -74,30 +91,33 @@ where
             }
             let grace = i64::from(allowed.grace_minutes.get()) * MINUTE_MILLIS;
             let taken: BTreeSet<&JobId> = released.iter().collect();
-            let mut candidates = Vec::new();
+            let mut parked = Vec::new();
             for job in &loaded.jobs {
                 if taken.contains(job.id()) || !self.could_be_taken(job, &served).await {
                     continue;
                 }
-                if let Some(found) = self.aged_candidate(job, grace).await? {
-                    candidates.push(found);
+                if let Some(found) = self.parked_since(job).await? {
+                    parked.push(found);
                 }
             }
-            candidates.sort_by(|a, b| {
-                (a.in_status_since, a.job.id()).cmp(&(b.in_status_since, b.job.id()))
-            });
-            for victim in candidates {
+            let Some(now) = self.now().epoch_millis() else {
+                continue;
+            };
+            for victim in release_order(&parked, now, grace) {
+                let Some(victim) = loaded.jobs.iter().find(|job| job.id() == &victim) else {
+                    continue;
+                };
                 match self
-                    .paused_by(victim.job.id(), PausedBy::Fleet, Some(&waiter))
+                    .paused_by(victim.id(), PausedBy::Fleet, Some(&waiter))
                     .await
                 {
                     Ok(_) => {
-                        released.push(victim.job.id().clone());
+                        released.push(victim.id().clone());
                         break;
                     }
                     Err(why) => {
-                        self.noted_not_released(&victim.job, &waiter, &why);
-                        self.spare(victim.job.id());
+                        self.noted_not_released(victim, &waiter, &why);
+                        self.spare(victim.id());
                     }
                 }
             }
@@ -161,9 +181,9 @@ where
         )
     }
 
-    /// The Job with its two instants, or nothing where it moved inside the
-    /// window or its events would not read.
-    async fn aged_candidate(&self, job: &Job, grace: i64) -> Result<Option<Candidate>, Adrift> {
+    /// The Job with its two instants, or nothing where its events would not
+    /// read.
+    async fn parked_since(&self, job: &Job) -> Result<Option<Parked>, Adrift> {
         let events = self
             .store()
             .lock()
@@ -178,23 +198,17 @@ where
             .spared()
             .lock()
             .ok()
-            .and_then(|spared| spared.get(job.id()).and_then(|at| millis(at)));
-        let Some(now) = millis(&self.now()) else {
-            return Ok(None);
-        };
-        let moved = last.max(spared.unwrap_or(i64::MIN));
-        if now - moved < grace {
-            return Ok(None);
-        }
+            .and_then(|spared| spared.get(job.id()).and_then(millis));
         let in_status_since = events
             .iter()
             .rev()
             .find(|event| matches!(event.moved(), Moved::Job { to, .. } if *to == job.status()))
             .and_then(|event| millis(event.at()))
             .unwrap_or(last);
-        Ok(Some(Candidate {
-            job: job.clone(),
+        Ok(Some(Parked {
+            job: job.id().clone(),
             in_status_since,
+            last_moved: last.max(spared.unwrap_or(i64::MIN)),
         }))
     }
 
