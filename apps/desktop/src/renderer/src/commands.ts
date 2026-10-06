@@ -130,10 +130,13 @@ export const rescueSlot = (manifestId: string, rescue: RescueSlot) =>
   window.armada.rescueSlot(manifestId, rescue);
 export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
 export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
+export const pauseOne = (jobId: string) => window.armada.parkJob(jobId);
+export const resumeOne = (jobId: string) => window.armada.resumeJob(jobId);
 /**
- * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, and a
- * worktree given back. Each receipt is answered to the press that asked for it,
- * because a published notice would outlive the screen it was made on.
+ * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, a
+ * worktree given back, and a Job paused or resumed. Each receipt is answered
+ * to the press that asked for it, because a published notice would outlive the
+ * screen it was made on.
  */
 export const slotActs = {
   onChangeSlotPool: changeSlotPool,
@@ -141,6 +144,8 @@ export const slotActs = {
   onReclaim: reclaimOne,
   onDeleteBranch: deleteBranchOne,
   onForget: forgetOne,
+  onPause: pauseOne,
+  onResume: resumeOne,
 };
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
 export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
