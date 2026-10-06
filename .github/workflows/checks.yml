@@ -50,20 +50,25 @@ jobs:
       - name: Build armada
         run: cargo build -p armada --locked
 
-      # A pull request is tested as its merge into main, so HEAD is that merge
-      # and the diff against the base also holds what landed on main since the
-      # branch was cut. `--no-renames` lists both sides of a rename.
+      # The merge line's rule (docs/capabilities/merge-line.md, *Choosing what
+      # reruns*): a Check runs when it covers what the branch changed or what
+      # landed on main since the branch was cut, either side. HEAD is the merge
+      # GitHub tests, HEAD^1 is current main and HEAD^2 the branch. The event's
+      # own base sha is the main of the day the PR opened, so it is not used.
+      # `--no-renames` lists both sides of a rename.
       - name: Changed paths
         id: paths
         env:
           EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
           MG_BASE: ${{ github.event.merge_group.base_sha }}
           MG_HEAD: ${{ github.event.merge_group.head_sha }}
         run: |
           mkdir plan
           case "$EVENT" in
-            pull_request) git diff --name-only --no-renames "$PR_BASE" HEAD > plan/changed.txt; whole=false ;;
+            pull_request)
+              mb=$(git merge-base HEAD^1 HEAD^2)
+              { git diff --name-only --no-renames "$mb" HEAD^2; git diff --name-only --no-renames "$mb" HEAD^1; } | sort -u > plan/changed.txt
+              whole=false ;;
             merge_group) git diff --name-only --no-renames "$MG_BASE" "$MG_HEAD" > plan/changed.txt; whole=false ;;
             *) : > plan/changed.txt; whole=true ;;
           esac
@@ -277,7 +282,7 @@ jobs:
   # ways to stay inside the runners the free plan gives at once. Kept out of
   # `ci` until it is stable: docs/practices/ci.md.
   desktop_test_shard:
-    name: desktop_test shard ${{ matrix.shard }}/4
+    name: desktop_test_shard
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.checks), 'desktop_test')
     runs-on: macos-latest
@@ -293,7 +298,7 @@ jobs:
           browsers: "true"
       - uses: ./.github/actions/run-check
         with:
-          name: desktop_test shard ${{ matrix.shard }}/4
+          name: desktop_test_shard
           cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2
 
   # The name a ruleset will require, once desktop_test is stable. Passes when

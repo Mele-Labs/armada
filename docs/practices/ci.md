@@ -13,11 +13,11 @@ ruleset that requires its names does the gating, and none exists yet.
 | `push` to `main` | Seeing a red `main` | Every Check in CI |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
 
-A pull request is tested as its merge into `main`. Its diff runs from the event's
-base commit to that merge, so it holds what landed on `main` since the branch was
-cut. A merge group's diff runs from its base commit to its head commit.
+**A pull request runs a Check when `armada covers` matches what the branch changed or what landed on `main` since it was cut, either side.** It is the rule the merge line uses (`docs/capabilities/merge-line.md`, *Choosing what reruns*). The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`, and joins the diff from there to the branch with the diff from there to `main`.
 
-**The event's base commit does not move.** It is the commit `main` had when the pull request was opened, so a pull request that stays open runs the Checks for everything that landed on `main` since, as well as its own change. Measured.
+**The event's own base commit is not used.** It is the commit `main` had when the pull request was opened and does not move. Measured.
+
+A merge group's diff runs from its base commit to its head commit.
 
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
@@ -130,7 +130,7 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | The merge queue setting | Repository settings |
 | Change agents' landing instructions | `.claude/hooks/guard_merge.py`, `docs/practices/running-locally.md`, the `work-issue` skill |
 | Retire `scripts_test` and `armada land` | `armada.yml`, `crates/armada/src/land/` |
-| A change to `.github/**` hits no Check in armada.yml, so it runs the plan alone | `armada.yml` |
+| `.github/**` matches no `when:` in armada.yml, so a workflow change is exercised only by the plan job | `armada.yml` |
 
 ## Known limits
 
@@ -140,7 +140,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | Runner speed on macOS varies between runs | Measured |
 | Linux queue is 2 to 5 seconds | Measured |
 | An aggregate job started up to 13 minutes after the last job it needed finished, on runs with macOS shards in flight; the cause was not found | Measured |
-| A skipped shard job shows its name unexpanded, as `desktop_test shard ${{ matrix.shard }}/4` | Measured |
 | Caches hit fully on a repeat of the same lockfile and `.nvmrc` | Measured |
 | A cache written on a pull request is read by that pull request and not by another | Inferred from GitHub's cache scoping |
 | A merge queue run restores caches from `main` | Inferred from GitHub's cache scoping |
