@@ -327,14 +327,15 @@ jobs:
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
-      OUT: ${{ runner.temp }}/foundations
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 2
 
       - name: Self-test of the reading
-        run: python3 -m unittest discover -s .github/ci
+        run: |
+          echo "OUT=$RUNNER_TEMP/foundations" >> "$GITHUB_ENV"
+          python3 -m unittest discover -s .github/ci
 
       - uses: ./.github/actions/rust-setup
         with:
