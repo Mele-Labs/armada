@@ -11,7 +11,6 @@ import {
   BUILD_CHECK,
   consumersStep,
   detail,
-  foldedReads,
   freshStep,
   holdsRead,
   job,
@@ -29,6 +28,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 
 /** No worktree yet — every step still ahead. Used by both gate statuses. */
 function beforeDispatch(): { steps: StepDetail[]; resources: JobResources } {
