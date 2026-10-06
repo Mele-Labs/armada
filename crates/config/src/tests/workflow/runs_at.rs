@@ -72,7 +72,7 @@ fn a_word_outside_the_three_is_refused_where_it_is_written() {
 /// has one sweeping step, so this reads a workflow with two.
 #[test]
 fn an_earlier_sweeping_step_does_not_gate_on_a_handoff_check() {
-    let text = "version: 1\nworkflow_id: two\nname: two\nstructure: linear\nsteps:\n\
+    let text = "version: 1\nworkflow_id: two\nname: two\nsteps:\n\
                 - id: first\n  label: First\n  retry_limit: 2\n  delivers: false\n  \
                 advance_gate: auto\n  mechanical_checks: [{ type: every_manifest_check }]\n\
                 - id: second\n  label: Second\n  delivers: false\n  advance_gate: auto\n  \
