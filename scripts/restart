@@ -56,6 +56,7 @@ fail() {
 # always did, and nothing in this block runs.
 from=""
 dry_run=false
+adopt=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from)
@@ -67,8 +68,12 @@ while [[ $# -gt 0 ]]; do
       dry_run=true
       shift
       ;;
+    --adopt)
+      adopt=true
+      shift
+      ;;
     *)
-      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--dry-run]"
+      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--dry-run] [--adopt]"
       ;;
   esac
 done
@@ -165,6 +170,28 @@ armada_bin="$cargo_home/bin/armada"
 # statement, never inside `$(...)`, because `fail`'s `exit` would only kill a
 # subshell wrapped around a command substitution and the refusal would go
 # unnoticed by the caller.
+#
+# **`--adopt` skips both refusals and prints what it costs instead.** Fleet
+# adopts a Drone that outlives it (`docs/concepts/drone.md`, "A Drone that
+# outlives its Fleet is adopted"), so a working Drone is survivable, not
+# forbidden — the owner who passes `--adopt` has accepted the costs below. The
+# roster is still read first, and a roster that does not answer still refuses:
+# without it nothing says which Jobs are being adopted.
+adopt_costs_said=false
+say_adopt_costs() {
+  $adopt_costs_said && return
+  adopt_costs_said=true
+  cat >&2 <<'COSTS'
+adopting costs, for each Job above:
+  its pipes die, so it cannot be redirected, poked or handed a verdict
+  its recorded spend is an undercount
+  its Job shows as `unheard`
+  a Job's servers stop when Fleet stops
+  a Check running mid-gate most likely dies with Fleet and the gate re-runs from scratch (fleet-checks-runner-sweep-timing is open, so a surviving Check group is not swept at boot)
+  a Drone that cannot be adopted is ended
+COSTS
+}
+
 refuse_if_drone_working() {
   old_pid=""
   old_port=""
@@ -175,7 +202,7 @@ refuse_if_drone_working() {
 
   if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
     say "Fleet is running (pid $old_pid, port $old_port) — checking for a working Drone"
-    result=$(python3 - "$old_port" <<'PY'
+    result=$(python3 - "$old_port" "$($adopt && echo adopt || echo refuse)" <<'PY'
 import json, sys, urllib.error, urllib.request
 
 port = sys.argv[1]
@@ -186,14 +213,21 @@ def get(path):
         return json.load(r)
 
 
+adopt = sys.argv[2] == "adopt"
 try:
+    working = []
     for d in get("/drones")["drones"]:
         job = get(f"/jobs/{d['job_id']}")["job"]
         if job["status"] == "running":
-            print(f"REFUSE:{d['handle']}")
-            break
-    else:
+            working.append(f"{d['handle']} ({d['job_id']})")
+            if not adopt:
+                break
+    if not working:
         print("OK")
+    elif adopt:
+        print("ADOPT:" + "\t".join(working))
+    else:
+        print(f"REFUSE:{working[0].split(' (')[0]}")
 except (urllib.error.URLError, OSError, ValueError) as e:
     print(f"ERROR:{e}")
 PY
@@ -201,6 +235,11 @@ PY
     case "$result" in
       OK)
         say "No Drone is working"
+        ;;
+      ADOPT:*)
+        say "Adopting every working Drone — --adopt skips the refusal"
+        printf '%s\n' "${result#ADOPT:}" | tr '\t' '\n' | sed 's/^/  /' >&2
+        say_adopt_costs
         ;;
       REFUSE:*)
         fail "refusing — ${result#REFUSE:}'s Drone is working"
@@ -291,7 +330,15 @@ if $dry_run; then
   echo "would write $plist: [$armada_bin, serve, $root]"
   echo "would write $bridge_plist with WorkingDirectory $src"
   echo "would write $support/restart-source: $src"
-  if ( refuse_if_drone_working ) >/dev/null 2>&1; then
+  if $adopt; then
+    if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
+      printf '%s\n' "$adopted"
+      echo "--adopt: a working Drone would be adopted and the refusal skipped"
+    else
+      printf '%s\n' "$adopted"
+      echo "with --adopt the restart would still refuse: the roster did not answer"
+    fi
+  elif ( refuse_if_drone_working ) >/dev/null 2>&1; then
     echo "no Drone is working, so the restart would go ahead"
   else
     echo "a Drone is working or Fleet did not answer, so the restart would refuse; run without --dry-run for which"

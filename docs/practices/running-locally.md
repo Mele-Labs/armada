@@ -126,6 +126,19 @@ miss that Drone or refuse a restart nothing is using. A queued Job, a Job at a
 human gate, or one a person is piloting holds no process the restart would
 interrupt, so none of those refuse it.
 
+**`--adopt` restarts anyway.** Fleet adopts a Drone that outlives it
+(`docs/concepts/drone.md`), so a working Drone is survivable. With `--adopt` the
+script still reads the live roster, prints each Job with a working Drone, then
+prints what adopting costs, once: its pipes die so it cannot be redirected,
+poked or handed a verdict; its recorded spend is an undercount; its Job shows as
+`unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
+dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
+is open, so a surviving Check group is not swept at boot); a Drone that cannot
+be adopted is ended. A roster that does not answer still refuses. Without
+`--adopt` the refusal is as above. It combines with `--from`, and
+`--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
+`scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
+
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
 runtime file. macOS has no `flock(1)`, so the lock is a symlink naming its

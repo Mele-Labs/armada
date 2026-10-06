@@ -8,7 +8,7 @@
 #   scripts/preview                      merge once, print the table
 #   scripts/preview --only a --skip b    a branch list is repeatable or comma-separated
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
-#   scripts/preview --restart [--dry-run]  then `scripts/restart --from .armada/preview`
+#   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #
 # Knobs for tests, the same as the merge line's: `ARMADA_LAND_ARMADA` names the
 # `armada` to ask about slots and the line, and `ARMADA_PREVIEW_RESTART` the
@@ -224,9 +224,9 @@ def signature(root, only, skip):
             tuple((b, out(root, "rev-parse", f"refs/heads/{b}")) for b in branches))
 
 
-def restart(root, wt, dry_run):
+def restart(root, wt, dry_run, adopt):
     script = os.environ.get("ARMADA_PREVIEW_RESTART") or os.path.join(root, "scripts", "restart")
-    command = [script, "--from", wt] + (["--dry-run"] if dry_run else [])
+    command = [script, "--from", wt] + (["--dry-run"] if dry_run else []) + (["--adopt"] if adopt else [])
     print("running " + " ".join(command), flush=True)
     code = subprocess.run(command).returncode
     print(f"scripts/restart {'would have' if dry_run else 'has'} built from {wt} and "
@@ -242,9 +242,14 @@ def main():
                     help="merge again when main or an included branch moves")
     ap.add_argument("--restart", action="store_true", help="then run scripts/restart --from the preview")
     ap.add_argument("--dry-run", action="store_true", help="with --restart: print, change nothing")
+    ap.add_argument("--adopt", action="store_true", help="with --restart: restart Fleet with a Drone working, adopting it")
     args = ap.parse_args()
     if args.watch is not None and args.restart:
         sys.exit("preview: --watch never restarts Fleet. Run --restart on its own.")
+    if args.adopt and args.watch is not None:
+        sys.exit("preview: --adopt is for --restart, which --watch never runs")
+    if args.adopt and not args.restart:
+        sys.exit("preview: --adopt is for --restart")
     if args.dry_run and not args.restart:
         sys.exit("preview: --dry-run is for --restart")
     only, skip = names(args.only), names(args.skip)
@@ -264,7 +269,7 @@ def main():
         except KeyboardInterrupt:
             return 0
     if args.restart:
-        return restart(root, wt, args.dry_run)
+        return restart(root, wt, args.dry_run, args.adopt)
     return 0
 
 
