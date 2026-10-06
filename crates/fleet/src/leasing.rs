@@ -344,10 +344,11 @@ where
     /// At a terminal status. **A completed Job holds its slot until a person
     /// clears it**, the owner's decision, so Show again and anything else
     /// reading its tree still finds it; the slot is marked so `--status` says
-    /// so. Any other end gives it back now.
+    /// so. Any other end gives it back now, a killed or failed Job's after
+    /// committing what is uncommitted to its branch (`crate::saving`).
     pub(crate) async fn slot_at_the_end(&self, job: &Job) {
         if job.status() != JobStatus::CompletedSuccess {
-            self.released_slot(job).await;
+            self.released_or_saved(job).await;
             return;
         }
         let (Some(slot), Ok(served)) = (job.worktree_slot(), self.served_by(job)) else {

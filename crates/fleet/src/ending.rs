@@ -274,7 +274,7 @@ where
         }
         // Before the record goes: a lease held for a Job nobody can name again
         // would never be given back. Refused, it reads `kept` in `--status`.
-        self.released_slot(&job).await;
+        self.released_or_saved(&job).await;
         self.store()
             .lock()
             .await

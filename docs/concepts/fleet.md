@@ -522,7 +522,8 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
-| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or commits on no branch, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| `completed_failed`, `killed` | Released the moment it ends. Where the pool refuses for uncommitted files, they are committed to the Job's branch as a WIP commit first, never pushed, and the Job's log says which commit and files. A park git refuses (detached HEAD, the base branch, another branch than the lease names, a busy slot) keeps the slot, the log says why, and `armada worktree --status` reads `kept` |
+| `rejected`, `superseded` | Released by the pool's rules. Refused for a dirty tree or commits on no branch, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
 | Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is
