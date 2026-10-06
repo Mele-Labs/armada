@@ -1,7 +1,8 @@
 // What the mock Fleet does with an answer to a retro item, so a walk can agree
 // with one item, disagree with another and read the saved ones. The rule is
 // `docs/concepts/retro.md`: an Armada or Manifest item proposes a Job at the
-// approval gate, a Kit item is saved, a disagreed item is discarded.
+// approval gate, a Kit item is saved (and its command added to Kit's allowlist, where
+// it carries one), a disagreed item is discarded.
 
 import type { JobSummary, Lesson, LessonAnswer, LessonState } from "@armada/protocol";
 
@@ -43,7 +44,14 @@ export function answered(
   }
   const state: LessonState = answer === "disagree" ? "discarded" : was.lands_in === "kit" ? "accepted" : "agreed";
   const job = state === "agreed" ? proposedFor(was, jobs, at) : undefined;
-  const now: Lesson = { ...was, state, ...(job === undefined ? {} : { job_proposed: job.id }) };
+  // Accepting a Kit item that carries a change applies it, and the item keeps what was applied.
+  const applied = state === "accepted" ? was.change : undefined;
+  const now: Lesson = {
+    ...was,
+    state,
+    ...(job === undefined ? {} : { job_proposed: job.id }),
+    ...(applied === undefined ? {} : { applied }),
+  };
   return {
     lessons: lessons.map((one) => (one.id === id ? now : one)),
     answer: { ok: true, lesson: now },

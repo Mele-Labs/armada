@@ -602,6 +602,8 @@ export const CHANNELS = {
   // The setup a person already has, read to be shown — #1491. Machine-wide
   // like Kit itself, and a read with nothing under it.
   readKitInventory: "bridge:read-kit-inventory",
+  // Take a command out of Kit's allowlist, since 23.35. Machine-wide, as the read is.
+  removeKitAllowedCommand: "bridge:remove-kit-allowed-command",
   listKitServers: "bridge:list-kit-servers",
   addKitServer: "bridge:add-kit-server",
   forgetKitServer: "bridge:forget-kit-server",

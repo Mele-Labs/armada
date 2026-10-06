@@ -12,12 +12,12 @@ use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
 use crate::row::{column, maybe};
 
-/// Version 109 — the marker on a paused Job.
+/// Version 111 — the marker on a paused Job.
 ///
 /// **Null, and no backfill.** Every row before this column is a Job nobody has
 /// paused. `pause_by` is the marker's presence, and the other two are only read
 /// where it is set. `Store::record_pause` is the one writer.
-pub(crate) const V109: &str = r#"
+pub(crate) const V111: &str = r#"
 ALTER TABLE jobs ADD COLUMN pause_by TEXT CHECK (pause_by IN ('person', 'fleet'));
 ALTER TABLE jobs ADD COLUMN pause_at TEXT;
 ALTER TABLE jobs ADD COLUMN pause_resuming INTEGER NOT NULL DEFAULT 0 CHECK (pause_resuming IN (0, 1));

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
 import { KitSetup, type KitSetupRead } from "./KitSetup";
 
@@ -86,7 +86,7 @@ const FULL: KitSetupRead = {
     },
     {
       kind: "allowlist",
-      read: { what: "not_read", why: "a rule drawn out of its two tiers reads as a grant, and both tiers are #41" },
+      read: { what: "not_read", why: "allowed-commands would not read: line 3 is not a command" },
     },
     {
       kind: "models",
@@ -158,5 +158,56 @@ export const NothingThereYet: Story = {
     const kit = within(canvasElement);
     await expect(kit.getByRole("heading", { name: "What you already have" })).toBeVisible();
     await expect(kit.queryByText(/Nothing is there yet/)).toBeNull();
+  },
+};
+
+/**
+ * The allowlist, read. **Each command says where it came from in words and has
+ * a Remove**, with no count beside the list.
+ */
+export const AllowlistRead: Story = {
+  name: "An allowlist that was read",
+  args: {
+    onRemoveAllowed: fn(),
+    setup: {
+      ...FULL,
+      kinds: [
+        {
+          kind: "allowlist",
+          read: {
+            what: "read",
+            items: [
+              { name: "grep -n", source: "retro item 01M2LESSON3GREPASKED" },
+              { name: "gh issue view", source: "always allow" },
+              { name: "make check", source: "written by hand" },
+            ],
+            unreadable: [],
+          },
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const kit = within(canvasElement);
+    await expect(kit.getByText("Retro item", { exact: true })).toBeVisible();
+    await expect(kit.getByText("Always allow", { exact: true })).toBeVisible();
+    await expect(kit.getByText("Written by hand", { exact: true })).toBeVisible();
+    await expect(canvasElement.querySelector(".armada-kit-setup__count")).toBeNull();
+    kit.getByRole("button", { name: "Remove gh issue view" }).click();
+    await expect(args.onRemoveAllowed).toHaveBeenCalledWith("gh issue view");
+  },
+};
+
+/** An allowlist that was read and holds nothing: its name, and **nothing under it**. */
+export const AllowlistEmpty: Story = {
+  name: "An allowlist that holds nothing",
+  args: {
+    setup: { ...FULL, kinds: [{ kind: "allowlist", read: { what: "read", items: [], unreadable: [] } }] },
+  },
+  play: async ({ canvasElement }) => {
+    const kit = within(canvasElement);
+    await expect(kit.getByRole("heading", { name: "Allowlist" })).toBeVisible();
+    await expect(canvasElement.querySelector(".armada-kit-setup__none")).toBeNull();
+    await expect(kit.queryByRole("listitem")).toBeNull();
   },
 };

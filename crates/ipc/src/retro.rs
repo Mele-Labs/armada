@@ -91,6 +91,64 @@ pub struct RetroItem {
     /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
+    /// What Accept would change in Kit, as on [`Lesson`]. Since 23.35.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<RetroChange>,
+    /// What Accept applied, as on [`Lesson`]. Since 23.35.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied: Option<RetroChange>,
+}
+
+/// A change to Kit a retro item carries, which `agree_lesson` applies. Since
+/// 23.35.
+///
+/// **Copied by Fleet off a refusal the record shows, never written by the
+/// model.** The model only names which refusal; the command is the one that
+/// refusal's own row holds, or one of its leading cuts. A person reads the
+/// command here before pressing Accept, so it crosses whole.
+///
+/// **Tagged on `kind`**, so a surface matches one field and a second kind is a
+/// new arm rather than a second shape. The models list is not a kind: it is
+/// resolved from the harness at start and has no stored tier to change.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RetroChange {
+    /// Allow this command, in every Job on this machine, in Kit's allowlist.
+    AllowCommand { command: String },
+}
+
+impl From<&core_model::Change> for RetroChange {
+    fn from(change: &core_model::Change) -> RetroChange {
+        match change {
+            core_model::Change::AllowCommand { command } => RetroChange::AllowCommand {
+                command: command.clone(),
+            },
+        }
+    }
+}
+
+impl RetroChange {
+    pub fn domain(&self) -> core_model::Change {
+        match self {
+            RetroChange::AllowCommand { command } => core_model::Change::AllowCommand {
+                command: command.clone(),
+            },
+        }
+    }
+}
+
+/// The change an item's author asks for, before Fleet has held it to the
+/// record. **The model names a refusal and never writes a command**: `refusal`
+/// is a `cite` on [`RetroRecord::refusals`], and `command` is optional and,
+/// where present, must be one of that refusal's leading cuts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RetroChangeAnswered {
+    AllowCommand {
+        refusal: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        command: Option<String>,
+    },
 }
 
 /// One item of what the retro call answers with. **Not [`RetroItem`]**: the
@@ -106,6 +164,30 @@ pub struct RetroAnswered {
     pub what: String,
     pub fix: String,
     pub evidence: Vec<String>,
+    /// A change to Kit, on a `kit` item whose fix is a command a refusal in the
+    /// record names. **Read leniently**: one that will not read is left off and
+    /// the item stays. Since 23.35.
+    #[serde(
+        default,
+        deserialize_with = "leniently",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub change: Option<RetroChangeAnswered>,
+}
+
+/// A `change` that reads, or `None` for whatever the model wrote there that
+/// does not. It costs the change and never the item.
+fn leniently<'de, D: Deserializer<'de>>(input: D) -> Result<Option<RetroChangeAnswered>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Written {
+        Change(RetroChangeAnswered),
+        Unread(IgnoredAny),
+    }
+    Ok(match Option::<Written>::deserialize(input)? {
+        Some(Written::Change(change)) => Some(change),
+        Some(Written::Unread(_)) | None => None,
+    })
 }
 
 /// What the retro call answers with. Read through [`crate::decode`] and
@@ -175,6 +257,17 @@ pub struct Lesson {
     /// 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
+    /// What Accept would change in Kit. **Only on a `kit` item whose change
+    /// Fleet copied off a refusal in the record**; absent on every other, and
+    /// on one kept before 23.35. Since 23.35.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<RetroChange>,
+    /// What `agree_lesson` applied. **Absent when nothing was applied**: an
+    /// item with no `change`, one still open, and one disagreed with. Present
+    /// is the change, exactly as it was applied, and it stays so on every later
+    /// read of the item. Since 23.35.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied: Option<RetroChange>,
 }
 
 /// Everything on a Job's record a retro is read from. Every row carries a

@@ -25,6 +25,7 @@ import { JOB_STATUS } from "@armada/components/src/generated/vocabulary";
 import { useCallback, useMemo, useState } from "react";
 
 import type {
+  AlwaysAllowScope,
   CommandAnswer,
   EditJob,
   JobDetail as JobWhole,
@@ -35,7 +36,7 @@ import type {
   StepDetail,
 } from "@armada/protocol";
 
-import { answerNamed } from "./copy";
+import { choiceNamed, ruleForKit } from "./copy";
 import { dockQuestionsOf } from "./dock-questions";
 import type { JobDraft } from "./draft/held";
 import { waveOf, type WaveJobView, type WaveRoundView, type WaveView } from "./draft/wave";
@@ -75,6 +76,7 @@ export type WaveRegionProps = {
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ) => void;
   /** The step that recorded the split, where one did. Its Judge is read off it. */
   planStep?: StepDetail;
@@ -258,9 +260,12 @@ export function JobAnswer({
       ? {}
       : {
           onAnswer: (question, answer) => {
-            const named = answerNamed(answer);
+            const named = choiceNamed(answer);
             if (named !== undefined && question.kind === "command") {
-              onAnswerCommand(question.job_id, question.waiting.call, named);
+              // Always allow in Kit sends the rule Fleet pre-selected, `dock-answering.ts`' choice.
+              const rule = named.scope === undefined ? undefined : ruleForKit(question.waiting);
+              if (named.scope === undefined) onAnswerCommand(question.job_id, question.waiting.call, named.answer);
+              else onAnswerCommand(question.job_id, question.waiting.call, named.answer, undefined, rule, named.scope);
             }
           },
         },

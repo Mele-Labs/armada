@@ -56,6 +56,17 @@ that predates the parts still has a sentence. **An item written before the parts
 has `statement` alone**: they read absent, and nothing writes them after the
 fact. Job 3's own retro stays as it was written, as the owner's evidence.
 
+**A `kit` item may carry a `change`, and Accept applies it.** The owner's
+decision, 5 Oct 2026: Accept on a Kit item should change the Kit, because an
+item's text is prose and Fleet cannot guess a command out of prose.
+`change` is `{ "kind": "allow_command", "command": "…" }`. **The model names a
+refusal by its `cite` and Fleet copies the command off that row of the record**;
+the model may name a shorter start of it, one of its own leading cuts, and never
+a command the Drone did not try. The change is dropped, and the item stays, where
+the cited row is not a shell call, holds no argument, holds one cut for length,
+or chains another command, and where the item does not land in Kit. Only
+commands: the models list has no stored tier to change.
+
 **An item is kept whole or not at all.** One missing a part, one with a dash in
 any of the three, one citing nothing the record holds and one naming no place
 are each dropped alone, and the items beside them are kept.
@@ -69,14 +80,18 @@ Every item starts `open`.
 | --- | --- |
 | `open` | Nobody has answered it. What the Retros page lists by default |
 | `agreed` | A Job was proposed for it at the approval gate, and `job_proposed` names it |
-| `accepted` | A Kit item the person agreed with. Nothing to dispatch, so it is kept as it is: the person's saved Kit items |
+| `accepted` | A Kit item the person agreed with. Nothing to dispatch: an item with a `change` has it applied to Kit and answers with `applied`, and one without is kept as it is. The person's saved Kit items |
 | `discarded` | Disagreed with. The row stays |
 
 **Agreeing is by where the fix lands.** A `manifest` fix proposes a Job on the
 repository the item's own Job worked on, and an `armada` fix on Armada's own
 repository, the Manifest named `armada`. Where Fleet does not serve that one it
 refuses with `fleet.lesson_armada_not_served` and the item stays open. A `kit`
-fix proposes nothing. The request is the item: its title, what happened, the
+fix proposes nothing: with a `change` it applies it to Kit's allowlist, once,
+and the answer's `applied` is that change (absent where none was applied; an
+Accept for a command no listing could make run, a destructive one or one the
+harness cannot grant, is refused with `fleet.kit_change_refused` and the item
+stays open), and without one it only saves. The request, for the other two, is the item: its title, what happened, the
 fix and a line naming the source Job's handle. It goes through the call
 `propose_from_request` makes, so a person approves the Job where they approve
 any other. **An item that is not open answers with the state it stands in**, so
@@ -223,17 +238,23 @@ Manifest `--diff-del-fg`. Proposed, for the owner to rule on.
 
 **The buttons carry words for what they do, not the wire's names.** Where the
 fix lands in Armada or the Manifest the button reads `Create Job`, since agreeing
-proposes a Job that waits for approval on the Board. In Kit it reads `Accept`,
-since nothing is dispatched and the item is saved. The other reads
-`Reject change`. The acts are still `agree` and `disagree` on the wire.
+proposes a Job that waits for approval on the Board. In Kit it reads `Update
+Kit` where the item carries a `change`, since agreeing adds its command to Kit's
+allowed commands, and `Accept` where it carries none, since nothing is dispatched
+and the item is saved. The other reads `Reject change`. The acts are still
+`agree` and `disagree` on the wire.
 
 **What a press leaves on screen.** Create Job keeps the card as `Agreed` with a
 link to the proposed Job until the list is read again, when Fleet no longer
-lists it as open. Accept and Reject change take the card off at once. There is
+lists it as open. Update Kit keeps it the same way as `Updated Kit`, with the
+command from `applied` beside it in monospace. Accept and Reject change take the
+card off at once. A refused Update Kit (`fleet.kit_change_refused`) draws the
+card's alert in Fleet's own words and keeps both buttons. There is
 no confirmation: a mistaken Create Job proposes a Job that waits for the
 owner's approval, and a mistaken Reject change discards one item. **An item
 answered already stands as its `state` says**, on the sheet as on the list:
-`Agreed` with the link, or `Accepted`, or nothing where discarded, and no
+`Agreed` with the link, or `Accepted`, or `Updated Kit` with its command where
+`applied` is present, or nothing where discarded, and no
 buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
 the buttons**: Fleet refuses both acts on one with no place.
 

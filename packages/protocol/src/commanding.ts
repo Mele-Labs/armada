@@ -123,7 +123,18 @@ export type AnswerCommand = {
    * fleet before 13.4 always declared. Since protocol 13.4.
    */
   rule?: string;
+  /**
+   * Where an Always allow is kept: `repository` (every Job against this
+   * Manifest, the default) or `kit` (every Job on this machine, in `~/.armada`).
+   * **Only `always_allow` reads it**, and a `kit` one is sent with a `rule`,
+   * since the whole of a chained command is refused for Kit. Since protocol
+   * 23.35.
+   */
+  scope?: AlwaysAllowScope;
 };
+
+/** Where an Always allow is kept. Since protocol 23.35. */
+export type AlwaysAllowScope = "repository" | "kit";
 
 /**
  * The body of `set_when_blocked`. Since protocol 10.7. A live setting on one

@@ -30,7 +30,7 @@ import type {
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
-import { KIT_INVENTORY } from "./kit-inventory";
+import { KIT_INVENTORY, withAllowlist } from "./kit-inventory";
 import { appliedTo } from "./manifest-applied";
 import { onBoard } from "./moment";
 import type { FleetHandle, Scenario } from "./moment";
@@ -339,6 +339,8 @@ export type Manifesting = {
   kitServers?: KitServerRow[];
   /** The setup this machine already has, read to be shown. #1491. */
   kitInventory?: KitInventory;
+  /** Pressed Remove on an allowlist command, with the line as it was spelled. */
+  onRemoveKitAllowed?: (run: string) => void;
   save?: SaveGoesTo;
   diff?: CheckoutRunDiff;
   drift?: ManifestDriftRead;
@@ -382,6 +384,7 @@ function behaviour(fleet: FleetHandle, options: Manifesting): Partial<BridgeApi>
   // exactly as `fleet::kit` does, because the surface draws `resolves` rather
   // than working it out. #1275.
   let servers: KitServerRow[] = options.kitServers ?? [];
+  let inventory: KitInventory = options.kitInventory ?? KIT_INVENTORY;
   const file = () => ({ ok: true as const, file: { path: MANIFEST_PATH, text: disk, declared } });
   return {
     readManifestFile: async () => file(),
@@ -422,7 +425,15 @@ function behaviour(fleet: FleetHandle, options: Manifesting): Partial<BridgeApi>
       return { state: "saved", saved: { path: MANIFEST_PATH, at: WROTE_AT } };
     },
     readManifestSpend: async () => ({ ok: true, spend }),
-    readKitInventory: async () => ({ ok: true, setup: options.kitInventory ?? KIT_INVENTORY }),
+    readKitInventory: async () => ({ ok: true, setup: inventory }),
+    removeKitAllowedCommand: async (run) => {
+      options.onRemoveKitAllowed?.(run);
+      const left = inventory.kinds.flatMap((one) =>
+        one.kind === "allowlist" && one.read.what === "read" ? one.read.items.filter((item) => item.name !== run) : [],
+      );
+      inventory = withAllowlist(inventory, left);
+      return { ok: true, commands: { commands: left.map((item) => ({ run: item.name, source: "by_hand" as const })) } };
+    },
     listKitServers: async () => ({ ok: true, kit: { servers } }),
     addKitServer: async (adding) => {
       const added: KitServerRow = {

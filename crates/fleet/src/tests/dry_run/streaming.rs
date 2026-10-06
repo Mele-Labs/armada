@@ -260,3 +260,58 @@ async fn once_the_repository_has_history_the_fastest_check_starts_first() {
         "the fastest Check did not start first: {told:?}"
     );
 }
+
+/// **The history is a record, not a dependency.** A run appends one row per
+/// Check that reached a code, and a store that will not take the row leaves the
+/// run's answer and its timings as they were.
+#[tokio::test]
+async fn a_run_appends_to_the_check_history_and_a_store_that_will_not_fails_nothing() {
+    let home = TempDir::new();
+    let gates = [
+        check("slow", "/bin/sleep 0.2"),
+        check("quick", "/usr/bin/true"),
+    ];
+    let fleet = Arc::new(a_fleet_at_once(&home, checked_by(&gates), 1));
+    started(&fleet, &home).await;
+    let (job, _drone) = the_one_drone(&fleet).await.expect("a Drone at work");
+    let record = fleet.load(&job).await.expect("the Job");
+    let repository = record.owner_manifest_id();
+
+    let first = fleet
+        .run_checks(&job, ipc::mcp::ChecksAsk::everything(false))
+        .await
+        .expect("the first run");
+    assert!(matches!(first.finished().await, Some(Ok(_))));
+    assert_eq!(
+        fleet
+            .store()
+            .lock()
+            .await
+            .check_runs_kept(repository)
+            .expect("counts"),
+        2,
+        "one row per Check that ran"
+    );
+
+    fleet
+        .store()
+        .lock()
+        .await
+        .without_the_check_run_history()
+        .expect("dropped");
+    let second = fleet
+        .run_checks(&job, ipc::mcp::ChecksAsk::everything(false))
+        .await
+        .expect("the second run");
+    assert!(
+        matches!(second.finished().await, Some(Ok(_))),
+        "a history that would not write failed the run"
+    );
+    let timed = fleet
+        .store()
+        .lock()
+        .await
+        .check_timings(repository)
+        .expect("the timings read");
+    assert_eq!(timed.len(), 2, "the timings were lost with the history");
+}

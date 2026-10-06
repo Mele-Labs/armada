@@ -133,9 +133,10 @@ function answersOf(one: Refusal): Pick<Refused, "call" | "answers" | "withheld">
       ? {}
       : {
           call: one.call,
-          answers: offered.map(({ offer, label, rules, suggestedRule }) => ({
-            answer: offer,
+          answers: offered.map(({ id, label, means, scope, rules, suggestedRule }) => ({
+            answer: id,
             label,
+            ...(scope === undefined ? {} : { tip: means }),
             ...(rules === undefined ? {} : { rules }),
             ...(suggestedRule === undefined ? {} : { suggestedRule }),
           })),

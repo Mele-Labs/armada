@@ -55,6 +55,7 @@ pub mod briefing;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+mod check_history;
 mod check_output;
 mod checking;
 mod checkouts;
@@ -144,6 +145,8 @@ pub mod keeping;
 mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
+/// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
+pub mod kit_allowlist;
 mod landing;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;

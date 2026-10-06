@@ -6,7 +6,7 @@
 // *Bridge on a mock Fleet*.
 
 import { PROTOCOL_VERSION, refusedWith } from "@armada/protocol";
-import type { JobDetail, JobSummary, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
+import type { JobDetail, JobSummary, KitAllowedCommand, LessonAnswer, Outcome, RetroItem, WorkPlan } from "@armada/protocol";
 import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import type { GroupView } from "@armada/screens/src/draft/group";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -22,6 +22,7 @@ import { reshaped, rescued, scoutRead } from "./slots-fleet";
 import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import { onTimePassing } from "./time-passes";
 import { accepted, askedAgain } from "./undecided-fleet";
+import { KIT_INVENTORY, withAllowed } from "./kit-inventory";
 import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
@@ -130,10 +131,18 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
   /** The retro items as answers left them. */
   let lessons = scenario.lessons ?? [];
 
+  /** What Kit's allowlist holds on this machine: what Update Kit and Always allow on this machine added. */
+  let kitAllowed: KitAllowedCommand[] = [];
+
   /** One answer to one item. An agreed Armada or Manifest item puts its Job on the Board at the gate. */
   function answerLesson(id: string, answer: "agree" | "disagree"): LessonAnswer {
     const taken = answered(lessons, id, answer, state.jobs, new Date().toISOString());
     lessons = taken.lessons;
+    // Update Kit adds the command Fleet says it applied, as that retro item's.
+    const applied = taken.answer.ok ? taken.answer.lesson.applied : undefined;
+    if (applied !== undefined && !kitAllowed.some((one) => one.run === applied.command)) {
+      kitAllowed = [...kitAllowed, { run: applied.command, source: "retro_item", lesson_id: id }];
+    }
     if (taken.job !== undefined) publish({ jobs: [...state.jobs, taken.job] });
     return taken.answer;
   }
@@ -345,7 +354,13 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     },
     redirectDrone: async () => OK,
     answerQuestion: async () => OK,
-    answerCommand: async () => OK,
+    answerCommand: async (_jobId, _call, answer, _note, rule, scope) => {
+      // Always allow on this machine keeps the rule it was sent with in Kit's allowlist.
+      if (answer === "always_allow" && scope === "kit" && rule !== undefined && !kitAllowed.some((one) => one.run === rule)) {
+        kitAllowed = [...kitAllowed, { run: rule, source: "always_allow" }];
+      }
+      return OK;
+    },
     answerHelmCall: async () => OK,
     explainCommand: async (jobId, callId) => refused(path(jobId, `/calls/${callId}/explain`)),
     setWhenBlocked: async () => OK,
@@ -456,7 +471,14 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     listRepositoryAllowedCommands: async () => refused("/manifest/allowed-commands"),
     removeRepositoryAllowedCommand: async () => refused("/manifest/allowed-commands"),
 
-    readKitInventory: async () => refused("/kit/inventory"),
+    // A scenario that has put nothing in the allowlist keeps the Kit read refused, as it was.
+    readKitInventory: async () =>
+      kitAllowed.length === 0 ? refused("/kit/inventory") : { ok: true, setup: withAllowed(KIT_INVENTORY, kitAllowed) },
+    removeKitAllowedCommand: async (run) => {
+      if (!kitAllowed.some((one) => one.run === run)) return refused("/kit/allowed_commands/remove");
+      kitAllowed = kitAllowed.filter((one) => one.run !== run);
+      return { ok: true, commands: { commands: kitAllowed } };
+    },
     listKitServers: async () => refused("/kit/servers"),
     addKitServer: async () => refused("/kit/servers"),
     forgetKitServer: async () => refused("/kit/servers"),
@@ -512,7 +534,12 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
       const standing = (item: RetroItem): RetroItem => {
         const now = item.state === undefined ? undefined : lessons.find((one) => one.id === item.id);
         if (now === undefined) return item;
-        return { ...item, state: now.state, ...(now.job_proposed === undefined ? {} : { job_proposed: now.job_proposed }) };
+        return {
+          ...item,
+          state: now.state,
+          ...(now.job_proposed === undefined ? {} : { job_proposed: now.job_proposed }),
+          ...(now.applied === undefined ? {} : { applied: now.applied }),
+        };
       };
       if (retro !== undefined) return { ok: true, retro: { ...retro, items: retro.items?.map(standing) } };
       return readsOf(jobId) === undefined

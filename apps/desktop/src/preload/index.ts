@@ -43,7 +43,7 @@ import type {
 } from "@armada/screens/src/editing";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
-import type { KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -55,6 +55,7 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type {
+  AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -218,8 +219,9 @@ const api: BridgeApi = {
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule),
+    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
@@ -449,6 +451,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.removeRepositoryAllowedCommand, run),
 
   readKitInventory: (): Promise<KitInventoryRead> => ipcRenderer.invoke(CHANNELS.readKitInventory),
+  removeKitAllowedCommand: (run: string): Promise<KitAllowedCommandsRead> =>
+    ipcRenderer.invoke(CHANNELS.removeKitAllowedCommand, run),
   listKitServers: (): Promise<KitServersRead> => ipcRenderer.invoke(CHANNELS.listKitServers),
   addKitServer: (adding: AddKitServer): Promise<KitServersRead> =>
     ipcRenderer.invoke(CHANNELS.addKitServer, adding),

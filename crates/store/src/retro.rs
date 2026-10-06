@@ -7,7 +7,7 @@
 //! and files that exist for their own reasons; Fleet reads them when it writes
 //! a retro and keeps no second copy.
 
-use core_model::{JobId, JobStatus, LandsIn, LessonState, StepId, Timestamp, Via, Whose};
+use core_model::{Change, JobId, JobStatus, LandsIn, LessonState, StepId, Timestamp, Via, Whose};
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
@@ -79,6 +79,23 @@ ALTER TABLE job_retro_items ADD COLUMN state TEXT NOT NULL DEFAULT 'open'
 ALTER TABLE job_retro_items ADD COLUMN job_proposed TEXT;
 "#;
 
+/// Version 109 — the change to Kit an item carries, and whether pressing
+/// Accept applied it.
+///
+/// **Null on every item kept before, and nothing is backfilled**: a change is
+/// copied off a refusal the record showed, and an item written before the model
+/// was asked has none to copy. `applied` is what makes a second press apply
+/// nothing, and is only ever set by the same write that moves the item to
+/// `accepted`.
+pub(crate) const V110: &str = r#"
+ALTER TABLE job_retro_items ADD COLUMN change_kind TEXT
+    CHECK (change_kind IS NULL OR change_kind IN ('allow_command'));
+ALTER TABLE job_retro_items ADD COLUMN change_command TEXT
+    CHECK (change_command IS NULL OR trim(change_command) <> '');
+ALTER TABLE job_retro_items ADD COLUMN applied INTEGER NOT NULL DEFAULT 0
+    CHECK (applied IN (0, 1));
+"#;
+
 /// One item of a retro: what got in the way, whose way, and the record rows
 /// that show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -97,6 +114,10 @@ pub struct RetroLine {
     /// Where its fix lands. **`None` only on an item kept before V102**: Fleet
     /// drops a written item that names none.
     pub lands_in: Option<LandsIn>,
+    /// The change to Kit that pressing Accept applies. **Only on a Kit item**,
+    /// and only where Fleet copied it off a refusal the record shows. Since
+    /// V110.
+    pub change: Option<Change>,
 }
 
 /// What became of a Job's retro.
@@ -132,6 +153,9 @@ pub struct KeptLesson {
     pub state: LessonState,
     /// The Job proposed for it, once one was.
     pub job_proposed: Option<JobId>,
+    /// Whether Accept applied the item's change. **Never true of an item with
+    /// none.** Since V110.
+    pub applied: bool,
 }
 
 /// What a Drone said got in its way, on one submission.
@@ -278,8 +302,9 @@ impl Store {
         for (ordinal, item) in items.iter().enumerate() {
             tx.execute(
                 "INSERT INTO job_retro_items \
-                 (job_id, ordinal, whose, said, evidence, lands_in, title, what, fix) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                 (job_id, ordinal, whose, said, evidence, lands_in, title, what, fix, \
+                  change_kind, change_command) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 (
                     job_id.as_str(),
                     ordinal as i64,
@@ -290,6 +315,10 @@ impl Store {
                     item.title.as_deref(),
                     item.what.as_deref(),
                     item.fix.as_deref(),
+                    item.change.as_ref().map(Change::kind),
+                    item.change.as_ref().map(|change| match change {
+                        Change::AllowCommand { command } => command.as_str(),
+                    }),
                 ),
             )
             .map_err(fault("keeping a retro's item"))
@@ -401,6 +430,28 @@ impl Store {
         Ok(changed == 1)
     }
 
+    /// Move an item with a change off `open` to `accepted` and mark the change
+    /// applied, in one write, and say whether this call did it. **The write is
+    /// the claim**, `answer_lesson`'s rule: of two presses one reads `true`.
+    /// An item with no change reads `false` and is left as it was.
+    pub fn accept_lesson_applied(
+        &mut self,
+        job_id: &JobId,
+        ordinal: u32,
+    ) -> Result<bool, WriteError> {
+        let changed = self
+            .conn
+            .execute(
+                "UPDATE job_retro_items SET state = 'accepted', applied = 1 \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND state = 'open' \
+                 AND change_kind IS NOT NULL",
+                (job_id.as_str(), i64::from(ordinal)),
+            )
+            .map_err(fault("accepting a lesson and applying its change"))
+            .map_err(WriteError::Database)?;
+        Ok(changed == 1)
+    }
+
     /// Keep the Job proposed for an agreed item.
     pub fn keep_lesson_job(
         &mut self,
@@ -458,9 +509,12 @@ impl Store {
                         title: row.get(7)?,
                         what: row.get(8)?,
                         fix: row.get(9)?,
+                        change_kind: row.get(12)?,
+                        change_command: row.get(13)?,
                     },
                     state: row.get(10)?,
                     proposed: row.get(11)?,
+                    applied: row.get::<_, i64>(14)? == 1,
                 })
             })
             .map_err(fault("reading the lessons"))
@@ -490,6 +544,7 @@ impl Store {
                 job_proposed: stored
                     .proposed
                     .map(|id| JobId::carried(core_model::Ulid::carried(id))),
+                applied: stored.applied,
             });
         }
         Ok(lessons)
@@ -497,7 +552,8 @@ impl Store {
 
     fn retro_lines(&self, job_id: &JobId) -> Result<Vec<RetroLine>, RowError> {
         self.rows(
-            "SELECT whose, said, evidence, lands_in, title, what, fix FROM job_retro_items \
+            "SELECT whose, said, evidence, lands_in, title, what, fix, change_kind, \
+             change_command FROM job_retro_items \
              WHERE job_id = ?1 ORDER BY ordinal",
             job_id,
             |row| {
@@ -514,6 +570,8 @@ impl Store {
                     title: optional("title")?,
                     what: optional("what")?,
                     fix: optional("fix")?,
+                    change_kind: optional("change_kind")?,
+                    change_command: optional("change_command")?,
                 };
                 line_of(
                     &text("whose")?,
@@ -557,13 +615,16 @@ impl Store {
 /// The columns [`Store::lessons`] and [`Store::lesson`] read, in the order
 /// [`Store::lessons_where`] reads them.
 const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
-     i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed";
+     i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed, i.change_kind, \
+     i.change_command, i.applied";
 
 /// The three texts V105 added, which are all absent on an older item.
 struct Texts {
     title: Option<String>,
     what: Option<String>,
     fix: Option<String>,
+    change_kind: Option<String>,
+    change_command: Option<String>,
 }
 
 /// One row of [`LESSON_COLUMNS`], before its spellings are checked.
@@ -578,6 +639,7 @@ struct Stored {
     texts: Texts,
     state: String,
     proposed: Option<String>,
+    applied: bool,
 }
 
 fn line_of(
@@ -587,7 +649,18 @@ fn line_of(
     lands_in: Option<&str>,
     texts: Texts,
 ) -> Result<RetroLine, RowError> {
+    let change = match (texts.change_kind, texts.change_command) {
+        (Some(kind), Some(command)) => Some(Change::from_parts(&kind, command).ok_or(
+            RowError::UnknownEnumValue {
+                table: "job_retro_items",
+                column: "change_kind",
+                value: kind,
+            },
+        )?),
+        _ => None,
+    };
     Ok(RetroLine {
+        change,
         title: texts.title,
         what: texts.what,
         fix: texts.fix,

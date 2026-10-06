@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Button } from "../../primitives/Button/Button";
+
 /**
  * The setup a person already works with, read from their agent harness's own
  * home and shown by kind — #1491.
@@ -9,6 +11,11 @@ import type { ReactNode } from "react";
  * and still handed to nobody, and allowing one stays a separate act on a kit
  * row below. A server is drawn as the program or host it is at and never as
  * what follows either, so what is on the screen could not start it.
+ *
+ * **The allowlist is the one row with a control.** Each command Armada keeps
+ * there is drawn with where it came from, in words, and a Remove: that file is
+ * Armada's own, so taking a line out is Armada's to do. It carries no count and
+ * draws nothing under its name when it holds nothing.
  *
  * **A kind nothing reads yet says so.** Drawing it as empty would say a person
  * has none of something they have plenty of, which is the report this whole
@@ -21,6 +28,8 @@ export type KitSetupProps = {
    * accident, `KitServers`' reason.
    */
   setup?: KitSetupRead;
+  /** Take a command out of the allowlist, by the line as it was read. Absent draws no Remove. */
+  onRemoveAllowed?: (run: string) => void;
 };
 
 export type KitSetupRead = {
@@ -98,7 +107,7 @@ const KIND_NONE: Record<KitSetupKindWord, string> = {
   models: "No models named",
 };
 
-export function KitSetup({ setup }: KitSetupProps) {
+export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
   // Before the read answers there is nothing yet to say.
   if (setup === undefined) return null;
   return (
@@ -112,16 +121,22 @@ export function KitSetup({ setup }: KitSetupProps) {
       </header>
 
       {setup.kinds.map((kind) => (
-        <Kind key={kind.kind} home={setup.home} {...kind} />
+        <Kind key={kind.kind} home={setup.home} onRemoveAllowed={onRemoveAllowed} {...kind} />
       ))}
     </section>
   );
 }
 
-function Kind({ kind, read, home }: KitSetupKind & { home: string }) {
-  const counted = read.what === "read" ? read.items.length : undefined;
+function Kind({
+  kind,
+  read,
+  home,
+  onRemoveAllowed,
+}: KitSetupKind & { home: string; onRemoveAllowed?: ((run: string) => void) | undefined }) {
+  // The allowlist draws no count: a count beside the list it counts is design-system hard rule 7.
+  const counted = read.what === "read" && kind !== "allowlist" ? read.items.length : undefined;
   return (
-    <div className="armada-kit-setup__kind">
+    <section className="armada-kit-setup__kind" aria-label={KIND_LABEL[kind]}>
       <h4 className="armada-kit-setup__kind-name">
         {KIND_LABEL[kind]}
         {counted === undefined ? null : (
@@ -132,10 +147,59 @@ function Kind({ kind, read, home }: KitSetupKind & { home: string }) {
       {read.what === "not_read" ? (
         /* Named as not read, never drawn as empty. */
         <p className="armada-kit-setup__not-read">Not read yet — {read.why}</p>
+      ) : kind === "allowlist" ? (
+        <Allowed items={read.items} onRemove={onRemoveAllowed} />
       ) : (
         <Items kind={kind} home={home} items={read.items} unreadable={read.unreadable} />
       )}
-    </div>
+    </section>
+  );
+}
+
+/**
+ * Where an allowlist command came from, in words. **Fleet's own spelling is
+ * `retro item <id>`, `always allow` or `written by hand`**, and the id is what
+ * the retro page is for, so only the kind is drawn. A spelling this build has
+ * no words for is drawn as it came.
+ */
+function sourceWords(source: string): string {
+  if (source.startsWith("retro item")) return "Retro item";
+  if (source === "always allow") return "Always allow";
+  if (source === "written by hand") return "Written by hand";
+  return source;
+}
+
+/**
+ * The commands Kit allows for every Job on this machine. **Nothing under the
+ * name where there are none**: an empty list says so by being empty.
+ */
+function Allowed({
+  items,
+  onRemove,
+}: {
+  items: KitSetupItem[];
+  onRemove?: ((run: string) => void) | undefined;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="armada-kit-setup__items">
+      {items.map((item) => (
+        <li className="armada-kit-setup__item" key={item.name}>
+          <span className="armada-kit-setup__item-name mono">{item.name}</span>
+          <span className="armada-kit-setup__item-from">{sourceWords(item.source)}</span>
+          {onRemove === undefined ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Remove ${item.name}`}
+              onClick={() => onRemove(item.name)}
+            >
+              Remove
+            </Button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

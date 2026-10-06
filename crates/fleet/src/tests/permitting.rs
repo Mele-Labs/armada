@@ -177,7 +177,7 @@ pub(super) async fn heard(fleet: &Fixture) -> Vec<DroneEvent> {
     slot.as_ref().map(|at| at.heard()).unwrap_or_default()
 }
 
-fn refused(heard: &[DroneEvent], call: &str) -> bool {
+pub(super) fn refused(heard: &[DroneEvent], call: &str) -> bool {
     heard
         .iter()
         .any(|event| matches!(event, DroneEvent::Refused { call: refused, .. } if refused == call))

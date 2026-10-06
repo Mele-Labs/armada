@@ -12,6 +12,7 @@ import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, Fil
 import type { ApproveDispatch } from "@armada/protocol";
 import type {
   Artifact,
+  AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -621,7 +622,8 @@ void app.whenReady().then(() => {
       answer: CommandAnswer,
       note?: string,
       rule?: string,
-    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule),
+      scope?: AlwaysAllowScope,
+    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope),
   );
   // One call helm was held on, answered in the dock. No job id: the session is
   // waiting inside its own tool call, and nothing on the board moves. #1389.

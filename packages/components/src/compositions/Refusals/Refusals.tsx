@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from "react";
 
 import { Button, STILL_WAITING, useStillWaiting } from "../../primitives/Button/Button";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** One answer a person may give about one refused command. */
 export type RefusedAnswer = {
@@ -10,6 +11,8 @@ export type RefusedAnswer = {
   answer: string;
   /** The words on the control. */
   label: string;
+  /** What the control does, as its tooltip, where the label alone does not say. */
+  tip?: string;
   /**
    * The rules this answer may write, shortest first — Fleet's candidates, cut
    * at each word. **Never computed here**, per `chains`. Where present, the
@@ -298,7 +301,7 @@ export function Refusals({
                     );
                   }
                   if (!isPicking) {
-                    return (
+                    const opener = (
                       <Button
                         key={offered.answer}
                         variant="ghost"
@@ -315,6 +318,13 @@ export function Refusals({
                       >
                         {mine ? "Sending…" : offered.label}
                       </Button>
+                    );
+                    return offered.tip === undefined ? (
+                      opener
+                    ) : (
+                      <Tooltip key={offered.answer} label={offered.tip}>
+                        {opener}
+                      </Tooltip>
                     );
                   }
                   return (

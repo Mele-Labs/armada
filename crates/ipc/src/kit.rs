@@ -181,3 +181,41 @@ pub struct KitInventory {
     /// Every kind, in a fixed order, including the ones nothing reads yet.
     pub kinds: Vec<SetupKindRow>,
 }
+
+/// Where a command in Kit's allowlist came from. Since 23.35.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case")]
+pub enum KitAllowedSource {
+    /// A retro item the person accepted. `lesson_id` is `Lesson::id`.
+    RetroItem { lesson_id: String },
+    /// A person's Always allow, answered on a command a Drone was refused.
+    AlwaysAllow,
+    /// A line a person wrote in the file themselves.
+    ByHand,
+}
+
+/// One command Kit's allowlist holds. **The command text and where it came
+/// from, and nothing that could widen it**: reading one is not granting one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitAllowedCommand {
+    /// The command as Kit holds it. What `remove_kit_allowed_command` names,
+    /// so it crosses whole. Allows the command itself and the command with
+    /// more plain arguments after it, and nothing that chains another.
+    pub run: String,
+    #[serde(flatten)]
+    pub from: KitAllowedSource,
+}
+
+/// `remove_kit_allowed_command`'s answer: what Kit's allowlist holds now, in
+/// the order the file holds it. Since 23.35.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KitAllowedCommands {
+    pub commands: Vec<KitAllowedCommand>,
+}
+
+/// The request half of `remove_kit_allowed_command`: `run`, exactly as
+/// [`KitAllowedCommand::run`] has it. Since 23.35.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoveKitAllowedCommand {
+    pub run: String,
+}

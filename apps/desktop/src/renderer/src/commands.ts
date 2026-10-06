@@ -45,6 +45,7 @@ import type {
 } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type {
+  AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -239,6 +240,7 @@ export const removeRepositoryAllowedCommand = (run: string) =>
   window.armada.removeRepositoryAllowedCommand(run);
 /** Kit's MCP servers, and the two tiers of reach over each — #1275. */
 export const readKitInventory = () => window.armada.readKitInventory();
+export const removeKitAllowedCommand = (run: string) => window.armada.removeKitAllowedCommand(run);
 export const listKitServers = () => window.armada.listKitServers();
 /** The Workflow creator: the list, one definition, and a save. */
 export const readWorkflows = () => window.armada.readWorkflows();
@@ -610,9 +612,14 @@ export function useCommands(sending: Sending) {
     chose: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ): Promise<Outcome> {
     return acted(jobId, "answer_command", async () => {
-      const answered = await window.armada.answerCommand(jobId, call, chose, note, rule);
+      // A scope only where there is one: every other answer is sent as it was.
+      const answered =
+        scope === undefined
+          ? await window.armada.answerCommand(jobId, call, chose, note, rule)
+          : await window.armada.answerCommand(jobId, call, chose, note, rule, scope);
       setOutcome(answered);
       return answered;
     });

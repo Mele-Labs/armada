@@ -41,6 +41,7 @@ mod attempt;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
+mod check_runs;
 mod checked;
 mod columns;
 /// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
@@ -85,7 +86,7 @@ mod model_per_task;
 mod note;
 mod numbering;
 mod open;
-/// The marker on a paused Job, and the slot it gave up. Since V109.
+/// The marker on a paused Job, and the slot it gave up. Since V111.
 mod pausing;
 /// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
 mod pending_evidence;
@@ -166,6 +167,7 @@ mod tests;
 
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
+pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use drift::ScopeDrift;

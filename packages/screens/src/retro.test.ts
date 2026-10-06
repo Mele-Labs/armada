@@ -207,4 +207,16 @@ describe("what Agree and Disagree say they do", () => {
     expect(agreeTipOf("kit")).toBe("Saves it under Accepted.");
     expect(DISAGREE_TIP).toBe("Discards it.");
   });
+
+  it("reads Update Kit on a Kit item that carries a change, and Accept on one that does not", () => {
+    expect(agreeLabelOf("kit", true)).toBe("Update Kit");
+    expect(agreeTipOf("kit", true)).toBe(
+      "Adds this command to your Kit's allowed commands. You can remove it from the Kit page.",
+    );
+    expect(agreeLabelOf("kit", false)).toBe("Accept");
+    expect(agreeTipOf("kit", false)).toBe("Saves it under Accepted.");
+    // A change on any other place is not drawn: Fleet carries one on a Kit item alone.
+    expect(agreeLabelOf("armada", true)).toBe("Create Job");
+    expect(agreeLabelOf("manifest", true)).toBe("Create Job");
+  });
 });

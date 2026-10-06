@@ -13,7 +13,10 @@ use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AddKitServer, ForgetKitServer, SetKitServerReach, SetManifestServerReach};
+use ipc::{
+    AddKitServer, ForgetKitServer, RemoveKitAllowedCommand, SetKitServerReach,
+    SetManifestServerReach,
+};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -117,6 +120,24 @@ pub(crate) async fn set_manifest_server_reach<D: Commands>(
         .await
     {
         Ok(servers) => answer(StatusCode::OK, &servers, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Take a command out of Kit's allowlist, and answer with what it holds now.
+///
+/// **No Manifest scopes it**: the allowlist is the machine's, in `~/.armada`.
+pub(crate) async fn remove_kit_allowed_command<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let removing: RemoveKitAllowedCommand =
+        match ipc::decode("a command to take out of Kit's allowlist", &body) {
+            Ok(removing) => removing,
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        };
+    match served.daemon().remove_kit_allowed_command(removing).await {
+        Ok(allowed) => answer(StatusCode::OK, &allowed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

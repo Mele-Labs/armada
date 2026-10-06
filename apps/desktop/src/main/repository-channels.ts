@@ -74,6 +74,9 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.readKitInventory, (event) =>
     connection()?.kitFor(windowIdOf(event)).inventory(),
   );
+  ipc.handle(CHANNELS.removeKitAllowedCommand, (event, run: string) =>
+    connection()?.kitFor(windowIdOf(event)).removeAllowedCommand(run),
+  );
   ipc.handle(CHANNELS.listKitServers, (event) => connection()?.kitFor(windowIdOf(event)).list());
   ipc.handle(CHANNELS.addKitServer, (event, adding: AddKitServer) =>
     connection()?.kitFor(windowIdOf(event)).add(adding),

@@ -70,6 +70,8 @@ const JOB_3_ITEMS: RetroItem[] = [
     fix: "Add grep on .armada/checks to the allowlist.",
     evidence: ["refusal:1", "asked:1", "waited:1"],
     state: "open",
+    // Fleet copied the command off the refusal in the record, `refusal:1`'s leading cut.
+    change: { kind: "allow_command", command: "grep" },
   },
   {
     id: "01M2LESSON3DOCSTESTS",

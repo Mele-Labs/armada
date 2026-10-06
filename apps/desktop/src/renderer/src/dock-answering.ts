@@ -4,7 +4,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { CommandAnswer, HelmCallAnswer, JudgeAnswer, Outcome } from "@armada/protocol";
 import type { DockActs, Outstanding } from "@armada/screens";
-import { outstandingId, refusalWords } from "@armada/screens";
+import { choiceNamed, outstandingId, refusalWords, ruleForKit } from "@armada/screens";
 
 import type { useCommands } from "./commands";
 
@@ -51,8 +51,22 @@ function sent(
   switch (question.kind) {
     case "drone":
       return commands.answer(question.job_id, question.asking.question_id, answer);
-    case "command":
-      return commands.answerCommand(question.job_id, question.waiting.call, answer as CommandAnswer);
+    case "command": {
+      const named = choiceNamed(answer);
+      // An answer this build never drew is sent as it came, and Fleet refuses what it did not offer.
+      if (named === undefined) return commands.answerCommand(question.job_id, question.waiting.call, answer as CommandAnswer);
+      // Always allow on this machine has no picker in the dock, so it sends the rule Fleet pre-selected.
+      return named.scope === undefined
+        ? commands.answerCommand(question.job_id, question.waiting.call, named.answer)
+        : commands.answerCommand(
+            question.job_id,
+            question.waiting.call,
+            named.answer,
+            undefined,
+            ruleForKit(question.waiting),
+            named.scope,
+          );
+    }
     case "judge":
       return commands.answerJudge(question.job_id, question.question.asked_at, answer as JudgeAnswer);
     case "helm":

@@ -602,6 +602,7 @@ where
     ) -> Option<Result<CheckReport, String>> {
         // Whether or not the step still waits: what ran to a code was measured.
         self.kept_timings(&plan.record, showing.timings()).await;
+        self.kept_runs(&plan.record, showing.runs()).await;
         let now = self.now();
         let slot = self.slot_of(caller).await?;
         let mut working = slot.lock().await;
