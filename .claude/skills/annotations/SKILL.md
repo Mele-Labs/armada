@@ -128,8 +128,9 @@ was in Storybook, and he had to ask what was left to walk after all four landed.
 Two of those agents also named their walk file `markdown-from-agents.ts`, and the
 second was refused by the merge line on the clash.
 
-**Any other green change opens a pull request without asking**; report the
-pull request. The owner merges, and the worktree goes back after, as
+**Any other green change goes into the preview, is adopted, and goes up as a
+pull request, with no question in between** (`work-issue`, step 6); report the
+pull request. It merges once `ci` passes, and the worktree goes back after, as
 `work-issue` and `agent-worktrees` say.
 
 **A component change is still a component change.** `armada-components` applies:

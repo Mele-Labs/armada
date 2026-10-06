@@ -8,7 +8,8 @@ description: How to work one GitHub issue the way a Job works a workflow — wor
 **This is the `bug` workflow, run by hand.** Armada dispatches a Drone into its
 own worktree, gates each step, and holds the work at `awaiting_review` before it
 lands. When Fleet is not the one dispatching, that shape still applies up to the
-hold, and this skill is it. Here green work goes up as a pull request without waiting (step 6).
+hold, and this skill is it. Here green work is previewed, adopted and goes up as
+a pull request without waiting (step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
 close it. **This skill owns where the work happens and how it lands** — the two
@@ -197,11 +198,29 @@ write.** Stage by name, or read `git status` first and know every entry. That is
 how someone else's uncommitted work ended up inside a commit about something
 else.
 
-### 6. Open a pull request, and stop
+### 6. Preview it, adopt it, then open the pull request
 
-**Green work goes up as a pull request without asking.** Once the work is
-committed and step 4's self-check passes, push the branch and open the pull
-request. Then stop: the owner merges.
+**The owner's order is: propose, implement, walk if it is visual, preview and
+adopt, land.** He uses Armada as its end user, so he runs the change before it
+lands. Once the work is committed and step 4's self-check passes, do these in
+order and ask nothing between them:
+
+1. `scripts/preview` merges the branch into the preview with every other branch
+   in flight. Load `preview-app` first.
+2. If the change reaches Fleet or Bridge, `scripts/preview --restart --adopt`
+   moves his Fleet and Bridge onto it. Say in one line what it will do, since his
+   permission prompt is the confirmation. A change that is only docs or scripts
+   needs no restart. A restart already in progress refuses a second: say so and
+   go on to the next step.
+3. Push the branch and open the pull request, straight away. **Do not wait for
+   him to try the preview, and never ask "land it?"** He files what he finds as
+   separate work or comes back to you, and `ci` is the guard.
+
+**A visual change walks before it previews.** It ships with a walk, he opens its
+link on a mock served from your worktree, and you iterate on what he says. His
+OK on the walk is the go-ahead: the preview, the adopt and the pull request above
+follow from it with no further asking. `annotations`, step 4, has the rule, and
+`docs/practices/running-locally.md` *Walks* has the walk.
 
 ```
 git push -u origin <branch>
@@ -210,9 +229,9 @@ gh pr create --base main
 
 The description follows `commit-message`: say what the diff cannot, and end with
 "Merge with Create a merge commit". GitHub runs the `checks` workflow on it. The
-`ci` job is the gate and `desktop_test` reports beside it. The owner merges with
-the merge button and "Create a merge commit": main's history is one merge per
-branch, so never squash or rebase.
+`ci` job is the gate, and `main` requires it; `desktop_test` reports beside it.
+The owner merges, or turns on auto-merge so GitHub merges it once `ci` passes.
+The repository allows merge commits only: main's history is one merge per branch.
 
 **An agent never merges.** Never `gh pr merge`, never a push to `main`, never a
 `git merge` in the checkout at `main`. A hook refuses all three.
