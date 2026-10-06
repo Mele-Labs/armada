@@ -65,3 +65,4 @@ pub use agent::{
     NoSuchAgent, AGENT_BINARY, JUDGE_MODEL, MODEL, PROPOSER_MODEL, RETRO_MODEL,
 };
 pub use setup::{Setup, SetupRefused};
+// ci-trial: delete me
