@@ -1,0 +1,155 @@
+/* Main's state at the head of the merge line. Green is a mark and nothing more; red is a frame in the
+   system-failure hue, so the state is read off the panel before a word of it is. */
+.armada-main-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.armada-main-red {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.armada-main-red__frame {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--status-completed-failed);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow: hidden;
+}
+
+/* The state in a band across the top, in the failure hue. */
+.armada-main-red__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--status-completed-failed-bg);
+  border-bottom: var(--border-width) solid var(--status-completed-failed);
+}
+
+.armada-main-red__title {
+  font-weight: var(--weight-heading);
+  color: var(--status-completed-failed);
+}
+
+/* A label and its value to a row, the label set back. */
+.armada-main-red__rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-main-red__rows dt {
+  color: var(--fg-muted);
+}
+
+.armada-main-red__rows dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-main-red__merge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.armada-main-red__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.armada-main-red__link:hover {
+  text-decoration: underline;
+}
+
+.armada-main-red__link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-main-red__taken,
+.armada-main-red__ask {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+/* A Job's mark beside its status badge: a hammer working, then a shield once main is green. */
+.armada-fixing-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.armada-fixing-mark[data-state="fixing"] {
+  color: var(--status-running);
+}
+
+.armada-fixing-mark[data-state="fixed"] {
+  color: var(--status-completed-success);
+}
+
+.armada-fixing-mark[data-state="fixing"] > svg {
+  animation: armada-fixing-breathe var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-fixing-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-fixing-mark[data-state="fixing"] > svg {
+    animation: none;
+  }
+}
+
+/* What goes with the work, and the Jobs it can go to. */
+.armada-main-fix__attached {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.armada-main-fix__job {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.armada-main-fix__branch {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-main-fix__culprit {
+  display: inline-flex;
+  align-items: center;
+  color: var(--status-completed-success);
+}

@@ -412,6 +412,7 @@ function OneJob(props: JobDetailProps) {
             setTab("record");
           }}
           onOpenCheckLog={setCheckLog}
+          {...(props.onOpenMainLog === undefined ? {} : { onOpenMainLog: props.onOpenMainLog })}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
           {...(held.atGate && held.edits !== undefined && whole !== null
