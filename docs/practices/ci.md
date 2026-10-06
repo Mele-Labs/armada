@@ -34,11 +34,14 @@ to `main` are keyed by their own commit and never cancelled.
 ## How a Check is chosen
 
 ```
-changed paths ──> armada covers ──> plan output (JSON array) ──> one job per Check, `if:` its name is in it
-                  reads armada.yml                                          │
-                  `when:` lists                                             v
-                                                              ci  (needs plan + every Check job)
+changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
+                  reads armada.yml     sorts keys    matrix                  ──> workspace key: one `workspace_check` matrix entry
+                  `when:` lists        fails on one                          ──> apps/desktop:desktop_test: the macOS shards
+                                       it cannot place
+                                                                          ci  (needs plan + every Check job + the matrix)
 ```
+
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`). A workspace Check is `<dir>:<name>` (`apps/desktop:bridge_build`, `packages/components:storybook`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -48,8 +51,10 @@ same Checks here as there. A change that hits no Check runs none and `ci` passes
 **A plan that cannot be made fails the job.** `armada covers` failing, or the
 build of `armada` failing, is red, never an empty plan.
 
+**`.github/ci/plan.py` places every key, and fails the plan on one it cannot.** A key is run, or named in `EXCLUDED` with its reason, which the plan writes to the job summary. A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission. Its tests run in `foundations` with the others in `.github/ci/`.
+
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
-`narrow` applies. Every other Check runs whole.
+`narrow` applies. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
 ## What `ci`, `needs` and `desktop_test` are
 
@@ -58,6 +63,8 @@ build of `armada` failing, is red, never an empty plan.
 | `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
 | `needs` | Fleet's check says so | Not defined here. Reserved: Fleet publishes it |
 | `desktop_test` | The plan succeeded and no shard failed or was cancelled | A failed shard, a failed plan |
+
+`ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
 
 **A Check the plan skipped counts as passed.** `ci` is the one name the ruleset
 requires for the Checks below. `needs` and later `desktop_test` are to be added.
@@ -69,16 +76,17 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `build`, `test` | `ubuntu-latest` | `armada check <name> --changed`, whole on `main` and dispatch | rust-cache, cargo-nextest |
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `cargo fmt --all --check` | none |
-| `typecheck`, `bridge_build` | `ubuntu-latest` | armada.yml's command, direct | node_modules |
-| `storybook`, `screens_test`, `components_test` | `ubuntu-latest` | armada.yml's command, direct, `--maxWorkers=$WIDTH` | node_modules, Playwright |
+| `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
+| Every workspace key except `apps/desktop:desktop_test` and the excluded: `<dir>:typecheck`, `apps/desktop:bridge_build`, `packages/components:storybook`, `packages/components:components_test`, `packages/screens:screens_test`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `desktop_test` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2` | node_modules, Playwright |
+| `apps/desktop:desktop_test` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
-Node Checks run their command directly because the wrapper adds a toolchain and a
-build of `armada` they do not need.
+The root's Node Check and the desktop shards run their command directly. The matrix
+runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
+the binary the plan job built, uploaded as an artifact, so no matrix entry builds Rust.
 
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
 reports on its own, so a red shard never blocks a change that `ci` passes.
@@ -119,12 +127,16 @@ HEAD^1 (main's tip) ─────────────> verify-foundations,
 
 ## Adding a Check
 
-1. Declare it in `armada.yml` with a `when:` list.
-2. Add a job to `checks.yml` named for the Check, gated with `if: contains(fromJSON(needs.plan.outputs.checks), '<name>')`.
-3. Add the name to the allowed list in the plan job's *Which Checks* step.
-4. Add the job to `ci`'s `needs`.
+1. Declare it in the manifest that owns it, with a `when:` list or none.
+2. A workspace Check that is a Node command needs nothing else when its name is in `MATRIX` in `.github/ci/plan.py`; add the name there otherwise, and to `NO_BROWSER` if no browser opens.
+3. A root Check needs a job in `checks.yml` gated with `if: contains(fromJSON(needs.plan.outputs.checks), '<name>')`, the name in `ROOT`, and the job in `ci`'s `needs`.
+4. A Check CI should not run goes in `EXCLUDED` with its reason.
 
 ## Measured on a trial pull request
+
+These were measured before workspace keys, with each command run directly. The
+matrix runs the same commands through `armada check <key>` and has not been
+measured.
 
 Seconds spent in each Check's own step on a 4-core, 16 GB `ubuntu-latest` runner
 and a 3-core, 7.5 GB `macos-latest` one, with every cache warm. Each job adds
@@ -153,6 +165,7 @@ failure, which was a Linux-only test failing on `main`.
 | Check | Why |
 |---|---|
 | `scripts_test` | Dropped. It tested `armada land`, which this workflow replaces, and failed on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
+| `apps/desktop:xtask_test` | In `EXCLUDED` in `plan.py`. A Rust Check CI never ran; the root `test` runs xtask's tests. Named, so the plan does not fail on it |
 | `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 
