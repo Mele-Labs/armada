@@ -5,7 +5,7 @@
 import type { Studio, StudioNode } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { studying, type StudioFleet } from "./studio-fleet";
+import { studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
 
 const AT = "2026-10-02T09:00:00Z";
 
@@ -59,8 +59,8 @@ export function zoneWithAProposal(): Studio {
 }
 
 /** The `studio-zone-proposal` scenario: that one Studio, and a checkout declaring things to run. */
-export function zoneProposing(): StudioFleet {
-  const fleet = studying([zoneWithAProposal()]);
+export function zoneProposing<S extends StudyingState, A extends StudyingApi>(nothingYet: S): StudioFleet<S, A> {
+  const fleet = studying<S, A>(nothingYet, [zoneWithAProposal()]);
   return {
     ...fleet,
     scenario: {

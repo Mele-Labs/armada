@@ -2,7 +2,7 @@
 // The owner, 2 Oct 2026, in place of a toast.
 // `studio-read-nothing.test.tsx` holds the claim.
 
-import { NOTHING_FOUND } from "../studio-fleet";
+import { NOTHING_FOUND } from "@armada/studios/fake";
 import { button, inside, role, walk } from "../walk";
 
 const picked = role("group", "What is picked");

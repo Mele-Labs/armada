@@ -313,6 +313,9 @@ importers:
 
   packages/surfaces/studios:
     dependencies:
+      '@armada/bridge-api':
+        specifier: workspace:*
+        version: link:../../bridge-api
       '@armada/components':
         specifier: workspace:*
         version: link:../../components

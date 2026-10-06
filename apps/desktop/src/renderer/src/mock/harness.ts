@@ -7,10 +7,7 @@ export * from "./mount";
 export * from "./scenario";
 export * from "./testing";
 
-// Studios' mock fleet stays here beside `fake.ts`, which composes it, so its
-// tests reach it through the harness.
-export * from "./studio-fleet";
-export * from "./studio-read-in";
-export * from "./studio-read-nothing";
-export * from "./studio-zone-proposal";
+// Studios' mock fleet lives in `@armada/studios/fake`; its tests reach it, fixed to desktop's
+// state, through the harness.
+export * from "./studios-fake";
 export { sheet } from "./manifest-fleet";

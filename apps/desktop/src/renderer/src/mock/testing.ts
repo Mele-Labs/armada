@@ -9,7 +9,7 @@ import type { FakeOptions } from "./fake";
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
 import type { Scenario } from "./scenario";
-import type { StudioKeeping } from "./studio-fleet";
+import type { StudioKeeping } from "@armada/studios/fake";
 
 let mounted: { app: Mounted; host: HTMLElement }[] = [];
 
