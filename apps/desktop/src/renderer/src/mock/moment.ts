@@ -3,7 +3,7 @@
 // scenario's own Fleet (`setup-fleet.ts`) can build on it and still be listed
 // there without the two importing each other.
 
-import { HARNESS } from "./approval-fleet";
+import { HARNESS } from "@armada/screens/src/fixtures/harness";
 import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
 import type {
   Connection,
