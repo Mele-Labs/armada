@@ -795,9 +795,13 @@ to `main`, the forge's merge API and a `git merge` in the checkout at `main`. It
 names the pull request instead. `armada check hooks_test` proves the hook, and
 needs nothing built.
 
-**A red `ci` comes back to you.** Read `gh pr checks <n>`, then
-`gh run view --log-failed`, fix on the same branch and push again. The pull
-request updates.
+**An agent that opens a pull request watches `ci` on it**, so the owner does not
+have to: `gh pr checks <n> --watch`, in the background. A red `ci` comes back to
+the agent. It reads `gh pr checks <n>`, then `gh run view --log-failed`, fixes on
+the same branch and pushes again; the pull request updates and it watches the new
+run. It stops and tells him only where the failure is not its to fix: the same
+failure on `main`, a decision that is his, or one that survives two fixes.
+`desktop_test` reports beside `ci` without gating it.
 
 **A moved `main` is brought in by merging it**, never by rebasing.
 

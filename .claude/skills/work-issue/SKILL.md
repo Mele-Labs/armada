@@ -238,9 +238,17 @@ has passed, or with `--auto`. Never a squash, a rebase or `--admin`, never a pus
 to `main`, never a `git merge` in the checkout at `main`. A hook refuses all of
 them.
 
-**A red `ci` comes back to you.** Read `gh pr checks <n>` and
-`gh run view --log-failed`, fix on the same branch and push again. The pull
-request updates.
+**You watch `ci`, so he does not have to.** After opening the pull request,
+follow it until `ci` finishes: `gh pr checks <n> --watch` in the background, or
+Claude Code's Monitor tool, and do not report the work done while `ci` is still
+running. A red `ci` comes back to you. Read `gh pr checks <n>` and
+`gh run view --log-failed`, fix on the same branch and push again; the pull
+request updates, and you watch the new run. Stop and tell him only where the
+failure is not yours to fix: it fails the same way on `main`, it needs a
+decision of his, or the same failure survives two fixes. `desktop_test` reports
+beside `ci` without gating it: read it when it fails and fix what your change
+caused, and say so in the report when it fails in a file your diff does not
+touch.
 
 **A visual change is the exception: the pull request waits for the owner's
 look.** It ships with a walk, he opens its link on a mock served from your
@@ -266,7 +274,7 @@ rebasing in #1131.
 Say in the commit message and the pull request description what you would want
 looked at closely. Then `milestone-step` steps 5, 6 and 7: close the issue with
 what contradicted the plan, give every open item an owner, report. **The report
-names the pull request.**
+names the pull request and says whether `ci` is green.**
 
 ## Dispatching several agents at once
 
