@@ -125,7 +125,7 @@ until he killed them by hand. There is no other machine.
 | A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
 | Any Rust | `cargo fmt --all --check`, and `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
-| `apps/` or `packages/` | `armada check typecheck`, and `armada check <name>` for the package you changed. **A story is in `components_test`**, a screen's test through `App` in `desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx` |
+| `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`, `apps/desktop:desktop_test`. **A story is in `packages/components:components_test`**, a screen's test through `App` in `apps/desktop:desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
 | Anything | `cargo xtask verify-foundations` once, before landing — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
 
