@@ -64,7 +64,7 @@ import type { ReadBrief } from "./pulse-brief";
 import type { AnswerLesson, ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import type { RunSheetSlice } from "./rehearsal";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 export type JobDetailProps = {
   job: JobSummary;

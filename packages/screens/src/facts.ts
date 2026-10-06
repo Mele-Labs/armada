@@ -57,7 +57,7 @@ import { leading } from "./reading";
 import { LANDED, LANDED_BADGE } from "./landed-words";
 import { elapsedOf } from "./Row";
 import { studioName } from "./studio";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /**
  * The run, in the order the drawing runs it: what is holding this Job, what
