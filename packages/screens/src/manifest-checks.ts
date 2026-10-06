@@ -95,8 +95,8 @@ export function checkEntriesOf(
 
 /**
  * When a Check was asked for: its own start, else when Verify asked for it, else when its ruling
- * was written (a gate row has only that). **A merge line Check has none on the wire**, and is
- * live on the line now, so it reads as the newest.
+ * was written (a gate row has only that). A merge line Check not started takes its turn's latest
+ * start; with none at all it reads as the newest, since the line is running it now.
  */
 export function requestedOf(entry: CheckEntry): number {
   const at = entry.startedAt ?? entry.requestedAt ?? entry.finishedAt;
@@ -140,7 +140,10 @@ const LAND_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
 function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
   return lines.flatMap((one) =>
     [...one.line, ...one.sent_back, ...one.landed, ...one.off].flatMap((row) =>
-      (row.checks ?? []).map((check): CheckEntry => {
+      (row.checks ?? []).map((check, _at, all): CheckEntry => {
+        // A Check not started has no time of its own: it was asked with the turn, so it takes the
+        // latest start among its branch's other Checks. With none, `requestedOf` puts it on top.
+        const turn = all.flatMap((one) => (one.started_at === undefined ? [] : [one.started_at])).sort().at(-1);
         const held = LAND_STATE[check.state] ?? { status: "waiting" as const };
         return {
           id: `land:${one.root}:${row.branch}:${check.name}`,
@@ -149,6 +152,7 @@ function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
           command: "",
           requester: requesterOf(check),
           land: { root: one.root, branch: row.branch, check: check.name },
+          ...(check.started_at === undefined ? (turn === undefined ? {} : { requestedAt: turn }) : { startedAt: check.started_at }),
           ...(held.says === undefined ? {} : { says: held.says }),
         };
       }),

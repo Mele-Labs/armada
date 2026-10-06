@@ -71,20 +71,21 @@ test("mixed sources sort newest request first, with their requester and handle",
     { ...base, source: "gate", name: "test", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "timed_out", ended_at: "2026-10-06T13:00:00Z" },
     { ...base, source: "asked_run", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d", handle: "1-a-job" }, state: "lost", started_at: "2026-10-06T14:01:00Z", logs: [{ check: "build", kept: "k.log" }], asked_run_id: 4 },
   ];
-  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
+  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }, { name: "slow", state: "waiting", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
   const entries = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [line], reported);
   const rows = entries.map((one) => checkRowOf(one, label));
-  // One list, newest request first across every source: the line's Check is live now, so it leads.
+  // One list, newest request first across every source; the line's waiting Check takes its turn's start.
   expect(rows.map((one) => [one.name, one.by, one.says])).toEqual([
-    ["lint", "Merge line · b", "running"],
     ["build", "Drone d · 1-a-job · fix", "lost"],
+    ["lint", "Merge line · b", "running"],
+    ["slow", "Merge line · b", "waiting"],
     ["test", "Started outside a Job", "running"],
     ["format", "Started outside a Job", "waiting"],
     ["build", "Started outside a Job", "passed"],
     ["test", "Gate · 1-a-job · fix", "outran its budget"],
   ]);
-  expect(entries[1]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
-  expect(entries[1]?.job).toEqual({ id: "1", handle: "1-a-job" });
+  expect(entries[0]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
+  expect(entries[0]?.job).toEqual({ id: "1", handle: "1-a-job" });
 });
 
 test("a merge line Check is a row with the line's requester and the names its log is asked by", () => {

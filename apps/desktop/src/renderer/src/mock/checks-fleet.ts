@@ -99,8 +99,8 @@ const LINE: MergeLines = {
           state: "gating",
           doing: "running its Checks",
           checks: [
-            { name: "build", state: "passed", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
-            { name: "desktop_test", state: "running", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+            { name: "build", state: "passed", started_at: "2026-10-06T14:19:50Z", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
+            { name: "desktop_test", state: "running", started_at: "2026-10-06T14:20:20Z", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
             { name: "screens_test", state: "waiting", requester: { kind: "merge_line", branch: "fleet/pulse-log-rows" } },
           ],
         },
