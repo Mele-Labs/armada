@@ -18,6 +18,14 @@
       ],
       "command": "pnpm",
       "type": "stdio"
+    },
+    "context7": {
+      "args": [
+        "dlx",
+        "@upstash/context7-mcp@4.1.1"
+      ],
+      "command": "pnpm",
+      "type": "stdio"
     }
   }
 }
