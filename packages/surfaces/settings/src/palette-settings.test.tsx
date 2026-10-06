@@ -17,7 +17,7 @@ import { Palette } from "@armada/shell";
 import type { FleetLimits, Outcome } from "@armada/protocol";
 
 import { BridgeSettings } from "./BridgeSettings";
-import { mount, unmount } from "./mounted";
+import { mount, unmount } from "@armada/screens/src/mounted";
 
 afterEach(unmount);
 

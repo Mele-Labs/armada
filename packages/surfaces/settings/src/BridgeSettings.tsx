@@ -22,7 +22,7 @@ import {
 } from "@armada/components";
 import type { FleetLimits, HelmActionAuthority, Outcome, SaveLimits } from "@armada/protocol";
 import { useState } from "react";
-import type { HealthRead } from "./overview-reads";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 /** One of the four fields a row may send, by its wire name. */
 type Field = keyof SaveLimits;

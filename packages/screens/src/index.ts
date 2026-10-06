@@ -32,7 +32,6 @@ export * from "./Taken";
 export * from "./freeze";
 export * from "./Sheets";
 export * from "./Worktrees";
-export * from "./BridgeSettings";
 // A repository's Studios, and one open on its whiteboard. #1287.
 export * from "./studio";
 export * from "./studio-frames";
