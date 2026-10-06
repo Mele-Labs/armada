@@ -25,6 +25,7 @@ mod drift;
 mod footprint;
 mod forget;
 mod gaming;
+mod gate_manifests;
 mod helm_sessions;
 mod iteration;
 mod kit;
@@ -37,6 +38,7 @@ mod merge_line;
 mod migrate;
 mod model_override;
 mod model_per_task;
+mod pausing;
 mod plan;
 mod ports;
 mod preferences;
@@ -147,6 +149,7 @@ pub fn workflow() -> FrozenWorkflow {
                 Some(EvidenceType::Diff),
                 vec![
                     ResolvedCheck::ManifestCheck {
+                        manifest_dir: "packages/a".to_string(),
                         name: "build".to_string(),
                         run: "cargo build".to_string(),
                         expect_exit_code: 0,

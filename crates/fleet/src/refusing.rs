@@ -118,6 +118,15 @@ const NOTE_ALREADY_WAITING: &str = "fleet.note_already_waiting";
 /// is the caller asking for the wrong act, not Fleet breaking, and a 500 sends
 /// them to retry something that will fail identically for ever.
 const NOT_RESUMABLE: &str = "fleet.not_resumable";
+/// A person's act on a Job that is paused. A 409: resume it first, and Bridge
+/// offers to.
+pub(crate) const PAUSED: &str = "fleet.paused";
+/// A pause or a resume the Job's own record refuses: a status that cannot
+/// pause, one already paused, one not paused, or no slot to park. A 409.
+const NOT_PAUSABLE: &str = "fleet.not_pausable";
+/// The pool or git would not park the Job's work, or take it back. A 409 and
+/// nothing changed.
+const PAUSE_REFUSED: &str = "fleet.pause_refused";
 /// A person asked a Job to show its work and it cannot run: no harness, no
 /// worktree, no spec, the spec gone, a Drone working, or a press already out.
 /// A 409, and its own code because what a person does next is none of the
@@ -363,7 +372,9 @@ where
             // A reclaim on a Job that is not yet terminal. The same shape as
             // the forget above and a code of its own, because the act a person
             // is told to try instead is not the same one.
-            Adrift::NotReclaimable { job, .. } | Adrift::SlotKept { job, .. } => Refusal::IllegalMove(
+            Adrift::NotReclaimable { job, .. }
+            | Adrift::SlotKept { job, .. }
+            | Adrift::WorktreeNotSaved { job, .. } => Refusal::IllegalMove(
                 WireError::raised(NOT_RECLAIMABLE, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
@@ -422,6 +433,22 @@ where
                 WireError::raised(NOT_RESUMABLE, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
+            Adrift::Paused { job } => Refusal::IllegalMove(
+                WireError::raised(PAUSED, said, self.run_id()).about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::NotPausable { job, .. }
+            | Adrift::AlreadyPaused { job }
+            | Adrift::NotPaused { job }
+            | Adrift::NothingToPark { job } => Refusal::IllegalMove(
+                WireError::raised(NOT_PAUSABLE, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::CannotPark { job, .. } | Adrift::NotReseated { job, .. } => {
+                Refusal::IllegalMove(
+                    WireError::raised(PAUSE_REFUSED, said, self.run_id())
+                        .about_job(ipc::JobId::from(job)),
+                )
+            }
             Adrift::CannotShowAgain { job, .. } => Refusal::IllegalMove(
                 WireError::raised(CANNOT_SHOW_AGAIN, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),

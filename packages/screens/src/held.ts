@@ -52,12 +52,23 @@ export function costOf(held: WorktreeHeld): ClearCost {
   };
 }
 
+/** The bay a worktree path is, `slot-4`, or null for a worktree outside the pool. */
+export function slotNameOf(path: string): string | null {
+  return /\/\.armada\/slots\/(slot-\d+)\/?$/.exec(path)?.[1] ?? null;
+}
+
 /**
  * What a reclaim did, in git's words: the worktree, then the branch. **A bay is
  * released to the pool and its directory stays**, so it never says removed.
+ * **Where a Clear committed uncommitted files it says only that**, with where
+ * they went and what became of the worktree: the branch is kept by it.
  */
 export function reclaimedSaid(got: WorktreeReclaimed, pooled = false): string[] {
   const { worktree, branch } = got;
+  if (got.saved != null) {
+    const freed = pooled ? "slot released" : worktree.removed ? "worktree removed" : `worktree kept: ${worktree.why ?? "no reason given"}`;
+    return [`Committed to ${branch.branch}, ${freed}`];
+  }
   const first = pooled
     ? "Slot released, worktree kept"
     : worktree.removed

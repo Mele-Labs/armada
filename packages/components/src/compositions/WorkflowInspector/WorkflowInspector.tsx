@@ -89,6 +89,8 @@ export type WorkflowInspectorRunning = {
   said: string;
   /** Its task, how long and what it has spent: `T5 · 12m · 14 turns`. */
   says: string;
+  /** What it is held on, answered under its row. Absent where it is not held. */
+  asking?: React.ReactNode;
 };
 
 /** A Drone a redirect could reach. */
@@ -358,6 +360,9 @@ export function WorkflowInspector({
                   >
                     <DroneRow row={row} />
                   </button>
+                )}
+                {row.asking === undefined ? null : (
+                  <div className="armada-wf-inspector__drone-asking">{row.asking}</div>
                 )}
               </li>
             ))}

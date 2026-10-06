@@ -55,6 +55,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
@@ -86,6 +87,8 @@ mod model_per_task;
 mod note;
 mod numbering;
 mod open;
+/// The marker on a paused Job, and the slot it gave up. Since V111.
+mod pausing;
 /// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
 mod pending_evidence;
 /// What a step said its work would be, kept after the slot that held it is

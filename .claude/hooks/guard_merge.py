@@ -32,6 +32,8 @@ SAY = (
     "  scripts/land preflight   # once the branch's self-check passes\n"
     "  scripts/land             # joins the line and returns\n"
     "  scripts/land --status    # poll this until it stops exiting 3\n"
+    "Exit 10 is not the end: a Check failed that `main` is green for, the "
+    "turn is still running, and the branch must not be pushed — read what it names.\n"
     "Run it as soon as the work is committed; nobody approves it first. "
     "docs/capabilities/merge-line.md says what it does."
 )

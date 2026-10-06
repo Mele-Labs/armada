@@ -32,6 +32,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | What lands is exactly what was gated | A `--no-ff` merge commit over the candidate's own tree, made by the runner |
 | Nothing lands on a `main` it was not gated against | The runner's own push, never forced; a refusal gates again |
 | A gate does not run on once `main` has moved | A look at `origin/main` before the first Check and after each; a move stops the gate there and gates again |
+| A failed Check is told while the turn runs | Right after it fails, with a Check still to run, `main` is asked about it; green is `--status` exit 10, naming the Check and its log |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
@@ -70,6 +71,14 @@ runner (holds the turn lock) ----------------------+
   each member: PR open? wait for GitHub to read it merged, else gh pr close --comment <merge>
   each member: remote branch all landed? -> git push origin --delete <branch>; print cleanup commands
 ```
+
+## A failed Check is told at once
+
+- **`--status` exits 10 as soon as a failed Check has a green answer from `main`.** The turn is still going, so 3 would say "wait"; the agent can read the log and start the fix. The runner asks `main` about a Check the moment it fails, when a Check still follows it, through `checks_on_the_base`. The outcome carries `own_failures` (the branch's, `main` green) beside `already` (`main`'s). `--status` prints `<Check> failed (log <path>); main is green for it. The turn is still running its other Checks; do not push this branch, a push is dropped as stale.` and exits 10 while the state is `gating`. Any other state keeps its own code.
+- **A Check red on `main` too is `main`'s and keeps exit 3**; the turn's end says so as before. Nothing else about a turn changes: no rerun, no Drone, and the verdicts and what lands are the same. A timeout is not a failure here and is told at the end.
+- **A batch cannot name the one at fault.** While the group has more than one member, every member's line says it is a heads-up for the whole batch and that the split names the branch at fault. Each member's verdict follows at the end, as before.
+- **The cost is a Check run on `main` while later Checks wait.** The answer is cached per Check and `main` commit, so it is paid once, and the end of the turn asks only about Checks not already answered. A timeout on `main` is not cached but is kept for the turn, so it is not run twice either.
+- **Fleet's own line is not changed.** It writes a Job log line already; this is `armada land`'s half.
 
 ## Batching
 

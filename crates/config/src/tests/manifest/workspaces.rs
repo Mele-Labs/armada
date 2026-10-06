@@ -175,6 +175,14 @@ fn setup_worktrees_is_refused_in_a_workspace() {
 }
 
 #[test]
+fn setup_seed_is_refused_in_a_workspace() {
+    let refused = refusals(workspace(&format!(
+        "{HEAD}setup:\n  seed:\n    paths: [target]\n"
+    )));
+    assert_eq!(fault_at(&refused, "setup.seed"), &Fault::RootOnly);
+}
+
+#[test]
 fn setup_worktrees_is_still_read_in_the_root() {
     let text = format!("{HEAD}setup:\n  worktrees: 3\n");
     let manifest = Manifest::parse(&named("armada.yml"), &text).expect("root worktrees");

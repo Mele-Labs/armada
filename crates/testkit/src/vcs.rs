@@ -1101,6 +1101,43 @@ impl Vcs for FakeVcs {
         self.leased(pool, spec, job_id)
     }
 
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.slots.park(pool, slot, job_id)
+    }
+
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.slots
+            .park(pool, slot, holder)
+            .map_err(|refused| match refused {
+                adapter_traits::SlotParkRefused::HeldByAnother(now) => {
+                    adapter_traits::SlotParkRefused::HolderChanged(now)
+                }
+                adapter_traits::SlotParkRefused::NotLeased => {
+                    adapter_traits::SlotParkRefused::HolderChanged(String::from("nobody"))
+                }
+                other => other,
+            })
+    }
+
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        self.leased_existing(pool, branch, job_id)
+    }
+
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
         self.slots.open(pool, job_id)
     }

@@ -166,6 +166,7 @@ fn land_group(
             logs: Some(Vec::new()),
             failed: Some(Vec::new()),
             already: Some(Vec::new()),
+            own_failures: Some(Vec::new()),
             new_lines: Some(Vec::new()),
             conflicts: Some(Vec::new()),
             checks: Some(Vec::new()),

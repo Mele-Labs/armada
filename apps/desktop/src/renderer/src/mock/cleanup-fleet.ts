@@ -8,6 +8,7 @@ import type { JobSummary, Outcome, WorktreeHeld, WorktreesHeld } from "@armada/p
 import { slotsHeld } from "./slots-fleet";
 
 const ROOT = "/Users/user/armada/.armada/worktrees";
+const WIP_COMMIT = "d41f8a6c20be";
 
 export type GridJobs = {
   /** Finished, and holds the first bay: files nobody committed and a branch nothing merged. */
@@ -26,6 +27,24 @@ export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
   const base = slotsHeld(jobs.finished, now);
   const slots = (base.slots ?? []).map((one) => {
     if (one.slot === 3) return { ...one, closed: true };
+    // An agent session whose checkout holds files nobody committed, and a clean one.
+    if (one.slot === 2) {
+      return {
+        ...one,
+        held: { state: "session" as const, holder: "nvim (pid 44698)" },
+        stranded: { uncommitted: ["packages/screens/src/SlotPools.tsx", "notes/release.md"], commits: [], unpushed: 0 },
+      };
+    }
+    if (one.slot === 6) {
+      return {
+        ...one,
+        held: { state: "session" as const, holder: "zsh (pid 4120)" },
+        branch: "fleet/slot-lease-record",
+        since: ago(42),
+        warm: true,
+        behind: 3,
+      };
+    }
     if (one.slot !== 5) return one;
     return {
       ...one,
@@ -81,8 +100,8 @@ export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
 }
 
 /**
- * `reclaim_worktree` on the mock's read: the checkout goes and the files with
- * it, the unmerged branch stays. `undefined` where the read holds no worktree
+ * `reclaim_worktree` on the mock's read: uncommitted files are committed to the
+ * branch, the checkout goes, and the branch stays. `undefined` where the read holds no worktree
  * of that Job, which is a scenario the fake answers on its own.
  */
 export function reclaimedIn(
@@ -95,20 +114,24 @@ export function reclaimedIn(
     return { held, outcome: refusedAs("fleet.not_reclaimable", "the Job has not ended") };
   }
   const unmerged = target.held.find((reason) => reason.why === "unmerged");
-  // A bay is released to the pool, which refuses while anything in it is uncommitted.
   const bay = (held.slots ?? []).find((one) => one.held.state === "job" && one.held.job_id === jobId);
+  // Uncommitted files are committed to the branch, which then holds one more commit.
   const dirty = target.held.flatMap((reason) => (reason.why === "uncommitted" ? reason.files : []));
-  if (bay !== undefined && dirty.length > 0) {
-    return {
-      held,
-      outcome: refusedAs("fleet.slot_kept", `slot-${bay.slot} has uncommitted changes, first ${dirty[0]}`),
-    };
-  }
+  const saved = dirty.length === 0 ? undefined : { commit: WIP_COMMIT, files: dirty };
+  const standing =
+    saved === undefined
+      ? unmerged
+      : {
+          why: "unmerged" as const,
+          base: unmerged?.base ?? "main",
+          commits: (unmerged?.commits ?? 0) + 1,
+          tip: WIP_COMMIT,
+        };
   const after: WorktreeHeld = {
     ...target,
     on_disk: false,
     ...(bay === undefined ? {} : { path: `${ROOT}/${jobId}` }),
-    held: target.held.filter((reason) => reason.why === "unmerged"),
+    held: standing === undefined ? [] : [standing],
   };
   if (bay !== undefined) {
     const { branch: _b, since: _s, ...rest } = bay;
@@ -125,10 +148,11 @@ export function reclaimedIn(
         branch: {
           branch: target.branch,
           deleted: false,
-          ...(unmerged === undefined
+          ...(standing === undefined
             ? {}
-            : { unmerged_commits: unmerged.commits, tip: unmerged.tip, base: unmerged.base }),
+            : { unmerged_commits: standing.commits, tip: standing.tip, base: standing.base }),
         },
+        ...(saved === undefined ? {} : { saved }),
       },
     },
   };

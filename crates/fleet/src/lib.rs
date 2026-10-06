@@ -121,6 +121,7 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gating;
 mod group;
 mod grouping;
 pub mod headroom;
@@ -185,10 +186,11 @@ mod one_drone;
 mod ordering;
 pub mod overlap;
 pub mod overruling;
+/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
+mod pausing;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
-/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
 mod pending_evidence;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
@@ -262,6 +264,7 @@ pub mod reviewing;
 mod rostered;
 mod ruling;
 pub mod runtime;
+mod saving;
 pub mod saying;
 /// Scan: reading a repository nobody set up for Armada. **It writes nothing,
 /// because a [`scanning::Tree`] has no write on it.**

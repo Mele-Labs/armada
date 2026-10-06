@@ -36,6 +36,12 @@ pub(crate) const SLOT_BUSY: &str = "fleet.slot_busy";
 const SLOT_NOT_A_CHECKOUT: &str = "fleet.slot_not_a_checkout";
 /// A slot removed whose checkout holds uncommitted files.
 const SLOT_DIRTY: &str = "fleet.slot_dirty";
+/// A release asked for on behalf of a holder the slot no longer has. A 409.
+pub(crate) const SLOT_HOLDER_CHANGED: &str = "fleet.slot_holder_changed";
+/// A release asked for with no holder named. A 422.
+pub(crate) const SLOT_HOLDER_UNNAMED: &str = "fleet.slot_holder_unnamed";
+/// A release whose uncommitted files git could not commit to a branch. A 409.
+pub(crate) const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
@@ -109,13 +115,16 @@ pub(crate) enum JobTree {
     Here(WorktreeSpec),
     /// The record names a slot the Job no longer holds, and why.
     Lost { slot: u32, why: String },
+    /// The Job is paused: its work is on its branch and no checkout holds it.
+    /// `crate::pausing`.
+    Parked,
 }
 
 impl JobTree {
     pub(crate) fn here(self) -> Option<WorktreeSpec> {
         match self {
             JobTree::Here(spec) => Some(spec),
-            JobTree::Lost { .. } => None,
+            JobTree::Lost { .. } | JobTree::Parked => None,
         }
     }
 }
@@ -137,6 +146,11 @@ where
         served: &Served,
         job: &Job,
     ) -> Result<JobTree, WorktreeSpecRefused> {
+        // Before the path is derived: a parked Job's derived path is where
+        // nothing is, and reading it as `Here` would be a worktree that is gone.
+        if job.is_parked() {
+            return Ok(JobTree::Parked);
+        }
         let spec = spec_of(served.root(), job)?;
         let Some(slot) = spec.slot() else {
             return Ok(JobTree::Here(spec));
@@ -174,7 +188,7 @@ where
         };
         match self.job_tree(served, job).map_err(unworkable)? {
             JobTree::Here(spec) => Ok(spec),
-            JobTree::Lost { .. } => {
+            JobTree::Lost { .. } | JobTree::Parked => {
                 WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
             }
         }
@@ -203,6 +217,12 @@ where
                     (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
                         self.vcs().stranded_work(&pool, reading.slot).ok()
                     }
+                    // A session's slot, read for the files a release commits.
+                    (SlotHeld::Session(_), _) => self
+                        .vcs()
+                        .session_work(&pool, reading.slot)
+                        .ok()
+                        .filter(|work| !work.uncommitted.is_empty()),
                     _ => None,
                 };
                 // **A Finding is of the commit it read.** One whose slot has
@@ -239,11 +259,15 @@ where
     ) -> Result<SlotPoolChanged, Refusal> {
         let served = self.served_named(manifest_id)?;
         let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
+        if asked.act == SlotAct::Release {
+            return self.session_released(&served, &asked);
+        }
         let change = match (asked.act, asked.slot) {
             (SlotAct::Add, _) => SlotChange::Add,
             (SlotAct::Remove, Some(n)) => SlotChange::Remove(n),
             (SlotAct::Close, Some(n)) => SlotChange::Close(n),
             (SlotAct::Open, Some(n)) => SlotChange::Open(n),
+            (SlotAct::Release, _) => unreachable!("answered above"),
             (_, None) => {
                 return Err(Refusal::Unacceptable(raised(
                     NO_SUCH_SLOT,
@@ -287,14 +311,17 @@ where
         Ok(SlotPoolChanged {
             manifest_id: ManifestId::from(served.manifest().id()),
             slot,
+            released: None,
         })
     }
 
     /// Whether a Job that has never had a worktree would find no slot free in
     /// its repository's pool. **One answer for admission and the Board**, as
-    /// `volume_is_short` is. A Job already holding one is never short.
+    /// `volume_is_short` is. A Job already holding one is never short, and a parked one holds none.
     pub(crate) fn slot_is_short(&self, job: &Job) -> bool {
-        if job.branch().is_some() || job.worktree_slot().is_some() {
+        // A parked Job is waiting for a slot like a new one, though it has a
+        // branch: `reseat` is what leases it.
+        if !job.is_parked() && (job.branch().is_some() || job.worktree_slot().is_some()) {
             return false;
         }
         let Ok(served) = self.served_by(job) else {

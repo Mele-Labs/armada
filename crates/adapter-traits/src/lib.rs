@@ -73,8 +73,9 @@ pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased, SlotPool,
-    SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork,
+    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
+    SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
+    SlotStanding, StrandedWork,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
@@ -360,6 +361,39 @@ pub trait Vcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 
+    /// Commit everything in the Job's slot to its own branch and give the slot
+    /// back, pushing nothing. **A pause's half of the pool**: the work stays on
+    /// the branch, and [`lease_existing_slot`](Vcs::lease_existing_slot) puts a
+    /// slot back on it at the tip. Refused, the Job keeps the slot.
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
+    /// Commit everything in a slot held by an agent session to its branch and
+    /// give the slot back, as [`park_slot`](Vcs::park_slot) does for a Job.
+    /// **`holder` is who the person was shown**, as the pool names it
+    /// (`nvim (pid 44698)`): a slot re-leased since is refused, not taken.
+    /// The session's process is not touched.
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
+    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
+    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
+    /// **Not necessarily the slot the Job parked from.**
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
     /// Whether [`lease_slot`](Vcs::lease_slot) would hand this Job a slot now.
     /// The one predicate admission and a Board row both ask.
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool;
@@ -383,6 +417,16 @@ pub trait Vcs {
     /// Add, remove, close or reopen a slot on this machine, answering the
     /// slot it changed. The CLI's lease honours it as Fleet's does.
     fn change_slot_pool(&self, pool: &SlotPool, change: SlotChange) -> Result<u32, SlotRefused>;
+
+    /// What a slot held by an agent session holds uncommitted, which a release
+    /// commits. Read only: nothing here rescues it. Refused for any slot a
+    /// session does not hold.
+    fn session_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused> {
+        let _ = (pool, slot);
+        Err(RescueRefused::NotStranded(alloc::string::String::from(
+            "not held by a session",
+        )))
+    }
 
     /// What a stranded slot holds, refused for any slot that is not stranded.
     fn stranded_work(&self, pool: &SlotPool, slot: u32) -> Result<StrandedWork, RescueRefused>;

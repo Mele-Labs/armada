@@ -13,7 +13,7 @@
 import { expect, test } from "vitest";
 import type { JobSummary, WorktreeHeld, WorktreeReclaimed } from "@armada/protocol";
 
-import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting, unmergedOf } from "./held";
+import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting, slotNameOf, unmergedOf } from "./held";
 
 /** The shape fleet answers with, in one place so no case drifts from it. */
 function held(over: Partial<WorktreeHeld> = {}): WorktreeHeld {
@@ -182,6 +182,19 @@ test("a receipt says each half, the checkout then the branch, as bare facts", ()
   expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: false, unmerged_commits: 1, base: "develop" } }))[1]).toBe(
     "Branch kept: 1 commit not on develop",
   );
+});
+
+/** The receipt for a Clear that committed uncommitted files says only where they went and what was freed. */
+test("a receipt for committed files names the branch and what was freed", () => {
+  const saved = { commit: "d41f8a6c20be", files: ["src/log.rs"] };
+  expect(reclaimedSaid(reclaimed({ saved }), true)).toEqual(["Committed to armada/01JOB0001, slot released"]);
+  expect(reclaimedSaid(reclaimed({ saved }))).toEqual(["Committed to armada/01JOB0001, worktree removed"]);
+  expect(reclaimedSaid(reclaimed({ saved: null }), true)[0]).toBe("Slot released, worktree kept");
+});
+
+test("a bay is told from a worktree outside the pool by its path", () => {
+  expect(slotNameOf("/r/.armada/slots/slot-4")).toBe("slot-4");
+  expect(slotNameOf("/r/.armada/worktrees/01JOB")).toBeNull();
 });
 
 test("a locked worktree answers ok and the receipt says it is kept", () => {

@@ -480,6 +480,49 @@ export function recordThroughGroupTwo(): LedgerRow[] {
   ];
 }
 
+/** The command T5's Drone is held on: Fleet's id for the call, and what it reached for. */
+export const HELD_CALL = "toolu_01HELD0T5RESELECT";
+
+/**
+ * `executingSequential`, with T5's Drone held inside a call to a command it
+ * was not given. Not an arc moment: the arc walks forward, and this is one
+ * Drone's wait, read on the cards that draw the Drone.
+ */
+export function executingHeld(): ArcMoment {
+  const base = executingSequential();
+  const [fixture] = base.fixtures;
+  if (fixture === undefined || fixture.watched.state !== "read") return base;
+  const whole = fixture.watched.detail;
+  return {
+    ...base,
+    name: "executingHeld",
+    says: "Implement — T5's Drone is held on a command it was not given, waiting for you",
+    fixtures: [
+      {
+        ...fixture,
+        name: "running — T5's Drone is waiting for a person to allow a command",
+        job: { ...fixture.job, asking: true },
+        watched: arcWatched({
+          ...whole,
+          when_blocked: "ask_me",
+          command_waiting: {
+            call: HELD_CALL,
+            step_id: "implement",
+            asked_at: "2026-09-22T10:27:10Z",
+            tool: "Bash",
+            detail: "pnpm add -D reselect@5.1.1",
+            truncated: false,
+            length: 26,
+            offers: ["allow_for_job", "always_allow", "reject"],
+            rules: ["pnpm", "pnpm add"],
+            suggested_rule: "pnpm add",
+          },
+        }),
+      },
+    ],
+  };
+}
+
 export function executingSequential(): ArcMoment {
   let groups = throughGroupTwo();
   groups = withGroup(groups, "g3", { state: "running" });

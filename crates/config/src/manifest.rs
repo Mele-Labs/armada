@@ -568,7 +568,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
     let proved_after_a_merge = match top.optional("after_merge") {
-        Some(value) => after_merge(value, &checks, &commands, out),
+        Some(value) => after_merge(value, &checks, &commands, placed.dir, out),
         None => Vec::new(),
     };
     top.close(TOP_LEVEL, out);

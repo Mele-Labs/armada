@@ -7,6 +7,7 @@
 //! deterministic tier, and [`resolving`] the cross-file check that is the point
 //! of this milestone step: a definition met with a Manifest.
 
+mod gated;
 mod mechanical;
 mod places;
 mod plan;

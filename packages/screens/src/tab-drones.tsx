@@ -45,6 +45,7 @@ import type { ActingAct } from "./pending";
 import { droneOfTask } from "./tab-plan-read";
 import { spentOf } from "./workflow-inspector";
 import type { TrailProps } from "./trail";
+import { NEEDS_YOU, type HeldCommand } from "./drone-held";
 
 export type DronesTabProps = {
   job: JobSummary;
@@ -64,6 +65,8 @@ export type DronesTabProps = {
   turnsNote?: string | undefined;
   /** The plan's groups, where the draft holds them. Absent reads the wire's. */
   groups?: readonly GroupView[];
+  /** The command a Drone is held on, where one is — drawn on that Drone's row and in its sheet. */
+  holding?: HeldCommand | undefined;
   /** Now, injected, so a running Drone's run time moves with the header's. */
   now: number;
   floor: boolean;
@@ -99,6 +102,7 @@ export function DronesTab({
   drones,
   turnsNote,
   groups: givenGroups,
+  holding,
   now,
   floor,
   stale,
@@ -169,6 +173,7 @@ export function DronesTab({
     );
   };
 
+  const isHeld = (drone: DroneView): boolean => holding?.droneId === drone.id;
   const open = drones.find((drone) => drone.id === openRow);
   useEffect(() => trail?.onHere(open === undefined ? null : { id: open.id, label: labelOf(open) }), [open?.id]);
   const steering = steeringOf(job, whole);
@@ -189,7 +194,8 @@ export function DronesTab({
           drone: labelOf(drone),
           where: whereOf(drone),
           state: drone.state,
-          stateSays: droneSays(drone),
+          stateSays: isHeld(drone) ? NEEDS_YOU : droneSays(drone),
+          ...(isHeld(drone) ? { needsYou: true } : {}),
           ...(isWorking(drone) || drone.state !== "running" ? {} : { resting: true }),
           ...(drone.model === undefined ? {} : { model: drone.model }),
           spent: spentOf(drone).join(" · "),
@@ -236,15 +242,16 @@ export function DronesTab({
                     {whereLinksOf(open)}
                     {/* The state is the row's mark, never a word (owner, 2 Oct 2026). */}
                     <StepActivityMark
-                      activity={DRONE_ACTIVITY[open.state]}
-                      label={droneSays(open)}
-                      says={droneSays(open)}
+                      activity={isHeld(open) ? "awaiting_human" : DRONE_ACTIVITY[open.state]}
+                      label={isHeld(open) ? NEEDS_YOU : droneSays(open)}
+                      says={isHeld(open) ? NEEDS_YOU : droneSays(open)}
                     />{" "}
                     {[...spentOf(open), ranFor(open)].filter((one) => one !== undefined).join(" · ")}
                   </>
                 ),
                 turns: open.transcript === undefined ? [] : droneTurnsOf(open.transcript, (lines) => <DroneBrief lines={lines} flat />),
                 live: open.state === "running",
+                ...(isHeld(open) ? { asking: holding?.node } : {}),
                 emptyNote: open.transcript === undefined ? (turnsNote ?? TRANSCRIPT_EMPTY) : TRANSCRIPT_EMPTY,
                 // This Drone's own, by its id (#1666, 23.10): the others go on.
                 // The header's kill ends the Job instead (owner, 29 Sep 2026).
