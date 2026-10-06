@@ -11,7 +11,8 @@
 
 import type { JobFixture } from "../fixture";
 import type { Outcome } from "@armada/protocol";
-import { foldedReads, job, JOB_ID, manifest, NO_JOURNALLED, NO_OBSERVED, NOW, workflow } from "./base";
+import { job, JOB_ID, manifest, NO_JOURNALLED, NO_OBSERVED, NOW, workflow } from "./base";
+import { foldedReads } from "./folded";
 
 /** Fleet did not answer this Job's own detail route inside the wait. */
 const FLEET_DID_NOT_ANSWER: Outcome = {

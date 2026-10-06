@@ -10,7 +10,7 @@
 // Neither word is a status and neither is minted here.
 
 import { money } from "./facts";
-import { LANDED } from "./Row";
+import { LANDED } from "./landed-words";
 import type { WaveJobView, WaveView } from "./draft/wave";
 import type { WaveCanvasEdge, WaveCanvasFact, WaveCanvasNode } from "@armada/components";
 
@@ -158,6 +158,7 @@ export function waveRunOf(
         title: job.title,
         status: job.status,
         ...(job.handle === undefined ? {} : { handle: job.handle }),
+        ...(job.paused === undefined ? {} : { paused: job.paused }),
         facts: factsOf(job),
         ...(onOpen === undefined ? {} : { onOpen: () => onOpen(job.job) }),
       },

@@ -73,15 +73,16 @@ checks:
 - **A workspace may name a root Command in `setup.requires`.** The name resolves against the workspace's own Commands first and then the root's. Where only the root declares it, it runs in the root, once per worktree, and not in the workspace.
 - **`setup.worktrees`, `setup.seed`, `setup.auto_release` and `setup.auto_release_grace_minutes` are refused in a workspace file.** Each is read from the root, so a second value would be one nothing reads.
 - **An empty diff gates nothing.** Decided 6 Oct 2026. A Job that changed no files runs no Checks, in every repository, and `config::gating` returns no manifest for it. A Check with no `when` still reads as always on a non-empty diff; the two are kept apart by asking the gating set first and never handing an empty path list to `Covers::reach`.
-- **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did.
+- **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did. Fleet resolves every workflow over the root and every workspace it loaded, at start and each time the workflow folders are read again.
 - **`Job::gate_manifests` is empty for a repository with no workspaces**, where the root gates every Job and nothing needs saying. Where workspaces exist it lists every manifest that gates, the root included. It is first written at dispatch from `write_targets`: undetermined gates every manifest, determined and empty gates none.
 
 **What the step gate does where a repository has workspaces.**
 
+- **Fleet loads the workspaces when it sets a repository up.** It walks as Scan does, to the same depth and by the same package-file rule, and reads each directory's `armada.yml` as a workspace file. A file that will not load is left out, the repository is served and its other workspaces stand; at start the console names the file and why, and after a root re-read the same is published as a reading of that file, held with the root's. Workspaces are read again whenever the root's `armada.yml` is re-read and adopted; a refused root leaves them as they were. That does not resolve a workflow again, so a workspace added after start gates but declares no Check in an already-resolved workflow until the workflow folders are next read.
 - **It reads the changed paths, never the list alone.** `gate_manifests` is empty for a repository with no workspaces, where the root alone gates and nothing is read; where workspaces exist, `config::gating` over the diff says which manifests gate, and an empty diff gates none. A repository with no workspaces gates as it always did, so an empty diff there still runs a Check that declares no `when`.
 - **A Check runs in its manifest's directory**, with its prerequisites, its `one_test` and the whole run alone that confirms a red. Its `when` and its narrowing read the paths that manifest owns, relative to it, so a root Check never sees a workspace's path.
 - **A Check is keyed by its manifest and name.** `ResolvedCheck::key` is the bare name for the root's and `<dir>:<name>` for a workspace's, and every row, live entry, past duration and reused answer is found by it. A Drone naming a Check for a test broken on main names that key.
-- **A manifest the change does not gate skips its Checks.** The workflow resolves once, over every manifest, and the gate skips the Checks whose manifest the diff does not reach. Nothing loads a repository's workspaces at startup yet, so only a test resolves this way.
+- **A manifest the change does not gate skips its Checks.** The workflow resolves once, over every manifest, and the gate skips the Checks whose manifest the diff does not reach. The Checks a Job froze at dispatch are the ones it runs, so a workspace's Check changed in its file waits for a new Job.
 - **The gate replaces `gate_manifests` with what each gating manifest came to**, and writes the same to the Job's log. Dispatch wrote a placeholder, since no Check had run. Where a step declares no manifest Check, the list stays as it was.
 
 | A gating manifest's Checks on the step | Outcome |
@@ -95,7 +96,8 @@ checks:
 - **`armada check` takes the key.** `armada check a:test` runs `a`'s `test` in `a`'s directory, with its prerequisites, its `one_test` and its `--changed` narrowing all read there. The bare name is the root's, and the root's is run from the root. `armada run a:gen` does the same for a Command. A key whose directory is no workspace reads as a bare name, and is refused as one.
 - **`armada covers` prints keys.** It reads the changed paths on stdin and answers with the keys of the Checks that cover them: the root's first, then each gating workspace's in directory order. Each manifest is asked about what it owns of the change, relative to it, so a root Check never sees a workspace's path. A repository with no workspace `armada.yml` answers as before, and its empty diff still names a Check with no `when`. Where workspaces exist, an empty diff names nothing, as above.
 - **The merge line sets up in the root, then in each gating workspace.** Decided 6 Oct 2026. Once a Check is about to run it runs the root's `setup.requires`, then, for each workspace that has a Check in the set, that workspace's own, in directory order. **A Command a workspace names that only the root declares runs in the root**, once per worktree, and a Command already run is not run again. A workspace's own Command runs in its directory. A workspace's Checks run in its directory whichever Command prepared it. The same setup runs on `main`'s rerun of a Check that failed.
-- **A Drone's own run still reads the root.** A Drone's harness passes no manifests, so it runs each Check in its directory, reads `when` under it, and gates nothing. A bare command handed to a Drone's harness is refused for a workspace Check.
+- **A Drone's own run reads the change the way the gate does.** Where the repository has workspaces it skips a manifest the diff, or the files the Drone named, does not gate. The proof run after a merge still runs everything, since it has no change to read. `armada check` still passes no manifests, so it gates nothing. A bare command handed to a Drone's harness is refused for a workspace Check.
+- **A workspace Verify reads its file against the root's**, so its `setup.requires` may name a root Command. The Verify still runs that entry in the workspace's directory; running it once in the root directory is the merge line's.
 
 ### Seeding a worktree's build
 
@@ -397,7 +399,26 @@ Rules that follow:
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 - **A Drone's `run_checks` is time-boxed as a whole**, the wait for a slot included: the per-command budget plus ten minutes of waiting. Past that Fleet stops the run, frees its slots and tells the Drone, naming the Check that was running or saying it was still waiting. The Drone is also told, once, when its run has to wait for a slot. Decided 5 Oct 2026, after a Drone waited 43 minutes on Job 3 with no result and no signal.
+- **A run Fleet is still making tells the Drone where it stands every two minutes**: what is running and for how long, what waits for a slot, and what is done. It is a turn of its own and ends when the run does, so the Drone never has to ask.
+- **A run's mark lasts as long as the run.** Fleet supervises the task that makes the run, so a task that panics or is cancelled takes the mark off, frees the slots and tells the Drone the run was lost, saying it is a fault in Fleet and not in the work. A Drone is never left refused with "already running" and nothing behind it.
+- **A second ask while one is going is refused with where the first stands**: how long it has gone, the Check it is on, and whether it is waiting for a slot. It still says to wait for the report, which arrives as a later turn, and gives the Drone nothing to look at in the meantime.
+- **An asked run is a record of its own, never a Check row.** It is written when the run starts and closed when it ends by any route; `running`, `passed`, `failed`, `stopped` (cut off by the time-box or a fault, so measured to no end) and `lost` (its task died, or Fleet restarted while it was `running`). It names who asked, the step, the attempt, the Checks, whether it was narrowed and each Check's log. It reads on `StepDetail.asked_runs` and `list_runs`, and the Record draws a row for each under Checks, signed by the Drone and never hued as a pass. The Job's log says when it started and when it ended, with the Drone, task and attempt on both.
 - **A step's gate runs its own Checks one at a time**, fastest first, each still asking for its places. A Drone's own run is not the gate and keeps running several at once. Decided 4 Oct 2026 after Job 3, whose `desktop_test` ran beside its own step's `components_test` and whole Rust `test` and failed on timeouts three times; the merge line has run a turn's Checks one at a time since 2 Oct.
+
+### Who asked for a run
+
+**Every Check run a surface shows says who asked for it**, as a `Requester` the surface can follow: `kind` is an opaque string and the ids each kind needs are beside it.
+
+| `kind` | Who | Ids |
+|---|---|---|
+| `gate` | A Job's step gate | `job_id`, `step` |
+| `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
+| `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
+| `merge_line` | The merge line, for one branch | `branch` |
+| `outside` | A person's press, an agent's `start_run`, a Verify | none |
+
+- **`outside` is a value and never an absence.** A record from before the field reads as it.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 

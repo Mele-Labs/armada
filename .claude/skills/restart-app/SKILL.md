@@ -23,14 +23,23 @@ needs it, reopens the window in front of him — the same reason
 `scripts/dev`. Leaving it off every allow list is what turns "an agent ran
 this" into a prompt he sees before it happens.
 
-**Fast-forward the checkout first.** It builds what is in the working tree, not
-what is on `origin/main`. On 17 Sep 2026 the checkout was four merges behind, so
+**Fast-forward the checkout first.** Plain `scripts/restart` builds what is in
+the working tree, not what is on `origin/main`. On 17 Sep 2026 the checkout was four merges behind, so
 the restart faithfully rebuilt the old code and Fleet came back on the protocol
 version it started on — the one thing the restart was run to change. `git pull
 --ff-only` before it, and read the version it prints at the end.
 
+**`--from <worktree>` builds from another tree and serves this one.** It is the
+preview's restart (`scripts/preview --restart`), so what it builds may include
+a branch that never lands, and it refuses a tree whose migrations are behind the
+database. Run it with `--dry-run` first and put what that printed in front of
+the owner; it changes nothing. `docs/practices/running-locally.md`, *A preview
+of unlanded work*.
+
 **Say what it will do before you call it.** Not "restarting Fleet" — whether
-a Drone is working right now (it refuses if one is, naming the Job), and
+a Drone is working right now (it refuses if one is, naming the Job, unless
+you pass `--adopt`, which restarts anyway and prints what that costs the
+Drone and its Job — only with his say-so), and
 whether Bridge is going to reopen (only if `apps/` or `packages/` changed
 since it was last built). He is reading the prompt to decide, not you.
 
@@ -58,6 +67,12 @@ each Drone's Job before touching anything; a Job at `running` refuses the
 whole restart and names it. An escalated Job's idle Drone does not refuse —
 Fleet's own restart reconciliation picks it back up, the way it already
 does for a crash.
+
+**`--adopt` skips that refusal.** Fleet adopts the Drone at boot; the script
+prints the Jobs and the costs (no redirect or verdict, spend undercounted,
+`unheard`, servers stop, a mid-gate Check likely re-runs). Put those in front
+of the owner before asking to run it. A roster that does not answer still
+refuses.
 
 **Nothing else waits.** A queued Job, a Job at a human gate, a Job a person
 is piloting — none of them hold a process the restart would interrupt.

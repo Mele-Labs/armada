@@ -250,6 +250,12 @@
   min-width: 0;
 }
 
+.armada-job-row__badge[data-marked] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* **A grid, where this was a flex column.** Line two is the handle's cell and
    the field run beside it, so the body needs a column boundary of its own; a
    list replaces these tracks with the frame's subgrid below. */

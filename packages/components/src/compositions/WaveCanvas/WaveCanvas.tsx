@@ -18,6 +18,7 @@ import { Badge } from "../../primitives/Badge/Badge";
 import { JOB_STATUS } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { FactChip } from "../FactChip/FactChip";
+import { PausedMark } from "../PausedMark/PausedMark";
 import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
 
 /**
@@ -50,6 +51,8 @@ export type WaveCanvasCard = {
   status: string;
   /** What a person calls it, in mono. */
   handle?: string;
+  /** The tooltip of the mark beside the status, where the Job is paused. */
+  paused?: string;
   /** Short values under the title — `merged`, `~$2.80`, `2/7`. */
   facts?: readonly WaveCanvasFact[];
   /** Open the Job. Absent draws a card that is not a control. */
@@ -111,6 +114,7 @@ function JobCard({ card }: { card: WaveCanvasCard }) {
             {card.status}
           </span>
         )}
+        {card.paused === undefined ? null : <PausedMark said={card.paused} />}
         {card.handle === undefined ? null : (
           <span className="armada-wave-card__handle mono" title={card.handle}>
             {card.handle}

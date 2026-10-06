@@ -23,6 +23,7 @@
 
 set -euo pipefail
 
+caller_pwd=$PWD
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 
@@ -47,6 +48,43 @@ fail() {
   echo "restart: $*" >&2
   exit 1
 }
+
+# `--from <worktree>` builds `armada` and Bridge from another tree while Fleet
+# keeps serving the repository this script lives in — `scripts/preview` uses it
+# to run a merge of unlanded branches. `docs/practices/running-locally.md`, "A
+# preview of unlanded work". Without it everything below reads `$root` as it
+# always did, and nothing in this block runs.
+from=""
+dry_run=false
+adopt=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from)
+      [[ $# -ge 2 ]] || fail "--from needs a worktree"
+      from="$2"
+      shift 2
+      ;;
+    --dry-run)
+      dry_run=true
+      shift
+      ;;
+    --adopt)
+      adopt=true
+      shift
+      ;;
+    *)
+      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--dry-run] [--adopt]"
+      ;;
+  esac
+done
+
+src="$root"
+if [[ -n "$from" ]]; then
+  src=$(cd "$caller_pwd" && cd "$from" 2>/dev/null && pwd) || fail "--from $from is not a directory"
+  [[ -f "$src/crates/armada/Cargo.toml" && -d "$src/apps/desktop" ]] \
+    || fail "--from $src has no crates/armada and apps/desktop — it is not a checkout of this repository"
+fi
+$dry_run && [[ -z "$from" ]] && fail "--dry-run is for --from"
 
 # One restart at a time. Two runs overlapping on 12 Sep left one sending
 # SIGTERM to Fleet while the other's late Drone check found the pid alive
@@ -105,7 +143,8 @@ acquire_lock() {
 lock_held=false
 trap release_lock EXIT
 trap 'exit 1' INT TERM HUP
-acquire_lock
+# A dry run writes nothing, and the lock is a file.
+$dry_run || acquire_lock
 
 # cargo's own default install root, so a `$HOME` overridden for testing does
 # not also relocate where `armada` gets installed — that is shared machine
@@ -131,6 +170,28 @@ armada_bin="$cargo_home/bin/armada"
 # statement, never inside `$(...)`, because `fail`'s `exit` would only kill a
 # subshell wrapped around a command substitution and the refusal would go
 # unnoticed by the caller.
+#
+# **`--adopt` skips both refusals and prints what it costs instead.** Fleet
+# adopts a Drone that outlives it (`docs/concepts/drone.md`, "A Drone that
+# outlives its Fleet is adopted"), so a working Drone is survivable, not
+# forbidden — the owner who passes `--adopt` has accepted the costs below. The
+# roster is still read first, and a roster that does not answer still refuses:
+# without it nothing says which Jobs are being adopted.
+adopt_costs_said=false
+say_adopt_costs() {
+  $adopt_costs_said && return
+  adopt_costs_said=true
+  cat >&2 <<'COSTS'
+adopting costs, for each Job above:
+  its pipes die, so it cannot be redirected, poked or handed a verdict
+  its recorded spend is an undercount
+  its Job shows as `unheard`
+  a Job's servers stop when Fleet stops
+  a Check running mid-gate most likely dies with Fleet and the gate re-runs from scratch (fleet-checks-runner-sweep-timing is open, so a surviving Check group is not swept at boot)
+  a Drone that cannot be adopted is ended
+COSTS
+}
+
 refuse_if_drone_working() {
   old_pid=""
   old_port=""
@@ -141,7 +202,7 @@ refuse_if_drone_working() {
 
   if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
     say "Fleet is running (pid $old_pid, port $old_port) — checking for a working Drone"
-    result=$(python3 - "$old_port" <<'PY'
+    result=$(python3 - "$old_port" "$($adopt && echo adopt || echo refuse)" <<'PY'
 import json, sys, urllib.error, urllib.request
 
 port = sys.argv[1]
@@ -152,14 +213,21 @@ def get(path):
         return json.load(r)
 
 
+adopt = sys.argv[2] == "adopt"
 try:
+    working = []
     for d in get("/drones")["drones"]:
         job = get(f"/jobs/{d['job_id']}")["job"]
         if job["status"] == "running":
-            print(f"REFUSE:{d['handle']}")
-            break
-    else:
+            working.append(f"{d['handle']} ({d['job_id']})")
+            if not adopt:
+                break
+    if not working:
         print("OK")
+    elif adopt:
+        print("ADOPT:" + "\t".join(working))
+    else:
+        print(f"REFUSE:{working[0].split(' (')[0]}")
 except (urllib.error.URLError, OSError, ValueError) as e:
     print(f"ERROR:{e}")
 PY
@@ -167,6 +235,11 @@ PY
     case "$result" in
       OK)
         say "No Drone is working"
+        ;;
+      ADOPT:*)
+        say "Adopting every working Drone — --adopt skips the refusal"
+        printf '%s\n' "${result#ADOPT:}" | tr '\t' '\n' | sed 's/^/  /' >&2
+        say_adopt_costs
         ;;
       REFUSE:*)
         fail "refusing — ${result#REFUSE:}'s Drone is working"
@@ -181,11 +254,101 @@ PY
   fi
 }
 
-refuse_if_drone_working
+# The newest migration `$1`'s store knows: how many entries `MIGRATIONS` lists,
+# which is what `KNOWN_SCHEMA_VERSION` is and what a migrated file records.
+# **A list this cannot read to the end is not guessed at.** A line that is not
+# a plain `V<n>` entry, or no list at all, ends the read with nothing printed.
+tree_migrations() {
+  python3 - "$1/crates/store/src/migrations.rs" <<'PY'
+import re, sys
+
+try:
+    lines = open(sys.argv[1]).read().splitlines()
+except OSError:
+    sys.exit(0)
+inside, count = False, 0
+for line in lines:
+    text = line.strip()
+    if not inside:
+        inside = "pub const MIGRATIONS" in text
+    elif text == "];":
+        print(count if count else "")
+        sys.exit(0)
+    elif text and not text.startswith("//"):
+        if not re.fullmatch(r"(?:\w+::)*V\d+,", text):
+            sys.exit(0)
+        count += 1
+PY
+}
+
+# How many migrations the live database has applied, off `armada_meta` the way
+# `crates/store/src/open.rs` records it. Prints `none` when there is no file,
+# a number, or nothing when it cannot be read. Read-only.
+live_migrations() {
+  [[ -f "$support/armada.db" ]] || { echo none; return; }
+  sqlite3 -readonly "$support/armada.db" \
+    "SELECT value FROM armada_meta WHERE key = 'schema_version'" 2>/dev/null | grep -E '^[0-9]+$' || true
+}
+
+backups="$support/backups"
+guard_numbers() {
+  target_newest=$(tree_migrations "$src")
+  [[ -n "$target_newest" ]] \
+    || fail "refusing — cannot read the newest migration in $src/crates/store/src/migrations.rs, so cannot tell whether this build is older than the database"
+  live_applied=$(live_migrations)
+  [[ -n "$live_applied" ]] \
+    || fail "refusing — cannot read the schema version in $support/armada.db, so cannot tell whether this build is older than it"
+  if [[ "$live_applied" != none && "$target_newest" -lt "$live_applied" ]]; then
+    fail "refusing — $src's newest migration is $target_newest and the database has applied $live_applied; that Fleet would refuse the file as written by a newer Armada"
+  fi
+}
+
+if [[ -n "$from" ]]; then
+  guard_numbers
+  say "Migration guard: $src is at $target_newest, the database has applied ${live_applied/none/nothing (no file)}"
+fi
+
+if $dry_run; then
+  say "Dry run — nothing below happens"
+  echo "would install armada from $src (cargo install --path crates/armada --debug --locked) to $armada_bin"
+  if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
+    echo "would build Bridge from $src — no build stamp there"
+  elif [[ -n "$(find "$src/apps" "$src/packages" -type f -not -path '*/node_modules/*' -not -path "$src/apps/desktop/out/*" \
+      -not -path "$src/apps/desktop/release/*" -not -name '*.tsbuildinfo' -newer "$src/apps/desktop/out/.armada-restart-stamp" -print 2>/dev/null | head -n 1)" ]]; then
+    echo "would build Bridge from $src — apps/ or packages/ moved since its last build"
+  else
+    echo "would not build Bridge — unchanged since its last build in $src"
+  fi
+  if [[ "$(cat "$support/restart-source" 2>/dev/null || true)" != "$src" ]]; then
+    echo "would rebuild and reopen Bridge — the running one was built from $(cat "$support/restart-source" 2>/dev/null || echo "$root")"
+  fi
+  if [[ -f "$support/armada.db" ]]; then
+    echo "would snapshot $support/armada.db to $backups/armada-<UTC stamp>.db, keeping the newest 5"
+  else
+    echo "would take no snapshot — there is no database yet"
+  fi
+  echo "would write $plist: [$armada_bin, serve, $root]"
+  echo "would write $bridge_plist with WorkingDirectory $src"
+  echo "would write $support/restart-source: $src"
+  if $adopt; then
+    if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
+      printf '%s\n' "$adopted"
+      echo "--adopt: a working Drone would be adopted and the refusal skipped"
+    else
+      printf '%s\n' "$adopted"
+      echo "with --adopt the restart would still refuse: the roster did not answer"
+    fi
+  elif ( refuse_if_drone_working ) >/dev/null 2>&1; then
+    echo "no Drone is working, so the restart would go ahead"
+  else
+    echo "a Drone is working or Fleet did not answer, so the restart would refuse; run without --dry-run for which"
+  fi
+  exit 0
+fi
 
 # Rebuild.
-say "Installing armada from $root"
-cargo install --path crates/armada --debug --locked
+say "Installing armada from $src"
+(cd "$src" && cargo install --path crates/armada --debug --locked)
 
 # **A stamp this script writes, not a build output's own mtime.** A first
 # attempt compared source files against `out/main/index.js`, and every build
@@ -208,16 +371,25 @@ cargo install --path crates/armada --debug --locked
 # this run stopped being able to vouch for anything past it; that mtime, not
 # "now", is what is later renamed into the stamp — `mv` carries a file's
 # mtime with it.
-bridge_stamp="$root/apps/desktop/out/.armada-restart-stamp"
-bridge_pending="$root/apps/desktop/out/.armada-restart-stamp.pending"
+bridge_stamp="$src/apps/desktop/out/.armada-restart-stamp"
+bridge_pending="$src/apps/desktop/out/.armada-restart-stamp.pending"
 bridge_rebuilt=false
-if [[ ! -f "$bridge_stamp" ]]; then
+# **A different source than the running Bridge was built from is a rebuild**
+# whatever the stamp says: the stamp is per tree, and the window open is the
+# other tree's. Only a `--from` run leaves the record, and the next plain run
+# removes it, so a machine that never uses `--from` never has one.
+source_record="$support/restart-source"
+if [[ -n "$from" && "$(cat "$source_record" 2>/dev/null || true)" != "$src" ]]; then
+  bridge_rebuilt=true
+elif [[ -z "$from" && -f "$source_record" ]]; then
+  bridge_rebuilt=true
+elif [[ ! -f "$bridge_stamp" ]]; then
   bridge_rebuilt=true
 else
-  changed=$(find "$root/apps" "$root/packages" -type f \
+  changed=$(find "$src/apps" "$src/packages" -type f \
       -not -path '*/node_modules/*' \
-      -not -path "$root/apps/desktop/out/*" \
-      -not -path "$root/apps/desktop/release/*" \
+      -not -path "$src/apps/desktop/out/*" \
+      -not -path "$src/apps/desktop/release/*" \
       -not -name '*.tsbuildinfo' \
       -newer "$bridge_stamp" -print 2>/dev/null | head -n 1 || true)
   # **`|| true`, because `head` closing the pipe is the point.** With more than
@@ -229,9 +401,9 @@ fi
 
 if $bridge_rebuilt; then
   say "Building Bridge — apps/ or packages/ moved since its last build"
-  mkdir -p "$root/apps/desktop/out"
+  mkdir -p "$src/apps/desktop/out"
   touch "$bridge_pending"
-  pnpm --filter @armada/desktop build
+  (cd "$src" && pnpm --filter @armada/desktop build)
 else
   say "Bridge is unchanged since its last build"
 fi
@@ -241,6 +413,18 @@ fi
 # below are taken from; the one before the rebuild is not reused; a build can
 # run for minutes and Fleet's own state is not this script's to assume.
 refuse_if_drone_working
+
+# A copy of the database the new build is about to open, so a migration that
+# goes wrong is recoverable. `.backup` is SQLite's own online copy and is safe
+# while Fleet writes. Only `--from` runs, which are the ones that can bring in a
+# migration `main` has not shipped.
+if [[ -n "$from" && -f "$support/armada.db" ]]; then
+  mkdir -p "$backups"
+  snapshot="$backups/armada-$(date -u +%Y%m%dT%H%M%SZ).db"
+  sqlite3 "$support/armada.db" ".backup '$snapshot'" || fail "could not snapshot $support/armada.db to $snapshot"
+  say "Snapshot of the database: $snapshot"
+  ls -1t "$backups"/armada-*.db 2>/dev/null | tail -n +6 | while IFS= read -r old; do rm -f "$old"; done
+fi
 
 # Restart Fleet under launchd.
 #
@@ -354,6 +538,8 @@ if $bridge_rebuilt; then
   # quit by its pid; more than one, or one that will not quit, is left alone
   # and reported rather than guessed at.
   bridge_pattern="^${root}/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
+  # With `--from`, the window already open may be either tree's.
+  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/Electron\\.app/Contents/MacOS/Electron \\.\$"
   existing=$(pgrep -f "$bridge_pattern" 2>/dev/null || true)
   existing_count=0
   [[ -n "$existing" ]] && existing_count=$(printf '%s\n' "$existing" | grep -c .)
@@ -378,7 +564,7 @@ if $bridge_rebuilt; then
 
   if $reopen_ok; then
     pnpm_bin=$(command -v pnpm) || fail "pnpm is not on PATH — cannot reopen Bridge"
-    python3 - "$bridge_plist" "$bridge_label" "$pnpm_bin" "$root" "$home" "$PATH" <<'PY'
+    python3 - "$bridge_plist" "$bridge_label" "$pnpm_bin" "$src" "$home" "$PATH" <<'PY'
 import plistlib, sys
 
 path, label, pnpm_bin, root, home, path_env = sys.argv[1:7]
@@ -417,12 +603,19 @@ fi
 # existing stamp already covers it, and touching it would only move its
 # time later for no reason.
 if $bridge_rebuilt && $bridge_reopened; then
-  mkdir -p "$root/apps/desktop/out"
+  mkdir -p "$src/apps/desktop/out"
   if [[ -f "$bridge_pending" ]]; then
     mv -f "$bridge_pending" "$bridge_stamp"
   else
     touch "$bridge_stamp"
   fi
+fi
+
+if [[ -n "$from" ]]; then
+  $bridge_reopened && printf '%s\n' "$src" > "$source_record"
+  echo "Built from $src; serving $root"
+elif $bridge_reopened; then
+  rm -f "$source_record"
 fi
 
 say "Done"

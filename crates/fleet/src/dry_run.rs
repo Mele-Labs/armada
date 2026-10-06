@@ -14,6 +14,7 @@
 //! | A step that ends mid-run | A report on whatever follows; its Checks stop |
 //! | A Check that fails | The rest of the run; the Drone hears the failure at once |
 
+pub(crate) mod asked;
 mod landed;
 
 use std::collections::BTreeMap;
@@ -25,8 +26,8 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Footprint, Vcs, WorkProduct, Worktree};
 use core_model::{
-    Attempt, Component, Envelope, FieldValue, Job, JobId, Level, ResolvedCheck, ResolvedStep,
-    StepId, TaskCounts,
+    Attempt, Component, DroneId, Envelope, FieldValue, Job, JobId, Level, ResolvedCheck,
+    ResolvedStep, StepId, TaskCounts, TaskId,
 };
 use ipc::mcp::{CheckRan, CheckReport};
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -68,7 +69,9 @@ pub enum NotRun {
     /// Every Check here runs only at the gate or before handoff. #849.
     NoneRunMidStep { step: StepId },
     /// Refused, not queued: two builds in one worktree answer about neither.
-    AlreadyRunning,
+    /// **Says where the run stands**, so the Drone has no reason to ask again
+    /// to find out.
+    AlreadyRunning(Going),
     /// The gate is about to run the same Checks in the same worktree. The other
     /// way round, a submission stops a run already going.
     AlreadySubmitted,
@@ -118,12 +121,34 @@ impl fmt::Display for NotRun {
                  nothing to run now. Get on with the work and submit when it is done",
                 step.as_str()
             ),
-            NotRun::AlreadyRunning => out.write_str(
-                "the checks are already running for this part. Wait for their \
-                 report — it arrives as a later turn, and a second run would be \
-                 two builds in one worktree and neither answer would be about \
-                 your work",
-            ),
+            NotRun::AlreadyRunning(going) => {
+                out.write_str("the checks are already running for this part")?;
+                if let Some(secs) = going.for_secs {
+                    write!(out, ", going for {}m {:02}s", secs / 60, secs % 60)?;
+                }
+                let named = |names: &[String]| {
+                    names
+                        .iter()
+                        .map(|name| format!("`{name}`"))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                };
+                if !going.running.is_empty() {
+                    write!(out, ", on {}", named(&going.running))?;
+                }
+                if !going.waiting_for_a_slot.is_empty() {
+                    write!(
+                        out,
+                        ", waiting for a Check slot: {}",
+                        named(&going.waiting_for_a_slot)
+                    )?;
+                }
+                out.write_str(
+                    ". Wait for their report — it arrives as a later turn, and a \
+                     second run would be two builds in one worktree and neither \
+                     answer would be about your work",
+                )
+            }
             NotRun::AlreadySubmitted => out.write_str(
                 "you have submitted, and the checks are about to be run against \
                  your work. Wait — the outcome arrives as a later turn, and \
@@ -172,6 +197,17 @@ impl fmt::Display for NotRun {
 }
 
 impl std::error::Error for NotRun {}
+
+/// Where the run that refused a second one stands.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Going {
+    /// Seconds since it began.
+    pub for_secs: Option<u64>,
+    /// The Checks running now.
+    pub running: Vec<String>,
+    /// The Checks waiting for a place on the machine, none yet running.
+    pub waiting_for_a_slot: Vec<String>,
+}
 
 /// A run Fleet has started and owns. **Dropping this leaves it going.**
 #[derive(Debug)]
@@ -251,8 +287,24 @@ fn mid_step_named(step: &ResolvedStep, named: Option<&str>) -> Vec<ResolvedCheck
 struct Plan {
     record: Job,
     step: StepId,
+    /// The Drone that asked, and the task it was put on where it works one.
+    drone: DroneId,
+    task: Option<TaskId>,
     worktree: Worktree,
     entered_with: Option<Footprint>,
+}
+
+impl Plan {
+    /// Who asked, as the wire says it.
+    fn requester(&self) -> ipc::Requester {
+        asked::requester(
+            self.record.id(),
+            &self.record.handle(),
+            &self.step,
+            &self.drone,
+            self.task,
+        )
+    }
 }
 
 /// What the run reads before anything is spent, so a failed read refuses at once.
@@ -264,6 +316,9 @@ struct Readings {
     only_check: Option<String>,
     moved: bool,
     touched: Vec<String>,
+    /// Which manifests the change reaches, **only where the repository has
+    /// workspaces**; the one the gate reads.
+    gated: Option<crate::gated::Gated>,
     ports: BTreeMap<String, u16>,
     port_env: Vec<(String, String)>,
     tasks: Option<TaskCounts>,
@@ -361,7 +416,7 @@ where
             return Some(NotRun::Unheard);
         }
         if at_work.is_checking() {
-            return Some(NotRun::AlreadyRunning);
+            return Some(NotRun::AlreadyRunning(self.going_on(at_work)));
         }
         if self.evidence_waiting_for(caller) > 0 {
             return Some(NotRun::AlreadySubmitted);
@@ -375,6 +430,41 @@ where
         }
         let allowed = self.dry_runs().allowed();
         (at_work.dry_runs() >= allowed).then_some(NotRun::Spent { allowed })
+    }
+
+    /// Where the run in flight stands, off the slot's mark and the live view
+    /// `timed_out` reads.
+    fn going_on(&self, at_work: &Working) -> Going {
+        let (job, step, _) = at_work.drone();
+        let rows = self
+            .underway()
+            .dry_run_on(&ipc::JobId::from(&job), &ipc::StepId::from(&step))
+            .map(|underway| underway.checks)
+            .unwrap_or_default();
+        let running: Vec<String> = rows
+            .iter()
+            .filter(|row| row.started_at.is_some() && row.ran.is_none())
+            .map(|row| row.name.clone())
+            .collect();
+        // Waiting on a place and not on a Command it requires: only the first
+        // reports who it waits behind.
+        let waiting_for_a_slot = match running.is_empty() {
+            false => Vec::new(),
+            true => rows
+                .iter()
+                .filter(|row| {
+                    row.started_at.is_none() && row.ran.is_none() && row.waiting_behind.is_some()
+                })
+                .map(|row| row.name.clone())
+                .collect(),
+        };
+        Going {
+            for_secs: at_work
+                .checking_since()
+                .map(|began| crate::converging::elapsed(began, &self.now()).as_secs()),
+            running,
+            waiting_for_a_slot,
+        }
     }
 
     /// Whether there is a run to make, and what it is against.
@@ -394,6 +484,8 @@ where
             return Err(why);
         }
         let (job, step, worktree) = at_work.standing();
+        let (_, _, drone) = at_work.drone();
+        let task = at_work.task();
         let entered_with = at_work.entered_with().cloned();
         let record = self
             .load(&job)
@@ -434,6 +526,8 @@ where
         Ok(Plan {
             record,
             step,
+            drone,
+            task,
             worktree,
             entered_with,
         })
@@ -494,6 +588,28 @@ where
         if narrow && touched.is_empty() {
             return Err(NotRun::NothingChanged);
         }
+        let served = self
+            .served_by(&plan.record)
+            .map_err(|cause| unread(cause.to_string()))?;
+        let workspaces = served.workspaces();
+        let gated = match workspaces.is_empty() {
+            true => None,
+            false => {
+                let changed = match ask.files.is_empty() {
+                    false => ask.files.clone(),
+                    true => self
+                        .work()
+                        .changed_files(&plan.worktree)
+                        .map_err(|cause| unread(cause.to_string()))?
+                        .paths(),
+                };
+                Some(crate::gated::Gated::of(
+                    served.manifest(),
+                    &workspaces,
+                    &changed,
+                ))
+            }
+        };
         let tasks = self
             .store()
             .lock()
@@ -508,16 +624,13 @@ where
             .await
             .step_attempt(plan.record.id(), &plan.step)
             .map_err(|cause| unread(cause.to_string()))?;
-        let records_root = self
-            .served_by(&plan.record)
-            .map_err(|cause| unread(cause.to_string()))?
-            .records_root()
-            .to_string();
+        let records_root = served.records_root().to_string();
         Ok(Readings {
             narrow,
             only_check: ask.check.clone(),
             moved,
             touched,
+            gated,
             ports: self.port_map(&plan.record).await,
             port_env: self.port_env(&plan.record).await,
             tasks,
@@ -550,33 +663,105 @@ where
         }
         let run = RUNS.fetch_add(1, Ordering::Relaxed);
         let (going, stop) = Stop::when_dropped_or_one_fails();
-        at_work.checking(self.now(), run, going, spends);
+        let began = self.now();
+        at_work.checking(began.clone(), run, going, spends);
+        drop(working);
+        // **The record exists from here**, before the task can end it: a run
+        // that never ends is still on record, and the start is in the log.
+        let named: Vec<String> = plan
+            .record
+            .workflow()
+            .step(&plan.step)
+            .map(|declared| mid_step_named(&declared, read.only_check.as_deref()))
+            .unwrap_or_default()
+            .iter()
+            .map(|check| check.label().to_string())
+            .collect();
+        self.noted_dry_started(&plan, &read, &named);
+        let asked = self.asked_begins(&plan, &read, named, &began).await;
+        let read_attempt = read.attempt;
         let fleet = Arc::clone(self);
         let caller = caller.clone();
-        Ok(ChecksRunning(tokio::spawn(async move {
-            let (heard, hearing) = tokio::sync::mpsc::unbounded_channel();
-            // A narrowed run's durations are its narrower commands', not the Checks'.
-            let showing = fleet.announcing_dry_run(
-                &plan.record,
-                &plan.step,
-                read.attempt,
-                heard,
-                !read.narrow,
-            );
-            let whole = fleet.budget().whole_run();
-            let running = fleet.dry_run(&caller, run, &plan, &read, &stop, &showing, hearing);
-            match tokio::time::timeout(whole, running).await {
-                Ok(ran) => {
-                    fleet
-                        .dry_run_ends(&caller, &plan, run, ran, showing, None)
-                        .await
+        let plan = Arc::new(plan);
+        let task = {
+            let (fleet, caller, plan) = (Arc::clone(&fleet), caller.clone(), Arc::clone(&plan));
+            tokio::spawn(async move {
+                let (heard, hearing) = tokio::sync::mpsc::unbounded_channel();
+                // A narrowed run's durations are its narrower commands', not the Checks'.
+                let showing = fleet.announcing_dry_run(
+                    &plan.record,
+                    &plan.step,
+                    read.attempt,
+                    heard,
+                    !read.narrow,
+                    plan.requester(),
+                );
+                let whole = fleet.budget().whole_run();
+                let running = fleet.dry_run(&caller, run, &plan, &read, &stop, &showing, hearing);
+                match tokio::time::timeout(whole, running).await {
+                    Ok(ran) => {
+                        fleet
+                            .dry_run_ends(
+                                &caller,
+                                &plan,
+                                run,
+                                ran,
+                                showing,
+                                None,
+                                asked,
+                                asked::Ending::Ran,
+                            )
+                            .await
+                    }
+                    Err(_) => {
+                        // The run is dropped: its places and processes went with it.
+                        let said = fleet.timed_out(&plan, whole);
+                        let cause = said.text().to_string();
+                        fleet
+                            .dry_run_ends(
+                                &caller,
+                                &plan,
+                                run,
+                                Err(cause),
+                                showing,
+                                Some(said),
+                                asked,
+                                asked::Ending::TimedOut,
+                            )
+                            .await
+                    }
                 }
-                Err(_) => {
-                    // The run is dropped: its places and processes went with it.
-                    let said = fleet.timed_out(&plan, whole);
-                    let cause = said.text().to_string();
+            })
+        };
+        // **The mark's life is the run's.** A task that panics or is aborted
+        // never reaches `dry_run_ends`, and nothing else would take the mark
+        // off or tell the Drone: a part left "already running" for good.
+        Ok(ChecksRunning(tokio::spawn(async move {
+            match task.await {
+                Ok(ended) => ended,
+                Err(lost) => {
+                    let cause = ChecksReported::lost(lost.is_panic()).text().to_string();
+                    let said = ChecksReported::lost(lost.is_panic());
+                    let (heard, _) = tokio::sync::mpsc::unbounded_channel();
+                    let showing = fleet.announcing_dry_run(
+                        &plan.record,
+                        &plan.step,
+                        read_attempt,
+                        heard,
+                        false,
+                        plan.requester(),
+                    );
                     fleet
-                        .dry_run_ends(&caller, &plan, run, Err(cause), showing, Some(said))
+                        .dry_run_ends(
+                            &caller,
+                            &plan,
+                            run,
+                            Err(cause),
+                            showing,
+                            Some(said),
+                            asked,
+                            asked::Ending::Lost,
+                        )
                         .await
                 }
             }
@@ -592,6 +777,7 @@ where
     /// step boundary already cleared it and answers `false`, and keeps nothing.
     /// A run its own first failure stopped does finish, and `KeptDryRun::of`
     /// keeps only what passed, so a Check it stopped is never reused (#1014).
+    #[allow(clippy::too_many_arguments)]
     async fn dry_run_ends(
         &self,
         caller: &JobId,
@@ -600,7 +786,21 @@ where
         ran: Result<(CheckReport, crate::reuse::KeptDryRun), String>,
         showing: Announcing,
         said: Option<ChecksReported>,
+        asked: asked::Asked,
+        ending: asked::Ending,
     ) -> Option<Result<CheckReport, String>> {
+        // **Closed first, and whether or not the step still waits**: the record
+        // is of the run, and a step that ended under it does not unask it.
+        let logs: Vec<String> = match &ran {
+            Ok((report, _)) => report
+                .ran
+                .iter()
+                .map(|row| row.log.clone().unwrap_or_default())
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        self.asked_ends(asked, asked::state_of(&ran, ending), &logs)
+            .await;
         // Whether or not the step still waits: what ran to a code was measured.
         self.kept_timings(&plan.record, showing.timings()).await;
         self.kept_runs(&plan.record, showing.runs()).await;
@@ -627,7 +827,7 @@ where
         let _ = at_work.session().checks(&told).await;
         drop(working);
         if let Ok(report) = &ran {
-            self.noted_dry_run(plan, report);
+            self.noted_dry_run(plan, report, asked.attempt);
             self.pointed_at_fixes_in(plan.record.id(), report).await;
         }
         Some(ran)
@@ -714,9 +914,9 @@ where
             None,
             read.attempt,
             None,
-            None,
+            read.gated.as_ref(),
         );
-        for done in self.heard_while(caller, run, running, hearing).await {
+        for done in self.heard_while(caller, run, plan, running, hearing).await {
             observed.push(done.observed);
             took.push(done.took);
             narrowed_to.push(done.narrowed_to);
@@ -783,7 +983,7 @@ where
 
     /// Write the run into the Job's log, as fields a query can count, and the
     /// names of the Checks that failed, which a retro reads — `crate::retro`.
-    fn noted_dry_run(&self, plan: &Plan, report: &CheckReport) {
+    fn noted_dry_run(&self, plan: &Plan, report: &CheckReport, attempt: u32) {
         let failed: Vec<&str> = report
             .ran
             .iter()
@@ -803,8 +1003,40 @@ where
         .with_field("failed", FieldValue::Int(report.failed() as i64))
         .with_field("narrowed", FieldValue::Bool(report.narrowed))
         .with_field("failed_checks", FieldValue::Str(failed.join(", ")));
+        let envelope = self.with_who_asked(envelope, plan, attempt);
         // A line that will not write fails nothing: the Drone has its answer.
         self.noted_in_the_log(plan.record.id(), &envelope);
+    }
+
+    /// The same fields as the line for the end, so one query reads both.
+    /// `ran` is how many Checks the run is about, and `failed` is nothing yet.
+    fn noted_dry_started(&self, plan: &Plan, read: &Readings, named: &[String]) {
+        let envelope = Envelope::new(
+            self.now(),
+            Level::Info,
+            Component::Fleet,
+            self.run().clone(),
+            crate::retro::lines::A_DRONE_STARTED_CHECKS,
+        )
+        .in_job(plan.record.id().as_ulid().clone())
+        .at_step(plan.step.as_str())
+        .with_field("ran", FieldValue::Int(named.len() as i64))
+        .with_field("failed", FieldValue::Int(0))
+        .with_field("narrowed", FieldValue::Bool(read.narrow))
+        .with_field("failed_checks", FieldValue::Str(String::new()));
+        let envelope = self.with_who_asked(envelope, plan, read.attempt.number());
+        self.noted_in_the_log(plan.record.id(), &envelope);
+    }
+
+    /// Who asked and in which run, on a line about it.
+    fn with_who_asked(&self, envelope: Envelope, plan: &Plan, attempt: u32) -> Envelope {
+        envelope
+            .with_field("drone", FieldValue::Str(plan.drone.as_str().to_string()))
+            .with_field(
+                "task",
+                FieldValue::Str(plan.task.map(|task| task.to_string()).unwrap_or_default()),
+            )
+            .with_field("attempt", FieldValue::Int(i64::from(attempt)))
     }
 }
 

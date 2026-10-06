@@ -126,6 +126,19 @@ miss that Drone or refuse a restart nothing is using. A queued Job, a Job at a
 human gate, or one a person is piloting holds no process the restart would
 interrupt, so none of those refuse it.
 
+**`--adopt` restarts anyway.** Fleet adopts a Drone that outlives it
+(`docs/concepts/drone.md`), so a working Drone is survivable. With `--adopt` the
+script still reads the live roster, prints each Job with a working Drone, then
+prints what adopting costs, once: its pipes die so it cannot be redirected,
+poked or handed a verdict; its recorded spend is an undercount; its Job shows as
+`unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
+dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
+is open, so a surviving Check group is not swept at boot); a Drone that cannot
+be adopted is ended. A roster that does not answer still refuses. Without
+`--adopt` the refusal is as above. It combines with `--from`, and
+`--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
+`scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
+
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
 runtime file. macOS has no `flock(1)`, so the lock is a symlink naming its
@@ -186,6 +199,93 @@ needs its own override because launchd's `gui/$UID` domain is one namespace
 per machine account, not per home directory — two scratch Fleets left on the
 default label would still collide with each other and, unset, with the
 owner's own `com.armada.fleet`.
+
+### Restarting onto another tree
+
+```sh
+scripts/restart --from <worktree> [--dry-run]
+```
+
+**`--from` builds `armada` and Bridge from another checkout and still serves
+this one.** Fleet's plist keeps `serve <this repository>`; only the
+`cargo install`, Bridge's build and the Bridge window's working directory move.
+Without `--from`, nothing in this section applies and the script behaves as
+above. It exists for the preview below.
+
+**It refuses a build older than the database.** Both numbers are read, never
+assumed: the tree's is how many entries `MIGRATIONS` lists in
+`crates/store/src/migrations.rs`, and the database's is the `schema_version` row
+in `armada_meta` of `~/Library/Application Support/Armada/armada.db`. A tree
+behind the database is refused naming both, because that Fleet would reject the
+file as written by a newer Armada. A list this cannot read to the end, or a
+database it cannot read, is refused too, with what it could not read. No
+database yet is not a refusal.
+
+**It copies the database before the switch**, with SQLite's online `.backup`, to
+`Armada/backups/armada-<UTC stamp>.db` beside the database, keeps the newest
+five and prints the path. A migration the new build applies is not undone by
+going back to `main`; the copy is how you go back.
+
+**`--dry-run` prints what it would do and changes nothing**: what it builds and
+from where, the two guard numbers, the snapshot, the files it would write and
+whether a Drone would refuse it. It takes no lock and writes no file. It is
+only for `--from`.
+
+**A switch of source reopens Bridge.** The build stamp belongs to a tree, so
+moving between trees rebuilds and reopens Bridge whatever either stamp says.
+`Armada/restart-source` records which tree the open Bridge came from; only
+`--from` writes it and the next plain restart removes it.
+
+## A preview of unlanded work
+
+```sh
+scripts/preview                         # merge every in-flight branch, print what happened
+scripts/preview --only a,b --skip c     # narrow it; both repeat or take a comma list
+scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
+scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
+```
+
+**It merges every branch that is in flight on top of `main`, in a worktree of
+its own, so you can use work while agents are still landing it.** In flight is a
+local branch with commits ahead of `main` that a slot holds
+(`armada worktree --status`) or the merge line has queued
+(`armada land --status`). `main`, `preview` and remote-only branches are
+ignored. It needs git and an `armada` on `PATH`, builds nothing, and
+`ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
+
+**It runs no Checks.** Nothing in a preview was gated, so it can be red where
+every branch in it was green, and the reverse.
+
+**Only committed work is included.** A slot with uncommitted changes is named in
+a warning and never touched.
+
+**A preview can hold a branch that never lands.** A branch is in it until it
+leaves its slot and the line, whether it merged, was withdrawn or was
+abandoned. Use it, and land from the branch.
+
+| Each run | |
+|---|---|
+| Resets `preview` | To local `main`, or `origin/main` where there is no local one, after a fetch |
+| Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
+| Merges one | `git merge --no-ff --no-edit` |
+| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
+| A migration number taken twice | The later branch is skipped, though git merged it cleanly, and the table says which number and whose it was |
+| Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
+
+**The worktree is `.armada/preview/`, kept and reused** the way the merge line's
+`.armada/land/candidate` is: made on first use, reset and cleaned between runs
+with `target/`, `node_modules/` and Bridge's build output kept, so
+builds stay warm.
+
+**`--watch` never restarts Fleet.** It merges again when a branch head or `main`
+changes. Moving Fleet and Bridge is `--restart`, which cannot be combined with
+it. `--restart` runs `scripts/restart --from .armada/preview` from the main
+checkout, so Fleet keeps serving that repository, and `--dry-run` goes through
+to it. Everything in *Restarting onto another tree* applies, including the
+migration refusal and the snapshot. To go back, run `scripts/restart` as before.
+
+**`python3 scripts/test_preview.py`** runs it against a throwaway repository
+with git alone. It is not part of the gate.
 
 ## A Fleet of your own
 
@@ -453,6 +553,8 @@ use`. `../concepts/manifest.md`, *How many Checks run at once*.
 on a loaded machine it takes longer than the same Check run by `scripts/land`.
 `ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
 `../concepts/manifest.md`, *At what priority a Check runs*.
+
+**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check packages/screens:screens_test`, `armada check apps/desktop:typecheck`. It runs in that directory, and `armada covers` prints the keys a change reaches.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
 For `test` and `acceptance` the bare function name is enough

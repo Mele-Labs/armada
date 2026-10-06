@@ -135,6 +135,7 @@ import {
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
+import { ChecksSurface, useAsked } from "./checks-surface";
 import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -185,6 +186,7 @@ export function App({ draft }: AppProps = {}) {
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
+  const asked = useAsked(openJob); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   // The section a pressed notification asked for. **A token rather than a
   // call**: the press may have arrived over the composer or over a Job, so
   // Overview is not mounted yet, and it opens and scrolls to the section once
@@ -221,7 +223,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const [learning, setLearning] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
+  const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
@@ -271,7 +273,12 @@ export function App({ draft }: AppProps = {}) {
   // Two of them end somewhere this file owns, so both are answered to rather
   // than reached for: a redispatch opens its replacement, and a re-read
   // publishes what came back.
-  const commands = useCommands({ onOpen: setOpenJob, onRead: setState, jobs: state.jobs });
+  const commands = useCommands({
+    onOpen: setOpenJob,
+    onRead: setState,
+    jobs: state.jobs,
+    onPaused: (jobId) => setConfirming({ act: "resume_job", jobId, pressed: true }),
+  });
   // Whether the window is at `--window-floor`, `JobDetail`'s own reading —
   // Fleet settings is the same trailing layer and takes it the same way.
   const floor = useAtFloor();
@@ -325,8 +332,8 @@ export function App({ draft }: AppProps = {}) {
   // that Run off (2 Oct 2026), so the one wish here names all three.
   const studyingOne = studying && openStudio !== null;
   useEffect(() => {
-    watchCheckoutRunSheet(manifesting || palette.open || studyingOne);
-  }, [manifesting, palette.open, studyingOne]);
+    watchCheckoutRunSheet(manifesting || checking || palette.open || studyingOne);
+  }, [manifesting, checking, palette.open, studyingOne]);
 
   // Drift is the surface's own free read on opening, and the palette lists
   // nothing off it. Verify is not here: it is only ever pressed.
@@ -469,23 +476,14 @@ export function App({ draft }: AppProps = {}) {
     setOpenJob(null);
   }
 
-  /**
-   * Do the act the dialog collected, and put the dialog away first.
-   *
-   * **The note is read here rather than in the command.** Only the restart has
-   * one, and the field that holds it belongs to the dialog below. A blank field
-   * is not sent: `restartStep` drops it, so a person who opened the dialog and
-   * typed nothing gets the restart they pressed for rather than the 422 a blank
-   * note earns.
-   */
+  /** Send what the dialog collected. A pause or a resume stays up until Fleet takes it, to say what it refused. */
   function confirmed(what: Confirming): void {
-    setConfirming(null);
+    const stays = what.act === "pause_job" || what.act === "resume_job";
+    if (!stays) setConfirming(null);
+    void commands.confirmed(what, restartNote).then((sent) => {
+      if (stays && sent) setConfirming(null);
+    });
     setRestartNote("");
-    // Pulse's two kills are commands of their own, not Job acts — `ConfirmAct`.
-    if (what.act === "kill_process") return void commands.killProcess(what.jobId, what.pid);
-    if (what.act === "kill_processes") return void commands.killProcess(what.jobId);
-    const note = what.act === "restart_step" ? restartNote : undefined;
-    void commands.act(what.act, what.jobId, note, "droneId" in what ? what.droneId : undefined);
   }
 
   /**
@@ -506,7 +504,8 @@ export function App({ draft }: AppProps = {}) {
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
-    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows);
+    asked.setMergeFocus(undefined);
+    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
     setStudioNode(null);
@@ -685,7 +684,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing,
+            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking,
           })}
           onSurface={goTo}
         >
@@ -723,6 +722,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary key={reading.id} region="the job detail" {...guarded}>
                 <JobDetail
                   job={reading}
+                  {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
                   // Every Job, not the picked repository's: a member dispatched
                   // by this one is still its member while the rail is filtered.
                   board={state.jobs}
@@ -888,7 +888,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -1085,6 +1085,7 @@ export function App({ draft }: AppProps = {}) {
                   // `reclaim_worktree` is that header's own word for Clear.
                   onRedispatch={(jobId) => setConfirming({ act: "redispatch", jobId })}
                   onClear={(jobId) => setConfirming({ act: "reclaim_worktree", jobId })}
+                  onPausing={(act, jobId) => setConfirming({ act, jobId })}
                   onCompose={() => setComposing(true)}
                   onCopied={setCopied}
                   onCursor={setCursor}
@@ -1116,6 +1117,8 @@ export function App({ draft }: AppProps = {}) {
         <ConfirmAct
           confirming={confirming}
           held={state.held}
+          jobs={state.jobs}
+          refused={commands.pauseSaid ?? undefined}
           onWant={readHeld}
           cleanupOpen={clearing}
           restartNote={restartNote}

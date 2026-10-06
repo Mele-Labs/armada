@@ -16,16 +16,17 @@
 // one decision: the badge is the header, so there is no partial render to fall
 // back to.
 
-import { JOB_LIFECYCLE, JOB_STATUS, type JobDetailHeading } from "@armada/components";
+import { JOB_LIFECYCLE, JOB_STATUS, PausedMark, type JobDetailHeading } from "@armada/components";
 import type { FileReport, JobDetail as JobWhole, JobSummary, Outcome } from "@armada/protocol";
 import { Acts, type ConfirmableAct, type HeldAct } from "./Acts";
 import { factsOf } from "./facts";
 import type { ActAnswer, ActingAct } from "./pending";
 import { openPullRequest, type OpenPullRequest } from "./opening";
+import { pausedSaid } from "./pausing";
 import { leading, readingOf } from "./reading";
 import type { Render } from "./render";
 import { titleOf } from "./title";
-import type { OpenStudioFrom } from "./work";
+import type { OpenStudioFrom } from "./open-studio";
 
 /** What the header is built from. The Job's, never a step's. */
 export type Heading = {
@@ -42,6 +43,8 @@ export type Heading = {
   /** What Fleet said to the last act on this Job. The header's face answers its own. */
   answered?: ActAnswer | undefined;
   approving: boolean;
+  /** Its Checks are running again, which a pause is refused under. */
+  rerunningChecks?: boolean;
   /** Whether the report dialog is up. Held by the screen; `b` opens it too. */
   reporting: boolean;
   onReporting: (reporting: boolean) => void;
@@ -85,6 +88,7 @@ export function headingOf({
   actingAct,
   answered,
   approving,
+  rerunningChecks,
   reporting,
   onReporting,
   onAct,
@@ -112,6 +116,9 @@ export function headingOf({
     // lowercase because most of its readings are mid-sentence; here it is the
     // first word in the badge, and the badge is the header.
     statusLabel: leading(reading.verb),
+    // Beside the badge and never instead of it: a Job at a review gate reads
+    // Needs review with this next to it.
+    ...(job.paused === undefined ? {} : { mark: <PausedMark said={pausedSaid(job, now)!} /> }),
     headline: titleOf(job),
     // **The number, with the whole handle one click away.** The handle is the
     // Job's number and a slug of its title — a branch name and a worktree
@@ -148,6 +155,7 @@ export function headingOf({
         answered={answered}
         approving={approving}
         stale={stale}
+        rerunningChecks={rerunningChecks === true}
         onAct={onAct}
         onActHeld={onActHeld}
         onApprove={onApprove}

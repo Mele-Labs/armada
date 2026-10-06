@@ -19,6 +19,7 @@ import { keeping } from "./studio-fleet";
 import { branchDeletedIn, forgottenIn, reclaimedIn } from "./cleanup-fleet";
 import { workflowsServed } from "./workflows-fleet";
 import { reshaped, rescued, scoutRead } from "./slots-fleet";
+import { isOutcome, parked, pausedRefusal, resumed } from "./pause-fleet";
 import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
 import { onTimePassing } from "./time-passes";
 import { accepted, askedAgain } from "./undecided-fleet";
@@ -162,6 +163,25 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
   const unread = (route: string) => ({ state: "failed", outcome: unanswered(route) }) as const;
   const nothing = { state: "none" } as const;
 
+  /** A Job paused or resumed, folded as `job.paused` and `job.resumed` fold: the row whole, and the pool read again. */
+  function pausing(jobId: string, kind: "job.paused" | "job.resumed"): Outcome {
+    const was = state.jobs.find((job) => job.id === jobId);
+    if (was === undefined) return unanswered(path(jobId));
+    const done = kind === "job.paused" ? parked(was, held, new Date().toISOString()) : resumed(was, held);
+    if (isOutcome(done)) return done;
+    held = done.held;
+    const watched = state.watched;
+    publish({
+      jobs: state.jobs.map((job) => (job.id === jobId ? done.job : job)),
+      watched: watched.state === "read" && watched.jobId === jobId ? { ...watched, detail: { ...watched.detail, job: done.job } } : watched,
+      ...(state.held.state === "read" && held !== undefined ? { held: { state: "read", held } } : {}),
+    });
+    return OK;
+  }
+
+  /** An act on a paused Job, refused as Fleet refuses it; `undefined` where it goes on. */
+  const whilePaused = (jobId: string) => pausedRefusal(state.jobs.find((job) => job.id === jobId));
+
   const api: BridgeApi = {
     protocolVersion: () => PROTOCOL_VERSION,
     state: async () => state,
@@ -231,8 +251,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     redispatchJob: async () => OK,
     killDrone: async () => OK,
     killJob: async (jobId) => (move(jobId, { status: "killed" }), OK),
-    parkJob: async () => OK,
-    resumeJob: async () => OK,
+    parkJob: async (jobId) => pausing(jobId, "job.paused"),
+    resumeJob: async (jobId) => pausing(jobId, "job.resumed"),
     // Accepted, as Fleet answers a pid in the Job's tree (#1647). The mock
     // takes no second reading, so the row stays where Fleet's would drop.
     killProcess: async () => OK,
@@ -374,8 +394,8 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     },
     setReviewModel: async () => OK,
     removeAllowedCommand: async () => OK,
-    restartStep: async () => OK,
-    overrideVerdict: async (jobId) => (stepping(jobId, accepted), OK),
+    restartStep: async (jobId) => whilePaused(jobId) ?? OK,
+    overrideVerdict: async (jobId) => whilePaused(jobId) ?? (stepping(jobId, accepted), OK),
     rerunGate: async (jobId) => (stepping(jobId, askedAgain), OK),
     rerunChecks: async () => OK,
     showAgain: async () => OK,
@@ -405,8 +425,16 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // arrive with it, and main reads its Drones with it.
     watchJob: async (jobId) => {
       const reads = jobId === null ? undefined : readsOf(jobId);
+      // The Job as the board holds it now, so a pause made before it was opened is on its detail.
+      const row = state.jobs.find((job) => job.id === jobId);
+      const watched = reads?.watched;
       publish({
-        watched: jobId === null ? nothing : (reads?.watched ?? failed(jobId, "")),
+        watched:
+          jobId === null
+            ? nothing
+            : watched?.state === "read" && row !== undefined
+              ? { ...watched, detail: { ...watched.detail, job: row } }
+              : (watched ?? failed(jobId, "")),
         jobDrones: reads?.jobDrones ?? nothing,
         footprint: reads?.recorded.footprint ?? nothing,
         handed: reads?.recorded.handed ?? nothing,
@@ -464,6 +492,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     saveManifestFile: async () => unread("/manifest/file"),
     editManifest: async () => unread("/manifest/edit"),
     readManifestSpend: async () => refused("/manifest/spend"),
+    readManifestChecks: async () => refused("/manifest/checks"),
 
     readRepositoryScan: async () => refused("/repositories/scan"),
     readManifestProposals: async () => refused("/manifest/proposals"),
@@ -566,14 +595,14 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     // Every scenario keeps Studios, so the surface opens wherever it is reached. A scenario naming
     // none keeps an empty list and draws its empty state, never a read failure — #1341.
     ...studios,
-    approveReview: async () => OK,
+    approveReview: async (jobId) => whilePaused(jobId) ?? OK,
     mergePullRequest: async () => OK,
     rerunFailedChecks: async () => OK,
     investigateFailedChecks: async () => OK,
     queueAfterFinding: async () => OK,
     fileFindingIssue: async () => OK,
     openFindingIssue: async () => ({ ok: false, why: "no_address" }),
-    requestChanges: async () => OK,
+    requestChanges: async (jobId) => whilePaused(jobId) ?? OK,
     removeWalkNote: async () => OK,
     rejectWork: async (jobId) => (move(jobId, { status: "rejected" }), OK),
     readRemarks: async (jobId) =>

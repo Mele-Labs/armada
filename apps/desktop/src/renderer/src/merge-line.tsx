@@ -6,7 +6,7 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
@@ -33,7 +33,7 @@ export function hiddenSurfaces(state: Lined): readonly string[] {
  * A panel for each line there is, and the log panel a Check on any of them opens in: **one, held
  * here**, so a second press replaces the first rather than stacking a panel per line.
  */
-export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink: (address: string) => void }) {
+export function MergeLinePanel({ state, onOpenLink, focus }: { state: Lined; onOpenLink: (address: string) => void; focus?: string }) {
   const [reading, setReading] = useState<LandCheckAt | null>(null);
   const floor = useAtFloor();
   return (
@@ -42,6 +42,7 @@ export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink
         <OneLine
           key={view.root}
           view={view}
+          {...(focus === undefined ? {} : { focus })}
           onOpenLink={onOpenLink}
           onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
         />
@@ -62,14 +63,23 @@ export function MergeLinePanel({ state, onOpenLink }: { state: Lined; onOpenLink
 /** One repository's panel, folded on its own. */
 function OneLine({
   view,
+  focus,
   onOpenLink,
   onOpenCheck,
 }: {
   view: MergeLineView;
+  /** A branch another surface asked for. The panel opens if it holds it. */
+  focus?: string;
   onOpenLink: (address: string) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
+  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack].some((one) => one.branch === focus);
+  useEffect(() => {
+    // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
+    if (holds) setOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holds, focus]);
   return (
     <MergeLine
       name={view.name}
@@ -78,6 +88,7 @@ function OneLine({
       sentBack={view.sentBack}
       notice={view.notice}
       open={open}
+      {...(holds ? { focus } : {})}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}
@@ -91,16 +102,18 @@ export function MergeLineSurface({
   bridge,
   onCopied,
   onOpenLink,
+  focus,
 }: {
   state: Lined;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
+  focus?: string;
 }) {
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview">
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} {...(focus === undefined ? {} : { focus })} />
       </div>
     </Boundary>
   );

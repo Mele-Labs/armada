@@ -17,6 +17,8 @@
 
 import type { Criterion, JobDetail, JobSummary, Settled } from "@armada/protocol";
 
+import { pausedSaid } from "../pausing";
+
 /**
  * One Job of the wave.
  *
@@ -42,6 +44,8 @@ export type WaveJobView = {
   waits_on: readonly string[];
   /** Where its pull request settled, where it has. `Settled` on the wire. */
   landed?: Settled;
+  /** The tooltip of the mark beside its status, where the Job is paused. */
+  paused?: string;
   /**
    * What its Drone is handed, and what the split expects of it — the plan's
    * own brief for this piece, as `JobDetail.facts` and `acceptance_criteria`
@@ -125,6 +129,7 @@ export function waveOf(detail: JobDetail, board: readonly JobSummary[]): WaveVie
             round: row.dispatched_pass,
             waits_on: row.waits_on ?? [],
             ...(row.landed === undefined ? {} : { landed: row.landed }),
+            ...(row.paused === undefined ? {} : { paused: pausedSaid(row)! }),
           },
         ],
   );
