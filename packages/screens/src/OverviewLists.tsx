@@ -53,6 +53,8 @@ export type OverviewListsProps = {
   picked: string | null;
   /** The connection's own statement, where Fleet cannot be reached — `BoardEmpty`'s fault state. */
   disconnected: string | null;
+  /** Fleet's process is up and has not answered yet, so there is nothing to start. */
+  starting?: boolean;
   /** The Job whose detail is open, where one is. */
   selected: string | null;
   /**
@@ -99,6 +101,7 @@ export function OverviewLists({
   repositories,
   picked,
   disconnected,
+  starting = false,
   selected,
   openSections,
   onSectionOpenChange,
@@ -207,6 +210,7 @@ export function OverviewLists({
           empty={
             <BoardEmpty
               disconnected={disconnected}
+              starting={starting}
               why={null}
               suspended={false}
               nothingServed={repositories.length === 0}

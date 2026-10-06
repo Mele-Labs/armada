@@ -1,7 +1,7 @@
 // What the Board says when it draws no row. Out of `Jobs.tsx`, which reached the 500 lines the gate
 // warns at when a fourth case joined these three: Fleet serving no repository yet.
 
-import { actionOf, BoardEmptyState, Button, Kbd } from "@armada/components";
+import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd } from "@armada/components";
 
 import { NOTHING_SERVED } from "./locate-reads";
 
@@ -36,12 +36,15 @@ export function OverviewEmpty({ onCompose }: { onCompose: () => void }) {
 
 export function BoardEmpty({
   disconnected,
+  starting = false,
   why,
   suspended,
   nothingServed,
   onClear,
 }: {
   disconnected: string | null;
+  /** Fleet's process is up and has not answered yet: the glyph alone, and no command to run. */
+  starting?: boolean;
   /** What emptied the list, where a control did. */
   why: string | null;
   suspended: boolean;
@@ -54,6 +57,17 @@ export function BoardEmpty({
   // Fleet that is up with no work is a null result, one that is not
   // running is a fault Bridge cannot fix, and a filter that emptied
   // the list is neither — it is a control saying so.
+  if (disconnected !== null && starting) {
+    // A Fleet that is coming up has nothing to be started: no sentence and no command, the one
+    // glyph the Fleet panel's head draws, named on hover.
+    return (
+      <BoardEmptyState>
+        <span role="img" aria-label="Starting" title={fleetSaid("Starting")}>
+          <FleetStarting className="armada-fleet-starting" size={16} />
+        </span>
+      </BoardEmptyState>
+    );
+  }
   if (disconnected !== null) {
     return (
       <BoardEmptyState command="armada fleet start" note={disconnected}>

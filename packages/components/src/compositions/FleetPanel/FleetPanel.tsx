@@ -82,8 +82,8 @@ export const FLEET_DOT_TONE: Record<FleetState, "success" | "escalated" | "warn"
  * breathing at `--duration-pulse`, and its tooltip is the word. Drawn in place
  * of the dot wherever the dot is drawn.
  */
-export function FleetStarting({ className }: { className: string }) {
-  return <Server size={12} strokeWidth={2} className={className} aria-hidden />;
+export function FleetStarting({ className, size = 12 }: { className: string; size?: 12 | 16 }) {
+  return <Server size={size} strokeWidth={2} className={className} aria-hidden />;
 }
 
 export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
