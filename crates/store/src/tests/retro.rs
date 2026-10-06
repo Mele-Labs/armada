@@ -351,7 +351,7 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
             .expect("read")
             .iter()
             .all(|lesson| lesson.line.change.is_none() && !lesson.applied),
-        "V109 gives an item kept before it no change and nothing applied"
+        "V110 gives an item kept before it no change and nothing applied"
     );
     for place in LandsIn::ALL {
         assert!(

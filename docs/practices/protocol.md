@@ -3041,7 +3041,7 @@ matches on, so a variant added there is a major bump by the table above; a `scop
 read by Fleet alone. `offers` is unchanged, and a Fleet at 23.35 or later takes both scopes whenever
 it offers Always allow.
 
-**One migration, V109**, on `job_retro_items`: `change_kind`, `change_command` and `applied`, all
+**One migration, V110**, on `job_retro_items`: `change_kind`, `change_command` and `applied`, all
 null or false on every item kept before. **No event.** Agreeing is the one place a retro acts and its
 answer is the `Lesson`.
 

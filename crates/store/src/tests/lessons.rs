@@ -113,7 +113,7 @@ fn an_agreed_item_with_no_job_is_given_back_and_one_with_a_job_is_not() {
 }
 
 /// **A change is kept with its item, accepting applies it once**, and an item
-/// with no change is never marked applied. V109.
+/// with no change is never marked applied. V110.
 #[test]
 fn a_change_is_kept_and_accepting_applies_it_once() {
     let dir = TempDir::new();

@@ -87,7 +87,7 @@ ALTER TABLE job_retro_items ADD COLUMN job_proposed TEXT;
 /// was asked has none to copy. `applied` is what makes a second press apply
 /// nothing, and is only ever set by the same write that moves the item to
 /// `accepted`.
-pub(crate) const V109: &str = r#"
+pub(crate) const V110: &str = r#"
 ALTER TABLE job_retro_items ADD COLUMN change_kind TEXT
     CHECK (change_kind IS NULL OR change_kind IN ('allow_command'));
 ALTER TABLE job_retro_items ADD COLUMN change_command TEXT
@@ -116,7 +116,7 @@ pub struct RetroLine {
     pub lands_in: Option<LandsIn>,
     /// The change to Kit that pressing Accept applies. **Only on a Kit item**,
     /// and only where Fleet copied it off a refusal the record shows. Since
-    /// V109.
+    /// V110.
     pub change: Option<Change>,
 }
 
@@ -154,7 +154,7 @@ pub struct KeptLesson {
     /// The Job proposed for it, once one was.
     pub job_proposed: Option<JobId>,
     /// Whether Accept applied the item's change. **Never true of an item with
-    /// none.** Since V109.
+    /// none.** Since V110.
     pub applied: bool,
 }
 
