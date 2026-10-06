@@ -9,8 +9,12 @@ import { LIVE_LOGS } from "@armada/screens/src/fixtures/build/arc-checking";
 import type { BridgeApi } from "../../../shared/api";
 import type { FleetHandle } from "./moment";
 
-/** How far apart a running Check's lines arrive: inside a walk step's five-second wait. */
-const ARRIVING_MS = 2_000;
+/**
+ * How far apart a running Check's lines arrive: inside a walk step's five-second wait. **A walk
+ * that reads two of them waits out six seconds of the clock**, which is what put it past its
+ * budget on a loaded runner, so the suite that plays walks shortens it: `play-walks.ts`.
+ */
+export const pace = { arrivingMs: 2_000 };
 
 /** A log: what it held when the panel opened, and what the Check writes after. Nothing after is ended. */
 type Played = { lines: readonly string[]; arriving: readonly string[] };
@@ -70,7 +74,7 @@ export function writingLogs(fleet: FleetHandle): Partial<BridgeApi> {
   function play(log: Played, show: (lines: string[], ended: string | undefined) => void): void {
     show([...log.lines], log.arriving.length === 0 ? "finished" : undefined);
     log.arriving.forEach((_, n) => {
-      timers.push(setTimeout(() => show([...log.lines, ...log.arriving.slice(0, n + 1)], undefined), ARRIVING_MS * (n + 1)));
+      timers.push(setTimeout(() => show([...log.lines, ...log.arriving.slice(0, n + 1)], undefined), pace.arrivingMs * (n + 1)));
     });
   }
   return {

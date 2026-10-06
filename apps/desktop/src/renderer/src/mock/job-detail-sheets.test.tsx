@@ -75,8 +75,14 @@ test("L opens nothing, now the log is gone", async () => {
 test("o opens the failed Check's output in the editor rather than a sheet", async () => {
   const api = await opened(escalatedGateFailure());
   const openArtifact = vi.spyOn(api, "openArtifact");
-  await userEvent.keyboard("o");
-  await expect.poll(() => openArtifact.mock.calls.length).toBe(1);
+  // **Pressed until it lands.** The key is bound in an effect, which can run after the Job is on
+  // screen, and a keystroke before it is lost with nothing to wait on. It stops at the first one.
+  await expect
+    .poll(async () => {
+      if (openArtifact.mock.calls.length === 0) await userEvent.keyboard("o");
+      return openArtifact.mock.calls.length;
+    })
+    .toBe(1);
   expect(openArtifact.mock.calls[0]![0]).toBe(JOB_ID);
 });
 

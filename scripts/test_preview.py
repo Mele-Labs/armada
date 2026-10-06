@@ -6,11 +6,14 @@
 #
 #   python3 scripts/test_preview.py
 
+import http.server
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -234,10 +237,142 @@ class Preview(unittest.TestCase):
         os.environ["ARMADA_PREVIEW_RESTART"] = script
         try:
             self.run_preview("--restart", "--dry-run")
+            with open(record) as f:
+                self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--dry-run"])
+            self.run_preview("--restart", "--adopt")
+            with open(record) as f:
+                self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--adopt"])
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
-        with open(record) as f:
-            self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--dry-run"])
+
+
+RESTART = os.path.join(HERE, "scripts", "restart")
+
+
+def roster_server(jobs):
+    """A Fleet's two reads, `/drones` and `/jobs/<id>`, from {job_id: status}."""
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/drones":
+                body = {"drones": [{"handle": f"drone-{j}", "job_id": j} for j in jobs]}
+            elif self.path.startswith("/jobs/") and self.path[6:] in jobs:
+                body = {"job": {"status": jobs[self.path[6:]]}}
+            else:
+                self.send_error(404)
+                return
+            data = json.dumps(body).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+class RestartAdopt(unittest.TestCase):
+    """`scripts/restart` under a scratch HOME against a stubbed roster. Never the real one."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.home = os.path.join(self.dir, "home")
+        support = os.path.join(self.home, "Library", "Application Support", "Armada")
+        os.makedirs(support)
+        self.support = support
+        self.tree = os.path.join(self.dir, "tree")
+        os.makedirs(os.path.join(self.tree, "crates", "armada"))
+        os.makedirs(os.path.join(self.tree, "crates", "store", "src"))
+        os.makedirs(os.path.join(self.tree, "apps", "desktop"))
+        open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
+        with open(os.path.join(self.tree, "crates", "store", "src", "migrations.rs"), "w") as f:
+            f.write(MIGRATIONS)
+        # The build steps run before the late roster check; stubs keep them off.
+        self.bin = os.path.join(self.dir, "bin")
+        os.makedirs(self.bin)
+        for name in ("cargo", "pnpm"):
+            path = os.path.join(self.bin, name)
+            with open(path, "w") as f:
+                f.write("#!/bin/sh\nexit 0\n")
+            os.chmod(path, 0o755)
+
+    def fleet(self, jobs):
+        server = roster_server(jobs)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        with open(os.path.join(self.support, "fleet.json"), "w") as f:
+            json.dump({"pid": os.getpid(), "port": server.server_address[1]}, f)
+
+    def restart(self, *args):
+        env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"])
+        done = subprocess.run([RESTART, "--from", self.tree, *args], env=env, capture_output=True, text=True)
+        return done.returncode, done.stdout + done.stderr
+
+    def test_a_working_drone_refuses_without_adopt(self):
+        self.fleet({"j1": "running", "j2": "escalated"})
+        code, said = self.restart()
+        self.assertNotEqual(code, 0)
+        self.assertIn("refusing — drone-j1's Drone is working", said)
+        self.assertNotIn("unheard", said)
+
+    def test_dry_run_without_adopt_says_it_would_refuse(self):
+        self.fleet({"j1": "running"})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("the restart would refuse", said)
+
+    def test_adopt_skips_the_refusal_and_prints_jobs_and_costs_once(self):
+        self.fleet({"j1": "running", "j2": "running", "j3": "escalated"})
+        # Past the check the script touches launchd, so the dry run stands for "proceeds".
+        code, said = self.restart("--adopt", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("drone-j1 (j1)", said)
+        self.assertIn("drone-j2 (j2)", said)
+        self.assertNotIn("j3", said)
+        self.assertIn("a working Drone would be adopted and the refusal skipped", said)
+        for cost in ("cannot be redirected, poked or handed a verdict", "undercount", "`unheard`",
+                     "servers stop when Fleet stops", "gate re-runs from scratch",
+                     "a Drone that cannot be adopted is ended"):
+            self.assertEqual(said.count(cost), 1, cost)
+
+    def test_adopt_with_no_drone_working_prints_no_costs(self):
+        self.fleet({"j1": "escalated"})
+        code, said = self.restart("--adopt", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertNotIn("undercount", said)
+
+    def test_adopt_still_refuses_when_the_roster_does_not_answer(self):
+        self.fleet({})
+        server = roster_server({})
+        port = server.server_address[1]
+        server.shutdown()
+        server.server_close()
+        with open(os.path.join(self.support, "fleet.json"), "w") as f:
+            json.dump({"pid": os.getpid(), "port": port}, f)
+        code, said = self.restart("--adopt")
+        self.assertNotEqual(code, 0)
+        self.assertIn("did not answer", said)
+        code, said = self.restart("--adopt", "--dry-run")
+        self.assertIn("would still refuse", said)
+
+
+class PreviewAdopt(unittest.TestCase):
+    def run_preview(self, *args):
+        return subprocess.run([PREVIEW, *args], capture_output=True, text=True)
+
+    def test_adopt_is_only_for_restart(self):
+        done = self.run_preview("--adopt")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("--adopt is for --restart", done.stderr)
+
+    def test_adopt_is_refused_with_watch(self):
+        done = self.run_preview("--watch", "--restart", "--adopt")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("--watch never restarts Fleet", done.stderr)
 
     def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
         self.branch("feat/a", {"a.txt": "a\n"})
