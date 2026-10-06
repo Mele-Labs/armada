@@ -16,6 +16,7 @@ use crate::Priority;
 const OWN_PRIORITY: &str = "/bin/sh -c 'ps -o pri= -p $$'";
 
 /// Utility QoS's band; normal work is 31.
+#[cfg(target_os = "macos")]
 const UTILITY: u32 = 20;
 
 async fn priority_of_a_check_at(priority: Priority) -> u32 {
