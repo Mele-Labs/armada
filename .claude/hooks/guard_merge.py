@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""PreToolUse: a merge to `main` goes through the line, never by hand.
+"""PreToolUse: an agent never merges to `main`.
 
-Two green branches can each pass every Check and still leave `main` red, because
-each ran its Checks against a `main` that had moved by the time it merged. That
-is what `scripts/land` exists to stop, and it only holds while every merge goes
-through it — so this refuses the three commands that reach `main` around it: a
-push to it, a forge merge, and a `git merge` run in the checkout that has it.
+Merges to `main` go through pull requests and the `ci` check, and the owner
+presses the button. So this refuses the three commands that reach `main`
+around that: a push to it, a forge merge, and a `git merge` run in the
+checkout that has it. `scripts/land` and `armada land` drain what is already
+queued on the merge line and are not refused here.
 
 Reads the hook payload on stdin and answers `deny` or nothing at all.
-`docs/capabilities/merge-line.md` is the design.
+`docs/capabilities/merge-line.md` is the design of the line being retired.
 
 The line's own push of `main` is the one allowed, and it never reaches this
 hook: the detached runner makes it, not the Bash tool. So no command typed
@@ -26,16 +26,17 @@ BASE = "main"
 BASE_REFS = (BASE, f"refs/heads/{BASE}")
 
 SAY = (
-    "Merges to `main` go through `scripts/land`, which reruns the Checks a "
-    "moved `main` hits — the check a merge by hand skips, and the reason two "
-    "green branches can leave `main` red.\n"
-    "  scripts/land preflight   # once the branch's self-check passes\n"
-    "  scripts/land             # joins the line and returns\n"
-    "  scripts/land --status    # poll this until it stops exiting 3\n"
-    "Exit 10 is not the end: a Check failed that `main` is green for, the "
-    "turn is still running, and the branch must not be pushed — read what it names.\n"
-    "Run it as soon as the work is committed; nobody approves it first. "
-    "docs/capabilities/merge-line.md says what it does."
+    "A merge to `main` is the owner's, made on a pull request with \"Create a "
+    "merge commit\". An agent never merges. When the branch's self-check "
+    "passes:\n"
+    "  git push -u origin <branch>\n"
+    "  gh pr create --base main   # say what the diff cannot; end with "
+    "\"Merge with Create a merge commit\"\n"
+    "then stop. GitHub runs the `checks` workflow: `ci` is the gate and "
+    "`desktop_test` reports beside it. If `ci` is red, read `gh pr checks <n>` "
+    "and `gh run view --log-failed`, fix on the same branch and push again; "
+    "the pull request updates.\n"
+    "docs/practices/ci.md says what the workflow runs."
 )
 
 
