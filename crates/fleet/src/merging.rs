@@ -105,7 +105,7 @@ where
                 self.said_about_the_merge(
                     &job,
                     Level::Warn,
-                    "the merge waits behind a need another Job or branch declared first",
+                    "the merge is held by a need: one declared ahead of it, or none declared for a number it took",
                     &url,
                     Some(why),
                 );

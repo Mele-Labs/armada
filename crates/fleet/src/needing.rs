@@ -13,7 +13,7 @@
 //! | Act | What it does to a need |
 //! |---|---|
 //! | `declare_scope`, `record_plan`, `add_task` carrying `needs` | Declares it, and tells this Job's Drone who is ahead |
-//! | A press to merge, under `forge` and under `push` alike | Refused while a need ahead stands, naming what it waits behind |
+//! | A press to merge, under `forge` and under `push` alike | Refused while a need ahead stands, naming what it waits behind, and refused where the branch changes a watched path (`adapters::undeclared`) with no need declared |
 //! | The Job reaching a terminal status | Spends it where it landed, gives it back where it was dropped: one removal |
 //!
 //! **Under `merge_by: forge` it is still Fleet that holds**, because it is
@@ -25,6 +25,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, NotMerged, Vcs, WorkProduct};
 use adapters::needs::{waiting_text, Need, Needs};
+use adapters::undeclared::undeclared;
 use core_model::{Component, Envelope, FieldValue, Job, JobId, Level};
 use ipc::mcp::NeedClaim;
 
@@ -112,10 +113,21 @@ where
     /// Refuse the merge while a need ahead of this Job's stands, naming what it
     /// waits behind. **Read at the press, never frozen**, so a need given back
     /// frees the Job on its next press without anything being told.
+    ///
+    /// **And refused outright where the Job changes a watched path it never
+    /// declared a need on**, `adapters::undeclared`: the rule `armada land`
+    /// holds a session to, so a Job is held to the same one. A diff git cannot
+    /// read is a line in the log and not a refusal, as `needs_of` is.
     pub(crate) async fn held_behind_needs(&self, job: &Job) -> Result<(), Adrift> {
         let Some((needs, branch)) = self.needs_of(job) else {
             return Ok(());
         };
+        if let Some(said) = self.took_an_undeclared_number(job, &needs, &branch).await {
+            return Err(Adrift::NotMerged {
+                job: job.id().clone(),
+                why: NotMerged::WaitingBehind { said },
+            });
+        }
         let behind = tokio::task::spawn_blocking(move || needs.behind(&branch))
             .await
             .unwrap_or_default();
@@ -128,6 +140,40 @@ where
                 said: waiting_text(&behind),
             },
         })
+    }
+
+    /// What to run, where this Job's branch changes a watched path with no need
+    /// declared for it.
+    async fn took_an_undeclared_number(
+        &self,
+        job: &Job,
+        needs: &Needs,
+        branch: &str,
+    ) -> Option<String> {
+        let served = self.served_by(job).ok()?;
+        let root = served.root().to_string();
+        let base = self
+            .vcs()
+            .base_commit(&root, served.manifest().base())
+            .ok()??;
+        let (needs, branch) = (needs.clone(), branch.to_string());
+        let read = tokio::task::spawn_blocking(move || {
+            undeclared(Path::new(&root), &base, &branch, &needs)
+        })
+        .await
+        .unwrap_or(Ok(None));
+        match read {
+            Ok(said) => said,
+            Err(why) => {
+                self.said_about_needs(
+                    job.id(),
+                    Level::Warn,
+                    "the diff could not be read for a number taken without a need",
+                    Some(&why),
+                );
+                None
+            }
+        }
     }
 
     /// The Job reached a terminal status: every need it held is spent, where it
