@@ -503,6 +503,7 @@ impl Studios for FakeDaemon {
                     command: format!("run {}", run.name),
                     started_at: Instant::carried(AT),
                     workspace: run.workspace.clone(),
+                    requester: ipc::Requester::outside(),
                 },
             })
         })

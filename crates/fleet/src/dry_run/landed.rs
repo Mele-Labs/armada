@@ -11,13 +11,63 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::JobId;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use super::{ChecksReported, HEADING};
+use super::{ChecksReported, Plan, HEADING};
+use crate::converging::elapsed;
 use crate::checking::Completed;
 use crate::daemon::Fleet;
 use crate::session::{LiveSession, Occasion};
 use crate::underway::{Heard, Landed};
 
 impl ChecksReported {
+    /// The task running the Checks died before it could report.
+    pub(super) fn lost(panicked: bool) -> ChecksReported {
+        let how = match panicked {
+            true => "Fleet's task for them failed",
+            false => "Fleet's task for them was cancelled",
+        };
+        ChecksReported(format!(
+            "{HEADING}\n\nThe checks stopped before they finished: {how}. This is a fault in \
+             Fleet and not in your work. Ask again, or submit when the work is done."
+        ))
+    }
+
+    /// Where a run that is still going stands, told on a timer so the Drone
+    /// never has to ask: what runs and for how long, what waits, what is done.
+    pub(super) fn standing(rows: &[ipc::CheckUnderway], now: &core_model::Timestamp) -> ChecksReported {
+        let named = |names: Vec<String>| names.join(", ");
+        let running = rows
+            .iter()
+            .filter(|row| row.ran.is_none())
+            .filter_map(|row| {
+                let began = row.started_at.as_ref()?.to_domain();
+                let secs = elapsed(&began, now).as_secs();
+                Some(format!("`{}` ({}m {:02}s)", row.name, secs / 60, secs % 60))
+            })
+            .collect::<Vec<_>>();
+        let waiting = rows
+            .iter()
+            .filter(|row| row.started_at.is_none() && row.ran.is_none())
+            .map(|row| format!("`{}`", row.name))
+            .collect::<Vec<_>>();
+        let done = rows
+            .iter()
+            .filter(|row| row.ran.is_some())
+            .map(|row| format!("`{}`", row.name))
+            .collect::<Vec<_>>();
+        let mut lines = vec![format!("{HEADING}\n\nThe run is still going.")];
+        if !running.is_empty() {
+            lines.push(format!("Running: {}.", named(running)));
+        }
+        if !waiting.is_empty() {
+            lines.push(format!("Waiting for a Check slot or a Command: {}.", named(waiting)));
+        }
+        if !done.is_empty() {
+            lines.push(format!("Done: {}.", named(done)));
+        }
+        lines.push("Each result arrives as its own turn, and the last one says the run is over.".into());
+        ChecksReported(lines.join(" ").replacen(". Running", ".\n\nRunning", 1))
+    }
+
     /// One result, landed while others still run.
     pub(super) fn landed(landed: &Landed) -> ChecksReported {
         let came_to = landed
@@ -81,14 +131,19 @@ where
         &self,
         caller: &JobId,
         run: u64,
+        plan: &Plan,
         running: impl Future<Output = Vec<Completed>>,
         mut hearing: UnboundedReceiver<Heard>,
     ) -> Vec<Completed> {
         tokio::pin!(running);
+        let every = self.budget().status_every();
+        let mut ticking = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
+        ticking.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let completed = loop {
             tokio::select! {
                 biased;
                 Some(heard) = hearing.recv() => self.told_heard(caller, run, heard).await,
+                _ = ticking.tick() => self.told_standing(caller, run, plan).await,
                 completed = &mut running => break completed,
             }
         };
@@ -97,6 +152,29 @@ where
             self.told_heard(caller, run, heard).await;
         }
         completed
+    }
+
+    /// Tell the Drone where its run stands, only while it is still the one in flight.
+    async fn told_standing(&self, caller: &JobId, run: u64, plan: &Plan) {
+        let Some(underway) = self.underway().dry_run_on(
+            &ipc::JobId::from(plan.record.id()),
+            &ipc::StepId::from(&plan.step),
+        ) else {
+            return;
+        };
+        let told = ChecksReported::standing(&underway.checks, &self.now());
+        let Some(slot) = self.slot_of(caller).await else {
+            return;
+        };
+        let working = slot.lock().await;
+        let Some(at_work) = working
+            .as_ref()
+            .filter(|at_work| at_work.checks_in_flight(run))
+        else {
+            return;
+        };
+        at_work.instructed(Occasion::Checks, told.text());
+        let _ = at_work.session().checks(&told).await;
     }
 
     /// Tell the Drone one result, only while its run is still the one in flight.

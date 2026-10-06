@@ -224,6 +224,7 @@ export * from "./compositions/ConsoleOutput/ConsoleOutput";
 // evidence record: it has a kind and a file, and the only difference from a
 // Drone's evidence is who produced it.
 export * from "./compositions/CheckRuns/CheckRuns";
+export * from "./compositions/CheckList/CheckList";
 
 // The panel's answer, as criteria against judges. The measured band is the
 // veto-only contract drawn: it says which parts of a verdict rest on a machine

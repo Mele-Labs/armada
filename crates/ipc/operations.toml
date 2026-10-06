@@ -2787,6 +2787,8 @@ description = "One Job's earlier runs from the run sheet: name, exit code, when,
 notes = """
 **Read off the run directories, not a table.** Each run keeps a directory under the repository's records root — its log and a small record — and this lists them, newest first. A run from the sheet is a rehearsal and writes no `job_step_checks` row and no Evidence, so there is no row to read. A record that will not read is answered in `unreadable` rather than dropped.
 
+**`asked_runs` is the one part read from a table**: the Checks a Drone asked for on this Job, each its own row and never among `runs` (since 23.38). A dry result is not a rehearsal's, and no row here is a `job_step_checks` row either.
+
 Kept for the Machine's ad-hoc run log retention, thirty days, swept when the Job's sheet next starts a run.
 
 `agent_access` is `Yes`: a rehearsal moves nothing on the Job, so an agent reading what it or a person already ran costs the record no integrity.

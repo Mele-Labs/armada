@@ -75,6 +75,7 @@ fn a_record() -> RunRecord {
         snapshot: Some("refs/armada/rehearsals/01RUN".to_string()),
         undone_at: None,
         log: ".armada/runs/01JOB/01RUN/output.log".to_string(),
+        requester: crate::Requester::outside(),
     }
 }
 
@@ -183,6 +184,7 @@ fn a_verify_step_carries_its_state_flat_and_reads_back() {
         started_at: at("2026-09-12T10:00:00.000Z"),
         ended_at: None,
         workspace: Some("apps/web".to_string()),
+        requester: crate::Requester::outside(),
         steps: vec![
             VerifyStep {
                 group: VerifyGroup::Setup,
@@ -213,4 +215,17 @@ fn a_verify_step_carries_its_state_flat_and_reads_back() {
     assert!(sent.contains(r#""state":"waiting""#), "{sent}");
     let back: CheckoutVerify = decode("a Verify", sent.as_bytes()).expect("reads back");
     assert_eq!(back, verify);
+}
+
+/// **A record written before 23.38 reads as outside a Job**, which is what it
+/// was: nothing in Armada asked for it.
+#[test]
+fn a_run_record_from_before_the_requester_reads_as_outside_a_job() {
+    let mut value: serde_json::Value =
+        serde_json::from_str(&encode(&a_record()).expect("plain data")).expect("json");
+    value.as_object_mut().expect("an object").remove("requester");
+    let older = value.to_string();
+    let read: RunRecord = decode("an older run", older.as_bytes()).expect("it reads");
+    assert_eq!(read.requester, crate::Requester::outside());
+    assert!(encode(&read).expect("plain data").contains(r#""requester":{"kind":"outside"}"#));
 }

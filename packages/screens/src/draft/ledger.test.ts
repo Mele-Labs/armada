@@ -1,6 +1,6 @@
 // A Record row, from the three shapes the log admits.
 
-import type { JobDetail, Recorded } from "@armada/protocol";
+import type { AskedRun, JobDetail, Recorded } from "@armada/protocol";
 import { describe, expect, it } from "vitest";
 
 import { executingSequential } from "../fixtures/build/arc";
@@ -234,6 +234,58 @@ describe("the Record, composed from today's reads", () => {
     const rows = ledgerOf({ detail: { ...arcDetail(), steps: [], work_plan: undefined } });
 
     expect(rows.map((row) => row.kind)).toContain("created");
+  });
+});
+
+describe("the Checks a Drone asked for", () => {
+  const asked = (over: Partial<AskedRun> = {}): AskedRun => ({
+    id: 1,
+    requester: { kind: "drone_step", job_id: "01JOB", step: "implement", drone_id: "01DRONE" },
+    attempt: 1,
+    started_at: "2026-10-06T10:00:00.000Z",
+    state: "failed",
+    checks: ["suite", "lint"],
+    narrowed: false,
+    ...over,
+  });
+  const withAsked = (...runs: AskedRun[]): JobDetail => {
+    const detail = arcDetail();
+    const [first, ...rest] = detail.steps;
+    return { ...detail, steps: [{ ...first!, asked_runs: runs }, ...rest] };
+  };
+
+  it("gives each asked run its own row, signed by the Drone, under the Checks filter", () => {
+    const rows = ledgerOf({ detail: withAsked(asked(), asked({ id: 2, state: "passed" })) }).filter(
+      (row) => row.kind === "asked_run",
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.actor === "drone")).toBe(true);
+    expect(familyOf("asked_run")).toBe("checks");
+  });
+
+  it("says how each ended, and names the Checks it was about", () => {
+    const rows = ledgerOf({
+      detail: withAsked(asked({ state: "lost" }), asked({ id: 2, state: "running" })),
+    }).filter((row) => row.kind === "asked_run");
+
+    expect(rows.map((row) => row.outcome).sort()).toEqual(["Lost", "Running"]);
+    expect(rows[0]!.what).toContain("suite, lint");
+  });
+
+  it("is never a Check's row", () => {
+    const rows = ledgerOf({ detail: withAsked(asked()) });
+
+    expect(rows.filter((row) => row.kind === "checked").every((row) => row.actor === "check")).toBe(true);
+    expect(rows.filter((row) => row.kind === "asked_run").some((row) => row.actor === "check")).toBe(false);
+  });
+
+  it("places the row on the step and run it was asked in", () => {
+    const row = ledgerOf({ detail: withAsked(asked({ attempt: 2 })) }).find(
+      (one) => one.kind === "asked_run",
+    );
+
+    expect(row?.coord?.step_attempt).toBe(2);
   });
 });
 

@@ -3064,6 +3064,26 @@ need through, `declare_scope` and the tasks of `record_plan` and `add_task`, is 
 this one: it takes an optional `needs`, which is why it moves no number here.
 
 
+## Protocol 23.38: who asked for a run, and a Drone's asked runs
+
+The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run shown anywhere said who asked for it. `../concepts/manifest.md`, *Who asked for a run*.
+
+**Additive only.** One new DTO set, and optional or defaulted fields; a 23.36 Bridge reads past all of it.
+
+| Field | Lands on | Carries | Absent |
+| --- | --- | --- | --- |
+| `Requester` | new, `ipc::Requester` | `kind` (an opaque string: `gate`, `drone_task`, `drone_step`, `merge_line`, `outside`) and `job_id`, `step`, `task_id`, `drone_id`, `branch` where the kind needs them | Never on the wire from 23.38; a reader treats none as `outside` |
+| `requester` | `CheckRun` (every `StepDetail.check_runs` row, stamped `gate`) | who asked | A Fleet before 23.38 |
+| `requester` | `ChecksUnderway`: `gate` on `checking`, the Drone on `dry_run` | who asked | As above |
+| `requester` | `RunUnderway`, `RunRecord`, `CheckoutRunUnderway`, `CheckoutRunRecord`, `CheckoutVerify` | `outside` | A record written before 23.38 reads `outside` |
+| `requester` | `MergeLineCheck` | `merge_line`, with the entry's `branch` | As above |
+| `asked_runs` | `StepDetail`, `RunList` | `AskedRun`: `id`, `requester`, `attempt`, `started_at`, `finished_at`, `state` (`running`, `passed`, `failed`, `stopped`, `lost`), `checks`, `narrowed`, `only_check`, `logs` | No run was asked |
+
+**An asked run is never a `CheckRun`**, so a dry result cannot be read as a gate's pass. It is its own row in `asked_runs`; a `running` row begun by a Fleet that is gone reads `lost`.
+
+**One migration, V113**, `asked_runs`, pointing at `jobs`. **Bridge's half**, mirrored by hand in `packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.38 still type.
+
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

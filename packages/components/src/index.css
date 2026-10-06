@@ -162,6 +162,7 @@
 
 /* What each Check came to, and the output behind it. */
 @import "./compositions/CheckRuns/CheckRuns.css";
+@import "./compositions/CheckList/CheckList.css";
 
 /* The panel's answer, as criteria against judges. */
 @import "./compositions/JudgeVerdicts/JudgeVerdicts.css";

@@ -36,6 +36,8 @@ mod allowing;
 /// What a person decides at a Job's approval gate, and the issue it came from.
 /// Spike 022, slice 4.
 mod approval;
+/// The Checks a Drone asked for mid-step, each its own row. Since V113.
+mod asked_runs;
 mod asking;
 mod attempt;
 /// A test broken on main, and the Job drafted to fix it. #999.
@@ -167,6 +169,7 @@ mod tests;
 
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
+pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};

@@ -36,6 +36,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{JobId, JobStatus};
 
+use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use in_flight::Held;
 pub(crate) use in_flight::Rehearsals;
@@ -197,10 +198,21 @@ where
         let job = self.load(job_id).await.map_err(|why| self.refusal(why))?;
         let place = self.job_place(job)?;
         let (kept, unreadable) = self.history_at(&place);
+        // The Drone's asked runs ride beside, as rows of their own.
+        let asked = self
+            .store()
+            .lock()
+            .await
+            .asked_runs(job_id, self.run())
+            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
         Ok(ipc::RunList {
             job_id: ipc::JobId::from(job_id),
             runs: kept.iter().filter_map(Record::of_job).collect(),
             unreadable,
+            asked_runs: asked
+                .iter()
+                .map(|run| crate::dry_run::asked::wired(job_id, run))
+                .collect(),
         })
     }
 

@@ -723,6 +723,7 @@ impl JobDetail {
                 .iter()
                 .map(|step| {
                     StepDetail::of(
+                        job.id(),
                         step,
                         job.workflow().step(step.step_id()),
                         facts_for(steps, step.step_id()),

@@ -202,6 +202,10 @@ pub struct CheckRun {
     /// Which run of that group, from one. Present exactly where `group` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_attempt: Option<u32>,
+    /// Who asked for this run. **Never absent**: a row from before 23.38 reads
+    /// as `outside`. `StepDetail` stamps `gate` on every row it carries. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 impl CheckRun {
@@ -223,7 +227,13 @@ impl CheckRun {
             reused_from_dry_run: check.reused_from_dry_run.as_ref().map(Into::into),
             group: None,
             group_attempt: None,
+            requester: crate::Requester::default(),
         }
+    }
+
+    /// The same run, said to be asked for by `requester`.
+    pub fn requested_by(self, requester: crate::Requester) -> CheckRun {
+        CheckRun { requester, ..self }
     }
 
     /// The same run, stamped with the group and the run of it whose gate it

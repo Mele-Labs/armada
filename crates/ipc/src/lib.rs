@@ -27,6 +27,8 @@
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
+/// A Drone's own run of a step's Checks, as a row of its own. Since 23.38.
+mod asked;
 /// A form's edits to `armada.yml`, as edits — the half of Journey 9's *Editing*
 /// that changes only the lines it touches.
 mod amending;
@@ -133,6 +135,8 @@ mod reclaimed;
 /// checkout. **A rehearsal, never a verdict** — nothing in it is a Check row
 /// or Evidence.
 mod rehearsal;
+/// Who asked for a Check run, as a typed value. Since 23.38.
+mod requester;
 /// What people wrote on a Job's pull request, and which of it a person picks.
 /// **The one place this seam carries text from outside this machine.**
 mod remarks;
@@ -190,6 +194,7 @@ mod work_plan;
 mod tests;
 
 pub use alerts::{Alert, AlertList};
+pub use asked::{AskedRun, AskedRunState};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft, PolicyWords,
@@ -311,6 +316,7 @@ pub use reading::{ManifestFault, ManifestMoved, ManifestReading, ManifestRefused
 pub use reclaimed::{
     BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedWorktree, WorktreeReclaimed,
 };
+pub use requester::Requester;
 pub use rehearsal::{
     CheckoutRunDiff, CheckoutRunList, CheckoutRunMessage, CheckoutRunOpened, CheckoutRunRecord,
     CheckoutRunSheet, CheckoutRunUnderway, DiffAgainst, NamedRun, RunDiffReading, RunEntry,

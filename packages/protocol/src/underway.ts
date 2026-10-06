@@ -10,6 +10,8 @@
 // finished. A word spelled beside them would be a second statement of the same
 // fact.
 
+import type { Requester } from "./requester";
+
 import type { CheckRun } from "./protocol";
 import type { ProtocolVersion } from "./version";
 
@@ -22,6 +24,8 @@ import type { ProtocolVersion } from "./version";
 export type ChecksUnderway = {
   /** Which run of the step these belong to. Joins to `check_runs` by `attempt`. */
   attempt: number;
+  /** Who asked for the run: the gate on `checking`, the Drone on `dry_run`. Since 23.38. */
+  requester?: Requester;
   /** Every declared Check, in the step's order, waiting ones included. */
   checks: CheckUnderway[];
 };

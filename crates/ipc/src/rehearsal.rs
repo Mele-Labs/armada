@@ -99,6 +99,10 @@ pub struct RunUnderway {
     pub narrowed: bool,
     /// Elapsed time is counted from here; nothing ticks on the wire.
     pub started_at: Instant,
+    /// Who asked for this run. **Never absent**: a record from before 23.38
+    /// reads as `outside`. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 /// One finished run, as its directory under `.armada` records it.
@@ -142,6 +146,10 @@ pub struct RunRecord {
     pub undone_at: Option<Instant>,
     /// The log, relative to `ManifestSummary::records_root`.
     pub log: String,
+    /// Who asked for this run. **Never absent**: a record from before 23.38
+    /// reads as `outside`. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 /// `list_runs`: a Job's earlier runs, newest first — and the directories that
@@ -151,6 +159,10 @@ pub struct RunList {
     pub job_id: JobId,
     pub runs: Vec<RunRecord>,
     pub unreadable: Vec<UnreadableRun>,
+    /// The Checks a Drone asked for on this Job, as their own rows and never
+    /// among `runs`: a dry result is not a rehearsal's. Oldest first. Since 23.38.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asked_runs: Vec<crate::AskedRun>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -303,6 +315,10 @@ pub struct CheckoutRunUnderway {
     /// The workspace whose own file declared it. Absent is the root's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<String>,
+    /// Who asked for this run. **Never absent**: a record from before 23.38
+    /// reads as `outside`. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 /// One finished checkout run, as its directory under `.armada` records it.
@@ -343,6 +359,10 @@ pub struct CheckoutRunRecord {
     pub undone_at: Option<Instant>,
     /// The log, relative to `ManifestSummary::records_root`.
     pub log: String,
+    /// Who asked for this run. **Never absent**: a record from before 23.38
+    /// reads as `outside`. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 /// `get_checkout_run_diff`: what one checkout run changed, as a patch.
@@ -455,6 +475,10 @@ pub struct CheckoutVerify {
     /// repository root. **Absent is the root's Manifest.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<String>,
+    /// Who asked for this run. **Never absent**: a record from before 23.38
+    /// reads as `outside`. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
     /// Setup in `setup.requires` order, then every Check in the order the
     /// Manifest writes them — what Verify runs, and nothing else it declares.
     pub steps: Vec<VerifyStep>,

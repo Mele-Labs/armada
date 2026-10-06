@@ -28,6 +28,7 @@ import type { Flagged, Judged, KeptDeliverable } from "./judged";
 import type { KeptFrame, ShowAgain } from "./showing";
 import type { StepAttempt } from "./attempt";
 import type { ChecksUnderway } from "./underway";
+import type { AskedRun } from "./requester";
 import type {
   CheckRun,
   ClaimedBreakage,
@@ -989,6 +990,12 @@ export type StepDetail = {
    * gate's**, until it asks again, submits or the step ends. Since 13.45.
    */
   dry_run?: ChecksUnderway;
+  /**
+   * Every run of this step's Checks a Drone asked for, **each its own row and
+   * never among `check_runs`**. Oldest first; absent where none was asked.
+   * Since 23.38.
+   */
+  asked_runs?: AskedRun[];
   /** Entered, then moved on entering `running`. To `updated_at` is how long. */
   entered_at: string;
   updated_at: string;

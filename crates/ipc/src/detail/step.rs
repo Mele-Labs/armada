@@ -103,6 +103,8 @@ pub struct StepFacts {
     /// `returned_by` column — `store::step_iteration`'s reading, less its one.
     /// Zero on every step of every linear workflow.
     pub returns: u32,
+    /// The Checks a Drone asked for on this step, oldest first. Since 23.38.
+    pub asked_runs: Vec<crate::AskedRun>,
 }
 
 /// Which pass a looping step is on, and how many its workflow allows it.
@@ -325,6 +327,11 @@ pub struct StepDetail {
     /// ends. Absent is the ordinary case. #1062.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dry_run: Option<ChecksUnderway>,
+    /// Every run of this step's Checks a Drone asked for, **each its own row and
+    /// never a `check_runs` row**: a dry result is not a gate's. Oldest first;
+    /// absent where none was asked. Since 23.38.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asked_runs: Vec<crate::AskedRun>,
     /// When the step was entered. Stamped at creation and moved on entering
     /// `running`, so `entered_at` to `updated_at` is how long the step took.
     pub entered_at: Instant,
@@ -414,6 +421,7 @@ pub struct JudgeInFlight {
 
 impl StepDetail {
     pub(super) fn of(
+        job: &core_model::JobId,
         step: &core_model::JobStep,
         declared: Option<&core_model::ResolvedStep>,
         facts: Option<&StepFacts>,
@@ -428,7 +436,23 @@ impl StepDetail {
             state: step.state().into(),
             checks: facts.and_then(|facts| facts.declares.clone()),
             held_for_handoff: facts.map_or_else(Vec::new, |facts| facts.held_for_handoff.clone()),
-            check_runs: facts.map(|facts| facts.ran.clone()).unwrap_or_default(),
+            // **The gate asked for every one of these rows**: a Drone's run writes
+            // none, so the requester is a fact of where the row is kept.
+            check_runs: facts
+                .map(|facts| {
+                    facts
+                        .ran
+                        .iter()
+                        .cloned()
+                        .map(|run| {
+                            run.requested_by(crate::Requester::gate(
+                                &crate::JobId::from(job),
+                                &StepId::from(step.step_id()),
+                            ))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
             judge_checks: declared.map(|declared| DeclaredJudge::firing(declared.judge_checks())),
             advance_gate: declared.map(|declared| declared.advance_gate().into()),
             delivers: declared.map(core_model::ResolvedStep::delivers),
@@ -473,6 +497,9 @@ impl StepDetail {
             judging: facts.and_then(|facts| facts.judging.clone()),
             checking: facts.and_then(|facts| facts.checking.clone()),
             dry_run: facts.and_then(|facts| facts.dry_run.clone()),
+            asked_runs: facts
+                .map(|facts| facts.asked_runs.clone())
+                .unwrap_or_default(),
             entered_at: step.entered_at().into(),
             updated_at: step.updated_at().into(),
         }

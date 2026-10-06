@@ -75,6 +75,9 @@ pub struct MergeLineCheck {
     /// Its name in `armada.yml`.
     pub name: String,
     pub state: LandCheckState,
+    /// The merge line, for the entry's branch. **Never absent.** Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
 }
 
 /// Where one Check stands in a turn: `waiting` until it is run, then

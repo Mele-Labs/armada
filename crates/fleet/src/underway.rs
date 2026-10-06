@@ -208,6 +208,8 @@ struct Bound {
     /// every start and finish.
     logs: Option<(String, String)>,
     whose: Whose,
+    /// Who asked for the run this writer says: the gate, or the Drone.
+    requester: ipc::Requester,
     token: u64,
     /// Told each result that lands while a Drone's run goes on. `None` at a gate.
     hearing: Option<UnboundedSender<Heard>>,
@@ -250,6 +252,7 @@ impl Announcing {
         records_root: &str,
         handle: &str,
     ) -> Announcing {
+        let requester = ipc::Requester::gate(&job, &ipc::StepId::from(&step));
         Announcing(Some(Bound {
             job,
             step,
@@ -259,6 +262,7 @@ impl Announcing {
             clock,
             logs: Some((records_root.to_string(), handle.to_string())),
             whose: Whose::Gate,
+            requester,
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: None,
             queued: AtomicBool::new(false),
@@ -281,6 +285,7 @@ impl Announcing {
         clock: Arc<dyn Clock>,
         hearing: UnboundedSender<Heard>,
         whole: bool,
+        requester: ipc::Requester,
     ) -> Announcing {
         Announcing(Some(Bound {
             job,
@@ -291,6 +296,7 @@ impl Announcing {
             clock,
             logs: None,
             whose: Whose::DryRun,
+            requester,
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: Some(hearing),
             queued: AtomicBool::new(false),
@@ -321,6 +327,7 @@ impl Announcing {
             clock: bound.clock.clone(),
             logs: bound.logs.clone(),
             whose: bound.whose,
+            requester: bound.requester.clone(),
             token: bound.token,
             hearing: None,
             queued: AtomicBool::new(false),
@@ -399,7 +406,7 @@ impl Announcing {
                 let known = known.filter(|_| again.finishes);
                 row.started_at = None;
                 row.took_ms = known.map(|_| 0);
-                row.ran = known.and_then(|observed| self::row(attempt, check, observed));
+                row.ran = known.and_then(|observed| self::row(&bound.requester, attempt, check, observed));
                 row.output_path = None;
                 row.stopped_by = None;
                 row.waiting_behind = None;
@@ -434,7 +441,7 @@ impl Announcing {
                 name: check.label().to_string(),
                 started_at: None,
                 took_ms: known.map(|_| 0),
-                ran: known.and_then(|observed| row(attempt, check, observed)),
+                ran: known.and_then(|observed| row(&bound.requester, attempt, check, observed)),
                 output_path: None,
                 stopped_by: None,
                 waiting_behind: None,
@@ -447,6 +454,7 @@ impl Announcing {
             step: ipc::StepId::from(&bound.step),
             checks: ipc::ChecksUnderway {
                 attempt,
+                requester: bound.requester.clone(),
                 checks: entries,
             },
             files: vec![None; checks.len()],
@@ -563,7 +571,7 @@ impl Announcing {
             return;
         }
         let at = Self::slot(bound, at);
-        let ran = row(bound.attempt.number(), check, observed);
+        let ran = row(&bound.requester, bound.attempt.number(), check, observed);
         self.moved(bound, at, |held, _| {
             held.took_ms = Some(took.as_millis() as u64);
             held.ran = ran;
@@ -585,7 +593,7 @@ impl Announcing {
             return;
         }
         let at = Self::slot(bound, at);
-        let ran = row(bound.attempt.number(), check, observed).map(|run| ipc::CheckRun {
+        let ran = row(&bound.requester, bound.attempt.number(), check, observed).map(|run| ipc::CheckRun {
             produced: Some(stopped_by(because)),
             ..run
         });
@@ -719,11 +727,16 @@ impl Drop for Announcing {
 /// The row a finished Check would be written down as, for the reason
 /// `Ran::against` exists: one mapping from what was observed to what is
 /// recorded, so what a person reads mid-gate is what the ruling writes.
-fn row(attempt: u32, check: &ResolvedCheck, observed: &Observed) -> Option<ipc::CheckRun> {
+fn row(
+    requester: &ipc::Requester,
+    attempt: u32,
+    check: &ResolvedCheck,
+    observed: &Observed,
+) -> Option<ipc::CheckRun> {
     let ran = Ran::against(std::slice::from_ref(check), std::slice::from_ref(observed)).ok()?;
     ran.recorded()
         .first()
-        .map(|recorded| ipc::CheckRun::of(attempt, recorded))
+        .map(|recorded| ipc::CheckRun::of(attempt, recorded).requested_by(requester.clone()))
 }
 
 /// What a Check a failure stopped says in place of how it ended. #1062.

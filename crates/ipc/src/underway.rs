@@ -42,6 +42,10 @@ pub struct ChecksUnderway {
     /// ordinal [`CheckRun::attempt`] carries, so a surface narrowing to the
     /// current run narrows this the same way.
     pub attempt: u32,
+    /// Who asked for this run: the gate on `checking`, the Drone on `dry_run`.
+    /// **Never absent**; `outside` where Fleet cannot say. Since 23.38.
+    #[serde(default)]
+    pub requester: crate::Requester,
     /// Every Check the step declares, in the step's order — waiting ones
     /// included, because the shape of what is still coming is part of reading
     /// a running gate.

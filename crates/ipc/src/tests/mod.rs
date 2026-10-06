@@ -51,6 +51,7 @@ mod pull_request_card;
 mod reclaimed;
 /// A person's run: the two kinds it streams under, and the record it leaves.
 mod rehearsal;
+mod requester;
 mod reports;
 /// A repository to clone, as Bridge spells it.
 mod repositories;

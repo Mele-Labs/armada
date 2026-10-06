@@ -6,6 +6,7 @@
 // colours, read from its code and `stopped` — how it looks, not what it counts.
 
 import type { ChangedFile } from "./events";
+import type { AskedRun, Requester } from "./requester";
 import type { JobRead, Outcome } from "./reads";
 import type { ProtocolVersion } from "./version";
 import type { ServerEntry } from "./servers";
@@ -90,6 +91,8 @@ export type RunUnderway = {
   narrowed: boolean;
   /** Elapsed time is counted from here; nothing ticks on the wire. */
   started_at: string;
+  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  requester?: Requester;
 };
 
 /** One finished run. `run.finished`'s payload and `list_runs`'s row. */
@@ -121,6 +124,8 @@ export type RunRecord = {
   undone_at?: string;
   /** The log, relative to `ManifestSummary.records_root`. */
   log: string;
+  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  requester?: Requester;
 };
 
 /** `GET /jobs/:job_id/runs` — newest first, and what would not read. */
@@ -128,6 +133,11 @@ export type RunList = {
   job_id: string;
   runs: RunRecord[];
   unreadable: { id: string; why: string }[];
+  /**
+   * The Checks a Drone asked for on this Job, **as rows of their own and never
+   * among `runs`**: a dry result is not a rehearsal's. Oldest first. Since 23.38.
+   */
+  asked_runs?: AskedRun[];
 };
 
 /** `GET /jobs/:job_id/runs/:run_id/output` — `CheckOutput`'s window. */
@@ -261,6 +271,8 @@ export type CheckoutRunUnderway = {
   started_at: string;
   /** The workspace whose own file declared it. Absent is the root's. */
   workspace?: string;
+  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  requester?: Requester;
 };
 
 /** One finished checkout run. `GET /manifest/runs`'s row. */
@@ -291,6 +303,8 @@ export type CheckoutRunRecord = {
   undone_at?: string;
   /** The log, relative to `ManifestSummary.records_root`. */
   log: string;
+  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  requester?: Requester;
 };
 
 /**
@@ -416,6 +430,8 @@ export type CheckoutVerify = {
   ended_at?: string;
   /** The workspace whose own `armada.yml` this ran, relative to the root. Absent is the root's. */
   workspace?: string;
+  /** Who asked for it. Since 23.38; **absent reads as `outside`** (`requesterOf`). */
+  requester?: Requester;
   /** Setup in `setup.requires` order, then every Check in written order. */
   steps: VerifyStep[];
 };

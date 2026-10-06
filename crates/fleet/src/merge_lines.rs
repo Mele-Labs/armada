@@ -311,14 +311,15 @@ fn ended(
                     OutcomeState::Gating | OutcomeState::Red | OutcomeState::Stopped
                 )
             })
-            .map(|held| held.checks.iter().map(check_of).collect())
+            .map(|held| held.checks.iter().map(|run| check_of(run, branch)).collect())
             .unwrap_or_default(),
     }
 }
 
-fn check_of(run: &CheckRun) -> MergeLineCheck {
+fn check_of(run: &CheckRun, branch: &str) -> MergeLineCheck {
     MergeLineCheck {
         name: run.name.clone(),
+        requester: ipc::Requester::merge_line(branch),
         state: match run.state {
             CheckState::Waiting => LandCheckState::Waiting,
             CheckState::Running => LandCheckState::Running,
