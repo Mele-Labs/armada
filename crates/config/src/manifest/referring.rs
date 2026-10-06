@@ -60,9 +60,15 @@ pub(super) fn preparation(
     };
     // `requires` is required unless another key is there, because `setup:` with
     // nothing under it says nothing and `close` would report no fault for it.
-    let seed = table
-        .optional("seed")
-        .and_then(|value| super::seed::read(value, declares, commands, serves, out));
+    let seed = match table.optional("seed") {
+        None => None,
+        // Read from the root at every lease, as `worktrees` is.
+        Some(_) if placed.is_a_workspace() => {
+            out.push(Refusal::new(table.at("seed"), Fault::RootOnly));
+            None
+        }
+        Some(value) => super::seed::read(value, declares, commands, serves, out),
+    };
     // Zero is refused: a pool of none would make every lease wait for ever.
     let worktrees = match table.optional("worktrees") {
         None => Some(WORKTREES_UNSTATED),
