@@ -205,6 +205,12 @@ What it settled for the next surface:
   `proposingRow` in a `CleanupFleet` type that desktop's `Fleet` satisfies, so the
   package never imports `fake-context`. A type main or preload read (`RescueOutcome`)
   moves with the slice and is read from `@armada/<x>/api`.
+- **A moment that answers another surface's member names it in its own bounds.** Setup's
+  `settingUp` publishes the Verify sheet and answers `startCheckoutVerify`, both Manifest's, so
+  its `S` and `A` extend `SettingUpState` and `SettingUpApi`, which spell those two out; it never
+  imports the Manifest surface. The scenario's `behaves` answers them, so its tests mount
+  `slices: ["core", "setup"]` and no more. A type main, preload and Manifest read (`setup-reads`,
+  `locate-reads`) and `AskRepository`, which App, Composing and Studios mount, stay in screens.
 - **A surface whose tests mount a screen, not the app, depends on none of the app.**
   Cleanup's `Worktrees*.test.tsx` use `@armada/screens/src/mounted`, so its
   `depends_on` stops at screens, the shared packages and the three desktop files the

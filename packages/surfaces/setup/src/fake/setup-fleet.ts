@@ -9,19 +9,20 @@ import type {
   EditManifestProposal,
   ManifestProposal,
   ManifestProposals,
+  Outcome,
   Provenance,
   RepositoryScan,
   RepositorySummary,
   ScannedWorkspace,
   VerifyStep,
 } from "@armada/protocol";
+import { onBoard } from "@armada/bridge-api";
+import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { landsIn, type LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ProposalAnswer } from "@armada/screens/src/setup-reads";
 
-import type { BridgeApi } from "../../../shared/api";
-import { onBoard } from "./moment";
-import type { FleetHandle, Scenario } from "./moment";
+import type { SetupApi, SetupState } from "../api";
 
 const OK = { ok: true } as const;
 const WROTE_AT = "2026-09-12T14:20:03.120Z";
@@ -216,23 +217,39 @@ export type SettingUp = {
   onCloned?: (url: string, parent: string) => void;
 };
 
-/** A connected Fleet with no Jobs, answering Setup and Locate as Fleet does. */
-export function settingUp(options: SettingUp = {}): Scenario {
+/**
+ * What this Fleet writes beside Setup's own state: the Verify sheet the Manifest surface draws,
+ * and the picked repository and the list it holds. Desktop's `BridgeState` has all of them.
+ */
+export type SettingUpState = PublishedCore & SetupState & { checkoutRunSheet: CheckoutRunSheetRead };
+
+/** Setup's members, and the two Manifest ones its Verify press reaches. Desktop's `BridgeApi` has all of them. */
+export type SettingUpApi = SetupApi & {
+  watchCheckoutRunSheet: (want: boolean) => Promise<void>;
+  startCheckoutVerify: (workspace?: string) => Promise<Outcome>;
+};
+
+/** A connected Fleet with no Jobs, answering Setup and Locate as Fleet does, over the app's whole state `S` and API `A`. */
+export function settingUp<S extends SettingUpState, A extends SettingUpApi>(
+  nothingYet: S,
+  options: SettingUp = {},
+): Scenario<S, A> {
   const { write = "took", clone = "took", rootSetUp = true, more = 0, sheet = { state: "none" } } = options;
   const repositories = options.repositories ?? [repository()];
-  const base = onBoard([], { repositories, picked: repositories[0]?.root ?? null });
+  const base = onBoard<S, A>(nothingYet, [], { repositories, picked: repositories[0]?.root ?? null });
   return {
     ...base,
     name: "setting-up",
     says: "A storefront nobody set up, and a Fleet that applies each edit and Write",
-    behaves: (fleet) => behaviour(fleet, { write, clone, rootSetUp, more, sheet, ...options }),
+    // `S` is the app's whole state; this Fleet writes only the fields `SettingUpState` names.
+    behaves: (fleet) => behaviour(fleet as unknown as FleetHandle<SettingUpState>, { write, clone, rootSetUp, more, sheet, ...options }) as Partial<A>,
   };
 }
 
 function behaviour(
-  fleet: FleetHandle,
+  fleet: FleetHandle<SettingUpState>,
   options: SettingUp & Required<Pick<SettingUp, "write" | "clone" | "rootSetUp" | "more" | "sheet">>,
-): Partial<BridgeApi> {
+): Partial<SettingUpApi> {
   const listed = (): RepositorySummary[] => fleet.state().holds.repositories ?? [];
   const picked = () => listed().find((one) => one.root === fleet.state().repository);
   // Each repository's proposals, as Fleet holds them between presses.

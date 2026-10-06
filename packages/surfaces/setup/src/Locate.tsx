@@ -6,8 +6,8 @@ import { Alert, Button, LocateForm, type LocateFormProps, type LocateMode } from
 import type { RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
-import { said } from "./copy";
-import { DESTINATION_OCCUPIED, isAbsolute, landsIn, type LocateAnswer } from "./locate-reads";
+import { said } from "@armada/screens/src/copy";
+import { DESTINATION_OCCUPIED, isAbsolute, landsIn, type LocateAnswer } from "@armada/screens/src/locate-reads";
 
 /** What Locate asks of the host. */
 export type LocateSlice = {
