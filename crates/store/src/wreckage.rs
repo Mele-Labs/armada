@@ -25,4 +25,25 @@ impl Store {
             .map_err(WriteError::Database)?;
         Ok(())
     }
+
+    /// How many runs `check_runs` holds for `repository`.
+    pub fn check_runs_kept(&self, repository: &core_model::ManifestId) -> Result<u64, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM check_runs WHERE repository = ?1",
+                (repository.as_str(),),
+                |row| row.get(0),
+            )
+            .map_err(fault("counting kept Check runs"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Take the Check run history away, so the next append fails.
+    pub fn without_the_check_run_history(&mut self) -> Result<(), WriteError> {
+        self.conn
+            .execute("DROP TABLE check_runs", ())
+            .map_err(fault("dropping the Check run history"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
 }
