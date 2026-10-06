@@ -24,7 +24,6 @@
 
 | Owed | Note |
 |---|---|
-| `foundations` job | `verify-foundations` read as a delta against `main`, on the `ci-foundations` branch, not merged. Until it lands CI does not run it |
 | Converting the append-only list files | `.gitattributes`, `docs/practices/list-files.md` |
 | `needs` as a required check | Fleet will publish it |
 | The thin pull request view in Bridge | Not designed yet |

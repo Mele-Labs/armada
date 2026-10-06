@@ -1,16 +1,13 @@
 # CI
 
-**Kind:** practice. **Covers:** `.github/workflows/checks.yml`, the workflow that
-runs this repository's Checks on GitHub, and with pull requests it replaces the
-local merge line. Why, and what was measured:
-`.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
+**Kind:** practice. **Covers:** `.github/workflows/checks.yml` and `.github/ci/`, the
+workflow that runs this repository's Checks and `cargo xtask verify-foundations` on
+GitHub, and with pull requests it replaces the local merge line. Why, and what was
+measured: `.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
 The workflow reports and gates nothing itself: a ruleset on `main` that requires
 `ci` does the gating. The repository allows merge commits only, auto-merge is
 enabled, and the owner, as admin, bypasses the ruleset so the draining line still
 works.
-
-A `foundations` job, `verify-foundations` read as a delta against `main`, is on
-the branch `ci-foundations` and is not merged. Until it lands, CI does not run it.
 
 ## What runs when
 
@@ -28,6 +25,8 @@ the branch `ci-foundations` and is not merged. Until it lands, CI does not run i
 **The event's own base commit is not used.** It is the commit `main` had when the pull request was opened and does not move. Measured.
 
 A merge group's diff runs from its base commit to its head commit.
+
+`foundations` runs on every trigger in the table, whatever `armada covers` names.
 
 A pull request run is cancelled by the next push to it. A merge group and a push
 to `main` are keyed by their own commit and never cancelled.
@@ -56,7 +55,7 @@ build of `armada` failing, is red, never an empty plan.
 
 | Name | Passes when | Failed by |
 |---|---|---|
-| `ci` | The plan succeeded and no Check job failed or was cancelled | A failed Check, a cancelled one, a failed plan |
+| `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
 | `needs` | Fleet's check says so | Not defined here. Reserved: Fleet publishes it |
 | `desktop_test` | The plan succeeded and no shard failed or was cancelled | A failed shard, a failed plan |
 
@@ -73,6 +72,7 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `typecheck`, `bridge_build` | `ubuntu-latest` | armada.yml's command, direct | node_modules |
 | `storybook`, `screens_test`, `components_test` | `ubuntu-latest` | armada.yml's command, direct, `--maxWorkers=$WIDTH` | node_modules, Playwright |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
+| `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2` | node_modules, Playwright |
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. Every
@@ -82,6 +82,40 @@ build of `armada` they do not need.
 
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
 reports on its own, so a red shard never blocks a change that `ci` passes.
+
+## Foundations
+
+`cargo xtask verify-foundations` is the gate for what no Check covers: the size limits on a source file and on a comment block, the document rules, and the generated files. The merge line ran it on every turn, so CI runs it on every change, docs included. `foundations` is a job of its own, not a Check: it is not in armada.yml and `armada covers` does not choose it.
+
+```
+HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ──┐
+HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
+```
+
+**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, kept in step by hand with `crates/armada/src/land/gate.rs`, and its tests run in the job first.
+
+| Read | Why |
+|---|---|
+| Only `FAIL` and `missing:` lines | A warning does not fail `main` either |
+| Line numbers normalised out of the subject | A line inserted above an old failure renumbers it |
+| Counted, not collected into a set | A second violation of one rule in one file reads like the first |
+| A non-zero exit naming no rule is red | A branch that breaks `xtask` prints one compile error |
+| A `main` whose run names no rule fails the job | There is nothing to compare against |
+
+**The new lines are written to the job summary.** A line `main` already fails is listed there under its own heading and does not count.
+
+**`main`'s reading is cached per commit**, keyed on that commit alone, since its tree and its `xtask` are both fixed by it. A pull request restores it from `main`; a push to `main` saves its own run under its own commit, which is what the next pull request restores. A run that names no rule is never cached.
+
+**A stale generated file fails the job and says how to fix it.** The line ran `cargo xtask verify-docs --write` and `cargo xtask verify-tokens --write` and committed the result. CI cannot commit onto a pull request, so it runs both, reads the tree with them applied, then fails with the two commands and the files they changed. The author runs them locally and pushes.
+
+**Two things differ from a checkout on a developer's machine.**
+
+| Difference | Handled by |
+|---|---|
+| `v1-final` is not in a shallow checkout, so every bare path that means v1 read as a path that exists nowhere | `git fetch --depth=1 origin tag v1-final` |
+| The privacy rule bans the name the gate runs as, which on a runner is `runner`, an ordinary word in many files | `USER` unset for the job. The rule's paths convention still runs |
+
+**On a merge group, and on `workflow_dispatch`, main's tip is `HEAD^1`**, the commit before the one tested. In a queue of several, that is the previous entry rather than `main`.
 
 ## Adding a Check
 
@@ -108,6 +142,7 @@ setup before the step: restoring caches, installing, building `armada`.
 | `screens_test` | 49 to 55 | |
 | `components_test` | 64 to 108 | |
 | `hooks_test` | 1 | |
+| `foundations`, whole job | 40 cold, 28 to 32 warm | Main's own run adds 8 when its reading is not cached. Setup and checkout are most of the rest |
 | `desktop_test` per shard | 68 to 275 | The slowest shard varied the most between runs |
 
 **A whole `test` was not measured to completion.** It stopped at the first
@@ -135,13 +170,22 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 |---|---|
 | Convert the append-only list files; GitHub ignores `merge=union` | `.gitattributes`, `docs/practices/list-files.md` |
 | Fleet publishes the `needs` check | Fleet |
-| The `foundations` job | `.github/workflows/checks.yml`, on the branch `ci-foundations` |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
-| Change agents' landing instructions | `.claude/hooks/guard_merge.py`, `docs/practices/running-locally.md`, the `work-issue` skill: in pull request #1808, open |
 | Retire `armada land` | `crates/armada/src/land/` |
 | Bridge's merge line becomes a thin view of open pull requests, and Armada prompts when `main` goes red | Bridge, Fleet. Not built |
 | `.github/**` matches no `when:` in armada.yml, so a workflow change is exercised only by the plan job | `armada.yml` |
+
+## What `foundations` measured and what it did not
+
+| Claim | Status |
+|---|---|
+| A change with no new failing line passes `foundations` and `ci` | Measured on the trial pull request |
+| A 1250-line source file is red, named in the summary, and turns `ci` red | Measured |
+| A stale `packages/tokens/tokens.css` fails the job and names both commands and the file | Measured |
+| A failure already on `main` is not red | Measured, while `main` held privacy and path failures under the two defects above |
+| A line moving or a second violation reading as new | Self-test only, not on a runner |
+| A merge group's reading | Inferred, not run |
 
 ## Known limits
 
