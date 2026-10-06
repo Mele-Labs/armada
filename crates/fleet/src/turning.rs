@@ -151,6 +151,10 @@ pub struct Turned {
     /// one pull request every sweep. Empty on every other turn, which is nearly
     /// all of them.
     pub noticed: Option<Noticed>,
+    /// Where a repository's main went red, or went green again, on the turn the
+    /// sweep read that it had. **Empty on nearly every turn**, and the one thing
+    /// a later slice reads to act on main's CI.
+    pub main_changed: Vec<crate::main_ci::MainChanged>,
     /// The Job whose issue somebody edited after Fleet read it, on the turn the
     /// issue rotation read that they had. At most one a turn, for `noticed`'s
     /// reason: the rotation asks about one issue an interval. Spike 022,
@@ -291,6 +295,9 @@ where
         // its reason: this touches no slot and starts nothing, so what it
         // wants is only to run once for the turn rather than once per Drone.
         turned.noticed = self.notice_a_merge().await?;
+        // Beside it, on its own interval and cursor: it reads a repository's
+        // main, where that reads one Job's pull request. `crate::main_ci`.
+        turned.main_changed = self.notice_main().await?;
         // Beside the merge notice, on its interval and with a cursor of its
         // own: a Job that came from an issue has no pull request to be in that
         // rotation by, and sharing its cursor would slow every pull request's

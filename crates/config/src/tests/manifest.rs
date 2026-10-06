@@ -972,3 +972,37 @@ mod policies {
         ));
     }
 }
+
+/// A CI job maps to a Check by sharing its name or by being declared under it,
+/// and a declared mapping wins. Anything else maps to nothing, which is normal.
+#[test]
+fn a_ci_job_maps_to_a_check_by_name_or_by_declaration_and_otherwise_to_none() {
+    let manifest = parse(
+        "version: 1\nid: a\nchecks:\n  build:\n    run: cargo build\n  test:\n    run: cargo nextest run\n    ci_jobs: [ci, build]\n  lint:\n    run: x\n",
+    )
+    .expect("a Check naming the CI jobs that answer for it");
+    assert_eq!(manifest.check_for_ci_job("lint"), Some("lint"));
+    assert_eq!(manifest.check_for_ci_job("ci"), Some("test"));
+    assert_eq!(
+        manifest.check_for_ci_job("build"),
+        Some("test"),
+        "the declaration is the repository saying so, so it beats a shared name"
+    );
+    assert_eq!(manifest.check_for_ci_job("deploy"), None);
+    assert_eq!(
+        manifest.check("test").expect("test").ci_jobs(),
+        ["ci", "build"]
+    );
+    assert!(manifest.check("lint").expect("lint").ci_jobs().is_empty());
+}
+
+#[test]
+fn an_empty_ci_jobs_list_is_refused_like_an_empty_when() {
+    let refused = refusals(parse(
+        "version: 1\nid: a\nchecks:\n  test:\n    run: x\n    ci_jobs: []\n",
+    ));
+    assert!(matches!(
+        fault_at(&refused, "checks.test.ci_jobs"),
+        Fault::Empty
+    ));
+}

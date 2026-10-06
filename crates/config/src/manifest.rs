@@ -105,6 +105,7 @@ const CHECK_KEYS: &[&str] = &[
     "places",
     "width",
     "runner",
+    "ci_jobs",
 ];
 /// The values `checks.<name>.runs_at` takes, spelled as `core_model::RunsAt`
 /// spells them. #849.
@@ -259,6 +260,25 @@ impl Manifest {
     /// load, rather than at the step that needed it.
     pub fn check(&self, name: &str) -> Option<&Check> {
         self.checks.get(name)
+    }
+
+    /// The Check a forge's CI job answers for, or [`None`], which is the
+    /// ordinary case. **A declared mapping wins over a shared name**, and where
+    /// two Checks declare the same job the one written first does. A job that
+    /// maps to nothing is not an error: the forge's own name for it is all
+    /// Armada then goes on.
+    pub fn check_for_ci_job(&self, job: &str) -> Option<&str> {
+        let declared = |name: &&String| {
+            self.checks
+                .get(name.as_str())
+                .is_some_and(|check| check.ci_jobs().iter().any(|answers| answers == job))
+        };
+        let same_name = |name: &&String| name.as_str() == job;
+        self.checks_as_written
+            .iter()
+            .find(declared)
+            .or_else(|| self.checks_as_written.iter().find(same_name))
+            .map(String::as_str)
     }
 
     /// A Command by name, or [`None`].
@@ -710,6 +730,7 @@ pub(super) struct DraftCheck {
     places: std::num::NonZeroU32,
     width: Option<std::num::NonZeroU32>,
     runner: Option<Runner>,
+    ci_jobs: Vec<String>,
 }
 
 /// `checks.<name>.narrow`, the second question a Check answers about paths.
@@ -862,6 +883,14 @@ fn check_entry(
     let runner = table
         .optional("runner")
         .and_then(|value| runner::runner(&table.at("runner"), value, out));
+    // The forge's names for the CI jobs that answer for this Check. Absent is
+    // none, and `[]` is refused like `when: []`: a list to delete. #1824.
+    let ci_jobs = table
+        .optional("ci_jobs")
+        .map(|value| yaml::list(&table.at("ci_jobs"), value, out).unwrap_or_default())
+        .map(|items| texts(items, out))
+        .map(|named| named.into_iter().map(|(_, name)| name).collect())
+        .unwrap_or_default();
     let width_key = table.at("width");
     let width = match table.optional("width") {
         None => Ok(None),
@@ -886,6 +915,7 @@ fn check_entry(
         places: places?,
         width: width.ok()?,
         runner,
+        ci_jobs,
     })
 }
 
