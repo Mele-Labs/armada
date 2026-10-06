@@ -251,40 +251,13 @@
   gap: var(--space-2);
 }
 
-/* An act on a tile reads as a button at rest: an edge and a fill drawn from the
-   bay's own colour, so it holds on the inverse band and on an open bay alike.
-   Hover fills it further; the focus ring is the shared one. */
-.armada-bay__act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid color-mix(in srgb, currentColor 55%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, currentColor var(--row-tint-recent), transparent);
-  color: inherit;
-  cursor: pointer;
-}
-
-.armada-bay__act:hover {
-  border-color: currentColor;
-  background: color-mix(in srgb, currentColor calc(var(--row-tint-recent) * 2), transparent);
-}
-
-.armada-bay__act:focus-visible,
 .armada-bay__add:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
 
-.armada-bay__act[aria-disabled],
 .armada-bay__add[aria-disabled] {
   cursor: progress;
-}
-
-.armada-bay[data-bay="ghost"] .armada-bay__act,
-.armada-bay[data-bay="free"] .armada-bay__act {
-  color: var(--fg-muted);
 }
 
 /* What Fleet said when it would not change the slot, on the slot. */

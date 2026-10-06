@@ -1,4 +1,4 @@
-import { Box, FilePenLine, Folder, GitBranch, GitCommitHorizontal } from "lucide-react";
+import { Box, FilePenLine, Folder, GitBranch, GitBranchMinus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -37,21 +37,35 @@ function Mono({ items, label }: { items: readonly string[]; label: string }) {
 
 const commitsOf = (n: number) => (n === 1 ? "1 commit" : `${n} commits`);
 
-/** The unmerged branch and the tip its commits are reachable from. */
-function BranchLines({ branch, kept }: { branch: NonNullable<ClearCost["branch"]>; kept: boolean }) {
+/** What the branch comes to, in git's terms: kept for commits the base lacks, deleted where the base has them all. */
+function BranchEffect({ row, cost }: { row: TileRow; cost: ClearCost }) {
+  const name = cost.branch?.name ?? row.held?.branch ?? row.slot?.branch ?? "its branch";
+  if (cost.branch !== undefined) {
+    const { commits, base, tip } = cost.branch;
+    return (
+      <Line Glyph={GitBranch} said="Reclaiming never deletes commits that only this branch has" word={`Keeps branch ${name}: ${commitsOf(commits)} not on ${base}`}>
+        <Mono label="Branch tip" items={[tip]} />
+      </Line>
+    );
+  }
+  const unknown = row.held?.held.some((reason) => reason.why === "base_unanswered") === true;
+  const base = row.slot?.base ?? "main";
   return (
-    <Line Glyph={GitBranch} said={kept ? "Branch kept, with commits nothing else has" : "Branch deleted"} word={kept ? "Branch kept" : "Branch deleted"}>
-      <Mono label="Branch" items={[`${branch.name} · ${commitsOf(branch.commits)} · ${branch.tip}`]} />
-    </Line>
+    <Line
+      Glyph={GitBranch}
+      said={unknown ? "Git could not name the base, so the branch is kept" : "Every commit on the branch is on the base"}
+      word={unknown ? `Keeps branch ${name}: base branch unknown` : `Deletes branch ${name}: merged into ${base}`}
+    />
   );
 }
 
 /**
- * What an act is about to end, named before it is sent, in the panel it was
- * pressed in. **Clear names the files it destroys, with how long they have
- * sat, and the branch it leaves standing**; a reclaim is never a force, and
- * deleting the branch is its own act with its own confirm at the tip shown.
- * The act is destructive in colour only where something is ended for good.
+ * What an act will do, listed as the git effects it has and nothing else,
+ * before it is sent. **Clear lists the worktree it removes or the slot it
+ * releases, the uncommitted files that go with it or hold the release up, and
+ * what becomes of the branch.** A bay is released to the pool and its directory
+ * stays; a worktree outside the pool is removed. The act is destructive in
+ * colour only where something is ended for good.
  */
 export function TileConfirm({
   which,
@@ -67,48 +81,59 @@ export function TileConfirm({
   onCancel: () => void;
 }) {
   const held = row.held!;
-  const ends = which !== "clear" || cost.files.length > 0;
+  const name = nameOf(row);
+  const pooled = row.slot !== undefined;
+  const ends = which !== "clear" || (cost.files.length > 0 && !pooled);
   const verb = which === "clear" ? "Clear" : which === "branch" ? "Delete branch" : "Forget Job";
+  const sat = row.sat === undefined ? null : (
+    <Tooltip label="The files were written then or earlier">
+      <span className="armada-confirm__figure">{`Job last moved ${row.sat} ago`}</span>
+    </Tooltip>
+  );
   return (
-    <div className="armada-confirm" role="group" aria-label={`${verb} ${nameOf(row)}`}>
+    <div className="armada-confirm" role="group" aria-label={`${verb} ${name}`}>
       {which === "clear" ? (
         <>
-          <Line Glyph={Folder} said="Checkout removed" word="Checkout">
-            <Mono label="Checkout" items={[held.path]} />
-          </Line>
+          {pooled ? (
+            <>
+              <Line Glyph={Folder} said="The pool takes the slot back for its next lease" word={`Releases ${name} to the pool`} />
+              <Line
+                Glyph={Folder}
+                said="The directory and its build stay for the next lease"
+                word={`Keeps the worktree at .armada/slots/${name}, detached from ${held.branch}`}
+              />
+            </>
+          ) : (
+            <Line Glyph={Folder} said="git worktree remove, with its files" word={`Removes the worktree at ${held.path}`} />
+          )}
           {cost.files.length === 0 ? null : (
             <Line
               Glyph={FilePenLine}
-              said="Written and committed nowhere: the checkout is the only copy"
-              word="Destroyed"
-              figure={
-                row.sat === undefined ? null : (
-                  <Tooltip label={`Last moved ${row.sat} ago`}>
-                    <span className="armada-confirm__figure" aria-label={`Last moved ${row.sat} ago`}>
-                      {row.sat}
-                    </span>
-                  </Tooltip>
-                )
-              }
+              said={pooled ? "A release is refused while the worktree has uncommitted changes" : "No commit holds these, so nothing gets them back"}
+              word={pooled ? "Refused while these are uncommitted" : "Deletes uncommitted files"}
+              figure={sat}
             >
-              <Mono label="Destroyed files" items={cost.files} />
+              <Mono label="Uncommitted files" items={cost.files} />
             </Line>
           )}
-          {cost.branch === undefined ? null : <BranchLines branch={cost.branch} kept />}
+          <BranchEffect row={row} cost={cost} />
         </>
       ) : null}
       {which === "branch" && cost.branch !== undefined ? (
         <>
-          <BranchLines branch={cost.branch} kept={false} />
-          <Line Glyph={GitCommitHorizontal} said="The commits are reachable from this tip alone" word="Tip">
-            <Mono label="Tip" items={[cost.branch.tip]} />
-          </Line>
+          <Line Glyph={GitBranchMinus} said="git branch -D" word={`Deletes branch ${cost.branch.name} at ${cost.branch.tip}`} />
+          <Line
+            Glyph={GitBranch}
+            said="Only the tip commit gets them back"
+            word={`${commitsOf(cost.branch.commits)} not on ${cost.branch.base} stay reachable only from ${cost.branch.tip}`}
+          />
         </>
       ) : null}
       {which === "forget" ? (
-        <Line Glyph={Box} said="No undo, and the Job cannot be opened again" word="Record forgotten">
-          <Mono label="Job" items={[held.job_title]} />
-        </Line>
+        <>
+          <Line Glyph={Box} said="There is no undo, and the Job cannot be opened again" word={`Deletes the record of Job ${row.job ?? held.job_title}`} />
+          <Line Glyph={Folder} said="The worktree and branch are already gone or kept as they are" word="Leaves the worktree and branch alone" />
+        </>
       ) : null}
       <div className="armada-confirm__choice">
         <Button variant={ends ? "destructive" : "secondary"} size="sm" onClick={onSend}>

@@ -400,10 +400,10 @@ one bulk act, and nothing on a screen reaches for it.
 
 | In the panel | Offered |
 |---|---|
-| What it holds | One row per reason Fleet holds the worktree: uncommitted files with how long they have sat, unmerged commits with their tip, locked, depended on, base unanswered, unreadable. A worktree holding nothing shows no row |
-| Clear | The reclaim, where the checkout is on disk and the Job has ended. Its confirm names the files it destroys and the branch it keeps. A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
-| Delete branch | Where an unmerged branch is left. Its confirm names the branch, its commits and the tip they stay reachable from, and the tip is what is sent |
-| Forget Job | Only once the checkout and the branch are gone, and with a confirm: the record has no undo |
+| What it holds | One row per reason Fleet holds the worktree, in git's words: uncommitted changes and how long ago the Job last moved, unmerged commits with what they are not on and their tip, a locked worktree, Jobs that need it, an unknown base branch, a failed `git status`. A Job that has not finished shows its status badge under the Job's name. A worktree holding nothing shows no row |
+| Clear | The reclaim, where the worktree is on disk and the Job has ended. **On a bay it releases the slot**: HEAD is detached and the directory stays, and the pool refuses while anything is uncommitted. **Outside the pool it runs `git worktree remove`**, uncommitted files with it. Either way the branch is deleted only where the base has all its commits, and kept otherwise. The confirm lists those effects. A Job that has not ended is offered none of these acts, because Fleet refuses them with `fleet.not_reclaimable` |
+| Delete branch | Only once the worktree is gone, because Fleet refuses it with a 409 while the directory stands. The confirm names the branch, its tip and the commits not on the base, which stay reachable only from that tip, and the tip is what is sent |
+| Forget Job | Only once the worktree and the branch are gone, and with a confirm: the record has no undo, and the worktree and branch are not touched |
 | Close, Reopen, Remove, Rescue | A bay's own, as above. Its Finding, and Scrap, Stash and Pick up, are in the same panel |
 
 **What an act did, and what Fleet refused, is said in the panel and never on the tile.**

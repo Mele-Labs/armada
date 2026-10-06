@@ -13,7 +13,7 @@ export type ClearCost = {
   /** Files written and committed nowhere: the checkout is their only copy. */
   files: readonly string[];
   /** An unmerged branch the reclaim keeps. */
-  branch?: { name: string; commits: number; tip: string };
+  branch?: { name: string; commits: number; tip: string; base: string };
 };
 
 export type TileRow = {
@@ -23,6 +23,8 @@ export type TileRow = {
   name?: string;
   /** Present for a bay, absent for a worktree outside the pool. */
   slot?: WorktreeSlot;
+  /** The Job's handle, where the board knows it: what its status row names it by. */
+  job?: string;
   /** The Job's worktree reading, joined to its bay by job id. */
   held?: WorktreeHeld;
   /** How long its holder has had the slot, formatted by the caller's clock. */

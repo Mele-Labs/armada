@@ -51,18 +51,18 @@ export type SlotPoolsProps = {
 
 /** What a refused act failed to do, leading what Fleet said. */
 const NOT: Record<SlotAct, string> = {
-  add: "Not added",
-  remove: "Not removed",
-  close: "Not closed",
-  open: "Not reopened",
+  add: "Slot not added",
+  remove: "Slot not removed",
+  close: "Slot not closed",
+  open: "Slot not reopened",
 };
 
 const NOT_RESCUED: Record<RescueAct, string> = {
-  start: "Not started",
-  stop: "Not stopped",
-  scrap: "Not scrapped",
-  stash: "Not stashed",
-  pick_up: "Not picked up",
+  start: "Scout not started",
+  stop: "Scout not stopped",
+  scrap: "Slot not scrapped",
+  stash: "Changes not stashed",
+  pick_up: "Work not picked up",
 };
 
 function refusal(lead: string, outcome: Outcome): string {
@@ -70,12 +70,12 @@ function refusal(lead: string, outcome: Outcome): string {
   return `${lead}: ${why}`;
 }
 
-/** What a Scrap, a Stash or a Pick up did, as bare facts. The branch a Scrap kept; the commit a Stash or a Pick up made. */
+/** What a Scrap, a Stash or a Pick up did, in git's words. The branch a Scrap kept; the commit a Stash or a Pick up made. */
 function receipt(act: RescueAct, got: SlotRescued): string | undefined {
-  if (act === "scrap") return got.branch_kept === true && got.branch !== undefined ? `${got.branch} kept` : undefined;
+  if (act === "scrap") return got.branch_kept === true && got.branch !== undefined ? `Branch ${got.branch} kept` : undefined;
   if (act !== "stash" && act !== "pick_up") return undefined;
   const on = got.branch === undefined ? "" : ` on ${got.branch}`;
-  return got.committed === undefined ? undefined : `${got.committed.slice(0, 7)}${on}`;
+  return got.committed === undefined ? undefined : `Committed ${got.committed.slice(0, 7)}${on}`;
 }
 
 /** A bay's key, or a repository's add tile's where `slot` is absent. */
@@ -146,32 +146,42 @@ export function SlotPools({
   }
 
   /** Clear, Delete branch or Forget Job on the tile at `key`: what it did, or why not. */
-  async function reclaim(key: string, jobId: string, what: "clear" | "branch" | "forget", tip?: string): Promise<void> {
+  async function reclaim(
+    key: string,
+    jobId: string,
+    what: "clear" | "branch" | "forget",
+    pooled: boolean,
+    tip?: string,
+  ): Promise<void> {
     await run(key, async () => {
       if (what === "clear" && onReclaim !== undefined) {
         const outcome = await onReclaim(jobId);
-        if (!outcome.ok) return refuse(key, "Not cleared", outcome);
-        if (outcome.reclaimed !== undefined) setGaveBack((was) => ({ ...was, [key]: reclaimedSaid(outcome.reclaimed!) }));
+        if (!outcome.ok) return refuse(key, pooled ? "Slot not released" : "Worktree not removed", outcome);
+        if (outcome.reclaimed !== undefined) {
+          setGaveBack((was) => ({ ...was, [key]: reclaimedSaid(outcome.reclaimed!, pooled) }));
+        }
       } else if (what === "branch" && onDeleteBranch !== undefined && tip !== undefined) {
         const outcome = await onDeleteBranch(jobId, tip);
-        if (!outcome.ok) return refuse(key, "Not deleted", outcome);
+        if (!outcome.ok) return refuse(key, "Branch not deleted", outcome);
         if (outcome.branchDeleted !== undefined) {
           setGaveBack((was) => ({ ...was, [key]: branchDeletedSaid(outcome.branchDeleted!) }));
         }
       } else if (what === "forget" && onForget !== undefined) {
         const outcome = await onForget(jobId);
-        if (!outcome.ok) refuse(key, "Not forgotten", outcome);
+        if (!outcome.ok) refuse(key, "Record not deleted", outcome);
       }
     });
   }
 
   /** What a tile adds to its bay or its worktree: the figures, the acts the Job's reading offers, what happened. */
   const worked = (key: string, held: WorktreeHeld | undefined): Partial<TileRow> => {
+    const job = held === undefined ? undefined : jobs.find((one) => one.id === held.job_id)?.handle;
     const named = held === undefined ? undefined : namedByHandle(held, jobs);
     const sat = held === undefined ? null : sitting(held.last_moved_at, now);
     return {
       ...(named === undefined ? {} : { held: named, offered: offeredActs(named), cost: costOf(named) }),
       ...(sat === null ? {} : { sat }),
+      ...(job === undefined ? {} : { job }),
       ...(refused[key] === undefined ? {} : { refused: refused[key] }),
       ...(receipts[key] === undefined ? {} : { said: receipts[key] }),
       ...(gaveBack[key] === undefined ? {} : { receipt: gaveBack[key] }),
@@ -202,12 +212,12 @@ export function SlotPools({
     ...(onChange === undefined ? {} : { onAct: (one: SlotAct, slot?: number) => void act(manifestId, one, slot) }),
     ...(onRescue === undefined ? {} : { onRescue: (one: RescueAct, slot: number) => void rescue(manifestId, one, slot) }),
   });
-  const reclaims = (key: (jobId: string) => string) => ({
-    ...(onReclaim === undefined ? {} : { onClear: (jobId: string) => void reclaim(key(jobId), jobId, "clear") }),
+  const reclaims = (key: (jobId: string) => string, pooled: (jobId: string) => boolean) => ({
+    ...(onReclaim === undefined ? {} : { onClear: (jobId: string) => void reclaim(key(jobId), jobId, "clear", pooled(jobId)) }),
     ...(onDeleteBranch === undefined
       ? {}
-      : { onDeleteBranch: (jobId: string, tip: string) => void reclaim(key(jobId), jobId, "branch", tip) }),
-    ...(onForget === undefined ? {} : { onForget: (jobId: string) => void reclaim(key(jobId), jobId, "forget") }),
+      : { onDeleteBranch: (jobId: string, tip: string) => void reclaim(key(jobId), jobId, "branch", pooled(jobId), tip) }),
+    ...(onForget === undefined ? {} : { onForget: (jobId: string) => void reclaim(key(jobId), jobId, "forget", pooled(jobId)) }),
     ...(onCopied === undefined ? {} : { onCopied }),
   });
 
@@ -224,17 +234,17 @@ export function SlotPools({
             rows={lone ? [...pool, ...outsideRows] : pool}
             onOpenJob={onOpenJob}
             {...acts(manifestId)}
-            {...reclaims((jobId) => {
-              const bay = pool.find((row) => row.held?.job_id === jobId);
-              return bay?.key ?? outsideKey(jobId);
-            })}
+            {...reclaims(
+              (jobId) => pool.find((row) => row.held?.job_id === jobId)?.key ?? outsideKey(jobId),
+              (jobId) => pool.some((row) => row.held?.job_id === jobId),
+            )}
             {...(refused[keyOf(manifestId)] === undefined ? {} : { addRefused: refused[keyOf(manifestId)] })}
             adding={acting.has(keyOf(manifestId))}
           />
         </section>
       ))}
       {lone || outsideRows.length === 0 ? null : (
-        <PoolSlots floor={floor} rows={outsideRows} onOpenJob={onOpenJob} {...reclaims(outsideKey)} />
+        <PoolSlots floor={floor} rows={outsideRows} onOpenJob={onOpenJob} {...reclaims(outsideKey, () => false)} />
       )}
     </>
   );

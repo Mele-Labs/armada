@@ -95,11 +95,26 @@ export function reclaimedIn(
     return { held, outcome: refusedAs("fleet.not_reclaimable", "the Job has not ended") };
   }
   const unmerged = target.held.find((reason) => reason.why === "unmerged");
+  // A bay is released to the pool, which refuses while anything in it is uncommitted.
+  const bay = (held.slots ?? []).find((one) => one.held.state === "job" && one.held.job_id === jobId);
+  const dirty = target.held.flatMap((reason) => (reason.why === "uncommitted" ? reason.files : []));
+  if (bay !== undefined && dirty.length > 0) {
+    return {
+      held,
+      outcome: refusedAs("fleet.slot_kept", `slot-${bay.slot} has uncommitted changes, first ${dirty[0]}`),
+    };
+  }
   const after: WorktreeHeld = {
     ...target,
     on_disk: false,
+    ...(bay === undefined ? {} : { path: `${ROOT}/${jobId}` }),
     held: target.held.filter((reason) => reason.why === "unmerged"),
   };
+  if (bay !== undefined) {
+    const { branch: _b, since: _s, ...rest } = bay;
+    const freed = { ...rest, held: { state: "free" as const } };
+    held = { ...held, slots: (held.slots ?? []).map((one) => (one === bay ? freed : one)) };
+  }
   return {
     held: { ...held, worktrees: held.worktrees.map((one) => (one === target ? after : one)) },
     outcome: {
@@ -110,7 +125,9 @@ export function reclaimedIn(
         branch: {
           branch: target.branch,
           deleted: false,
-          ...(unmerged === undefined ? {} : { unmerged_commits: unmerged.commits, tip: unmerged.tip }),
+          ...(unmerged === undefined
+            ? {}
+            : { unmerged_commits: unmerged.commits, tip: unmerged.tip, base: unmerged.base }),
         },
       },
     },

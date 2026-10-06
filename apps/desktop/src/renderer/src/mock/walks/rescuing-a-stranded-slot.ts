@@ -9,7 +9,7 @@ const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const TILE = (n: number) => inside(BAY(n), role("button", `slot-${n}`, { exact: true }));
 const PANEL = (n: number) => dialog(`slot-${n}`);
 const IN_PANEL = (n: number, kind: string, name: string) => inside(PANEL(n), role(kind, name, { exact: true }));
-const SHUT = (n: number) => IN_PANEL(n, "button", "Close Esc");
+const SHUT = (n: number) => IN_PANEL(n, "button", "Close panel Esc");
 
 export const rescuingAStrandedSlot = walk("cleanup/slots", [
   { press: role("button", "Cleanup", { exact: true }), say: "Cleanup, from the rail" },

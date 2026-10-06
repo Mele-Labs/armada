@@ -123,8 +123,13 @@ test("Clear is offered only while the checkout is on disk", () => {
 });
 
 test("Delete branch is offered only while an unmerged reason is present", () => {
-  expect(offeredActs(held({ held: [UNMERGED] })).deleteBranch).toBe(true);
-  expect(offeredActs(held({ held: [] })).deleteBranch).toBe(false);
+  expect(offeredActs(held({ on_disk: false, held: [UNMERGED] })).deleteBranch).toBe(true);
+  expect(offeredActs(held({ on_disk: false, held: [] })).deleteBranch).toBe(false);
+});
+
+/** Fleet answers a branch delete with a 409 while the worktree is on disk, so the act is not offered then. */
+test("Delete branch waits for the worktree to go", () => {
+  expect(offeredActs(held({ on_disk: true, held: [UNMERGED] })).deleteBranch).toBe(false);
 });
 
 /**
@@ -150,7 +155,7 @@ test("a Clear's cost names the uncommitted files and the unmerged branch it keep
 
   expect(costOf(row)).toEqual({
     files: ["src/log.rs", "notes.md"],
-    branch: { name: "armada/01JOB0001", commits: 3, tip: "9f1c2ab84d5e" },
+    branch: { name: "armada/01JOB0001", commits: 3, tip: "9f1c2ab84d5e", base: "main" },
   });
 });
 
@@ -173,23 +178,30 @@ function reclaimed(over: Partial<WorktreeReclaimed> = {}): WorktreeReclaimed {
 }
 
 test("a receipt says each half, the checkout then the branch, as bare facts", () => {
-  expect(reclaimedSaid(reclaimed())).toEqual(["Checkout gone", "Branch kept, 3 commits"]);
-  expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: false, unmerged_commits: 1 } }))[1]).toBe("Branch kept, 1 commit");
-});
-
-test("a locked checkout answers ok and the receipt says it stays", () => {
-  expect(reclaimedSaid(reclaimed({ worktree: { path: "/p", removed: false, why: "locked by a Pilot" } }))[0]).toBe(
-    "Checkout stays: locked by a Pilot",
+  expect(reclaimedSaid(reclaimed())).toEqual(["Worktree removed", "Branch kept: 3 commits not on main"]);
+  expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: false, unmerged_commits: 1, base: "develop" } }))[1]).toBe(
+    "Branch kept: 1 commit not on develop",
   );
 });
 
+test("a locked worktree answers ok and the receipt says it is kept", () => {
+  expect(reclaimedSaid(reclaimed({ worktree: { path: "/p", removed: false, why: "locked by a Pilot" } }))[0]).toBe(
+    "Worktree kept: locked by a Pilot",
+  );
+});
+
+/** A bay is released to the pool and its directory stays, so it is never said to be removed. */
+test("a bay's receipt says the slot was released, not removed", () => {
+  expect(reclaimedSaid(reclaimed(), true)[0]).toBe("Slot released, worktree kept");
+});
+
 test("a deleted branch names its tip, and one that could not be deleted says why", () => {
-  expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: true, tip: "abc123" } }))[1]).toBe("Branch deleted, at abc123");
+  expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: true, tip: "abc123" } }))[1]).toBe("Branch deleted at abc123");
   expect(reclaimedSaid(reclaimed({ branch: { branch: "b", deleted: false, why: "checked out elsewhere" } }))[1]).toBe(
-    "Branch stays: checked out elsewhere",
+    "Branch kept: checked out elsewhere",
   );
 });
 
 test("a branch delete's receipt names the tip its commits are reachable from", () => {
-  expect(branchDeletedSaid({ job_id: "x", branch: "b", tip: "9f1c2ab84d5e" })).toEqual(["Branch deleted, at 9f1c2ab84d5e"]);
+  expect(branchDeletedSaid({ job_id: "x", branch: "b", tip: "9f1c2ab84d5e" })).toEqual(["Branch deleted at 9f1c2ab84d5e"]);
 });

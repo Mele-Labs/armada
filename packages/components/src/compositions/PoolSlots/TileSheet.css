@@ -21,6 +21,57 @@
   gap: var(--space-2);
 }
 
+/* An act reads as a button at rest, in the hue of what it does: an edge, a tint
+   and its label in `--act-hue`. Destructive acts take the error red the
+   destructive Button takes, a rescue the bay's warning amber, the rest the
+   default text. Hover takes the full edge and the 14% tint; the focus ring is
+   the shared one. **The tint stops at 14%**: worked from the tokens on
+   `--bg-overlay`, error red as text is 4.54:1 on it and 3.53:1 at 28%, so the
+   deeper step the bays take fails here. Amber is 5.78:1 and `--fg-default`
+   8.72:1 at 14%. */
+.armada-tile-act {
+  --act-hue: var(--fg-default);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--act-hue) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--act-hue) calc(var(--row-tint) * 2), transparent);
+  color: var(--act-hue);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.armada-tile-act[data-tone="destructive"] {
+  --act-hue: var(--status-completed-failed);
+}
+
+.armada-tile-act[data-tone="rescue"] {
+  --act-hue: var(--slot-stranded);
+}
+
+.armada-tile-act > svg {
+  flex: none;
+}
+
+.armada-tile-act:hover {
+  border-color: var(--act-hue);
+  background: color-mix(in srgb, var(--act-hue) var(--row-tint-recent), transparent);
+}
+
+.armada-tile-act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--act-hue);
+}
+
+.armada-tile-act[aria-disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 /* What Fleet said when it would not, and what an act did: bare facts, a line each. */
 .armada-tile-sheet__refused {
   margin: 0;
@@ -114,6 +165,10 @@ button.armada-tile-sheet__value:focus-visible {
 .armada-tile-holds__word,
 .armada-confirm__word {
   font-weight: var(--weight-medium);
+}
+
+.armada-tile-holds__status {
+  display: inline-flex;
 }
 
 .armada-tile-holds__figure,

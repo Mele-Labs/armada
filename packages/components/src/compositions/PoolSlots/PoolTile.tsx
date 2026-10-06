@@ -39,12 +39,12 @@ function slotState(slot: WorktreeSlot): State {
 
 /** A Job's worktree outside the pool: held while it runs, kept for what it holds, free to go, or gone. */
 function outsideState(held: WorktreeHeld): State {
-  if (!reclaimable(held)) return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held: the Job has not ended" };
+  if (!reclaimable(held)) return { bay: "held", Glyph: KeyRound, word: "Held", said: "Held: its Job has not finished" };
   if (held.held.length > 0) {
     return { bay: "kept", Glyph: Anchor, word: "Kept", said: `Kept: ${holdsSaid(held.held)}` };
   }
-  if (!held.on_disk) return { bay: "ghost", Glyph: FolderX, word: "Gone", said: "Checkout gone" };
-  return { bay: "free", Glyph: DoorOpen, word: "Free", said: "Free: nothing holds it" };
+  if (!held.on_disk) return { bay: "ghost", Glyph: FolderX, word: "Gone", said: "Worktree removed" };
+  return { bay: "free", Glyph: DoorOpen, word: "Free", said: "Free: nothing uncommitted or unmerged" };
 }
 
 export function stateOf(row: TileRow): State {

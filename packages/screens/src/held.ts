@@ -23,7 +23,8 @@ const NONE: Offered = { clear: false, deleteBranch: false, forget: false };
  *
  * **Nothing at all while the Job has not ended**: Fleet refuses a reclaim with
  * `fleet.not_reclaimable` there, so a button would be a control whose only
- * outcome is a refusal. **Forget is the one gated on the other two**: a record
+ * outcome is a refusal. **Delete branch waits for the worktree to go**, which Fleet
+ * refuses with a 409 while it is on disk. **Forget is gated on both**: a record
  * forgotten while its checkout or its branch stands orphans disk
  * `worktrees_held` no longer walks to, and a branch whose base nothing could
  * name offers no delete, so it holds the record too.
@@ -32,7 +33,7 @@ export function offeredActs(held: WorktreeHeld): Offered {
   if (!reclaimable(held)) return NONE;
   const unmerged = unmergedOf(held) !== null;
   const unanswered = held.held.some((reason) => reason.why === "base_unanswered");
-  return { clear: held.on_disk, deleteBranch: unmerged, forget: !held.on_disk && !unmerged && !unanswered };
+  return { clear: held.on_disk, deleteBranch: unmerged && !held.on_disk, forget: !held.on_disk && !unmerged && !unanswered };
 }
 
 /**
@@ -45,28 +46,36 @@ export function costOf(held: WorktreeHeld): ClearCost {
   const unmerged = unmergedOf(held);
   return {
     files,
-    ...(unmerged === null ? {} : { branch: { name: held.branch, commits: unmerged.commits, tip: unmerged.tip } }),
+    ...(unmerged === null
+      ? {}
+      : { branch: { name: held.branch, commits: unmerged.commits, tip: unmerged.tip, base: unmerged.base } }),
   };
 }
 
-/** What a reclaim did, as bare facts: the checkout, then the branch. */
-export function reclaimedSaid(got: WorktreeReclaimed): string[] {
+/**
+ * What a reclaim did, in git's words: the worktree, then the branch. **A bay is
+ * released to the pool and its directory stays**, so it never says removed.
+ */
+export function reclaimedSaid(got: WorktreeReclaimed, pooled = false): string[] {
   const { worktree, branch } = got;
-  const checkout = worktree.removed ? "Checkout gone" : `Checkout stays: ${worktree.why ?? "no reason given"}`;
-  const tip = branch.tip == null ? "" : `, at ${branch.tip}`;
+  const first = pooled
+    ? "Slot released, worktree kept"
+    : worktree.removed
+      ? "Worktree removed"
+      : `Worktree kept: ${worktree.why ?? "no reason given"}`;
   const commits = branch.unmerged_commits;
-  const kept =
-    branch.deleted
-      ? `Branch deleted${tip}`
-      : commits == null
-        ? `Branch stays: ${branch.why ?? "no reason given"}`
-        : `Branch kept, ${commits === 1 ? "1 commit" : `${commits} commits`}`;
-  return [checkout, kept];
+  const base = branch.base ?? "main";
+  const second = branch.deleted
+    ? `Branch deleted at ${branch.tip ?? "its tip"}`
+    : commits == null
+      ? `Branch kept: ${branch.why ?? "no reason given"}`
+      : `Branch kept: ${commits === 1 ? "1 commit" : `${commits} commits`} not on ${base}`;
+  return [first, second];
 }
 
 /** What a branch delete did: the branch, and the tip its commits are reachable from. */
 export function branchDeletedSaid(got: BranchDeleted): string[] {
-  return [`Branch deleted, at ${got.tip}`];
+  return [`Branch deleted at ${got.tip}`];
 }
 
 /**

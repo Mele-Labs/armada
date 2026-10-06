@@ -133,7 +133,7 @@ test("a job still running is a tile whose panel offers no act", async () => {
  * long they have sat, and the unmerged branch is named as kept, because a
  * reclaim never forces it.
  */
-test("Clear confirms first, naming the files it destroys, how long they have sat and the branch it keeps", async () => {
+test("Clear confirms first, listing the worktree it removes, the files it deletes, how long ago the Job last moved and the branch it keeps", async () => {
   const sent = opened([held({ held: [{ why: "uncommitted", files: ["src/log.rs", "notes.md"] }, UNMERGED] })]);
 
   const panel = await open("job-a");
@@ -141,10 +141,12 @@ test("Clear confirms first, naming the files it destroys, how long they have sat
   expect(sent.reclaimed, "nothing is sent before the confirm").toEqual([]);
 
   const confirm = confirmOf("Clear", "job-a");
-  await expect.element(confirm.getByRole("list", { name: "Destroyed files" })).toHaveTextContent("src/log.rs");
-  await expect.element(confirm.getByRole("list", { name: "Destroyed files" })).toHaveTextContent("notes.md");
-  await expect.element(confirm.getByLabelText("Last moved 4 days ago")).toHaveTextContent("4 days");
-  await expect.element(confirm.getByRole("list", { name: "Branch" })).toHaveTextContent("armada/job-a · 3 commits · 9f1c2ab84d5e");
+  await expect.element(confirm.getByText("Removes the worktree at /Users/user/armada/.armada/worktrees/job-a")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Deletes uncommitted files")).toBeInTheDocument();
+  await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/log.rs");
+  await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes.md");
+  await expect.element(confirm.getByText("Job last moved 4 days ago")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Keeps branch armada/job-a: 3 commits not on main")).toBeInTheDocument();
 
   await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
   expect(sent.reclaimed).toEqual([]);
@@ -162,8 +164,8 @@ test("a Clear that destroys nothing names no file", async () => {
   await userEvent.click(panel.getByRole("button", { name: "Clear" }));
 
   const confirm = confirmOf("Clear", "job-a");
-  expect(confirm.getByRole("list", { name: "Destroyed files" }).elements()).toHaveLength(0);
-  await expect.element(confirm.getByRole("list", { name: "Branch" })).toBeInTheDocument();
+  expect(confirm.getByRole("list", { name: "Uncommitted files" }).elements()).toHaveLength(0);
+  await expect.element(confirm.getByText("Keeps branch armada/job-a: 3 commits not on main")).toBeInTheDocument();
 });
 
 /** **The receipt is said in the panel**, half by half, and an unmerged branch stays. */
@@ -174,8 +176,8 @@ test("Clear says what it did in the panel: the checkout gone and the unmerged br
   await userEvent.click(panel.getByRole("button", { name: "Clear" }));
   await userEvent.click(confirmOf("Clear", "job-a").getByRole("button", { name: "Clear" }));
 
-  await expect.element(panel.getByRole("status")).toHaveTextContent("Checkout gone");
-  await expect.element(panel.getByRole("status")).toHaveTextContent("Branch kept, 3 commits");
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Worktree removed");
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Branch kept: 3 commits not on main");
 });
 
 /** A refusal is the panel's, led by what failed to happen, and the tile says none of it. */
@@ -186,7 +188,7 @@ test("a refused Clear is said in the panel", async () => {
   await userEvent.click(panel.getByRole("button", { name: "Clear" }));
   await userEvent.click(confirmOf("Clear", "job-a").getByRole("button", { name: "Clear" }));
 
-  await expect.element(panel.getByRole("alert")).toHaveTextContent("Not cleared");
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Worktree not removed");
   await userEvent.keyboard("{Escape}");
   expect(page.getByRole("alert").elements()).toHaveLength(0);
 });
@@ -201,8 +203,8 @@ test("Delete branch confirms with the tip, and sends that tip", async () => {
   expect(sent.branchesDeleted).toEqual([]);
 
   const confirm = confirmOf("Delete branch", "job-a");
-  await expect.element(confirm.getByRole("list", { name: "Branch" })).toHaveTextContent("3 commits");
-  await expect.element(confirm.getByRole("list", { name: "Tip" })).toHaveTextContent("9f1c2ab84d5e");
+  await expect.element(confirm.getByText("Deletes branch armada/job-a at 9f1c2ab84d5e")).toBeInTheDocument();
+  await expect.element(confirm.getByText("3 commits not on main stay reachable only from 9f1c2ab84d5e")).toBeInTheDocument();
   await userEvent.click(confirm.getByRole("button", { name: "Delete branch" }));
   expect(sent.branchesDeleted).toEqual([["job-a", "9f1c2ab84d5e"]]);
 });
@@ -220,7 +222,7 @@ test("a branch Fleet will not delete says why in the panel", async () => {
   await userEvent.click(panel.getByRole("button", { name: "Delete branch" }));
   await userEvent.click(confirmOf("Delete branch", "job-a").getByRole("button", { name: "Delete branch" }));
 
-  await expect.element(panel.getByRole("alert")).toHaveTextContent("Not deleted: the tip has moved");
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Branch not deleted: the tip has moved");
 });
 
 /**
@@ -241,7 +243,7 @@ test("Forget Job is withheld while a checkout stands, and confirms once it is of
   const gone = await open("job-b");
   await userEvent.click(gone.getByRole("button", { name: "Forget Job" }));
   expect(sent.forgotten).toEqual([]);
-  await expect.element(confirmOf("Forget Job", "job-b").getByRole("list", { name: "Job" })).toHaveTextContent("Old");
+  await expect.element(confirmOf("Forget Job", "job-b").getByText("Deletes the record of Job Old")).toBeInTheDocument();
   await userEvent.click(confirmOf("Forget Job", "job-b").getByRole("button", { name: "Forget Job" }));
   expect(sent.forgotten).toEqual(["job-b"]);
 });
@@ -264,6 +266,7 @@ test("a bay joins its Job's worktree in one panel, and the worktree is not drawn
     [held({ job_id: "01JOB", held: [{ why: "uncommitted", files: ["src/log.rs"] }] }), held({ job_id: "outside", held: [UNMERGED] })],
     {},
     [slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" }, branch: "armada/1-fix-the-reader" })],
+    { onChangeSlotPool: () => Promise.resolve({ ok: true }) },
   );
 
   await expect.element(page.getByRole("button", { name: "outside", exact: true })).toBeInTheDocument();
@@ -271,12 +274,82 @@ test("a bay joins its Job's worktree in one panel, and the worktree is not drawn
   expect(page.getByRole("listitem").elements().filter((one) => one.getAttribute("aria-label") !== null)).toHaveLength(2);
   const panel = await open("slot-1");
   await expect.element(panel.getByRole("button", { name: "Clear" })).toBeInTheDocument();
-  await expect.element(panel.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  await expect.element(panel.getByRole("button", { name: "Close slot" })).toBeInTheDocument();
   await expect.element(panel.getByRole("region", { name: "What it holds" })).toHaveTextContent("src/log.rs");
 
   await userEvent.click(panel.getByRole("button", { name: "Clear" }));
   await userEvent.click(confirmOf("Clear", "slot-1").getByRole("button", { name: "Clear" }));
   expect(sent.reclaimed).toEqual(["01JOB"]);
+});
+
+/**
+ * **A bay is released to the pool, and its worktree stays.** The confirm and
+ * the receipt say that, in git's words, and never that a worktree was removed.
+ */
+test("Clear on a bay releases the slot and says the worktree stays", async () => {
+  const sent = opened(
+    [held({ job_id: "01JOB", branch: "armada/1-fix", held: [UNMERGED] })],
+    { reclaim: () => ({ ok: true, reclaimed: RECLAIMED }) },
+    [slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" }, branch: "armada/1-fix" })],
+  );
+
+  const panel = await open("slot-1");
+  await userEvent.click(panel.getByRole("button", { name: "Clear" }));
+  const confirm = confirmOf("Clear", "slot-1");
+  await expect.element(confirm.getByText("Releases slot-1 to the pool")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Keeps the worktree at .armada/slots/slot-1, detached from armada/1-fix")).toBeInTheDocument();
+  expect(confirm.getByText(/^Removes the worktree/).elements()).toHaveLength(0);
+
+  await userEvent.click(confirm.getByRole("button", { name: "Clear" }));
+  expect(sent.reclaimed).toEqual(["01JOB"]);
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Slot released, worktree kept");
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Branch kept: 3 commits not on main");
+});
+
+test("a refused release is said as a slot not released", async () => {
+  opened(
+    [held({ job_id: "01JOB", held: [{ why: "uncommitted", files: ["src/log.rs"] }] })],
+    { reclaim: () => ({ ok: false, why: "not_connected" }) },
+    [slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" } })],
+  );
+
+  const panel = await open("slot-1");
+  await userEvent.click(panel.getByRole("button", { name: "Clear" }));
+  await expect.element(confirmOf("Clear", "slot-1").getByText("Refused while these are uncommitted")).toBeInTheDocument();
+  await userEvent.click(confirmOf("Clear", "slot-1").getByRole("button", { name: "Clear" }));
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released");
+});
+
+/** Fleet answers a branch delete with a 409 while the worktree is on disk, so the act is not offered then. */
+test("Delete branch is not offered while the worktree is on disk", async () => {
+  opened([held({ on_disk: true, held: [UNMERGED] })]);
+
+  const panel = await open("job-a");
+  await expect.element(panel.getByRole("button", { name: "Clear" })).toBeInTheDocument();
+  expect(panel.getByRole("button", { name: "Delete branch" }).elements()).toHaveLength(0);
+});
+
+/** Each act's tooltip says what it acts on, in git's words, with the screen's own paths and branches. */
+test("Clear's tooltip names the worktree it removes and what becomes of the branch", async () => {
+  opened([held({ held: [UNMERGED] })]);
+
+  const panel = await open("job-a");
+  await expect
+    .element(panel.getByRole("button", { name: "Clear" }))
+    .toHaveAccessibleDescription(
+      "Removes the worktree at /Users/user/armada/.armada/worktrees/job-a. Deletes branch armada/job-a only if main has all its commits, otherwise keeps it.",
+    );
+});
+
+/** The Job's status row is the Job's: its handle, and the Board's badge. */
+test("a running Job's row says whose status it is", async () => {
+  opened([held({ job_id: "01JOB", status: "running", held: [{ why: "not_terminal", status: "running" }] })], {}, [], {
+    jobs: [{ id: "01JOB", handle: "4-fix-the-reader" } as never],
+  });
+
+  const panel = await open("4-fix-the-reader");
+  await expect.element(panel.getByText("Job 4-fix-the-reader")).toBeInTheDocument();
+  await expect.element(panel.getByLabelText("Job status: running")).toHaveTextContent("running");
 });
 
 /** A worktree outside the pool is named by its Job's handle where the board has it. */
@@ -418,7 +491,7 @@ test("a refused rescue is said in its panel", async () => {
   );
   const panel = await open("slot-4");
   await userEvent.click(panel.getByRole("button", { name: "Rescue" }));
-  await expect.element(panel.getByRole("alert")).toHaveTextContent("Not started: a lease is under way");
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Scout not started: a lease is under way");
 });
 
 /**
@@ -452,7 +525,7 @@ test("a scrap that kept its branch says so, after its confirm", async () => {
   expect(sent).toEqual([]);
   await userEvent.click(page.getByRole("group", { name: "Scrap slot-4" }).getByRole("button", { name: "Scrap" }));
   expect(sent).toEqual(["scrap"]);
-  await expect.element(panel.getByRole("status")).toHaveTextContent("fleet/an-old-try kept");
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Branch fleet/an-old-try kept");
 });
 
 /** Pick up is sent from the Finding and says its commit, as a Stash does; Scraps does not offer it. */
@@ -465,7 +538,7 @@ test("a pick up is sent from the Finding, and Scraps offers none", async () => {
   const panel = await open("slot-4");
   await userEvent.click(panel.getByRole("button", { name: "Pick up" }));
   expect(sent).toEqual(["pick_up"]);
-  await expect.element(panel.getByRole("status")).toHaveTextContent("c0ffee1 on fleet/an-old-try");
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Committed c0ffee1 on fleet/an-old-try");
   unmount();
 
   rescuing(stranded({ ...FINDING, state: "answered", verdict: "scraps", items: ["A draft note"] }), () => Promise.resolve({ ok: true, rescued: RECEIPT }));
@@ -485,7 +558,7 @@ test("a refused pick up is said in the panel", async () => {
   );
   const panel = await open("slot-4");
   await userEvent.click(panel.getByRole("button", { name: "Pick up" }));
-  await expect.element(panel.getByRole("alert")).toHaveTextContent("Not picked up: no origin to push to");
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Work not picked up: no origin to push to");
 });
 
 /** A Job's kept slot is rescued from the screen as a stranded one is: the start reaches Fleet with its number. */

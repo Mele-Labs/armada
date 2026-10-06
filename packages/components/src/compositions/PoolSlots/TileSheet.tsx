@@ -136,15 +136,14 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onD
           {job === null ? null : <JobLink jobId={job.jobId} title={job.title} onOpenJob={onOpenJob} />}
         </span>
       }
-      closeLabel="Close"
+      closeLabel="Close panel"
       closeBinding="Esc"
       {...(foot === undefined ? {} : { footer: foot })}
       onClose={onClose}
     >
       <div className="armada-tile-sheet__body">
         <TileActs
-          slot={slot}
-          offered={row.offered}
+          row={row}
           waiting={waiting}
           onAct={onAct}
           onRescue={onRescue}
@@ -165,7 +164,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onD
         {confirming === null || held === undefined ? null : (
           <TileConfirm which={confirming} row={row} cost={row.cost ?? { files: [] }} onSend={send} onCancel={() => setConfirming(null)} />
         )}
-        {held === undefined ? null : <TileHolds reasons={held.held} sat={row.sat} />}
+        {held === undefined ? null : <TileHolds reasons={held.held} sat={row.sat} status={held.status} job={row.job} />}
         {slot === undefined || rescue === undefined ? null : <SlotFinding slot={slot} />}
         {scrapping && slot !== undefined ? (
           <ScrapConfirm slot={slot} onScrap={() => rescued("scrap")} onCancel={() => setScrapping(false)} />

@@ -173,27 +173,27 @@ export const Acts: Story = {
   name: "Acts",
   args: { rows: [...ROWS, { slot: slot(8, { held: { state: "unmade" }, closed: true }) }], onAct: fn() },
   play: async ({ args, canvas, userEvent }) => {
-    await expect(canvas.queryByRole("button", { name: /^(Close|Reopen|Remove)$/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^(Close|Reopen|Remove) slot$/ })).toBeNull();
 
     const act = async (n: number, name: string) => {
       const open = await openTile(canvas, userEvent, `slot-${n}`);
       await userEvent.click(open.getByRole("button", { name }));
       await userEvent.keyboard("{Escape}");
     };
-    await act(3, "Close");
+    await act(3, "Close slot");
     await expect(args.onAct).toHaveBeenLastCalledWith("close", 3);
-    await act(3, "Remove");
+    await act(3, "Remove slot");
     await expect(args.onAct).toHaveBeenLastCalledWith("remove", 3);
-    await act(6, "Remove");
+    await act(6, "Remove slot");
     await expect(args.onAct).toHaveBeenLastCalledWith("remove", 6);
-    await act(8, "Reopen");
+    await act(8, "Reopen slot");
     await expect(args.onAct).toHaveBeenLastCalledWith("open", 8);
 
     // Held, a session's, stranded, busy and not a checkout: nothing to remove.
     for (const n of [1, 2, 4, 5, 7]) {
       const open = await openTile(canvas, userEvent, `slot-${n}`);
-      await expect(open.queryByRole("button", { name: "Remove" })).toBeNull();
-      await expect(open.getByRole("button", { name: "Close" })).toBeInTheDocument();
+      await expect(open.queryByRole("button", { name: "Remove slot" })).toBeNull();
+      await expect(open.getByRole("button", { name: "Close slot" })).toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
     }
 
@@ -202,7 +202,7 @@ export const Acts: Story = {
 
     // Every act has an edge at rest, so none reads as a bare glyph.
     const open = await openTile(canvas, userEvent, "slot-3");
-    for (const one of open.getAllByRole("button", { name: /^(Close|Remove)$/ })) {
+    for (const one of open.getAllByRole("button", { name: /^(Close|Remove) slot$/ })) {
       await expect(getComputedStyle(one).borderTopStyle).toBe("solid");
     }
   },
@@ -218,25 +218,25 @@ export const Refused: Story = {
   name: "Refused",
   args: {
     rows: [
-      { slot: slot(1, { held: { state: "free" } }), refused: "Not removed: 1 uncommitted, first notes.md" },
+      { slot: slot(1, { held: { state: "free" } }), refused: "Slot not removed: 1 uncommitted, first notes.md" },
       { slot: slot(2, { held: { state: "free" } }), acting: true },
     ],
     onAct: fn(),
-    addRefused: "Not added: .armada/slots/pool: permission denied",
+    addRefused: "Slot not added: .armada/slots/pool: permission denied",
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(tile(canvas, "slot-1").queryByRole("alert")).toBeNull();
     const first = await openTile(canvas, userEvent, "slot-1");
-    await expect(first.getByRole("alert")).toHaveTextContent("Not removed: 1 uncommitted, first notes.md");
+    await expect(first.getByRole("alert")).toHaveTextContent("Slot not removed: 1 uncommitted, first notes.md");
     await userEvent.keyboard("{Escape}");
 
     const second = await openTile(canvas, userEvent, "slot-2");
     await expect(second.queryByRole("alert")).toBeNull();
     // Past the pointer, which a waiting tile's acts refuse: the press itself sends nothing.
-    fireEvent.click(second.getByRole("button", { name: "Remove" }));
+    fireEvent.click(second.getByRole("button", { name: "Remove slot" }));
     await expect(args.onAct).not.toHaveBeenCalled();
     await userEvent.keyboard("{Escape}");
 
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Not added: .armada/slots/pool: permission denied");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Slot not added: .armada/slots/pool: permission denied");
   },
 };

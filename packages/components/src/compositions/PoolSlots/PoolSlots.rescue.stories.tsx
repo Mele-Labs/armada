@@ -77,7 +77,7 @@ export const RescueOffered: Story = {
     await expect(args.onRescue).toHaveBeenCalledWith("start", 4);
     await expect(getComputedStyle(open.getByRole("button", { name: "Rescue" })).borderTopStyle).toBe("solid");
     // The pool's own acts stay beside it.
-    await expect(open.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    await expect(open.getByRole("button", { name: "Close slot" })).toBeInTheDocument();
   },
 };
 
@@ -179,7 +179,7 @@ export const FindingPickedUp: Story = {
           ...STRANDED,
           rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/reader/retry.rs has no test"] },
         }),
-        refused: "Not picked up: no origin to push to",
+        refused: "Work not picked up: no origin to push to",
       },
     ],
     onAct: fn(),
@@ -187,7 +187,7 @@ export const FindingPickedUp: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     const finding = await opened(canvas, userEvent, 4);
-    await expect(finding.getByRole("alert")).toHaveTextContent("Not picked up: no origin to push to");
+    await expect(finding.getByRole("alert")).toHaveTextContent("Work not picked up: no origin to push to");
     await userEvent.click(finding.getByRole("button", { name: "Pick up" }));
     await expect(args.onRescue).toHaveBeenCalledTimes(1);
     await expect(args.onRescue).toHaveBeenCalledWith("pick_up", 4);
@@ -301,7 +301,7 @@ export const FindingClosed: Story = {
     await expect(bay(canvas, 4).getByRole("button", { name: "slot-4" })).toHaveAttribute("aria-expanded", "false");
 
     const again = await opened(canvas, userEvent, 4);
-    await userEvent.click(again.getByRole("button", { name: "Close Esc" }));
+    await userEvent.click(again.getByRole("button", { name: "Close panel Esc" }));
     await expect(canvas.queryByRole("dialog")).toBeNull();
     await expect(args.onRescue).not.toHaveBeenCalled();
   },
@@ -424,24 +424,24 @@ export const RescueRefusedAndReceipt: Story = {
     rows: [
       {
         slot: slot(4, { ...STRANDED, rescue: { ...FOUND, state: "answered", verdict: "unfinished", items: ["src/lib.rs still calls the old loop"] } }),
-        refused: "Not stashed: a Scout is reading it",
+        refused: "Changes not stashed: a Scout is reading it",
       },
-      { slot: slot(5, { held: { state: "free" } }), said: "fleet/old-try kept" },
-      { slot: slot(6, { held: { state: "free" } }), said: "c0ffee1 on fleet/old-try" },
+      { slot: slot(5, { held: { state: "free" } }), said: "Branch fleet/old-try kept" },
+      { slot: slot(6, { held: { state: "free" } }), said: "Committed c0ffee1 on fleet/old-try" },
     ],
     onAct: fn(),
     onRescue: fn(),
   },
   play: async ({ canvas, userEvent }) => {
     const refused = await opened(canvas, userEvent, 4);
-    await expect(refused.getByRole("alert")).toHaveTextContent("Not stashed: a Scout is reading it");
+    await expect(refused.getByRole("alert")).toHaveTextContent("Changes not stashed: a Scout is reading it");
     await expect(refused.queryByRole("status")).toBeNull();
     await userEvent.keyboard("{Escape}");
     const scrapped = await opened(canvas, userEvent, 5);
-    await expect(scrapped.getByRole("status")).toHaveTextContent("fleet/old-try kept");
+    await expect(scrapped.getByRole("status")).toHaveTextContent("Branch fleet/old-try kept");
     await userEvent.keyboard("{Escape}");
     const stashed = await opened(canvas, userEvent, 6);
-    await expect(stashed.getByRole("status")).toHaveTextContent("c0ffee1 on fleet/old-try");
+    await expect(stashed.getByRole("status")).toHaveTextContent("Committed c0ffee1 on fleet/old-try");
     // A tile says none of it.
     await userEvent.keyboard("{Escape}");
     await expect(canvas.queryByRole("alert")).toBeNull();
