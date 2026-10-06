@@ -140,7 +140,8 @@ tiny helpers a surface and the app share, with no React: today the generic
 `Scenario`, `FleetHandle`, `unanswered`, `connected` and `onBoard` that
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
-moves each surface's slice and fleet into its own package, step by step.
+moves each surface's slice and fleet into its own package, step by step. Studios
+has moved both.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -177,10 +178,22 @@ What it settled for the next surface:
   the Job composer's, `whiteboard-resize` mounts one component, and
   `job-detail-from-studio` starts on a Job. They keep `mountApp` and
   `@armada/desktop/mock`.
-- **The mock fleet stays in `apps/desktop/src/renderer/src/mock`.** `studio-fleet.ts` is built
-  on `moment.ts`, which a surface's source may not import, and `fake.ts` and
-  `scenario.ts` compose it. `harness.ts` re-exports what the surface's tests
-  need from it; add to the harness by name, not by moving the fleet.
+- **The surface owns its API slice and its fake.** `package.json` carries an
+  `exports` map: `.` to `./src/index.ts`, `./api` to `./src/api.ts` (the
+  `<X>Api`, `<X>State`, empty state and channel names, no React) and `./fake` to
+  `./src/fake.ts` (the Fleet, typed with `Scenario`, `FleetHandle`, `unanswered`
+  and `onBoard` from `@armada/bridge-api`). The fake is generic over the app's
+  whole state and API where it must name them, so it never imports desktop.
+- **Desktop keeps the registration.** `shared/api/<x>.ts` is
+  `export * from "@armada/<x>/api"`, so `shared/api.ts`, main and preload import
+  what they did. `mock/<x>-fake.ts` fixes the generic scenarios to `BridgeState`
+  and `BridgeApi` and `harness.ts` re-exports it; `mock/slices/<x>.ts` is the
+  `Slice` naming `<x>Api(...)` and those scenarios, and `mock/slices.ts` lists it.
+- **`depends_on` is what the tests read, not the renderer whole**: `bridge-api`,
+  screens, shell, components, tokens, brand, protocol, the App files and
+  renderer folders, `mock/{fake,fake-context,harness,moment,mount,scenario,slices,testing}`,
+  `mock/<x>-fake.ts`, `mock/slices/**` (tests mount every slice) and `shared/**`;
+  never another surface's `*-fleet.ts`. `armada covers` proves it.
 - **A rule that scans `packages/screens` must scan the surfaces.**
   `no_off_contract_design_value` read only `components` and `screens`, so the move
   would have unwatched Studios without a red.
@@ -198,8 +211,8 @@ under the old names, so no importer changes. **A slice imports protocol, screens
 and the shared helper types beside it, never another slice.** Core's `state` and
 `subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
-typecheck if the composition drifts from them. The slices move into their
-surface packages one at a time, as above.
+typecheck if the composition drifts from them. A slice moves into its surface
+package as `/api`, as above; Studios has.
 
 ## State and data flow
 
