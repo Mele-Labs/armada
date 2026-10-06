@@ -66,8 +66,22 @@ import type { AddTask, DropTask, PlanEditAnswer } from "./plan-edits";
 import type { RunSheetSlice } from "./rehearsal";
 import type { OpenStudioFrom } from "./open-studio";
 
+/**
+ * Where a Job opens, when something other than its own Board row opened it: a Check's requester
+ * is a step or a Drone. **Read once, as the Job opens**, so it is never held over the next visit.
+ * A Drone wins over a step: its sheet is the more specific place.
+ */
+export type JobOpening = {
+  /** The Workflow step to open on its tab. */
+  step?: string;
+  /** The Drone to open on the Drones tab. */
+  drone?: string;
+};
+
 export type JobDetailProps = {
   job: JobSummary;
+  /** Where to open, for the Job this names. Absent opens on the first tab, as a Board row does. */
+  opening?: JobOpening;
   /**
    * Every Job Bridge is holding, which is where the members of this one and
    * the wave it dispatched both come from: a row whose `dispatched_by` names

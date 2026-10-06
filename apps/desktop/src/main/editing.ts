@@ -21,6 +21,7 @@ import type {
   ManifestSaveAnswer,
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
+import type { ManifestChecks, ManifestChecksRead } from "@armada/protocol";
 
 import type { Picked } from "./picked";
 import { ask, NOT_SET_UP, type Answer } from "./request";
@@ -135,5 +136,16 @@ export class ManifestFileCommands {
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, spend: answer.body as ManifestSpend };
+  }
+
+  /** Every Check this Manifest's Jobs asked for or ran, newest first. A read. */
+  async readChecks(): Promise<ManifestChecksRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const path = this.picked.manifest("/manifest/checks");
+    if (path === null) return { ok: false, outcome: NOT_SET_UP };
+    const answer = await ask(port, "GET", path);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, checks: answer.body as ManifestChecks };
   }
 }

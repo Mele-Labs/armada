@@ -110,6 +110,7 @@ export function rowSays(row: LedgerRow): string | undefined {
 const KIND_SAYS: Readonly<Record<string, string>> = {
   plan_recorded: "Plan",
   plan_revised: "Plan",
+  asked_run: "Asked run",
   flagged: "Flag",
   deliverable_kept: "Deliverable",
   task_files: "Files",
@@ -206,6 +207,8 @@ export function whereOf(
  */
 export function toneOf(row: LedgerRow): LedgerTone | undefined {
   if (familyOf(row.kind) === "files") return undefined;
+  // A Drone's own run is not the gate's, and a Check's green is not lent to it.
+  if (row.kind === "asked_run") return undefined;
   const said = row.outcome.toLowerCase();
   if (said.startsWith("failed") || said.startsWith("not met")) {
     return "failed";

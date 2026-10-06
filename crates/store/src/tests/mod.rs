@@ -14,6 +14,7 @@
 //! passes on an empty record is the kind of green v1 shipped 2,181 of.
 
 mod allowing;
+mod asked_runs;
 pub(crate) mod attempt;
 mod breakages;
 mod carrying_on;

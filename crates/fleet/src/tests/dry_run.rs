@@ -26,7 +26,9 @@
 //! counts that time against the Drone.
 
 mod absence;
+mod asked;
 mod bounded;
+mod lasting;
 mod later;
 mod leaving_out;
 mod naming;
@@ -79,6 +81,7 @@ const WALL_CLOCK: Duration = Duration::from_secs(1_500);
 struct Held {
     ticks: AtomicU64,
     pushed: AtomicU64,
+    doomed: std::sync::atomic::AtomicBool,
 }
 
 impl Held {
@@ -86,7 +89,13 @@ impl Held {
         Held {
             ticks: AtomicU64::new(0),
             pushed: AtomicU64::new(0),
+            doomed: std::sync::atomic::AtomicBool::new(false),
         }
+    }
+
+    /// The next reading panics, once: a task that reads the clock dies there.
+    fn doom_next_reading(&self) {
+        self.doomed.store(true, Ordering::SeqCst);
     }
 
     fn on(&self, seconds: u64) {
@@ -96,6 +105,9 @@ impl Held {
 
 impl Clock for Held {
     fn now(&self) -> Timestamp {
+        if self.doomed.swap(false, Ordering::SeqCst) {
+            panic!("the clock was doomed by the test");
+        }
         let at = self.ticks.fetch_add(1, Ordering::SeqCst) + self.pushed.load(Ordering::SeqCst);
         Timestamp::from_rfc3339(format!(
             "2026-08-28T{:02}:{:02}:{:02}.000Z",

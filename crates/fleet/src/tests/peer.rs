@@ -92,6 +92,9 @@ impl PeerOf for TheOnlyDrone {
     }
 }
 
+// The kernel half is `proc_pidfdinfo`; elsewhere `Kernel` is a stub that
+// answers nothing, so there is nothing for this to prove.
+#[cfg(target_vendor = "apple")]
 #[test]
 fn the_port_pair_tells_two_connections_apart_and_the_local_port_alone_does_not() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("the listener under test");
@@ -217,6 +220,7 @@ fn a_call_from_a_process_a_session_started_is_placed_within_it() {
 
 /// The kernel's half, against a real tree: a shell whose subshell opens the
 /// connection, so the socket is held by a process this test never started.
+#[cfg(target_vendor = "apple")]
 #[tokio::test]
 async fn the_kernel_places_a_connection_held_by_a_child_of_the_root() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("a listener");

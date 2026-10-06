@@ -60,6 +60,10 @@ pub(crate) struct Record {
     /// The workspace whose own file declared it. Absent is the root's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) workspace: Option<String>,
+    /// Who asked for it. **Absent on a record written before 23.40 reads as
+    /// outside a Job**, which is what every such run was.
+    #[serde(default)]
+    pub(crate) requester: ipc::Requester,
 }
 
 impl Record {
@@ -89,6 +93,7 @@ impl Record {
             snapshot: self.snapshot.clone(),
             undone_at: self.undone_at.clone(),
             log: self.log.clone(),
+            requester: self.requester.clone(),
         })
     }
 
@@ -117,6 +122,7 @@ impl Record {
             undoable: self.snapshot.is_some() && self.undone_at.is_none(),
             undone_at: self.undone_at.clone(),
             log: self.log.clone(),
+            requester: self.requester.clone(),
         }
     }
 }
@@ -136,6 +142,7 @@ pub(crate) struct Underway {
     pub(crate) narrowed: bool,
     pub(crate) started_at: Instant,
     pub(crate) workspace: Option<String>,
+    pub(crate) requester: ipc::Requester,
 }
 
 impl Underway {
@@ -147,6 +154,7 @@ impl Underway {
             command: self.command.clone(),
             narrowed: self.narrowed,
             started_at: self.started_at.clone(),
+            requester: self.requester.clone(),
         }
     }
 
@@ -157,6 +165,7 @@ impl Underway {
             command: self.command.clone(),
             started_at: self.started_at.clone(),
             workspace: self.workspace.clone(),
+            requester: self.requester.clone(),
         }
     }
 }

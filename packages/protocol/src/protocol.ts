@@ -27,6 +27,7 @@
 // too. Type-only both ways, so the cycle is erased before anything runs.
 
 import type { Settled } from "./detail";
+import type { Requester } from "./requester";
 import type { TaskCounts } from "./work-plan";
 
 /** A Job, as a list row. `crates/ipc/src/job.rs`. */
@@ -326,6 +327,11 @@ export type CheckRun = {
   group?: string;
   /** Which run of that group, from one. Present exactly where `group` is. Since 23.4. */
   group_attempt?: number;
+  /**
+   * Who asked for this run. Present from 23.40; **absent reads as `outside`**
+   * (`requesterOf`). `StepDetail` stamps `gate` on every row it carries.
+   */
+  requester?: Requester;
 };
 
 /**

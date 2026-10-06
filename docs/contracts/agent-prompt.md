@@ -673,7 +673,17 @@ fails stops the rest, and the report names it.
 **Only while the part is still going.** A submission, a kill or a Drone gone
 stops the run, and whatever follows is told nothing about it.
 
-**Fleet's own report.** `fleet::ChecksReported` is the one constructor for both
+**A run that goes on says where it stands on a timer.** What is running and for
+how long, what waits for a slot, what is done, so the Drone never asks. A run
+whose task died ends with a turn saying the checks stopped before they
+finished, that it is Fleet's fault and not the work's, and to ask again or
+submit.
+
+**A second ask while one is going is refused with the same facts**, how long,
+which Check, whether it waits for a slot, and still says the report is a later
+turn. It never tells the Drone to look again.
+
+**Fleet's own report.** `fleet::ChecksReported` is the one constructor for the
 turns, built from the run and nothing else. Its own `Occasion`, `Checks`.
 
 **Drafted wording. Not sanctioned.**

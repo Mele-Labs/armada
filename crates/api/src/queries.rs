@@ -59,6 +59,17 @@ pub(crate) async fn list_jobs<D: Queries>(
     }
 }
 
+/// Every Check run a repository's Jobs asked for or ran, newest first.
+pub(crate) async fn list_manifest_checks<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    match served.daemon().list_manifest_checks(scope.manifest()).await {
+        Ok(checks) => answer(StatusCode::OK, &checks, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The bound, what is occupying it, and what holds the next Drone back.
 ///
 /// **Its own route rather than a field on `/jobs`.** That read is a list of

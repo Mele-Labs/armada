@@ -88,6 +88,11 @@ impl Working {
         self.checking_since.is_some()
     }
 
+    /// When the run in flight began, where one is.
+    pub(crate) fn checking_since(&self) -> Option<&Timestamp> {
+        self.checking_since.as_ref()
+    }
+
     /// How many dry runs this step has spent.
     pub(crate) fn dry_runs(&self) -> u32 {
         self.dry_runs
