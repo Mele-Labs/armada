@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use testkit::Sketch;
 
-use crate::dry_run::NotRun;
-use crate::tests::dry_run::{
+use crate::asked_run::NotRun;
+use crate::tests::asked_run::{
     a_fleet_checking, one_step, router, started, submit, wait_until_checking, Held,
 };
 use crate::tests::tmp::TempDir;

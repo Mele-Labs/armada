@@ -212,7 +212,7 @@ where
             unreadable,
             asked_runs: asked
                 .iter()
-                .map(|run| crate::dry_run::asked::wired(&named, run))
+                .map(|run| crate::asked_run::asked::wired(&named, run))
                 .collect(),
         })
     }

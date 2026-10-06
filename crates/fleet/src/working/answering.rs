@@ -55,7 +55,7 @@ impl Working {
     pub(crate) fn resumed(&mut self, at: Timestamp) {
         self.step_began = at.clone();
         self.calls_before = self.transcript.progress().calls;
-        // **The dry runs do not go back.** The pokes are patience and a person
+        // **The asked runs do not go back.** The pokes are patience and a person
         // has just spent some of theirs; a Check run is minutes of a machine,
         // and a redirect is not a refund. `checked_for` is cleared only because
         // `step_began` moved above, so the time it accounted for is already

@@ -61,7 +61,7 @@ pub struct FakeDaemon {
     pub asked: Mutex<Vec<ipc::mcp::AskQuestion>>,
     /// Every Job a Drone asked to have created, in arrival order.
     pub dispatched: Mutex<Vec<DispatchJob>>,
-    /// How many dry runs were asked for, so a test can assert that a refused
+    /// How many asked runs were asked for, so a test can assert that a refused
     /// call ran nothing.
     pub checked: AtomicU64,
     /// Every report filed, in filing order, so a test can assert that a

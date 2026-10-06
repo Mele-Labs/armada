@@ -24,9 +24,9 @@ use tokio::sync::Mutex;
 
 use super::Fleet;
 use crate::allowance::Allowance;
+use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
 use crate::converging::StepNorms;
-use crate::dry_run::DryRuns;
 use crate::evidence::EvidenceInbox;
 use crate::gate::CheckBudget;
 use crate::headroom::{Headroom, Machine, Polling};
@@ -232,8 +232,8 @@ pub struct Fittings<H, V, W> {
     /// How many times one step may ask Fleet to run its Checks. Its own value
     /// for [`Liveness`]'s reason: what it bounds is money spent answering the
     /// Drone rather than anything about the step's work. See
-    /// [`DryRuns`](crate::DryRuns).
-    pub dry_runs: DryRuns,
+    /// [`AskedRuns`](crate::AskedRuns).
+    pub asked_runs: AskedRuns,
     /// How many fixes one step may ask for. See [`Fixes`](crate::fixing::Fixes). #999.
     pub fixes: crate::fixing::Fixes,
     /// What makes a Judge call. **A pointer rather than a type parameter**: the
@@ -361,7 +361,7 @@ where
             budget: fittings.budget,
             norms: fittings.norms,
             liveness: fittings.liveness,
-            dry_runs: fittings.dry_runs,
+            asked_runs: fittings.asked_runs,
             fixes: fittings.fixes,
             judge: fittings.judge,
             judge_budget: fittings.judge_budget,

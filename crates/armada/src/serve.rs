@@ -37,10 +37,10 @@ use fleet::permitting::{self, PermissionHold, UnansweredAskLimit};
 use fleet::repositories::Locating;
 use fleet::runtime::{self, Presence, RuntimeFile, Staleness};
 use fleet::{
-    detect_ceiling, Allowance, BindConnectProbe, Bytes, CheckBudget, Clock, CommandBudget,
-    Concurrency, DryRuns, Fittings, Fleet, Headroom, Host, JudgeBudget, Liveness, Micros, Mint,
-    Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine, TheVolume,
-    UlidMint,
+    detect_ceiling, Allowance, AskedRuns, BindConnectProbe, Bytes, CheckBudget, Clock,
+    CommandBudget, Concurrency, Fittings, Fleet, Headroom, Host, JudgeBudget, Liveness, Micros,
+    Mint, Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine,
+    TheVolume, UlidMint,
 };
 use ipc::PROTOCOL_VERSION;
 use store::Store;
@@ -241,16 +241,16 @@ pub const HELM_SESSION_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 
 /// the end, which is the moment it is worth least; more than three stops being
 /// a check on the work and starts being the work.
 ///
-/// **It is a cost bound and not a convergence one.** `fleet::dry_run` suspends
+/// **It is a cost bound and not a convergence one.** `fleet::asked_run` suspends
 /// the wall clock and the silence clock while a run is in flight, which is
 /// correct — a Drone waiting on Fleet is not thrashing — and which removes the
 /// pressure that would otherwise have bounded this. A Drone that spends all
 /// three and is no closer is still caught, by the tool-call tripwire in
 /// `fleet::converging`: each ask is one of its own calls.
-pub const PROVISIONAL_DRY_RUNS: DryRuns = DryRuns::of(3);
+pub const PROVISIONAL_ASKED_RUNS: AskedRuns = AskedRuns::of(3);
 
 /// How many fixes one step may ask for: one. **A cost bound**, for
-/// `PROVISIONAL_DRY_RUNS`' reason: each is a run against main. A step that meets
+/// `PROVISIONAL_ASKED_RUNS`' reason: each is a run against main. A step that meets
 /// a second test broken on main says so in its evidence. #999.
 pub const PROVISIONAL_FIXES: fleet::fixing::Fixes = fleet::fixing::Fixes::of(1);
 
@@ -834,7 +834,7 @@ fn assemble(
         budget: CheckBudget::of(PROVISIONAL_CHECK_BUDGET),
         norms: PROVISIONAL_STEP_NORMS,
         liveness: PROVISIONAL_LIVENESS,
-        dry_runs: PROVISIONAL_DRY_RUNS,
+        asked_runs: PROVISIONAL_ASKED_RUNS,
         fixes: PROVISIONAL_FIXES,
         // The same CLI, invoked as a call rather than as a session. The
         // spelling of the model is the adapter's; this crate never learns it.

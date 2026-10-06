@@ -189,11 +189,15 @@ pub struct CheckRun {
     /// cannot tell those from a Check whose output Fleet lost.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_path: Option<String>,
-    /// When a Drone's own dry run answered this Check, rather than the gate's
+    /// When a Drone's own asked run answered this Check, rather than the gate's
     /// own run. Absent on every Check the gate ran itself. Since protocol
     /// 13.39. `#1014`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reused_from_dry_run: Option<crate::ids::Instant>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "reused_from_dry_run"
+    )]
+    pub reused_from_asked_run: Option<crate::ids::Instant>,
     /// The group whose gate it ran at, `G1` and on. **Absent on a Check run at
     /// a step's own gate**, which held back no group, and never "unknown".
     /// Since 23.4. `#1652`.
@@ -224,7 +228,7 @@ impl CheckRun {
             expected: check.expected.clone(),
             produced: check.produced.clone(),
             output_path: check.output_path.clone(),
-            reused_from_dry_run: check.reused_from_dry_run.as_ref().map(Into::into),
+            reused_from_asked_run: check.reused_from_asked_run.as_ref().map(Into::into),
             group: None,
             group_attempt: None,
             requester: crate::Requester::default(),

@@ -10,7 +10,7 @@ use adapter_traits::DroneEvent;
 use core_model::JobStatus;
 use testkit::FakeHarness;
 
-use crate::tests::dry_run::{
+use crate::tests::asked_run::{
     a_fleet_driven, called, checks_in, one_step, started, the_one_drone, transcript, Fixture, Held,
     A_CHECK_RUN_HAS_LONG_ENOUGH,
 };

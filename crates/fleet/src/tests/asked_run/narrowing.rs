@@ -22,7 +22,7 @@ use std::sync::Arc;
 use config::ResolvedWorkflow;
 use testkit::{Gate, Narrows, Sketch};
 
-use crate::tests::dry_run::{a_fleet_over, asking, router, started, submit, Held};
+use crate::tests::asked_run::{a_fleet_over, asking, router, started, submit, Held};
 use crate::tests::tmp::TempDir;
 
 /// One step gated on two named Checks and a diff. `suite` declares a narrowing

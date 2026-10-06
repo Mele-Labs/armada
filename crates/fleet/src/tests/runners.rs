@@ -112,7 +112,7 @@ fn a_runner_with_nothing_to_say_leaves_the_check_whole() {
 }
 
 /// A narrowed run is never carried to a gate, so what this produces can only
-/// ever tell a Drone where it stands. `reuse::KeptDryRun` is what holds that.
+/// ever tell a Drone where it stands. `reuse::KeptAskedRun` is what holds that.
 #[test]
 fn what_a_runner_narrows_to_is_still_a_narrowed_run() {
     let planned = narrowed(

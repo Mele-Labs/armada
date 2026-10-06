@@ -167,7 +167,7 @@ async fn what_got_in_a_drones_way_reaches_the_retro_record() {
 
     let call = r#"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"submit_evidence",
         "arguments":{"claimed":"The reader stops one line later.","shown_by":"src/log.rs",
-                     "not_claimed":"","in_the_way":"the dry run log was cut at 200 lines"}}}"#;
+                     "not_claimed":"","in_the_way":"the asked run log was cut at 200 lines"}}}"#;
     let (status, body) = sent(&app, "POST", api::MCP_PATH, call, From::Anyone).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
@@ -184,7 +184,7 @@ async fn what_got_in_a_drones_way_reaches_the_retro_record() {
         .iter()
         .map(|note| note.said.as_str())
         .collect();
-    assert_eq!(notes, vec!["the dry run log was cut at 200 lines"]);
+    assert_eq!(notes, vec!["the asked run log was cut at 200 lines"]);
     assert_eq!(retro.state, RetroState::Pending, "the Job has not ended");
 }
 

@@ -291,7 +291,7 @@ Rules that follow:
 - **Skipped is not passed, and not `did not run` either.** A step that advanced because every Check was skipped verified nothing, and the record says so: `check_runs` carries a `skipped` row per Check, naming the paths it covers, and the Drone is told which of the three happened rather than being told it passed.
 - **It is frozen with the workflow.** A Job resolves `when` at creation alongside the Check's command, so editing `armada.yml` mid-Job changes the next Job rather than moving the gate under this one.
 
-`armada check`, the dry run a Drone can ask for, skips exactly what the gate would. A rehearsal that ran a Check the gate will not run would tell a Drone its work failed something nobody is going to ask.
+`armada check`, the asked run a Drone can ask for, skips exactly what the gate would. A rehearsal that ran a Check the gate will not run would tell a Drone its work failed something nobody is going to ask.
 
 ### How much of the tree a Check reads
 
@@ -339,7 +339,7 @@ Rules that follow:
 
 - **A Drone's run leaves out a `gate` or `handoff` Check**, and its brief names each one and where it runs instead, so a clean run does not read as the whole bar.
 - **A `handoff` Check runs on one step only**, the last one gating on every Check before handoff, and starts only once every other Check there has passed. A failure goes back to that step's Drone under its retry budget.
-- **A narrowed run still gates nothing**, and neither does this: the gate settles every Check it holds, whatever a Drone asked for. It reuses a Check only from a whole dry run that passed it on the same attempt, with nothing changed since, and runs the rest fresh.
+- **A narrowed run still gates nothing**, and neither does this: the gate settles every Check it holds, whatever a Drone asked for. It reuses a Check only from a whole asked run that passed it on the same attempt, with nothing changed since, and runs the rest fresh.
 
 ### How many places a Check takes
 

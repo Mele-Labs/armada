@@ -494,7 +494,7 @@ where
             }
             return Ok(None);
         }
-        // A Drone that ended its turn on its own dry run is waiting for the
+        // A Drone that ended its turn on its own asked run is waiting for the
         // report, which is the turn that wakes it. Each Check's budget bounds it.
         if at_work.is_checking() {
             return Ok(None);

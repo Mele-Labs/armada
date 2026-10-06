@@ -1,9 +1,9 @@
-//! What a dry run did not decide, and did not cost.
+//! What a asked run did not decide, and did not cost.
 //!
 //! # The Checks are real commands and one of them changes its mind
 //!
 //! `/bin/test ! -e <marker>` passes while a file is not there and fails once it
-//! is. That is the only way to write the case that matters: a dry run in which
+//! is. That is the only way to write the case that matters: a asked run in which
 //! everything passed, followed by a gate in which the same Check does not — and
 //! a step that ends `completed_failed` regardless of what the Drone was told a
 //! moment earlier.
@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use core_model::{JobStatus, StepId};
 
-use crate::tests::dry_run::{
+use crate::tests::asked_run::{
     a_fleet_checking, ask, one_step, router, started, submit, wait_until_checking, Held,
     QUIET_AFTER, WALL_CLOCK,
 };
@@ -34,11 +34,11 @@ fn passes_until(marker: &std::path::Path) -> String {
     format!("/bin/test ! -e {}", marker.display())
 }
 
-/// **The case the whole design turns on.** Every Check passes in the dry run,
+/// **The case the whole design turns on.** Every Check passes in the asked run,
 /// the world then changes underneath it, and the gate reaches its own verdict
 /// on its own run — so the pass the Drone was shown satisfied nothing.
 #[tokio::test]
-async fn a_dry_run_that_passed_does_not_satisfy_the_gate() {
+async fn a_asked_run_that_passed_does_not_satisfy_the_gate() {
     let home = TempDir::new();
     let marker = home.path().join("broken");
     let fleet = Arc::new(a_fleet_checking(
@@ -53,14 +53,14 @@ async fn a_dry_run_that_passed_does_not_satisfy_the_gate() {
     let said = ask(&app, &fleet, &home).await;
     assert!(
         said.text.contains("PASSED") && !said.text.contains("FAILED"),
-        "every check passed in the dry run: {}",
+        "every check passed in the asked run: {}",
         said.text
     );
     let record = fleet.load(&job).await.expect("the Job");
     assert_eq!(
         record.status(),
         JobStatus::Running,
-        "a dry run moved the Job"
+        "a asked run moved the Job"
     );
     assert_eq!(
         record
@@ -68,7 +68,7 @@ async fn a_dry_run_that_passed_does_not_satisfy_the_gate() {
             .expect("the step")
             .state(),
         core_model::StepState::Running,
-        "a dry run moved the step"
+        "a asked run moved the step"
     );
     assert!(
         fleet
@@ -78,7 +78,7 @@ async fn a_dry_run_that_passed_does_not_satisfy_the_gate() {
             .step_checks(&job)
             .expect("the rows read")
             .is_empty(),
-        "a dry run wrote a Check row, which is the record claiming a run that \
+        "a asked run wrote a Check row, which is the record claiming a run that \
          decided something"
     );
 

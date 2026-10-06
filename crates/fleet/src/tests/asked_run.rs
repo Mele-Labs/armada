@@ -5,7 +5,7 @@
 //! One case where a Drone gets an answer, and most where nothing else happens:
 //! the step does not move, the gate runs the Checks again for itself and
 //! reaches its own verdict, the convergence clocks do not count the wait, and
-//! the two bounds refuse a call each. **A dry run that could advance a step
+//! the two bounds refuse a call each. **A asked run that could advance a step
 //! would be the Drone marking its own work**, so most of what these prove is
 //! an absence.
 //!
@@ -54,10 +54,10 @@ use ipc::RunId;
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Gate, Sketch};
 use tower::ServiceExt;
 
+use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
 use crate::converging::StepNorms;
 use crate::daemon::Fleet;
-use crate::dry_run::DryRuns;
 use crate::gate::CheckBudget;
 use crate::silence::Liveness;
 use crate::tests::admitted::dispatched;
@@ -220,9 +220,9 @@ fn a_fleet_budgeted(
     fittings.clock = clock;
     fittings.liveness = Liveness::of(QUIET_AFTER, 2);
     fittings.norms = StepNorms::of(60, WALL_CLOCK, Duration::from_secs(120));
-    fittings.dry_runs = DryRuns::of(allowed);
+    fittings.asked_runs = AskedRuns::of(allowed);
     fittings.budget = budget;
-    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a dry run"));
+    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a asked run"));
     Fleet::assembled(fittings)
 }
 
@@ -251,7 +251,7 @@ struct Said {
     is_error: bool,
 }
 
-/// The dry-run tool call, exactly as a client makes one, asking for the whole
+/// The asked run tool call, exactly as a client makes one, asking for the whole
 /// run — and then the report the Drone is sent, or the refusal it was given.
 async fn ask(app: &Router, fleet: &Fixture, home: &TempDir) -> Said {
     asking(app, fleet, home, false).await

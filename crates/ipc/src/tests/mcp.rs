@@ -105,12 +105,12 @@ fn what_got_in_the_way_is_optional_and_carried_when_said() {
     let said = read(
         br#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"submit_evidence",
             "arguments":{"claimed":"c","shown_by":"s","not_claimed":"",
-                         "in_the_way":"the dry run log was cut at 200 lines"}}}"#,
+                         "in_the_way":"the asked run log was cut at 200 lines"}}}"#,
     );
     assert!(matches!(
         said,
         Incoming::Submit { ref submission, .. }
-            if submission.in_the_way.as_deref() == Some("the dry run log was cut at 200 lines")
+            if submission.in_the_way.as_deref() == Some("the asked run log was cut at 200 lines")
     ));
 
     for arguments in [
@@ -416,7 +416,7 @@ fn a_checks_call_whose_answer_is_not_a_boolean_is_refused() {
 /// **This asserted the opposite until 18 Sep 2026**, when the owner reversed it
 /// in `#1456`: a Check name was refused by name, and told the Drone the set had
 /// been settled when the Job was approved. It still is settled — a name that
-/// the part does not gate on is refused by `fleet::dry_run`, which is the half
+/// the part does not gate on is refused by `fleet::asked_run`, which is the half
 /// that knows the step — and what changed is that choosing one *out of* that
 /// set is not choosing a bar, because the gate runs every Check whole at
 /// submission whatever was asked here.

@@ -70,7 +70,7 @@ fn what_a_drone_said_got_in_the_way_is_kept_in_order() {
         .record_drone_note(
             job.id(),
             &step,
-            "the dry run log was cut",
+            "the asked run log was cut",
             &at("2026-08-26T10:03:00.000Z"),
         )
         .expect("kept");
@@ -85,7 +85,7 @@ fn what_a_drone_said_got_in_the_way_is_kept_in_order() {
 
     let notes = store.drone_notes_for(job.id()).expect("read back");
     let said: Vec<&str> = notes.iter().map(|note| note.said.as_str()).collect();
-    assert_eq!(said, vec!["the dry run log was cut", "grep was refused"]);
+    assert_eq!(said, vec!["the asked run log was cut", "grep was refused"]);
     assert_eq!(notes[0].step_id, step);
 }
 

@@ -127,7 +127,7 @@ pub enum Incoming {
         id: CallId,
         declaration: DeclareScope,
     },
-    /// A call of the dry-run tool. **The one value it carries chooses no bar**
+    /// A call of the asked run tool. **The one value it carries chooses no bar**
     /// — which Checks run is the step's, frozen at approval, and this says only
     /// how much of the tree each one opens.
     ///

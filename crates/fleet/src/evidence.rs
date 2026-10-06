@@ -642,7 +642,7 @@ where
     }
 }
 
-/// Stop a dry run still going once a submission is taken: it would be a second
+/// Stop a asked run still going once a submission is taken: it would be a second
 /// build beside the gate's, reporting on a part already handed in. `#1020`.
 pub(crate) fn cut_short(working: &mut Option<crate::working::Working>, at: &Timestamp) {
     if let Some(at_work) = working.as_mut() {
@@ -651,7 +651,7 @@ pub(crate) fn cut_short(working: &mut Option<crate::working::Working>, at: &Time
 }
 
 /// Why a submission was not taken. **Beside the act it refuses**, which is
-/// `dry_run`'s argument for [`NotRun`](crate::dry_run::NotRun) applied to the
+/// `asked_run`'s argument for [`NotRun`](crate::asked_run::NotRun) applied to the
 /// two refusals that stayed behind in `adrift` when it was made: a module
 /// every refusal has to be opened to add one to is a module two changes
 /// collide in, and this one is raised nowhere but here.

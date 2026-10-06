@@ -16,14 +16,14 @@ use testkit::Sketch;
 
 use crate::briefing::first_turn;
 use crate::terms::Checking;
-use crate::tests::dry_run::{a_fleet_checking, one_step, post, router, Held};
+use crate::tests::asked_run::{a_fleet_checking, one_step, post, router, Held};
 use crate::tests::tmp::TempDir;
 
 /// **A tool nothing points at is the defect this capability is about.** The
 /// first turn offers it, in the same block shape a scope declaration is asked
 /// for in — and it names no tool, for the reason `Declaring` does not.
 #[test]
-fn the_first_turn_offers_the_dry_run_and_says_it_is_not_a_pass() {
+fn the_first_turn_offers_the_asked_run_and_says_it_is_not_a_pass() {
     let workflow = one_step("/usr/bin/true");
     let said = first_turn(
         &crate::tests::briefing::a_job(),
@@ -38,7 +38,7 @@ fn the_first_turn_offers_the_dry_run_and_says_it_is_not_a_pass() {
     assert!(said.contains("FINDING OUT WHERE YOU STAND"), "{said}");
     assert!(
         said.contains("not a verdict"),
-        "a Drone that read a green dry run as a finished part would be worse \
+        "a Drone that read a green asked run as a finished part would be worse \
          off for having been offered it: {said}"
     );
     assert!(
@@ -106,7 +106,7 @@ async fn the_tool_points_at_the_block_that_names_the_checks() {
 /// that will be refused reads the refusal as a broken system, which is the
 /// silent denial this whole issue is about arriving from the other side.
 #[test]
-fn a_step_with_no_checks_is_not_offered_the_dry_run() {
+fn a_step_with_no_checks_is_not_offered_the_asked_run() {
     let unchecked = testkit::resolved(&[Sketch {
         id: "implement",
         label: "Implement",
