@@ -1,18 +1,18 @@
-# The Studios surface: pure modules in node, and whole-app tests in a browser.
+# The Settings surface: pure modules in node, and whole-app tests in a browser.
 # Commands run here, in this directory. `docs/concepts/manifest.md`,
 # *Workspace gating*; the comments on `${width}` and `exec` are the root's, at
 # the top of its `checks:`.
 version: 1
-id: armada-studios
+id: armada-settings
 
 # What this surface reads from elsewhere, repo-relative. A hit runs every Check
 # below, since none declares a `when`. Its tests mount the whole app, so what
 # `mountApp` loads from `apps/desktop` is here: the App and its renderer folders,
 # the mock's composition (not another surface's `*-fleet.ts`: that file reaches
 # the composition only through `slices/`) and the shared types. `main` and
-# `preload` are not, since the mock bridge does not run them. Tests mount every
-# slice, so `mock/slices/**` is whole; a test that mounts `slices: ["studios"]`
-# could narrow it.
+# `preload` are not, since the mock bridge does not run them. Its whole-app test
+# mounts `slices: ["core", "settings"]`, so of `mock/slices/` only those two files
+# are here: another surface's slice or fleet does not reach it.
 depends_on:
   - "packages/bridge-api/**"
   - "packages/screens/**"
@@ -34,9 +34,9 @@ depends_on:
   - "apps/desktop/src/renderer/src/mock/mount.tsx"
   - "apps/desktop/src/renderer/src/mock/scenario.ts"
   - "apps/desktop/src/renderer/src/mock/slices.ts"
-  - "apps/desktop/src/renderer/src/mock/studios-fake.ts"
   - "apps/desktop/src/renderer/src/mock/testing.ts"
-  - "apps/desktop/src/renderer/src/mock/slices/**"
+  - "apps/desktop/src/renderer/src/mock/slices/core.ts"
+  - "apps/desktop/src/renderer/src/mock/slices/settings.ts"
   - "apps/desktop/src/shared/**"
   - "apps/desktop/package.json"
   - "apps/desktop/vitest.browser.preset.ts"
