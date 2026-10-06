@@ -17,7 +17,7 @@ import type {
   StepTuning,
   ToProposer,
 } from "@armada/protocol";
-import type { WaveJobView } from "@armada/jobs/draft/wave";
+import type { WaveJobView } from "../draft/wave";
 import { HARNESS } from "@armada/screens/src/fixtures/harness";
 
 /** The Job one press later: `queued`, carrying what the body set, approved `at`. */

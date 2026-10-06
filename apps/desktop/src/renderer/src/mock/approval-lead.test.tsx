@@ -10,7 +10,7 @@ import { page } from "vitest/browser";
 import { awaitingApproval } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 
-import { withRow } from "./job-detail-fixtures";
+import { withRow } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

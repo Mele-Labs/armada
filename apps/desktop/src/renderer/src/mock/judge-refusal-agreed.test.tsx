@@ -6,7 +6,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { featureAfterAgreeing } from "./job-detail-refusal";
+import { featureAfterAgreeing } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

@@ -13,7 +13,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { refactorAtItsPlan } from "./job-detail-fixtures";
+import { refactorAtItsPlan } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

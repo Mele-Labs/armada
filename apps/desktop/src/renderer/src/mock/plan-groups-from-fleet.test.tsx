@@ -5,7 +5,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { featureJudgeQuestioned } from "./job-groups-fixture";
+import { featureJudgeQuestioned } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

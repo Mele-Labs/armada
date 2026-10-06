@@ -3,7 +3,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { proposalFromAnIssue } from "../proposal-from-an-issue";
+import { proposalFromAnIssue } from "@armada/jobs/fake";
 
 export const s090ProposalFromAnIssue: Scenario = holding("real/proposal-from-an-issue", proposalFromAnIssue().name, [proposalFromAnIssue()], {
   opens: proposalFromAnIssue().job.id,

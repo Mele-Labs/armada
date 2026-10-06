@@ -3,11 +3,11 @@
 // — the lines already written, then one line at a time while the Check is running, and `finished`
 // at once for a Check that has ended. `check-logs`, the scenario the walk of the same change plays.
 
+import type { FleetHandle } from "@armada/bridge-api";
 import type { FollowedLandLog, FollowedLog, LandCheckAt } from "@armada/protocol";
-import { LIVE_LOGS } from "@armada/jobs/fixtures/build/arc-checking";
+import { LIVE_LOGS } from "../fixtures/build/arc-checking";
 
-import type { BridgeApi } from "../../../shared/api";
-import type { FleetHandle } from "./moment";
+import type { JobsApi, JobsState } from "../api";
 
 /**
  * How far apart a running Check's lines arrive: inside a walk step's five-second wait. **A walk
@@ -63,8 +63,14 @@ const LAND_LOGS: Record<string, Played> = {
   },
 };
 
+/** The state the log members write, and the members: both inside the app's whole state `S` and API `A`. */
+export type WritingLogsState = Pick<JobsState, "followed" | "landFollowed">;
+export type WritingLogsApi = Pick<JobsApi, "followCheckOutput" | "followLandCheck">;
+
 /** `followCheckOutput` and `followLandCheck`, answered from the logs above. */
-export function writingLogs(fleet: FleetHandle): Partial<BridgeApi> {
+export function writingLogs<S extends WritingLogsState, A extends WritingLogsApi>(whole: FleetHandle<S>): Partial<A> {
+  // `S` is the app's whole state; these members write only the fields `WritingLogsState` names.
+  const fleet = whole as unknown as FleetHandle<WritingLogsState>;
   let timers: ReturnType<typeof setTimeout>[] = [];
   const stop = () => {
     timers.forEach(clearTimeout);
@@ -77,7 +83,7 @@ export function writingLogs(fleet: FleetHandle): Partial<BridgeApi> {
       timers.push(setTimeout(() => show([...log.lines, ...log.arriving.slice(0, n + 1)], undefined), pace.arrivingMs * (n + 1)));
     });
   }
-  return {
+  const members: Pick<JobsApi, "followCheckOutput" | "followLandCheck"> = {
     followCheckOutput: async (jobId, kept) => {
       stop();
       const log = kept === null ? undefined : JOB_LOGS[kept];
@@ -123,6 +129,7 @@ export function writingLogs(fleet: FleetHandle): Partial<BridgeApi> {
       });
     },
   };
+  return members as Partial<A>;
 }
 
 function name(path: string): string {

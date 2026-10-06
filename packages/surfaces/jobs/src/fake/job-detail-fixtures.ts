@@ -13,8 +13,8 @@ import type {
   WorkflowSummary,
 } from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
-import { escalatedEvidenceSuspect, review } from "@armada/jobs/fixtures/build/index";
-import { awaitingApproval, running } from "@armada/jobs/fixtures/build/index";
+import { escalatedEvidenceSuspect, review } from "../fixtures/build/index";
+import { awaitingApproval, running } from "../fixtures/build/index";
 import { advancedStep, BUILD_CHECK, diffRead, freshStep, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { recorded } from "@armada/screens/src/fixtures/recorded";

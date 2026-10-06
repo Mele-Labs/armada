@@ -8,12 +8,14 @@
 // draws is what Bridge does with Fleet's stream. The call never answers, as
 // nothing a Fleet would decide is guessed here.
 
-import type { ProposalInFlight, ProposalMoved, ProposalSettled } from "@armada/protocol";
-import { ARC_CRITERIA, ARC_TITLE } from "@armada/jobs/fixtures/build/arc-base";
-import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "@armada/jobs/fixtures/build/proposing";
+import type { FleetHandle, Scenario } from "@armada/bridge-api";
+import type { JobSummary, ProposalInFlight, ProposalMoved, ProposalSettled } from "@armada/protocol";
+import type { JobsApi, JobsState } from "../api";
+import type { ArcDraft } from "../fixtures/build/arc";
+import { ARC_CRITERIA, ARC_TITLE } from "../fixtures/build/arc-base";
+import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "../fixtures/build/proposing";
 import { movedOnto } from "@armada/screens/src/filling";
 
-import type { FleetHandle, Scenario } from "./moment";
 
 /** How often Fleet says how far the call has got: its token estimate is throttled to one a second. */
 export const PROPOSER_TICK_MS = 1_200;
@@ -71,7 +73,7 @@ function moved(since: string, at: string, step: Pick<ProposalInFlight, "reached"
 }
 
 /** What main's arrival does with one: this window's own wait, and the fold onto the Job it names. */
-function arrived(fleet: FleetHandle, message: ProposalMoved): void {
+function arrived(fleet: FleetHandle<FillingInState>, message: ProposalMoved): void {
   const state = fleet.state();
   const watched = state.watched;
   const open = watched.state === "read" && watched.jobId === message.job_id ? watched : undefined;
@@ -83,8 +85,14 @@ function arrived(fleet: FleetHandle, message: ProposalMoved): void {
   });
 }
 
+/** The state the proposer writes, and the member it answers: both inside the app's whole state `S` and API `A`. */
+export type FillingInState = Pick<JobsState, "proposing" | "watched"> & { jobs: JobSummary[] };
+export type FillingInApi = Pick<JobsApi, "proposeFromRequest">;
+
 /** `base` — the composer with a request typed — over a Fleet whose proposer fills the Job in. */
-export function fillingIn(base: Scenario): Scenario {
+export function fillingIn<S extends FillingInState, A extends FillingInApi>(
+  base: Scenario<S, A, ArcDraft>,
+): Scenario<S, A, ArcDraft> {
   // Held, not copied, so the Job Fleet creates at the press is one its reads can answer for.
   const reads = { ...base.reads };
   // The moment's own proposal is a draft of the arc's answer, drawn on whichever Job is open; this
@@ -96,26 +104,31 @@ export function fillingIn(base: Scenario): Scenario {
     name: "proposing-fills-in",
     says: "Dispatch a request and watch the proposer fill the Job in, a field at a time",
     reads,
-    behaves: (fleet) => ({
-      proposeFromRequest: (request) => {
-        const since = new Date().toISOString();
-        const dispatched = { id: JOB_ID, handle: HANDLE, request, created_at: since, says: "proposing" };
-        const row = dispatchedRow(dispatched);
-        // `GET /jobs/:id` at `proposing`: the request as the title and as the brief, as
-        // `crates/fleet/src/dispatched.rs` creates it.
-        const read = dispatchedFixture(dispatched, Date.now());
-        if (read.watched.state === "read") {
-          read.watched = { ...read.watched, detail: { ...read.watched.detail, facts: request } };
-        }
-        reads[JOB_ID] = read;
-        fleet.publish({ jobs: [...fleet.state().jobs, row] });
-        arrived(fleet, moved(since, since, { reached: "starting" }));
-        MOVES.forEach((step, at) =>
-          setTimeout(() => arrived(fleet, moved(since, new Date().toISOString(), step)), (at + 1) * PROPOSER_TICK_MS),
-        );
-        // The call is still out, so nothing waits on an answer.
-        return new Promise(() => {});
-      },
-    }),
+    // `S` is the app's whole state; this Fleet writes only the fields `FillingInState` names.
+    behaves: (whole) => {
+      const fleet = whole as unknown as FleetHandle<FillingInState>;
+      const members: FillingInApi = {
+        proposeFromRequest: (request) => {
+          const since = new Date().toISOString();
+          const dispatched = { id: JOB_ID, handle: HANDLE, request, created_at: since, says: "proposing" };
+          const row = dispatchedRow(dispatched);
+          // `GET /jobs/:id` at `proposing`: the request as the title and as the brief, as
+          // `crates/fleet/src/dispatched.rs` creates it.
+          const read = dispatchedFixture(dispatched, Date.now());
+          if (read.watched.state === "read") {
+            read.watched = { ...read.watched, detail: { ...read.watched.detail, facts: request } };
+          }
+          reads[JOB_ID] = read;
+          fleet.publish({ jobs: [...fleet.state().jobs, row] });
+          arrived(fleet, moved(since, since, { reached: "starting" }));
+          MOVES.forEach((step, at) =>
+            setTimeout(() => arrived(fleet, moved(since, new Date().toISOString(), step)), (at + 1) * PROPOSER_TICK_MS),
+          );
+          // The call is still out, so nothing waits on an answer.
+          return new Promise(() => {});
+        },
+      };
+      return members as Partial<A>;
+    },
   };
 }

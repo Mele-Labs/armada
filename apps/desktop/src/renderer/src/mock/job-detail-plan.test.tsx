@@ -14,7 +14,7 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/jobs/fixtures/plans";
 
 import type { BridgeApi } from "../../../shared/api";
-import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";
+import { commandOutstanding, runningWithSettings } from "@armada/jobs/fake";
 import type { FleetHandle, Scenario } from "./scenario";
 import { onJob, scenarioNamed } from "./scenario";
 import { entered, mount, openHelm, unmountAfterEach, whenCalled } from "./testing";

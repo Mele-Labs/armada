@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
+    "./fake": "./src/fake.ts",
     "./draft/*": "./src/draft/*.ts",
     "./fixtures/*": "./src/fixtures/*.ts"
   },
@@ -16,6 +17,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@armada/bridge-api": "workspace:*",
     "@armada/components": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",

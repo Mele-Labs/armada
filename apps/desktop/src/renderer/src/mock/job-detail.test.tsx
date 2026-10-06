@@ -18,7 +18,7 @@ import {
   reviewAtAQuestion,
   withBreakages,
   withRow,
-} from "./job-detail-fixtures";
+} from "@armada/jobs/fake";
 import type { } from "./scenario";
 import { onJob, scenarioNamed } from "./scenario";
 import { entered, mount, unmountAfterEach } from "./testing";

@@ -10,7 +10,7 @@ import { prototypeKind } from "@armada/jobs/fixtures/build/kinds";
 
 import type { BridgeState } from "../../../shared/bridge";
 import type { FleetHandle } from "./scenario";
-import { evidenceRead } from "./prototype-fleet";
+import { evidenceRead } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

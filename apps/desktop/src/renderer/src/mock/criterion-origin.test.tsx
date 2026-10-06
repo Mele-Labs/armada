@@ -9,8 +9,8 @@
 import { beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { refactorAtApproval, withRow } from "./job-detail-fixtures";
-import { proposalFromAnIssue } from "./proposal-from-an-issue";
+import { refactorAtApproval, withRow } from "@armada/jobs/fake";
+import { proposalFromAnIssue } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { closeNode, mount, openNode, unmountAfterEach } from "./testing";
 

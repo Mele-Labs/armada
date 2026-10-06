@@ -8,7 +8,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { featureOnItsPlan } from "./job-detail-fixtures";
+import { featureOnItsPlan } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { entered, mount, unmountAfterEach } from "./testing";
 

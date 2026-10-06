@@ -12,7 +12,7 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { job2Landed } from "./job-2-landed";
+import { job2Landed } from "@armada/jobs/fake";
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";
 

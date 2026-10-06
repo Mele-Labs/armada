@@ -4,9 +4,8 @@
 // moved since and from the request. One window, so one walk shows the settling
 // caret, the origin marks, and the approval panel's request, tiers and cap.
 
+import type { Scenario } from "@armada/bridge-api";
 import type { FleetLimits } from "@armada/protocol";
-
-import type { Scenario } from "./moment";
 
 /**
  * `GET /limits` as Fleet serves it: what is in force, and what shipped. The
@@ -22,7 +21,7 @@ const LIMITS: FleetLimits = {
 };
 
 /** `filling` — `fillingIn` over a composer whose Board also holds the Job at its gate — renamed. */
-export function originsAndPanel(filling: Scenario): Scenario {
+export function originsAndPanel<S extends { limits: FleetLimits | null }, A, D>(filling: Scenario<S, A, D>): Scenario<S, A, D> {
   return {
     ...filling,
     name: "origins-and-panel-fields",

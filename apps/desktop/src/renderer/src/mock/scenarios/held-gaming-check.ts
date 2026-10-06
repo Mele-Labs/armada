@@ -4,7 +4,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { heldByTheGamingCheck } from "../job-detail-fixtures";
+import { heldByTheGamingCheck } from "@armada/jobs/fake";
 
 const HELD_BY_A_FLAG = heldByTheGamingCheck(["override_verdict", "redirect_drone", "redispatch_job"]);
 
