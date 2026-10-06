@@ -192,6 +192,12 @@ impl Catalogue {
     /// repository does not declare is left out with the reason, whoever wrote
     /// it, and the next place down answers for its id.
     pub fn resolve(self, manifest: &Manifest) -> ResolvedCatalogue {
+        self.resolve_gated(manifest, &[manifest])
+    }
+
+    /// [`resolve`](Catalogue::resolve) over a gating set: the root and every
+    /// workspace, in the order their Checks are expanded.
+    pub fn resolve_gated(self, manifest: &Manifest, gating: &[&Manifest]) -> ResolvedCatalogue {
         let mut workflows: BTreeMap<WorkflowId, ResolvedWorkflow> = BTreeMap::new();
         let mut files = Vec::new();
         let mut left_out = self.left_out;
@@ -203,7 +209,7 @@ impl Catalogue {
                     files.push(WorkflowFile::of(&id, source, &def, text, Some(by)));
                     continue;
                 }
-                match ResolvedWorkflow::resolve(&def, manifest) {
+                match ResolvedWorkflow::resolve_gated(&def, manifest, gating) {
                     Ok(resolved) => {
                         workflows.insert(id.clone(), resolved.read_from(source));
                         files.push(WorkflowFile::of(&id, source, &def, text, None));

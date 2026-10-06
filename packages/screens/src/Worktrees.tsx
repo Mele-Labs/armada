@@ -72,6 +72,10 @@ export type WorktreesProps = {
    * true before this is called.
    */
   onForget: (jobId: string) => Promise<Outcome>;
+  /** Pause one Job that holds a bay, from its confirm. Absent draws no Pause. */
+  onPause?: (jobId: string) => Promise<Outcome>;
+  /** Resume one paused Job. Absent draws no Resume. */
+  onResume?: (jobId: string) => Promise<Outcome>;
   /**
    * Back to the Board. **At the top of every state**, not only the read
    * one — the page head this used to live in carried it whether or not the
@@ -108,6 +112,8 @@ export function Worktrees({
   onReclaim,
   onDeleteBranch,
   onForget,
+  onPause,
+  onResume,
   now,
   onClose,
   onCopied,
@@ -168,6 +174,8 @@ export function Worktrees({
         onReclaim={onReclaim}
         onDeleteBranch={onDeleteBranch}
         onForget={onForget}
+        {...(onPause === undefined ? {} : { onPause })}
+        {...(onResume === undefined ? {} : { onResume })}
         onCopied={onCopied}
         {...(onChangeSlotPool === undefined ? {} : { onChange: onChangeSlotPool })}
         {...(onRescueSlot === undefined ? {} : { onRescue: onRescueSlot })}

@@ -383,6 +383,8 @@
 @import "./compositions/RetroSheet/RetroSheet.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
+@import "./compositions/PausedMark/PausedMark.css";
+@import "./compositions/PauseConfirm/PauseConfirm.css";
 @import "./compositions/WorkflowCreator/WorkflowCreator.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s

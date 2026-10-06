@@ -25,6 +25,7 @@ import type {
 
 import { said } from "./copy";
 import { branchDeletedSaid, costOf, namedByHandle, offeredActs, reclaimedSaid, sitting } from "./held";
+import { canPause, canResume, pauseRefusal, pausedSaid } from "./pausing";
 import type { RescueOutcome } from "./slot-rescue";
 import { joined } from "./tiles";
 
@@ -46,6 +47,10 @@ export type SlotPoolsProps = {
   onDeleteBranch?: (jobId: string, tip: string) => Promise<Outcome>;
   /** Delete one Job's record. There is no undo, so it is sent only from its confirm. */
   onForget?: (jobId: string) => Promise<Outcome>;
+  /** Pause one Job that holds a bay. Sent only from its confirm. */
+  onPause?: (jobId: string) => Promise<Outcome>;
+  /** Resume one paused Job. */
+  onResume?: (jobId: string) => Promise<Outcome>;
   onCopied?: (value: string) => void;
 };
 
@@ -96,6 +101,8 @@ export function SlotPools({
   onReclaim,
   onDeleteBranch,
   onForget,
+  onPause,
+  onResume,
   onCopied,
 }: SlotPoolsProps) {
   /** What Fleet refused, by tile. */
@@ -159,6 +166,16 @@ export function SlotPools({
     });
   }
 
+  /** Pause or Resume the Job on the tile at `key`: the refusal in git's words, said in its panel. */
+  async function pausing(key: string, jobId: string, act: "pause_job" | "resume_job"): Promise<void> {
+    const task = act === "pause_job" ? onPause : onResume;
+    if (task === undefined) return;
+    await run(key, async () => {
+      const outcome = await task(jobId);
+      if (!outcome.ok) setRefused((was) => ({ ...was, [key]: pauseRefusal(act, outcome) ?? refusal(act === "pause_job" ? "Not paused" : "Not resumed", outcome) }));
+    });
+  }
+
   /** Clear, Delete branch or Forget Job on the tile at `key`: what it did, or why not. */
   async function reclaim(
     key: string,
@@ -188,12 +205,19 @@ export function SlotPools({
   }
 
   /** What a tile adds to its bay or its worktree: the figures, the acts the Job's reading offers, what happened. */
-  const worked = (key: string, held: WorktreeHeld | undefined): Partial<TileRow> => {
-    const job = held === undefined ? undefined : jobs.find((one) => one.id === held.job_id)?.handle;
+  const worked = (key: string, held: WorktreeHeld | undefined, slot?: WorktreeSlot): Partial<TileRow> => {
+    const summary = held === undefined ? undefined : jobs.find((one) => one.id === held.job_id);
+    const job = summary?.handle;
     const named = held === undefined ? undefined : namedByHandle(held, jobs);
+    const mark = summary === undefined ? undefined : pausedSaid(summary, now);
+    // Pause where the Job holds the bay this tile is; Resume wherever it is paused.
+    const holds = slot?.held.state === "job" && slot.held.kept === undefined;
+    const pause = onPause !== undefined && holds && summary !== undefined && canPause(summary, { slot: true });
+    const resume = onResume !== undefined && summary !== undefined && canResume(summary);
     const sat = held === undefined ? null : sitting(held.last_moved_at, now);
     return {
-      ...(named === undefined ? {} : { held: named, offered: offeredActs(named), cost: costOf(named) }),
+      ...(named === undefined ? {} : { held: named, offered: { ...offeredActs(named), pause, resume }, cost: costOf(named) }),
+      ...(mark === undefined ? {} : { paused: mark }),
       ...(sat === null ? {} : { sat }),
       ...(job === undefined ? {} : { job }),
       ...(refused[key] === undefined ? {} : { refused: refused[key] }),
@@ -213,7 +237,7 @@ export function SlotPools({
       name: `slot-${slot.slot}`,
       slot,
       ...(heldFor === null ? {} : { heldFor }),
-      ...worked(key, held),
+      ...worked(key, held, slot),
     };
     pools.set(slot.manifest_id, [...(pools.get(slot.manifest_id) ?? []), row]);
   }
@@ -233,6 +257,8 @@ export function SlotPools({
       ? {}
       : { onDeleteBranch: (jobId: string, tip: string) => void reclaim(key(jobId), jobId, "branch", pooled(jobId), tip) }),
     ...(onForget === undefined ? {} : { onForget: (jobId: string) => void reclaim(key(jobId), jobId, "forget", pooled(jobId)) }),
+    ...(onPause === undefined ? {} : { onPause: (jobId: string) => void pausing(key(jobId), jobId, "pause_job") }),
+    ...(onResume === undefined ? {} : { onResume: (jobId: string) => void pausing(key(jobId), jobId, "resume_job") }),
     ...(onCopied === undefined ? {} : { onCopied }),
   });
 

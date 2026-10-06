@@ -35,6 +35,35 @@ impl<H, V, W> Fleet<H, V, W> {
             repository.read(reading.clone());
         }
         self.rehearsals.workspace_dirs().forget(Some(root));
+        let adopted = reading.refused.is_none();
         self.events.publish(ipc::Event::ManifestReread(reading));
+        if adopted {
+            self.workspaces_reread(root);
+        }
+    }
+
+    /// Read the workspaces' files again, with the root as the file now says.
+    /// **A refused root leaves the workspaces held**, as it leaves everything
+    /// else. A file that will not load is left out and said as a reading of its
+    /// own, held beside the root's like any refusal.
+    fn workspaces_reread(&self, root: &str) {
+        let Some(served) = self
+            .repositories
+            .served()
+            .into_iter()
+            .find(|one| one.root() == root)
+        else {
+            return;
+        };
+        let read = crate::workspaces::load(std::path::Path::new(root), served.manifest());
+        served.workspaces_read(read.manifests);
+        for (file, why) in &read.refused {
+            let reading =
+                crate::workspaces::reading_of(file, why, ipc::Instant::from(&self.clock.now()));
+            if let Some(repository) = self.repositories.at(root) {
+                repository.read(reading.clone());
+            }
+            self.events.publish(ipc::Event::ManifestReread(reading));
+        }
     }
 }

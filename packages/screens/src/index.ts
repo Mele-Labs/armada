@@ -115,3 +115,4 @@ export * from "./plan-view";
 export * from "./tab-wave";
 export * from "./wave";
 export * from "./wave-plan";
+export * from "./pausing";

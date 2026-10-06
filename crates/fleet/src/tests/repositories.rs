@@ -113,7 +113,12 @@ impl Locating for Planted {
             .expect("a case that saves says what the save answers")
     }
 
-    fn workflows(&self, _root: &Path, _manifest: &config::Manifest) -> Catalogued {
+    fn workflows(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        _workspaces: &[config::Manifest],
+    ) -> Catalogued {
         self.reading
             .lock()
             .unwrap_or_else(PoisonError::into_inner)

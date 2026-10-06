@@ -116,9 +116,10 @@ where
     /// toward the stricter value. `crate::policy` carries the argument, and
     /// `docs/concepts/manifest.md` the rule.
     pub(crate) fn gating_policies(&self, served: &crate::repositories::Served) -> Policies {
+        let workspaces = served.workspaces();
         Policies::gating(
             std::iter::once(served.manifest())
-                .chain(served.workspaces())
+                .chain(workspaces.iter())
                 .map(|manifest| (manifest.auto_merge(), manifest.review_gate())),
         )
     }

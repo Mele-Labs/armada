@@ -73,7 +73,7 @@ impl Tree for Checkout {
 
 /// Every workspace below the root holding its own `armada.yml`, off Scan's own
 /// walk and patterns rather than a second one.
-pub(crate) fn manifested(tree: &impl Tree) -> Vec<String> {
+pub fn manifested(tree: &impl Tree) -> Vec<String> {
     workspaces::discover(tree)
         .dirs
         .into_iter()

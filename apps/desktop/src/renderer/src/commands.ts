@@ -57,8 +57,9 @@ import type {
 } from "@armada/protocol";
 import type { HelmContext, JobSummary } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
-import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, Taken, TakenAct, TaskAct } from "@armada/screens";
-import { takenNotice, takenStands } from "@armada/screens";
+import type { Confirming } from "./ConfirmAct";
+import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, PauseAct, Taken, TakenAct, TaskAct } from "@armada/screens";
+import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";
 import { patternFor, useHaptics } from "@armada/components";
 import { proposeRequest } from "./dispatch";
 
@@ -130,10 +131,13 @@ export const rescueSlot = (manifestId: string, rescue: RescueSlot) =>
   window.armada.rescueSlot(manifestId, rescue);
 export const deleteBranchOne = (jobId: string, tip: string) => window.armada.deleteBranch(jobId, tip);
 export const forgetOne = (jobId: string) => window.armada.forgetJob(jobId);
+export const pauseOne = (jobId: string) => window.armada.parkJob(jobId);
+export const resumeOne = (jobId: string) => window.armada.resumeJob(jobId);
 /**
- * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, and a
- * worktree given back. Each receipt is answered to the press that asked for it,
- * because a published notice would outlive the screen it was made on.
+ * What a tile of Cleanup's grid acts with: the pool reshaped or rescued, a
+ * worktree given back, and a Job paused or resumed. Each receipt is answered
+ * to the press that asked for it, because a published notice would outlive the
+ * screen it was made on.
  */
 export const slotActs = {
   onChangeSlotPool: changeSlotPool,
@@ -141,6 +145,8 @@ export const slotActs = {
   onReclaim: reclaimOne,
   onDeleteBranch: deleteBranchOne,
   onForget: forgetOne,
+  onPause: pauseOne,
+  onResume: resumeOne,
 };
 export const readEvidence = (jobId: string | null): void => void window.armada.readEvidence(jobId);
 export const readRemarks = (jobId: string | null): void => void window.armada.readRemarks(jobId);
@@ -291,6 +297,8 @@ export type Sending = {
   onRead: (state: BridgeState) => void;
   /** The rows as drawn, so a press taken at a frozen repository can say it waits. */
   jobs: readonly JobSummary[];
+  /** An act on a paused Job was refused, so the confirm that offers Resume opens. The act is not sent again. */
+  onPaused: (jobId: string) => void;
 };
 
 /**
@@ -344,6 +352,8 @@ export function useCommands(sending: Sending) {
   // branch a base cannot reach, which is the whole reason a person is told
   // rather than left to notice a branch nothing deleted.
   const [givenBack, setGivenBack] = useState<WorktreeReclaimed[]>([]);
+  // What Fleet refused the last Pause or Resume, for the confirm that sent it to say.
+  const [pauseSaid, setPauseSaid] = useState<string | null>(null);
   // Which bulk sweep of finished Jobs is out, so its control waits and a second press sends nothing. #1117.
   const [sweeping, setSweeping] = useState<"clear" | "forget" | null>(null);
   // What Fleet said to the last act on a Job, named, so only the control that
@@ -356,8 +366,21 @@ export function useCommands(sending: Sending) {
     const timer = setTimeout(() => setLastAnswer(null), hold);
     return () => clearTimeout(timer);
   }, [lastAnswer]);
+  /**
+   * An act on a paused Job comes back `fleet.paused`, and what a person is
+   * shown is the confirm that offers Resume, not a refusal. **The act is not
+   * sent again**: Resume only resumes, and the act is pressed once more after.
+   */
+  function resumeFirst(jobId: string, answer: Outcome): boolean {
+    if (!refusedAsPaused(answer)) return false;
+    tap(patternFor("refused"));
+    sending.onPaused(jobId);
+    return true;
+  }
+
   /** Publish an act's outcome, and hand its answer to the control that sent it. */
   function heard(jobId: string, act: ActingAct | DecidingAct, answer: Outcome): void {
+    if (resumeFirst(jobId, answer)) return;
     setOutcome(answer);
     // The tap is the answer's, not the control's, so it plays even where the
     // two acts below leave nothing on screen to draw one. #1326.
@@ -433,6 +456,7 @@ export function useCommands(sending: Sending) {
 
   async function approve(jobId: string, approval?: ApproveDispatch): Promise<Outcome> {
     const answer = await window.armada.approveDispatch(jobId, approval);
+    if (resumeFirst(jobId, answer)) return answer;
     setOutcome(answer);
     took(jobId, "approve", answer);
     return answer;
@@ -501,8 +525,9 @@ export function useCommands(sending: Sending) {
    * and it is collected by the dialog that confirms — which is the render's, so
    * putting the dialog away and reading what it holds is the render's too.
    */
-  async function act(act: ConfirmableAct, jobId: string, note?: string, droneId?: string): Promise<void> {
-    return acted(jobId, act, async () => {
+  async function act(act: ConfirmableAct, jobId: string, note?: string, droneId?: string): Promise<boolean> {
+    if (act === "pause_job" || act === "resume_job") return pausing(jobId, act);
+    await acted(jobId, act, async () => {
       const answer =
         act === "redispatch"
           ? await window.armada.redispatchJob(jobId)
@@ -520,6 +545,42 @@ export function useCommands(sending: Sending) {
       if (answer.ok && answer.reclaimed !== undefined) setGivenBack([answer.reclaimed]);
       if (answer.ok && answer.jobId !== undefined) sending.onOpen(answer.jobId);
     });
+    return true;
+  }
+
+  /**
+   * Pause or resume a Job. **Not through `heard`**: a refusal is said in the
+   * confirm that sent it, in git's words, and a toast beside it would say it
+   * twice. Answers whether Fleet took it, which is when the confirm goes away.
+   */
+  async function pausing(jobId: string, act: PauseAct): Promise<boolean> {
+    setPauseSaid(null);
+    return acted(jobId, act, async () => {
+      const answer = await (act === "pause_job" ? window.armada.parkJob(jobId) : window.armada.resumeJob(jobId));
+      tap(patternFor(answer.ok ? "accepted" : "refused"));
+      setLastAnswer({ jobId, answered: { act, answer: answer.ok ? "accepted" : "refused" } });
+      if (!answer.ok) {
+        setPauseSaid(pauseRefusal(act, answer) ?? (answer.why === "refused" ? answer.error.message : said(answer)));
+      }
+      return answer.ok;
+    });
+  }
+
+  /**
+   * Send what the confirm dialog collected, and answer whether Fleet took it.
+   *
+   * **The restart's note is read here rather than in the dialog.** Only the
+   * restart has one, and a blank field is not sent: `restartStep` drops it, so
+   * a person who opened the dialog and typed nothing gets the restart they
+   * pressed for rather than the 422 a blank note earns. Pulse's two kills are
+   * commands of their own, not Job acts — `ConfirmAct`.
+   */
+  async function confirmed(what: Confirming, note: string): Promise<boolean> {
+    if (what.act === "kill_process" || what.act === "kill_processes") {
+      await killProcess(what.jobId, what.act === "kill_process" ? what.pid : undefined);
+      return true;
+    }
+    return act(what.act, what.jobId, what.act === "restart_step" ? note : undefined, "droneId" in what ? what.droneId : undefined);
   }
 
   /**
@@ -981,6 +1042,7 @@ export function useCommands(sending: Sending) {
     fileFindingIssue,
     givenBack,
     setGivenBack,
+    pauseSaid,
     sweeping,
     stopProposal,
     proposeFrom,
@@ -988,6 +1050,7 @@ export function useCommands(sending: Sending) {
     clearTerminal,
     forgetTerminal,
     act,
+    confirmed,
     killProcess,
     taskAct,
     redirect,
