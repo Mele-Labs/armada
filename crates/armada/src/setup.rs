@@ -73,6 +73,10 @@ pub(crate) const DEFINITION_EXTS: &[&str] = &["json", "yml", "yaml"];
 pub struct Setup {
     root: PathBuf,
     manifest: Manifest,
+    /// The manifests of the workspaces below the root that loaded.
+    workspaces: Vec<Manifest>,
+    /// The workspace files that did not, and why. Each is left out.
+    workspaces_refused: Vec<(PathBuf, LoadError)>,
     workflows: BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
     /// Definitions from Kit or Armada this repository runs without, and why.
     left_out: Vec<LeftOut>,
@@ -119,13 +123,22 @@ impl Setup {
         let mut written = config::carried();
         written.extend(definitions(&kit.join(KIT_WORKFLOWS), Written::in_kit)?);
         written.extend(definitions(&root.join(WORKFLOWS), Written::in_repository)?);
+        // **A workspace file that will not load is left out, not refused**: the
+        // repository serves and its other workspaces stand.
+        let fleet::workspaces::Workspaces {
+            manifests: workspaces,
+            refused: workspaces_refused,
+        } = fleet::workspaces::load(root, &manifest);
+        let gating: Vec<&Manifest> = std::iter::once(&manifest).chain(&workspaces).collect();
         let (workflows, left_out, files) = Catalogue::of(written, roster)
-            .resolve(&manifest)
+            .resolve_gated(&manifest, &gating)
             .into_parts();
 
         Ok(Setup {
             root: root.to_path_buf(),
             manifest,
+            workspaces,
+            workspaces_refused,
             workflows,
             left_out,
             files,
@@ -140,6 +153,16 @@ impl Setup {
 
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
+    }
+
+    /// The workspaces' manifests that loaded, in directory order.
+    pub fn workspaces(&self) -> &[Manifest] {
+        &self.workspaces
+    }
+
+    /// The workspace files left out, and why.
+    pub fn workspaces_refused(&self) -> &[(PathBuf, LoadError)] {
+        &self.workspaces_refused
     }
 
     /// Every workflow this repository runs, keyed by its `workflow_id`, each
@@ -268,6 +291,7 @@ pub fn workflows_again(
     kit: &Path,
     roster: &Roster,
     manifest: &Manifest,
+    workspaces: &[Manifest],
 ) -> (
     BTreeMap<core_model::WorkflowId, ResolvedWorkflow>,
     Vec<LeftOut>,
@@ -282,8 +306,9 @@ pub fn workflows_again(
         &root.join(WORKFLOWS),
         Written::in_repository,
     ));
+    let gating: Vec<&Manifest> = std::iter::once(manifest).chain(workspaces).collect();
     Catalogue::of(written, roster)
-        .resolve(manifest)
+        .resolve_gated(manifest, &gating)
         .into_parts()
 }
 

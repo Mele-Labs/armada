@@ -30,6 +30,7 @@ import { columnsFor, repositoryOf } from "./board";
 import { boardPressOf, verbOf } from "./keys";
 import { headlineOf } from "./lineage";
 import { useListCursor, useListKeydown } from "./list-keyboard";
+import type { PauseAct } from "./pausing";
 import { overviewListsOf } from "./overview-lists";
 import { readingOf } from "./reading";
 import { useRecentChanges } from "./recent";
@@ -70,6 +71,8 @@ export type OverviewListsProps = {
   onRedispatch: (jobId: string) => void;
   /** Ask to clear — Recently ended's caret, beside Redispatch. Asks; never clears. */
   onClear: (jobId: string) => void;
+  /** Ask to pause or resume a row's Job, from its caret. Asks; never sends. */
+  onPausing?: (act: PauseAct, jobId: string) => void;
   /**
    * Open the composer — `n`, the one key in the contextual tier that acts on
    * nothing on screen. `Jobs.tsx`'s own prop, answered here too: the map
@@ -103,6 +106,7 @@ export function OverviewLists({
   onKill,
   onRedispatch,
   onClear,
+  onPausing,
   onCompose,
   onCopied,
   onCursor,
@@ -171,6 +175,7 @@ export function OverviewLists({
       onKill={onKill}
       onRedispatch={onRedispatch}
       onClear={onClear}
+      {...(onPausing === undefined ? {} : { onPausing })}
       onCopied={onCopied}
     />
   );

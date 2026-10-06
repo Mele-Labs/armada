@@ -1,0 +1,7 @@
+/* The hue of the `paused` queued reason, which the vocabulary maps to not-started. */
+.armada-paused-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--status-not-started);
+}

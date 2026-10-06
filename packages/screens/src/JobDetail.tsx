@@ -307,6 +307,7 @@ function OneJob(props: JobDetailProps) {
     actingAct: props.actingAct,
     answered: props.answered,
     approving: props.approving,
+    rerunningChecks: props.rerunningChecks,
     reporting,
     onReporting: setReporting,
     onAct: props.onAct,

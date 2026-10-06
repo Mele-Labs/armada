@@ -4,6 +4,7 @@ import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Button } from "../../primitives/Button/Button";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { PausedMark } from "../PausedMark/PausedMark";
 import { JobLink, jobOf, stateOf } from "./PoolTile";
 import { ScrapConfirm, SlotFinding } from "./SlotFinding";
 import { TileActs, rescuable } from "./TileActs";
@@ -45,6 +46,10 @@ export type TileSheetProps = {
   onDeleteBranch?: (jobId: string, tip: string) => void;
   /** Absent draws no Forget Job. */
   onForget?: (jobId: string) => void;
+  /** Absent draws no Pause. Sent from its confirm. */
+  onPause?: (jobId: string) => void;
+  /** Absent draws no Resume. */
+  onResume?: (jobId: string) => void;
   /** A path or a branch is copied on a press; the surface confirms it. */
   onCopied?: (value: string) => void;
   onClose: () => void;
@@ -72,7 +77,7 @@ function Copied({ Glyph, said, value, onCopied }: { Glyph: typeof Folder; said: 
   );
 }
 
-export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onCopied, onClose }: TileSheetProps) {
+export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onRelease, onDeleteBranch, onForget, onPause, onResume, onCopied, onClose }: TileSheetProps) {
   const { slot, held } = row;
   /** The confirm open on this tile, if one is. */
   const [confirming, setConfirming] = useState<Confirming | null>(null);
@@ -98,7 +103,8 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
       return;
     }
     if (held === undefined) return;
-    if (which === "clear") onClear?.(held.job_id);
+    if (which === "pause") onPause?.(held.job_id);
+    else if (which === "clear") onClear?.(held.job_id);
     else if (which === "branch" && unmerged !== undefined) onDeleteBranch?.(held.job_id, unmerged.tip);
     else if (which === "forget") onForget?.(held.job_id);
   };
@@ -141,6 +147,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
             <state.Glyph size={12} strokeWidth={2} aria-hidden />
           </span>
           {job === null ? null : <JobLink jobId={job.jobId} title={job.title} onOpenJob={onOpenJob} />}
+          {row.paused === undefined ? null : <PausedMark said={row.paused} />}
         </span>
       }
       closeLabel="Close panel"
@@ -154,6 +161,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
           waiting={waiting}
           onAct={onAct}
           onRescue={onRescue}
+          onResume={held === undefined || onResume === undefined ? undefined : () => onResume(held.job_id)}
           onConfirm={held === undefined && !(slot?.held.state === "session" && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
         />
         {row.refused === undefined ? null : (

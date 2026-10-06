@@ -81,9 +81,11 @@ where
     }
 
     fn read_workflows_again(&self, served: &Served) {
-        let read = self
-            .locating()
-            .workflows(Path::new(served.root()), served.manifest());
+        let read = self.locating().workflows(
+            Path::new(served.root()),
+            served.manifest(),
+            &served.workspaces(),
+        );
         served.catalogued(read);
     }
 

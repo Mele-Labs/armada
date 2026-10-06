@@ -24,6 +24,7 @@ import type {
 import type { HeldAct } from "./Acts";
 import type { ConfirmableAct, JobAct } from "./JobDetail";
 import { NOTHING_SERVED, servesNothing } from "./locate-reads";
+import type { PauseAct } from "./pausing";
 
 /** What a refusal says. Every one names what happened and what to do. */
 export function said(outcome: Outcome): string {
@@ -163,7 +164,7 @@ export function reclaimed(answer: WorktreeReclaimed): string {
  * carry no entry — each collects a required field in its own dialog and is its
  * own confirmation, so neither reaches this one.
  */
-export const CONFIRM: Record<ConfirmableAct, { title: string; body: string; tone?: DialogTone }> = {
+export const CONFIRM: Record<Exclude<ConfirmableAct, PauseAct>, { title: string; body: string; tone?: DialogTone }> = {
   kill_drone: {
     title: "Kill the drone on this job?",
     body:
@@ -546,6 +547,8 @@ export const ACT_LABEL: Record<JobAct, string> = {
   rerun_checks: "Run Checks again",
   reclaim_worktree: "Reclaim worktree",
   forget_job: "Delete record",
+  pause_job: "Pause",
+  resume_job: "Resume",
 };
 
 /**
@@ -569,6 +572,8 @@ export const MENU_LABEL: Record<JobAct, string> = {
   rerun_checks: "Run Checks again, on the work already here",
   reclaim_worktree: "Reclaim worktree, the job stays on the board",
   forget_job: "Delete record, there is no undo",
+  pause_job: "Pause, the work is saved on its branch",
+  resume_job: "Resume, back in a slot",
 };
 
 /**

@@ -21,6 +21,7 @@ use super::records;
 use super::unrehearsable::Unrehearsable;
 use super::workspace;
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -61,9 +62,15 @@ where
         };
         let root = place.checkout.root().to_string();
         let known = self.rehearsals().workspace_dirs().clone();
-        let workspaces = tokio::task::spawn_blocking(move || workspace::listed(&root, &known))
-            .await
-            .unwrap_or_default();
+        let root_manifest = place
+            .checkout
+            .served()
+            .map(|served| served.manifest().clone());
+        let workspaces = tokio::task::spawn_blocking(move || {
+            workspace::listed(&root, &known, root_manifest.as_ref())
+        })
+        .await
+        .unwrap_or_default();
         Ok(ipc::CheckoutRunSheet {
             setup,
             checks,
@@ -98,8 +105,12 @@ where
         // The whole tree, always: there is no diff of the checkout's own for a
         // narrowing to measure against, and `StartCheckoutRun` carries no flag
         // asking for one.
-        let workspace = workspace::resolved(place.checkout.root(), asked.workspace.as_deref())
-            .map_err(|why| self.refused_run(&owner, why))?;
+        let workspace = workspace::resolved(
+            place.checkout.root(),
+            asked.workspace.as_deref(),
+            place.checkout.served().map(Served::manifest),
+        )
+        .map_err(|why| self.refused_run(&owner, why))?;
         let (entry, mut tree) = match &workspace {
             None => self.entry_at(&place, &asked.name, false).await,
             Some(one) => self.workspace_entry_at(&place, &one.manifest, &asked.name),

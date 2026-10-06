@@ -57,8 +57,20 @@ pub(crate) fn run_is_over(pid: NonZeroU32) -> bool {
             &mut reading,
             libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
         );
-        asked == 0 && reading.si_pid == pid
+        asked == 0 && si_pid_of(&reading) == pid
     }
+}
+
+/// libc exposes `si_pid` as an unsafe method on Linux and a field on macOS.
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+unsafe fn si_pid_of(reading: &libc::siginfo_t) -> libc::pid_t {
+    reading.si_pid()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn si_pid_of(reading: &libc::siginfo_t) -> libc::pid_t {
+    reading.si_pid
 }
 
 /// `SIGKILL` to a whole process group.

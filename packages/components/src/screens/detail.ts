@@ -14,6 +14,8 @@ export type JobDetailHeading = {
   status: string;
   statusIcon: LucideIcon;
   statusLabel: ReactNode;
+  /** Stands beside the badge and never in place of it: a paused Job's mark. */
+  mark?: ReactNode;
   headline: ReactNode;
   jobId?: ReactNode;
   /** The whole identifier, where what is drawn is short for it. Hovered and copied. */

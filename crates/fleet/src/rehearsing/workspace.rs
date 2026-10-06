@@ -15,7 +15,6 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use config::Manifest;
-use ipc::{ManifestFault, ManifestRefused};
 use store::PortClaimant;
 
 use super::owner::Checkout;
@@ -32,9 +31,13 @@ pub(crate) struct Workspace {
 
 /// `asked` resolved against `root`. `None` is the root's Manifest, which
 /// absent, empty and `.` all name.
+///
+/// **Read against the root's Manifest where there is one**, so a workspace's
+/// `setup.requires` may name a root Command. Without one the file stands alone.
 pub(crate) fn resolved(
     root: &str,
     asked: Option<&str>,
+    root_manifest: Option<&Manifest>,
 ) -> Result<Option<Workspace>, Unrehearsable> {
     let Some(asked) = asked else {
         return Ok(None);
@@ -63,21 +66,15 @@ pub(crate) fn resolved(
             return Err(outside());
         }
     }
-    let manifest =
-        Manifest::load(&at.join("armada.yml")).map_err(|why| Unrehearsable::WorkspaceManifest {
-            file: format!("{dir}/armada.yml"),
-            refused: ManifestRefused {
-                summary: why.to_string(),
-                faults: why
-                    .refusals()
-                    .iter()
-                    .map(|one| ManifestFault {
-                        key: one.key.clone(),
-                        fault: one.fault.to_string(),
-                    })
-                    .collect(),
-            },
-        })?;
+    let file = at.join("armada.yml");
+    let loaded = match root_manifest {
+        Some(root) => Manifest::load_workspace(&file, &dir, root),
+        None => Manifest::load(&file),
+    };
+    let manifest = loaded.map_err(|why| Unrehearsable::WorkspaceManifest {
+        file: format!("{dir}/armada.yml"),
+        refused: crate::workspaces::refused(&why),
+    })?;
     Ok(Some(Workspace { dir, manifest }))
 }
 
@@ -114,12 +111,16 @@ impl WorkspaceDirs {
 /// Each workspace below `root` whose own `armada.yml` loads, with its Commands.
 /// A file that will not load lists nothing; Verify is where it says why. Each
 /// file is read afresh; only which directories hold one is kept.
-pub(crate) fn listed(root: &str, known: &WorkspaceDirs) -> Vec<ipc::WorkspaceCommands> {
+pub(crate) fn listed(
+    root: &str,
+    known: &WorkspaceDirs,
+    root_manifest: Option<&Manifest>,
+) -> Vec<ipc::WorkspaceCommands> {
     known
         .or_walked(root)
         .into_iter()
         .filter_map(|dir| {
-            let one = resolved(root, Some(&dir)).ok().flatten()?;
+            let one = resolved(root, Some(&dir), root_manifest).ok().flatten()?;
             let (_, _, commands) = super::entries::declared(&one.manifest).sheet(&[]);
             Some(ipc::WorkspaceCommands {
                 dir: one.dir,
