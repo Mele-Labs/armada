@@ -145,6 +145,29 @@ export function reshaped(
     const closed = change.act === "close";
     return answer(pool.map((one) => (one === target ? { ...one, closed } : one)));
   }
+  if (change.act === "release") {
+    if (target.held.state !== "session" || target.held.holder !== change.holder) {
+      const now = target.held.state === "session" ? target.held.holder : "someone else";
+      return { held, outcome: refusedAs("fleet.slot_holder_changed", `it is held by ${now} now, not by the holder that was shown`) };
+    }
+    const files = target.stranded?.uncommitted ?? [];
+    const { stranded: _s, branch: _b, since: _since, ...rest } = target;
+    const released = { ...rest, held: { state: "free" as const } };
+    return {
+      ...answer(pool.map((one) => (one === target ? released : one))),
+      outcome: {
+        ok: true,
+        slotChanged: {
+          manifest_id: manifestId,
+          slot: target.slot,
+          released: {
+            branch: target.branch ?? "",
+            ...(files.length === 0 ? {} : { saved: { commit: "d41f8a6c20be", files } }),
+          },
+        },
+      },
+    };
+  }
   const why = ((): Outcome | null => {
     switch (target.held.state) {
       case "job":

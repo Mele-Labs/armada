@@ -274,6 +274,9 @@ pub enum Adrift {
     /// back: the tree holds something uncommitted, or commits on neither the
     /// remote nor the base. The slot stays the Job's.
     SlotKept { job: JobId, slot: u32, why: String },
+    /// A reclaim on a Job's own worktree whose uncommitted files could not be
+    /// committed to its branch. **Nothing was removed.**
+    WorktreeNotSaved { job: JobId, why: String },
     /// A raise was asked for on a Job that has reached a terminal status.
     ///
     /// **Its own variant beside the two above, for the reason the second is

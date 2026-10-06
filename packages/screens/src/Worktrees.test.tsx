@@ -129,11 +129,11 @@ test("a job still running is a tile whose panel offers no act", async () => {
 });
 
 /**
- * **The confirm says what is lost.** The uncommitted files are named with how
- * long they have sat, and the unmerged branch is named as kept, because a
- * reclaim never forces it.
+ * **The confirm says what will happen, and nothing is lost.** The uncommitted
+ * files are committed to the branch as a WIP commit before the worktree goes,
+ * and the branch is kept. No figure is drawn beside the list.
  */
-test("Clear confirms first, listing the worktree it removes, the files it deletes, how long ago the Job last moved and the branch it keeps", async () => {
+test("Clear confirms first, listing the files it commits to the branch, the worktree it removes and the branch it keeps", async () => {
   const sent = opened([held({ held: [{ why: "uncommitted", files: ["src/log.rs", "notes.md"] }, UNMERGED] })]);
 
   const panel = await open("job-a");
@@ -142,11 +142,12 @@ test("Clear confirms first, listing the worktree it removes, the files it delete
 
   const confirm = confirmOf("Clear", "job-a");
   await expect.element(confirm.getByText("Removes the worktree at /Users/user/armada/.armada/worktrees/job-a")).toBeInTheDocument();
-  await expect.element(confirm.getByText("Deletes uncommitted files")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Commits the uncommitted files to branch armada/job-a as a WIP commit")).toBeInTheDocument();
   await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/log.rs");
   await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes.md");
-  await expect.element(confirm.getByText("Job last moved 4 days ago")).toBeInTheDocument();
-  await expect.element(confirm.getByText("Keeps branch armada/job-a: 3 commits not on main")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Keeps branch armada/job-a")).toBeInTheDocument();
+  expect(confirm.getByText("Deletes uncommitted files").elements()).toHaveLength(0);
+  expect(confirm.getByText(/commits not on/).elements()).toHaveLength(0);
 
   await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
   expect(sent.reclaimed).toEqual([]);
@@ -306,6 +307,28 @@ test("Clear on a bay releases the slot and says the worktree stays", async () =>
   await expect.element(panel.getByRole("status")).toHaveTextContent("Branch kept: 3 commits not on main");
 });
 
+/** The confirm names the commit, the release and the kept branch, and the receipt says where the files went. */
+test("Clear on a bay holding uncommitted files commits them, releases the slot and says so", async () => {
+  const saved = { commit: "d41f8a6c20be", files: ["src/log.rs"] };
+  const sent = opened(
+    [held({ job_id: "01JOB", branch: "armada/1-fix", held: [{ why: "uncommitted", files: ["src/log.rs"] }] })],
+    { reclaim: () => ({ ok: true, reclaimed: { ...RECLAIMED, saved } }) },
+    [slot(1, { held: { state: "job", job_id: "01JOB", job_title: "Fix the reader" }, branch: "armada/1-fix" })],
+  );
+
+  const panel = await open("slot-1");
+  await userEvent.click(panel.getByRole("button", { name: "Clear" }));
+  const confirm = confirmOf("Clear", "slot-1");
+  await expect.element(confirm.getByText("Commits the uncommitted files to branch armada/1-fix as a WIP commit")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Releases slot-1")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Keeps branch armada/1-fix")).toBeInTheDocument();
+  expect(confirm.getByText(/Refused/).elements()).toHaveLength(0);
+
+  await userEvent.click(confirm.getByRole("button", { name: "Clear" }));
+  expect(sent.reclaimed).toEqual(["01JOB"]);
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Committed to armada/job-a, slot released");
+});
+
 test("a refused release is said as a slot not released", async () => {
   opened(
     [held({ job_id: "01JOB", held: [{ why: "uncommitted", files: ["src/log.rs"] }] })],
@@ -315,7 +338,6 @@ test("a refused release is said as a slot not released", async () => {
 
   const panel = await open("slot-1");
   await userEvent.click(panel.getByRole("button", { name: "Clear" }));
-  await expect.element(confirmOf("Clear", "slot-1").getByText("Refused while these are uncommitted")).toBeInTheDocument();
   await userEvent.click(confirmOf("Clear", "slot-1").getByRole("button", { name: "Clear" }));
   await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released");
 });
@@ -579,4 +601,75 @@ test("a kept Job's slot offers Rescue, and the press is sent", async () => {
   const panel = await open("slot-8");
   await userEvent.click(panel.getByRole("button", { name: "Rescue" }));
   expect(sent).toEqual(["start 8"]);
+});
+
+/**
+ * A slot an agent session holds is released from its own confirm, which names
+ * the holder and branch and lists the files it commits. The act is sent for the
+ * holder shown, and the receipt says where the files went.
+ */
+test("Release on a session's slot commits its files, sends the holder shown and says so", async () => {
+  const sentChanges: unknown[] = [];
+  opened(
+    [],
+    {},
+    [
+      slot(2, {
+        held: { state: "session", holder: "nvim (pid 44698)" },
+        branch: "fleet/by-hand",
+        stranded: { uncommitted: ["src/half.rs"], commits: [], unpushed: 0 },
+      }),
+    ],
+    {
+      onChangeSlotPool: (_manifest, change) => {
+        sentChanges.push(change);
+        return Promise.resolve({
+          ok: true,
+          slotChanged: {
+            manifest_id: "m",
+            slot: 2,
+            released: { branch: "fleet/by-hand", saved: { commit: "d41f8a6c20be", files: ["src/half.rs"] } },
+          },
+        });
+      },
+    },
+  );
+
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  const confirm = confirmOf("Release", "slot-2");
+  await expect.element(confirm.getByText("Held by nvim, on branch fleet/by-hand")).toBeInTheDocument();
+  await expect.element(confirm.getByText("pid 44698")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
+  await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/half.rs");
+  await expect.element(confirm.getByText("Releases slot-2")).toBeInTheDocument();
+  expect(sentChanges, "nothing is sent before the confirm").toEqual([]);
+
+  await userEvent.click(confirm.getByRole("button", { name: "Release" }));
+  expect(sentChanges).toEqual([{ act: "release", slot: 2, holder: "nvim (pid 44698)" }]);
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Committed to fleet/by-hand, slot released");
+});
+
+test("Release on a session's slot with nothing uncommitted commits nothing", async () => {
+  opened([], {}, [slot(2, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/by-hand" })], {
+    onChangeSlotPool: () => Promise.resolve({ ok: true, slotChanged: { manifest_id: "m", slot: 2, released: { branch: "fleet/by-hand" } } }),
+  });
+
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  const confirm = confirmOf("Release", "slot-2");
+  expect(confirm.getByText(/^Commits the uncommitted files/).elements()).toHaveLength(0);
+  await expect.element(confirm.getByText("Keeps branch fleet/by-hand")).toBeInTheDocument();
+  await userEvent.click(confirm.getByRole("button", { name: "Release" }));
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Slot released");
+});
+
+test("a refused Release is said as a slot not released", async () => {
+  opened([], {}, [slot(2, { held: { state: "session", holder: "nvim (pid 1)" }, branch: "b" })], {
+    onChangeSlotPool: () => Promise.resolve({ ok: false, why: "not_connected" }),
+  });
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  await userEvent.click(confirmOf("Release", "slot-2").getByRole("button", { name: "Release" }));
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released");
 });

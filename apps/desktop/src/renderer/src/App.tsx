@@ -1115,6 +1115,9 @@ export function App({ draft }: AppProps = {}) {
 
         <ConfirmAct
           confirming={confirming}
+          held={state.held}
+          onWant={readHeld}
+          cleanupOpen={clearing}
           restartNote={restartNote}
           onRestartNote={setRestartNote}
           onCancel={() => {

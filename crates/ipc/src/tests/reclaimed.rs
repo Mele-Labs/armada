@@ -23,6 +23,7 @@ fn already_gone() -> WorktreeReclaimed {
             base: None,
             unmerged_commits: None,
         },
+        saved: None,
     }
 }
 

@@ -171,6 +171,15 @@ impl Vcs for GitVcs {
         crate::leasing::jobs::park(pool, slot, job_id)
     }
 
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        crate::leasing::jobs::release_session(pool, slot, holder)
+    }
+
     fn lease_existing_slot(
         &self,
         pool: &SlotPool,
@@ -211,6 +220,14 @@ impl Vcs for GitVcs {
         change: adapter_traits::SlotChange,
     ) -> Result<u32, adapter_traits::SlotRefused> {
         crate::leasing::jobs::change(pool, change)
+    }
+
+    fn session_work(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<adapter_traits::StrandedWork, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::session_work(pool, slot)
     }
 
     fn stranded_work(

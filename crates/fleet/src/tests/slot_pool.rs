@@ -16,7 +16,11 @@ fn root(home: &TempDir) -> String {
 }
 
 fn asked(act: SlotAct, slot: Option<u32>) -> ChangeSlotPool {
-    ChangeSlotPool { act, slot }
+    ChangeSlotPool {
+        act,
+        slot,
+        holder: None,
+    }
 }
 
 /// Every slot held but the eighth, which a person closed: a new Job waits,
@@ -115,4 +119,67 @@ async fn the_wire_carries_closed_and_names_why_a_slot_cannot_go() {
     let (_, body) = crate::tests::http::call(&app, "GET", "/worktrees", "").await;
     let held: ipc::WorktreesHeld = ipc::decode("held", &body).unwrap();
     assert!(held.slots.iter().all(|one| one.slot != 3));
+}
+
+fn released_for(slot: u32, holder: &str) -> ChangeSlotPool {
+    ChangeSlotPool {
+        act: SlotAct::Release,
+        slot: Some(slot),
+        holder: Some(holder.to_string()),
+    }
+}
+
+/// A session's slot goes back to the pool for the holder the person was shown,
+/// and the answer names the branch and the files committed to it.
+#[test]
+fn a_slot_a_session_holds_is_released_and_says_what_was_committed() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    fleet.vcs().hold_slot(&root(&home), 2, "nvim (pid 44698)");
+
+    let released = fleet
+        .change_slot_pool(released_for(2, "nvim (pid 44698)"), None)
+        .expect("released");
+
+    let released = released
+        .released
+        .expect("it says what it did to the branch");
+    assert_eq!(
+        released.saved.expect("the files were committed").files,
+        vec!["wip.txt"]
+    );
+    assert_eq!(fleet.vcs().slot_holders(&root(&home))[1], None);
+}
+
+/// A slot re-leased since the person looked is refused, and keeps its holder.
+#[test]
+fn a_slot_another_session_took_since_is_refused_and_left_alone() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    fleet.vcs().hold_slot(&root(&home), 2, "nvim (pid 51)");
+
+    let refused = fleet
+        .change_slot_pool(released_for(2, "nvim (pid 44698)"), None)
+        .expect_err("a different holder");
+
+    let api::Refusal::IllegalMove(error) = refused else {
+        panic!("{refused:?}");
+    };
+    assert_eq!(error.code, "fleet.slot_holder_changed");
+    assert_eq!(
+        fleet.vcs().slot_holders(&root(&home))[1],
+        Some(String::from("nvim (pid 51)"))
+    );
+}
+
+#[test]
+fn a_release_naming_no_holder_is_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let mut bare = released_for(2, "x");
+    bare.holder = None;
+
+    let refused = fleet.change_slot_pool(bare, None).expect_err("no holder");
+
+    assert!(matches!(refused, api::Refusal::Unacceptable(_)));
 }

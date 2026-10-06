@@ -303,7 +303,12 @@ impl fmt::Display for Adrift {
             ),
             Adrift::SlotKept { job, slot, why } => write!(
                 out,
-                "{}'s worktree is slot-{slot}, and the pool would not take it back: {why}",
+                "{}'s worktree is slot-{slot}, and it stays held: {why}",
+                job.as_str()
+            ),
+            Adrift::WorktreeNotSaved { job, why } => write!(
+                out,
+                "{}'s worktree was not removed: {why}",
                 job.as_str()
             ),
             // The repository, named. A person fixes this by looking at that
@@ -822,6 +827,7 @@ impl Adrift {
             | Adrift::NotForgettable { job, .. }
             | Adrift::NotReclaimable { job, .. }
             | Adrift::SlotKept { job, .. }
+            | Adrift::WorktreeNotSaved { job, .. }
             | Adrift::NotCappable { job, .. }
             | Adrift::CapNotRaised { job, .. }
             | Adrift::CapAboveCeiling { job, .. }
@@ -959,6 +965,7 @@ impl Error for Adrift {
             // pair of strings and not an error type.
             | Adrift::NotReclaimable { .. }
             | Adrift::SlotKept { .. }
+            | Adrift::WorktreeNotSaved { .. }
             // The six the two raises make, which say what the record or the
             // request holds rather than wrapping anything that failed.
             | Adrift::NotCappable { .. }

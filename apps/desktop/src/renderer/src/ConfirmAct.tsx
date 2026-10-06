@@ -3,13 +3,17 @@
 // else. `App.tsx` keeps which act is being confirmed, because that is window
 // state and this is the dialog for it.
 
-import { Dialog, Textarea } from "@armada/components";
+import { ClearSaves, Dialog, Textarea } from "@armada/components";
+import type { HeldWorktrees } from "@armada/protocol";
+import { useEffect } from "react";
 import {
   ACT_LABEL,
   CONFIRM,
   KILL_PROCESS,
   KILL_PROCESSES,
   RESTART_NOTE,
+  costOf,
+  slotNameOf,
   type ConfirmableAct,
 } from "@armada/screens";
 
@@ -31,6 +35,12 @@ export function aJobAct(act: ConfirmableAct, jobId: string, droneId?: string): C
 export type ConfirmActProps = {
   /** Nothing to confirm draws nothing. */
   confirming: Confirming | null;
+  /** What each Job's worktree holds, which a Clear reads for the files it will commit. */
+  held: HeldWorktrees;
+  /** Ask for the held read while a Clear is confirmed, and let it go after. */
+  onWant: (want: boolean) => void;
+  /** Whether Cleanup has the held read open, which a Clear's confirm must not close. */
+  cleanupOpen: boolean;
   /** The restart note in progress, held by the caller so cancelling clears it. */
   restartNote: string;
   onRestartNote: (said: string) => void;
@@ -45,11 +55,20 @@ export type ConfirmActProps = {
  */
 export function ConfirmAct({
   confirming,
+  held,
+  onWant,
+  cleanupOpen,
   restartNote,
   onRestartNote,
   onCancel,
   onConfirm,
 }: ConfirmActProps) {
+  const clearing = confirming?.act === "reclaim_worktree";
+  useEffect(() => {
+    if (!clearing) return;
+    onWant(true);
+    return () => onWant(cleanupOpen);
+  }, [clearing, cleanupOpen, onWant]);
   if (confirming === null) return null;
   // The kills' title is the whole of what they say: the process that ends, or
   // how many. Nothing survives a killed process worth a sentence here.
@@ -73,16 +92,33 @@ export function ConfirmAct({
     );
   }
   const act = confirming.act;
+  // A Clear on a worktree holding uncommitted files commits them to the branch,
+  // so it says that, as the Cleanup grid's confirm does, and ends nothing.
+  const reading =
+    act === "reclaim_worktree" && held.state === "read"
+      ? held.held.worktrees.find((one) => one.job_id === confirming.jobId)
+      : undefined;
+  const files = reading === undefined ? [] : costOf(reading).files;
+  const saves = reading !== undefined && files.length > 0;
   return (
     <Dialog
       open
-      tone={CONFIRM[act].tone ?? "destructive"}
+      tone={saves ? "neutral" : (CONFIRM[act].tone ?? "destructive")}
       title={CONFIRM[act].title}
       confirmLabel={ACT_LABEL[act]}
       onCancel={onCancel}
       onConfirm={() => onConfirm(confirming)}
     >
-      {CONFIRM[act].body}
+      {saves ? (
+        <ClearSaves
+          branch={reading.branch}
+          files={files}
+          path={reading.path}
+          {...(slotNameOf(reading.path) === null ? {} : { slot: slotNameOf(reading.path)! })}
+        />
+      ) : (
+        CONFIRM[act].body
+      )}
       {/* The one confirmation that collects anything, and what it collects is
           optional — the button is never disabled on it, because leaving the
           field alone is the restart this dialog has always been. No

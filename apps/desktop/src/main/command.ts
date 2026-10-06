@@ -27,7 +27,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotRescued, ToProposer } from "@armada/protocol";
+import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -582,7 +582,7 @@ export class JobCommands {
     const port = this.board.port();
     if (port === null) return { ok: false, why: "not_connected" };
     const answer = await ask(port, "POST", this.board.picked.manifestNamed("/worktrees/slots", manifestId), change);
-    return answer.ok === true ? { ok: true } : answer.outcome;
+    return answer.ok === true ? { ok: true, slotChanged: answer.body as SlotPoolChanged } : answer.outcome;
   }
 
   /**

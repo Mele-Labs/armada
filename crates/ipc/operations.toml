@@ -1998,6 +1998,8 @@ notes = """
 
 **`remove` gives a made slot's checkout back with `git worktree remove`**, and only a free or unmade one. A held, stranded or busy slot, a directory that is not a checkout, uncommitted files, and the last slot are each a 409 with its own code — `fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`, `fleet.slot_dirty`, `fleet.slot_last` — so Bridge says why on the slot. A slot the pool does not have is a 422, `fleet.no_such_slot`.
 
+**`release` hands back a slot an agent session holds** (since 23.37), as Clear does for a Job's. The body names `slot` and the `holder` the person was shown, as the slot read it (`claude (pid 44698)`). The pool commits whatever is uncommitted there, untracked in and ignored out, to the slot's branch as a WIP commit and frees the slot; nothing is pushed and the session's process is not touched. The answer's `released` names the branch and, where files were committed, the commit and the files. A slot held by anyone else now, or by nobody, is a 409 `fleet.slot_holder_changed` and is left as it is; a release with no holder is a 422 `fleet.slot_holder_unnamed`. A detached HEAD, the base branch, another branch than the lease names, or a refused release after the commit is a 409 `fleet.slot_not_parkable` with git's own words; a lease or release under way is `fleet.slot_busy`.
+
 **`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
 
 `Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
@@ -2028,6 +2030,13 @@ is no disk to reclaim while a Drone might still write to it.
 **A pool slot is given back rather than removed**, by the pool's rules. This
 is the act that gives back the slot a completed Job holds until a person
 clears it; one the pool refuses stays held, and the answer says why.
+
+**Uncommitted files are committed, not refused** (since 23.37). A slot the pool
+refuses for them is parked: everything uncommitted, untracked in and ignored
+out, goes to the Job's branch as a WIP commit and the slot is freed. A Job's own
+worktree is committed the same way before it is removed. Nothing is pushed, and
+the answer's `saved` names the commit and the files. A detached HEAD, the base
+branch or a busy slot keeps the refusal, in git words.
 
 **Runs with `UnmergedWork::Keep`**, matching `armada clean` without `--force`.
 A branch holding commits the base cannot reach survives, is named in the answer
