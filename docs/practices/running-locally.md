@@ -242,7 +242,7 @@ moving between trees rebuilds and reopens Bridge whatever either stamp says.
 scripts/preview                         # merge every in-flight branch, print what happened
 scripts/preview --only a,b --skip c     # narrow it; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
-scripts/preview --restart [--dry-run]   # then scripts/restart --from .armada/preview
+scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
 ```
 
 **It merges every branch that is in flight on top of `main`, in a worktree of
