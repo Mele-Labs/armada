@@ -102,6 +102,7 @@ impl FakeDaemon {
             // Nothing has reclaimed a Job just proposed.
             reclaimed_at: None,
             tasks: None,
+            paused: None,
         };
         self.jobs.lock().expect("not poisoned").push(job.clone());
         self.proposed_by.lock().expect("not poisoned").push(by);
