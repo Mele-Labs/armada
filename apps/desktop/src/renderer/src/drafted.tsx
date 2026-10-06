@@ -11,9 +11,9 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 
-import type { BranchesAnswer } from "@armada/screens/src/draft/branches";
-import type { LandingRule } from "@armada/screens/src/draft/landing";
-import type { ProposalView } from "@armada/screens/src/draft/proposal";
+import type { BranchesAnswer } from "@armada/jobs/draft/branches";
+import type { LandingRule } from "@armada/jobs/draft/landing";
+import type { ProposalView } from "@armada/jobs/draft/proposal";
 import type { SketchAttachment } from "@armada/screens/src/draft/sketch";
 
 /** What a moment holds for the surface that dispatches. Every field optional. */

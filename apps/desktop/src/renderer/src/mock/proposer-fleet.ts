@@ -9,8 +9,8 @@
 // nothing a Fleet would decide is guessed here.
 
 import type { ProposalInFlight, ProposalMoved, ProposalSettled } from "@armada/protocol";
-import { ARC_CRITERIA, ARC_TITLE } from "@armada/screens/src/fixtures/build/arc-base";
-import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "@armada/screens/src/fixtures/build/proposing";
+import { ARC_CRITERIA, ARC_TITLE } from "@armada/jobs/fixtures/build/arc-base";
+import { dispatchedFixture, dispatchedRow, PROPOSER_BUDGET_MS } from "@armada/jobs/fixtures/build/proposing";
 import { movedOnto } from "@armada/screens/src/filling";
 
 import type { FleetHandle, Scenario } from "./moment";

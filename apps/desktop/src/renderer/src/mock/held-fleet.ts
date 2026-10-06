@@ -1,7 +1,7 @@
 // A mock Fleet whose Drone is held on a command: answering it clears the wait, as Fleet does by
 // publishing the job without `command_waiting`. `held/command`, and the walks that play it.
 
-import { arcWatched } from "@armada/screens/src/fixtures/build/arc-base";
+import { arcWatched } from "@armada/jobs/fixtures/build/arc-base";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { FleetHandle } from "./moment";

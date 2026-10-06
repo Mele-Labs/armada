@@ -9,7 +9,7 @@
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { repository } from "@armada/screens/src/fixtures/build/base";

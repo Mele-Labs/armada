@@ -5,7 +5,7 @@
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { JobSummary, WorktreeHeld, WorktreesHeld, WorktreeSlot } from "@armada/protocol";
-import { review, running } from "@armada/screens/src/fixtures/build/index";
+import { review, running } from "@armada/jobs/fixtures/build/index";
 
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";

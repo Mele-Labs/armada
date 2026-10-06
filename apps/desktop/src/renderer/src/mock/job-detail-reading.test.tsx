@@ -5,7 +5,7 @@
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { reading, running, unreadable, workingAPlan } from "@armada/screens/src/fixtures/build/index";
+import { reading, running, unreadable, workingAPlan } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import type { FleetHandle } from "./scenario";

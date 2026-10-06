@@ -6,17 +6,8 @@
 import { ClearSaves, Dialog, PauseConfirm, ResumeConfirm, Textarea } from "@armada/components";
 import type { HeldWorktrees, JobSummary } from "@armada/protocol";
 import { useEffect } from "react";
-import {
-  ACT_LABEL,
-  CONFIRM,
-  KILL_PROCESS,
-  KILL_PROCESSES,
-  RESTART_NOTE,
-  costOf,
-  pauseFactsOf,
-  slotNameOf,
-  type ConfirmableAct,
-} from "@armada/screens";
+import { ACT_LABEL, CONFIRM, KILL_PROCESS, KILL_PROCESSES, RESTART_NOTE, costOf, pauseFactsOf, slotNameOf } from "@armada/screens";
+import { type ConfirmableAct } from "@armada/jobs";
 
 /**
  * A Job act, or one of Pulse's two kills. **The kills carry what the title

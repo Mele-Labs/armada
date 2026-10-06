@@ -8,7 +8,8 @@
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { killed, running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/screens/src/fixtures/build/running";
+import { killed } from "@armada/screens/src/fixtures/build/terminal";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 

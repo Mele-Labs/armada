@@ -16,7 +16,7 @@ import type { HubJob, HubPull, MainRed, MainState, RecentJob } from "@armada/com
 import type { FollowedLandLog, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { completedSuccess, queued, review, running } from "@armada/screens/src/fixtures/build/index";
+import { completedSuccess, queued, review, running } from "@armada/jobs/fixtures/build/index";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";

@@ -14,7 +14,7 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { GUIDES, GUIDE_PULSE, GUIDE_WORKTREE_SIZE } from "@armada/components";
 
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";

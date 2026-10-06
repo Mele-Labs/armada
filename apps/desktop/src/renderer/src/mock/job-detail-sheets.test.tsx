@@ -5,7 +5,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { } from "@armada/protocol";
-import { escalatedGateFailure, running } from "@armada/screens/src/fixtures/build/index";
+import { escalatedGateFailure, running } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

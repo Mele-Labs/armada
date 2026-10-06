@@ -7,9 +7,9 @@
 // tests hold is that the walk happened and that no name went missing.
 
 import { expect, test } from "vitest";
-import { FIXTURES } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
-import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
+import { FIXTURES } from "@armada/jobs/fixtures/build/index";
+import { ARC_MOMENTS } from "@armada/jobs/fixtures/build/arc";
+import { KIND_FIXTURES } from "@armada/jobs/fixtures/build/kinds";
 
 import { BUILDERS, SCENARIOS, scenarioNamed } from "./scenario";
 import * as listed from "./scenario-rows";

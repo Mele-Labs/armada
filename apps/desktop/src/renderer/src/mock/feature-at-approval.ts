@@ -8,9 +8,9 @@
 // Start node has somewhere else to go.
 
 import type { StepDetail } from "@armada/protocol";
-import { featureWorkflow } from "@armada/screens/src/fixtures/build/arc-base";
+import { featureWorkflow } from "@armada/jobs/fixtures/build/arc-base";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
-import { prototypeWorkflow } from "@armada/screens/src/fixtures/build/kinds-workflows";
+import { prototypeWorkflow } from "@armada/jobs/fixtures/build/kinds-workflows";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { proposalFromAnIssue } from "./proposal-from-an-issue";

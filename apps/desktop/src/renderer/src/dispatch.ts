@@ -12,8 +12,8 @@
 // the call could not be made: `answeredAs` decides which, and neither needs the
 // workflow roster or Bridge's identity that this used to be handed.
 
-import { answeredAs } from "@armada/screens";
-import type { Answered } from "@armada/screens";
+import { answeredAs } from "@armada/jobs";
+import type { Answered } from "@armada/jobs";
 import type { StagedAttachment } from "@armada/protocol";
 
 /**

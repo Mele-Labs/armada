@@ -6,7 +6,7 @@
 // the whole Overview (the owner, 4 Oct 2026).
 
 import { expect, test } from "vitest";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

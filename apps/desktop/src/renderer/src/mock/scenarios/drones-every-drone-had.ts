@@ -3,6 +3,6 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
+import { everyDroneHad } from "@armada/jobs/fixtures/build/drones-had";
 
 export const s050EveryDroneHad: Scenario = holding("drones/every-drone-had", everyDroneHad().name, [everyDroneHad()], { opens: everyDroneHad().job.id });

@@ -42,14 +42,14 @@ import {
   runningAtGate,
   gateChecksStreaming,
   proposing,
-} from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS, dispatchTyping, everyTaskState, executingHeld } from "@armada/screens/src/fixtures/build/arc";
-import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
-import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
-import { KIND_FIXTURES, prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
-import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
-import { waveOffTheWire } from "@armada/screens/src/fixtures/build/wave-off-the-wire";
-import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+} from "@armada/jobs/fixtures/build/index";
+import { ARC_MOMENTS, dispatchTyping, everyTaskState, executingHeld } from "@armada/jobs/fixtures/build/arc";
+import type { ArcMoment } from "@armada/jobs/fixtures/build/arc";
+import { groupChecking } from "@armada/jobs/fixtures/build/arc-checking";
+import { KIND_FIXTURES, prototypeKind } from "@armada/jobs/fixtures/build/kinds";
+import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/jobs/fixtures/build/waves";
+import { waveOffTheWire } from "@armada/jobs/fixtures/build/wave-off-the-wire";
+import { agentText } from "@armada/jobs/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
