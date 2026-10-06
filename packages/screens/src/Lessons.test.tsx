@@ -186,6 +186,78 @@ test("agreeing with a Kit item, and disagreeing with any, takes it off the list"
   await expect.poll(() => card(/every Rust test/).elements()).toHaveLength(0);
 });
 
+const COMMAND = { kind: "allow_command" as const, command: "grep -n" };
+const KIT_CHANGE = lesson({
+  id: "l-kit-change",
+  who: "drone",
+  lands_in: "kit",
+  statement: "A Drone was refused grep.",
+  title: "A Drone was refused grep on a check log",
+  what: "It asked to run grep on a check log, and was refused.",
+  fix: "Add grep -n to the allowlist.",
+  change: COMMAND,
+});
+
+test("a Kit item that carries a change reads Update Kit with its own tooltip, and one without keeps Accept", async () => {
+  opened([KIT_CHANGE, KIT]);
+  const buttons = (title: RegExp) =>
+    card(title).getByRole("button", { name: /^(Create Job|Accept|Update Kit|Reject change)$/ }).elements().map((b) => b.textContent);
+  await expect.element(card(/refused grep on a check log/)).toBeVisible();
+  expect(buttons(/refused grep on a check log/)).toEqual(["Update Kit", "Reject change"]);
+  expect(buttons(/grep to be allowed/)).toEqual(["Accept", "Reject change"]);
+  await card(/refused grep on a check log/).getByRole("button", { name: "Update Kit", exact: true }).hover();
+  await expect
+    .element(
+      card(/refused grep on a check log/).getByText(
+        "Adds this command to your Kit's allowed commands. You can remove it from the Kit page.",
+        { exact: true },
+      ),
+    )
+    .toBeVisible();
+});
+
+test("pressing Update Kit sends the agree, then the card reads Updated Kit with the applied command in monospace", async () => {
+  const { agree } = opened([KIT_CHANGE], [], {
+    agree: async (id) => ({ ok: true, lesson: lesson({ ...KIT_CHANGE, id, state: "accepted", applied: COMMAND }) }),
+  });
+  await card(/refused grep on a check log/).getByRole("button", { name: "Update Kit", exact: true }).click();
+  expect(agree).toHaveBeenCalledWith("l-kit-change");
+  const one = card(/refused grep on a check log/);
+  await expect.element(one.getByText("Updated Kit", { exact: true })).toBeVisible();
+  const command = one.getByText("grep -n", { exact: true });
+  await expect.element(command).toBeVisible();
+  expect(command.element().classList.contains("mono")).toBe(true);
+  expect(one.getByRole("button", { name: /^(Update Kit|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+});
+
+test("a refused Update Kit shows the card's alert in Fleet's own words and keeps both buttons", async () => {
+  const words = "rm -rf is destructive and Fleet will not run it, so it cannot be allowed.";
+  opened([KIT_CHANGE], [], {
+    agree: async () => ({
+      ok: false,
+      outcome: {
+        ok: false,
+        why: "refused",
+        error: { code: "fleet.kit_change_refused", message: words, run_id: "r", fields: {}, chain: [] },
+      },
+    }),
+  });
+  const one = card(/refused grep on a check log/);
+  await one.getByRole("button", { name: "Update Kit", exact: true }).click();
+  await expect.element(one.getByText(words)).toBeVisible();
+  await expect.element(one.getByText("The answer was not taken")).toBeVisible();
+  expect(one.getByRole("button", { name: /^(Update Kit|Reject change)$/ }).elements()).toHaveLength(2);
+});
+
+test("Accepted reads Updated Kit and the command on an item that applied one, and nothing on one that did not", async () => {
+  const applied = lesson({ ...KIT_CHANGE, id: "l-applied", state: "accepted", applied: COMMAND });
+  opened([], [applied, SAVED]);
+  await page.getByRole("tab", { name: "Accepted", exact: true }).click();
+  await expect.element(card(/refused grep on a check log/).getByText("Updated Kit", { exact: true })).toBeVisible();
+  await expect.element(card(/refused grep on a check log/).getByText("grep -n", { exact: true })).toBeVisible();
+  expect(card(/allowed once already/).getByText("Updated Kit").elements()).toHaveLength(0);
+});
+
 test("a refused answer says why, and the item stays with both answers", async () => {
   opened([ARMADA], [], { agree: async () => ({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } }) });
   await card(/blamed the Drone/).getByRole("button", { name: "Create Job", exact: true }).click();
@@ -304,6 +376,36 @@ test("the retro sheet shows an answered item as it stands, and offers buttons on
   // Discarded draws nothing, and an item with no state is read and left alone.
   expect(one("Discarded one").elements()).toHaveLength(0);
   expect(answers("Old one")).toHaveLength(0);
+});
+
+test("the retro sheet draws Update Kit on an open item with a change, and Updated Kit with its command once applied", async () => {
+  const base = { who: "drone" as const, lands_in: "kit" as const, evidence: [] };
+  const retro: JobRetro = {
+    job_id: "01K6JOB3",
+    state: "written",
+    record: {},
+    items: [
+      { ...base, id: "k-open", statement: "s", title: "Open Kit one", what: "w", fix: "f", state: "open", change: COMMAND },
+      { ...base, id: "k-done", statement: "s", title: "Done Kit one", what: "w", fix: "f", state: "accepted", change: COMMAND, applied: COMMAND },
+    ],
+  };
+  mount(
+    <JobRetroSheet
+      jobId="01K6JOB3"
+      job="Job 3"
+      read={async () => ({ ok: true, retro })}
+      onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      onDisagreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
+      floor={false}
+      onClose={() => {}}
+    />,
+  );
+  const sheet = page.getByRole("dialog", { name: "Retro" });
+  const one = (title: string) => sheet.getByRole("listitem").filter({ hasText: title });
+  await expect.element(one("Open Kit one")).toBeVisible();
+  await expect.element(one("Open Kit one").getByRole("button", { name: "Update Kit", exact: true })).toBeVisible();
+  await expect.element(one("Done Kit one").getByText("Updated Kit", { exact: true })).toBeVisible();
+  await expect.element(one("Done Kit one").getByText("grep -n", { exact: true })).toBeVisible();
 });
 
 // Evidence on the Retros list: the rows a Job's retro holds, read once per Job.

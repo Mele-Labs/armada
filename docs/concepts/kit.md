@@ -113,6 +113,8 @@ The original four groups split across the two concepts: AI Behavior and the tool
 
 **Reading is not granting.** `get_kit_inventory` carries the command text and where it came from, and nothing that could widen it.
 
+**Where Bridge draws it.** The Kit page's allowlist row lists each command read, in monospace, with where it came from in words (`Retro item`, `Always allow`, `Written by hand`) and a `Remove` that calls `remove_kit_allowed_command` and takes the row off. It draws no count and nothing under its name where the file holds nothing; one that will not read keeps *Not read yet* and the reason. A command a Drone is waiting on, in Job detail and in Helm's dock, offers **Always allow on this machine** beside the repository's own Always allow, sent as `always_allow` with `scope: kit` and the rule, and only where Fleet offered a candidate rule to send. Retros draws a Kit item with a `change` as `Update Kit` then `Updated Kit`: `retro.md`, *Where Bridge draws it*.
+
 **Known cost: allowlist rot.** Two-tier inheritance keeps changes scoped, but upkeep is ongoing as new tools are needed. No automated solution exists; worth monitoring rather than solving now.
 
 **Findings the withdrawn direction rule leaves open**, filed rather than replaced:

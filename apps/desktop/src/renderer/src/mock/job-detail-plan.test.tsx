@@ -428,6 +428,21 @@ test("always allowing picks the narrowest rule, and sends it", async () => {
   expect(answerCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL, "always_allow", undefined, "pnpm add");
 });
 
+test("Always allow on this machine sends the rule and the Kit scope, beside the repository's own choice", async () => {
+  const api = await opened(runningWaitingOnACommand());
+  const answerCommand = vi.spyOn(api, "answerCommand");
+  await expect.element(page.getByRole("radio", { name: "Always allow in this repository" })).toBeInTheDocument();
+  await expect.element(page.getByRole("radio", { name: "Always allow on this machine" })).toBeInTheDocument();
+  await expect
+    .element(page.getByText("Allows this command in every repository on this machine. You can remove it from the Kit page."))
+    .toBeVisible();
+  choose("Always allow on this machine");
+  await expect.element(page.getByRole("radio", { name: "pnpm add" })).toBeChecked();
+  await page.getByRole("button", { name: "Send this answer" }).click();
+  await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+  expect(answerCommand).toHaveBeenCalledWith(JOB_ID, WAITING_CALL, "always_allow", undefined, "pnpm add", "kit");
+});
+
 test("rejecting a command sends the reason typed", async () => {
   const api = await opened(runningWaitingOnACommand());
   const answerCommand = vi.spyOn(api, "answerCommand");

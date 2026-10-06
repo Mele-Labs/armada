@@ -222,6 +222,31 @@ it("sends an always-allow's rule with the answer", async () => {
   });
 });
 
+/**
+ * **`scope: "kit"` rides with an always-allow**, since protocol 23.33, and with
+ * the rule: the whole of a chained command is refused for Kit. A repository
+ * always-allow sends no `scope`, which is what it has always meant.
+ */
+it("sends an always-allow in Kit with its scope and rule, and a repository one with neither", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetRecording(asked)));
+
+  await commands.answerCommand(A_JOB.id, "call_1", "always_allow", undefined, "gh issue view", "kit");
+  await commands.answerCommand(A_JOB.id, "call_2", "always_allow", undefined, "gh issue view");
+
+  expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({
+    call: "call_1",
+    answer: "always_allow",
+    rule: "gh issue view",
+    scope: "kit",
+  });
+  expect(JSON.parse(asked[1]?.body ?? "null")).toEqual({
+    call: "call_2",
+    answer: "always_allow",
+    rule: "gh issue view",
+  });
+});
+
 /** An allow tells the drone everything it acts on, so it carries no prose. */
 it("sends an allow exactly as it did before a note existed", async () => {
   const asked: Asked[] = [];

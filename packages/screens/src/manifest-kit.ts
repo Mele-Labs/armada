@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import type {
   AddKitServer,
+  KitAllowedCommands,
   KitInventory,
   KitServers,
   ManifestReach,
@@ -22,10 +23,15 @@ export type KitServersRead = { ok: true; kit: KitServers } | { ok: false; outcom
 /** `GET /kit/inventory`, read into the app. #1491. */
 export type KitInventoryRead = { ok: true; setup: KitInventory } | { ok: false; outcome: Outcome };
 
+/** `remove_kit_allowed_command`: what the allowlist holds after one is taken out. Since 23.33. */
+export type KitAllowedCommandsRead = { ok: true; commands: KitAllowedCommands } | { ok: false; outcome: Outcome };
+
 /** What the Manifest surface asks of the host for Kit. */
 export type KitSlice = {
   /** The setup a person already has, read to be shown. Machine-wide. #1491. */
   onReadKitInventory: () => Promise<KitInventoryRead>;
+  /** Take a command out of the allowlist, by the line as the inventory spelled it. Since 23.33. */
+  onRemoveKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
   onListKitServers: () => Promise<KitServersRead>;
   onAddKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
   onForgetKitServer: (name: string) => Promise<KitServersRead>;
@@ -69,6 +75,7 @@ export function useKit(slice: KitSlice): {
   kit: KitServers | undefined;
   refused: Outcome | null;
   onAdd: (adding: AddKitServer) => void;
+  onRemoveAllowed: (run: string) => void;
   onForget: (name: string) => void;
   onKitReach: (name: string, drones: ReachesDrones) => void;
   onManifestReach: (name: string, reach: ManifestReach | null) => void;
@@ -101,11 +108,39 @@ export function useKit(slice: KitSlice): {
     // Once, on opening. Every act below folds its own answer.
   }, []);
 
+  // Folded off the answer, which is what the allowlist holds now: a row Fleet no longer
+  // lists goes, and one it still lists stays. A refusal means the window was out of date,
+  // so the inventory is read again and the row says what is true.
+  const removed = (read: KitAllowedCommandsRead): void => {
+    if (read.ok) {
+      const left = new Set(read.commands.commands.map((one) => one.run));
+      setSetup((was) =>
+        was === undefined
+          ? was
+          : {
+              ...was,
+              kinds: was.kinds.map((one) =>
+                one.kind === "allowlist" && one.read.what === "read"
+                  ? { ...one, read: { ...one.read, items: one.read.items.filter((item) => left.has(item.name)) } }
+                  : one,
+              ),
+            },
+      );
+      setRefused(null);
+      return;
+    }
+    setRefused(read.outcome);
+    void slice.onReadKitInventory().then((again) => {
+      if (again.ok) setSetup(again.setup);
+    });
+  };
+
   return {
     setup,
     kit,
     refused,
     onAdd: (adding) => void slice.onAddKitServer(adding).then(took),
+    onRemoveAllowed: (run) => void slice.onRemoveKitAllowedCommand(run).then(removed),
     onForget: (name) => void slice.onForgetKitServer(name).then(took),
     onKitReach: (name, drones) => void slice.onSetKitServerReach(name, drones).then(took),
     onManifestReach: (name, reach) => void slice.onSetManifestServerReach(name, reach).then(took),

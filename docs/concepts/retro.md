@@ -238,17 +238,23 @@ Manifest `--diff-del-fg`. Proposed, for the owner to rule on.
 
 **The buttons carry words for what they do, not the wire's names.** Where the
 fix lands in Armada or the Manifest the button reads `Create Job`, since agreeing
-proposes a Job that waits for approval on the Board. In Kit it reads `Accept`,
-since nothing is dispatched and the item is saved. The other reads
-`Reject change`. The acts are still `agree` and `disagree` on the wire.
+proposes a Job that waits for approval on the Board. In Kit it reads `Update
+Kit` where the item carries a `change`, since agreeing adds its command to Kit's
+allowed commands, and `Accept` where it carries none, since nothing is dispatched
+and the item is saved. The other reads `Reject change`. The acts are still
+`agree` and `disagree` on the wire.
 
 **What a press leaves on screen.** Create Job keeps the card as `Agreed` with a
 link to the proposed Job until the list is read again, when Fleet no longer
-lists it as open. Accept and Reject change take the card off at once. There is
+lists it as open. Update Kit keeps it the same way as `Updated Kit`, with the
+command from `applied` beside it in monospace. Accept and Reject change take the
+card off at once. A refused Update Kit (`fleet.kit_change_refused`) draws the
+card's alert in Fleet's own words and keeps both buttons. There is
 no confirmation: a mistaken Create Job proposes a Job that waits for the
 owner's approval, and a mistaken Reject change discards one item. **An item
 answered already stands as its `state` says**, on the sheet as on the list:
-`Agreed` with the link, or `Accepted`, or nothing where discarded, and no
+`Agreed` with the link, or `Accepted`, or `Updated Kit` with its command where
+`applied` is present, or nothing where discarded, and no
 buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
 the buttons**: Fleet refuses both acts on one with no place.
 

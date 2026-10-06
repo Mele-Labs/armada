@@ -3047,6 +3047,8 @@ answer is the `Lesson`.
 
 **One Fleet fitting, `Host::kit_home`**, which is not on the wire.
 
+**Bridge's half**, mirrored by hand in `packages/protocol`: `RetroChange` and the `change` and `applied` fields on `RetroItem` and `Lesson` (`retro.ts`), `AlwaysAllowScope` and `AnswerCommand.scope` (`commanding.ts`), and `KitAllowedCommand`, `KitAllowedCommands` and `RemoveKitAllowedCommand` (`kit.ts`). Bridge sends `scope: kit` only with a `rule`, and the allowlist rows it draws are the `allowlist` kind of `get_kit_inventory`, read in place of *not read*.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
