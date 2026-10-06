@@ -49,6 +49,10 @@ export type PoolSlotsProps = {
   onDeleteBranch?: (jobId: string, tip: string) => void;
   /** Delete a Job's record. Sent only from its confirm. Absent draws no Forget Job. */
   onForget?: (jobId: string) => void;
+  /** Pause a Job that holds a bay. Sent only from its confirm. Absent draws no Pause. */
+  onPause?: (jobId: string) => void;
+  /** Resume a paused Job. Absent draws no Resume. */
+  onResume?: (jobId: string) => void;
   /** A path or a branch is copied on a press; the surface confirms it. */
   onCopied?: (value: string) => void;
   /** Why the last add was refused, drawn on the add tile. */
@@ -92,6 +96,8 @@ export function PoolSlots({
   onRelease,
   onDeleteBranch,
   onForget,
+  onPause,
+  onResume,
   onCopied,
   addRefused,
   adding,
@@ -125,6 +131,8 @@ export function PoolSlots({
           {...(onRelease === undefined ? {} : { onRelease })}
           {...(onDeleteBranch === undefined ? {} : { onDeleteBranch })}
           {...(onForget === undefined ? {} : { onForget })}
+          {...(onPause === undefined ? {} : { onPause })}
+          {...(onResume === undefined ? {} : { onResume })}
           {...(onCopied === undefined ? {} : { onCopied })}
           onClose={() => setOpened(null)}
         />

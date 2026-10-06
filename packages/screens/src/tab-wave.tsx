@@ -17,6 +17,7 @@ import {
   FactChip,
   JobRowStacked,
   JudgeQuestion,
+  PausedMark,
   Tabs,
   Tooltip,
   WaveCanvas,
@@ -196,6 +197,7 @@ export function WaveRow({
       status={rendering.badgeStatus}
       statusIcon={rendering.icon}
       statusLabel={rendering.verb ?? job.status}
+      {...(job.paused === undefined ? {} : { mark: <PausedMark said={job.paused} /> })}
       headline={job.title}
       jobId={job.job}
       {...(bare || job.handle === undefined ? {} : { handle: job.handle })}

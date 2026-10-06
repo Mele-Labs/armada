@@ -1,6 +1,7 @@
 import { Box, Folder, GitBranch, GitBranchMinus } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import { PauseEffects } from "../PauseConfirm/PauseConfirm";
 import { ClearSaves } from "./ClearSaves";
 import { Line, Mono } from "./ConfirmLine";
 import type { Confirming } from "./TileActs";
@@ -55,8 +56,8 @@ export function TileConfirm({
   const held = row.held!;
   const name = nameOf(row);
   const pooled = row.slot !== undefined;
-  const ends = which !== "clear";
-  const verb = which === "clear" ? "Clear" : which === "branch" ? "Delete branch" : "Forget Job";
+  const ends = which !== "clear" && which !== "pause";
+  const verb = which === "clear" ? "Clear" : which === "pause" ? "Pause" : which === "branch" ? "Delete branch" : "Forget Job";
   return (
     <div className="armada-confirm" role="group" aria-label={`${verb} ${name}`}>
       {which === "clear" && cost.files.length > 0 ? (
@@ -78,6 +79,14 @@ export function TileConfirm({
           )}
           <BranchEffect row={row} cost={cost} />
         </>
+      ) : null}
+      {which === "pause" ? (
+        <PauseEffects
+          branch={cost.branch?.name ?? held.branch}
+          files={cost.files}
+          {...(pooled ? { slot: name } : {})}
+          running={held.status === "running"}
+        />
       ) : null}
       {which === "branch" && cost.branch !== undefined ? (
         <>

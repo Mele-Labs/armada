@@ -44,6 +44,7 @@ function draw(held: HeldWorktrees, onWant = vi.fn(), cleanupOpen = false): () =>
     <ConfirmAct
       confirming={{ act: "reclaim_worktree", jobId: "01JOB" }}
       held={held}
+      jobs={[]}
       onWant={onWant}
       cleanupOpen={cleanupOpen}
       restartNote=""

@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import type { BoardSection } from "@armada/screens";
+import type { BoardSection, PauseAct } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
 import { Boundary } from "@armada/shell";
 
@@ -29,6 +29,7 @@ export function Overview({
   onKill,
   onRedispatch,
   onClear,
+  onPausing,
   onCompose,
   onCopied,
   onCursor,
@@ -51,6 +52,7 @@ export function Overview({
   onRedispatch: (jobId: string) => void;
   /** Ask to clear — Recently ended's caret, beside Redispatch. Asks; never clears. */
   onClear: (jobId: string) => void;
+  onPausing?: (act: PauseAct, jobId: string) => void;
   /** Open the composer — `n`, `OverviewLists`' own prop, passed straight through. */
   onCompose: () => void;
   onCopied: (value: string) => void;
@@ -142,6 +144,7 @@ export function Overview({
           onKill={onKill}
           onRedispatch={onRedispatch}
           onClear={onClear}
+          {...(onPausing === undefined ? {} : { onPausing })}
           onCompose={onCompose}
           onCopied={onCopied}
           onCursor={onCursor}
