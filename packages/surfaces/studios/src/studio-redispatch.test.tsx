@@ -12,9 +12,7 @@ import { killed, running } from "@armada/screens/src/fixtures/build/index";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 
-import { studying } from "./studio-fleet";
-import { mount, unmountAfterEach } from "./testing";
-import type { Scenario } from "./moment";
+import { studying, mount, unmountAfterEach, type Scenario } from "@armada/desktop/mock";
 
 unmountAfterEach();
 

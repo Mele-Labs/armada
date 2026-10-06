@@ -39,6 +39,13 @@ test("every Studio a scenario keeps belongs to a Manifest that scenario serves",
   }
 });
 
+// Studios' scenarios are built in `@armada/studios/fake` and listed through its slice.
+test("the Studios scenarios resolve by name", () => {
+  for (const name of ["studios", "studio-zone", "studio-zone-proposal", "studio-read-nothing"]) {
+    expect(scenarioNamed(name)?.name, name).toBe(name);
+  }
+});
+
 test("every-state holds each Job once, with its own reads", () => {
   const scenario = scenarioNamed("every-state")!;
   const ids = scenario.state.jobs.map((job) => job.id);

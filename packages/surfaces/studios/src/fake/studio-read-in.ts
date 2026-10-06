@@ -10,7 +10,7 @@
 import type { Studio, StudioEdge, StudioNode } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { studying, type StudioFleet } from "./studio-fleet";
+import { studying, type StudioFleet, type StudyingApi, type StudyingState } from "./studio-fleet";
 
 const AT = "2026-10-02T04:20:00Z";
 
@@ -169,8 +169,8 @@ export function readInOf1657(): Studio {
 }
 
 /** The `studio-zone` scenario: one Studio, the #1657 read-in landed in its Zone. */
-export function zoning(): StudioFleet {
-  const fleet = studying([readInOf1657()]);
+export function zoning<S extends StudyingState, A extends StudyingApi>(nothingYet: S): StudioFleet<S, A> {
+  const fleet = studying<S, A>(nothingYet, [readInOf1657()]);
   return {
     ...fleet,
     scenario: {

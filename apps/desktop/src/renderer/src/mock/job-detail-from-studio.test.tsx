@@ -17,7 +17,7 @@ import { originReading } from "@armada/screens/src/origin";
 
 import { onJob } from "./scenario";
 import type { Scenario } from "./scenario";
-import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "./studio-fleet";
+import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "@armada/studios/fake";
 import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();

@@ -5,9 +5,8 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted } from "./mount";
-import { READ_IN_NAME, zoning } from "./studio-read-in";
-import { ZONE_PROPOSAL_NAME, zoneProposing } from "./studio-zone-proposal";
+import { mountApp, type Mounted, zoning, zoneProposing } from "@armada/desktop/mock";
+import { READ_IN_NAME, ZONE_PROPOSAL_NAME } from "./fake";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
 

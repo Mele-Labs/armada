@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { Alert, Sheet, SketchPad, STUDIO_NODE_KIND } from "@armada/components";
 import type { Outcome, SketchToKeep, StudioNode, StudioPosition } from "@armada/protocol";
 
-import { said } from "./copy";
+import { said } from "@armada/screens/src/copy";
 import {
   NOTHING_DRAWN,
   isDrawn,
@@ -27,8 +27,8 @@ import {
   withStroke,
   withoutLastStroke,
   withoutShapes,
-} from "./draft/sketch";
-import type { Drawing } from "./draft/sketch";
+} from "@armada/screens/src/draft/sketch";
+import type { Drawing } from "@armada/screens/src/draft/sketch";
 import { drawnAs, keptOf, padOf, toKeep } from "./studio-sketch";
 
 /** What the pad is, read to somebody who cannot see it. */

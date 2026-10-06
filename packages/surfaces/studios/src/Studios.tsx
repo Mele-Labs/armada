@@ -46,7 +46,7 @@ import type {
   StudioPickedAct,
   StudioWhiteboardLanding,
 } from "@armada/components";
-import { captureOn, type OpenCaptureWindow } from "./capturing";
+import { captureOn, type OpenCaptureWindow } from "@armada/screens/src/capturing";
 import type {
   CheckoutRunSheetRead,
   JobSummary,
@@ -59,26 +59,26 @@ import type {
   StudioSummary,
 } from "@armada/protocol";
 
-import { said } from "./copy";
-import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNode } from "./opening";
-import { absoluteOf } from "./duration";
+import { said } from "@armada/screens/src/copy";
+import { openServerLink, openStudioNode, type OpenServerLink, type OpenStudioNode } from "@armada/screens/src/opening";
+import { absoluteOf } from "@armada/screens/src/duration";
 import {
   framesDrawn,
   UNTITLED_STUDIO,
   whiteboardEdges,
   whiteboardNodes,
-} from "./studio";
-import { frameKey, useStudioFrames, type ReadStudioFrame } from "./studio-frames";
+} from "@armada/screens/src/studio";
+import { frameKey, useStudioFrames, type ReadStudioFrame } from "@armada/screens/src/studio-frames";
 import { useStudioSketch } from "./StudioSketch";
 import { padOf } from "./studio-sketch";
-import type { Drawing } from "./draft/sketch";
+import type { Drawing } from "@armada/screens/src/draft/sketch";
 import { clearingLabel, clearingOf, clearingSaid } from "./studio-clearing";
 import { keepsAnAddress } from "./studio-promotion";
 import { useAddNodeKeys, useRunKey } from "./studio-keys";
 import { useRailAdd, useRailRun } from "./studio-rail-ask";
 import { landingOf, pastedOf } from "./studio-paste";
 import { studioStartEntries, studioStarts, type StudioStart } from "./studio-starting";
-import type { StudioAnswer, StudioRead, StudiosRead } from "./studio-reads";
+import type { StudioAnswer, StudioRead, StudiosRead } from "@armada/screens/src/studio-reads";
 import { useStudioPromotion } from "./StudioPromotion";
 
 /**

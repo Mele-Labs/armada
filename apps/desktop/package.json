@@ -45,6 +45,7 @@
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",
     "@armada/shell": "workspace:*",
+    "@armada/studios": "workspace:*",
     "@armada/tokens": "workspace:*",
     "lucide-react": "^0.550.0",
     "react": "^19.2.0",

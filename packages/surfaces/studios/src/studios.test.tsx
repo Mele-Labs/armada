@@ -10,9 +10,8 @@ import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { mountApp, type Mounted } from "./mount";
-import { everyKind, studying } from "./studio-fleet";
-import { entered, openHelm, whenFleet } from "./testing";
+import { mountApp, type Mounted, studying, entered, openHelm, whenFleet } from "@armada/desktop/mock";
+import { everyKind } from "./fake";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 

@@ -60,7 +60,7 @@ import { connected } from "./moment";
 import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
 import { SCRATCH } from "./setup-fleet";
-import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "./studio-fleet";
+import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "@armada/studios/fake";
 import { retroFixtures } from "./job-3-retro";
 import { fillingIn } from "./proposer-fleet";
 import { evidenceRead, walkedPrototype } from "./prototype-fleet";

@@ -1,0 +1,68 @@
+# The Studios surface: pure modules in node, and whole-app tests in a browser.
+# Commands run here, in this directory. `docs/concepts/manifest.md`,
+# *Workspace gating*; the comments on `${width}` and `exec` are the root's, at
+# the top of its `checks:`.
+version: 1
+id: armada-studios
+
+# What this surface reads from elsewhere, repo-relative. A hit runs every Check
+# below, since none declares a `when`. Its tests mount the whole app, so what
+# `mountApp` loads from `apps/desktop` is here: the App and its renderer folders,
+# the mock's composition (not another surface's `*-fleet.ts`: that file reaches
+# the composition only through `slices/`) and the shared types. `main` and
+# `preload` are not, since the mock bridge does not run them. Tests mount every
+# slice, so `mock/slices/**` is whole; a test that mounts `slices: ["studios"]`
+# could narrow it.
+depends_on:
+  - "packages/bridge-api/**"
+  - "packages/screens/**"
+  - "packages/shell/**"
+  - "packages/components/**"
+  - "packages/tokens/**"
+  - "packages/brand/**"
+  - "packages/protocol/**"
+  - "apps/desktop/src/renderer/src/*.ts"
+  - "apps/desktop/src/renderer/src/*.tsx"
+  - "apps/desktop/src/renderer/src/annotate/**"
+  - "apps/desktop/src/renderer/src/capture/**"
+  - "apps/desktop/src/renderer/src/capture-window/**"
+  - "apps/desktop/src/renderer/src/styles/**"
+  - "apps/desktop/src/renderer/src/mock/fake.ts"
+  - "apps/desktop/src/renderer/src/mock/fake-context.ts"
+  - "apps/desktop/src/renderer/src/mock/harness.ts"
+  - "apps/desktop/src/renderer/src/mock/moment.ts"
+  - "apps/desktop/src/renderer/src/mock/mount.tsx"
+  - "apps/desktop/src/renderer/src/mock/scenario.ts"
+  - "apps/desktop/src/renderer/src/mock/slices.ts"
+  - "apps/desktop/src/renderer/src/mock/studios-fake.ts"
+  - "apps/desktop/src/renderer/src/mock/testing.ts"
+  - "apps/desktop/src/renderer/src/mock/slices/**"
+  - "apps/desktop/src/shared/**"
+  - "apps/desktop/package.json"
+  - "apps/desktop/vitest.browser.preset.ts"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+    - browsers
+
+checks:
+  typecheck:
+    # `--noEmit -p`: one project, no build info. Named rather than left to
+    # `pnpm -r`. No `narrow`: `tsc` reads whatever its tsconfig references.
+    run: pnpm typecheck
+
+  test:
+    run: pnpm exec vitest run --maxWorkers=${width}
+    # No `dir`: see `components_test` in `packages/components/armada.yml`.
+    runner:
+      name: vitest
+    # `vitest -t`, as `desktop_test`'s `one_test`. #1203. One worker, for the
+    # reason given there: `-t` still loads every browser file.
+    one_test:
+      run: pnpm exec vitest run --maxWorkers=1 -t {}
+    # Chromium beside the other browser suites: #1102.
+    places: 3

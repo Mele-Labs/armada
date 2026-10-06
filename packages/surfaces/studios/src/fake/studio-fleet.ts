@@ -11,7 +11,10 @@
 // dispatch mints one Job node: what the mock proves is the surface, and which workflow a model
 // picks is `fleet`'s.
 
+import { onBoard, unanswered } from "@armada/bridge-api";
+import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
 import type {
+  CheckoutRunSheetRead,
   EpicTake,
   Outcome,
   SketchDrawing,
@@ -25,12 +28,10 @@ import type {
   StudioPromotion,
 } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
+import { sheet } from "@armada/screens/src/fixtures/run-sheet";
 import { foldStudio } from "@armada/screens/src/studio-reads";
 
-import type { BridgeApi } from "../../../shared/api";
-import { sheet } from "./manifest-fleet";
-import { onBoard, unanswered } from "./moment";
-import type { FleetHandle, Scenario } from "./moment";
+import type { StudiosApi, StudiosState } from "../api";
 
 const OK = { ok: true } as const;
 const MANIFEST_ID = repository().manifest!.id;
@@ -66,10 +67,10 @@ const tooLarge = (weighs: number): Outcome =>
 
 /**
  * Every Studio call a mock Fleet answers. **Named one by one**, so a Studio capability added to
- * `BridgeApi` fails typecheck here rather than going unanswered at runtime — `fake.ts`'s own rule.
+ * `StudiosApi` fails typecheck here rather than going unanswered at runtime — `fake.ts`'s own rule.
  */
 export type StudioRoutes = Pick<
-  BridgeApi,
+  StudiosApi,
   | "watchStudios"
   | "watchStudio"
   | "createStudio"
@@ -91,7 +92,7 @@ export type StudioRoutes = Pick<
 /** The Studios a mock Fleet keeps, and what Helm writes into one. */
 export type StudioKeeping = {
   /** What this Fleet answers the Studio calls with, over the window it publishes to. */
-  routes: (fleet: FleetHandle) => StudioRoutes;
+  routes: (fleet: FleetHandle<StudioHeld>) => StudioRoutes;
   /** Every Studio as Fleet holds it now. */
   studios: () => readonly Studio[];
   /** Helm adds a Note and a Finding to a Studio, and proposes that the Finding answers the Note. */
@@ -106,8 +107,21 @@ export type StudioKeeping = {
   onChange: (listener: () => void) => () => void;
 };
 
-/** One scenario's own Fleet, keeping Studios. */
-export type StudioFleet = StudioKeeping & { scenario: Scenario };
+/** What a Studio write reads and publishes: the Studios, and the Board's rows a dispatch adds to. */
+export type StudioHeld = StudiosState & PublishedCore;
+
+/**
+ * The whole state and API a scenario of this Fleet needs, beyond Studios: the run sheet the
+ * checkout declares, and approving a dispatch. Desktop's own `BridgeState` and `BridgeApi` have both.
+ */
+export type StudyingState = StudioHeld & { checkoutRunSheet: CheckoutRunSheetRead };
+export type StudyingApi = StudiosApi & {
+  watchCheckoutRunSheet: (want: boolean) => Promise<void>;
+  approveDispatch: (jobId: string) => Promise<Outcome>;
+};
+
+/** One scenario's own Fleet, keeping Studios, over the app's whole state `S` and API `A`. */
+export type StudioFleet<S extends StudyingState, A extends StudyingApi> = StudioKeeping & { scenario: Scenario<S, A> };
 
 let minted = 0;
 const mint = (prefix: string) => `${prefix}${String(++minted).padStart(4, "0")}`;
@@ -191,7 +205,7 @@ function legend(): Studio {
 /** A Fleet keeping these Studios, answering every read and write on them. */
 export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
   const store = new Map<string, Studio>(seeded.map((one) => [one.id, one]));
-  let fleet: FleetHandle | null = null;
+  let fleet: FleetHandle<StudioHeld> | null = null;
   let listing: string | null = null;
   let opened: string | null = null;
 
@@ -263,7 +277,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
     return { ok: true, drawing: { boxes: drawing.boxes, joins: drawing.joins, strokes: drawing.strokes, pictures: kept }, bytes };
   }
 
-  const routes = (handle: FleetHandle): StudioRoutes => {
+  const routes = (handle: FleetHandle<StudioHeld>): StudioRoutes => {
     fleet = handle;
     return {
       watchStudios: async (manifestId) => {
@@ -542,7 +556,7 @@ export function keeping(seeded: readonly Studio[] = []): StudioKeeping {
  * the forge calls what an address names, which is what the proposer would have
  * read it as. An address nothing has read in is titled by its address.
  */
-function atTheGate(handle: FleetHandle, studio: Studio): void {
+function atTheGate(handle: FleetHandle<StudioHeld>, studio: Studio): void {
   const nodes = studio.nodes.filter((node) => node.kind === "job");
   const node = nodes[nodes.length - 1];
   if (node?.kind !== "job") return;
@@ -571,30 +585,37 @@ function atTheGate(handle: FleetHandle, studio: Studio): void {
 }
 
 /** The `studios` scenario: this repository picked, and a Fleet keeping these Studios. */
-export function studying(seeded: readonly Studio[] = [legend()]): StudioFleet {
+export function studying<S extends StudyingState, A extends StudyingApi>(
+  nothingYet: S,
+  seeded: readonly Studio[] = [legend()],
+): StudioFleet<S, A> {
   const fleet = keeping(seeded);
   return {
     ...fleet,
     scenario: {
-      ...onBoard([], { picked: repository().root }),
+      ...onBoard<S, A>(nothingYet, [], { picked: repository().root }),
       name: "studios",
       says: "This repository's Studios, on a Fleet that keeps them",
       // **Approving starts it here.** A real Fleet queues a Job and a slot
       // takes it; this Fleet has no scheduler and one is always free, so
       // approving a dispatch is what a person watches turn into a run — which
       // is the half of the walkthrough a Studio's Job node is read against.
-      behaves: (handle) => ({
-        ...fleet.routes(handle),
-        // The checkout declares what Run offers on the rail — 2 Oct 2026.
-        watchCheckoutRunSheet: async (want: boolean) =>
-          handle.publish({ checkoutRunSheet: want ? { state: "read", sheet: sheet() } : { state: "none" } }),
-        approveDispatch: async (jobId: string) => {
-          handle.publish({
-            jobs: handle.state().jobs.map((one) => (one.id === jobId ? { ...one, status: "running" } : one)),
-          });
-          return { ok: true } as const;
-        },
-      }),
+      behaves: (whole) => {
+        // `S` is the app's whole state; this Fleet writes only the fields `StudyingState` names.
+        const handle = whole as unknown as FleetHandle<StudyingState>;
+        return {
+          ...fleet.routes(handle),
+          // The checkout declares what Run offers on the rail — 2 Oct 2026.
+          watchCheckoutRunSheet: async (want: boolean) =>
+            handle.publish({ checkoutRunSheet: want ? { state: "read", sheet: sheet() } : { state: "none" } }),
+          approveDispatch: async (jobId: string) => {
+            handle.publish({
+              jobs: handle.state().jobs.map((one) => (one.id === jobId ? { ...one, status: "running" } : one)),
+            });
+            return { ok: true } as const;
+          },
+        } as Partial<A>;
+      },
     },
   };
 }

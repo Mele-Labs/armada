@@ -10,14 +10,11 @@ import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shel
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import {
-  askStudioAdd,
-  askStudioRun,
   checkoutRunnablesOf,
   studioName,
   titleOf,
-  useStudioAddOff,
-  useStudioRunOff,
 } from "@armada/screens";
+import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { absentIn, carryOut, dormantIn } from "./palette";
 
 /** The Job or Studio the palette's rows act on, as `App.tsx` resolved it. */

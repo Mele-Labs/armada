@@ -12,9 +12,7 @@ import { page, userEvent } from "vitest/browser";
 import type { ServerState, Studio, StudioNode } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { sheet } from "./manifest-fleet";
-import { mountApp, type Mounted } from "./mount";
-import { studying } from "./studio-fleet";
+import { sheet, mountApp, type Mounted, studying } from "@armada/desktop/mock";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 

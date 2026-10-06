@@ -12,7 +12,8 @@
 import { useEffect } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import { BoardEmptyState, Button } from "@armada/components";
-import { AskRepository, Studios, type OpenStudio } from "@armada/screens";
+import { AskRepository } from "@armada/screens";
+import { Studios, type OpenStudio } from "@armada/studios";
 import { Boundary } from "@armada/shell";
 
 import type { Drawing } from "@armada/screens/src/draft/sketch";
