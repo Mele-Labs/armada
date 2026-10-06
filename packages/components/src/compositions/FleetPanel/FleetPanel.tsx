@@ -1,9 +1,10 @@
+import { Server } from "lucide-react";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { Panel } from "../Panel/Panel";
 
 /** Where Bridge's one connection is, collapsed to what a dot can carry. Was `StatusBar`'s. */
-export type FleetState = "running" | "not-running" | "unreachable" | "unknown";
+export type FleetState = "running" | "not-running" | "starting" | "unreachable" | "unknown";
 
 /**
  * A rollup of the probes Fleet itself can answer for — never Doctor's own
@@ -69,9 +70,21 @@ export function fleetSaid(label: string): string {
 export const FLEET_DOT_TONE: Record<FleetState, "success" | "escalated" | "warn" | "muted"> = {
   running: "success",
   "not-running": "escalated",
+  starting: "muted",
   unreachable: "warn",
   unknown: "muted",
 };
+
+/**
+ * Fleet's own process is up and not answering yet: the runtime file names a pid
+ * that is held, and nothing has come back on `/health`. A live process and no
+ * answer are neither of the three hues, so it takes no hue — the `server` glyph
+ * breathing at `--duration-pulse`, and its tooltip is the word. Drawn in place
+ * of the dot wherever the dot is drawn.
+ */
+export function FleetStarting({ className }: { className: string }) {
+  return <Server size={12} strokeWidth={2} className={className} aria-hidden />;
+}
 
 export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
   // **The state is the head's dot; the body is what the head cannot carry** —
@@ -92,6 +105,7 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
       onOpenChange={onOpenChange}
       narrow={narrow}
       dotTone={FLEET_DOT_TONE[state]}
+      dotMark={state === "starting" ? <FleetStarting className="armada-fleet-starting" /> : undefined}
       dotLabel={said}
       // Against the label rather than at the head's far end — a 6px dot 150px
       // from the word it is about reads as decoration. Photographed at the
@@ -104,12 +118,14 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
       // row and the 48px rail, and it stays on the hover here.
       mark={
         <span
-          className="armada-fleet-panel__dot"
+          className={state === "starting" ? "armada-fleet-panel__starting" : "armada-fleet-panel__dot"}
           data-tone={FLEET_DOT_TONE[state]}
           role="img"
           aria-label={label}
           title={said}
-        />
+        >
+          {state === "starting" ? <FleetStarting className="armada-fleet-starting" /> : null}
+        </span>
       }
     >
       {bodyless ? undefined : (

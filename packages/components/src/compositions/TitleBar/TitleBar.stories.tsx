@@ -81,7 +81,7 @@ export const HelmClosed: Story = {
 export const BeforeAnythingIsRead: Story = {
   args: {
     onSearch: () => {},
-    fleet: { state: "unknown", label: "Connecting" },
+    fleet: { state: "unknown", label: "Reading" },
   },
 };
 
@@ -107,9 +107,14 @@ export const FleetUnreachable: Story = {
   args: { ...FleetRunning.args, fleet: { state: "unreachable", label: "Unreachable" } },
 };
 
-/** None of the three — reading, connecting, a refused runtime file — neutral, and the label names which. */
+/** None of the three — reading, a refused runtime file — neutral, and the label names which. */
 export const FleetUnknown: Story = {
-  args: { ...FleetRunning.args, fleet: { state: "unknown", label: "Connecting" } },
+  args: { ...FleetRunning.args, fleet: { state: "unknown", label: "Reading" } },
+};
+
+/** A live pid that has not answered yet: the `server` glyph breathing in the dot's place, `Starting` on hover. */
+export const FleetStarting: Story = {
+  args: { ...FleetRunning.args, fleet: { state: "starting", label: "Starting" } },
 };
 
 /**
@@ -147,7 +152,7 @@ const FLEET_SAID: { state: FleetState; label: string }[] = [
   { state: "running", label: "Running" },
   { state: "not-running", label: "Not running" },
   { state: "unreachable", label: "Unreachable" },
-  { state: "unknown", label: "Connecting" },
+  { state: "unknown", label: "Reading" },
 ];
 
 /**

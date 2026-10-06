@@ -16,6 +16,30 @@
   background: var(--fg-muted);
 }
 
+/* Fleet starting: the glyph where the dot would be, held to the dot's own
+   hover target. Neutral, since a live pid with no answer is none of the three
+   hues. A loop that says still working, and still under reduced motion. */
+.armada-fleet-panel__starting {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-fleet-starting {
+  flex: none;
+  color: var(--fg-muted);
+  animation: armada-fleet-starting var(--duration-pulse) ease-in-out infinite;
+}
+
+@keyframes armada-fleet-starting {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-fleet-starting {
+    animation: none;
+  }
+}
+
 .armada-fleet-panel__dot[data-tone="success"] {
   background: var(--status-completed-success);
 }
