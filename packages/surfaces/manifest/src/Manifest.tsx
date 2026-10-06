@@ -68,13 +68,13 @@ import {
   VerifySheet,
 } from "@armada/components";
 
-import { said } from "./copy";
-import { NOTHING_SERVED, servesNothing } from "./locate-reads";
+import { said } from "@armada/screens/src/copy";
+import { NOTHING_SERVED, servesNothing } from "@armada/screens/src/locate-reads";
 import { useManifestRuns, type ManifestSlice } from "./checkout-runs";
-import { useRepositoryAllows, type RepositoryAllowsSlice } from "./manifest-allows";
+import { useRepositoryAllows, type RepositoryAllowsSlice } from "@armada/screens/src/manifest-allows";
 import type { ManifestEditing } from "./manifest-file";
 import type { ManifestForming } from "./manifest-form";
-import { driftGoneOf, driftPanelOf, verifyPanelOf, verifySaidOf, type VerifyInputs } from "./verify";
+import { driftGoneOf, driftPanelOf, verifyPanelOf, verifySaidOf, type VerifyInputs } from "@armada/screens/src/verify";
 
 export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
   /**

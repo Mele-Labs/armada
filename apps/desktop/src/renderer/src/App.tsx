@@ -36,7 +36,7 @@ import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from 
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
 import { BridgeSettings } from "@armada/settings";
-import { Kit } from "@armada/screens";
+import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
@@ -49,7 +49,7 @@ import type { SketchOpening } from "@armada/screens/src/draft/sketch";
 import { nodeNamed, studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
 import { Worktrees } from "@armada/cleanup";
-import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
+import { Manifest, useManifestEditing, useManifestForm } from "@armada/manifest";
 import { Setup, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
 import { JobDetail, LandCheckLogSheet } from "@armada/screens";

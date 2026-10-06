@@ -11,8 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ManifestFileProps } from "@armada/components";
 import type { ManifestReading, Outcome, SaveManifestFile } from "@armada/protocol";
 
-import { clockOf } from "./duration";
-import { said } from "./copy";
+import { clockOf } from "@armada/screens/src/duration";
+import { said } from "@armada/screens/src/copy";
 import {
   fileAnswered,
   fileNameOf,
@@ -23,7 +23,7 @@ import {
   type ManifestFileRead,
   type ManifestSaveAnswer,
   type ManifestView,
-} from "./editing";
+} from "@armada/screens/src/editing";
 
 /**
  * The file's name before Fleet has said where it is — the first frame after

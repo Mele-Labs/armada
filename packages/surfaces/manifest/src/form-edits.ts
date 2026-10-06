@@ -23,7 +23,7 @@ import type {
   NarrowingDraft,
 } from "@armada/protocol";
 
-import { money } from "./facts";
+import { money } from "@armada/screens/src/facts";
 
 const MICROS = 1_000_000;
 /** Both caps are `u32` in the file. */
