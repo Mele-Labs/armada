@@ -44,7 +44,7 @@ where
         let changed = self.work().changed_files(worktree).ok()?;
         Some(Gated::of(
             served.manifest(),
-            workspaces,
+            &workspaces,
             &Changed::paths(&changed),
         ))
     }
