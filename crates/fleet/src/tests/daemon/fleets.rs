@@ -92,6 +92,7 @@ pub fn fitted_over<V>(
             records_root: root.clone(),
             workflows: one(two_steps()),
             left_out: Vec::new(),
+            files: Vec::new(),
             manifest: manifest(),
         }),
         host: Host {

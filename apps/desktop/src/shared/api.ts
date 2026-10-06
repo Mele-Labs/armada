@@ -65,6 +65,7 @@ import type {
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "./workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
@@ -724,6 +725,15 @@ export type BridgeApi = {
   setKitServerReach: (name: string, drones: ReachesDrones) => Promise<KitServersRead>;
   /** This Manifest's own word, or `null` to take it back and follow Kit again. */
   setManifestServerReach: (name: string, reach: ManifestReach | null) => Promise<KitServersRead>;
+
+  /**
+   * The Workflow creator. The list is what Fleet runs for the picked repository and what it left
+   * out; a definition is one file's text, from the place named; a save names the Manifest it is
+   * written under, and Fleet's own refusal comes back as it said it.
+   */
+  readWorkflows: () => Promise<WorkflowsRead>;
+  readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
+  saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
 
   /**
    * Pick the repository every per-repository read and act names, by a root `holds.repositories`

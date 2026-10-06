@@ -791,7 +791,6 @@ fn capture_or_not() -> config::ResolvedWorkflow {
 version: 1
 workflow_id: fixture-captured
 name: fixture
-structure: linear
 steps:
   - id: implement
     label: "Implement"

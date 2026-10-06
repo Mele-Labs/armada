@@ -626,6 +626,19 @@ pub trait Queries: Send + Sync + 'static {
     /// that will not be refused.
     fn list_workflows(&self) -> impl Future<Output = Result<Vec<WorkflowSummary>, Refusal>> + Send;
 
+    /// `get_workflow` — one definition as its file holds it, for an editor.
+    ///
+    /// `source` names which place's definition of the id: `armada`, `kit` or
+    /// `repository`, so a definition a more specific place replaced can still be
+    /// read. Absent is the one that runs. Absent `manifest_id` is the repository
+    /// Fleet started in.
+    fn get_workflow(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: Option<String>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::WorkflowDefinition, Refusal>> + Send;
+
     /// `list_left_out_workflows` — the Kit and carried definitions one repository runs
     /// without, and why. Absent `manifest_id` is the repository Fleet started in.
     fn list_left_out_workflows(

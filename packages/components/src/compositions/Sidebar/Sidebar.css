@@ -209,6 +209,13 @@
 /* A count. Mono, because it is machine-derived, and never an escalation or an
    approval count — the status bar carries both, and two places to check is two
    chances to disagree. */
+.armada-sidebar__warning {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--notice-caution);
+}
+
 .armada-sidebar__count {
   flex: none;
   font-family: var(--font-mono);

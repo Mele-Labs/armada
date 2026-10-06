@@ -1,4 +1,4 @@
-//! A workflow that declares `structure: loop`, run end to end.
+//! A workflow whose step routes back to an earlier one, run end to end.
 //!
 //! **The claim `#263` closes on**: a step whose verdict routes backwards
 //! re-enters an earlier step, the return increments `iteration_count` rather
@@ -41,7 +41,7 @@ fn a_loop_of_two_steps(cap: u32) -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
-            "version: 1\nworkflow_id: fixture-loop\nname: fixture\nstructure: loop\n\
+            "version: 1\nworkflow_id: fixture-loop\nname: fixture\n\
              steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
              mechanical_checks:\n      - type: diff_nonempty\n    delivers: false\n    advance_gate: auto\n  - \
              id: summarise\n    label: \"Summarise\"\n    evidence: {{submitted: {{type: facts_note}}}}\n    \
@@ -619,7 +619,7 @@ fn a_loop_across_a_step(cap: u32) -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
         &format!(
-            "version: 1\nworkflow_id: fixture-loop\nname: fixture\nstructure: loop\n\
+            "version: 1\nworkflow_id: fixture-loop\nname: fixture\n\
              steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {{submitted: {{type: diff}}}}\n    \
              mechanical_checks:\n      - type: diff_nonempty\n    delivers: false\n    advance_gate: auto\n  - \
              id: tests\n    label: \"Tests\"\n    evidence: {{submitted: {{type: diff}}}}\n    \

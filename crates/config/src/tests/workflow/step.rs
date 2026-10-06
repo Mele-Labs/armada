@@ -52,7 +52,7 @@ fn a_step_needs_both_an_id_and_a_label() {
     // `id` is stable and everything routes on it; `label` is display only. Both
     // are required, so a workflow cannot be authored with one doing both jobs.
     let refused = refusals(parse(
-        "version: 1\nworkflow_id: fixture\nname: bug\nstructure: linear\nsteps:\n  - id: plan\n    delivers: false\n    advance_gate: auto\n  - label: Implement\n    delivers: false\n    advance_gate: auto\n",
+        "version: 1\nworkflow_id: fixture\nname: bug\nsteps:\n  - id: plan\n    delivers: false\n    advance_gate: auto\n  - label: Implement\n    delivers: false\n    advance_gate: auto\n",
     ));
     assert_eq!(fault_at(&refused, "steps[0].label"), &Fault::Missing);
     assert_eq!(fault_at(&refused, "steps[1].id"), &Fault::Missing);

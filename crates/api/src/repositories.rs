@@ -74,6 +74,36 @@ pub(crate) async fn save_workflow<D: Authoring>(
     }
 }
 
+/// `?workflow_id=` and `?source=` on `get_workflow`, beside `?manifest_id=`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OneWorkflow {
+    workflow_id: String,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// One definition as its file holds it. A 422 where this repository holds none
+/// by that id and source.
+pub(crate) async fn get_workflow<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<OneWorkflow>,
+) -> Response {
+    match served
+        .daemon()
+        .get_workflow(
+            ipc::WorkflowId::carried(asked.workflow_id),
+            asked.source,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What one repository's catalogue left out of its workflows, each with why — #425.
 pub(crate) async fn list_left_out_workflows<D: Queries>(
     State(served): State<Served<D>>,

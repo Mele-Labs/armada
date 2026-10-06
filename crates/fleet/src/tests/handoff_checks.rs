@@ -24,9 +24,8 @@ use crate::tests::tools::submitted_by_the_one;
 /// `steps` as workflow YAML, against a Manifest declaring `suite` as `run` and
 /// `e2e` as a handoff-only Check that leaves `marker` behind.
 fn declared(steps: &str, suite: &str, marker: &Path) -> ResolvedWorkflow {
-    let workflow = format!(
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\nsteps:\n{steps}"
-    );
+    let workflow =
+        format!("version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n{steps}");
     let manifest = format!(
         "version: 1\nid: 01FIXTUREMANIFEST\nchecks:\n  suite:\n    run: \"{suite}\"\n  \
          e2e:\n    run: \"/usr/bin/touch {}\"\n    runs_at: handoff\n",

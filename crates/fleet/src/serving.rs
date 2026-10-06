@@ -805,12 +805,58 @@ where
         Ok(served
             .iter()
             .flat_map(|one| {
+                let files = one.files();
                 one.workflows()
                     .values()
-                    .map(|workflow| workflow_summary(workflow, one.manifest().id()))
+                    .map(|workflow| workflow_summary(workflow, one.manifest().id(), &files))
                     .collect::<Vec<_>>()
             })
             .collect())
+    }
+
+    /// One definition as its file holds it, for an editor.
+    async fn get_workflow(
+        &self,
+        workflow_id: ipc::WorkflowId,
+        source: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::WorkflowDefinition, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        let files = served.files();
+        let found = files.iter().find(|file| {
+            file.id().as_str() == workflow_id.as_str()
+                && match &source {
+                    Some(source) => file.source().as_wire() == source,
+                    None => file.overridden_by().is_none(),
+                }
+        });
+        match found {
+            Some(file) => Ok(crate::wire::workflow_definition(file)),
+            None => {
+                let said = match &source {
+                    Some(source) => format!(
+                        "no `{}` is held from {source} in this repository; a definition that \
+                         was left out is on `list_left_out_workflows`",
+                        workflow_id.as_str()
+                    ),
+                    None => format!(
+                        "no workflow `{}` runs in this repository",
+                        workflow_id.as_str()
+                    ),
+                };
+                Err(Refusal::Unacceptable(
+                    ipc::WireError::raised(
+                        "fleet.no_such_workflow_definition",
+                        said,
+                        self.run_id(),
+                    )
+                    .with_field(
+                        "workflow_id",
+                        ipc::WireValue::Str(workflow_id.as_str().to_string()),
+                    ),
+                ))
+            }
+        }
     }
 
     /// The Kit and carried definitions one repository runs without, each with why.

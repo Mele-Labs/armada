@@ -18,6 +18,7 @@ import { Picked } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { composingOf, holdingsOf, manifestReadingOf } from "./request";
 import { ServerCommands } from "./servers";
+import { WorkflowCommands } from "./workflows";
 
 const FIRST: RepositorySummary = {
   root: "/Users/user/armada",
@@ -192,6 +193,10 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await runs.getRunOutput("run-1");
   await runs.getRunDiff("run-1");
   await new ServerCommands({ port: at, picked }).startServer("web");
+  const workflows = new WorkflowCommands(at, picked);
+  await workflows.list();
+  await workflows.definition("bug", "repository");
+  await workflows.save(null, { scope: "kit", definition: "{}" });
   const commands = new JobCommands(boardOn(port, picked));
   await commands.searchFiles("src");
   await commands.proposeFromRequest("Fix the parser", []);
@@ -228,7 +233,11 @@ const EVERY_ROUTE = [
   "/repository/scan",
   "/repository/write_proposal",
   "/servers/start",
+  "/workflows",
+  "/workflows/definition",
   "/workflows/left_out",
+  "/workflows/left_out",
+  "/workflows/save",
 ].sort();
 
 describe("every per-repository call", () => {

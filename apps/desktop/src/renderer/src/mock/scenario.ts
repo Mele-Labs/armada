@@ -74,6 +74,7 @@ import { writingLogs } from "./check-logs-fleet";
 import { gridHeld } from "./cleanup-fleet";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { slotsHeld } from "./slots-fleet";
+import { workflowing } from "./workflows-fleet";
 import { asRow, holding, servedFrom } from "./holding";
 import * as rows from "./scenario-rows";
 
@@ -418,6 +419,7 @@ export const SCENARIOS: readonly Scenario[] = [
   settingUp({ repositories: [repository(), SCRATCH], sheet: SHEET_READ }),
   manifesting({ alwaysAllowed: [GH_ISSUE_VIEW], drift: DRIFT_GONE, kitServers: KIT_SERVERS, runs: RUNS }),
   studying().scenario,
+  workflowing(),
   zoning().scenario,
   zoneProposing().scenario,
   readingNothing().scenario,
