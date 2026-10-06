@@ -75,7 +75,6 @@ fn this_repositorys_own_setup_loads_and_resolves() {
             "build".to_string(),
             "format".to_string(),
             "hooks_test".to_string(),
-            "scripts_test".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
         ],
@@ -162,11 +161,9 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
             // Check could never pass. The chain lives in a `package.json`
             // script, where a shell exists and the packages stay named.
             ("typecheck", "pnpm typecheck"),
-            // The local merge line's own two suites, which nothing else runs.
             // `hooks_test` is checked below instead of here: its command names
             // the agent harness, and this file is under the gate rule that
             // keeps a vendor's name out of everything but the adapters.
-            ("scripts_test", "python3 scripts/test_land.py"),
             // **Last, where `armada.yml` put it, not for any claim this test
             // makes about scheduling.** `#387` once gave this `requires:
             // [fmt]`, so a gate evaluation reformatted the tree before
@@ -183,6 +180,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 "xtask_test",
                 "cargo nextest run -p xtask --test-threads ${width}"
             ),
+            ("typecheck", "pnpm typecheck"),
             ("typecheck", "pnpm typecheck"),
             ("storybook", "pnpm build-storybook"),
             (
@@ -244,7 +242,6 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "test",
             "acceptance",
             "typecheck",
-            "scripts_test",
             "hooks_test",
             "format",
         ],

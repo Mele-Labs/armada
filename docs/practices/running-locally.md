@@ -126,6 +126,19 @@ miss that Drone or refuse a restart nothing is using. A queued Job, a Job at a
 human gate, or one a person is piloting holds no process the restart would
 interrupt, so none of those refuse it.
 
+**`--adopt` restarts anyway.** Fleet adopts a Drone that outlives it
+(`docs/concepts/drone.md`), so a working Drone is survivable. With `--adopt` the
+script still reads the live roster, prints each Job with a working Drone, then
+prints what adopting costs, once: its pipes die so it cannot be redirected,
+poked or handed a verdict; its recorded spend is an undercount; its Job shows as
+`unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
+dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
+is open, so a surviving Check group is not swept at boot); a Drone that cannot
+be adopted is ended. A roster that does not answer still refuses. Without
+`--adopt` the refusal is as above. It combines with `--from`, and
+`--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
+`scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
+
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
 runtime file. macOS has no `flock(1)`, so the lock is a symlink naming its
@@ -229,7 +242,7 @@ moving between trees rebuilds and reopens Bridge whatever either stamp says.
 scripts/preview                         # merge every in-flight branch, print what happened
 scripts/preview --only a,b --skip c     # narrow it; both repeat or take a comma list
 scripts/preview --watch [seconds]       # merge again when main or an included branch moves (60)
-scripts/preview --restart [--dry-run]   # then scripts/restart --from .armada/preview
+scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from .armada/preview
 ```
 
 **It merges every branch that is in flight on top of `main`, in a worktree of
@@ -486,7 +499,7 @@ is taken, as the tests take `.last()`. The walk is named by its export.
 |---|---|
 | **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended |
 | **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
-| **The test** | Every walk in `walks/` runs in `walks.test.tsx`, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
+| **The test** | Every walk in `walks/` runs in one of the `walks-*of4.test.tsx` files, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
 | **Inside Bridge** | A Prototype held at Build serves its own worktree's mock, and opening the Job opens it in Bridge's window; **Walk in Bridge** on the Job's lead opens it again. The picker chooses a walk, and ⌥⌘A there leaves a note on the Job that goes to its Drone with Request changes. The `prototype-walked` scenario plays it in a browser |
 | **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
 
@@ -927,12 +940,11 @@ together with.
 `verify-tokens --write` on the candidate before the gate, and commits what they
 change into what lands.
 
-**What gates the line itself:** `armada check scripts_test` runs
-`scripts/test_land.py` against a throwaway repository with a stub `gh` and
-`armada`, and `armada check hooks_test` runs `.claude/hooks/test_guard_merge.py`
-against the hook. Both are Checks in `armada.yml`, so a Job touching `scripts/`
-or `.claude/hooks/` runs them too; neither needs anything built or signed in.
-The script suite takes about a minute, the hook suite under a second.
+**What gates the line itself:** `armada check hooks_test` runs
+`.claude/hooks/test_guard_merge.py` against the hook. It is a Check in
+`armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs nothing
+built or signed in and takes under a second. `scripts/test_land.py` is no longer a
+Check: run it by hand with `python3 scripts/test_land.py` if you change the script.
 
 ## Clearing up
 

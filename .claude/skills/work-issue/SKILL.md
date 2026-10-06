@@ -8,7 +8,8 @@ description: How to work one GitHub issue the way a Job works a workflow — wor
 **This is the `bug` workflow, run by hand.** Armada dispatches a Drone into its
 own worktree, gates each step, and holds the work at `awaiting_review` before it
 lands. When Fleet is not the one dispatching, that shape still applies up to the
-hold, and this skill is it. Here green work lands without waiting (step 6).
+hold, and this skill is it. Here green work is previewed and then lands without
+waiting (step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
 close it. **This skill owns where the work happens and how it lands** — the two
@@ -197,13 +198,26 @@ write.** Stage by name, or read `git status` first and know every entry. That is
 how someone else's uncommitted work ended up inside a commit about something
 else.
 
-### 6. Land it, and let it be read afterwards
+### 6. Preview it, adopt it, then land it
 
-**Green work lands without asking.** Once the work is committed and step 4's
-self-check passes, run `scripts/land` straight away. Pushing the branch and
-opening a PR are optional: open one when there is something you want the owner
-to read before it lands, and the line closes it as merged when it lands. The
-merge line is the guard, and it pushes `main` itself. The owner reviews
+**The owner's order is: propose, implement, walk if it is visual, preview and
+adopt, land.** Once the work is committed and step 4's self-check passes, do
+these in order and ask nothing between them:
+
+1. `scripts/preview` merges the branch into the preview with every other branch
+   in flight. Load `preview-app` first.
+2. If the change reaches Fleet or Bridge, `scripts/preview --restart --adopt`
+   moves his Fleet and Bridge onto it. Say in one line what it will do, since his
+   permission prompt is the confirmation. A change that is only docs or scripts
+   needs no restart. A restart already in progress refuses a second: say so and
+   go on to the next step.
+3. `scripts/land preflight`, then `scripts/land`, straight away. **Do not wait
+   for him to try the preview, and never ask "land it?"** He files what he finds
+   as separate work or comes back to you, and the line is the guard.
+
+Pushing the branch and opening a PR are optional: open one when there is
+something you want the owner to read before it lands, and the line closes it as
+merged when it lands. The merge line pushes `main` itself. The owner reviews
 afterwards by reading what landed, for example
 `git log --merges --first-parent main --since=yesterday`; each merge carries a
 `Landed-from:` trailer naming its branch.
@@ -212,9 +226,10 @@ afterwards by reading what landed, for example
 After a restart run `armada land --status <branch>` before assuming anything:
 the line itself keeps running, and the branch is usually still queued.
 
-**A visual change is the exception: it waits for the owner's look.** It ships
-with a walk, he opens its link on a mock served from your worktree, and it lands
-only on his OK. `annotations`, step 4, has the rule, and
+**A visual change walks before it previews.** It ships with a walk, he opens its
+link on a mock served from your worktree, and you iterate on what he says. His
+OK on the walk is the go-ahead: the preview, the adopt and the landing above
+follow from it with no further asking. `annotations`, step 4, has the rule, and
 `docs/practices/running-locally.md` *Walks* has the walk.
 
 **`scripts/land` is how it merges**: never `gh pr merge`, never a push to

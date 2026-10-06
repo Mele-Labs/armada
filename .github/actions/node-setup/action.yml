@@ -1,0 +1,52 @@
+# Node, pnpm, node_modules from cache, and Playwright's shell when asked.
+# docs/practices/ci.md.
+name: node-setup
+inputs:
+  browsers:
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version-file: .nvmrc
+
+    - name: node_modules cache
+      id: nm
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+        key: nm2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}
+
+    # The same command as armada.yml's `bootstrap`.
+    - name: pnpm install
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Playwright cache
+      id: pw
+      if: inputs.browsers == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/Library/Caches/ms-playwright
+        key: pw2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    # armada.yml's `browsers`, plus the system libraries a bare Linux runner lacks.
+    - name: Playwright browsers
+      if: inputs.browsers == 'true'
+      shell: bash
+      run: |
+        deps=""
+        [ "$RUNNER_OS" = Linux ] && deps="--with-deps"
+        pnpm -C packages/components exec playwright install $deps chromium --only-shell
+
+    - name: Cache report
+      shell: bash
+      run: echo "CACHE node_modules=${{ steps.nm.outputs.cache-hit || 'false' }} playwright=${{ steps.pw.outputs.cache-hit || 'n/a' }}"

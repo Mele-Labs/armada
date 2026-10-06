@@ -34,7 +34,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A gate does not run on once `main` has moved | A look at `origin/main` before the first Check and after each; a move stops the gate there and gates again |
 | A failed Check is told while the turn runs | Right after it fails, with a Check still to run, `main` is asked about it; green is `--status` exit 10, naming the Check and its log |
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
-| An agent lands green work without asking the owner | The agent's own brief; the owner reads what landed afterwards |
+| An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
 | A branch that appends a migration or changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
@@ -339,7 +339,7 @@ holding a branch behind it. Nothing is added to the store or to a plan's task.
 
 **`.claude/hooks/guard_merge.py` refuses `gh pr merge`, any `git push` whose destination is `main`**, including `--delete main`, **and any `git merge` run in the checkout that has `main` checked out**, and splits a compound command so `cd x && git push origin main` is caught too. The merge rule reads `.git/HEAD` of the checkout the command runs in, so a branch catching up with `origin/main` in its own worktree is left alone, and `--ff-only`, `--abort`, `--continue` and `--quit` are too: none adds a commit nobody gated. Added 5 Oct 2026, after a plain `git merge --no-ff` in the checkout at `main` went around the line. Its refusal names `scripts/land preflight`, `scripts/land`, `scripts/land --status` and this page. `.claude/settings.json` registers it as a `PreToolUse` matcher on Bash.
 
-**Both halves are gated by the Manifest.** `scripts_test` runs the script's suite when anything under `scripts/` or `armada.yml` changes, and `hooks_test` runs the hook's when anything under `.claude/hooks/` does — two Checks rather than one, because a `run` gets no shell to chain them with and because the two are read by different changes.
+**The hook is gated by the Manifest.** `hooks_test` runs the hook's suite when anything under `.claude/hooks/` changes. The script's own suite, `scripts/test_land.py`, stopped being a Check when CI and pull requests began to replace the line: it was the slowest Check in every turn.
 
 **It cannot see the line's own push, and so needs no way to let it through.** That runs in the detached runner, outside the Bash tool. An allowance keyed on something a command can carry, such as an environment variable, would be one any typed command could claim, so the hook refuses `ARMADA_LAND_RUNNER=1 git push origin main` like any other push to `main`. An agent who goes around it lands a combination nothing checked, and nothing says so afterwards.
 

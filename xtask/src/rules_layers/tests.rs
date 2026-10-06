@@ -17,11 +17,12 @@ fn fault(path: &str, spec: &str) -> Option<String> {
 }
 
 #[test]
-fn layers_run_screens_surfaces_desktop() {
+fn layers_run_screens_bridge_api_surfaces_desktop() {
     let s = surfaces();
     assert_eq!(layer_of("@armada/screens", &s), Some(3));
-    assert_eq!(layer_of("@armada/jobs", &s), Some(4));
-    assert_eq!(layer_of("@armada/desktop", &s), Some(5));
+    assert_eq!(layer_of("@armada/bridge-api", &s), Some(4));
+    assert_eq!(layer_of("@armada/jobs", &s), Some(5));
+    assert_eq!(layer_of("@armada/desktop", &s), Some(6));
     assert_eq!(layer_of("@armada/other", &s), None);
 }
 
@@ -88,6 +89,39 @@ fn the_exemption_is_for_surfaces_only() {
         &s,
     );
     assert!(screens_test.is_some());
+}
+
+fn from_bridge_api(spec: &str) -> Option<String> {
+    import_fault(
+        "packages/bridge-api/src/index.ts",
+        "@armada/bridge-api",
+        "packages/bridge-api",
+        spec,
+        &surfaces(),
+    )
+}
+
+#[test]
+fn bridge_api_imports_protocol_and_screens() {
+    assert_eq!(from_bridge_api("@armada/protocol"), None);
+    assert_eq!(
+        from_bridge_api("@armada/screens/src/fixtures/fixture"),
+        None
+    );
+}
+
+#[test]
+fn bridge_api_does_not_import_up() {
+    assert!(from_bridge_api("@armada/jobs").is_some());
+    assert!(from_bridge_api("@armada/desktop").is_some());
+}
+
+#[test]
+fn a_surface_imports_bridge_api() {
+    assert_eq!(
+        fault("packages/surfaces/jobs/src/Jobs.tsx", "@armada/bridge-api"),
+        None
+    );
 }
 
 #[test]
