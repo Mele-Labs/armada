@@ -264,6 +264,9 @@ struct Readings {
     only_check: Option<String>,
     moved: bool,
     touched: Vec<String>,
+    /// Which manifests the change reaches, **only where the repository has
+    /// workspaces**; the one the gate reads.
+    gated: Option<crate::gated::Gated>,
     ports: BTreeMap<String, u16>,
     port_env: Vec<(String, String)>,
     tasks: Option<TaskCounts>,
@@ -494,6 +497,28 @@ where
         if narrow && touched.is_empty() {
             return Err(NotRun::NothingChanged);
         }
+        let served = self
+            .served_by(&plan.record)
+            .map_err(|cause| unread(cause.to_string()))?;
+        let workspaces = served.workspaces();
+        let gated = match workspaces.is_empty() {
+            true => None,
+            false => {
+                let changed = match ask.files.is_empty() {
+                    false => ask.files.clone(),
+                    true => self
+                        .work()
+                        .changed_files(&plan.worktree)
+                        .map_err(|cause| unread(cause.to_string()))?
+                        .paths(),
+                };
+                Some(crate::gated::Gated::of(
+                    served.manifest(),
+                    &workspaces,
+                    &changed,
+                ))
+            }
+        };
         let tasks = self
             .store()
             .lock()
@@ -508,16 +533,13 @@ where
             .await
             .step_attempt(plan.record.id(), &plan.step)
             .map_err(|cause| unread(cause.to_string()))?;
-        let records_root = self
-            .served_by(&plan.record)
-            .map_err(|cause| unread(cause.to_string()))?
-            .records_root()
-            .to_string();
+        let records_root = served.records_root().to_string();
         Ok(Readings {
             narrow,
             only_check: ask.check.clone(),
             moved,
             touched,
+            gated,
             ports: self.port_map(&plan.record).await,
             port_env: self.port_env(&plan.record).await,
             tasks,
@@ -714,7 +736,7 @@ where
             None,
             read.attempt,
             None,
-            None,
+            read.gated.as_ref(),
         );
         for done in self.heard_while(caller, run, running, hearing).await {
             observed.push(done.observed);

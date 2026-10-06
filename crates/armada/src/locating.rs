@@ -127,9 +127,14 @@ impl Locating for Locator {
         crate::authoring::save(root, &self.kit, manifest, &self.roster, asked)
     }
 
-    fn workflows(&self, root: &Path, manifest: &config::Manifest) -> Catalogued {
+    fn workflows(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        workspaces: &[config::Manifest],
+    ) -> Catalogued {
         let (workflows, left_out, files) =
-            crate::setup::workflows_again(root, &self.kit, &self.roster, manifest);
+            crate::setup::workflows_again(root, &self.kit, &self.roster, manifest, workspaces);
         Catalogued {
             workflows,
             left_out: left_out.iter().map(fleet::left_out_workflow).collect(),
@@ -165,6 +170,13 @@ impl Locating for Locator {
                     .map(fleet::left_out_workflow)
                     .collect();
                 let files = setup.files().to_vec();
+                let workspaces = setup.workspaces().to_vec();
+                for (file, why) in setup.workspaces_refused() {
+                    eprintln!(
+                        "{} was left out, and the rest of the repository is served: {why}",
+                        file.display()
+                    );
+                }
                 let (manifest, workflows, reloads) = setup.into_parts();
                 self.pending
                     .lock()
@@ -172,6 +184,7 @@ impl Locating for Locator {
                     .insert(root_text.clone(), reloads);
                 Some(
                     SetUp::of(manifest, workflows)
+                        .with_workspaces(workspaces)
                         .leaving_out(left_out)
                         .with_files(files),
                 )

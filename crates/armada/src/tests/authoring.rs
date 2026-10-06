@@ -250,7 +250,8 @@ fn the_repositorys_definition_beats_kits_by_id() {
             )
             .expect("saved");
         }
-        let (held, _, _) = workflows_again(repository.path(), kit.path(), &roster(), &manifest);
+        let (held, _, _) =
+            workflows_again(repository.path(), kit.path(), &roster(), &manifest, &[]);
         assert_eq!(
             label(&held, "shared"),
             ("The repository's".to_string(), WorkflowSource::Repository),
@@ -378,6 +379,7 @@ fn a_bad_file_is_left_out_with_its_reason_and_the_others_stand() {
         kit.path(),
         &roster(),
         &manifest(&repository),
+        &[],
     );
 
     assert_eq!(label(&held, "fine").1, WorkflowSource::Repository);

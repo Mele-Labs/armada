@@ -341,6 +341,7 @@ pub mod widening;
 mod wire;
 mod work_plan;
 pub mod working;
+pub mod workspaces;
 
 #[cfg(test)]
 mod tests;
