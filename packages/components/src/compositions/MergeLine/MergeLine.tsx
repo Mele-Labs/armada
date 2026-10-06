@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
@@ -128,6 +128,8 @@ export type MergeLineProps = {
   onOpenCheck?: (branch: string, check: string) => void;
   /** On the outer `<section>`, so a press elsewhere can scroll to it. */
   id?: string;
+  /** A branch a press elsewhere asked for: its row is marked and scrolled into view. */
+  focus?: string;
 };
 
 const HEADING = "Merge line";
@@ -146,8 +148,12 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, open, onOpenChange, onOpenPullRequest, onOpenCheck, id } = props;
-  const acts = { onOpenPullRequest, ...(onOpenCheck === undefined ? {} : { onOpenCheck }) };
+  const { name, line, notice, open, onOpenChange, onOpenPullRequest, onOpenCheck, id, focus } = props;
+  const acts = {
+    onOpenPullRequest,
+    ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
+    ...(focus === undefined ? {} : { focus }),
+  };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
   const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
     (one) => one.entries.length > 0,
@@ -352,16 +358,28 @@ function Entry({
   entry,
   onOpenPullRequest,
   onOpenCheck,
+  focus,
 }: {
   entry: MergeLineEntry;
   onOpenPullRequest: (url: string) => void;
   onOpenCheck?: (branch: string, check: string) => void;
+  focus?: string;
 }) {
+  const row = useRef<HTMLLIElement>(null);
+  const focused = focus === entry.branch;
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "center" });
+  }, [focused]);
   const reading = LAND_STATE[entry.state];
   const Icon = reading?.icon ?? null;
   const said = reading?.verb ?? entry.state;
   return (
-    <li className="armada-merge-line__row" aria-label={`${entry.branch}, ${said}`}>
+    <li
+      ref={row}
+      className="armada-merge-line__row"
+      aria-label={`${entry.branch}, ${said}`}
+      aria-current={focused ? "true" : undefined}
+    >
       {entry.place === undefined ? (
         <span className="armada-merge-line__place" />
       ) : (

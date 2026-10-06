@@ -51,6 +51,8 @@ export * from "./merge-line";
 export * from "./AskRepository";
 export * from "./outputs";
 export * from "./checkout-runs";
+export * from "./ManifestChecks";
+export * from "./manifest-checks";
 export * from "./checkout-run-diff";
 export * from "./checks";
 export * from "./copy";

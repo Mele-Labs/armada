@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { filtersOf, toneOf, underFilter, unfiledSays } from "./record";
+import { filtersOf, rowSays, toneOf, underFilter, unfiledSays } from "./record";
 import type { LedgerRow } from "./draft/ledger";
 
 function row(over: Partial<LedgerRow> = {}): LedgerRow {
@@ -80,5 +80,23 @@ describe("the Job filter", () => {
 
   it("leaves a kind nothing has heard of under All alone, and says so", () => {
     expect(unfiledSays(ROWS)).toBe("One more row is under All alone: a kind no filter names.");
+  });
+});
+
+describe("a Drone's asked run", () => {
+  const asked = (outcome: string) =>
+    row({ kind: "asked_run", actor: "drone", what: "Asked run · suite", outcome });
+
+  it("is filed under Checks and says it is an asked run", () => {
+    expect(underFilter([asked("Failed")], "checks")).toHaveLength(1);
+    expect(rowSays(asked("Failed"))).toBe("Asked run");
+  });
+
+  // A dry result must never read as a gate's pass, so a Check's green is not
+  // lent to it.
+  it("takes no hue, whatever it came to", () => {
+    for (const outcome of ["Passed", "Failed", "Running", "Lost"]) {
+      expect(toneOf(asked(outcome))).toBeUndefined();
+    }
   });
 });

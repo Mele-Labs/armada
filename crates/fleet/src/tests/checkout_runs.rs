@@ -404,3 +404,26 @@ async fn a_checkout_run_ends_with_its_own_kind_on_the_stream() {
     assert_eq!(seen.exit_code, Some(0));
     assert_eq!(seen.ended, "exited 0");
 }
+
+/// **A press in the main checkout asks from outside any Job**, in flight and
+/// on the record it leaves.
+#[tokio::test]
+async fn a_checkout_run_says_it_was_asked_from_outside_a_job() {
+    let home = TempDir::new();
+    a_repository_at(home.path());
+    let fleet = a_fleet_over(&home);
+
+    let underway = Arc::clone(&fleet)
+        .start_checkout_rehearsal(
+            ipc::StartCheckoutRun {
+                name: String::from("lint"),
+                workspace: None,
+            },
+            fleet.first(),
+        )
+        .await
+        .expect("underway");
+    assert_eq!(underway.requester, ipc::Requester::outside());
+    let record = finished(&fleet, &underway.id).await;
+    assert_eq!(record.requester, ipc::Requester::outside());
+}
