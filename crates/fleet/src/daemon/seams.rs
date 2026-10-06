@@ -409,6 +409,9 @@ where
     pub(crate) fn helm(&self) -> &crate::helm::Conversations {
         &self.helm
     }
+    pub(crate) fn spared(&self) -> &crate::releasing::Spared {
+        &self.spared
+    }
     /// The roster, for `dispatch` and for a turn.
     pub(crate) fn slots(&self) -> &Mutex<Slots> {
         &self.slots

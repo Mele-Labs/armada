@@ -178,6 +178,7 @@ mod refused;
 mod regating;
 mod rehearsing;
 mod rejecting;
+mod releasing;
 mod remarks;
 mod repeated_failures;
 mod replaced;

@@ -22,3 +22,7 @@ Offered the 14 Sep union-merge plan, a number filled in at landing, and a lease 
 **Built without asking, for him to overrule:** Fleet holds its own merge act under both `merge_by: forge` and `push`, since under `forge` Fleet is still the one asking the forge to merge; a person pressing GitHub's own button bypasses the order. A need has no expiry by time; a person gives one back with `armada need --release`.
 
 **Where it landed:** https://github.com/NickMele/armada/issues/1059, which lists what is built and what is open. The list files, `armada need`, Fleet's half (protocol 23.36) are in main.
+
+**6 Oct, later: the merge line is moving to GitHub CI and PRs, and needs move with it.** He wants the merge line to stay but run on CI and pull requests instead of a local runner. Asked where a declared need should live so a PR's checks can see who is ahead, he chose *"Fleet keeps it, shows it as a PR check"*: Fleet publishes each PR's order as a required status, pending while a need ahead has not merged. **Cost he took:** a repository without Fleet has no order, and sessions outside Fleet declare through the `armada` CLI talking to Fleet instead of a local file. The local need files and `armada land`'s hold are replaced; nothing is built yet.
+
+**Open:** GitHub probably ignores `merge=union`, which the list files rely on, so on PRs they may conflict again. He agreed to a private throwaway repository to measure it, deleted afterwards.

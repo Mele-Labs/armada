@@ -418,6 +418,7 @@ where
             polled: Mutex::new(None),
             drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,
+            spared: Default::default(),
             merge_end: Mutex::new(()),
             reflecting: crate::retro::Reflecting::default(),
             run,

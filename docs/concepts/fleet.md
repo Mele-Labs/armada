@@ -426,6 +426,41 @@ checkouts. [Job](job.md), *Pausing a Job*, has what the Job reads as meanwhile.
 > Why: it has no worktree to act on, and a derived path nothing is at would read
 > as a worktree that is gone.
 
+**Fleet pauses a parked Job itself when work is waiting for a slot.** The owner's
+words of 5 Oct 2026: stopped and parked Jobs "are holding onto worktree slots ...
+the work can't start because the stopped jobs are holding the leases." He chose
+Pause and Resume plus this, with a grace window and an off switch. A pass in the
+turn, after admission, finds each waiter and pauses one Job for it through the
+same path a person's Pause takes, as Fleet: the park, the marker with `by: fleet`,
+`job.paused` with `actor: fleet`, and a line in the victim's log naming the waiter.
+
+| | |
+|---|---|
+| **A waiter** | A queued Job that was never started or was re-queued, with no pause marker, clear to run in every way a start asks (dependency, children, budget, freeze, volume) and for room under the Drone bound and the machine's memory, whose own repository's pool has no free slot |
+| **A victim** | A Job in the same repository's pool at `awaiting_review`, `awaiting_repair` or `escalated`, holding a slot the pool says it holds, working no Drone, not paused, with no redirect note waiting, and still for the grace window |
+| **The order** | The Job that has been longest at its status first, ties by Job id. One victim per waiter per turn |
+| **Never** | `completed_success`, `running` or a piloted Job, which are not in the list above |
+
+**Still, for the grace window**: fifteen minutes since the Job's last event, read
+from the Job's own event log. Fleet cannot see what Bridge shows, so a Job a
+person has just opened is left alone. A person's resume, and a park the pool
+refused, count as a move at that moment, so a resumed Job is not taken back at
+once and a refusal is not asked again every tick. Both are held in memory, so a
+restart forgets them. `setup.auto_release` turns the pass off and
+`setup.auto_release_grace_minutes` sets the window — [Manifest](manifest.md),
+*Pausing a parked Job for waiting work*.
+
+> **Rule.** Fleet never resumes a Job it paused, and a person's Resume waits for
+> a free slot without forcing another Job out.
+> Why: a Job comes back when a person acts on it, and a resume that paused a
+> third Job to make room would be a loop the owner has no way to watch.
+
+**What a person finds.** The Job reads at the status it had, with a paused chip
+whose `by` is `fleet`. Resume puts it back where it was, review rows and steps
+untouched, once a slot is free. A pool that is full and a waiter whose slot an
+agent takes between turns pauses another Job the next turn, one per waiter, so
+the pass is bounded by the waiters and never by the ticks.
+
 ### Cleaning up from the grid
 
 **Cleanup is one grid of tiles, and a press on a tile opens the panel that manages

@@ -29,6 +29,7 @@ use std::num::NonZeroU32;
 use core_model::{Prerequisite, ResolvedCheck};
 use serde_yaml_ng::Value;
 
+use super::auto_release::{self, AutoRelease};
 use super::declared::{Check, Command, Preparation};
 use super::seed::Seed;
 use super::workspace::Placed;
@@ -54,9 +55,19 @@ pub(super) fn preparation(
     serves: &BTreeSet<String>,
     placed: &Placed,
     out: &mut Vec<Refusal>,
-) -> (Vec<Preparation>, Option<Seed>, Option<NonZeroU32>) {
+) -> (
+    Vec<Preparation>,
+    Option<Seed>,
+    Option<NonZeroU32>,
+    Option<AutoRelease>,
+) {
     let Some(mut table) = Table::open("setup", value, out) else {
-        return (Vec::new(), None, Some(WORKTREES_UNSTATED));
+        return (
+            Vec::new(),
+            None,
+            Some(WORKTREES_UNSTATED),
+            Some(AutoRelease::unstated()),
+        );
     };
     // `requires` is required unless another key is there, because `setup:` with
     // nothing under it says nothing and `close` would report no fault for it.
@@ -80,9 +91,16 @@ pub(super) fn preparation(
         }
         Some(value) => yaml::positive(&table.at("worktrees"), value, out).and_then(NonZeroU32::new),
     };
+    let auto_release = auto_release::read(&mut table, placed.is_a_workspace(), out);
     let items = match table.optional("requires") {
         Some(value) => yaml::list(&table.at("requires"), value, out),
-        None if table.present("seed") || table.present("worktrees") => None,
+        None if table.present("seed")
+            || table.present("worktrees")
+            || table.present("auto_release")
+            || table.present("auto_release_grace_minutes") =>
+        {
+            None
+        }
         None => {
             out.push(Refusal::new(table.at("requires"), Fault::Missing));
             None
@@ -104,7 +122,7 @@ pub(super) fn preparation(
         .collect(),
         None => Vec::new(),
     };
-    (prepared, seed, worktrees)
+    (prepared, seed, worktrees, auto_release)
 }
 
 /// `after_merge:`, the Checks this repository asks to be run against the tree a
