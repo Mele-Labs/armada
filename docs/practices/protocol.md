@@ -3090,7 +3090,7 @@ way before it is removed.
 
 **Bridge's half**, mirrored by hand: `ReclaimedSaved` and `WorktreeReclaimed.saved` in `reclaimed.ts`; `SlotAct`'s `release`, `ChangeSlotPool.holder`, `SlotPoolChanged.released` and `SlotReleased` in `holding.ts`.
 
-## Protocol 23.38: pause and resume a Job
+## Protocol 23.39: pause and resume a Job
 
 `park_job` and `resume_job` are Fleet's pause and resume as commands, `POST /jobs/:job_id/park_job` and
 `/resume_job`, no body, each answering the Job's `JobSummary`. `../concepts/job.md`, *Pausing a Job*.
@@ -3099,11 +3099,11 @@ way before it is removed.
 (a hold on a healthy Drone) that `xtask`'s unserved-operation allowance keeps on purpose.
 
 **Additive only.** A new field, a new queued reason, two commands, two events and six refusal codes; a
-Bridge before 23.38 reads past the field and the event, and draws a paused Job by its status.
+Bridge before 23.39 reads past the field and the event, and draws a paused Job by its status.
 
 | Change | Where | Carries | Absent |
 | --- | --- | --- | --- |
-| `paused` | `JobSummary` | `{ "by", "at", "resuming" }`: `person` or `fleet`, when, and whether a resume waits for a slot | A Job that is not paused, and every row before 23.38 |
+| `paused` | `JobSummary` | `{ "by", "at", "resuming" }`: `person` or `fleet`, when, and whether a resume waits for a slot | A Job that is not paused, and every row before 23.39 |
 | `paused` | `queued_reason` | A running Job that was paused reads `queued` with this reason | Every other queued Job |
 | `park_job`, `resume_job` | commands | The Job's row, `paused` set or lifted | |
 | `job.paused`, `job.resumed` | events | `{ "job", "actor", "at" }`, the row whole; a resume that waits carries `paused.resuming` | |

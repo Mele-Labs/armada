@@ -299,7 +299,7 @@ pub struct JobSummary {
     /// The pause marker, **beside the status and never instead of it**: a Job
     /// paused at a review gate reads `awaiting_review` with this set, and a
     /// running one reads `queued` with `queued_reason` `paused` and this set.
-    /// Absent is a Job that is not paused. Since 23.38.
+    /// Absent is a Job that is not paused. Since 23.39.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paused: Option<Paused>,
 }

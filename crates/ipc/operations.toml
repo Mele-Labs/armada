@@ -3268,7 +3268,7 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A Job was paused"
 notes = """
-Since 23.38. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` set.
+Since 23.39. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` set.
 
 Published once per act that sets the marker: a pause, and a pause that called off a resume's wait.
 
@@ -3281,7 +3281,7 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "A Job's pause was lifted, or its resume began waiting for a slot"
 notes = """
-Since 23.38. `job.paused`'s counterpart and shape: the row whole, with `paused` absent where the Job holds a slot again, and present with `resuming` where every slot was held.
+Since 23.39. `job.paused`'s counterpart and shape: the row whole, with `paused` absent where the Job holds a slot again, and present with `resuming` where every slot was held.
 
 Published by a resume that seated the Job or began its wait, and by the turn that seats a waiting Job when a slot frees. A queued Job that admission seats moves status, so `job.state_changed` tells it. A resume of a Job already waiting changes nothing and publishes nothing.
 

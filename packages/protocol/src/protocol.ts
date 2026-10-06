@@ -209,12 +209,12 @@ export type JobSummary = {
    * The pause marker, **beside the status and never instead of it**. A job
    * paused at a review gate reads `awaiting_review` with this set; a running
    * one reads `queued` with `queued_reason` `paused` and this set. Absent is a
-   * job that is not paused, and every row from a Fleet before 23.38.
+   * job that is not paused, and every row from a Fleet before 23.39.
    */
   paused?: Paused;
 };
 
-/** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.38. */
+/** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */
 export type Paused = {
   /** `person` or `fleet`. */
   by: string;
