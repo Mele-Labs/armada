@@ -90,11 +90,20 @@ impl Ledger {
     }
 }
 
-/// The 1-minute load average, read once. `None` where the machine will not say.
-#[allow(unsafe_code)]
+/// The 1-minute load average, read once per batch. `None` where the machine will not say.
+///
+/// **A `sysctl` process, not a libc call**: the call needs the gate's list of files that may
+/// speak the unsafe keyword, which is the owner's to extend, not for a number read once.
 fn one_minute_load() -> Option<f64> {
-    let mut load = [0.0_f64; 1];
-    // SAFETY: `getloadavg` writes at most the one `f64` asked for.
-    let read = unsafe { libc::getloadavg(load.as_mut_ptr(), 1) };
-    (read == 1).then_some(load[0])
+    let said = std::process::Command::new("sysctl")
+        .args(["-n", "vm.loadavg"])
+        .output()
+        .ok()?;
+    // `{ 18.19 12.71 13.90 }`
+    String::from_utf8(said.stdout)
+        .ok()?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
 }
