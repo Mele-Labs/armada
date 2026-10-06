@@ -1397,3 +1397,19 @@
   status = "Specified"
   reserved = "A workflow Armada carries, compiled in. Never an export, a release or an install, and never Kit, which is `briefcase`."
   notes = "Minted 5 Oct 2026 for the Workflow creator. A carried definition is the one the product ships with, and the tooltip says Ships with Armada. Against `archive`, the lidded box the badge set keeps as its own, this one has the seam and the strip, which hold at 12px. `briefcase`'s own row refused `package` as the Kit glyph for the same lidded-box reason, and this is a different thing, so the two do not meet."
+
+[icons.circle-pause]
+  means = "A ring with two bars inside — a Job paused: its work saved on its branch and its slot given back"
+  group = "Pause and resume"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A paused Job, on the Board row, the Job card, Job detail and a Cleanup tile. Never Freeze dispatch, which is `pause`, and never a Drone held at a command."
+  notes = "Minted 6 Oct 2026 for Pause and Resume, on the owner's words of 5 Oct: pause a Job without stopping it, since stopping is terminal. He named the glyph. It sits beside the real status badge and never replaces it, so a Job at a review gate reads Needs review with this beside it. **An exception to the `circle-*` reservation to Judge verdicts**, taken on his decision: the two never share a surface, because a verdict is drawn in a criterion's row and this beside a status badge. Refused: `pause`, Freeze dispatch's, which is a control for a different act and would promise the Job is held rather than parked."
+
+[icons.play]
+  means = "A right-pointing triangle — put a paused Job back to work"
+  group = "Pause and resume"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Resume on a paused Job, in a menu, a header and a confirm. Never a Drone running, which is `circle-dot`, and never starting a run or a server."
+  notes = "Minted 6 Oct 2026 for Pause and Resume, with `circle-pause`, on the owner's decision. The ordinary counterpart of a pause bar, and the only one: Resume lifts the pause and starts nothing itself, since admission starts the Drone."
