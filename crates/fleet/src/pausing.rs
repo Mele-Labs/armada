@@ -172,6 +172,7 @@ where
         }
         if job.status() != JobStatus::Queued {
             if let Reseat::Seated(seated) = self.reseat(&job).await? {
+                self.pause_changed(&seated).await;
                 return Ok(seated);
             }
         }
@@ -222,6 +223,9 @@ where
     /// Lease the Job's own branch at its tip into whichever slot is free,
     /// record it, and lift the marker. **One write for the slot and the
     /// marker**, so a crash cannot leave a Job holding a slot and still paused.
+    ///
+    /// **Publishes nothing**: admission calls this holding the roster, and a
+    /// summary asks the roster. Its callers outside admission publish.
     pub(crate) async fn reseat(&self, job: &Job) -> Result<Reseat, Adrift> {
         let served = self.served_by(job)?;
         let not_seated = |why: String| Adrift::NotReseated {
@@ -250,7 +254,6 @@ where
             "the Job was resumed and its work is in a slot again",
             None,
         );
-        self.pause_changed(&seated).await;
         Ok(Reseat::Seated(seated))
     }
 
@@ -268,7 +271,10 @@ where
                 continue;
             }
             match self.reseat(&job).await? {
-                Reseat::Seated(job) => seated.push(job.id().clone()),
+                Reseat::Seated(job) => {
+                    self.pause_changed(&job).await;
+                    seated.push(job.id().clone());
+                }
                 // Every slot is held, and the rest wait behind this one.
                 Reseat::Full => break,
             }

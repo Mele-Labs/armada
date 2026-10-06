@@ -3270,7 +3270,7 @@ description = "A Job was paused or resumed"
 notes = """
 Since 23.38. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` present or absent as it now stands.
 
-Published once per act that changed the marker: a pause, a resume, a pause that called off a resume's wait, a resume that began waiting, and the seat a waiting Job takes when a slot frees. A resume of a Job already waiting for a slot changes nothing and publishes nothing.
+Published once per act that changed the marker: a pause, a resume, a pause that called off a resume's wait, a resume that began waiting, and the seat a waiting Job takes when a turn finds a slot free. A queued Job that admission seats is told by `job.state_changed`. A resume of a Job already waiting for a slot changes nothing and publishes nothing.
 
 `agent_access` is `Bridge only`, `job.remarks_changed`'s: a screen's wake-up, and Helm has `get_job` for the answer.
 """
