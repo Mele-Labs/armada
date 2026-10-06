@@ -4,9 +4,10 @@
 // took 175 s alone and was the long pole of every sharded run; shares of a
 // quarter let a runner start four at once.
 
-import { expect, onTestFinished, test } from "vitest";
+import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
 
+import { pace } from "./check-logs-fleet";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
 import type { Walk } from "./walk";
@@ -51,6 +52,14 @@ export function walksIn(part: number, of: number): [string, Walk][] {
 /** Registers the tests of share `part` of `of`. Called once, at the top of a test file. */
 export function playWalks(part: number, of: number): void {
   unmountAfterEach();
+
+  const slow = pace.arrivingMs;
+  beforeEach(() => {
+    pace.arrivingMs = 100;
+  });
+  afterEach(() => {
+    pace.arrivingMs = slow;
+  });
 
   if (part === 1) {
     test("there is a walk to play", () => {
