@@ -28,6 +28,7 @@ mod need;
 mod reaching;
 mod setup;
 mod watching;
+mod workspace_setup;
 mod workspaces;
 
 use std::path::{Path, PathBuf};

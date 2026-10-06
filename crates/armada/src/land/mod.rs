@@ -34,7 +34,7 @@ mod logs;
 mod merge_in;
 mod onto_main;
 mod preflight;
-mod prepare;
+pub(crate) mod prepare;
 mod repo;
 pub mod runner;
 mod runner_loop;
