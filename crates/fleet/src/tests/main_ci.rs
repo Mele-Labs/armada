@@ -6,7 +6,8 @@
 
 use std::time::Duration;
 
-use adapter_traits::{CiRun, CiState, FromOutside, MergedPull};
+use adapter_traits::{CiRun, CiState, FromOutside, MergedPull, OpenPull};
+use api::Queries;
 use store::MainState;
 use testkit::{FakeVcs, FakeWorkProduct};
 
@@ -208,6 +209,15 @@ async fn the_job_that_opened_the_merging_pull_request_is_found() {
     let merge = kept(&fleet).await.unwrap().merge.unwrap();
     assert_eq!(merge.number, 1);
     assert_eq!(merge.job.as_ref(), Some(job.id()));
+    let titled = the_hub(&fleet)
+        .await
+        .main
+        .unwrap()
+        .merge
+        .unwrap()
+        .job
+        .unwrap();
+    assert_eq!(titled.title, job.title().as_str());
 }
 
 #[tokio::test]
@@ -340,4 +350,217 @@ async fn nothing_ran_is_not_green() {
     forge.runs_on(ONE, Vec::new());
     fleet.turn().await.unwrap();
     assert_eq!(kept(&fleet).await.unwrap().state, MainState::NothingRan);
+}
+
+fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
+    OpenPull {
+        number,
+        title: FromOutside::verbatim(format!("Change {number}")),
+        branch: FromOutside::verbatim(format!("armada/{number}")),
+        url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
+        author: Some(FromOutside::verbatim("nick")),
+        ci,
+        failing: failing
+            .iter()
+            .map(|name| FromOutside::verbatim(*name))
+            .collect(),
+    }
+}
+
+async fn the_hub(fleet: &Fixture) -> ipc::MergeLineHub {
+    let root = fleet.repositories().served()[0].root().to_string();
+    let hubs = fleet.merge_hubs().await;
+    hubs.into_iter()
+        .find_map(|(held, hub)| (held == root).then_some(hub))
+        .expect("a hub for the served repository")
+}
+
+#[tokio::test]
+async fn open_pull_requests_are_listed_once_a_visit_with_their_ci() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    forge.pulls_are(Some(vec![
+        pull(7, Some(CiState::Passed), &[]),
+        pull(8, Some(CiState::Pending), &[]),
+        pull(9, Some(CiState::Failed), &["ci"]),
+        pull(10, None, &[]),
+    ]));
+
+    fleet.turn().await.unwrap();
+    assert_eq!(forge.times_asked_for_the_pulls(), 1);
+    fleet.turn().await.unwrap();
+    assert_eq!(forge.times_asked_for_the_pulls(), 2, "one listing a visit");
+
+    let hub = the_hub(&fleet).await;
+    let seen: Vec<(u64, Option<ipc::HubPullCi>)> = hub
+        .pull_requests
+        .iter()
+        .map(|one| (one.number, one.ci))
+        .collect();
+    assert_eq!(
+        seen,
+        [
+            (7, Some(ipc::HubPullCi::Passed)),
+            (8, Some(ipc::HubPullCi::Running)),
+            (9, Some(ipc::HubPullCi::Failed)),
+            (10, None),
+        ],
+        "main is green, so a failure is the branch's own"
+    );
+    assert_eq!(hub.pull_requests[0].author.as_deref(), Some("nick"));
+    assert!(hub.fixing.is_none());
+}
+
+#[tokio::test]
+async fn a_pull_request_failing_only_where_main_fails_waits_on_main_and_any_other_failure_is_its_own(
+) {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(
+        ONE,
+        vec![
+            run("ci", "11", CiState::Failed),
+            run("lint", "12", CiState::Passed),
+        ],
+    );
+    forge.pulls_are(Some(vec![
+        pull(7, Some(CiState::Failed), &["ci"]),
+        pull(8, Some(CiState::Failed), &["ci", "lint"]),
+        pull(9, Some(CiState::Passed), &[]),
+    ]));
+
+    fleet.turn().await.unwrap();
+    let hub = the_hub(&fleet).await;
+    let seen: Vec<_> = hub.pull_requests.iter().map(|one| one.ci).collect();
+    assert_eq!(
+        seen,
+        [
+            Some(ipc::HubPullCi::WaitingOnMain),
+            Some(ipc::HubPullCi::Failed),
+            Some(ipc::HubPullCi::Passed),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn the_hub_names_a_reds_jobs_and_a_fix_still_running_does_not_clear_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Failed)]);
+    forge.log_of("11", NEXTEST_TWO_FAILURES);
+    forge.merged_by(ONE, merged(1815));
+
+    fleet.turn().await.unwrap();
+    let main = the_hub(&fleet).await.main.expect("main was read");
+    assert_eq!(main.state, ipc::MainCiState::Red);
+    assert!(main.red_since.is_some());
+    assert_eq!(main.failed[0].check.as_deref(), Some("test"));
+    assert_eq!(main.failed[0].tests, ["tests::one", "tests::nested::two"]);
+    assert_eq!(main.merge.as_ref().map(|merge| merge.number), Some(1815));
+    assert!(main.merge.unwrap().job.is_none(), "a person's");
+
+    forge.head_is(Some(TWO));
+    forge.runs_on(TWO, vec![run("ci", "21", CiState::Pending)]);
+    fleet.turn().await.unwrap();
+    assert_eq!(
+        the_hub(&fleet).await.main.unwrap().state,
+        ipc::MainCiState::Red
+    );
+
+    forge.runs_on(TWO, vec![run("ci", "21", CiState::Passed)]);
+    fleet.turn().await.unwrap();
+    let green = the_hub(&fleet).await.main.unwrap();
+    assert_eq!(green.state, ipc::MainCiState::Green);
+    assert!(green.failed.is_empty() && green.merge.is_none() && green.red_since.is_none());
+}
+
+#[tokio::test]
+async fn a_forge_that_will_not_list_keeps_the_last_listing() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    forge.pulls_are(Some(vec![pull(7, Some(CiState::Passed), &[])]));
+    fleet.turn().await.unwrap();
+
+    forge.pulls_are(None);
+    fleet.turn().await.unwrap();
+    assert_eq!(the_hub(&fleet).await.pull_requests.len(), 1);
+
+    forge.pulls_are(Some(Vec::new()));
+    fleet.turn().await.unwrap();
+    assert!(
+        the_hub(&fleet).await.pull_requests.is_empty(),
+        "none open is an answer"
+    );
+}
+
+#[tokio::test]
+async fn the_merge_line_carries_the_hub_where_nobody_has_run_the_runner() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    forge.pulls_are(Some(vec![pull(7, Some(CiState::Passed), &[])]));
+    assert!(
+        crate::merge_lines::answer(&fleet).await.lines.is_empty(),
+        "nothing has been read"
+    );
+
+    fleet.turn().await.unwrap();
+    let lines = crate::merge_lines::answer(&fleet).await;
+    let [line] = lines.lines.as_slice() else {
+        panic!("one line, got {lines:?}")
+    };
+    assert!(line.line.is_empty() && line.landed.is_empty() && line.sent_back.is_empty());
+    let hub = line.hub.as_ref().expect("the hub");
+    assert_eq!(hub.main.as_ref().unwrap().state, ipc::MainCiState::Green);
+    assert_eq!(hub.pull_requests[0].number, 7);
+}
+
+#[tokio::test]
+async fn a_failed_job_on_mains_log_is_served_by_its_check_or_its_name_while_main_is_red() {
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Failed)]);
+    forge.log_of("11", NEXTEST_TWO_FAILURES);
+    fleet.turn().await.unwrap();
+    let root = fleet.repositories().served()[0].root().to_string();
+
+    for asked in ["test", "ci"] {
+        let opened = fleet
+            .observe_land_check(root.clone(), "main".into(), asked.into())
+            .await
+            .expect("a log for a failed job");
+        assert_eq!(opened.branch, "main");
+        let read = opened.follow.read(0, true);
+        assert!(read.lines.iter().any(|line| line.contains("tests::one")));
+        assert!(!opened.follow.writing(), "it ended before it was asked for");
+    }
+    assert!(
+        fleet
+            .observe_land_check(root.clone(), "main".into(), "lint".into())
+            .await
+            .is_err(),
+        "a job that did not fail has no log here"
+    );
+
+    forge.head_is(Some(TWO));
+    forge.runs_on(TWO, vec![run("ci", "21", CiState::Passed)]);
+    fleet.turn().await.unwrap();
+    assert!(fleet
+        .observe_land_check(root, "main".into(), "ci".into())
+        .await
+        .is_err());
 }

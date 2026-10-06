@@ -215,8 +215,16 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
     let said = asked(
         in_repo,
         &[
-            "pr", "list", "--state", "open", "--limit", "100", "--json",
-            "number,title,headRefName,url,author,statusCheckRollup", "--jq", OPEN_PULLS,
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "100",
+            "--json",
+            "number,title,headRefName,url,author,statusCheckRollup",
+            "--jq",
+            OPEN_PULLS,
         ],
     )?;
     Some(said.lines().filter_map(open_pull_of_line).collect())
@@ -369,8 +377,12 @@ mod tests {
 
     #[test]
     fn with_no_check_named_ci_every_check_decides() {
-        let running = "13\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}IN_PROGRESS\u{1f}";
-        assert_eq!(open_pull_of_line(running).unwrap().ci, Some(CiState::Pending));
+        let running =
+            "13\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}IN_PROGRESS\u{1f}";
+        assert_eq!(
+            open_pull_of_line(running).unwrap().ci,
+            Some(CiState::Pending)
+        );
         let failed = "14\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}COMPLETED\u{1f}TIMED_OUT";
         assert_eq!(open_pull_of_line(failed).unwrap().ci, Some(CiState::Failed));
     }

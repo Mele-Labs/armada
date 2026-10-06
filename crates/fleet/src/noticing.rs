@@ -137,6 +137,8 @@ pub(crate) struct Sweep {
     pub(crate) main_next: usize,
     /// The commits whose merging pull request was asked about, as `repository@commit`.
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,
+    /// Each repository's open pull requests as last listed, by root. `crate::main_hub`.
+    pub(crate) pulls: BTreeMap<String, Vec<crate::main_hub::OpenPulled>>,
 }
 
 /// What the record's state says on the wire, where it says anything.

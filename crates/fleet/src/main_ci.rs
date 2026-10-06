@@ -6,7 +6,8 @@
 //! only where one maps, and a test only where the log names one; unmapped and
 //! unread are ordinary and never guessed at.
 //!
-//! **One repository a turn, on the sweep's interval, rotating.** The head is a
+//! **One repository a turn, on the sweep's interval, rotating.** Its open pull
+//! requests are listed on the same visit, `crate::main_hub`. The head is a
 //! ref lookup; the jobs are asked once it has moved and again only while some
 //! are unfinished. **A red stays red until a green**, so a fix still running
 //! does not end it. Nothing here acts: the change rides on the turn.
@@ -71,6 +72,7 @@ where
             return Ok(Vec::new());
         };
         let root = served.root().to_string();
+        self.notice_pulls(&served).await;
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
@@ -221,7 +223,7 @@ where
     }
 
     /// One forge ask, off the runtime's own thread.
-    async fn forge_asked<T: Send + 'static>(
+    pub(crate) async fn forge_asked<T: Send + 'static>(
         &self,
         root: &str,
         ask: impl FnOnce(&V, &str) -> T + Send + 'static,
@@ -292,16 +294,10 @@ where
         let pull = self
             .forge_asked(served.root(), move |vcs, root| vcs.merged_by(root, &commit))
             .await?;
-        let candidates = self
-            .store()
-            .lock()
-            .await
-            .jobs_with_pull_request_number(pull.number)
-            .unwrap_or_default();
-        let job = candidates.into_iter().find(|job| {
-            self.served_by_id(job)
-                .is_ok_and(|it| it.root() == served.root())
-        });
+        let job = {
+            let store = self.store().lock().await;
+            self.job_of_pull(&store, served, pull.number)
+        };
         Some(MainMerge {
             number: pull.number,
             url: pull.url.map(|url| url.as_written().to_string()),
