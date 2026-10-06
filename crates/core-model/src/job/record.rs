@@ -48,7 +48,9 @@ use crate::job::transition::{admits, IllegalTransition, Target};
 use crate::job::workflow::{FrozenWorkflow, ResolvedStep};
 
 mod approving;
+mod pausing;
 mod proposing;
+pub use pausing::{Pause, PausedBy};
 pub use proposing::{Answered, NewProposal};
 
 /// Everything creation decides, and nothing it does not.
@@ -174,6 +176,9 @@ pub struct Job {
     /// before the pool**, whose worktree is still at the path its handle
     /// derives — and a Job never dispatched.
     worktree_slot: Option<u32>,
+    /// Set while a person (or Fleet) has the Job paused: its slot given back,
+    /// its work parked on `branch`. **Not a status** — see [`Pause`].
+    pause: Option<Pause>,
     /// When this Job's worktree and branch were given back while its record
     /// stayed. **`None` is a Job whose disk still stands** — every Job before a
     /// reclaim, and every Job a reclaim has not yet reached.
@@ -284,6 +289,7 @@ impl Job {
             // No worktree exists yet. `on_branch` is what fills this in.
             branch: None,
             worktree_slot: None,
+            pause: None,
             // A Job that was just created has nothing to give back.
             reclaimed_at: None,
             // Nothing has been said to a Job that does not exist yet.

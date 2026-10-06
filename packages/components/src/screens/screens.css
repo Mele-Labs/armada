@@ -2278,6 +2278,29 @@
 /* A lane's or a fan's head on the approval canvas: its word, or its picker,
    and the guide the Overview card it replaced carried. A frame takes no
    press, so the head takes its own back. */
+/* A Cluster's head as a control: the group's name, pressing it opens the group. */
+.armada-approval-canvas__cluster-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-default);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.armada-approval-canvas__cluster-head:hover {
+  color: var(--accent);
+}
+
 .armada-approval-canvas__head {
   display: inline-flex;
   align-items: center;

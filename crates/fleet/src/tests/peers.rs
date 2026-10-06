@@ -76,6 +76,7 @@ async fn declares(fleet: &Fixture, port: u16, paths: &[&str]) {
         .declare_scope(
             &job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: paths.iter().map(|path| path.to_string()).collect(),
             },
         )
@@ -384,4 +385,82 @@ fn the_turn_names_five_and_counts_the_rest() {
     assert!(PeersChanged::injected(&landed)
         .text()
         .contains("when your next part starts, not now"));
+}
+
+/// **Who is ahead is not spaced.** A Drone that picks its value before it hears
+/// who took the number renumbers after, so the news of a need reaches it on the
+/// next turn even inside the spacing a shared path waits out. #1059.
+#[tokio::test]
+async fn a_drone_behind_a_need_is_told_who_is_ahead_without_waiting_out_the_spacing() {
+    let home = TempDir::new();
+    let clock = Arc::new(Held::started());
+    let (fleet, peers) = two_at_once_on(&home, &clock);
+    let (reader, writer) = two_jobs(&fleet, &peers, &home, (51207, 51208)).await;
+    for args in [
+        &["-c", "init.defaultBranch=main", "init", "--quiet"][..],
+        &[
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "start",
+            "--quiet",
+        ][..],
+    ] {
+        let run = std::process::Command::new("git")
+            .arg("-C")
+            .arg(home.path())
+            .args(args)
+            .output()
+            .expect("git on PATH");
+        assert!(run.status.success(), "{run:?}");
+    }
+    for job in [&reader, &writer] {
+        let branch = fleet
+            .load(job)
+            .await
+            .expect("the Job")
+            .branch()
+            .expect("a branch")
+            .clone();
+        let run = std::process::Command::new("git")
+            .arg("-C")
+            .arg(home.path())
+            .args(["branch", branch.as_str()])
+            .output()
+            .expect("git on PATH");
+        assert!(run.status.success(), "{run:?}");
+    }
+    declares(&fleet, 51207, &["crates/store"]).await;
+    declares(&fleet, 51208, &["crates/store"]).await;
+    fleet.turn().await.expect("a turn");
+    let once = turns(&told_more_than(&fleet, &home, &writer, 0).await);
+
+    let need = |took: Option<&str>| DeclareScope {
+        context_paths: vec!["crates/store".to_string()],
+        needs: vec![ipc::mcp::NeedClaim {
+            path: "crates/store/src/migrations.rs".to_string(),
+            what: "a new migration".to_string(),
+            took: took.map(str::to_string),
+        }],
+    };
+    fleet
+        .declare_scope(&reader, &need(Some("V95")))
+        .await
+        .expect("declares");
+    fleet
+        .declare_scope(&writer, &need(None))
+        .await
+        .expect("declares");
+    fleet.turn().await.expect("a turn inside the spacing");
+
+    let heard = told_more_than(&fleet, &home, &writer, once).await;
+    let last = last_turn(&heard);
+    assert!(last.contains("Ahead of you on"), "{last}");
+    assert!(last.contains("crates/store/src/migrations.rs"), "{last}");
+    assert!(last.contains("took V95"), "{last}");
+    assert!(last.contains("`took`"), "it says how to answer: {last}");
 }

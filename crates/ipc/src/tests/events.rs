@@ -186,6 +186,7 @@ fn a_held_command_goes_out_whole_and_comes_back_empty() {
         waiting: Some(crate::CommandInFlight {
             call: "toolu_01".to_string(),
             step_id: crate::StepId::carried("repro"),
+            drone_id: None,
             asked_at: crate::Instant::carried("2026-09-11T09:00:00.000Z"),
             tool: "Bash".to_string(),
             detail: "touch x".to_string(),

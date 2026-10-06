@@ -28,7 +28,7 @@ import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type 
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "./facts";
 import type { HeldCommand } from "./drone-held";
-import { withAsk } from "./held-card";
+import { askNodeId, withAsk } from "./held-card";
 import { frozenBeneath } from "./frozen";
 import { plural } from "./plan-canvas";
 import { activityOf, stateOf, took } from "./run";
@@ -317,7 +317,16 @@ export function workflowRunOf({
   const at = whole.job.current_step_id;
   const running = at !== undefined && steps.some((step) => step.step_id === at) ? stepNodeId(at) : null;
   const asked = withAsk(nodes, edges, held === undefined ? undefined : stepNodeId(held.stepId), held);
-  return { nodes: asked.nodes, rows, edges: asked.edges, running, opensOn: opensOn(steps, at) };
+  const hosted = held !== undefined && asked.nodes.length > nodes.length ? stepNodeId(held.stepId) : undefined;
+  const reading = opensOn(steps, at);
+  // The held step and its card, so a fit that cannot show the run opens on the prompt.
+  return {
+    nodes: asked.nodes,
+    rows,
+    edges: asked.edges,
+    running,
+    opensOn: hosted === undefined ? reading : [...reading.map((ids) => [...ids, askNodeId(hosted)]), [hosted, askNodeId(hosted)]],
+  };
 }
 
 /**

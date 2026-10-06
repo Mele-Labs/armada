@@ -22,7 +22,7 @@ const MANIFEST: &str =
                         test:\n    run: /usr/bin/true\n";
 
 /// `implement` runs two Manifest Checks and a Judge; `handoff` asks nobody.
-const WORKFLOW: &str = "version: 1\nworkflow_id: fixture-tuned\nname: fixture\nstructure: linear\n\
+const WORKFLOW: &str = "version: 1\nworkflow_id: fixture-tuned\nname: fixture\n\
      steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
      mechanical_checks:\n      - type: diff_nonempty\n      - type: manifest_check\n        check: build\n      \
      - type: manifest_check\n        check: test\n    judge_checks:\n      - criteria:\n          - \

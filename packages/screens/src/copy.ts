@@ -11,6 +11,7 @@
 // file's subject; which control draws them is that file's.
 
 import type { DialogTone } from "@armada/components";
+import { reclaimedSaid, slotNameOf } from "./held";
 
 import type {
   CommandAnswer,
@@ -134,6 +135,7 @@ export function said(outcome: Outcome): string {
  * about it rather than that something went wrong.
  */
 export function reclaimed(answer: WorktreeReclaimed): string {
+  if (answer.saved != null) return reclaimedSaid(answer, slotNameOf(answer.worktree.path) !== null)[0]!;
   const checkout = answer.worktree.removed
     ? `The worktree at ${answer.worktree.path} is gone.`
     : `The worktree at ${answer.worktree.path} is still there — ${answer.worktree.why ?? "no reason was given"}.`;
@@ -190,10 +192,10 @@ export const CONFIRM: Record<ConfirmableAct, { title: string; body: string; tone
   reclaim_worktree: {
     title: "Give this job's worktree back?",
     body:
-      "The checkout is deleted and the disk it was using comes back. The job stays on the " +
-      "board with everything it recorded — this removes a directory, not the job. Its branch " +
-      "is deleted only if the base branch already has every commit on it; one holding work " +
-      "nothing has taken is kept, and the answer says so.",
+      "Releases its slot to the pool, or removes a worktree outside the pool. Uncommitted " +
+      "files are committed to its branch first. The branch is deleted only if the base branch " +
+      "has every commit on it; one holding work nothing has taken is kept. The job stays on " +
+      "the board with everything it recorded.",
   },
   restart_step: {
     title: "Restart this step?",
@@ -404,6 +406,20 @@ export const COMMAND_ANSWER: Record<CommandAnswer, { label: string; means: strin
 };
 
 /**
+ * Always allow kept in Kit, for every repository on this machine. **Not a
+ * fourth `CommandAnswer`**: the wire's answer is `always_allow` and where it is
+ * kept is a `scope` beside it, so this is Bridge's own name for the choice, and
+ * `choiceNamed` turns it back into the two before anything is sent.
+ */
+export const ALWAYS_ALLOW_KIT = "always_allow_kit";
+
+/** The words on Always allow in Kit, and what it commits to. */
+export const KIT_ANSWER = {
+  label: "Always allow on this machine",
+  means: "Allows this command in every repository on this machine. You can remove it from the Kit page.",
+};
+
+/**
  * What each answer to a held **helm** call commits to. #1389.
  *
  * Its own record beside `COMMAND_ANSWER`, because the two sets are different
@@ -445,9 +461,15 @@ export function helmAnswerNamed(name: string): HelmCallAnswer | undefined {
   return (Object.keys(HELM_CALL_ANSWER) as HelmCallAnswer[]).find((answer) => answer === name);
 }
 
-/** One answer, worded, and the Always-allow rule reading it carries. */
+/**
+ * One answer, worded, and the Always-allow rule reading it carries. **`id` is
+ * what a control hands back**: the wire's own word, except for Always allow in
+ * Kit, which has the wire's `always_allow` as its `offer` and `scope: "kit"`.
+ */
 export type OfferedAnswer = {
   offer: CommandAnswer;
+  id: string;
+  scope?: "kit";
   label: string;
   means: string;
   rules?: readonly string[];
@@ -461,6 +483,10 @@ export type OfferedAnswer = {
  *
  * **`rules` rides only on `always_allow`**, and only where Fleet sent at least
  * one candidate — never computed here, per `chains`.
+ *
+ * **Always allow on this machine follows Always allow, and only where there is
+ * a rule to send with it.** The whole of a chained command is refused for Kit,
+ * so Fleet's candidates are all there is to offer, and none means no choice.
  */
 export function offeredOf(
   offers: readonly CommandAnswer[],
@@ -471,22 +497,40 @@ export function offeredOf(
     const said = known[offer];
     if (said === undefined) return [];
     const candidates = offer === "always_allow" ? rules?.rules : undefined;
-    return [
-      {
-        offer,
-        ...said,
-        ...(candidates === undefined || candidates.length === 0 ? {} : { rules: candidates }),
-        ...(candidates === undefined || candidates.length === 0 || rules?.suggestedRule === undefined
-          ? {}
-          : { suggestedRule: rules.suggestedRule }),
-      },
-    ];
+    const withRules =
+      candidates === undefined || candidates.length === 0
+        ? {}
+        : {
+            rules: candidates,
+            ...(rules?.suggestedRule === undefined ? {} : { suggestedRule: rules.suggestedRule }),
+          };
+    const answer: OfferedAnswer = { offer, id: offer, ...said, ...withRules };
+    if (offer !== "always_allow" || candidates === undefined || candidates.length === 0) return [answer];
+    return [answer, { offer, id: ALWAYS_ALLOW_KIT, scope: "kit" as const, ...KIT_ANSWER, ...withRules }];
   });
 }
 
 /** An answer a control handed back, as the wire's word — or nothing, for one this build never drew. */
 export function answerNamed(name: string): CommandAnswer | undefined {
   return (Object.keys(COMMAND_ANSWER) as CommandAnswer[]).find((answer) => answer === name);
+}
+
+/**
+ * The rule Always allow on this machine sends for a command in the dock, where
+ * there is no picker: the one Fleet pre-selected, else the longest candidate,
+ * which is the narrowest. **Never the whole command**: Fleet refuses a chained
+ * one for Kit. Absent where Fleet sent no candidate, and then the choice was
+ * never drawn.
+ */
+export function ruleForKit(waiting: { rules: readonly string[]; suggested_rule?: string }): string | undefined {
+  return waiting.suggested_rule ?? waiting.rules[waiting.rules.length - 1];
+}
+
+/** What a control handed back, as the answer and the scope that go to Fleet. Always allow in Kit is the wire's `always_allow` with `scope: "kit"`. */
+export function choiceNamed(name: string): { answer: CommandAnswer; scope?: "kit" } | undefined {
+  if (name === ALWAYS_ALLOW_KIT) return { answer: "always_allow", scope: "kit" };
+  const answer = answerNamed(name);
+  return answer === undefined ? undefined : { answer };
 }
 
 export const ACT_LABEL: Record<JobAct, string> = {

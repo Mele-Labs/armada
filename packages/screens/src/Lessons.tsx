@@ -3,7 +3,9 @@
 //
 // **The owner reads and answers.** Each item offers Agree and Disagree. Agree
 // on an Armada or Manifest item proposes a Job at the approval gate; on a Kit
-// item it saves the item under Accepted. Disagree discards it. A row's Job
+// item it saves the item under Accepted, and where the item carries a command
+// it adds that command to Kit's allowed commands and the button reads Update
+// Kit. Disagree discards it. A row's Job
 // label opens that Job's retro.
 
 import { useState } from "react";
@@ -101,9 +103,16 @@ export function Lessons({
         },
       };
     }
-    // A saved item is read and nothing more: the view says it is accepted.
-    if (view === "accepted") return [withEvidence];
-    const shown = answered(row.id, row.landsIn, { state: "open" });
+    // A saved item is read and nothing more: the view says it is accepted. One that
+    // updated Kit says so, with the command Fleet applied.
+    if (view === "accepted") {
+      const shown = row.applied === undefined ? undefined : answered(row.id, row.landsIn, { state: "accepted", applied: row.applied });
+      return [{ ...withEvidence, ...(shown?.settled === undefined ? {} : { settled: shown.settled }) }];
+    }
+    const shown = answered(row.id, row.landsIn, {
+      state: "open",
+      ...(row.change === undefined ? {} : { change: row.change }),
+    });
     if (shown.gone) return [];
     return [
       {
@@ -193,6 +202,8 @@ export function JobRetroSheet({
     const shown = answered(item.id ?? "", item.landsIn, {
       ...(item.state === undefined ? {} : { state: item.state }),
       ...(item.jobProposed === undefined ? {} : { jobProposed: item.jobProposed }),
+      ...(item.change === undefined ? {} : { change: item.change }),
+      ...(item.applied === undefined ? {} : { applied: item.applied }),
     });
     if (shown.gone) return [];
     return [

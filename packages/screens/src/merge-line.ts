@@ -5,8 +5,8 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineCheck, MergeLineEntry, MergeLineState } from "@armada/components";
-import type { MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
+import type { MergeLine, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -23,7 +23,31 @@ export type MergeLineView = {
   landed: readonly MergeLineEntry[];
   /** Red, conflict or stopped and not back in line, newest first. */
   sentBack: readonly MergeLineEntry[];
+  /** The turn's failed Check, while it runs on. */
+  notice?: MergeLineNotice;
 };
+
+/**
+ * A line as the mock serves it ahead of the wire: `notice` is not a field of protocol 23 yet, so a
+ * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
+ */
+type NoticedLine = MergeLine & { notice?: MergeLineNotice };
+
+/** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
+type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
+
+/**
+ * The line in the order it will merge: the turn that is running first, in place order, then what
+ * waits, in place order, which is the order the next turn takes. **Each row's number is its
+ * position here**, not the place it joined at, which a branch keeps after a red.
+ */
+function inOrder(rows: readonly MergeLineRow[]): MergeLineRow[] {
+  const ahead = (row: MergeLineRow) => (row.state === "waiting" ? 1 : 0);
+  return rows
+    .map((row, at) => ({ row, at }))
+    .sort((a, b) => ahead(a.row) - ahead(b.row) || a.at - b.at)
+    .map(({ row }, at) => ({ ...row, place: at + 1 }));
+}
 
 /** How much of a merge commit a row shows. */
 const SHORT = 10;
@@ -47,9 +71,10 @@ export function mergeLineViews(
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: one.line.map(entryOf),
-    landed: one.landed.map(entryOf),
-    sentBack: one.sent_back.map(entryOf),
+    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
+    landed: one.landed.map((row) => entryOf(row)),
+    sentBack: one.sent_back.map((row) => entryOf(row)),
+    ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
   }));
 }
 
@@ -62,8 +87,11 @@ function nameOf(root: string, repositories: readonly RepositorySummary[]): strin
 /**
  * The state a row draws. **A turn that has run no Check yet is `preparing`**, Bridge's own: Fleet
  * serves `gating` for the whole turn, and its Check list is what tells the two parts apart.
+ * **A turn whose notice is `main` is `held`**, also Bridge's own: its failed Check is red on main
+ * too, so the running rows stop rather than run on.
  */
-function stateOf(row: MergeLineRow): MergeLineState {
+function stateOf(row: MergeLineRow, held: boolean): MergeLineState {
+  if (held && (row.state === "gating" || row.state === "merging")) return "held";
   if (row.state === "gating" && (row.checks ?? []).length === 0) return "preparing";
   return row.state as MergeLineState;
 }
@@ -77,12 +105,13 @@ function pullRequestOf(pr: NonNullable<MergeLineRow["pull_request"]>): NonNullab
   return { number: pr.number, url: pr.url, ...(settled === undefined ? {} : { settled }) };
 }
 
-function entryOf(row: MergeLineRow): MergeLineEntry {
+function entryOf(row: MergeLineRow, held = false): MergeLineEntry {
   return {
     branch: row.branch,
     place: row.place,
     pr: row.pull_request === undefined ? undefined : pullRequestOf(row.pull_request),
-    state: stateOf(row),
+    state: stateOf(row, held),
+    why: (row as ReasonedRow).why,
     doing: row.doing,
     batch: row.batch,
     merge: row.merge_commit?.slice(0, SHORT),

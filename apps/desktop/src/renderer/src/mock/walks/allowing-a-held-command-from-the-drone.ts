@@ -5,7 +5,7 @@ import { button, card, inside, role, tab, text, walk } from "../walk";
 
 const DRONE = role("group", "Drone on T5");
 
-export const allowingAHeldCommandFromTheDrone = walk("arc/executing-held", [
+export const allowingAHeldCommandFromTheDrone = walk("held/command", [
   { press: tab("Plan"), say: "The plan, as its groups and tasks" },
   { look: inside(card("Draw what is running, in four lists"), text("Needs you")), say: "The graph's T5 card says a command waits for you" },
   { press: card("Draw what is running, in four lists"), say: "T5's Drone is waiting on you, on its card" },

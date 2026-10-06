@@ -461,6 +461,22 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// Holds nothing, and answers with the one command a removal was asked
+    /// for gone: enough for a route test to tell the body arrived.
+    async fn remove_kit_allowed_command(
+        &self,
+        removing: ipc::RemoveKitAllowedCommand,
+    ) -> Result<ipc::KitAllowedCommands, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_allow",
+            format!(
+                "Kit's allowlist holds no command spelled `{}`",
+                removing.run
+            ),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     /// Refused, naming what was asked for, so a route test can tell the body
     /// arrived. Holding a server is `fleet::servers`' and tested there.
     async fn start_server(

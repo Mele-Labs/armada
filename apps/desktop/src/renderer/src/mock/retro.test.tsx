@@ -86,7 +86,9 @@ test("a Job's own retro opens from its Record, with the same items and answers",
   expect(sheet.getByRole("img", { name: "Lands in Armada" }).elements()).toHaveLength(2);
   expect(sheet.getByRole("img", { name: "Lands in the Manifest" }).elements()).toHaveLength(1);
   expect(sheet.getByRole("button", { name: "Create Job", exact: true }).elements()).toHaveLength(3);
-  expect(sheet.getByRole("button", { name: "Accept", exact: true }).elements()).toHaveLength(1);
+  // Job 3's grep item carries a change, so Fleet's Accept is Update Kit here.
+  expect(sheet.getByRole("button", { name: "Update Kit", exact: true }).elements()).toHaveLength(1);
+  expect(sheet.getByRole("button", { name: "Accept", exact: true }).elements()).toHaveLength(0);
 });
 
 test("the retro lessons tabs narrow the list to where each fix lands, with All first and no counts", async () => {
@@ -129,17 +131,38 @@ test("Agree on an Armada item proposes a Job and keeps a link to it, Agree on a 
   await expect.element(card(STALE_MAIN).getByText("Agreed")).toBeVisible();
   await expect.element(card(STALE_MAIN).getByRole("button", { name: "Proposed Job" })).toBeVisible();
 
-  await card(GREP).getByRole("button", { name: "Accept", exact: true }).click();
-  await expect.poll(() => titles().some((one) => /grep/.test(one))).toBe(false);
+  await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
+  // A Kit item that updated Kit stays, reading Updated Kit, until the list is read again.
+  await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
   await card(DOCS).getByRole("button", { name: "Reject change", exact: true }).click();
   await expect.poll(() => titles().some((one) => /Rust test/.test(one))).toBe(false);
 
   await page.getByRole("tab", { name: "Accepted", exact: true }).click();
   await expect.poll(() => titles()).toEqual([expect.stringMatching(/grep to be allowed/)]);
-  expect(card(GREP).getByRole("button", { name: /^(Create Job|Accept|Reject change)$/ }).elements()).toHaveLength(0);
+  expect(card(GREP).getByRole("button", { name: /^(Create Job|Accept|Update Kit|Reject change)$/ }).elements()).toHaveLength(0);
+  // What Fleet applied is read back with the saved item.
+  await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
+  await expect.element(card(GREP).getByText("grep", { exact: true })).toBeVisible();
   // Read again, the agreed item is no longer open either: two items are left.
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.poll(() => titles()).toHaveLength(2);
+});
+
+test("Update Kit puts the command on the Kit page's allowlist as a retro item's, and Remove takes it off", async () => {
+  mount("retro/lessons");
+  await onScreen();
+  await lessons();
+
+  await card(GREP).getByRole("button", { name: "Update Kit", exact: true }).click();
+  await expect.element(card(GREP).getByText("Updated Kit", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Kit", exact: true }).click();
+  const allowlist = page.getByRole("region", { name: "Allowlist" });
+  const row = allowlist.getByRole("listitem").filter({ hasText: "grep" });
+  await expect.element(row).toBeVisible();
+  await expect.element(row.getByText("Retro item", { exact: true })).toBeVisible();
+  await row.getByRole("button", { name: "Remove grep" }).click();
+  await expect.poll(() => allowlist.getByRole("listitem").elements().length).toBe(0);
 });
 
 test("a Job whose retro is not written says so, and nothing more", async () => {

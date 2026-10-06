@@ -151,7 +151,7 @@ where
         let setup = self.setup();
         let read = tokio::task::spawn_blocking(move || setup.read()).await;
         match read {
-            Ok(read) => inventory(read),
+            Ok(read) => self.with_kits_allowlist(inventory(read)).await,
             // A panicked read is a bug in an adapter, and the answer a person
             // gets for it says the home was not read rather than that it holds
             // nothing.
@@ -162,6 +162,36 @@ where
                 kinds: Vec::new(),
             },
         }
+    }
+
+    /// Kit's own allowlist, read from `~/.armada`, in place of the row the
+    /// harness's home answers *not read* for: that row was the harness's rules
+    /// and this is Armada's. **Each command crosses as its text and where it
+    /// came from**, nothing that could widen it. A file that will not read is
+    /// `not_read` with why, and never an empty list.
+    async fn with_kits_allowlist(&self, mut seen: ipc::KitInventory) -> ipc::KitInventory {
+        let read = match self.kit_allowlist_read().await {
+            Ok(allowed) => ipc::WhatWasRead::Read {
+                items: allowed
+                    .iter()
+                    .map(|command| ipc::SetupItem {
+                        name: command.run.clone(),
+                        says: None,
+                        source: crate::kit_allowlist::said_source(&command.from),
+                    })
+                    .collect(),
+                unreadable: Vec::new(),
+            },
+            Err(why) => ipc::WhatWasRead::NotRead { why },
+        };
+        match seen.kinds.iter_mut().find(|row| row.kind == "allowlist") {
+            Some(row) => row.read = read,
+            None => seen.kinds.push(ipc::SetupKindRow {
+                kind: String::from("allowlist"),
+                read,
+            }),
+        }
+        seen
     }
 
     /// `add_kit_server` — put a server in Kit, reaching no Drone.

@@ -6,7 +6,7 @@ import { button, card, inside, role, tab, text, walk } from "../walk";
 
 const ASK = role("group", "Needs you");
 
-export const allowingAHeldCommandFromTheCanvas = walk("arc/executing-held", [
+export const allowingAHeldCommandFromTheCanvas = walk("held/command", [
   { press: tab("Plan"), say: "The plan, as its groups and tasks" },
   { look: inside(card("Draw what is running, in four lists"), text("Needs you")), say: "T5's card says a Drone under it needs you" },
   { look: ASK, say: "A card beside it asks, joined to T5 by an edge" },

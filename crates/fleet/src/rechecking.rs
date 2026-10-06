@@ -21,6 +21,7 @@ use crate::adrift::Adrift;
 use crate::at_step::AtStep;
 use crate::daemon::Fleet;
 use crate::gate::{rule_on, Began, Ruling};
+use crate::grouping::GroupEnd;
 use crate::keeping::Keeping;
 use crate::regating::came_to;
 use crate::rerun_settles::{as_settled, note, settled, with_the_note};
@@ -410,6 +411,7 @@ where
             .await?;
         self.kept_what_the_gate_checked(job, &ruling).await;
         self.kept_timings(job, announcing.timings()).await;
+        self.kept_runs(job, announcing.runs()).await;
         drop(announcing);
         self.recorded_judgments(job_id, step, &ruling).await?;
         self.recorded_policies(job_id, step, &ruling).await?;
@@ -425,6 +427,11 @@ where
     /// going through `act_on`: that arm starts the next Drone in the slot, and a
     /// slot opened here is not admission's, so a press would put a Drone past
     /// `concurrency-cap`. Every other ruling starts no Drone and is `act_on`'s.
+    ///
+    /// **A pass on a group with a group after it keeps the step** (#1792): the
+    /// group's run is closed and committed as the gate's own pass does, the step
+    /// stays `running` and the Job re-queues, so admission puts a Drone on the
+    /// next group's first task.
     async fn carried_on(
         &self,
         ruling: &Ruling,
@@ -446,12 +453,26 @@ where
                 },
             });
         }
+        // **A pass closes the group it ruled on, as the gate's own does**, and the
+        // step moves only when no group is left. #1792. The next group's Drone is
+        // admission's, for this function's reason above.
+        let mut group_follows = false;
+        if let Ruling::Advanced { .. } = ruling {
+            if let Some((at, GroupEnd::Passed)) = self.group_ruled(ruling, job_id, step).await? {
+                self.group_closed(at, job_id, Some(worktree)).await?;
+                group_follows = at.follows;
+            }
+        }
+        let job = self.load(job_id).await?;
         let job = self.move_job(&job, Target::Running, Actor::Human).await?;
         let job = self
             .move_step_by(&job, step, StepTarget::Rechecking(stopped_by), Actor::Human)
             .await?;
         if let Ruling::Advanced { .. } = ruling {
-            let job = self.move_step(&job, step, StepTarget::Advanced).await?;
+            let job = match group_follows {
+                true => job,
+                false => self.move_step(&job, step, StepTarget::Advanced).await?,
+            };
             drop(working);
             return self.move_job(&job, Target::Queued, Actor::Human).await;
         }

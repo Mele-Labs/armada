@@ -52,6 +52,38 @@ Still open: whether the root *owns* the lockfile as opposed to merely being able
 
 **Fleet tracks whether a required root command has already run for a given worktree**, and re-runs it when **either** the worktree is new, or the evidence backing the root command — the lockfile/manifest Scan traced it from — has drifted since it last ran. That is the same signal Verify's drift detection computes, applied at dispatch time instead of on-demand.
 
+### Workspace gating
+
+Decided 2 Oct 2026. **A manifest gates a change when the diff touches a path it owns, or a path matching one of its `depends_on` globs.** Within a gating manifest each Check still applies its own `when`, and runs in that manifest's directory.
+
+```yaml
+# packages/a/armada.yml
+depends_on: ["packages/lib/**", "pnpm-lock.yaml"]
+checks:
+  test:
+    run: pnpm test
+    when: ["src/**"]
+```
+
+- **`depends_on` is a list of repository-relative globs in the `when:` dialect**, which the Configuration contract states once. A pattern from another dialect is refused at load. An empty list is refused, as `when: []` is.
+- **It is not transitive.** If `a` depends on `lib` and `lib` depends on `core`, a change to `core` gates `lib` and not `a`. Why: a transitive closure makes the gating set depend on every manifest's list at once, so a line edited in one file changes what an unrelated file gates, and nobody can read a manifest's reach from the manifest. A manifest that is affected by `core` says so itself.
+- **`when:` in a workspace file is relative to that workspace's directory.** A pattern like `src/**` in a workspace file means `src/**` under that workspace's directory. `depends_on` is the one key written repository-relative, because it names paths the manifest does not own.
+- **A `depends_on` hit runs the Checks that declare no `when`.** A workspace's `when` is read from its own directory, so it cannot match a path the manifest does not own. A Check meant to run when a dependency changes writes no `when`.
+- **A root Check's path condition is implicit.** It runs when the diff touches a root-owned path, which is a path no workspace claims, and the root's own `when:` narrows that further. Root `when:` is repository-relative and is intersected with root ownership; there is no key to write the ownership half.
+- **A workspace may name a root Command in `setup.requires`.** The name resolves against the workspace's own Commands first and then the root's.
+- **`setup.worktrees` and `setup.seed` are refused in a workspace file.** It is read from the root at every lease, so a second value of either would be one nothing reads.
+- **An empty diff gates nothing.** Decided 6 Oct 2026. A Job that changed no files runs no Checks, in every repository, and `config::gating` returns no manifest for it. A Check with no `when` still reads as always on a non-empty diff; the two are kept apart by asking the gating set first and never handing an empty path list to `Covers::reach`.
+- **A workflow resolves over a gating set.** `ResolvedWorkflow::resolve_gated` expands `every_manifest_check` once per manifest it is given, in the order given, and each frozen Check carries the directory of the manifest that declared it (empty for the root). A step that names a Check by name still resolves it against the root. `resolve` is the same over the root alone, so a repository with no workspaces freezes what it always did.
+- **`Job::gate_manifests` is empty for a repository with no workspaces**, where the root gates every Job and nothing needs saying. Where workspaces exist it lists every manifest that gates, the root included. It is first written at dispatch from `write_targets`: undetermined gates every manifest, determined and empty gates none.
+
+**What the gate must do** (not built; the step gate and the merge line own it):
+
+- **Refresh `gate_manifests` from the actual diff** with `Store::replace_gate_manifests`, and record each manifest's real outcome. Dispatch writes a placeholder, since no Check has run.
+- **Run a Check in its manifest's directory**, keyed by `(manifest_dir, name)`: two manifests may each declare `test`.
+- **Read the changed paths, not the list alone.** An empty `gate_manifests` means the root alone in a repository with no workspaces and nothing in one that has them.
+- **Resolve at startup over every manifest**, because a workflow resolves once with no diff. The gate then skips the Checks whose manifest the diff does not gate.
+- **Stop `not_covered` reading no paths as always.** It asks `Covers::reach` with the step's paths, and an empty list must skip every Check before that question is asked.
+
 ### Seeding a worktree's build
 
 **`setup.seed` names the build directories a new worktree starts from, and the Commands that fill them.** Fleet runs `warm` in the base checkout when the base moves and marks the seed only once every command has succeeded; it clones `paths` into each new worktree, copy-on-write, before `setup.requires` runs. A Job cut while the seed is warming, or on a volume that cannot clone, starts cold and says why — a seed is never copied in full, and never shared. A repository that declares no seed gets none.
@@ -158,7 +190,7 @@ commands:
 
 An end-to-end Check that needs `migrate` and `seed` to have run first has no other way to say so: `setup.requires` (see Root `armada.yml`) is per *worktree* and runs once, so it cannot express per-Check ordering.
 
-A re-run is where a red the contention made is cleared by a person's press. When it passes, the group's tasks that the red run had marked `failed` are marked `done` and the Judge is told so (4 Oct 2026, Job 3; `plan.md`, *failed*).
+A re-run is where a red the contention made is cleared by a person's press. When it passes, the group's tasks that the red run had marked `failed` are marked `done` and the Judge is told so (4 Oct 2026, Job 3; `plan.md`, *failed*). The pass also closes that group's run, and where a group follows it the step is not advanced: the next group starts (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792; `plan.md`).
 
 Rules that follow:
 
@@ -732,12 +764,14 @@ merge_by: push
 | `forge` (default) | Asks the forge to merge the pull request, `--merge`. Branch protection and the forge's own checks stay in the path |
 | `push` | Makes the `--no-ff` merge commit itself and pushes the base, never forced, with the code `armada land` lands this repository with. The forge reads the pull request merged once its head is in the base |
 
+**A declared need holds Fleet's press under both values** (#1059). Under `forge` it is still Fleet that asks the forge to merge, so Fleet refuses before it does while a need ahead of the Job's stands; a person pressing the forge's own button goes around it. `docs/concepts/fleet.md`, *Declared needs*.
+
 **`forge` is the default, so a repository that says nothing lands exactly as it did before the key existed.** It is the only value that keeps a protected base and the forge's required checks in the path, and a repository that has those has them for a reason this file cannot see. `push` is for a repository where the forge adds a round trip and guards nothing, which is why `armada land` stopped merging through it: [Merge line](../capabilities/merge-line.md), *The merge*.
 
 **Under `push`, only a branch that already holds the base lands, and only at a head whose tree the Job's Checks passed on.** The merge commit carries the branch's own tree. Fleet records the tree a gate's Checks passed on when they were every Manifest Check the workflow declares, and the push refuses a head carrying any other. Fleet's own merges move the head without running a Check: the sweep keeping a pull request current with its base, and a delivery catching its branch up. **Such a head is gated where it stands before the push**, with the Checks below asked of what changed since the tree they passed on and what the branch carries over the base. A red refuses as `fleet.merge_gate_failed` and pushes nothing. Nothing is put back, because Fleet did not make that head in this press and the remote branch already holds it. Decided 1 Oct 2026. **A base that has moved past the branch, or moves before the push, is brought in and gated again**, the way `armada land` answers it: Fleet merges the base the remote holds into the branch, in the Job's own worktree and never by rebasing, runs the Job's Checks over the merge, and pushes again. Decided 1 Oct 2026.
 
 - **The Checks are every Manifest Check the Job's workflow declares, from every step.** The step a Job holds at before merging is a hand-off that declares none in every shipped workflow, so its own list would gate nothing; what the merge changes is the tree the earlier steps' Checks read. Each Check's `when` is asked of what either side changed, as the merge line asks it.
-- **A red is the branch's, even where the base fails the same way.** Fleet has no reading of the base's own Checks to compare against, so nothing is excused.
+- **A red Check is asked of the base once before it is the branch's.** Green there, it runs once more on the branch and counts only if it fails again. Red there too, it is the base's and is recorded so. [Merge line](../capabilities/merge-line.md), *Fleet's line*.
 - **A conflict refuses as `fleet.merge_conflicted` and a red as `fleet.merge_gate_failed`, and either puts the branch back.** A branch left holding the base would be landed unread by the next press, because it would then hold the base.
 - **The base moving again goes round, up to the five rounds `armada land` allows**, and then refuses as `fleet.merge_base_moved` naming them.
 - **While it runs, every other act at the gate is refused**, because each would change the worktree the Checks are reading. The Job stays at `awaiting_review` throughout, with each round a line in its log and the Checks shown running on the step it holds at.

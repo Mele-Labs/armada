@@ -27,6 +27,7 @@ import {
   Merge,
   Presentation,
   Settings as SettingsIcon,
+  Workflow,
 } from "lucide-react";
 
 import type { PaletteSurface } from "./Palette";
@@ -68,6 +69,8 @@ const RAIL = [
   "merge-line",
   // The eleventh, on the tenth's terms: no digit moves and it takes none.
   "lessons",
+  // The twelfth, on the same terms: no digit moves and it takes none.
+  "workflows",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -83,6 +86,7 @@ export const SURFACE = {
   guides: "guides",
   mergeLine: "merge-line",
   lessons: "lessons",
+  workflows: "workflows",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -191,6 +195,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     aliases: ["retro"],
     icon: Rewind,
   },
+  {
+    id: SURFACE.workflows,
+    label: "Workflows",
+    // Past the ninth, so no key; reached by the rail and by name.
+    shortcut: digitOf(SURFACE.workflows),
+    aliases: ["workflow", "create workflow"],
+    icon: Workflow,
+  },
 ];
 
 /**
@@ -212,7 +224,7 @@ export const RAIL_PANELS = [
     label: "Work",
     surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons],
   },
-  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides] },
+  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
 
 /** One panel's rows, in the order it names them, skipping any surface that is not built. */

@@ -33,6 +33,7 @@ const AT_ONCE: usize = 4;
 
 fn named(name: &str, run: &str) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: name.to_string(),
         run: run.to_string(),
         expect_exit_code: 0,

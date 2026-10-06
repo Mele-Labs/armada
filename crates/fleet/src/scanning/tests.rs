@@ -8,7 +8,7 @@ use adapter_traits::{CiConfiguration, CiNotFollowed, CiReading, RepositoryFiles}
 use adapters::ActionsWorkflows;
 use ipc::{CiCommand, EvidenceStrength, RepositoryScan, ScannedWorkspace};
 
-use super::{compose, scan, Checkout};
+use super::{compose, manifested, scan, Checkout};
 use crate::tests::tmp::TempDir;
 
 /// A checkout holding these files, parents made.
@@ -382,4 +382,52 @@ fn a_ci_provider_the_reader_does_not_follow_reads_not_followed_through_scan() {
         scan.not_read[0].why.contains("does not follow"),
         "never clean"
     );
+}
+
+/// The directories `manifested` names for these files.
+fn manifested_in(files: &[(&str, &str)]) -> Vec<String> {
+    manifested(&Checkout::at(checkout(files).path()))
+}
+
+const PACKAGE: &str = "{}";
+const MANIFEST: &str = "version: 1\nid: x\n";
+
+#[test]
+fn a_manifested_workspace_is_found_three_directories_down_and_not_four() {
+    let found = manifested_in(&[
+        ("one/two/three/package.json", PACKAGE),
+        ("one/two/three/armada.yml", MANIFEST),
+        ("one/two/three/four/package.json", PACKAGE),
+        ("one/two/three/four/armada.yml", MANIFEST),
+    ]);
+    assert_eq!(found, ["one/two/three"]);
+}
+
+#[test]
+fn an_armada_yml_with_no_package_file_beside_it_is_not_a_workspace() {
+    let found = manifested_in(&[
+        ("tools/armada.yml", MANIFEST),
+        ("lib/armada.yml", MANIFEST),
+        ("lib/Cargo.toml", ""),
+    ]);
+    assert_eq!(found, ["lib"]);
+}
+
+#[test]
+fn a_workspace_with_a_package_file_and_no_armada_yml_is_not_manifested() {
+    let found = manifested_in(&[("lib/package.json", PACKAGE)]);
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn the_roots_own_armada_yml_and_skipped_directories_are_not_listed() {
+    let found = manifested_in(&[
+        ("package.json", PACKAGE),
+        ("armada.yml", MANIFEST),
+        ("node_modules/dep/package.json", PACKAGE),
+        ("node_modules/dep/armada.yml", MANIFEST),
+        ("apps/web/package.json", PACKAGE),
+        ("apps/web/armada.yml", MANIFEST),
+    ]);
+    assert_eq!(found, ["apps/web"]);
 }

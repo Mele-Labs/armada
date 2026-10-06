@@ -41,6 +41,7 @@ mod attempt;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
+mod check_runs;
 mod checked;
 mod columns;
 /// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
@@ -54,6 +55,7 @@ mod fold;
 mod footprint;
 mod forget;
 mod gaming;
+mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
@@ -71,6 +73,9 @@ mod manifest_allowed;
 /// What the Manifest read at Job creation, kept whole and off the Job row's
 /// own fields.
 mod manifest_snapshot;
+/// The merge line Fleet keeps for each repository it serves: entries, the turn,
+/// and the size a turn takes.
+mod merge_line;
 /// The migration list, and where a file stands against it. `V1`..`V16` stay in
 /// `schema`; this is only what had to move to keep that file under the gate.
 mod migrations;
@@ -82,6 +87,8 @@ mod model_per_task;
 mod note;
 mod numbering;
 mod open;
+/// The marker on a paused Job, and the slot it gave up. Since V111.
+mod pausing;
 /// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
 mod pending_evidence;
 /// What a step said its work would be, kept after the slot that held it is
@@ -161,6 +168,7 @@ mod tests;
 
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
+pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use drift::ScopeDrift;
@@ -171,6 +179,7 @@ pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
+pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
 pub use pending_evidence::PendingEvidence;

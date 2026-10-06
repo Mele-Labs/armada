@@ -51,6 +51,7 @@ export const JOB_STATUS: Readonly<Record<string, Rendering | undefined>> = {
 
 /** `queued_reason`, keyed by the wire value. */
 export const QUEUED_REASON: Readonly<Record<string, Rendering | undefined>> = {
+  "paused": { verb: "paused", icon: null, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "frozen": { verb: "frozen", icon: Pause, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "blocked_by_dependency": { verb: "blocked", icon: Link, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "over_budget": { verb: "over budget", icon: null, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
@@ -146,7 +147,7 @@ export const STEP_STATE: Readonly<Record<string, Rendering | undefined>> = {
 export const TASK_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "open": { verb: "open", icon: CircleDashed, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "working": { verb: "working", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
-  "handed_in": { verb: "handed in", icon: FileCheck, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "handed_in": { verb: "handed in", icon: FileCheck, badgeStatus: "handed-in", statusToken: "--status-handed-in", hint: null },
   "done": { verb: "done", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "failed": { verb: "failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
   "dropped": { verb: "dropped", icon: Minus, badgeStatus: "killed", statusToken: "--status-killed", hint: null },
@@ -169,6 +170,7 @@ export const LAND_STATE: Readonly<Record<string, Rendering | undefined>> = {
   "waiting": { verb: "waiting", icon: Clock, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "gating": { verb: "Running Checks before landing", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "preparing": { verb: "Preparing to land", icon: GitMerge, badgeStatus: "running", statusToken: "--status-running", hint: null },
+  "held": { verb: "Held, red on main", icon: Pause, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "merging": { verb: "Pushing onto main", icon: CircleDot, badgeStatus: "running", statusToken: "--status-running", hint: null },
   "landed": { verb: "landed", icon: Check, badgeStatus: "completed-success", statusToken: "--status-completed-success", hint: null },
   "red": { verb: "Checks failed", icon: X, badgeStatus: "completed-failed", statusToken: "--status-completed-failed", hint: null },
@@ -343,6 +345,7 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "step_state", variant: "retrying", missing: ["token"] },
   { vocabulary: "step_state", variant: "running", missing: ["token"] },
   { vocabulary: "step_state", variant: "stopped", missing: ["token"] },
+  { vocabulary: "queued_reason", variant: "paused", missing: ["icon"] },
   { vocabulary: "queued_reason", variant: "over_budget", missing: ["icon"] },
   { vocabulary: "admission_hold", variant: "concurrency_bound", missing: ["icon"] },
   { vocabulary: "admission_hold", variant: "memory", missing: ["icon"] },

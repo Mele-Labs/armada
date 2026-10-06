@@ -217,6 +217,7 @@ async fn a_path_outside_the_declared_plan_is_marked_on_its_row() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src/parse.rs".to_string()],
         },
     )

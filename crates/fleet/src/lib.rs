@@ -40,6 +40,8 @@ mod approved;
 pub mod approving;
 pub mod asked;
 pub mod asking;
+/// A red Check in a merge line turn, asked of the base before the branch is blamed.
+mod asking_the_base;
 pub mod at_step;
 /// The four narrowings of the board, and the one rule each is.
 mod attention;
@@ -53,6 +55,7 @@ pub mod briefing;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+mod check_history;
 mod check_output;
 mod checking;
 mod checkouts;
@@ -118,6 +121,7 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gating;
 mod group;
 mod grouping;
 pub mod headroom;
@@ -131,6 +135,8 @@ mod issue_noticing;
 /// What a person changes on one Job from its detail: the model its later
 /// steps run as, and the commands they allowed it.
 mod job_settings;
+/// A press to merge under `merge_by: push`, joining the merge line.
+mod joining_the_line;
 /// A Job's own log, read back and served. **The other side of the file every
 /// `transcript::note` call writes**, and the third voice the activity log was
 /// designed around.
@@ -140,6 +146,8 @@ pub mod keeping;
 mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;
+/// Kit's allowlist, in `~/.armada`. `docs/concepts/kit.md`.
+pub mod kit_allowlist;
 mod landing;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
@@ -160,6 +168,8 @@ pub mod mint;
 /// under `.armada/` is named by the handle**, and half the places that write a
 /// Job's log line hold only its id.
 mod naming;
+/// What a Job says it needs on a file, and the order its landing takes. `#1059`.
+mod needing;
 /// Noticing what became of a Job's pull request. **Fleet may merge, and the
 /// decision is what stays a person's** — a press from Bridge is
 /// `crate::merging` and reaches the same four things this module does about a
@@ -176,10 +186,11 @@ mod one_drone;
 mod ordering;
 pub mod overlap;
 pub mod overruling;
+/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
+mod pausing;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
-/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
 mod pending_evidence;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
@@ -253,6 +264,7 @@ pub mod reviewing;
 mod rostered;
 mod ruling;
 pub mod runtime;
+mod saving;
 pub mod saying;
 /// Scan: reading a repository nobody set up for Armada. **It writes nothing,
 /// because a [`scanning::Tree`] has no write on it.**
@@ -294,6 +306,8 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
+/// The merge line Fleet runs for each repository, and its turn.
+mod taking_turns;
 pub mod task_edits;
 /// A step whose plan is worked one task at a time, a Drone each. Spike 022, 1b.
 pub mod tasking;

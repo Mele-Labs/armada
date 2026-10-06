@@ -225,6 +225,7 @@ fn health_survives_the_wire_with_the_unprobed_half_still_on_it() {
             because: "Doctor's grid is not built".to_string(),
         }],
         helm_action_authority: HelmActionAuthority::Acting,
+        workflows_left_out: true,
     };
     let received: FleetHealth = round_trip_health(&health);
     assert_eq!(received.probes.len(), 1);
@@ -355,6 +356,7 @@ fn every_kind_of_question_is_served_on_the_job_it_belongs_to_across_two_manifest
     detail.command_waiting = Some(CommandInFlight {
         call: "call-01QUESTIONOVERVIEWCMDB".to_string(),
         step_id: ipc::StepId::carried("fix"),
+        drone_id: None,
         asked_at: ipc::Instant::carried("2026-09-13T09:06:00.000Z"),
         tool: "Bash".to_string(),
         detail: "rm -rf node_modules".to_string(),
@@ -421,6 +423,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         answer: CommandAnswer::Reject,
         note: Some("not on this job".to_string()),
         rule: None,
+        scope: None,
     };
     let received = round_trip_answer_command(&answered_command);
     assert_eq!(received.call, answered_command.call);

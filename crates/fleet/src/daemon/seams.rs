@@ -111,13 +111,16 @@ where
     /// so the answer is true at the instant it is taken and no longer — which
     /// is why every caller asks again rather than passing one down.
     ///
-    /// **One Manifest per Job today, and the fold is still called.** A Job gated by several
-    /// is gated by several, and this is the one function that grows when
-    /// `Job::gate_manifests` can be resolved to files. `crate::policy` carries
-    /// the argument, and `docs/concepts/manifest.md` the rule.
+    /// **The root and every workspace the repository holds.** A Job's own
+    /// gate list is not read here: this has no Job, and over-folding errs
+    /// toward the stricter value. `crate::policy` carries the argument, and
+    /// `docs/concepts/manifest.md` the rule.
     pub(crate) fn gating_policies(&self, served: &crate::repositories::Served) -> Policies {
-        let manifest = served.manifest();
-        Policies::gating([(manifest.auto_merge(), manifest.review_gate())])
+        Policies::gating(
+            std::iter::once(served.manifest())
+                .chain(served.workspaces())
+                .map(|manifest| (manifest.auto_merge(), manifest.review_gate())),
+        )
     }
     pub(crate) fn host(&self) -> &Local {
         &self.host
@@ -486,6 +489,29 @@ where
             let _ = store.record_check_took(repository, &check, took, &at);
         }
     }
+    /// Append each run of this Job's Checks to the history. A row that will
+    /// not write is said in the Job's log and fails nothing.
+    pub(crate) async fn kept_runs(&self, job: &Job, runs: Vec<store::CheckRun>) {
+        if runs.is_empty() {
+            return;
+        }
+        let mut store = self.store().lock().await;
+        for run in runs {
+            if let Err(why) = store.append_check_run(job.owner_manifest_id(), Some(job.id()), &run)
+            {
+                let envelope = core_model::Envelope::new(
+                    self.now(),
+                    core_model::Level::Warn,
+                    core_model::Component::Fleet,
+                    self.run().clone(),
+                    "a Check run was not added to the history",
+                )
+                .in_job(job.id().as_ulid().clone())
+                .with_field("said", core_model::FieldValue::Str(why.to_string()));
+                self.noted_in_the_log(job.id(), &envelope);
+            }
+        }
+    }
     /// A fix draft's one-test run, kept apart from a whole Check's. #1072.
     pub(crate) async fn kept_one_test_timing(
         &self,
@@ -558,6 +584,9 @@ where
     }
     pub(crate) fn rechecking(&self) -> &crate::rechecking::Rechecking {
         &self.rechecking
+    }
+    pub(crate) fn lines(&self) -> &crate::taking_turns::Lines {
+        &self.lines
     }
     pub(crate) fn rehearsals(&self) -> &crate::rehearsing::Rehearsals {
         &self.rehearsals

@@ -43,6 +43,9 @@ Each ends with the questions it found and did not answer.
 - [`practices/acceptance-tests.md`](practices/acceptance-tests.md) — the one
   test per milestone that stands for its claim: why it is written first, what
   reconciling one costs, and what M1's proves.
+- [`practices/list-files.md`](practices/list-files.md) — the files whose merges
+  keep both sides, how one is declared in `.gitattributes`, which are not, and
+  what union cannot do
 - [`practices/running-locally.md`](practices/running-locally.md) — starting,
   checking and stopping a local Fleet: what it prints, what it refuses before it
   binds a port, what `armada clean` will not delete, and Bridge on a mock Fleet
@@ -122,7 +125,8 @@ approximations.
   indexed in its own `INDEX.md`. The roadmap itself is GitHub issues; these hold
   the reasoning an issue body buries when it closes.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, `scripts/land`, and where each part goes in Fleet.
+    turns onto `main`, `scripts/land`, `armada need` (numbers land in the order they
+    were declared), and where each part goes in Fleet.
 
 ## Journeys
 

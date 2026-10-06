@@ -4,13 +4,16 @@
 //! pin the spellings Bridge mirrors by hand — and both sets are ones Bridge
 //! matches on, so a spelling that drifted would be a control that never draws.
 
-use crate::{decode, encode, CommandAnswer, CommandInFlight, Instant, StepId, WhenBlocked};
+use crate::{
+    decode, encode, CommandAnswer, CommandInFlight, DroneId, Instant, StepId, WhenBlocked,
+};
 
 /// A Drone held on one shell command, with all three answers on offer.
 fn waiting() -> CommandInFlight {
     CommandInFlight {
         call: String::from("toolu_01"),
         step_id: StepId::carried("implement"),
+        drone_id: Some(DroneId::carried("drone-t2")),
         asked_at: Instant::carried("2026-09-11T09:00:00.000Z"),
         tool: String::from("Bash"),
         detail: String::from("cargo nextest run -p ipc"),
@@ -61,6 +64,24 @@ fn an_unmeasured_command_carries_no_length_rather_than_nought() {
     assert_eq!(
         decode::<CommandInFlight>("a waiting command", json.as_bytes()).expect("it reads back"),
         unmeasured
+    );
+}
+
+/// A Fleet that does not name the asker leaves the field out, and a payload
+/// from one older than the field still reads.
+#[test]
+fn the_asking_drone_is_named_when_known_and_absent_rather_than_null_when_not() {
+    let json = encode(&waiting()).expect("plain data");
+    assert!(json.contains("\"drone_id\":\"drone-t2\""), "{json}");
+    let unnamed = CommandInFlight {
+        drone_id: None,
+        ..waiting()
+    };
+    let json = encode(&unnamed).expect("plain data");
+    assert!(!json.contains("drone_id"), "absent, never null: {json}");
+    assert_eq!(
+        decode::<CommandInFlight>("a waiting command", json.as_bytes()).expect("reads back"),
+        unnamed
     );
 }
 
@@ -128,6 +149,7 @@ fn the_two_bodies_read_as_sent_and_ignore_what_they_do_not_know() {
             // is testing from the other direction.
             note: None,
             rule: None,
+            scope: None,
         }
     );
 
@@ -294,4 +316,91 @@ fn an_allow_is_removed_by_the_command_its_row_carries() {
         body
     );
     assert!(decode::<crate::RemoveAllowedCommand>("a removal", br#"{}"#).is_err());
+}
+
+/// **Where an Always allow is kept is a field of the answer**, not a fourth
+/// answer: `CommandAnswer` is one Bridge matches on, and 23.35 is a minor. An
+/// older Bridge sends no `scope` and is answered as it always was.
+#[test]
+fn an_always_allow_names_where_it_is_kept_and_an_older_body_names_none() {
+    let kit = decode::<crate::AnswerCommand>(
+        "an answer",
+        br#"{"call":"toolu_01","answer":"always_allow","scope":"kit"}"#,
+    )
+    .expect("a Kit scope reads");
+    assert_eq!(kit.scope, Some(crate::AlwaysAllowScope::Kit));
+    let older = decode::<crate::AnswerCommand>(
+        "an answer",
+        br#"{"call":"toolu_01","answer":"always_allow"}"#,
+    )
+    .expect("an older body reads");
+    assert_eq!(older.scope, None);
+    assert!(decode::<crate::AnswerCommand>(
+        "an answer",
+        br#"{"call":"toolu_01","answer":"always_allow","scope":"everywhere"}"#,
+    )
+    .is_err());
+}
+
+/// **A change and what was applied cross as one tagged shape**, and a Kit row
+/// carries its source flat beside the command.
+#[test]
+fn a_kit_change_and_an_allowlist_row_cross_as_tagged_shapes() {
+    let change = crate::RetroChange::AllowCommand {
+        command: String::from("grep -a -c"),
+    };
+    assert_eq!(
+        encode(&change).expect("plain data"),
+        r#"{"kind":"allow_command","command":"grep -a -c"}"#
+    );
+    let row = crate::KitAllowedCommand {
+        run: String::from("grep -a -c"),
+        from: crate::KitAllowedSource::RetroItem {
+            lesson_id: String::from("01JOB-3"),
+        },
+    };
+    let json = encode(&row).expect("plain data");
+    assert_eq!(
+        json,
+        r#"{"run":"grep -a -c","source":"retro_item","lesson_id":"01JOB-3"}"#
+    );
+    assert_eq!(
+        decode::<crate::KitAllowedCommand>("a row", json.as_bytes()).expect("reads back"),
+        row
+    );
+}
+
+/// **A change the model wrote badly costs the change and not the item.**
+#[test]
+fn a_change_that_will_not_read_costs_the_change_and_not_the_item() {
+    let item = |change: &str| {
+        format!(
+            r#"{{"items":[{{"who":"drone","lands_in":"kit","title":"t","what":"w","fix":"f","evidence":["refusal:1"]{change}}}]}}"#
+        )
+    };
+    let read = |text: String| {
+        decode::<crate::RetroWritten>("a retro", text.as_bytes())
+            .expect("reads")
+            .items
+    };
+    let good = read(item(
+        r#","change":{"kind":"allow_command","refusal":"refusal:1","command":"grep -a"}"#,
+    ));
+    assert_eq!(
+        good[0].change,
+        Some(crate::RetroChangeAnswered::AllowCommand {
+            refusal: String::from("refusal:1"),
+            command: Some(String::from("grep -a")),
+        })
+    );
+    for bad in [
+        r#","change":{"kind":"set_model","model":"x"}"#,
+        r#","change":"allow grep""#,
+        r#","change":null"#,
+        "",
+    ] {
+        let items = read(item(bad));
+        assert_eq!(items.len(), 1, "the item stays: {bad}");
+        assert_eq!(items[0].change, None, "{bad}");
+    }
 }

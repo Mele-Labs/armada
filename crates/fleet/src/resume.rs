@@ -614,6 +614,14 @@ where
         };
         let spec = match self.job_tree(&served, job).map_err(unworkable)? {
             JobTree::Here(spec) => spec,
+            // **A person's act on a paused Job refuses here, for all of them
+            // at once**: every caller below reads a worktree first, and this
+            // is the one place that says why there is none.
+            JobTree::Parked => {
+                return Err(Adrift::Paused {
+                    job: job.id().clone(),
+                })
+            }
             JobTree::Lost { slot, why } => {
                 return Err(Adrift::SlotLost {
                     job: job.id().clone(),

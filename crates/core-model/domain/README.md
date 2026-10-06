@@ -68,10 +68,9 @@ disagree with the first. That is what lets `completed_success` declare
 carries only a guard's admitted states across a guarded edge. Issue #189.
 
 `transitions_in` and `transitions_out` on a status are derivable from
-`job-transitions.toml`, and are carried anyway — for the reason a WorkflowDef
-carries `structure` when `verdict_routing` already implies it. Declared intent
-checked against what was actually wired is worth the redundancy; a rule reads
-both and fails where they disagree. As carried, they agree.
+`job-transitions.toml`, and are carried anyway. Declared intent checked against
+what was actually wired is worth the redundancy; a rule reads both and fails
+where they disagree. As carried, they agree.
 
 `step_states` on a status and `seen_under` on a step state are one relation
 written twice, and both are derived from the step machine the same way. **They
@@ -92,9 +91,7 @@ table, and every `mechanical_check.type` against the sanctioned set.
 
 ## The source disagrees with itself, and that is preserved
 
-Nothing here was repaired to make it consistent and no row was dropped. Samples
-declare `structure: "linear"` while carrying a `verdict_routing` that
-`structure`'s own row says is rejected at config load; escalation triggers carry
+Nothing here was repaired to make it consistent and no row was dropped. Escalation triggers carry
 no `level` while `last_verdict` in `job-fields.toml` says only step-level
 triggers may appear in it. Those are the findings, and repairing them here would
 have destroyed them. Each survives on the row it belongs to — in `notes`, or as
@@ -136,9 +133,6 @@ alongside it, so a type-level contradiction is more probably a slip than a
 design position. Whoever implements the enums verifies each against intent and
 corrects the data.
 
-- **Four samples declare `structure = "linear"` and carry `verdict_routing` on
-  their review step.** The `structure` field's own rule rejects that
-  combination at config load. `bug`, `feature`, `refactor`, `revert`.
 - **`silent` is typed `Sub-kind` in the trigger table and its `in_code` is
   blank.** Whether it is a variant of its own or a payload on another trigger
   decides a Rust type.
@@ -147,8 +141,7 @@ corrects the data.
 
 - **[workflowdef-schema-gaps]** Five keys appear in the workflow samples with
   no row in the field catalogue: `workflow_id`, `version`, `order`, `required`,
-  `manifest_rule_overrides`. The `structure` field's prose also cites an `id`
-  row that does not exist.
+  `manifest_rule_overrides`.
   What decides it: the samples are the working shape and the catalogue is the
   schema, so either the catalogue is incomplete or the samples carry keys
   nothing reads. Only one can be true, and the answer decides what a parser

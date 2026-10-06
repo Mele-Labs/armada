@@ -17,7 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::enums::Actor;
-use crate::ids::{Instant, StepId};
+use crate::ids::{DroneId, Instant, StepId};
 
 /// What a Job does when its Drone reaches for a command it was not given.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +87,12 @@ pub struct CommandInFlight {
     pub call: String,
     /// Which step's Drone is waiting. A Job runs one step at a time.
     pub step_id: StepId,
+    /// Which Drone asked. **A step can run several at once** (a Drone per
+    /// task), so `step_id` alone cannot say whose panel to open. Absent where
+    /// Fleet could not identify the asker — never guessed — and from a Fleet
+    /// older than the field. **Since 23.32.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drone_id: Option<DroneId>,
     /// When the harness asked, by Fleet's clock.
     pub asked_at: Instant,
     /// The tool reached for, in the harness's own spelling — a string for
@@ -153,6 +159,32 @@ pub struct AnswerCommand {
     /// is what every Fleet before 13.4 always declared. **Since 13.4.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rule: Option<String>,
+    /// Where an Always allow is kept. **Only Always allow reads it.** Absent is
+    /// the repository, which is what every Fleet before 23.35 kept it in. Since
+    /// 23.35.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<AlwaysAllowScope>,
+}
+
+/// Where an [`CommandAnswer::AlwaysAllow`] is kept.
+///
+/// **A field of the answer and not a fourth [`CommandAnswer`]**, which Bridge
+/// matches on: a value added there is a major bump, and this one is read by
+/// Fleet alone, so a Bridge that never sends it is answered as it always was.
+/// Which scopes are offered is not on the wire: every Fleet at 23.35 or later
+/// takes both, and a Bridge that sends `kit` to an older Fleet is refused at
+/// the handshake, which is the direction that survives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AlwaysAllowScope {
+    /// Every Job against this Manifest. What Always allow has meant since
+    /// `#836`.
+    Repository,
+    /// Every Job on this machine, in Kit's allowlist, `~/.armada`. **Matched by
+    /// the same rule as a repository's, and withheld by the same three:** a
+    /// command a Manifest declares destructive, one it runs a Check for, and
+    /// one the harness cannot grant stay refused whatever Kit lists.
+    Kit,
 }
 
 /// The request half of `set_when_blocked`. **A live setting on one Job**: the

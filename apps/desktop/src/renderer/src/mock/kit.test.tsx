@@ -6,6 +6,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { allowlistRead, NOT_READ_ALLOWLIST } from "./kit-inventory";
 import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, manifesting } from "./manifest-fleet";
 import type { Manifesting } from "./manifest-fleet";
 import { pressable } from "./scrolled";
@@ -145,4 +146,59 @@ test("at a short window, the wheel brings Kit's last control on screen", async (
 
   await userEvent.wheel(page.getByText("What you already have"), { delta: { y: 400 }, times: 10 });
   await expect.poll(() => pressable(last)).toBe(true);
+});
+
+/** The allowlist's own row on the Kit page. */
+const allowlist = () => page.getByRole("region", { name: "Allowlist" });
+
+/**
+ * Fleet reads the allowlist now, so the row draws each command with where it
+ * came from in words, and a Remove that takes one out: the row goes, and what
+ * Fleet was asked for is the line as it was spelled.
+ */
+test("the allowlist draws each command with where it came from, and Remove takes one out", async () => {
+  const removed: string[] = [];
+  await kit({
+    kitInventory: allowlistRead([
+      { name: "grep -n", source: "retro item 01M2LESSON3GREPASKED" },
+      { name: "gh issue view", source: "always allow" },
+      { name: "make check", source: "written by hand" },
+    ]),
+    onRemoveKitAllowed: (run) => removed.push(run),
+  });
+
+  const row = (command: string) => allowlist().getByRole("listitem").filter({ hasText: command });
+  await expect.element(row("grep -n")).toBeVisible();
+  await expect.element(row("grep -n").getByText("Retro item", { exact: true })).toBeVisible();
+  await expect.element(row("gh issue view").getByText("Always allow", { exact: true })).toBeVisible();
+  await expect.element(row("make check").getByText("Written by hand", { exact: true })).toBeVisible();
+  // A command is the machine's own value, so it is drawn in the mono face.
+  expect(row("grep -n").element().querySelector(".mono")?.textContent).toBe("grep -n");
+
+  await allowlist().getByRole("button", { name: "Remove grep -n" }).click();
+  await expect.poll(() => allowlist().getByRole("listitem").filter({ hasText: "grep -n" }).elements().length).toBe(0);
+  expect(removed).toEqual(["grep -n"]);
+  // The others stand.
+  await expect.element(row("gh issue view")).toBeVisible();
+  await expect.element(row("make check")).toBeVisible();
+});
+
+/** **No count beside the list, and nothing standing in for an empty one.** */
+test("the allowlist draws no count, and an empty one draws no sentence", async () => {
+  await kit({ kitInventory: allowlistRead([{ name: "grep -n", source: "always allow" }]) });
+  await expect.element(allowlist().getByRole("listitem")).toBeVisible();
+  expect(allowlist().element().querySelector(".armada-kit-setup__count")).toBeNull();
+});
+
+test("an allowlist that was read and holds nothing draws its name and nothing under it", async () => {
+  await kit({ kitInventory: allowlistRead([]) });
+  await expect.element(allowlist().getByRole("heading", { name: "Allowlist" })).toBeVisible();
+  expect(allowlist().getByRole("listitem").elements()).toHaveLength(0);
+  expect(allowlist().element().querySelector("p")).toBeNull();
+});
+
+test("an allowlist file that will not read keeps its not read and why", async () => {
+  await kit({ kitInventory: NOT_READ_ALLOWLIST });
+  await expect.element(allowlist().getByText(/Not read yet — allowed-commands would not read/)).toBeVisible();
+  expect(allowlist().getByRole("button", { name: /^Remove/ }).elements()).toHaveLength(0);
 });

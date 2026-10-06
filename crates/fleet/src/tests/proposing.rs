@@ -628,7 +628,7 @@ fn workflow_for(id: &str, for_requests: &str) -> ResolvedWorkflow {
         std::path::Path::new("fixture.yml"),
         &format!(
             "version: 1\nworkflow_id: {id}\nname: {id}\nfor_requests: {for_requests}\n\
-             structure: linear\nsteps:\n  - id: only_in_{id}\n    label: \"only_in_{id}\"\n    \
+             steps:\n  - id: only_in_{id}\n    label: \"only_in_{id}\"\n    \
              evidence: {{submitted: {{type: diff}}}}\n    delivers: true\n    advance_gate: auto\n"
         ),
         &config::Roster::offering_nothing(),

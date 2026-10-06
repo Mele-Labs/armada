@@ -17,6 +17,7 @@ fn paths(of: &[&str]) -> Vec<String> {
 /// One vitest-driven Check, narrowing declared or not.
 fn check(runner: Option<Runner>, narrow: Option<Narrowing>) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: "screens_test".to_string(),
         run: "pnpm --dir packages/screens exec vitest run".to_string(),
         expect_exit_code: 0,

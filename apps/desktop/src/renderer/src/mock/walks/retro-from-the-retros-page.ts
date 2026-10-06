@@ -2,8 +2,8 @@
 // newest first. Each item reads as one arrow from whose way it got in to where
 // the fix lands, each end its own hue, then a headline, what happened, what
 // would change and two answers. The walk expands two items' evidence in place,
-// opens Job 3's retro, then creates a Job from an Armada item, accepts a Kit
-// item, rejects a Manifest item and reads the accepted ones. `retro.test.tsx` holds the claims.
+// opens Job 3's retro, then creates a Job from an Armada item, updates Kit
+// from a Kit item, rejects a Manifest item and reads the accepted ones. `retro.test.tsx` holds the claims.
 
 import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
@@ -36,8 +36,8 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   { press: inside(STALE_MAIN, button("Create Job", { exact: true })), say: "It proposes a Job" },
   { look: inside(STALE_MAIN, button("Proposed Job")), say: "The item keeps a link to it" },
   { press: tab("Kit"), say: "Kit: the tool set" },
-  { hover: inside(GREP, button("Accept", { exact: true })), say: "Accept on a Kit item" },
-  { press: inside(GREP, button("Accept", { exact: true })), say: "Accept saves it" },
+  { hover: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit on a Kit item with a command" },
+  { press: inside(GREP, button("Update Kit", { exact: true })), say: "Update Kit adds the command and saves it" },
   { press: tab("Manifest"), say: "Manifest: the repository's Checks, tests and code" },
   { hover: inside(DOCS, button("Reject change")), say: "Reject change" },
   { press: inside(DOCS, button("Reject change")), say: "Reject change discards it" },

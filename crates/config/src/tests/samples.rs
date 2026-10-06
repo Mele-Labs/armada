@@ -4,16 +4,7 @@
 //! definitions themselves are the JSON beside it, so a sample that does not
 //! load is a defect in the sample rather than a test asset.
 //!
-//! Four of them once declared `structure: "linear"` while routing a review
-//! back to an earlier step, which is a loop. They were authored where nothing
-//! validated them, and the mislabel was invisible until a parser existed.
-//! `structure` was the field that was wrong — the routing is the behaviour
-//! somebody designed, and deleting it to satisfy the label would have removed
-//! a step rather than corrected one.
-//!
-//! **Every sample is still refused, and that is not the same claim.** None of
-//! them is refused for its structure any more — both values are carried — and
-//! every one of them is still short of `label` on every step and still carries
+//! **Every sample is still refused, and that is not the same claim.** Every one of them is still short of `label` on every step and still carries
 //! keys this milestone defers. Refused for a reason a later milestone removes
 //! is different from refused for being wrong, and this file exists to keep
 //! those apart.
@@ -21,33 +12,18 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::{Fault, LoadError, Refusal};
-use crate::tests::refused;
 use crate::workflow::WorkflowDef;
 
-/// Every sample, and whether the audit's finding holds against it.
-const SAMPLES: &[(&str, Verdict)] = &[
-    ("bug.json", Verdict::Loop),
-    ("code-review.json", Verdict::LinearAndConsistent),
-    ("design-plan.json", Verdict::Loop),
-    ("feature.json", Verdict::Loop),
-    ("prototype.json", Verdict::LinearAndConsistent),
-    ("refactor.json", Verdict::Loop),
-    ("revert.json", Verdict::Loop),
+/// Every sample.
+const SAMPLES: &[&str] = &[
+    "bug.json",
+    "code-review.json",
+    "design-plan.json",
+    "feature.json",
+    "prototype.json",
+    "refactor.json",
+    "revert.json",
 ];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Verdict {
-    /// Held the contradiction the audit named — `structure: linear` carrying a
-    /// routing edge — until the structure was corrected. No sample is this now,
-    /// and the variant stays so the contradiction has a name if one returns.
-    #[allow(dead_code)]
-    LinearWithRouting,
-    /// `structure: linear` and no routing edge. Refused for the M1 slice only.
-    LinearAndConsistent,
-    /// `structure: loop`, carried since #263, with a routing edge that is what
-    /// declares the loop rather than what contradicts the label.
-    Loop,
-}
 
 fn sample(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -63,58 +39,11 @@ fn load(name: &str) -> Vec<Refusal> {
     }
 }
 
-fn routing_refusals(refusals: &[Refusal]) -> Vec<&str> {
-    refusals
-        .iter()
-        .filter(|r| {
-            r.fault
-                == Fault::ContradictsStructure {
-                    structure: "linear",
-                }
-        })
-        .map(|r| r.key.as_str())
-        .collect()
-}
-
 #[test]
 fn every_sample_is_refused_by_the_m1_parser() {
-    for (name, _) in SAMPLES {
+    for name in SAMPLES {
         let refusals = load(name);
         assert!(!refusals.is_empty(), "{name} produced no refusals");
-    }
-}
-
-#[test]
-fn no_sample_declares_a_structure_its_own_routing_contradicts() {
-    // Four of these once said `linear` and routed a review back to an earlier
-    // step, which is a loop. They were authored where nothing validated them,
-    // and the mislabel was invisible until a parser existed. `structure` was
-    // the field that was wrong: the routing is the workflow's real behaviour,
-    // and deleting it to satisfy the label would have removed a step somebody
-    // designed.
-    for (name, _) in SAMPLES {
-        let refusals = load(name);
-        let found = routing_refusals(&refusals);
-        assert!(
-            found.is_empty(),
-            "{name} declares a structure its own routing contradicts: {found:?}"
-        );
-    }
-}
-
-#[test]
-fn no_sample_is_refused_for_its_structure() {
-    // Until #263 this asserted the opposite of itself against one file: that
-    // `design-plan.json` was refused for declaring `loop`. That was the whole
-    // sample-level statement of the deferral, so it is where the deferral ends.
-    // Asked of every sample rather than of the one, because both values are
-    // carried now and there is no sample left that a structure could refuse.
-    for (name, _) in SAMPLES {
-        let refusals = load(name);
-        assert!(
-            !refused(&refusals, "structure"),
-            "{name} is refused for its structure: {refusals:?}"
-        );
     }
 }
 

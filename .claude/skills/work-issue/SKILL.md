@@ -75,6 +75,27 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 3. One issue. Finish it, and stop.
 
+**Declare a need before choosing a migration number or a protocol minor, and use
+the number the answer gives.** Never take "the next one" from `main`: another
+branch takes the same one, and whichever lands second renumbers, rewrites every
+mention and runs the Checks again (#1059).
+
+```sh
+armada need crates/store/src/migrations.rs "a new migration"   # says who is ahead, and what each took
+armada need --took crates/store/src/migrations.rs "V96"        # once chosen, after theirs
+armada need protocol-version.toml "a minor"
+```
+
+A need is a path and what is needed there, in your words, and the first to
+declare goes first. If something is ahead of you, pick the value after what it
+took. `armada land` then holds your branch until every need ahead of yours has
+landed, so you land in order and nothing is renumbered. Declaring is a no-op the
+second time. **If you had already written a number when you declared**, it says
+so: search comments and docs for the old number and change every mention.
+`armada need --release <path>` gives one back; a branch deleted locally gives its
+needs back by itself, and a need that stalls is given back by a person, since
+nothing expires. `armada need --status` lists every need by path.
+
 ### 4. Test
 
 `milestone-step` step 4, and it is not optional because the change looks small.
@@ -199,6 +220,12 @@ scripts/land             # joins the line and returns at once
 scripts/land --status    # poll in short foreground calls
 ```
 
+**Exit 3 is still going; exit 10 is still going and already failing.** A Check
+of your branch failed that `main` is green for, and the turn is running its
+other Checks. The status names the Check and its log. Read the log and start the
+fix now; do not push the branch, since a push is dropped as stale. The turn
+still ends red, and that is the verdict.
+
 **A red turn comes back to you.** Read the logs it names, fix on the branch,
 then preflight and land again.
 
@@ -278,6 +305,20 @@ output"* in the brief. An agent starts cold, and what it reads to find its place
 is most of what it costs. Confirmed 2 Oct 2026: four Studio agents briefed with
 five skills each and file names without lines used 61k–551k tokens apiece, and
 the session's own `/context` put reads at 55% of everything it took in.
+
+**Put the numbers and the Checks in the brief, because an agent never loads this
+skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
+say *"before choosing a protocol minor or a store migration number, run `armada
+need`"*, or each agent takes the next one from `main`. Confirmed 4 to 5 Oct
+2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
+V109 that another branch had taken, and the merge line sent each back to be
+renumbered by hand, five full requeues. The brief must also name what the line
+will run on the files the agent touched: *"run every test module that references
+what you changed, then `armada check typecheck`, `cargo fmt --all --check` and
+`cargo xtask verify-foundations`; a new operation needs `tests::served`."* The
+same session lost four more turns to a route-table test, a fixture that no
+longer typechecked, a rustfmt line and a story-title rule, each red on the line
+and green in the agent's report.
 
 **Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a
 merge or a conflict, a doc or registry edit, a fix whose cause the brief already

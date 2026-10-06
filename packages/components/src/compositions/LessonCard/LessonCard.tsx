@@ -50,8 +50,10 @@ export type LessonAnswers = {
 
 /** What an answered item reads as, while it is still on screen. */
 export type LessonSettled = {
-  /** `Agreed`. */
+  /** `Agreed`, or `Updated Kit`. */
   said: string;
+  /** The command Kit was updated with, drawn in monospace beside `said`. */
+  command?: string;
   /** The Job the item proposed, where the surface can open one. */
   job?: { label: string; onOpen: () => void };
 };
@@ -161,7 +163,10 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
         <div className="armada-lesson__acts">
           {settled !== undefined ? (
             <span className="armada-lesson__settled">
-              {settled.said}
+              <span className="armada-lesson__said">{settled.said}</span>
+              {settled.command === undefined ? null : (
+                <span className="armada-lesson__command mono">{settled.command}</span>
+              )}
               {settled.job === undefined ? null : (
                 <button type="button" className="armada-lesson__job" onClick={settled.job.onOpen}>
                   {settled.job.label}

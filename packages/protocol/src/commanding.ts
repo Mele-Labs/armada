@@ -61,6 +61,13 @@ export type CommandInFlight = {
   call: string;
   /** Which step's drone is waiting. */
   step_id: string;
+  /**
+   * Which drone asked. A step can run several at once (a drone per task), so
+   * `step_id` alone cannot say whose panel to open. Absent where fleet could
+   * not identify the asker, and from a fleet older than the field. Since
+   * protocol 23.32.
+   */
+  drone_id?: string;
   /** When the harness asked, by fleet's clock. A surface ages it itself. */
   asked_at: string;
   /** The tool reached for, in the harness's own spelling. */
@@ -116,7 +123,18 @@ export type AnswerCommand = {
    * fleet before 13.4 always declared. Since protocol 13.4.
    */
   rule?: string;
+  /**
+   * Where an Always allow is kept: `repository` (every Job against this
+   * Manifest, the default) or `kit` (every Job on this machine, in `~/.armada`).
+   * **Only `always_allow` reads it**, and a `kit` one is sent with a `rule`,
+   * since the whole of a chained command is refused for Kit. Since protocol
+   * 23.35.
+   */
+  scope?: AlwaysAllowScope;
 };
+
+/** Where an Always allow is kept. Since protocol 23.35. */
+export type AlwaysAllowScope = "repository" | "kit";
 
 /**
  * The body of `set_when_blocked`. Since protocol 10.7. A live setting on one

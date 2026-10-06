@@ -701,6 +701,8 @@ agent_access = "Yes"
 description = "All Doctor probes"
 notes = """
 The one call that must work when Fleet is down. The probe count is not stated here; it is Doctor's, in docs/concepts/doctor.md.
+
+**Since 23.33 it says whether any workflow definition was left out**, as `workflows_left_out`, a boolean on the answer itself and not a probe. It is never a count: a rail warns that something is there to read, and `list_left_out_workflows` is where each reason is. True where any served repository left one out.
 """
 
 [operations.get_job]
@@ -1217,6 +1219,8 @@ One workflow at M1 — `Fittings` holds exactly one — and the row is still a l
 A step was a bare id until `mechanical_checks` was added to it. Bridge printed "No operation serves this step's checks" under every step because nothing on the wire could say otherwise, and for the `bug` workflow the truth is that none of its four steps declares one. `get_job` answers from these same values rather than a second copy.
 
 **A step now carries its advance gate and what it asks the Judge, which is the whole of what this answers that `get_job` does not answer sooner.** This is where a person decides whether to approve a dispatch: afterwards the rail says what happened, and here they are agreeing to it. A workflow that will stop and wait for them at `handoff`, and spend Judge calls at `implement`, previewed as neither. Both are the shapes the rail already uses, and the criteria themselves stay off the wire — counts and states, never a question.
+
+**Since 23.33 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
 """
 
 [operations.list_left_out_workflows]
@@ -1227,13 +1231,26 @@ description = "The Kit and carried workflow definitions Fleet runs without, each
 notes = """
 #425. `config`'s catalogue leaves out a Kit or carried definition that will not parse, will not resolve against this repository, or shares an id with a sibling in its own place, and Fleet printed each only at start. A person who customised `bug` in Kit and picks `bug` in the composer was running Armada's without any way to find out.
 
-**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here only when it was written or edited under a Fleet that was already running (protocol 23.28): one that does not fit refuses Fleet's start, and is set aside, with its reason, by a re-read.
+**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here as Kit's is (protocol 23.29): one that does not fit is set aside with its reason at start and on every re-read, and before 23.29 it refused Fleet's start.
 
 **Per repository**, named by `?manifest_id=` and the one Fleet started in where absent: whether a Kit or carried definition resolves depends on that repository's own Checks.
 
 `said` is the sentence Fleet prints, rendered and never matched on. `file` is absolute, on `ManifestSummary.path`'s ground: two processes on one machine agreeing where a file is.
 
 `agent_access` is `Yes` on `list_workflows`' terms: a Helm about to propose `bug` should be able to see that the `bug` it would get is not Kit's.
+"""
+
+[operations.get_workflow]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One workflow definition as its file holds it, for an editor, from any of the three places"
+notes = """
+`GET /workflows/definition?workflow_id=&source=&manifest_id=`, protocol 23.33. The answer is a `WorkflowDefinition`: the id, the place (`armada`, `kit` or `repository`), the file as Fleet read it, `definition` and `overridden_by`. **`definition` is the file's text and not a tree**, the shape `save_workflow` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
+
+`source` is optional. Absent is the definition that runs; present reads one a more specific place replaced, which `list_workflows` names on the winner's `overrides`. A definition left out is not here: it is on `list_left_out_workflows` with its reason, and a file that did not parse has no id to ask for. 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. Per repository, by `?manifest_id=`, the one Fleet started in where absent.
+
+`agent_access` is `Yes` on `list_workflows`' terms: Helm helping to edit a workflow reads the file it is editing.
 """
 
 [operations.save_workflow]
@@ -1246,9 +1263,9 @@ notes = """
 
 **Checked before anything is written, with the rules a loader applies.** `config::fit` parses the definition against this machine's models and resolves it against the repository's Manifest, the parse and the resolve a catalogue does, so a definition that is saved is one that loads. A refusal carries the loader's own sentence, every fault of it, and nothing is written: not the file, not the folder, not a temporary one. 422 `fleet.workflow_unfit` where it does not fit, and `fleet.workflow_id_not_a_name` where its `workflow_id` is not letters, digits, `-` and `_`.
 
-**Replacing is said.** A definition that already holds the id in that scope is found by the id it declares and not by the file's name, since the repository's own place is strict at start and two files naming one id would refuse it. 422 `fleet.workflow_exists`, naming the file, unless `overwrite` is `true`; with it the file that held the id is the one replaced. A file named for the id that defines something else is never replaced. 500 `fleet.workflow_unwritable` where the file cannot be written.
+**Replacing is said.** A definition that already holds the id in that scope is found by the id it declares and not by the file's name, since two files in one place naming one id leave both out. 422 `fleet.workflow_exists`, naming the file, unless `overwrite` is `true`; with it the file that held the id is the one replaced. A file named for the id that defines something else is never replaced. 500 `fleet.workflow_unwritable` where the file cannot be written.
 
-**Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start is unchanged, and still refuses a repository whose own definition does not fit.
+**Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start does the same, and since 23.29 no longer refuses a repository whose own definition does not fit.
 
 `agent_access` is `Helm only`, `edit_manifest`'s reason: what is written decides what every Job here is gated on. Helm calls it on a person's ask and never unasked. **A save that carries `overwrite: true` is put to the person**, as destructive, and a first save is not, because the call without it cannot replace anything — `fleet::helm::deciding`.
 """
@@ -1624,6 +1641,21 @@ The second tier. `reach` is `extended`, `restricted`, or `null` — and **`null`
 Refused with a 409 where Kit holds no server of that name.
 """
 
+[operations.remove_kit_allowed_command]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Take a command out of Kit's allowlist, which every Job on this machine reads"
+notes = """
+Since 23.35. The body is `run`, exactly as `get_kit_inventory`'s `allowlist` row names it, and the answer is what the allowlist holds now, each command with where it came from: a retro item (`retro_item`, with its `lesson_id`), an Always allow (`always_allow`), or a line a person wrote (`by_hand`). **It is what makes Always allow and Accept reversible**: both write one line to `~/.armada/allowed-commands`, and this takes that line out.
+
+**Read by the next permission question**, so no Job is touched: a Drone already granted the command keeps it for the call it is on, and the next one it reaches for is decided again. Taking a command out does not reopen a retro item that put it there; the item stays `accepted` and its `applied` stays as it was.
+
+Refused with a 409 where the allowlist holds no command spelled `run`, so a window left open across a removal is told rather than answered 200.
+
+`agent_access` is `Helm only`, `remove_repository_allowed_command`'s reason: what a Drone may run is the owner's decision, and Helm only takes one back when that owner asked it to. There is no read beside it: the list rides `get_kit_inventory`.
+"""
+
 [operations.get_kit_inventory]
 kind = "query"
 transport = "HTTP"
@@ -1728,7 +1760,9 @@ notes = """
 
 **Everything after the merge is `noticing`'s, reached rather than repeated.** The record, the fast-forward of the base branch, the run of `after_merge.checks` and the `job.landed` event are one path whether Fleet noticed a merge or a person pressed for one. So the Checks cannot run twice for one commit — the dedupe is keyed by the commit, not by the Job, because two Jobs merging within a minute are two merges into one commit.
 
-**A refused merge says which of the reasons it was, and nothing retries.** A protected base, a conflict, a check the forge requires that has not passed, a pull request that is not open, no tool on the machine, a base that kept moving under `merge_by: push`, the Job's Checks going red on that base merged in, and a refusal this vocabulary has no word for are eight codes rather than one — each sends a person somewhere different, and a button that failed silently on a protected branch would be worse than no button. The Job is left exactly where the press found it, answerable by the three acts it was answerable by a moment earlier.
+**A refused merge says which of the reasons it was, and nothing retries.** A protected base, a conflict, a check the forge requires that has not passed, a pull request that is not open, no tool on the machine, a base that kept moving under `merge_by: push`, the Job's Checks going red on that base merged in, a need another Job or branch declared first that has not landed (`fleet.merge_waiting_behind`, since 23.36), and a refusal this vocabulary has no word for are nine codes rather than one — each sends a person somewhere different, and a button that failed silently on a protected branch would be worse than no button. The Job is left exactly where the press found it, answerable by the three acts it was answerable by a moment earlier.
+
+**A need holds the press under `forge` as under `push`** (#1059, `docs/concepts/fleet.md`, *Declared needs*). It is Fleet that asks the forge to merge, so Fleet refuses before it does while a need ahead of the Job's on the same file stands, naming what it waits behind. The forge's own button is not held, and a person pressing it lands the work out of order.
 
 Refused with a 409 on a Job that is not at `awaiting_review`, sharing that refusal with the three acts beside it, and with a 409 where the Job's record holds no pull request — a workflow that declares no delivering step opened none, and the act a person wants on one of those is `approve_review`.
 
@@ -1964,6 +1998,8 @@ notes = """
 
 **`remove` gives a made slot's checkout back with `git worktree remove`**, and only a free or unmade one. A held, stranded or busy slot, a directory that is not a checkout, uncommitted files, and the last slot are each a 409 with its own code — `fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`, `fleet.slot_dirty`, `fleet.slot_last` — so Bridge says why on the slot. A slot the pool does not have is a 422, `fleet.no_such_slot`.
 
+**`release` hands back a slot an agent session holds** (since 23.37), as Clear does for a Job's. The body names `slot` and the `holder` the person was shown, as the slot read it (`claude (pid 44698)`). The pool commits whatever is uncommitted there, untracked in and ignored out, to the slot's branch as a WIP commit and frees the slot; nothing is pushed and the session's process is not touched. The answer's `released` names the branch and, where files were committed, the commit and the files. A slot held by anyone else now, or by nobody, is a 409 `fleet.slot_holder_changed` and is left as it is; a release with no holder is a 422 `fleet.slot_holder_unnamed`. A detached HEAD, the base branch, another branch than the lease names, or a refused release after the commit is a 409 `fleet.slot_not_parkable` with git's own words; a lease or release under way is `fleet.slot_busy`.
+
 **`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
 
 `Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
@@ -1994,6 +2030,13 @@ is no disk to reclaim while a Drone might still write to it.
 **A pool slot is given back rather than removed**, by the pool's rules. This
 is the act that gives back the slot a completed Job holds until a person
 clears it; one the pool refuses stays held, and the answer says why.
+
+**Uncommitted files are committed, not refused** (since 23.37). A slot the pool
+refuses for them is parked: everything uncommitted, untracked in and ignored
+out, goes to the Job's branch as a WIP commit and the slot is freed. A Job's own
+worktree is committed the same way before it is removed. Nothing is pushed, and
+the answer's `saved` names the commit and the files. A detached HEAD, the base
+branch or a busy slot keeps the refusal, in git words.
 
 **Runs with `UnmergedWork::Keep`**, matching `armada clean` without `--force`.
 A branch holding commits the base cannot reach survives, is named in the answer
@@ -3222,6 +3265,8 @@ notes = """
 Two messages per command and never a third. The one going out carries `waiting` — the command, one line of it, and the answers on offer — and the one coming back carries nothing. A surface ages the wait from `asked_at`. The actor is `drone` going out and whoever answered coming back.
 
 Only a Job at `ask_me` produces it. Under `refuse_and_hold` the call is refused on arrival, the Job stops at `blocked_by_policy`, and the refused command reaches Bridge on `Stuck.refused` through that state change instead.
+
+`waiting.drone_id` names the Drone that asked, since 23.32, because a drone-per-task step runs several at once and `step_id` alone cannot say whose transcript to open. It is the same id `drone.spawned` and `get_job_drones` carry. Absent where Fleet could not identify the asker, and from a Fleet older than the field; a surface then offers the answer without a panel to open, and never guesses one. `JobDetail.command_waiting` carries it the same way.
 
 It produces at the rate a person answers and holds no queue of its own, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names.
 """

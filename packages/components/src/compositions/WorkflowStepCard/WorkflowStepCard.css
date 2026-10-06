@@ -193,9 +193,8 @@ button.armada-wf-card:hover {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps rather than clipping: "Submitted · awaiting checks" is the fact. */
+  overflow-wrap: anywhere;
 }
 
 .armada-wf-card[data-working] .armada-wf-card__line {
@@ -253,4 +252,134 @@ button.armada-wf-card:hover {
 
 .armada-wf-card__need[data-tone="failed"] {
   color: var(--step-failed);
+}
+
+/* --- Banded: what the step is, in the bays' language ----------------------- */
+
+/* A header band flush to the card's edges, in the hue the caller names, under
+   the card's own rounded corners. --fg-inverse on every hue the caller may name
+   clears 4.5:1: 6.35:1 on --accent, and the status hues are measured in
+   `tokens/status.css`. The card's padding moves inside so the band can bleed. */
+.armada-wf-card[data-banded] {
+  --band: var(--armada-wf-band);
+  padding: 0 var(--space-3) var(--space-3);
+  border-color: var(--band);
+}
+
+.armada-wf-card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-3) * -1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--band);
+  color: var(--fg-inverse);
+}
+
+/* The step's name leads: bold, at the body's own size, and the band's only
+   words. The position and the id are quiet beside it. */
+.armada-wf-card__band-order,
+.armada-wf-card__band-tag {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-wf-card__band-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+}
+
+.armada-wf-card__band-tag {
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the step is, a line each: the mark, its word, then its value in mono. */
+.armada-wf-card__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-start: var(--space-2);
+  min-width: 0;
+}
+
+.armada-wf-card__detail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-wf-card__detail > svg {
+  flex: none;
+  align-self: center;
+}
+
+.armada-wf-card__detail-label {
+  flex: none;
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-wf-card__detail-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+/* The title carries the weight, the line under it is muted mono. */
+.armada-wf-card[data-banded] .armada-wf-card__line {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+/* Nothing advances it but its own submission: an open outline, the way a bay
+   not made yet is, with the band holding the hue. */
+.armada-wf-card[data-look="dashed"] {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* A step a refusal names: the stranded bay's hatch in the caution hue. */
+.armada-wf-card[data-look="hatched"] {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--notice-caution-bg) 0 var(--space-2),
+      transparent var(--space-2) var(--space-4)
+    ),
+    var(--bg-raised);
+}
+
+/* A step that sends work back: the accent edge down its leading side. */
+.armada-wf-card[data-returns] {
+  box-shadow: inset var(--space-1) 0 0 var(--accent);
+}
+
+/* The card's own act, in the accent and mono as the job canvas draws its. */
+.armada-wf-card__action {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -27,8 +27,8 @@ use std::fs;
 use std::path::Path;
 
 use adapter_traits::{
-    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotPool, SlotReading,
-    SlotStanding, Vcs, Worktree, WorktreeSpec,
+    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotParkRefused,
+    SlotParked, SlotPool, SlotReading, SlotStanding, Vcs, Worktree, WorktreeSpec,
 };
 use git2::{BranchType, ErrorCode, Repository, WorktreeAddOptions};
 
@@ -154,7 +154,42 @@ impl Vcs for GitVcs {
                          nor the base, and a lease would reset it"
                     ),
                     LeaseRefused::Vcs(why) => why,
+                    // A Job's lease cuts a new branch; these are the other
+                    // lease's, said the same way.
+                    other => other.said(),
                 },
+            }
+        })
+    }
+
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        crate::leasing::jobs::park(pool, slot, job_id)
+    }
+
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        crate::leasing::jobs::release_session(pool, slot, holder)
+    }
+
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        crate::leasing::jobs::lease_existing(pool, branch, job_id).map_err(|refused| {
+            CreateWorktreeError::SlotNotLeased {
+                repo: pool.repo_root().to_string(),
+                why: refused.said(),
             }
         })
     }
@@ -185,6 +220,14 @@ impl Vcs for GitVcs {
         change: adapter_traits::SlotChange,
     ) -> Result<u32, adapter_traits::SlotRefused> {
         crate::leasing::jobs::change(pool, change)
+    }
+
+    fn session_work(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+    ) -> Result<adapter_traits::StrandedWork, adapter_traits::RescueRefused> {
+        crate::leasing::jobs::session_work(pool, slot)
     }
 
     fn stranded_work(

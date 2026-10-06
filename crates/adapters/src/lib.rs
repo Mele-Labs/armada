@@ -64,6 +64,8 @@ pub mod leasing;
 mod mcp;
 mod merging_in;
 mod merging_the_base_in;
+/// What a branch needs on a path, shared by `armada need` and Fleet's Jobs. `#1059`.
+pub mod needs;
 /// The step onto a base, shared by `armada land` and `merge_by: push`.
 pub mod onto_base;
 mod pull_request_diff;

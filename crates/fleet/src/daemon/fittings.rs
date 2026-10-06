@@ -89,6 +89,9 @@ pub struct Host {
     /// this, outside every worktree, so a frame outlives the checkout it was
     /// taken of. Since protocol 23.16.
     pub walk_frames_dir: String,
+    /// Kit's home, `~/.armada`, where Kit's own allowlist is kept as a plain
+    /// file a person can edit. Since protocol 23.35.
+    pub kit_home: String,
 }
 
 /// [`Host`] without the repository: what is true of the machine whichever
@@ -104,6 +107,7 @@ pub(crate) struct Local {
     pub(crate) attachments_dir: String,
     pub(crate) studio_frames_dir: String,
     pub(crate) walk_frames_dir: String,
+    pub(crate) kit_home: String,
 }
 
 /// One repository a Fleet is assembled already serving.
@@ -119,6 +123,8 @@ pub struct StartingIn {
     pub workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
     /// The Kit and carried definitions left out of `workflows`.
     pub left_out: Vec<ipc::LeftOutWorkflow>,
+    /// Every definition file read, as `config`'s catalogue kept them.
+    pub files: Vec<config::WorkflowFile>,
     pub manifest: Manifest,
 }
 
@@ -330,7 +336,8 @@ where
                     first.root,
                     first.records_root,
                     crate::repositories::SetUp::of(first.manifest, first.workflows)
-                        .leaving_out(first.left_out),
+                        .leaving_out(first.left_out)
+                        .with_files(first.files),
                 ),
                 None => crate::repositories::Repositories::none(),
             }),
@@ -345,6 +352,7 @@ where
                 attachments_dir: fittings.host.attachments_dir,
                 studio_frames_dir: fittings.host.studio_frames_dir,
                 walk_frames_dir: fittings.host.walk_frames_dir,
+                kit_home: fittings.host.kit_home,
             },
             port_range: fittings.port_range,
             run_log_retention: fittings.run_log_retention,
@@ -402,6 +410,7 @@ where
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             pressing: crate::showing_again::Pressing::default(),
             rechecking: crate::rechecking::Rechecking::default(),
+            lines: crate::taking_turns::Lines::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
             sizes: crate::resources::Sizes::default(),

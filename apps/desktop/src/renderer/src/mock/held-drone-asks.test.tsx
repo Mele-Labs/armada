@@ -33,7 +33,7 @@ function choose(name: string): void {
 
 describe("a Drone held on a command", () => {
   test("the task's Drone card asks, names the command, and its mark says it needs you", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     const panel = await taskPanel();
     const card = panel.getByRole("group", { name: "Drone on T5" });
     await expect.element(card).toHaveTextContent("pnpm add -D reselect@5.1.1");
@@ -46,7 +46,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("answering from the card sends the call Overview sends, and the ask clears", async () => {
-    const app = mount("arc/executing-held");
+    const app = mount("held/command");
     const answerCommand = vi.spyOn(app.api, "answerCommand");
     const panel = await taskPanel();
     choose("Allow for this job");
@@ -58,7 +58,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the step's panel asks on the held Drone's row", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     await page.getByRole("tab", { name: /^Workflow/ }).last().click();
     await page.getByRole("button", { name: /^Implement, /i }).last().click();
     const drones = page.getByRole("region", { name: "Drones" });
@@ -67,7 +67,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the Drones tab marks the held row, and its sheet asks", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     await page.getByRole("tab", { name: /^Drones/ }).last().click();
     const table = page.getByRole("region", { name: "Drones on this Job" });
     await expect.element(table).toHaveTextContent("Needs you");
@@ -83,7 +83,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the plan graph's task and group cards say a command waits, and the task opens on the prompt", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     await page.getByRole("tab", { name: /^Plan/ }).last().click();
     const task = page.getByRole("button", { name: new RegExp(`^${T5}, `) });
     await expect.element(task).toHaveTextContent("Needs you");
@@ -95,7 +95,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the Workflow tab's step card says it too, and a Job not held says nothing", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     await page.getByRole("tab", { name: /^Workflow/ }).last().click();
     await expect.element(page.getByRole("button", { name: /^Implement, / }).last()).toHaveTextContent("Needs you");
   });
@@ -107,7 +107,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the graph hangs a card beside the held task, and answering from it sends the same call and removes it", async () => {
-    const app = mount("arc/executing-held");
+    const app = mount("held/command");
     const answerCommand = vi.spyOn(app.api, "answerCommand");
     await page.getByRole("tab", { name: /^Plan/ }).last().click();
     const ask = page.getByRole("group", { name: "Needs you" });
@@ -121,7 +121,7 @@ describe("a Drone held on a command", () => {
   });
 
   test("the Workflow tab's canvas hangs it beside the held step", async () => {
-    mount("arc/executing-held");
+    mount("held/command");
     await page.getByRole("tab", { name: /^Workflow/ }).last().click();
     await expect
       .element(page.getByRole("group", { name: "Needs you" }))
@@ -133,5 +133,16 @@ describe("a Drone held on a command", () => {
     await page.getByRole("tab", { name: /^Plan/ }).last().click();
     await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).toBeVisible();
     expect(page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+  });
+
+  test("answering from the task's Drone card takes the canvas card beside it away too", async () => {
+    mount("held/command");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await page.getByRole("button", { name: new RegExp(`^${T5}, `) }).click();
+    const panel = page.getByRole("dialog", { name: T5 });
+    await entered(panel);
+    (panel.getByRole("radio", { name: "Allow for this job" }).element() as HTMLElement).click();
+    await panel.getByRole("button", { name: "Send this answer" }).click();
+    await expect.poll(() => page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
   });
 });

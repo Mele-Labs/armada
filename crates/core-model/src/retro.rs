@@ -3,6 +3,8 @@
 //! lands.
 //! `docs/concepts/retro.md`.
 
+use alloc::string::String;
+
 /// Which door a request that moved a Job came through.
 ///
 /// **Not [`Actor`](crate::Actor).** That says who is accountable for a move;
@@ -150,5 +152,38 @@ impl LessonState {
             .iter()
             .copied()
             .find(|state| state.as_wire() == value)
+    }
+}
+
+/// A change to Kit a retro item carries, which pressing Accept applies.
+///
+/// **A closed set of changes and never a string of prose.** An item's text is
+/// words for a person, and Accept cannot guess a command out of them; a change
+/// is what Fleet copied off a refusal the record shows. Only commands today.
+/// The models list is resolved from the harness at start and has no stored tier
+/// to change, so no variant here names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Change {
+    /// Allow this command in every Job on this machine. `command` is the
+    /// command as the Kit allowlist keeps it: a refused command, or one of its
+    /// leading cuts.
+    AllowCommand { command: String },
+}
+
+impl Change {
+    /// The spelling `kind` has on the wire and in the store.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Change::AllowCommand { .. } => "allow_command",
+        }
+    }
+
+    /// The change a stored `kind` and `command` spell, or `None` for a kind
+    /// nothing here knows.
+    pub fn from_parts(kind: &str, command: String) -> Option<Change> {
+        match kind {
+            "allow_command" => Some(Change::AllowCommand { command }),
+            _ => None,
+        }
     }
 }

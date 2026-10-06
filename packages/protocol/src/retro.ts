@@ -48,7 +48,21 @@ export type RetroItem = {
   statement: string;
   evidence: string[];
   lands_in?: LandsIn;
+  /**
+   * What Accept would change in Kit. Only on a `kit` item whose command Fleet
+   * copied off a refusal in the record; absent on every other item and on one
+   * kept before 23.35. Since 23.35.
+   */
+  change?: RetroChange;
+  /** What Accept applied, on every later read of the item. Absent where nothing was applied. Since 23.35. */
+  applied?: RetroChange;
 };
+
+/**
+ * A change to Kit a retro item carries, which `agree_lesson` applies. Since
+ * 23.35. Tagged on `kind`; `allow_command` is the only kind.
+ */
+export type RetroChange = { kind: "allow_command"; command: string };
 
 /** A tool call the Drone was refused, with what it tried. */
 export type RecordRefusal = {
@@ -187,6 +201,10 @@ export type Lesson = {
   lands_in?: LandsIn;
   state: LessonState;
   job_proposed?: string;
+  /** As on `RetroItem`. Since 23.35. */
+  change?: RetroChange;
+  /** As on `RetroItem`. Since 23.35. */
+  applied?: RetroChange;
 };
 
 /**

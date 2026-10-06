@@ -411,7 +411,7 @@ which is an assembled prompt and therefore governed here.
 | Turn | Fires when | Wording |
 | --- | --- | --- |
 | **The plan change turn** | A person's `add_task` or `drop_task` reaches a Job with a working Drone | Drafted, not sanctioned |
-| **The peer turn** | Another Job in the same repository first claims, or lands a change to, a path this Job claims. Rides the next opening brief where no Drone is live | Drafted, not sanctioned |
+| **The peer turn** | Another Job in the same repository first claims, or lands a change to, a path this Job claims, or declared a need on a file before this Job did. Rides the next opening brief where no Drone is live | Drafted, not sanctioned |
 | **The poke** | Liveness nudge, bounded by `poke_limit` | Drafted, not sanctioned |
 | **The clarification reprompt** | Evidence arrived but was insufficient | Drafted, not sanctioned |
 | **The force-interrupt directive** | A thrashing verdict | Drafted, not sanctioned |
@@ -598,8 +598,17 @@ without a peer turn, and one turn names at most `fleet::peers::AT_MOST` items. W
 Drone is live, it rides the next opening brief as a block, and the landing
 line says the rebase has already run.
 
-**It informs and never holds.** Nothing on the dispatch path reads it, for the
-reason `docs/concepts/fleet.md`, Write-scope overlap, gives.
+**A need ahead of this Job's is news too** (#1059), and the one kind that is
+not spaced: a Drone that picks its value before it hears who took the number
+renumbers after. It names the file and each need ahead of this Job's on it, as
+`branch: what, took V95`, says this Job's merge waits for them, and says how to
+answer: take the value after theirs, then call `declare_scope` again with `took`
+on the need. Where no Drone is live it rides the next opening brief.
+`docs/concepts/fleet.md`, *Declared needs*.
+
+**Overlap informs and never holds.** Nothing on the dispatch path reads it, for
+the reason `docs/concepts/fleet.md`, Write-scope overlap, gives. A need is the
+part that holds, at the merge and nowhere earlier.
 
 **Fleet's own sentence, around one kind of outside words.** Titles, handles
 and paths are Armada's record. A note is another Drone's words: every line
@@ -634,6 +643,21 @@ more". `fleet::PeersChanged` is the one constructor. Its own `Occasion`,
 │ or a version, assume theirs takes it first and
 │ take the one after. To tell one of these Jobs
 │ something, call `leave_note` with its handle.
+│ Carry on with the part you were given.
+└────────────────────────────────────────────────
+
+┌─ OTHER JOBS WRITING WHERE YOU ARE ─────────────
+│ Another Job or branch declared a need on a file
+│ before you did. Your work is held at the merge
+│ until what is ahead of you there has landed or
+│ been given back, so you land in order and
+│ nothing is renumbered. Take the value after what
+│ they took, and say which you took by calling
+│ `declare_scope` again with `took` on the need.
+│
+│ - Ahead of you on `crates/store/src/migrations.rs`:
+│   14-renumber-migrations: a new migration, took V95.
+│
 │ Carry on with the part you were given.
 └────────────────────────────────────────────────
 ```
@@ -977,6 +1001,17 @@ names the command and says what to do next and nothing else.
 │ public` again now; it will not be refused.
 └────────────────────────────────────────────────
 ```
+
+```
+┌─ TURN ─────────────────────────────────────────
+│ A person allowed `npm publish --access public`
+│ on this machine. Run `npm publish --access
+│ public` again now; it will not be refused.
+└────────────────────────────────────────────────
+```
+
+The third is an Always allow kept in Kit's allowlist, for every Job on this
+machine (5 Oct 2026).
 
 A person who says no sends the rejected answer's wording as the turn, unchanged.
 
@@ -1846,9 +1881,10 @@ The block's fixed wording, which sits between *On a Studio* and *How you answer*
 ```
 ┌─ AUTHORING A WORKFLOW ─────────────────────────
 │ A workflow is the template a Job runs against:
-│ an ordered or looping set of steps, each with
-│ its checks, its gate and its limits. A person
-│ may ask you to help write one. It lives in one
+│ an ordered set of steps, any of which may send
+│ the work back to an earlier one, each with its
+│ checks, its gate and its limits. A person may
+│ ask you to help write one. It lives in one
 │ of two places, and the person chooses: this
 │ repository's own `.armada/workflows/`, which
 │ only this repository uses, or Kit's

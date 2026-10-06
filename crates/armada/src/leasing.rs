@@ -35,9 +35,9 @@ pub fn pool_of(within: &Path) -> Result<Pool, String> {
     ))
 }
 
-/// `armada worktree lease <branch>`. Waits while every slot is held, and says
-/// so once.
-pub fn lease(within: &Path, branch: &str) -> u8 {
+/// `armada worktree lease [--existing] <branch>`. Waits while every slot is
+/// held, and says so once.
+pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
     let pool = match pool_of(within) {
         Ok(pool) => pool,
         Err(why) => return refused(&why),
@@ -53,15 +53,19 @@ pub fn lease(within: &Path, branch: &str) -> u8 {
             NotCloned::Unsupported { why } | NotCloned::Failed { why } => why,
         })
     };
-    let leased = pool.lease(branch, &holder, now(), &seed, |full| {
+    let mut wait = |full: &Full| {
         if !told {
             told = true;
             waiting(full, pool.count());
         }
-    });
+    };
+    let leased = match existing {
+        true => pool.lease_existing(branch, &holder, now(), &seed, &mut wait),
+        false => pool.lease(branch, &holder, now(), &seed, &mut wait),
+    };
     match leased {
         Ok(lease) => {
-            said(&lease, branch);
+            said(&lease, branch, existing);
             println!("{}", lease.path().display());
             0
         }
@@ -70,7 +74,7 @@ pub fn lease(within: &Path, branch: &str) -> u8 {
              A lease cuts its branch fresh from the base, so it will not reset this one: \
              land or push it, or lease a new name"
         )),
-        Err(LeaseRefused::Vcs(why)) => refused(&why),
+        Err(other) => refused(&other.said()),
     }
 }
 
@@ -84,7 +88,7 @@ pub fn release(within: &Path, path: Option<PathBuf>) -> u8 {
     match pool.release(&path) {
         Ok(released) => {
             eprintln!(
-                "slot-{} is free. {} stays as a branch, and the slot's build stays warm",
+                "slot-{} is free. {} stays as a branch with its commits, unpushed, and the slot's build stays warm",
                 released.slot, released.branch
             );
             0
@@ -192,7 +196,7 @@ fn waiting(full: &Full, count: usize) {
     }
 }
 
-fn said(lease: &Lease, branch: &str) {
+fn said(lease: &Lease, branch: &str, existing: bool) {
     if let Some(why) = lease.unfetched() {
         eprintln!("the base was not fetched, so {branch} is cut from what was last fetched: {why}");
     }
@@ -209,7 +213,10 @@ fn said(lease: &Lease, branch: &str) {
             commit.get(..10).unwrap_or(commit)
         );
     }
-    eprintln!("slot-{} is on {branch}, cut from the base", lease.slot());
+    match existing {
+        true => eprintln!("slot-{} is on {branch}, at its tip", lease.slot()),
+        false => eprintln!("slot-{} is on {branch}, cut from the base", lease.slot()),
+    }
 }
 
 fn ago(now: u64, since: u64) -> String {

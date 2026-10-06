@@ -3,6 +3,7 @@
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type { SavingWorkflow } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
@@ -73,6 +74,9 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.readKitInventory, (event) =>
     connection()?.kitFor(windowIdOf(event)).inventory(),
   );
+  ipc.handle(CHANNELS.removeKitAllowedCommand, (event, run: string) =>
+    connection()?.kitFor(windowIdOf(event)).removeAllowedCommand(run),
+  );
   ipc.handle(CHANNELS.listKitServers, (event) => connection()?.kitFor(windowIdOf(event)).list());
   ipc.handle(CHANNELS.addKitServer, (event, adding: AddKitServer) =>
     connection()?.kitFor(windowIdOf(event)).add(adding),
@@ -87,5 +91,13 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
     CHANNELS.setManifestServerReach,
     (event, name: string, reach: ManifestReach | null) =>
       connection()?.kitFor(windowIdOf(event)).setManifestReach(name, reach),
+  );
+  // The Workflow creator's list, one definition, and a save.
+  ipc.handle(CHANNELS.readWorkflows, (event) => connection()?.workflowsFor(windowIdOf(event)).list());
+  ipc.handle(CHANNELS.readWorkflowDefinition, (event, workflowId: string, source: string) =>
+    connection()?.workflowsFor(windowIdOf(event)).definition(workflowId, source),
+  );
+  ipc.handle(CHANNELS.saveWorkflow, (event, saving: SavingWorkflow) =>
+    connection()?.workflowsFor(windowIdOf(event)).save(saving.manifestId, saving.body),
   );
 }

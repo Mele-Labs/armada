@@ -19,6 +19,8 @@ pub struct Queued {
     pub branch: String,
     pub pull_request: Option<u64>,
     pub ahead: usize,
+    /// What it waits behind, where a need is ahead of it.
+    pub waiting: Option<String>,
 }
 
 pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
@@ -53,6 +55,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
         _ => fresh_place(),
     };
 
+    let waiting = super::hold::waiting_behind(&state, &branch);
     let top = rev_parse(cwd, "--show-toplevel")?;
     write_queue_entry(
         &state,
@@ -77,7 +80,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
         &Outcome {
             branch: branch.clone(),
             state: OutcomeState::Waiting,
-            detail: "in line".to_string(),
+            detail: waiting.clone().unwrap_or_else(|| "in line".to_string()),
             updated: SystemClock::new().now().as_str().to_string(),
             runner: std::process::id(),
             pr: stamp.pr,
@@ -86,6 +89,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
             logs: Vec::new(),
             failed: Vec::new(),
             already: Vec::new(),
+            own_failures: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
             checks: Vec::new(),
@@ -112,6 +116,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
         branch,
         pull_request: stamp.pr,
         ahead,
+        waiting,
     })
 }
 

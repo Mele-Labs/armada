@@ -23,9 +23,10 @@ import {
 
 import type { GroupState, GroupView } from "./draft/group";
 import { SHELL_UNSEEN } from "./plan-board";
+import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
 import type { HeldCommand } from "./drone-held";
-import { withAsk } from "./held-card";
+import { askNodeId, withAsk } from "./held-card";
 
 /**
  * The layout, in the canvas's own coordinates.
@@ -46,6 +47,14 @@ const NEED_ROW = 28;
 
 /** What a Drone held on a command shows on its task, and on the group holding it. */
 const HELD_NEED: WorkflowStepNeed = { says: "Needs you", tone: "waiting" };
+/**
+ * What a task carrying the awaiting line adds to its pitch. The line wraps
+ * rather than clips ("Submitted · awaiting checks" is the fact), so the node
+ * is taller by the wrapped lines: `--leading-xs` (20) each, and the sentence
+ * takes up to two beyond the one a task's facts already draw — 40, so nothing
+ * below overlaps. React Flow places by number, so it is a number here.
+ */
+const LINE_EXTRA = 40;
 /** A group holding no task still takes a row of its own. */
 const GROUP_APART = 104;
 
@@ -75,11 +84,11 @@ const GROUP_WORKING: ReadonlySet<GroupState> = new Set(["running", "joining", "c
  * machine's word for work that ended without advancing; the task's own word is
  * printed beside the mark either way.
  */
-const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
+export const TASK_ACTIVITY: Record<TaskState, StepActivity> = {
   open: "not_started",
   working: "running",
-  // In flight until its Checks answer, `group_state.checking`'s reading.
-  handed_in: "running",
+  // Its agent has stopped, so nothing sweeps; `taskCard` draws its own mark.
+  handed_in: "not_started",
   done: "advanced",
   failed: "failed",
   dropped: "stopped",
@@ -125,11 +134,18 @@ export function taskCard(
   const facts = [{ value: task.id }];
   if (task.turns !== undefined) facts.push({ value: plural(task.turns, "turn") });
   else if (task.scope.length > 0) facts.push({ value: plural(task.scope.length, "file") });
+  // **A handed-in task is not a working one** (owner, 5 Oct 2026): its own
+  // glyph and hue from the registry, and the sentence under its name.
+  const awaiting = awaitingSaid(task.state);
+  const row = TASK_STATE[task.state];
   return {
     kind: "task",
     name: task.title,
     activity: TASK_ACTIVITY[task.state],
-    said: TASK_STATE[task.state]?.verb ?? task.state,
+    ...(awaiting !== undefined && row?.icon && row.statusToken
+      ? { mark: { icon: row.icon, token: row.statusToken }, line: awaiting }
+      : {}),
+    said: awaiting ?? row?.verb ?? task.state,
     facts,
     ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
@@ -200,28 +216,37 @@ export function planGraphOf({
       card: group.id === openGroup ? { ...card, selected: true } : card,
     });
 
-    // The held task's card draws a row more, so what is under it moves down.
-    let column = 0;
+    let under = down;
     group.tasks.forEach((task) => {
       const open = onOpenTask === undefined ? undefined : () => onOpenTask(task.id);
       const isHeld = task.id === heldTask;
       const card = taskCard(task, open, isHeld);
       nodes.push({
         id: taskNodeId(task.id),
-        position: { x: TASK_ACROSS, y: down + column },
+        position: { x: TASK_ACROSS, y: under },
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
+      // The held task's card draws a row more, so what is under it moves down.
+      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA) + (isHeld ? NEED_ROW : 0);
       edges.push({
         id: `${groupId}>${taskNodeId(task.id)}`,
         source: groupId,
         target: taskNodeId(task.id),
         kind: "holds",
       });
-      column += TASK_APART + (isHeld ? NEED_ROW : 0);
     });
-    down += Math.max(GROUP_APART, column + AFTER_GROUP);
+    down = Math.max(down + GROUP_APART, under + AFTER_GROUP);
   }
 
   const asked = withAsk(nodes, edges, held?.taskId === undefined ? undefined : taskNodeId(held.taskId), held);
-  return { nodes: asked.nodes, edges: asked.edges, opensOn: [groups.map((group) => groupNodeId(group.id))] };
+  const around = held?.taskId === undefined || asked.nodes.length === nodes.length ? undefined : taskNodeId(held.taskId);
+  const groupIds = groups.map((group) => groupNodeId(group.id));
+  // A held task's card and the one beside it are what a fit that cannot show the
+  // whole plan opens on, so the prompt is never cut off by the frame.
+  return {
+    nodes: asked.nodes,
+    edges: asked.edges,
+    opensOn:
+      around === undefined ? [groupIds] : [[...groupIds, askNodeId(around)], [around, askNodeId(around)]],
+  };
 }

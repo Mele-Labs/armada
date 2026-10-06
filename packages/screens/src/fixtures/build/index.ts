@@ -12,7 +12,7 @@
 // so a fixture added here is a fixture the proof covers without a second edit.
 
 import { running, runningWaitingOnACommand } from "./running";
-import { workingAPlan } from "./working-a-plan";
+import { handedInATask, workingAPlan } from "./working-a-plan";
 import { review } from "./review";
 import { escalatedGateFailure } from "./escalated";
 import { escalatedEvidenceSuspect } from "./escalated-judge";
@@ -48,6 +48,7 @@ import { reviewHeldByPolicy } from "./policy";
 export {
   running,
   workingAPlan,
+  handedInATask,
   runningWaitingOnACommand,
   review,
   escalatedGateFailure,
@@ -82,6 +83,7 @@ export {
 export const FIXTURES = [
   running(),
   workingAPlan(),
+  handedInATask(),
   review(),
   escalatedGateFailure(),
   escalatedEvidenceSuspect(),

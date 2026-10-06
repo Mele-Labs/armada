@@ -36,7 +36,7 @@ const BLOCK: &str = "FILES ANOTHER JOB IS FIXING";
 fn held_workflow() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture-held.yml"),
-        "version: 1\nworkflow_id: fixture-held\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-held\nname: fixture\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
          evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
          - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \
@@ -127,6 +127,7 @@ async fn declares(fleet: &Fixture, job: &JobId, path: &str) -> Result<(), NotDec
         .declare_scope(
             job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: vec![path.to_string()],
             },
         )

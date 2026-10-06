@@ -7,6 +7,7 @@
 //! the pool's own rules.
 //! `docs/concepts/fleet.md`, *Worktree slots*.
 
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -129,6 +130,75 @@ pub enum SlotHeld {
 /// Why a Job's slot was not given back, in a sentence. The slot stays held.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotKept(pub String);
+
+/// What parking a Job's slot kept and freed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotParked {
+    /// The branch the work is on, and stays on.
+    pub branch: String,
+    /// The WIP commit, where there was uncommitted work to keep; `None` where
+    /// the slot was clean and was only released.
+    pub commit: Option<String>,
+    /// The files that commit took, as git names them. Empty where `commit` is
+    /// `None`.
+    pub files: Vec<String>,
+}
+
+/// Why a park changed nothing, or committed and could not free the slot. The
+/// Job keeps its slot in every case and the commit, where one was made, stays.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SlotParkRefused {
+    /// The checkout is detached, so there is no branch to park onto.
+    OnNoBranch,
+    /// The checkout is on the base itself.
+    OnTheBase(String),
+    /// The checkout is on a branch other than the one the lease names.
+    OnAnotherBranch { leased: String, on: String },
+    /// Somebody else holds the slot, named for a person.
+    HeldByAnother(String),
+    /// A lease or a release is under way on it.
+    Busy,
+    /// Released on behalf of a holder that no longer holds it: who does now,
+    /// or `nobody`.
+    HolderChanged(String),
+    /// The slot is not one of the pool's, or nobody leased it.
+    NotLeased,
+    /// The work was committed and the release then refused.
+    Release(String),
+    /// git refused, and this is what it said.
+    Vcs(String),
+}
+
+impl SlotParkRefused {
+    /// One sentence, for a person.
+    pub fn said(&self) -> String {
+        match self {
+            SlotParkRefused::OnNoBranch => String::from(
+                "HEAD is detached, so there is no branch to commit the uncommitted files to",
+            ),
+            SlotParkRefused::OnTheBase(base) => format!(
+                "the worktree is on {base}, the base branch, so the uncommitted files were not \
+                 committed there"
+            ),
+            SlotParkRefused::OnAnotherBranch { leased, on } => format!(
+                "the worktree is on branch {on}, not {leased}, so the uncommitted files were not \
+                 committed"
+            ),
+            SlotParkRefused::HeldByAnother(who) => format!("{who} holds it"),
+            SlotParkRefused::Busy => String::from("a lease or a release is under way on it"),
+            SlotParkRefused::HolderChanged(now) => {
+                format!("it is held by {now} now, not by the holder that was shown")
+            }
+            SlotParkRefused::NotLeased => {
+                String::from("nothing leased it, so there is nothing to park")
+            }
+            SlotParkRefused::Release(why) => {
+                format!("the uncommitted files were committed, but the slot stays held: {why}")
+            }
+            SlotParkRefused::Vcs(why) => why.clone(),
+        }
+    }
+}
 
 /// A person's change to the pool's shape on this machine. Kept beside the
 /// slots and never committed, so `setup.worktrees` stays the default for a

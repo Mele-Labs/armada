@@ -55,8 +55,7 @@ setup:
   requires: [bootstrap]
 "#;
 
-const WORKFLOW: &str = "version: 1\nworkflow_id: fixture-rehearsal\nname: fixture\nstructure: \
-     linear\nsteps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
+const WORKFLOW: &str = "version: 1\nworkflow_id: fixture-rehearsal\nname: fixture\nsteps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
      delivers: false\n    advance_gate: auto\n    mechanical_checks:\n      - type: \
      manifest_check\n        check: test\n      - type: manifest_check\n        check: format\n";
 

@@ -390,6 +390,7 @@ async fn work_outside_the_plan_asks_the_judge_and_fails_nothing() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -760,6 +761,7 @@ async fn a_drone_still_writing_inside_its_plan_is_not_stopped_for_the_report() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )
@@ -807,6 +809,7 @@ async fn a_drone_that_writes_nothing_more_is_still_stopped() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )

@@ -29,10 +29,10 @@ const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nmerge_by: push\n\
 /// Implement gated on every Manifest Check, then a hand-off held for a person
 /// that sends the work out and declares none — every shipped coding
 /// workflow's shape.
-fn workflow(manifest: &Manifest) -> ResolvedWorkflow {
+pub(super) fn workflow(manifest: &Manifest) -> ResolvedWorkflow {
     let def = WorkflowDef::parse(
         Path::new("fixture.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
          steps:\n  - id: implement\n    label: \"Implement\"\n    \
          evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      \
          - type: every_manifest_check\n      - type: diff_nonempty\n    \
@@ -49,7 +49,7 @@ fn holding_the_work(home: &TempDir) -> Fixture {
     holding_the_work_under(home, MANIFEST)
 }
 
-fn holding_the_work_under(home: &TempDir, text: &str) -> Fixture {
+pub(super) fn holding_the_work_under(home: &TempDir, text: &str) -> Fixture {
     let manifest = Manifest::parse(Path::new("armada.yml"), text).expect("a manifest");
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.starting().workflows = one(workflow(&manifest));
@@ -58,19 +58,19 @@ fn holding_the_work_under(home: &TempDir, text: &str) -> Fixture {
     Fleet::assembled(fittings)
 }
 
-async fn worktree_of(fleet: &Fixture, home: &TempDir, job_id: &JobId) -> PathBuf {
+pub(super) async fn worktree_of(fleet: &Fixture, home: &TempDir, job_id: &JobId) -> PathBuf {
     let job = fleet.load(job_id).await.expect("the Job");
     let spec = crate::tests::daemon::spec_held(home, &job).expect("a spec");
     PathBuf::from(spec.worktree_path())
 }
 
-fn moved() -> Merging {
+pub(super) fn moved() -> Merging {
     Merging::Refuses(NotMerged::BaseMoved {
         said: String::from("main moved on origin between the fetch and the push"),
     })
 }
 
-fn counted(fleet: &Fixture, which: impl Fn(&Delivered) -> bool) -> usize {
+pub(super) fn counted(fleet: &Fixture, which: impl Fn(&Delivered) -> bool) -> usize {
     fleet
         .vcs()
         .delivered()
@@ -79,14 +79,14 @@ fn counted(fleet: &Fixture, which: impl Fn(&Delivered) -> bool) -> usize {
         .count()
 }
 
-fn wire_code(fleet: &Fixture, refused: Adrift) -> (String, String) {
+pub(super) fn wire_code(fleet: &Fixture, refused: Adrift) -> (String, String) {
     match fleet.refusal(refused) {
         api::Refusal::IllegalMove(wire) => (wire.code.to_string(), wire.message.to_string()),
         other => panic!("the person's to answer, so a conflict: {other:?}"),
     }
 }
 
-async fn still_at_the_gate(fleet: &Fixture, job_id: &JobId) {
+pub(super) async fn still_at_the_gate(fleet: &Fixture, job_id: &JobId) {
     let held = fleet.load(job_id).await.expect("the Job is there");
     assert_eq!(held.status(), JobStatus::AwaitingReview);
 }

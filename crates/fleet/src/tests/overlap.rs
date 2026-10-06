@@ -34,6 +34,7 @@ async fn declares(fleet: &Fixture, port: u16, paths: &[&str]) {
         .declare_scope(
             &job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: paths.iter().map(|path| path.to_string()).collect(),
             },
         )

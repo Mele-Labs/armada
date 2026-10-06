@@ -19,8 +19,9 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    slot_path, RescueRefused, SlotChange, SlotHeld, SlotKept, SlotLeased, SlotPool, SlotReading,
-    SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree, WorktreeSpec,
+    slot_path, RescueRefused, SlotChange, SlotHeld, SlotKept, SlotLeased, SlotParkRefused,
+    SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding,
+    StrandedWork, Worktree, WorktreeSpec,
 };
 
 use super::{FakeVcs, FakeVcsError};
@@ -88,6 +89,13 @@ pub(super) struct FakeSlots {
     released: Mutex<Vec<(u32, String)>>,
     completed: Mutex<Vec<(u32, String)>>,
     rescued: Mutex<Vec<(u32, SlotRescue)>>,
+    /// The branch each Job's lease was cut on, so a park can name it.
+    branch_of: Mutex<BTreeMap<String, String>>,
+    /// What the next park answers instead of freeing the slot.
+    park_refusal: Mutex<Option<SlotParkRefused>>,
+    parked: Mutex<Vec<(u32, String)>>,
+    /// Every lease of an existing branch: the branch, the slot, the Job.
+    reseated: Mutex<Vec<(String, u32, String)>>,
 }
 
 impl FakeSlots {
@@ -112,6 +120,10 @@ impl FakeSlots {
     }
 
     pub(super) fn lease(&self, pool: &SlotPool, spec: &WorktreeSpec, job: &str) -> SlotLeased {
+        self.branch_of
+            .lock()
+            .expect("not poisoned")
+            .insert(job.to_string(), spec.branch());
         self.with(pool, |slots| {
             let mine = slots
                 .iter()
@@ -132,6 +144,81 @@ impl FakeSlots {
                 worktree: Worktree::at(path, spec.branch()),
                 reused,
             }
+        })
+    }
+
+    /// A slot onto `branch`, which the caller has checked exists.
+    pub(super) fn lease_existing(&self, pool: &SlotPool, branch: &str, job: &str) -> SlotLeased {
+        self.branch_of
+            .lock()
+            .expect("not poisoned")
+            .insert(job.to_string(), branch.to_string());
+        let root = pool.repo_root().to_string();
+        let leased = self.with(pool, |slots| {
+            let mine = slots
+                .iter()
+                .position(|slot| slot.held_by.as_deref() == Some(job));
+            let Some(at) = mine.or_else(|| slots.iter().position(Slot::leasable)) else {
+                return SlotLeased::Full;
+            };
+            let reused = slots[at].made;
+            slots[at].made = true;
+            slots[at].held_by = Some(job.to_string());
+            let slot = at as u32 + 1;
+            let path = slot_path(&root, slot);
+            let _ = std::fs::create_dir_all(&path);
+            SlotLeased::Took {
+                slot,
+                worktree: Worktree::at(path, branch),
+                reused,
+            }
+        });
+        if let SlotLeased::Took { slot, .. } = &leased {
+            self.reseated.lock().expect("not poisoned").push((
+                branch.to_string(),
+                *slot,
+                job.to_string(),
+            ));
+        }
+        leased
+    }
+
+    /// Commit and free the slot `job` holds, or answer what was scripted.
+    pub(super) fn park(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        if let Some(refused) = self.park_refusal.lock().expect("not poisoned").take() {
+            return Err(refused);
+        }
+        let freed = self.with(pool, |slots| match slots.get_mut(slot as usize - 1) {
+            Some(at) if at.held_by.as_deref() == Some(job) => {
+                at.held_by = None;
+                Ok(())
+            }
+            Some(Slot {
+                held_by: Some(by), ..
+            }) => Err(SlotParkRefused::HeldByAnother(by.clone())),
+            _ => Err(SlotParkRefused::NotLeased),
+        });
+        freed?;
+        self.parked
+            .lock()
+            .expect("not poisoned")
+            .push((slot, job.to_string()));
+        let branch = self
+            .branch_of
+            .lock()
+            .expect("not poisoned")
+            .get(job)
+            .cloned()
+            .unwrap_or_default();
+        Ok(SlotParked {
+            branch,
+            commit: Some(format!("wip-{job}")),
+            files: vec![String::from("wip.txt")],
         })
     }
 
@@ -178,6 +265,10 @@ impl FakeSlots {
             .expect("not poisoned")
             .push((slot, job.to_string()));
         Ok(())
+    }
+
+    pub(super) fn refuse_next_park(&self, why: SlotParkRefused) {
+        *self.park_refusal.lock().expect("not poisoned") = Some(why);
     }
 
     /// Every slot: made or not and who holds it. Never warm, and never behind,
@@ -431,15 +522,31 @@ impl FakeVcs {
     }
 
     /// Make the next release refuse, as the pool does for a dirty tree or
-    /// unlanded commits.
+    /// commits on no branch.
     pub fn keep_next_release(&self, why: &str) {
         self.slots.keep_next(why);
     }
 
     /// Make every release refuse, so a Job that ends keeps its slot — what the
-    /// pool does when its work is on neither the remote nor the base.
+    /// pool does when its tree is dirty or its commits are on no branch.
     pub fn keep_every_release(&self, why: &str) {
         self.slots.keep_every(why);
+    }
+
+    /// Make the next park refuse the way the pool does for a detached head, a
+    /// slot on the base, or one another holds.
+    pub fn refuse_next_park(&self, why: SlotParkRefused) {
+        self.slots.refuse_next_park(why);
+    }
+
+    /// Every slot parked, and by which Job, in order.
+    pub fn parked_slots(&self) -> Vec<(u32, String)> {
+        self.slots.parked.lock().expect("not poisoned").clone()
+    }
+
+    /// Every lease of an existing branch, as `(branch, slot, job)`, in order.
+    pub fn reseated_slots(&self) -> Vec<(String, u32, String)> {
+        self.slots.reseated.lock().expect("not poisoned").clone()
     }
 
     /// Every slot given back, and by which Job, in order.
@@ -467,6 +574,25 @@ impl FakeVcs {
     /// Every slot marked as held by a Job that completed, in order.
     pub fn completed_slots(&self) -> Vec<(u32, String)> {
         self.slots.completed.lock().expect("not poisoned").clone()
+    }
+
+    /// A lease of an existing branch: the same scripted refusals, and a branch
+    /// nobody made is the real pool's `NoSuchBranch`.
+    pub(super) fn leased_existing(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, FakeVcsError> {
+        if let Some(standing_in_for) = self.refuse_next.lock().expect("not poisoned").take() {
+            return Err(FakeVcsError::Refused { standing_in_for });
+        }
+        if !self.branches.lock().expect("not poisoned").contains(branch) {
+            return Err(FakeVcsError::NoSuchRef {
+                r#ref: branch.to_string(),
+            });
+        }
+        Ok(self.slots.lease_existing(pool, branch, job_id))
     }
 
     /// A lease, refused the ways `create_worktree` scripts: a machine that will

@@ -480,6 +480,7 @@ pub(super) async fn told_across_the_boundary(
     worktree_directory(home, &job);
     dispatched(&fleet, job.id()).await.expect("it is approved");
     let plan = DeclareScope {
+        needs: Vec::new(),
         context_paths: vec!["docs".to_string()],
     };
     declared_by_the_one(&fleet, &plan)
@@ -791,7 +792,6 @@ fn capture_or_not() -> config::ResolvedWorkflow {
 version: 1
 workflow_id: fixture-captured
 name: fixture
-structure: linear
 steps:
   - id: implement
     label: "Implement"

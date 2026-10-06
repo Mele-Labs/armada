@@ -1,12 +1,9 @@
-//! `verdict_routing` and `iteration_cap`: the loop edge, its bound, and the
-//! wiring check that reads one against `structure`.
+//! `verdict_routing` and `iteration_cap`: the back edge and its bound.
 //!
-//! **The three keys were refused three different ways, and the difference was
-//! the point.** `structure: loop` was outside M1, `verdict_routing` on a linear
-//! workflow contradicted the file's own claim, and `iteration_cap` was a key
-//! that had never existed. Two of those are gone and the third stays: this file
-//! is where that stays visible, because collapsing them would make every
-//! refusal read as a milestone that has not arrived.
+//! **`verdict_routing` is the only declaration of a back edge.** There is no
+//! workflow-level label to compare it with, so a step that routes needs only
+//! name an earlier step, and the bound on how often is the step's own cap or
+//! [`DEFAULT_ITERATION_CAP`].
 
 use core_model::{GateVerdict, StepId};
 
@@ -14,7 +11,7 @@ use crate::error::{BadReturn, Fault, LoadError};
 use crate::manifest::Manifest;
 use crate::resolve::ResolvedWorkflow;
 use crate::tests::{fault_at, named, refusals, roster};
-use crate::workflow::{Structure, WorkflowDef};
+use crate::workflow::WorkflowDef;
 
 /// A two-step design loop: `draft`, then a human gate that sends it back.
 const DESIGN_PLAN: &str = "
@@ -40,13 +37,10 @@ fn plain_manifest() -> Manifest {
         .expect("a manifest declaring no checks")
 }
 
-fn parsed(structure: &str, steps: &str) -> Result<WorkflowDef, LoadError> {
+fn parsed(steps: &str) -> Result<WorkflowDef, LoadError> {
     WorkflowDef::parse(
         &named("workflows/design-plan.yml"),
-        &format!(
-            "version: 1\nworkflow_id: design_plan\nname: design_plan\n\
-             structure: {structure}\nsteps:{steps}"
-        ),
+        &format!("version: 1\nworkflow_id: design_plan\nname: design_plan\nsteps:{steps}"),
         &roster(),
     )
 }
@@ -55,16 +49,12 @@ fn parsed(structure: &str, steps: &str) -> Result<WorkflowDef, LoadError> {
 /// whole for the first time: `draft -> present`, with `request_changes` routing
 /// back to `draft` and a cap of five on how often.
 ///
-/// **The blocker written against `structure: loop` had expired.** It said a
-/// return needs a verdict, which needs a Judge or a human gate, and that
-/// neither existed — and both do: `human_always` is a carried gate that
-/// `fleet::gate` holds a step at, and a panel runs from `judge_checks`. The
-/// structure is asserted here rather than beside the other `structure` tests,
-/// because it does not stand on its own: `loop` is checked against the wiring.
+/// A return needs a verdict, which needs a Judge or a human gate, and both
+/// exist: `human_always` is a carried gate that `fleet::gate` holds a step at,
+/// and a panel runs from `judge_checks`.
 #[test]
 fn a_loop_carries_its_edge_and_its_cap_onto_the_step() {
-    let def = parsed("loop", DESIGN_PLAN).expect("the design loop");
-    assert_eq!(def.structure(), Structure::Loop);
+    let def = parsed(DESIGN_PLAN).expect("the design loop");
     let present = &def.steps()[1];
 
     assert_eq!(
@@ -79,7 +69,7 @@ fn a_loop_carries_its_edge_and_its_cap_onto_the_step() {
 /// carries nothing, and that is what makes its only exit forward.
 #[test]
 fn a_step_that_emits_no_verdict_routes_nowhere() {
-    let def = parsed("loop", DESIGN_PLAN).expect("the design loop");
+    let def = parsed(DESIGN_PLAN).expect("the design loop");
     assert!(def.steps()[0].verdict_routing().is_empty());
     assert_eq!(def.steps()[0].iteration_cap(), None);
 }
@@ -91,7 +81,6 @@ fn a_step_that_emits_no_verdict_routes_nowhere() {
 #[test]
 fn a_loop_may_declare_an_edge_and_no_cap() {
     let def = parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -116,7 +105,6 @@ fn a_loop_may_declare_an_edge_and_no_cap() {
 #[test]
 fn a_cap_of_zero_is_a_sentence_an_author_may_write() {
     let def = parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -143,7 +131,6 @@ fn a_cap_of_zero_is_a_sentence_an_author_may_write() {
 #[test]
 fn a_cap_that_is_not_a_number_is_refused() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -173,7 +160,6 @@ fn a_cap_that_is_not_a_number_is_refused() {
 #[test]
 fn a_cap_on_a_step_with_no_edge_is_refused() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -203,7 +189,6 @@ fn a_cap_on_a_step_with_no_edge_is_refused() {
 #[test]
 fn a_verdict_that_is_not_a_loop_return_is_refused() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -232,7 +217,6 @@ fn a_verdict_that_is_not_a_loop_return_is_refused() {
 #[test]
 fn an_empty_routing_map_is_refused() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -253,80 +237,6 @@ fn an_empty_routing_map_is_refused() {
     );
 }
 
-/// **The refusal that stays, and is not a deferral.** On a linear workflow the
-/// declared structure and the wiring disagree, which is wrong at every
-/// milestone — so it keeps its own fault rather than becoming the unknown key
-/// it would otherwise now be, since both keys are in `STEP_KEYS`.
-#[test]
-fn a_linear_workflow_carrying_an_edge_is_still_a_contradiction_and_not_an_unknown_key() {
-    let refused = refusals(parsed("linear", DESIGN_PLAN));
-    assert_eq!(
-        fault_at(&refused, "steps[1].verdict_routing"),
-        &Fault::ContradictsStructure {
-            structure: "linear"
-        }
-    );
-}
-
-/// **The mirror, and it is the half that was never built.** A `loop` no step
-/// declares an edge for runs as a straight line while wearing the label of one
-/// that comes back — legal config, and what surfaces is a Job that advances off
-/// the end of a workflow its author believed would return.
-///
-/// Reported at `structure` rather than at a step: the absence is the file's,
-/// and there is no offending step to name.
-#[test]
-fn a_loop_that_declares_no_edge_is_refused() {
-    let refused = refusals(parsed(
-        "loop",
-        "
-  - id: draft
-    label: Draft
-    evidence: {submitted: {type: document}}
-    delivers: false
-    advance_gate: auto
-  - id: present
-    label: Present
-    evidence: {submitted: {type: document}}
-    delivers: false
-    advance_gate: human_always
-",
-    ));
-    assert_eq!(
-        fault_at(&refused, "structure"),
-        &Fault::ContradictsStructure { structure: "loop" }
-    );
-}
-
-/// The check is asked of what the file wrote, not of what parsed. A step that
-/// is dropped for its own unrelated fault — here a missing `label` — still
-/// declared the edge, and reporting the workflow as edgeless would send the
-/// author to `structure` for a fault sitting two lines below.
-#[test]
-fn a_loop_whose_routing_step_failed_to_parse_is_not_also_called_edgeless() {
-    let refused = refusals(parsed(
-        "loop",
-        "
-  - id: draft
-    label: Draft
-    evidence: {submitted: {type: document}}
-    delivers: false
-    advance_gate: auto
-  - id: present
-    evidence: {submitted: {type: document}}
-    delivers: false
-    advance_gate: human_always
-    verdict_routing:
-      request_changes: draft
-",
-    ));
-    assert_eq!(fault_at(&refused, "steps[1].label"), &Fault::Missing);
-    assert!(
-        !crate::tests::refused(&refused, "structure"),
-        "the edge is written on the step that failed: {refused:?}"
-    );
-}
-
 /// **An edge naming no step is a loop that cannot close**, and it is refused
 /// where it is written for the reason an unresolvable artifact target is: the
 /// only other place it would be found is a Job with a worktree, a Drone and a
@@ -334,7 +244,6 @@ fn a_loop_whose_routing_step_failed_to_parse_is_not_also_called_edgeless() {
 #[test]
 fn an_edge_that_names_no_step_is_refused() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -367,7 +276,6 @@ fn an_edge_that_names_no_step_is_refused() {
 #[test]
 fn a_step_that_routes_at_itself_is_refused_as_a_retry() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -400,7 +308,6 @@ fn a_step_that_routes_at_itself_is_refused_as_a_retry() {
 #[test]
 fn a_step_that_routes_forward_is_refused_and_not_deferred() {
     let refused = refusals(parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -431,7 +338,7 @@ fn a_step_that_routes_forward_is_refused_and_not_deferred() {
 /// two different mistakes.
 #[test]
 fn a_target_that_is_strictly_earlier_is_the_only_one_that_loads() {
-    let def = parsed("loop", DESIGN_PLAN).expect("the design loop");
+    let def = parsed(DESIGN_PLAN).expect("the design loop");
     assert_eq!(
         def.steps()[1]
             .verdict_routing()
@@ -445,7 +352,7 @@ fn a_target_that_is_strictly_earlier_is_the_only_one_that_loads() {
 /// a Job freezes — where `fleet` reads it, and where `store` writes it down.
 #[test]
 fn the_loop_reaches_the_resolved_step_a_job_freezes() {
-    let def = parsed("loop", DESIGN_PLAN).expect("the design loop");
+    let def = parsed(DESIGN_PLAN).expect("the design loop");
     let manifest = plain_manifest();
     let resolved = ResolvedWorkflow::resolve(&def, &manifest).expect("no step names a check");
 
@@ -468,14 +375,12 @@ fn the_loop_reaches_the_resolved_step_a_job_freezes() {
     );
 }
 
-/// The fail-closed default, where the file declares a route and no bound. The
-/// step permits no return at all rather than an unbounded one, which is the
-/// direction `ResolvedStep::looping` argues for: a Job that never terminates is
-/// the failure `structure` exists to catch.
+/// Where the file declares a route and no bound, the step takes the default
+/// cap. A back edge with no bound at all would be a Job that never terminates,
+/// and that guard is the passes cap now that nothing else declares a loop.
 #[test]
-fn a_route_with_no_cap_freezes_as_a_loop_that_may_not_go_round() {
+fn a_route_with_no_cap_freezes_with_the_default_cap() {
     let def = parsed(
-        "loop",
         "
   - id: draft
     label: Draft
@@ -497,5 +402,5 @@ fn a_route_with_no_cap_freezes_as_a_loop_that_may_not_go_round() {
 
     let present = &resolved.steps()[1];
     assert!(present.closes_a_loop());
-    assert_eq!(present.iteration_cap(), 0);
+    assert_eq!(present.iteration_cap(), crate::DEFAULT_ITERATION_CAP);
 }

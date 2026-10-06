@@ -135,3 +135,24 @@ export const Agreed: Story = {
     await expect(canvas.queryByRole("button", { name: "Create Job" })).toBeNull();
   },
 };
+
+/** **A Kit item whose command was added.** Updated Kit, and the command in monospace beside it. */
+export const UpdatedKit: Story = {
+  name: "A Kit item that updated Kit",
+  args: {
+    item: {
+      who: "drone",
+      landsIn: "kit",
+      statement: "A Drone waited on grep.",
+      title: "A Drone had to wait for grep to be allowed",
+      what: "It asked to run grep on a check log, and the step waited until you allowed it.",
+      fix: "Add grep on .armada/checks to the allowlist.",
+    },
+    settled: { said: "Updated Kit", command: "grep" },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Updated Kit", { exact: true })).toBeVisible();
+    await expect(canvas.getByText("grep", { exact: true }).classList.contains("mono")).toBe(true);
+    await expect(canvas.queryByRole("button", { name: "Update Kit" })).toBeNull();
+  },
+};

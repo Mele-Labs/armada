@@ -271,6 +271,10 @@ impl Delivery for GitVcs {
         crate::merging_the_base_in::put_back(worktree, merged)
     }
 
+    fn settle_worktree(&self, worktree: &Worktree) -> Result<(), NotDelivered> {
+        crate::merging_the_base_in::settle_worktree(worktree)
+    }
+
     fn caught_the_repository_up(&self, in_repo: &str, base: &str) -> RepositoryStanding {
         crate::landing::caught_up(in_repo, base)
     }

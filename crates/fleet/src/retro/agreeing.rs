@@ -27,6 +27,9 @@ const NO_SUCH_LESSON: &str = "fleet.no_such_lesson";
 /// An item written before 23.15, which names no place its fix lands. A 422:
 /// where its Job would go is not Fleet's to guess.
 const LESSON_NAMES_NO_PLACE: &str = "fleet.lesson_names_no_place";
+/// A Kit change that no listing in Kit could make run. A 409: the item stays
+/// open, and nothing is written.
+const KIT_CHANGE_REFUSED: &str = "fleet.kit_change_refused";
 /// A fix that lands in Armada, and the repository Armada is built in is not
 /// one this Fleet serves. A 422.
 const ARMADA_NOT_SERVED: &str = "fleet.lesson_armada_not_served";
@@ -68,6 +71,13 @@ where
                 self.run_id(),
             )));
         };
+        // **A Kit item with a change applies it**, and nothing is proposed.
+        if let (LandsIn::Kit, Some(change)) = (place, held.line.change.as_ref()) {
+            self.apply_to_kit(lesson_id, &job_id, ordinal, change)
+                .await?;
+            let held = self.lesson_held(lesson_id, &job_id, ordinal).await?;
+            return self.lesson_standing(held).await;
+        }
         // Where the Job would go is settled before anything is claimed, so a
         // refusal leaves the item open and nothing proposed.
         let manifest = match place {
@@ -121,6 +131,56 @@ where
         }
         let held = self.lesson_held(lesson_id, &job_id, ordinal).await?;
         self.lesson_standing(held).await
+    }
+
+    /// Apply a Kit item's change, then claim the item as `accepted`.
+    ///
+    /// **Applied first and claimed second**: a line that will not write leaves
+    /// the item open for another press, and two presses at once cannot add the
+    /// line twice, because adding is idempotent and the claim is one write.
+    /// **Refused, and the item left open**, where the command is one a Manifest
+    /// declares destructive or the harness cannot grant. A listing in Kit would
+    /// not lift either, so accepting it would only report a change that does
+    /// nothing.
+    async fn apply_to_kit(
+        &self,
+        lesson_id: &str,
+        job_id: &core_model::JobId,
+        ordinal: u32,
+        change: &core_model::Change,
+    ) -> Result<(), Refusal> {
+        let core_model::Change::AllowCommand { command } = change;
+        let refuse = |why: String| {
+            Refusal::Unacceptable(WireError::raised(KIT_CHANGE_REFUSED, why, self.run_id()))
+        };
+        if let Some(why) = self.withheld_everywhere(command) {
+            return Err(refuse(format!("{lesson_id} allows `{command}`, and {why}")));
+        }
+        let from = ipc::KitAllowedSource::RetroItem {
+            lesson_id: lesson_id.to_string(),
+        };
+        self.allow_in_kit(command, from)
+            .await
+            .map_err(|why| refuse(why.to_string()))?;
+        self.store()
+            .lock()
+            .await
+            .accept_lesson_applied(job_id, ordinal)
+            .map_err(|why| self.refusal(Adrift::Writing(why)))?;
+        Ok(())
+    }
+
+    /// Why no listing in Kit could let `command` run, where there is a reason.
+    pub(crate) fn withheld_everywhere(&self, command: &str) -> Option<String> {
+        if let Some(why) = self.ungrantable(command) {
+            return Some(format!("no job can be granted it: {why}"));
+        }
+        self.repositories().served().iter().find_map(|served| {
+            self.destructive_commands(served)
+                .into_iter()
+                .find(|(_, run)| crate::permitting::covers(run, command))
+                .map(|(name, _)| format!("a repository declares it destructive, as {name}"))
+        })
     }
 
     /// Disagree with an item. The row stays, `discarded`. **An item already

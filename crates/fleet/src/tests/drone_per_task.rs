@@ -22,7 +22,7 @@ use crate::work_plan::{permitted, plan_grants, NotPlanned};
 pub(crate) fn a_drone_per_task() -> config::ResolvedWorkflow {
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture-per-task.yml"),
-        "version: 1\nworkflow_id: fixture-per-task\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-per-task\nname: fixture\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
          evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
          - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \

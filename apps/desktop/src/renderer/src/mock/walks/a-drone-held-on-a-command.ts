@@ -3,7 +3,7 @@
 
 import { button, card, inside, role, tab, text, walk } from "../walk";
 
-export const aDroneHeldOnACommand = walk("arc/executing-held", [
+export const aDroneHeldOnACommand = walk("held/command", [
   { press: tab("Plan"), say: "The plan, as its groups and tasks" },
   { look: inside(card("Draw what is running, in four lists"), text("Needs you")), say: "On the graph, T5's card says a command waits for you" },
   { look: role("group", "Needs you"), say: "And a card beside it asks, with the command and the answers" },

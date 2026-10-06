@@ -836,7 +836,11 @@ impl Delivery for FakeVcs {
                 said: format!("the branch carries {tree}, which no run of its Checks passed on"),
             });
         }
-        Ok(PushedOntoBase { base, merged })
+        Ok(PushedOntoBase {
+            base,
+            merged,
+            merge: Some(String::from("3e9a7c1000000000000000000000000000000000")),
+        })
     }
 
     fn tree_as_it_stands(&self, _worktree: &Worktree) -> Result<String, NotDelivered> {
@@ -904,6 +908,16 @@ impl Delivery for FakeVcs {
             });
         let mut trees = self.trees.lock().expect("not poisoned");
         trees.now = trees.was;
+        Ok(())
+    }
+
+    fn settle_worktree(&self, worktree: &Worktree) -> Result<(), NotDelivered> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::SettledWorktree {
+                branch: worktree.branch().to_string(),
+            });
         Ok(())
     }
 
@@ -1085,6 +1099,43 @@ impl Vcs for FakeVcs {
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
         self.leased(pool, spec, job_id)
+    }
+
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.slots.park(pool, slot, job_id)
+    }
+
+    fn release_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        holder: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.slots
+            .park(pool, slot, holder)
+            .map_err(|refused| match refused {
+                adapter_traits::SlotParkRefused::HeldByAnother(now) => {
+                    adapter_traits::SlotParkRefused::HolderChanged(now)
+                }
+                adapter_traits::SlotParkRefused::NotLeased => {
+                    adapter_traits::SlotParkRefused::HolderChanged(String::from("nobody"))
+                }
+                other => other,
+            })
+    }
+
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        self.leased_existing(pool, branch, job_id)
     }
 
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {

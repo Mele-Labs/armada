@@ -217,7 +217,7 @@ Drone** (#1105): `rerun_checks` asks the stopped step's gate again on the
 worktree as it stands, spends no retry, and takes the Job straight back to
 `running` only where the reading goes somewhere. A Check that still fails moves
 nothing. A pass settles the tasks the red run had marked `failed`, so the Judge
-reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). The act that does *not* reach it is
+reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). **A pass closes the group it ruled on and moves the step only when no group is left** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792): with a group after it the step stays `running` and the Job is `queued`, and admission starts the next group's Drone. The act that does *not* reach it is
 the override: `Stuck` reads whether the step's Checks passed out of the record
 rather than inferring the tier from the trigger, and they did not pass here.
 `build` failing is still not a matter of opinion.
@@ -472,6 +472,30 @@ flowchart LR
 `killed` is drawn as one rule rather than an edge from each status. **No terminal has an outbound edge**, so nothing leaves the right-hand column.
 
 The full transition table — every legal edge, its trigger and its guard — is in `crates/core-model/domain/job-transitions.toml`.
+
+## Pausing a Job
+
+**A pause is a marker on the Job, not a status.** A person pauses a Job to kill
+its process and give its worktree slot back without ending it, which only
+`killed` did before and which is terminal. The record keeps `pause` beside
+`worktree_slot`: who paused it, when, and whether a resume is waiting for a
+slot. Its work is parked on its branch as a `WIP:` commit.
+
+| The Job was | It reads as | Resume puts it |
+|---|---|---|
+| `running` | `queued`, reason `paused`. Its step is `stopped` and the resumed step costs one retry attempt, as a restart does | back in the queue, and a Drone opens on the same step as `resuming` |
+| `awaiting_review`, `awaiting_repair` or `escalated` | the same status, with a marker. Its gate, step states and review rows are untouched | where it was, once a slot is free |
+| `queued` and holding a slot | `queued`, reason `paused` | in the line |
+
+**`paused` reads before every other queued reason**, `frozen` included: the
+marker is the Job's own, and lifting a freeze would not start it. Resuming in a
+frozen repository leaves the Job `queued` reading `frozen`. The queued reasons'
+other readings are derived at read time; this one is derived from a stored marker.
+
+**A paused Job is still non-terminal**, so a Job that depends on it stays
+blocked, and its port span is kept. A person's act on it that needs a worktree
+is refused as `fleet.paused` ("resume it first"); Kill works. A pause is
+refused while its Checks run, and on a status with no worktree to give back.
 
 ## Step state
 

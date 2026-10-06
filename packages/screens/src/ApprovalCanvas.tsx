@@ -13,8 +13,6 @@
 // node owns: `ProposalGates` one step's row, `ProposalLanding` the landing
 // fields, `ProposalTiers` the tiers and cap, `ProposalDoneWhen` the criteria.
 
-import type { HeldCommand } from "./drone-held";
-import { withAsk } from "./held-card";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useAtFloor } from "@armada/shell";
@@ -173,10 +171,10 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * area — in place of its card. A gate opens its step's. Absent is the card.
    */
   onOpenStep?: (stepId: string) => void;
-  /** The command a Drone is held on: a card beside the step it is held at asks. */
-  held?: HeldCommand;
   /** Past the gate, a plan group's panel — the one Plan opens, its tasks reached from it. */
   onOpenGroup?: (groupId: string) => void;
+  /** Past the gate, a plan task's panel — Plan's own, with the way back to Overview. */
+  onOpenTask?: (taskId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
   onOpenStudio?: OpenStudioFrom;
 };
@@ -189,6 +187,7 @@ export function ApprovalCanvas({
   onToProposer,
   onOpenStep,
   onOpenGroup,
+  onOpenTask,
   onOpenStudio,
   whole,
   edits,
@@ -198,7 +197,6 @@ export function ApprovalCanvas({
   branches,
   models,
   machineCap,
-  held,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const floor = useAtFloor();
@@ -325,7 +323,11 @@ export function ApprovalCanvas({
         ? () => onOpenStep(node.stepId!)
         : node.kind === "group" && onOpenGroup !== undefined
           ? () => onOpenGroup(node.id.replace(/^group:/, ""))
-          : undefined;
+          : node.kind === "task" && onOpenTask !== undefined
+            ? () => onOpenTask(node.bandId!)
+            : node.kind === "more" && onOpenGroup !== undefined
+              ? () => onOpenGroup(node.chain!.group.replace(/^group:/, ""))
+              : undefined;
     const onOpen =
       node.opensStudio === true && from !== undefined && onOpenStudio !== undefined
         ? () => onOpenStudio(from.studio_id, from.node_id)
@@ -339,6 +341,41 @@ export function ApprovalCanvas({
             ? undefined
             : () => setOpen(node.id === open ? null : node.id);
     const said = node.life?.said ?? NOT_STARTED;
+    const size = node.kind === "group" ? layout.sizes.get(node.id) : undefined;
+    if (size !== undefined) {
+      // The clusters layout: the group is the frame its tasks sit in, and its head opens the group.
+      const mark = node.life?.mark;
+      return {
+        id: node.id,
+        position: layout.places.get(node.id) ?? { x: 0, y: 0 },
+        backdrop: true,
+        card: { kind: "group", name: node.name, activity: node.life?.activity ?? "not_started", said },
+        drawn: (
+          <div className="armada-approval-canvas__frame" style={{ width: size.width, height: size.height }}>
+            <StudioFrame
+              kind="cluster"
+              {...(node.life?.activity === "running" ? { tone: "live" as const } : node.life?.activity === "advanced" ? { tone: "done" as const } : {})}
+              head={
+                <button
+                  type="button"
+                  className="armada-approval-canvas__cluster-head nodrag nopan"
+                  aria-label={`${node.name}, ${said}`}
+                  {...(panel === undefined ? {} : { onClick: panel })}
+                >
+                  {mark === undefined ? null : (
+                    <span className="armada-step-mark">
+                      <mark.icon size={12} strokeWidth={2} aria-hidden />
+                      <span className="armada-step-mark__name">{said}</span>
+                    </span>
+                  )}
+                  {node.name}
+                </button>
+              }
+            />
+          </div>
+        ),
+      };
+    }
     return {
       id: node.id,
       position: layout.places.get(node.id) ?? { x: 0, y: 0 },
@@ -428,13 +465,6 @@ export function ApprovalCanvas({
       </Sheet>
     );
 
-  const withHeld = withAsk(
-    [...backdrops, ...placed],
-    drawnEdges,
-    held === undefined ? undefined : nodes.find((node) => node.kind === "step" && node.stepId === held.stepId)?.id,
-    held,
-  );
-
   return (
     <>
     <section
@@ -442,8 +472,8 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={withHeld.nodes}
-        edges={withHeld.edges}
+        nodes={[...backdrops, ...placed]}
+        edges={drawnEdges}
         label="Run"
         runsDown
         downOnly

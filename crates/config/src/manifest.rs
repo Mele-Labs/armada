@@ -33,9 +33,11 @@ mod referring;
 mod runner;
 mod seed;
 mod serving;
+mod workspace;
 
 use referring::{after_merge, preparation, required_by};
 use serving::CommandEntry;
+use workspace::Placed;
 
 pub use declared::{Check, Command, Port, Preparation};
 pub use harness::Harness;
@@ -83,6 +85,8 @@ const TOP_LEVEL: &[&str] = &[
     "merge_by",
     "freeze",
     "standing_rules",
+    // Which other paths gate a workspace: [`workspace`].
+    "depends_on",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -136,6 +140,9 @@ pub(super) const AFTER_MERGE_KEYS: &[&str] = &["checks"];
 #[derive(Debug, Clone)]
 pub struct Manifest {
     path: PathBuf,
+    /// Relative to the repository root; empty for the root. See [`workspace`].
+    dir: String,
+    depends_on: Option<Covers>,
     id: ManifestId,
     version: u32,
     base: Option<String>,
@@ -207,19 +214,7 @@ impl Manifest {
     /// without a filesystem, and so nothing about a refusal depends on a file
     /// existing. `path` is carried into the refusal either way.
     pub fn parse(path: &Path, text: &str) -> Result<Manifest, LoadError> {
-        let root: Value = serde_yaml_ng::from_str(text).map_err(|cause| LoadError::NotYaml {
-            path: path.to_path_buf(),
-            cause,
-        })?;
-        let mut out = Vec::new();
-        let parsed = read(path, &root, &mut out);
-        match parsed {
-            Some(manifest) if out.is_empty() => Ok(manifest),
-            _ => Err(LoadError::Refused {
-                path: path.to_path_buf(),
-                refusals: out,
-            }),
-        }
+        Manifest::parse_placed(path, text, &Placed::at_the_root())
     }
 
     /// The file this was read from.
@@ -478,7 +473,7 @@ impl Manifest {
 /// The walk. Returns [`None`] only where nothing could be assembled at all;
 /// every other fault is in `out` and the walk continues, so one pass reports
 /// the whole file.
-fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
+fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> Option<Manifest> {
     let mut top = Table::open("", root, out)?;
 
     let version = top
@@ -532,7 +527,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
     let declares: BTreeSet<String> = drafted.keys().cloned().collect();
     let checks = required_by(drafted, &declares, &commands, &serves, out);
     let (prepared_by, seed, worktrees) = match top.optional("setup") {
-        Some(value) => preparation(value, &declares, &commands, &serves, out),
+        Some(value) => preparation(value, &declares, &commands, &serves, placed, out),
         None => (Vec::new(), None, Some(WORKTREES_UNSTATED)),
     };
     // After the two registries and before the dials, which is where it reads:
@@ -561,6 +556,10 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
         Some(value) => drone::read(value, out),
         None => drone::Drone::unstated(),
     };
+    let depends_on = match top.optional("depends_on") {
+        None => Ok(None),
+        Some(value) => covers("depends_on", value, out),
+    };
     let (auto_merge, review_gate) = policies::read(&mut top, out);
     let merge_by = merge_by::read(&mut top, out);
     let freeze = freeze::read(&mut top, out);
@@ -569,7 +568,7 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
     let proved_after_a_merge = match top.optional("after_merge") {
-        Some(value) => after_merge(value, &checks, &commands, out),
+        Some(value) => after_merge(value, &checks, &commands, placed.dir, out),
         None => Vec::new(),
     };
     top.close(TOP_LEVEL, out);
@@ -587,6 +586,8 @@ fn read(path: &Path, root: &Value, out: &mut Vec<Refusal>) -> Option<Manifest> {
 
     Some(Manifest {
         path: path.to_path_buf(),
+        dir: placed.dir.to_string(),
+        depends_on: depends_on.ok()?,
         id: ManifestId::carried(Ulid::carried(id?)),
         version: version?,
         base,

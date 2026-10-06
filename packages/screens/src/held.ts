@@ -1,92 +1,92 @@
-// What the held list is divided into, and what a confirmation has to say about
-// what is chosen.
+// What a tile of Cleanup's grid offers for a held worktree, and what its
+// confirmations have to say.
 //
 // **Its own file because it is arithmetic, and arithmetic is unit-tested.** A
 // `play` that computed rather than read would be a unit test paying a browser's
-// price — `docs/practices/react.md` is explicit — and every case below is a
-// sentence somebody reads immediately before destroying something.
+// price — `docs/practices/react.md` is explicit — and every line below is read
+// immediately before something is destroyed.
 
-import type { HeldReason, JobSummary, WorktreeHeld } from "@armada/protocol";
-import { provablySafe, reclaimable } from "@armada/protocol";
-import type { RowChoice } from "@armada/components";
+import type { BranchDeleted, HeldReason, JobSummary, WorktreeHeld, WorktreeReclaimed } from "@armada/protocol";
+import { reclaimable } from "@armada/protocol";
+import type { ClearCost, Offered } from "@armada/components";
 import { instant } from "./duration";
-
-export type { RowChoice } from "@armada/components";
-
-/** Nothing chosen for a row — every act unticked. */
-export const NO_CHOICE: RowChoice = { removeCheckout: false, deleteBranch: false, forget: false };
-
-/** What is currently chosen for `jobId`, or `NO_CHOICE` where nothing has been touched yet. */
-export function choiceOf(choices: Readonly<Record<string, RowChoice>>, jobId: string): RowChoice {
-  return choices[jobId] ?? NO_CHOICE;
-}
-
-/** Whether any of a row's three acts is chosen. */
-export function anyChosen(choice: RowChoice): boolean {
-  return choice.removeCheckout || choice.deleteBranch || choice.forget;
-}
 
 /** The `unmerged` reason on a row, where it carries one — the source of the tip a branch delete sends. */
 export function unmergedOf(held: WorktreeHeld): Extract<HeldReason, { why: "unmerged" }> | null {
   return held.held.find((reason): reason is Extract<HeldReason, { why: "unmerged" }> => reason.why === "unmerged") ?? null;
 }
 
+const NONE: Offered = { clear: false, deleteBranch: false, forget: false };
+
 /**
- * Which of a row's three acts it offers right now.
+ * Which of a worktree's three acts a person is offered.
  *
- * **Forget reads `choice`, the other two do not.** It is the one act gated on
- * the other two: offering it only once the checkout and the branch are
- * already gone or chosen in this same act is what keeps a forgotten record
- * from orphaning disk `worktrees_held` no longer walks to.
+ * **Nothing at all while the Job has not ended**: Fleet refuses a reclaim with
+ * `fleet.not_reclaimable` there, so a button would be a control whose only
+ * outcome is a refusal. **Delete branch waits for the worktree to go**, which Fleet
+ * refuses with a 409 while it is on disk. **Forget is gated on both**: a record
+ * forgotten while its checkout or its branch stands orphans disk
+ * `worktrees_held` no longer walks to, and a branch whose base nothing could
+ * name offers no delete, so it holds the record too.
  */
-export function offeredOn(held: WorktreeHeld, choice: RowChoice): RowChoice {
-  const removeCheckout = held.on_disk;
-  const deleteBranch = unmergedOf(held) !== null;
-  const checkoutSettled = !removeCheckout || choice.removeCheckout;
-  const branchSettled = !deleteBranch || choice.deleteBranch;
-  // A branch whose base nothing could name still stands and offers no delete,
-  // so forgetting its record would orphan it the same way.
+export function offeredActs(held: WorktreeHeld): Offered {
+  if (!reclaimable(held)) return NONE;
+  const unmerged = unmergedOf(held) !== null;
   const unanswered = held.held.some((reason) => reason.why === "base_unanswered");
-  return { removeCheckout, deleteBranch, forget: checkoutSettled && branchSettled && !unanswered };
-}
-
-/** Rows carrying at least one chosen act, in fleet's own order. */
-export function chosenRows(
-  rows: readonly WorktreeHeld[],
-  choices: Readonly<Record<string, RowChoice>>,
-): WorktreeHeld[] {
-  return rows.filter((row) => anyChosen(choiceOf(choices, row.job_id)));
+  return { clear: held.on_disk, deleteBranch: unmerged && !held.on_disk, forget: !held.on_disk && !unmerged && !unanswered };
 }
 
 /**
- * The list, split by what a person can do about each row.
- *
- * **Three groups and not two.** A worktree fleet will take back on its own, one
- * that is waiting on a decision, and one nothing may act on yet are three
- * different things to say — and a surface with two groups would have to file the
- * running job under either "decide about this" or "already handled", both of
- * which are wrong.
+ * What Clear ends and what it leaves standing, for its confirm: the files
+ * written and committed nowhere, which no branch carries, and the unmerged
+ * branch the reclaim keeps, with the tip it is reachable from.
  */
-export type Divided = {
-  /** Held, and a person may choose them. What this surface exists for. */
-  deciding: WorktreeHeld[];
-  /** Held, and nothing may act on them yet — the job has not ended. */
-  waiting: WorktreeHeld[];
-  /** Nothing is holding them. Fleet gives these back on its own sweep. */
-  automatic: WorktreeHeld[];
-};
+export function costOf(held: WorktreeHeld): ClearCost {
+  const files = held.held.flatMap((reason) => (reason.why === "uncommitted" ? reason.files : []));
+  const unmerged = unmergedOf(held);
+  return {
+    files,
+    ...(unmerged === null
+      ? {}
+      : { branch: { name: held.branch, commits: unmerged.commits, tip: unmerged.tip, base: unmerged.base } }),
+  };
+}
 
-/** Divide the answer, keeping fleet's order inside each group. */
-export function divided(worktrees: readonly WorktreeHeld[]): Divided {
-  const deciding: WorktreeHeld[] = [];
-  const waiting: WorktreeHeld[] = [];
-  const automatic: WorktreeHeld[] = [];
-  for (const held of worktrees) {
-    if (provablySafe(held)) automatic.push(held);
-    else if (reclaimable(held)) deciding.push(held);
-    else waiting.push(held);
+/** The bay a worktree path is, `slot-4`, or null for a worktree outside the pool. */
+export function slotNameOf(path: string): string | null {
+  return /\/\.armada\/slots\/(slot-\d+)\/?$/.exec(path)?.[1] ?? null;
+}
+
+/**
+ * What a reclaim did, in git's words: the worktree, then the branch. **A bay is
+ * released to the pool and its directory stays**, so it never says removed.
+ * **Where a Clear committed uncommitted files it says only that**, with where
+ * they went and what became of the worktree: the branch is kept by it.
+ */
+export function reclaimedSaid(got: WorktreeReclaimed, pooled = false): string[] {
+  const { worktree, branch } = got;
+  if (got.saved != null) {
+    const freed = pooled ? "slot released" : worktree.removed ? "worktree removed" : `worktree kept: ${worktree.why ?? "no reason given"}`;
+    return [`Committed to ${branch.branch}, ${freed}`];
   }
-  return { deciding, waiting, automatic };
+  const first = pooled
+    ? "Slot released, worktree kept"
+    : worktree.removed
+      ? "Worktree removed"
+      : `Worktree kept: ${worktree.why ?? "no reason given"}`;
+  const commits = branch.unmerged_commits;
+  const base = branch.base ?? "main";
+  const second = branch.deleted
+    ? `Branch deleted at ${branch.tip ?? "its tip"}`
+    : commits == null
+      ? `Branch kept: ${branch.why ?? "no reason given"}`
+      : `Branch kept: ${commits === 1 ? "1 commit" : `${commits} commits`} not on ${base}`;
+  return [first, second];
+}
+
+/** What a branch delete did: the branch, and the tip its commits are reachable from. */
+export function branchDeletedSaid(got: BranchDeleted): string[] {
+  return [`Branch deleted at ${got.tip}`];
 }
 
 /**
@@ -107,144 +107,6 @@ export function namedByHandle(held: WorktreeHeld, jobs: readonly JobSummary[]): 
         : reason,
     ),
   };
-}
-
-/** One kept or one deleted branch, on the confirmation. */
-type BranchLine = { jobId: string; title: string; branch: string; commits: number; tip: string };
-
-/**
- * What the chosen acts end, and what they leave standing.
- *
- * **The confirmation is built from this and from nothing else.** Bytes are not
- * on it: which commits go, whether anything else has them, which files exist
- * nowhere but a checkout about to be removed, and which records are forgotten.
- */
-export type Planned = {
-  /** How many checkouts go. Only rows with `removeCheckout` chosen. */
-  checkouts: number;
-  /** Files written and committed nowhere, under a checkout being removed. */
-  destroying: { jobId: string; title: string; files: string[]; lastMovedAt: string }[];
-  /** Unmerged branches left standing — not chosen for deletion. */
-  keeping: BranchLine[];
-  /** Unmerged branches chosen for deletion, with the tip a person confirmed. */
-  deletingBranches: BranchLine[];
-  /** Records chosen to be forgotten. There is no undo. */
-  forgetting: { jobId: string; title: string }[];
-};
-
-/** Read what is chosen, over rows that carry at least one chosen act. */
-export function planned(rows: readonly WorktreeHeld[], choices: Readonly<Record<string, RowChoice>>): Planned {
-  const destroying: Planned["destroying"] = [];
-  const keeping: Planned["keeping"] = [];
-  const deletingBranches: Planned["deletingBranches"] = [];
-  const forgetting: Planned["forgetting"] = [];
-  let checkouts = 0;
-
-  for (const held of rows) {
-    const choice = choiceOf(choices, held.job_id);
-    if (choice.removeCheckout) {
-      checkouts += 1;
-      for (const reason of held.held) {
-        if (reason.why === "uncommitted" && reason.files.length > 0) {
-          destroying.push({
-            jobId: held.job_id,
-            title: held.job_title,
-            files: reason.files,
-            lastMovedAt: held.last_moved_at,
-          });
-        }
-      }
-    }
-    const unmerged = unmergedOf(held);
-    if (unmerged !== null) {
-      const line: BranchLine = {
-        jobId: held.job_id,
-        title: held.job_title,
-        branch: held.branch,
-        commits: unmerged.commits,
-        tip: unmerged.tip,
-      };
-      if (choice.deleteBranch) deletingBranches.push(line);
-      else keeping.push(line);
-    }
-    if (choice.forget) forgetting.push({ jobId: held.job_id, title: held.job_title });
-  }
-  return { checkouts, destroying, keeping, deletingBranches, forgetting };
-}
-
-/**
- * What the confirmation is called.
- *
- * **It names the act and the count, never "are you sure".** The design
- * system's rule for a confirmation is that it states what happens and what
- * survives, and a title that asks a person to be sure states neither.
- */
-export function confirmTitle(rows: number): string {
-  return rows === 1 ? "Clean up this row?" : `Clean up ${rows} rows?`;
-}
-
-/**
- * The opening line of the confirmation: what happens, over every chosen act.
- *
- * **Only the acts actually chosen get a clause.** A set that only forgets
- * records reading "0 checkouts are removed" would say more than it means.
- */
-export function confirmOpening(plan: Planned): string {
-  const said: string[] = [];
-  if (plan.checkouts > 0) {
-    said.push(plan.checkouts === 1 ? "One checkout is removed." : `${plan.checkouts} checkouts are removed.`);
-  }
-  if (plan.deletingBranches.length > 0) {
-    said.push(
-      plan.deletingBranches.length === 1
-        ? "One branch is deleted."
-        : `${plan.deletingBranches.length} branches are deleted.`,
-    );
-  }
-  if (plan.forgetting.length > 0) {
-    said.push(
-      plan.forgetting.length === 1
-        ? "One job's record is forgotten, and there is no undo."
-        : `${plan.forgetting.length} jobs' records are forgotten, and there is no undo.`,
-    );
-  }
-  return said.length === 0 ? "Nothing is chosen, so nothing happens." : said.join(" ");
-}
-
-/**
- * The sentence for a set where nothing is destroyed, deleted or forgotten.
- *
- * **Said rather than left as an absence.** A confirmation that lists nothing
- * reads as one that failed to say what it costs, and this is the ordinary
- * case for a checkout on its own: reclaiming never forces a branch.
- */
-export const NOTHING_IS_LOST =
-  "Nothing is lost. Every commit stays on the branch it is on, and a branch the base cannot reach is kept where it is.";
-
-/**
- * How many files removing the chosen checkouts would end.
- *
- * A total for the one sentence that needs one — the warning above the list —
- * while the files themselves stay grouped under the job that wrote them.
- */
-export function filesDestroyed(plan: Planned): number {
-  return plan.destroying.reduce((total, one) => total + one.files.length, 0);
-}
-
-/**
- * Which reason is the one that decides a row's answer, where several apply.
- *
- * **Uncommitted wins, always.** It is the only reason on the list where the act
- * ends something, and a row summarised by its unmerged branch would tell a
- * person the safe half of a decision that also has an unsafe half.
- */
-export function decides(held: WorktreeHeld): HeldReason | null {
-  return (
-    held.held.find((reason) => reason.why === "uncommitted") ??
-    held.held.find((reason) => reason.why === "unreadable") ??
-    held.held[0] ??
-    null
-  );
 }
 
 /**

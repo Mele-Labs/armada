@@ -17,6 +17,7 @@ mod allowing;
 pub(crate) mod attempt;
 mod breakages;
 mod carrying_on;
+mod check_runs;
 mod corrupt;
 mod cursor;
 mod delivery;
@@ -24,6 +25,7 @@ mod drift;
 mod footprint;
 mod forget;
 mod gaming;
+mod gate_manifests;
 mod helm_sessions;
 mod iteration;
 mod kit;
@@ -32,9 +34,11 @@ mod limits;
 mod lineage;
 mod manifest_allowed;
 mod manifest_snapshot;
+mod merge_line;
 mod migrate;
 mod model_override;
 mod model_per_task;
+mod pausing;
 mod plan;
 mod ports;
 mod preferences;
@@ -145,6 +149,7 @@ pub fn workflow() -> FrozenWorkflow {
                 Some(EvidenceType::Diff),
                 vec![
                     ResolvedCheck::ManifestCheck {
+                        manifest_dir: "packages/a".to_string(),
                         name: "build".to_string(),
                         run: "cargo build".to_string(),
                         expect_exit_code: 0,

@@ -84,6 +84,7 @@ mod freezing;
 mod frozen;
 mod gaming;
 mod gate;
+mod gating;
 mod group;
 mod groups;
 mod handoff_checks;
@@ -105,6 +106,8 @@ mod judging;
 mod keeping;
 mod killing_processes;
 mod kit;
+mod kit_accept;
+mod kit_allowlist;
 mod land_logs;
 mod landing;
 mod landing_committed;
@@ -123,10 +126,12 @@ mod merging_by_push;
 mod migrating;
 mod model_per_task;
 mod modelling;
+mod needs;
 mod noticing;
 mod out_of_bounds;
 mod overlap;
 mod overruling;
+mod pausing;
 mod paying;
 mod peer;
 mod peers;
@@ -226,6 +231,7 @@ mod work_plan;
 // `pub(crate)`, not `mod`: `crate::records::migrating`'s own tests are not a
 // descendant of this module and need the same temporary directory every
 // fixture here already uses, rather than a second one invented beside it.
+mod taking_turns;
 pub(crate) mod tmp;
 mod tools;
 mod transcript;

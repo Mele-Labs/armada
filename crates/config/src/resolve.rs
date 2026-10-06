@@ -35,6 +35,11 @@ use crate::error::{Disagreement, ResolveError, UnknownCheck};
 use crate::manifest::{Check, Manifest};
 use crate::workflow::{MechanicalCheck, Step, WorkflowDef};
 
+/// How many passes a step's back edge may make where the step names no
+/// `iteration_cap`. The schema's `default_gate_policy.iteration_cap`, which is
+/// five in every sample; the block itself is not read, so the value is here.
+pub const DEFAULT_ITERATION_CAP: u32 = 5;
+
 /// A workflow that can be dispatched against a specific Manifest.
 ///
 /// Holding one means every Check its steps name was declared by that Manifest
@@ -61,6 +66,25 @@ impl ResolvedWorkflow {
         def: &WorkflowDef,
         manifest: &Manifest,
     ) -> Result<ResolvedWorkflow, ResolveError> {
+        ResolvedWorkflow::resolve_gated(def, manifest, &[manifest])
+    }
+
+    /// [`resolve`](ResolvedWorkflow::resolve) over a gating set: `every_manifest_check`
+    /// expands over each manifest in `gating`, in the order given, and each
+    /// Check it lifts carries the directory of the manifest that declared it.
+    ///
+    /// **`root` still answers everything else**: a Check a step names, the
+    /// fences, the paths in the error. A workflow is the repository's, and a
+    /// bare name is the root's. **An empty `gating` expands to nothing**, which
+    /// is what a change that touches no path gates; it is never read as "every
+    /// manifest". A caller that wants the Checks of every manifest passes them
+    /// all, and the gate narrows to the manifests the diff reaches.
+    pub fn resolve_gated(
+        def: &WorkflowDef,
+        root: &Manifest,
+        gating: &[&Manifest],
+    ) -> Result<ResolvedWorkflow, ResolveError> {
+        let manifest = root;
         let mut steps = Vec::with_capacity(def.steps().len());
         let mut unknown = Vec::new();
         let mut disagreements = Vec::new();
@@ -70,6 +94,7 @@ impl ResolvedWorkflow {
             steps.push(resolve_step(
                 step,
                 manifest,
+                gating,
                 handoff_at == Some(at),
                 &mut unknown,
                 &mut disagreements,
@@ -180,6 +205,7 @@ impl ResolvedWorkflow {
 fn resolve_step(
     step: &Step,
     manifest: &Manifest,
+    gating: &[&Manifest],
     runs_handoff: bool,
     unknown: &mut Vec<UnknownCheck>,
     disagreements: &mut Vec<Disagreement>,
@@ -231,16 +257,23 @@ fn resolve_step(
             // the declaration is frozen onto the step and the record says both
             // halves. `ResolvedStep::gates_on_every_check` carries it.
             MechanicalCheck::EveryManifestCheck => {
-                for name in manifest.checks_as_written() {
-                    let declared = manifest
-                        .check(name)
-                        .expect("`checks_as_written` holds the keys of `checks`");
-                    // A handoff-only Check is left to the one step that runs it
-                    // before handoff; `held_for_handoff` names it on the rest.
-                    if declared.runs_at() == RunsAt::Handoff && !runs_handoff {
-                        continue;
+                for gated in gating {
+                    for name in gated.checks_as_written() {
+                        let declared = gated
+                            .check(name)
+                            .expect("`checks_as_written` holds the keys of `checks`");
+                        // A handoff-only Check is left to the one step that runs it
+                        // before handoff; `held_for_handoff` names it on the rest.
+                        if declared.runs_at() == RunsAt::Handoff && !runs_handoff {
+                            continue;
+                        }
+                        checks.push(lifted(
+                            name.clone(),
+                            declared,
+                            declared.expect_exit_code(),
+                            gated.dir(),
+                        ));
                     }
-                    checks.push(lifted(name.clone(), declared, declared.expect_exit_code()));
                 }
             }
             MechanicalCheck::ManifestCheck {
@@ -280,7 +313,7 @@ fn resolve_step(
                             });
                         }
                     }
-                    checks.push(lifted(check.clone(), declared, expects));
+                    checks.push(lifted(check.clone(), declared, expects, manifest.dir()));
                 }
                 None => unknown.push(UnknownCheck {
                     step: step.id().clone(),
@@ -320,12 +353,16 @@ fn resolve_step(
     )
     // **Both keys through one builder**, which is the shape `dispatching` set
     // and the reason `frozen`'s ten positional arguments did not become
-    // twelve. The cap is a count and never an `Option` on the record: absent
-    // and "no loop here" are the same sentence, and `looping` states why zero
-    // is the fail-closed answer.
+    // twelve. The cap is a count and never an `Option` on the record. A step
+    // that emits a verdict and names no cap gets [`DEFAULT_ITERATION_CAP`],
+    // which is what keeps a back edge from running a Job forever now that
+    // nothing else declares one; a step with no edge has no cap to default.
     .looping(
         step.verdict_routing().clone(),
-        step.iteration_cap().unwrap_or(0),
+        match step.verdict_routing().is_empty() {
+            true => 0,
+            false => step.iteration_cap().unwrap_or(DEFAULT_ITERATION_CAP),
+        },
     )
     .quiet_after(step.quiet_after_seconds())
     .poking(step.poke_limit())
@@ -417,7 +454,7 @@ fn fenced(scope: &EvidenceScope, manifest: &Manifest) -> EvidenceScope {
 /// names a Check and a step that gates on every one of them must freeze
 /// identical rows, and two copies of five field assignments is how the second
 /// one loses `narrow` the next time a key is added.
-fn lifted(name: String, declared: &Check, expect_exit_code: i64) -> ResolvedCheck {
+fn lifted(name: String, declared: &Check, expect_exit_code: i64, dir: &str) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
         name,
         run: declared.run().to_string(),
@@ -430,6 +467,7 @@ fn lifted(name: String, declared: &Check, expect_exit_code: i64) -> ResolvedChec
         places: declared.places(),
         width: declared.width(),
         runner: declared.runner().cloned(),
+        manifest_dir: dir.to_string(),
     }
 }
 

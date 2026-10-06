@@ -161,15 +161,35 @@ fn a_release_refuses_a_dirty_tree_and_holds_the_slot() {
 }
 
 #[test]
-fn a_release_refuses_commits_on_neither_the_remote_nor_the_base() {
+fn a_release_lets_go_of_a_commit_that_is_only_on_the_branch_and_keeps_it() {
     let repo = a_repository();
     let pool = pool(&repo, 1);
-    let slot = take(&pool, "unlanded", &here());
+    let slot = take(&pool, "unpushed", &here());
     commit_in(&slot, "only-here.rs");
+    let tip = git(&slot, &["rev-parse", "HEAD"]);
+
+    pool.release(&slot)
+        .expect("a commit on the branch is safe without a push");
+
+    assert_eq!(git(repo.root(), &["rev-parse", "refs/heads/unpushed"]), tip);
+    assert_eq!(git(&slot, &["branch", "--show-current"]), "");
+    assert!(
+        git(repo.root(), &["branch", "-r", "--contains", &tip]).is_empty(),
+        "nothing was pushed"
+    );
+}
+
+#[test]
+fn a_release_refuses_commits_the_branch_does_not_have() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "wandered", &here());
+    git(&slot, &["switch", "--quiet", "--detach"]);
+    commit_in(&slot, "on-no-branch.rs");
 
     match pool.release(&slot) {
-        Err(ReleaseRefused::Unlanded { commits, .. }) => assert_eq!(commits, 1),
-        other => panic!("an unpushed commit was let go: {other:?}"),
+        Err(ReleaseRefused::OffTheBranch { commits, .. }) => assert_eq!(commits, 1),
+        other => panic!("a commit on no branch was let go: {other:?}"),
     }
 }
 

@@ -23,6 +23,7 @@ import type {
   LessonsRead,
   RetroRead,
   ClearOutcome,
+  AlwaysAllowScope,
   CommandAnswer,
   HelmCallAnswer,
   CommandExplainedRead,
@@ -64,7 +65,8 @@ import type {
 } from "@armada/screens/src/editing";
 import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
-import type { KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "./workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
@@ -305,7 +307,9 @@ export type BridgeApi = {
    * not offered.
    *
    * **`rule` rides only with `always_allow`**, one of that command's own
-   * candidates — a name outside them is a 409 too.
+   * candidates — a name outside them is a 409 too. **`scope` is read by an
+   * `always_allow` alone** and is `kit` for Always allow on this machine, which
+   * is sent with a rule; absent is the repository.
    */
   answerCommand: (
     jobId: string,
@@ -313,6 +317,7 @@ export type BridgeApi = {
     answer: CommandAnswer,
     note?: string,
     rule?: string,
+    scope?: AlwaysAllowScope,
   ) => Promise<Outcome>;
   /**
    * Answer one held helm call: allow it once, allow it and write the rule into
@@ -715,6 +720,12 @@ export type BridgeApi = {
    * a Drone, and nothing on this seam can make it.
    */
   readKitInventory: () => Promise<KitInventoryRead>;
+  /**
+   * Take one command out of Kit's allowlist, by the line as the inventory
+   * spelled it, and answer with what the allowlist holds now. Machine-wide.
+   * A 409 where no line is spelled that way.
+   */
+  removeKitAllowedCommand: (run: string) => Promise<KitAllowedCommandsRead>;
   listKitServers: () => Promise<KitServersRead>;
   /** Put one in Kit. **It reaches no Drone** until one of the two reaches below says so. */
   addKitServer: (adding: AddKitServer) => Promise<KitServersRead>;
@@ -724,6 +735,15 @@ export type BridgeApi = {
   setKitServerReach: (name: string, drones: ReachesDrones) => Promise<KitServersRead>;
   /** This Manifest's own word, or `null` to take it back and follow Kit again. */
   setManifestServerReach: (name: string, reach: ManifestReach | null) => Promise<KitServersRead>;
+
+  /**
+   * The Workflow creator. The list is what Fleet runs for the picked repository and what it left
+   * out; a definition is one file's text, from the place named; a save names the Manifest it is
+   * written under, and Fleet's own refusal comes back as it said it.
+   */
+  readWorkflows: () => Promise<WorkflowsRead>;
+  readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
+  saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
 
   /**
    * Pick the repository every per-repository read and act names, by a root `holds.repositories`
