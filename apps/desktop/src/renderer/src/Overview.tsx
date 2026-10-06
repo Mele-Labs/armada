@@ -149,7 +149,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} />
       </div>
     </Boundary>
   );

@@ -100,7 +100,7 @@ export type MainRedBandProps = {
   /** Opens the failed Check's log. Absent, the Check is not a press. */
   onOpenCheck?: (check: string) => void;
   onOpenJob?: (jobId: string) => void;
-  /** The owner's choice. Absent, neither way is offered. */
+  /** Told the owner's choice. The band draws the way back to a Job whether or not anything listens. */
   onFix?: (choice: FixChoice) => void;
 };
 
@@ -157,7 +157,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
               </button>
             )}
           </span>
-        ) : onFix === undefined ? null : (
+        ) : (
           <span className="armada-main-red__ask">
             <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
               Dispatch a new Job
@@ -168,7 +168,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           </span>
         )}
       </div>
-      {asking === null || onFix === undefined ? null : (
+      {asking === null ? null : (
         <FixDialog
           kind={asking}
           red={red}
@@ -176,7 +176,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           onCancel={() => setAsking(null)}
           onFix={(choice) => {
             setAsking(null);
-            onFix(choice);
+            onFix?.(choice);
           }}
         />
       )}

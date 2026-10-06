@@ -138,7 +138,7 @@ export type MergeLineProps = {
   /** Main's state and the open pull requests. Absent draws the line alone. */
   hub?: MergeLineHub;
   onOpenJob?: (jobId: string) => void;
-  /** The owner's way of handing red main to a Job. Absent, neither way is offered. */
+  /** Told the owner's choice of a Job for red main. */
   onFix?: (choice: FixChoice) => void;
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
