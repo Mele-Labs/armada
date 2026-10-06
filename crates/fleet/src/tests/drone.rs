@@ -19,6 +19,7 @@
 //! in a shell reached every Drone. The assertion is on the child's own reading,
 //! not on what Fleet intended.
 
+use std::collections::BTreeSet;
 use std::time::Duration;
 
 use adapter_traits::{
@@ -164,14 +165,16 @@ async fn the_drone_gets_the_environment_fleet_built_and_not_the_one_fleet_had() 
     // are named here rather than counted around, because the child in this test
     // is a shell and a real Drone is not.
     let shell_s_own = ["PWD", "SHLVL", "_"];
-    let inherited: Vec<&str> = said
+    // A set: `env` lists in whatever order the shell keeps, which differs
+    // between shells.
+    let inherited: BTreeSet<&str> = said
         .lines()
         .filter_map(|line| line.split('=').next())
         .filter(|name| !shell_s_own.contains(name))
         .collect();
     assert_eq!(
         inherited,
-        vec!["TERM", "USER", "PATH", "LANG", "HOME"],
+        BTreeSet::from(["TERM", "USER", "PATH", "LANG", "HOME"]),
         "something reached the Drone that Fleet did not name:\n{said}"
     );
 }
