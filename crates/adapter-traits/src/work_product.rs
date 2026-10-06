@@ -322,6 +322,42 @@ impl Footprint {
         self.of != before.of
     }
 
+    /// This baseline, carried across something that wrote into the worktree
+    /// between the readings `pre` and `post` (a rebase).
+    ///
+    /// **Whatever differs between the two is inherited rather than done**, so
+    /// each such path takes its `post` entry here, or is dropped where `post`
+    /// has none. Paths the write did not touch keep their entry, which is what
+    /// lets the step's own work in them keep counting.
+    pub fn carried_across(&self, pre: &Footprint, post: &Footprint) -> Footprint {
+        let mut carried: alloc::collections::BTreeMap<&str, &str> = self
+            .of
+            .iter()
+            .map(|(path, held)| (path.as_str(), held.as_str()))
+            .collect();
+        fn held_in<'a>(at: &'a Footprint, path: &str) -> Option<&'a str> {
+            at.of
+                .iter()
+                .find(|(named, _)| named == path)
+                .map(|(_, held)| held.as_str())
+        }
+        for (path, _) in pre.of.iter().chain(post.of.iter()) {
+            let (before, after) = (held_in(pre, path), held_in(post, path));
+            if before != after {
+                match after {
+                    Some(held) => carried.insert(path.as_str(), held),
+                    None => carried.remove(path.as_str()),
+                };
+            }
+        }
+        Footprint::of(
+            carried
+                .into_iter()
+                .map(|(path, held)| (String::from(path), String::from(held)))
+                .collect(),
+        )
+    }
+
     /// The readings as recorded, for the store to keep a baseline across a
     /// restart and for nothing else. **Not a way to ask what changed**:
     /// comparison goes through [`differs_from`](Footprint::differs_from).
@@ -474,5 +510,49 @@ impl Measured {
             from: None,
             whole: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod carried_across {
+    use super::Footprint;
+
+    fn at(entries: &[(&str, &str)]) -> Footprint {
+        Footprint::of(
+            entries
+                .iter()
+                .map(|(path, held)| (path.to_string(), held.to_string()))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn a_path_the_write_touched_takes_its_new_entry_and_the_rest_keep_theirs() {
+        let began = at(&[("kept.rs", "k0")]);
+        let pre = at(&[("kept.rs", "k0"), ("own.rs", "o1"), ("merged.rs", "m0")]);
+        let post = at(&[("kept.rs", "k0"), ("own.rs", "o1"), ("merged.rs", "m1")]);
+        assert_eq!(
+            began.carried_across(&pre, &post),
+            at(&[("kept.rs", "k0"), ("merged.rs", "m1")])
+        );
+    }
+
+    #[test]
+    fn a_path_only_one_side_holds_is_inherited_or_dropped() {
+        let began = at(&[("gone.rs", "g0")]);
+        let pre = at(&[("gone.rs", "g0"), ("committed.rs", "c0")]);
+        let post = at(&[("new.rs", "n0")]);
+        assert_eq!(
+            began.carried_across(&pre, &post),
+            at(&[("new.rs", "n0")]),
+            "a path the write removed or added is the write's"
+        );
+    }
+
+    #[test]
+    fn a_write_that_touched_nothing_leaves_the_baseline_as_it_was() {
+        let began = at(&[("a.rs", "a0")]);
+        let same = at(&[("a.rs", "a0"), ("b.rs", "b0")]);
+        assert_eq!(began.carried_across(&same, &same), began);
     }
 }

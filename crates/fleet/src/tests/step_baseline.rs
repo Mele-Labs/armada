@@ -19,10 +19,11 @@ use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Gate, Sketch};
 
 use crate::daemon::Fleet;
 use crate::gate::Ruling;
+use crate::session::LiveSession;
 use crate::tests::admitted::{dispatched, started};
 use crate::tests::daemon::{a_proposal, diff_evidence, fitted_with, one, worktree_directory};
 use crate::tests::planted::the_drone_it_holds_is_gone;
-use crate::tests::restarting::{stopped, until_reaped};
+use crate::tests::restarting::stopped;
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
@@ -57,6 +58,26 @@ fn a_fleet_over(home: &TempDir, work: FakeWorkProduct, harness: FakeHarness) -> 
 /// to it and what it submitted is waiting when the Fleet stops.
 fn a_drone_that_stays() -> FakeHarness {
     FakeHarness::running("/bin/sh", &["-c", "echo BUSY; sleep 30"])
+}
+
+/// Until the ended Drone's slot is empty, ending it again where the first kill
+/// missed: a signal sent before the process group exists is lost, and the Drone
+/// then lives out its `sleep 30`.
+async fn until_reaped(fleet: &Fixture) {
+    for turn in 0..4000 {
+        fleet.turn().await.expect("a turn");
+        let slot = fleet.the_only_slot().await;
+        let held = slot.lock().await;
+        let Some(working) = held.as_ref() else {
+            return;
+        };
+        if turn % 40 == 39 {
+            let _ = working.session().terminate().await;
+        }
+        drop(held);
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+    panic!("the Drone never left");
 }
 
 fn a_fix() -> [(&'static str, Change); 1] {
@@ -196,4 +217,41 @@ async fn a_restarted_step_whose_first_run_wrote_nothing_still_fails() {
             "a restart that wrote nothing (across a restart: {across_a_restart})"
         );
     }
+}
+
+/// **Main moves every few minutes, so most resumes rebase.** The first run
+/// edited one file; the requeue's catch-up is clean and writes a different one.
+/// The rebase's file is inherited and the step's own stays counted, so the
+/// restarted step passes with no new edit.
+#[tokio::test]
+async fn a_clean_catch_up_into_another_file_does_not_take_the_step_s_work_with_it() {
+    let home = TempDir::new();
+    let work = FakeWorkProduct::inherited(&[]);
+    let mut fittings = fitted_with(&home, FakeWorkProduct::inherited(&[]), a_drone_that_stays());
+    fittings.starting().workflows = one(gated());
+    fittings.vcs = FakeVcs::new()
+        .delivering(testkit::Delivering {
+            standing: adapter_traits::Standing::Behind { commits: 1 },
+            rebase: Some(adapter_traits::BroughtUpToDate::Clean {
+                base: String::from("main"),
+                commits: 1,
+            }),
+            ..testkit::Delivering::default()
+        })
+        .writing_into(work.holding(), &["src/other.rs"]);
+    fittings.work = work;
+    fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a baseline"));
+    let fleet = Fleet::assembled(fittings);
+
+    let job = stopped(&fleet, &home).await;
+    fleet.work().wrote(&a_fix());
+    the_drone_it_holds_is_gone(&fleet).await;
+    until_reaped(&fleet).await;
+
+    let ruled = restarted_and_submitted(&fleet, &job).await;
+    assert_eq!(
+        ruled,
+        Ok(()),
+        "the rebase's own file took the step's work into the baseline"
+    );
 }

@@ -296,7 +296,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **The baseline is taken once, when the step first begins, and kept in the store.** A requeue, a retry and a Fleet that restarted all put a Drone back on a worktree that already holds the step's uncommitted work, so a baseline read again would count that work as inherited and the step could never pass. Every later entry loads the stored one instead, and a gate that rules at boot on a submission the last Fleet never ruled on is measured against it too. The row goes when the step advances, so a step a later one sends work back to starts afresh. A step with no stored baseline fails `diff_nonempty` rather than passing it.
 
-**The exception is a rebase on a re-entry, which reads the baseline again.** The stored one cannot be told what the rebase wrote into the tree, and carrying it over would pass a Drone that resolved nothing on the markers it was handed. The cost is that work the step did before such a rebase stops counting toward it.
+**A rebase on a re-entry is carried across.** Fleet reads the worktree just before the catch-up and again after it, and what differs between the two is the rebase's: those paths take their new entry in the stored baseline, so markers and merged files are inherited, and the step's own work in every path the rebase did not touch keeps counting.
 
 ### Network loss mid-Job
 

@@ -88,6 +88,9 @@ where
         working: &mut Option<Working>,
     ) -> Result<(), Adrift> {
         let job_id = job.id().clone();
+        // Read before the catch-up where the step already has a baseline, so
+        // `marked` can tell what a rebase wrote from what the step did.
+        let before_the_catch_up = self.read_before_catch_up(&job_id, step, &worktree).await;
         let moved = match self.caught_up_onto(&job_id, &worktree).await {
             Ok(moved) => moved,
             Err(cause) => {
@@ -337,13 +340,13 @@ where
         // a Drone that resolved nothing would pass it on the markers it was
         // handed.
         //
-        // **Kept across entries, and read again only where a rebase wrote into
-        // the tree.** See `marked`.
+        // **Kept across entries, and carried across a rebase where one wrote
+        // into the tree.** See `marked`.
         let rebased = matches!(
             moved.as_ref(),
             Some(TheBaseMoved::BroughtUpToDate { .. } | TheBaseMoved::Conflicted { .. })
         );
-        self.marked(working, rebased).await;
+        self.marked(working, rebased, before_the_catch_up).await;
         Ok(())
     }
 

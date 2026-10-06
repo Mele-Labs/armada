@@ -25,7 +25,7 @@
 //! "a person reads the branch" depends on.
 
 use adapter_traits::{
-    AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, Worktree, WorktreeSpec,
+    AgentHarness, Delivery, Footprint, SlotLeased, Vcs, WorkProduct, Worktree, WorktreeSpec,
 };
 use core_model::{
     Actor, Branch, Component, Envelope, EscalationTrigger, FieldValue, Job, JobId, Level, StepId,
@@ -212,64 +212,56 @@ where
     }
 
     /// Hold this step's baseline on the slot: the one kept from when the step
-    /// first began where there is one, and a reading of the worktree now where
-    /// there is not.
+    /// first began, and a reading of the worktree now where none was kept.
     ///
-    /// **The reading `diff_nonempty` is decided against**, so that what the gate
-    /// compares is the step's own work rather than the branch's. `WorkProduct`
-    /// measures from the commit the branch was cut from, which credits every
-    /// step with everything its predecessors wrote.
+    /// **The reading `diff_nonempty` is decided against**, so the gate compares
+    /// the step's own work and not the branch's, which credits every step with
+    /// all its predecessors wrote.
     ///
-    /// **Read once, on a step's first entry, and kept in the store.** Every later
-    /// entry (a requeue, a retry, a resume after Fleet restarted) loads it
-    /// instead of reading again, because the worktree by then holds the step's
-    /// own uncommitted work and a baseline taken over it makes that work
-    /// inherited: the step could then never pass. The row goes when the step
-    /// advances, so `store::Store::forget_step_baseline` is what makes a step
-    /// sent back to start afresh.
+    /// **Read once, on first entry, after the rebase, and kept in the store.**
+    /// A rebase writes content (markers, or a branch replayed onto a moved
+    /// base), and a baseline read before it makes that the step's work. Every
+    /// later entry (requeue, retry, resume after a Fleet restart) loads it
+    /// instead: the worktree then holds the step's own uncommitted work, and a
+    /// fresh reading would make it inherited, so the step could never pass.
+    /// The row goes when the step advances. `#131`, `#150`, `#180`.
     ///
-    /// **After the rebase, on every path — because every path has one now.**
-    /// What a rebase moves is inherited rather than done: a conflicting one
-    /// leaves markers and a clean one replays the branch onto a base that
-    /// itself moved. Both are content, so a baseline read before it makes git's
-    /// output the next step's work, and a Drone that resolved nothing passes
-    /// `diff_nonempty` on the markers it was handed. `#150` and `#180` closed
-    /// the paths that used to be excepted.
+    /// **A rebase on a re-entry is carried across.** `before` is a reading taken
+    /// ahead of the catch-up, and what differs between it and one taken now is
+    /// the rebase's: [`Footprint::carried_across`] gives those paths their new
+    /// entry and leaves the step's work in every other path counting.
     ///
-    /// **A rebase on a re-entry reads again and keeps what it read.** The
-    /// stored baseline cannot be told what the rebase wrote into the tree, and
-    /// carrying it over would pass a Drone that resolved nothing on the markers
-    /// it was handed. The cost is that the step's work from before the rebase
-    /// stops counting toward it, which is the direction an unknown baseline has
-    /// to fail in.
-    ///
-    /// **A failure leaves the step with no baseline, and that is deliberate.**
-    /// A reading that did not happen is not a worktree that did not move, so
-    /// there is no arm here that stores an empty footprint — the gate reads
-    /// `None` as nothing known to have moved and fails the check. An unread
-    /// baseline must not be able to advance a step, which is
-    /// `Changed::nothing`'s rule applied one level up. A store that will not
-    /// answer is read the same way and falls back to reading the worktree.
-    pub(crate) async fn marked(&self, working: &mut Option<Working>, rebased: bool) {
+    /// **A failure leaves the step with no baseline, deliberately.** A reading
+    /// that did not happen is not a worktree that did not move, so no arm
+    /// stores an empty footprint, and the gate fails the check on `None`. A
+    /// failed `before` falls back to a fresh reading, which fails closed. A
+    /// store that will not answer is read the same way.
+    pub(crate) async fn marked(
+        &self,
+        working: &mut Option<Working>,
+        rebased: bool,
+        before: Option<Footprint>,
+    ) {
         let Some(at_work) = working.as_ref() else {
             return;
         };
         let (job_id, step, worktree) = at_work.standing();
-        let kept = match rebased {
-            true => None,
-            false => self
-                .store()
-                .lock()
-                .await
-                .step_baseline(&job_id, &step)
-                .ok()
-                .flatten(),
-        };
-        let footprint = match kept {
-            Some(kept) => kept,
-            None => {
+        let stored = self
+            .store()
+            .lock()
+            .await
+            .step_baseline(&job_id, &step)
+            .ok()
+            .flatten();
+        let footprint = match (stored, rebased, before) {
+            (Some(stored), false, _) => stored,
+            (stored, _, before) => {
                 let Ok(read) = self.work().footprint(&worktree) else {
                     return;
+                };
+                let kept = match (stored, before) {
+                    (Some(stored), Some(before)) => stored.carried_across(&before, &read),
+                    _ => read,
                 };
                 // A baseline that will not write is still this attempt's: the
                 // step runs, and only a later restart loses it.
@@ -277,13 +269,29 @@ where
                     .store()
                     .lock()
                     .await
-                    .keep_step_baseline(&job_id, &step, &read);
-                read
+                    .keep_step_baseline(&job_id, &step, &kept);
+                kept
             }
         };
         if let Some(at_work) = working.as_mut() {
             at_work.entering_with(footprint);
         }
+    }
+
+    /// The worktree as it stands ahead of the catch-up, for a step that already
+    /// has a baseline to carry across it. `None` for a first entry, and where
+    /// the reading fails.
+    pub(crate) async fn read_before_catch_up(
+        &self,
+        job_id: &JobId,
+        step: &StepId,
+        worktree: &Worktree,
+    ) -> Option<Footprint> {
+        let kept = self.store().lock().await.step_baseline(job_id, step);
+        if !matches!(kept, Ok(Some(_))) {
+            return None;
+        }
+        self.work().footprint(worktree).ok()
     }
 
     /// The Job move a ruling implies, and the step move it implies, in the one
