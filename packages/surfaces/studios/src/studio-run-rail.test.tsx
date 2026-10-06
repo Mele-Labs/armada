@@ -5,9 +5,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
-import { sheet } from "./manifest-fleet";
-import { mountApp, type Mounted } from "./mount";
-import { studying } from "./studio-fleet";
+import { sheet, mountApp, type Mounted, studying } from "@armada/desktop/mock";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 

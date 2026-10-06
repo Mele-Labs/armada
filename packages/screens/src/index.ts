@@ -33,14 +33,9 @@ export * from "./Sheets";
 export * from "./Worktrees";
 export * from "./BridgeSettings";
 // A repository's Studios, and one open on its whiteboard. #1287.
-export * from "./Studios";
 export * from "./studio";
-export { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "./studio-rail-ask";
 export * from "./studio-frames";
-export * from "./studio-clearing";
-export * from "./studio-promotion";
 export * from "./studio-reads";
-export * from "./studio-starting";
 export * from "./pending";
 export * from "./title";
 export * from "./board";

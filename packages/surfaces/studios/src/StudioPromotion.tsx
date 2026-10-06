@@ -18,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import { Dialog, Input, Select, Textarea, type StudioPickedAct } from "@armada/components";
 import type { EpicTake, Outcome, Studio, StudioNode, StudioPromotion } from "@armada/protocol";
 
-import { nodeNamed } from "./studio";
+import { nodeNamed } from "@armada/screens/src/studio";
 import { actsOn, aWriteUp, dispatchedAs, placedBeside, selectedNodes } from "./studio-promotion";
 
 /** One rung as the aside's control offers it. */

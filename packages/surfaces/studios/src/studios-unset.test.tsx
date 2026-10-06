@@ -8,8 +8,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { mount, unmountAfterEach } from "./testing";
-import { scenarioNamed } from "./scenario";
+import { mount, unmountAfterEach, scenarioNamed } from "@armada/desktop/mock";
 
 unmountAfterEach();
 

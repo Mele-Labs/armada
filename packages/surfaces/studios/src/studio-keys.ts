@@ -13,7 +13,7 @@
 import { useEffect } from "react";
 import { ACTION, type StudioNodeByHandKind } from "@armada/components";
 
-import { holdsText } from "./keys";
+import { holdsText } from "@armada/screens/src/keys";
 
 /** Each kind's binding, from the registry. The one place a key is written is there. */
 const ADD: readonly (readonly [string, StudioNodeByHandKind])[] = [

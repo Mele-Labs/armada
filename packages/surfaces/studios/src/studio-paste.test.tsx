@@ -5,8 +5,7 @@
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { mountApp, type Mounted } from "./mount";
-import { onDisk, studying } from "./studio-fleet";
+import { mountApp, type Mounted, onDisk, studying } from "@armada/desktop/mock";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
 

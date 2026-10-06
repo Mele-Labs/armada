@@ -424,7 +424,7 @@ const noop = () => undefined;
  * A node still being written, one per kind a person writes by hand — the owner's
  * note of 1 Oct 2026. The field is the card's body, under the kind; the last is
  * out to Fleet, and says so. The keys and the press off it are proved through
- * `App`, in `mock/studios.test.tsx`.
+ * `App`, in `packages/surfaces/studios/src/studios.test.tsx`.
  */
 export const Draft: Story = {
   render: () => (

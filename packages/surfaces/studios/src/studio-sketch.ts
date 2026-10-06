@@ -9,7 +9,7 @@
 
 import type { SketchDrawing, SketchToKeep } from "@armada/protocol";
 
-import type { Drawing } from "./draft/sketch";
+import type { Drawing } from "@armada/screens/src/draft/sketch";
 
 /**
  * A Sketch's drawing as the pad holds it. **A kept picture's `src` is `""`**:
