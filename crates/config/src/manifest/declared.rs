@@ -33,12 +33,22 @@ pub struct Check {
     pub(super) places: NonZeroU32,
     pub(super) width: Option<NonZeroU32>,
     pub(super) runner: Option<Runner>,
+    pub(super) ci_jobs: Vec<String>,
 }
 
 impl Check {
     /// The command line, verbatim as the repo wrote it.
     pub fn run(&self) -> &str {
         &self.run
+    }
+
+    /// The names the forge's CI gives the jobs that answer for this Check, as
+    /// the repository declared them. **Empty where it declares none**, which
+    /// is most Checks: a CI job that shares this Check's own name needs no
+    /// line. `docs/contracts/configuration.md`, *Which CI jobs a Check answers
+    /// for*.
+    pub fn ci_jobs(&self) -> &[String] {
+        &self.ci_jobs
     }
 
     /// The code this Check exits with when it is satisfied. **Zero where the

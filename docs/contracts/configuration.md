@@ -486,6 +486,39 @@ Rules that follow:
 - **It is frozen with the workflow**, and `after_merge` drops it for the reason
   it drops `narrow`.
 
+## Which CI jobs a Check answers for
+
+Added 6 October 2026, with `checks.<name>.ci_jobs`. When main's CI goes red,
+Fleet knows the forge's job by the name the forge gives it, and says which
+Check of this repository that is only where it can. A repository's CI is its
+own, so the common answer is that no Check is meant.
+
+| Key | Required | What it says |
+| --- | --- | --- |
+| `ci_jobs` | no | The names the forge's CI gives the jobs that answer for this Check. A non-empty list of text; `[]` is refused, as `when: []` is |
+
+```yaml
+checks:
+  test:
+    run: cargo nextest run --workspace
+    ci_jobs: [ci, test-linux]
+```
+
+Rules that follow:
+
+- **A job maps to a Check by sharing its name, or by being declared here.**
+  A declaration wins over a shared name, and where two Checks declare the same
+  job the one written first does.
+- **Unmapped is normal, never an error.** A job no Check answers for is read
+  on the forge's facts alone: its name, its log, the merge that turned main red.
+  Nothing says a Check failed that no Check did.
+- **Absent means none declared**, so a Check whose own name is the job's needs
+  no line.
+- **It is the repository's word, kept in the Manifest** and never read from the
+  forge's configuration, because naming the forge's files is the adapter's.
+- **It is Manifest-only and read when main is read**, so a save is adopted
+  without a restart. `after_merge` ignores it.
+
 ## What a passing run of a Check looks like
 
 Added 8 September 2026, with `checks.<name>.expect_exit_code`. The key was on
