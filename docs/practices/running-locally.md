@@ -390,7 +390,7 @@ return to a scenario without editing the address.
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
 | `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
 | `kind/<workflow>` | One of those Jobs, already open |
-| `job/<builder>` | One Job, already open, for each builder `packages/screens/src/fixtures/build/index.ts` exports |
+| `job/<builder>` | One Job, already open, for each builder `packages/surfaces/jobs/src/fixtures/build/index.ts` exports |
 | `recorded/<slug>` | One recorded Job, already open, for each recording under `packages/screens/src/fixtures/recorded/` |
 
 **Every Job is a Storybook fixture, never data made up for the mock.** A

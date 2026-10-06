@@ -503,7 +503,7 @@ export type JobsApi = {
    * now taken when a Job opens, again on the press that opens the diff, and
    * again while that sheet is open and the file list moves under it — because
    * a patch read once on a running Job is the worktree as it was before its
-   * Drone wrote. `packages/screens/src/produced.ts` holds what asks.
+   * Drone wrote. `packages/surfaces/jobs/src/produced.ts` holds what asks.
    */
   readDiff: (jobId: string | null) => Promise<void>;
   /**

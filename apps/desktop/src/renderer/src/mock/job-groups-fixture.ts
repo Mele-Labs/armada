@@ -16,13 +16,13 @@ const T4_FAILED =
   "G3's Checks were still red on run 3, the last its retries allow: test";
 
 const TASKS: PlanTask[] = [
-  { id: "T1", title: "Draw a group's runs on its card", scope: ["packages/screens/src/plan-board.ts"], state: "done", group: "G1" },
-  { id: "T2", title: "Name the group on a Check run", scope: ["packages/screens/src/record-check.tsx"], state: "done", group: "G1" },
-  { id: "T3", title: "Read Fleet's groups in the draft", scope: ["packages/screens/src/draft/group.ts"], state: "done", group: "G2" },
+  { id: "T1", title: "Draw a group's runs on its card", scope: ["packages/surfaces/jobs/src/plan-board.ts"], state: "done", group: "G1" },
+  { id: "T2", title: "Name the group on a Check run", scope: ["packages/surfaces/jobs/src/record-check.tsx"], state: "done", group: "G1" },
+  { id: "T3", title: "Read Fleet's groups in the draft", scope: ["packages/surfaces/jobs/src/draft/group.ts"], state: "done", group: "G2" },
   {
     id: "T4",
     title: "Answer restart and move in the mock",
-    scope: ["packages/screens/src/plan-review.tsx"],
+    scope: ["packages/surfaces/jobs/src/plan-review.tsx"],
     state: "failed",
     group: "G3",
     failed_reason: T4_FAILED,

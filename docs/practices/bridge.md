@@ -142,7 +142,8 @@ tiny helpers a surface and the app share, with no React: today the generic
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
 Cleanup, Overview, Helm, Setup and Manifest have moved both, and Settings its slice
-(it has no fleet); Jobs has not.
+(it has no fleet); Jobs has moved its screens, their tests and its fixtures, and
+keeps its slice and fleet in desktop for now.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -235,6 +236,17 @@ What it settled for the next surface:
 - **A rule that scans `packages/screens` must scan the surfaces.**
   `no_off_contract_design_value` read only `components` and `screens`, so the move
   would have unwatched Studios without a red.
+- **Jobs moved its screens first, in 144 files, 99 tests and 34 fixtures.** What stayed
+  is what a package that cannot import it reads: the files main imports, since the node
+  tsconfig has no DOM or JSX (`plan-edits`' type, `filling`); the reads and words other surfaces
+  import; and the fixtures their fakes and tests build on (`base`, `fixture`, `recorded`,
+  `harness`, `slots`, `run-sheet`, `board`, `merge-line`, and `running` and `terminal`, which a
+  Studios test builds with). Desktop reaches the rest by `@armada/jobs`, its `./draft/*` and its
+  `./fixtures/*` subpaths. **A shared package that named a surface's type takes it as a
+  parameter**: bridge-api's `Scenario` carried `ArcDraft`, so it is `Scenario<S, A, D = never>`
+  and `mock/moment.ts` is the one place that fixes `D`. **A rule that guards a directory the
+  move emptied must name where it went**: the main-process draft rule watches
+  `packages/surfaces/jobs/src/draft` beside the screens'.
 - **Typecheck is the surface's own Check**, declared in its `armada.yml`; the root
   script does not need to name it.
 
