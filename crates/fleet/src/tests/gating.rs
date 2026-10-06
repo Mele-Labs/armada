@@ -165,3 +165,21 @@ fn a_frozen_workspace_freezes_the_job_it_gates_and_an_open_one_does_not() {
         .frozen_by(&owned_by_the_root_and_gated_by("01GATINGB"))
         .is_empty());
 }
+
+/// A write target naming a workspace's directory is owned by that workspace.
+#[test]
+fn a_write_target_naming_a_workspace_directory_is_owned_by_it() {
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let served = served(&fleet, &home, "");
+    for named in ["packages/a", "packages/a/", "/packages/a"] {
+        let gates = gate_manifests(&served, Some(&strings(&[named])));
+        assert_eq!(ids(&gates), ["01GATINGA", "01GATINGB"], "{named}");
+    }
+    let gates = gate_manifests(&served, Some(&strings(&["packages/ab"])));
+    assert_eq!(
+        ids(&gates),
+        ["01GATINGROOT"],
+        "a sibling that shares a prefix"
+    );
+}

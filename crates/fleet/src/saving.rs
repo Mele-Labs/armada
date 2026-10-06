@@ -1,6 +1,8 @@
 //! What a Clear does with a Job's uncommitted files: commit them to its branch,
 //! then free the slot or remove the worktree. Beside `reclaiming.rs`, which
-//! keeps the act whole; this holds only the saving.
+//! keeps the act whole; this holds only the saving. A Job that was killed or
+//! failed gets the same park the moment it ends, so it never sits `kept`;
+//! it lives here because `dispatch.rs` and `leasing.rs` have no room.
 //! `docs/concepts/fleet.md`, *Worktree slots*, and the decision record
 //! `2026-10-05-a-branch-commit-is-enough-to-free-a-slot`.
 //!
@@ -11,7 +13,7 @@ use adapter_traits::{
     AgentHarness, Delivery, SlotKept, SlotParkRefused, SlotStanding, Vcs, WorkProduct, WorktreeSpec,
 };
 use api::Refusal;
-use core_model::{Component, Envelope, FieldValue, Job, JobId, Level};
+use core_model::{Component, Envelope, FieldValue, Job, JobId, JobStatus, Level};
 use ipc::{ChangeSlotPool, ManifestId, SlotPoolChanged, SlotReleased, WireError};
 
 use crate::adrift::Adrift;
@@ -20,6 +22,9 @@ use crate::leasing::{
     pool_of, NO_SUCH_SLOT, SLOT_BUSY, SLOT_HOLDER_CHANGED, SLOT_HOLDER_UNNAMED, SLOT_NOT_PARKABLE,
 };
 use crate::repositories::Served;
+
+const CLEARED: &str = "a Clear committed the Job's uncommitted files to its branch";
+const ENDED: &str = "the Job ended and its uncommitted files were committed to its branch";
 
 /// The WIP commit a Clear made, on the Job's own branch.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,6 +63,23 @@ where
     /// itself where it cannot help: a detached HEAD, the base branch, a busy
     /// slot.
     pub(crate) async fn freed_by_a_clear(&self, job: &Job) -> Freed {
+        self.freed(job, CLEARED).await
+    }
+
+    /// A Job's slot at the moment it ends: a killed or failed Job's is parked
+    /// where the pool refuses it for uncommitted files, as a Clear would, and
+    /// any other end is the pool's plain release. Answers why it stays held.
+    pub(crate) async fn released_or_saved(&self, job: &Job) -> Option<String> {
+        if !matches!(job.status(), JobStatus::Killed | JobStatus::CompletedFailed) {
+            return self.released_slot(job).await;
+        }
+        match self.freed(job, ENDED).await {
+            Freed::Kept(why) => Some(why),
+            _ => None,
+        }
+    }
+
+    async fn freed(&self, job: &Job, saved_said: &str) -> Freed {
         let Some(slot) = job.worktree_slot() else {
             return Freed::NotHeld;
         };
@@ -88,7 +110,7 @@ where
                         commit,
                         files: parked.files,
                     };
-                    self.noted_saved(job.id(), &saved, Some(&name));
+                    self.noted_saved(job.id(), &saved, Some(&name), saved_said);
                     Freed::Saved(saved)
                 }
                 None => {
@@ -135,7 +157,7 @@ where
                 commit: committed.commit,
                 files: committed.files,
             };
-            self.noted_saved(job, &saved, None);
+            self.noted_saved(job, &saved, None, CLEARED);
             saved
         }))
     }
@@ -190,13 +212,13 @@ where
         })
     }
 
-    fn noted_saved(&self, job: &JobId, saved: &SavedWork, slot: Option<&str>) {
+    fn noted_saved(&self, job: &JobId, saved: &SavedWork, slot: Option<&str>, said: &str) {
         let mut envelope = Envelope::new(
             self.now(),
             Level::Info,
             Component::Fleet,
             self.run().clone(),
-            "a Clear committed the Job's uncommitted files to its branch",
+            said,
         )
         .in_job(job.as_ulid().clone())
         .with_field("branch", FieldValue::Str(saved.branch.clone()))

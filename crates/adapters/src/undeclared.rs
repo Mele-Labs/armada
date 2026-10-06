@@ -1,0 +1,191 @@
+//! A branch that takes a number it never declared a need for is refused.
+//! `#1059`: on 6 Oct 2026 a branch bumped the protocol from 23.33 to 23.35
+//! without declaring, took the number another branch held, and that branch
+//! renumbered. The owner's answer: the checks refuse it.
+//!
+//! **One function, called by `armada land` and by Fleet's merge act**, so a
+//! session and a Fleet Job are held to the same rule. [`undeclared`] reads the
+//! two ends of the branch from git, and says what to run where a watched path
+//! changed with no need on record for that branch and path.
+//!
+//! **Which paths, and what counts as a change, is [`WATCHED`] and nothing
+//! else.** Another repository names its own by editing that list; there is no
+//! file for it yet, since `.gitattributes` and `armada.yml` declare nothing of
+//! the kind and this repository is the only one that needs it.
+//!
+//! **A migration is appended where an entry of the list is on the branch and
+//! not on the base**, read as entries and not as a name pattern. **A minor
+//! changed is the two `minor` values differing**, unless `major` differs too:
+//! a major move is hand-made, outside needs, and resets the minor on purpose.
+
+use std::path::Path;
+use std::process::Command;
+
+use crate::needs::{clean_path, Needs};
+
+/// What counts as a change on a watched path.
+#[derive(Clone, Copy, Debug)]
+pub enum Change {
+    /// An entry in the list `MIGRATIONS` on the branch that the base lacks.
+    ListAppended,
+    /// `minor` differs, `major` does not.
+    MinorChanged,
+}
+
+/// A path whose change needs a declared need, and the words to declare it in.
+#[derive(Clone, Copy, Debug)]
+pub struct Watched {
+    pub path: &'static str,
+    pub what: &'static str,
+    pub change: Change,
+}
+
+/// This repository's watched paths: the only place they are written down.
+pub const WATCHED: &[Watched] = &[
+    Watched {
+        path: "crates/store/src/migrations.rs",
+        what: "a new migration",
+        change: Change::ListAppended,
+    },
+    Watched {
+        path: "protocol-version.toml",
+        what: "a minor",
+        change: Change::MinorChanged,
+    },
+];
+
+/// `Ok(None)` where the branch is in order, `Ok(Some(answer))` where it took a
+/// number it never declared, `Err` where git could not be read.
+///
+/// `base` is whatever names the base (`origin/main`, a commit); the branch is
+/// compared from where it left it, so a base that moved on is not the branch's
+/// change.
+pub fn undeclared(
+    repo: &Path,
+    base: &str,
+    branch: &str,
+    needs: &Needs,
+) -> Result<Option<String>, String> {
+    let fork = git(repo, &["merge-base", base, branch])?.trim().to_string();
+    let standing = needs.standing();
+    let mut missing = Vec::new();
+    for watched in WATCHED {
+        let declared = standing
+            .iter()
+            .any(|need| need.branch == branch && need.path == clean_path(watched.path));
+        if !declared && changed(repo, &fork, branch, watched)? {
+            missing.push(watched);
+        }
+    }
+    if missing.is_empty() {
+        return Ok(None);
+    }
+    let run: Vec<String> = missing
+        .iter()
+        .map(|watched| format!("armada need {} \"{}\"", watched.path, watched.what))
+        .collect();
+    let paths: Vec<String> = WATCHED
+        .iter()
+        .map(|watched| format!("{} ({})", watched.path, watched.what))
+        .collect();
+    Ok(Some(format!(
+        "{branch} changes {} with no need declared for it. Run {}, and use the number \
+         it gives you (a number taken without one collides with whoever holds it). \
+         A need is required on {}. The branch keeps its place: once declared, \
+         land it again.",
+        missing
+            .iter()
+            .map(|watched| watched.path)
+            .collect::<Vec<_>>()
+            .join(" and "),
+        run.join(" and "),
+        paths.join(" and "),
+    )))
+}
+
+fn changed(repo: &Path, fork: &str, branch: &str, watched: &Watched) -> Result<bool, String> {
+    let before = show(repo, fork, watched.path)?;
+    let after = show(repo, branch, watched.path)?;
+    if before == after {
+        return Ok(false);
+    }
+    Ok(match watched.change {
+        Change::ListAppended => {
+            let held = entries(&before, "MIGRATIONS");
+            entries(&after, "MIGRATIONS")
+                .iter()
+                .any(|entry| !held.contains(entry))
+        }
+        Change::MinorChanged => {
+            number(&before, "major") == number(&after, "major")
+                && number(&before, "minor") != number(&after, "minor")
+        }
+    })
+}
+
+/// The entries of `pub const <name>: ... = &[ ... ];`, one per line, without
+/// comments or the trailing comma.
+fn entries(source: &str, name: &str) -> Vec<String> {
+    let mut inside = false;
+    let mut found = Vec::new();
+    for line in source.lines() {
+        let line = line.trim();
+        if !inside {
+            inside = line.contains(&format!("const {name}:")) && line.ends_with('[');
+        } else if line.starts_with("];") {
+            break;
+        } else {
+            let entry = line.split("//").next().unwrap_or("").trim();
+            let entry = entry.trim_end_matches(',').trim();
+            if !entry.is_empty() {
+                found.push(entry.to_string());
+            }
+        }
+    }
+    found
+}
+
+/// The integer a `key = 12` line gives, where the file has one.
+fn number(source: &str, key: &str) -> Option<u64> {
+    source.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        if name.trim() != key {
+            return None;
+        }
+        value.split('#').next()?.trim().parse().ok()
+    })
+}
+
+/// `path` at `rev`, empty where it did not exist there.
+fn show(repo: &Path, rev: &str, path: &str) -> Result<String, String> {
+    let spec = format!("{rev}:{path}");
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["show", &spec])
+        .output()
+        .map_err(|why| format!("git: {why}"))?;
+    Ok(if out.status.success() {
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    } else {
+        String::new()
+    })
+}
+
+fn git(repo: &Path, args: &[&str]) -> Result<String, String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(args)
+        .output()
+        .map_err(|why| format!("git: {why}"))?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    } else {
+        Err(format!(
+            "git {}: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stderr).trim()
+        ))
+    }
+}

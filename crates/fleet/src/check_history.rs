@@ -73,7 +73,7 @@ impl Ledger {
             return;
         };
         announcing.ran(CheckRun {
-            check: check.label().to_string(),
+            check: check.key().to_string(),
             started_at,
             outcome,
             narrowed_to: narrowed_to.map(str::to_string),

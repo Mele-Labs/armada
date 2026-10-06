@@ -49,17 +49,21 @@ use std::time::Duration;
 
 use adapter_traits::Footprint;
 use checks_runner::{
-    resolve_width, Attempt as RunAttempt, CheckWidth, Narrowed, Output, Reach, Writing, WIDTH_ENV,
+    resolve_width, Attempt as RunAttempt, CheckWidth, Output, Reach, Writing, WIDTH_ENV,
 };
 use core_model::{Attempt, Prerequisite, ResolvedCheck, RunsAt, TaskCounts};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 use verification::{Artifact, Exit, NeverRan, Observed};
 
+use crate::gated::{within, Gated};
 use crate::places::{Ask, Place, Room};
 use crate::ports::resolve_ports;
 use crate::reuse::{self, KeptDryRun};
 use crate::underway::Announcing;
+
+mod narrowing;
+pub(crate) use narrowing::{at_the_gate, by_its_runner, narrowed, narrows_at_the_gate};
 
 /// What ends a batch's commands before their budget does: each one's whole
 /// group, through the runner's own stop. The gate's and a proof's never fire.
@@ -163,11 +167,14 @@ impl Reading<'_> {
 /// a change to `packages/`, and a rename arrives as two paths — the old one
 /// deleted, the new one added, because the git adapter runs no rename
 /// detection — so either side of a rename is enough on its own.
-fn not_covered(check: &ResolvedCheck, touched: &[String]) -> Option<Observed> {
+fn not_covered(check: &ResolvedCheck, touched: &[String], nothing_gates: bool) -> Option<Observed> {
     // `ResolvedCheck::covers` answers `true` for a Check with no `when`, which
     // is where "absent means always" is spelled. It is asked rather than
     // re-derived here so there is one place that could ever be wrong about it.
-    match check.covers(touched) {
+    // **Never asked of an empty diff where manifests gate**: that gates nothing.
+    match !(nothing_gates && matches!(check, ResolvedCheck::ManifestCheck { .. }))
+        && check.covers(touched)
+    {
         true => None,
         false => Some(Observed::Skipped {
             covers: check
@@ -176,141 +183,6 @@ fn not_covered(check: &ResolvedCheck, touched: &[String]) -> Option<Observed> {
                 .unwrap_or_default(),
         }),
     }
-}
-
-/// What a Check runs when a Drone asked about its own change.
-///
-/// **Pure, and settled beside the skip decision** for the same reason: it reads
-/// the Check's frozen `narrow` against paths already in hand, so nothing is
-/// spawned and nothing is ordered by it.
-///
-/// **Three answers and each is a different sentence.** The Check runs whole,
-/// which is what a Check with no `narrow` does; it runs a narrower command; or
-/// it is not run at all, because nothing the change touched feeds it. The third is a skip and not a pass — a Drone told
-/// `test` passed on a change that touched no crate would have been told
-/// something false about its own work.
-pub(crate) fn narrowed(
-    check: &ResolvedCheck,
-    name: &str,
-    run: &str,
-    touched: &[String],
-    narrow: bool,
-) -> Planned {
-    let whole = Planned::Command {
-        name: name.to_string(),
-        run: run.to_string(),
-        narrowed_to: None,
-    };
-    if !narrow {
-        return whole;
-    }
-    match checks_runner::narrowed(check.narrowing(), touched) {
-        // **The Check's own declaration is answered first, and the runner's
-        // only where it said nothing.** A repository that wrote a `narrow` for
-        // this Check has said how it wants it narrowed; a shipped description
-        // of the runner is what answers where it has not. The same precedence
-        // `docs/concepts/runner-adapter.md` states for a repository's own
-        // description against a shipped one, one tier down.
-        Narrowed::Whole => match by_its_runner(check, touched) {
-            Some(command) => Planned::Command {
-                name: name.to_string(),
-                run: run.to_string(),
-                narrowed_to: Some(command),
-            },
-            None => whole,
-        },
-        Narrowed::To(command) => Planned::Command {
-            name: name.to_string(),
-            run: run.to_string(),
-            narrowed_to: Some(command),
-        },
-        // The same sentence a `when` skip writes, and it is the true one: a
-        // Check that narrows to a directory the change did not touch has
-        // nothing to say about the change. `Observed::Skipped` carries what a
-        // reader's first question is, so it carries what the narrowing looked
-        // at rather than what the Check covers.
-        Narrowed::Nothing => Planned::Already(Observed::Skipped {
-            covers: check
-                .narrowing()
-                .and_then(core_model::Narrowing::under)
-                .unwrap_or_default()
-                .to_string(),
-        }),
-    }
-}
-
-/// What a Check runs at the step gate: the merge line's reading, over what the
-/// step's own change reaches — `checks_runner::narrowed_over`.
-///
-/// **Stricter than [`narrowed`], because this one rules.** Only `under`
-/// narrows, any covered path it cannot name runs the Check whole, a verbatim
-/// `narrow` never narrows, and no runner's description is asked: the merge line
-/// asks none either. A change reaching only what the Check excludes is a skip,
-/// as [`narrowed`]'s is.
-pub(crate) fn at_the_gate(check: &ResolvedCheck, name: &str, run: &str, reach: &Reach) -> Planned {
-    let command = |narrowed_to| Planned::Command {
-        name: name.to_string(),
-        run: run.to_string(),
-        narrowed_to,
-    };
-    let Reach::Paths(reached) = reach else {
-        return command(None);
-    };
-    match checks_runner::narrowed_over(check.narrowing(), reached, |path| {
-        check.covers(std::slice::from_ref(path))
-    }) {
-        Narrowed::Whole => command(None),
-        Narrowed::To(narrowed_to) => command(Some(narrowed_to)),
-        Narrowed::Nothing => Planned::Already(Observed::Skipped {
-            covers: check
-                .narrowing()
-                .and_then(core_model::Narrowing::under)
-                .unwrap_or_default()
-                .to_string(),
-        }),
-    }
-}
-
-/// Whether the step gate has a Check it could narrow over this change, which
-/// is the only reason to ask `cargo tree` what the change reaches.
-pub(crate) fn narrows_at_the_gate(checks: &[ResolvedCheck], touched: &[String]) -> bool {
-    checks.iter().any(|check| {
-        check
-            .narrowing()
-            .and_then(core_model::Narrowing::under)
-            .is_some()
-            && check.covers(touched)
-    })
-}
-
-/// The command this Check's runner narrows it to for these paths, where it has
-/// one.
-///
-/// **`None` is every reason a runner cannot answer**, and they are all the same
-/// answer to the caller: the Check runs whole. It names no runner; no shipped
-/// description answers to that name; the description declares no `run_changed`;
-/// or the paths cannot be spelled as arguments.
-///
-/// A learned or repository-local description is not read here yet — `shipped`
-/// is the only source, and the rest of the lifecycle in
-/// `docs/concepts/runner-adapter.md` is unbuilt.
-pub(crate) fn by_its_runner(check: &ResolvedCheck, touched: &[String]) -> Option<String> {
-    let runner = check.runner()?;
-    let described = config::shipped(runner.name())?;
-    let Some(dir) = runner.dir() else {
-        return checks_runner::run_changed(described.run_changed()?, None, touched);
-    };
-    // The template runs from `dir`, so `{files}` must be dir-relative. A covered
-    // path outside it cannot be named, and dropping it would narrow to a subset
-    // nobody was told about, so the Check runs whole.
-    let (inside, outside) = checks_runner::relative_to_dir(dir, touched);
-    if outside
-        .iter()
-        .any(|path| check.covers(std::slice::from_ref(path)))
-    {
-        return None;
-    }
-    checks_runner::run_changed(described.run_changed()?, Some(dir), &inside)
 }
 
 /// What was observed of one declared Check, and what it printed.
@@ -423,17 +295,21 @@ fn width_of(check: &ResolvedCheck, machine: CheckWidth) -> CheckWidth {
 }
 
 async fn beforehand(
-    needed: &[&Prerequisite],
+    needed: &[(&str, &Prerequisite)],
     worktree: &Path,
     budget: Duration,
     ports: &BTreeMap<String, u16>,
     env: &[(String, String)],
     width: CheckWidth,
     stop: &Stop,
-) -> (Vec<String>, Option<NotMet>) {
+) -> (Vec<(String, String)>, Option<NotMet>) {
     let mut met = Vec::new();
-    for prerequisite in needed {
-        if met.iter().any(|had: &String| had == prerequisite.name()) {
+    for (dir, prerequisite) in needed {
+        // **Once per manifest and name**: two manifests may each name `migrate`.
+        if met
+            .iter()
+            .any(|(had, name): &(String, String)| had == dir && name == prerequisite.name())
+        {
             continue;
         }
         // **The machine's own number, un-narrowed.** A prerequisite is shared
@@ -444,7 +320,7 @@ async fn beforehand(
         let run = resolve_width(&resolve_ports(prerequisite.run(), ports), width);
         let attempt = checks_runner::run_until(
             &run,
-            worktree,
+            &within(worktree, dir),
             budget,
             Writing::Nowhere,
             env,
@@ -466,7 +342,7 @@ async fn beforehand(
                 }),
             );
         }
-        met.push(prerequisite.name().to_string());
+        met.push((dir.to_string(), prerequisite.name().to_string()));
     }
     (met, None)
 }
@@ -551,6 +427,7 @@ pub(crate) async fn ran(
     dry_run: Option<&KeptDryRun>,
     attempt: Attempt,
     footprint_now: Option<&Footprint>,
+    gated: Option<&Gated>,
 ) -> Vec<Completed> {
     // The machine's number for this batch, before any Check's own declaration
     // lowers it. Carried on the room for `crate::places::Room::width`'s
@@ -562,16 +439,29 @@ pub(crate) async fn ran(
     // so it stands in for a narrowed gate run as well: it measured more.
     let mut planned: Vec<Planned> = checks
         .iter()
-        .map(
-            |check| match trusted.and_then(|kept| kept.passed(check.label())) {
+        .map(|check| {
+            // **A manifest the change does not gate answers first**, so a reused
+            // pass cannot stand in for a Check that was never to run. Each
+            // Check then reads the paths its own manifest owns, relative to it.
+            if let Some(declined) = gated.and_then(|gated| gated.declines(check)) {
+                return Planned::Already(declined);
+            }
+            let local = crate::gated::local(gated, check, touched);
+            let key = check.key();
+            match trusted.and_then(|kept| kept.passed(&key)) {
                 Some(row) => Planned::Already(Observed::Reused(row)),
-                None => match not_covered(check, touched) {
+                None => match not_covered(check, &local, gated.is_some() && touched.is_empty()) {
                     Some(skipped) => Planned::Already(skipped),
                     None => match check {
-                        ResolvedCheck::ManifestCheck { name, run, .. } => match reading {
-                            Reading::Whole => narrowed(check, name, run, touched, false),
-                            Reading::DronesOwn => narrowed(check, name, run, touched, true),
-                            Reading::StepGate(reach) => at_the_gate(check, name, run, reach),
+                        ResolvedCheck::ManifestCheck { run, .. } => match reading {
+                            Reading::Whole => narrowed(check, &key, run, &local, false),
+                            Reading::DronesOwn => narrowed(check, &key, run, &local, true),
+                            Reading::StepGate(reach) => at_the_gate(
+                                check,
+                                &key,
+                                run,
+                                &crate::gated::reach_under(check.manifest_dir(), reach),
+                            ),
                         },
                         ResolvedCheck::DiffNonempty => Planned::Already(Observed::Diff { moved }),
                         ResolvedCheck::ArtifactExists { target } => {
@@ -582,8 +472,8 @@ pub(crate) async fn ran(
                         }),
                     },
                 },
-            },
-        )
+            }
+        })
         .collect();
 
     // **Before the prerequisites**, so a Check waiting behind `migrate` reads
@@ -603,11 +493,14 @@ pub(crate) async fn ran(
     // order the Manifest named them, before anything is spawned. `beforehand`
     // takes the wall clock of this out of the batch on purpose; see the module
     // header for why it cannot overlap the Checks it prepares for.
-    let needed: Vec<&Prerequisite> = planned
+    let needed: Vec<(&str, &Prerequisite)> = planned
         .iter()
         .enumerate()
         .filter(|(_, plan)| matches!(plan, Planned::Command { .. }))
-        .flat_map(|(at, _)| checks[at].requires())
+        .flat_map(|(at, _)| {
+            let dir = checks[at].manifest_dir();
+            checks[at].requires().iter().map(move |one| (dir, one))
+        })
         .collect();
     let (met, not_met) = match needed.is_empty() {
         true => (Vec::new(), None),
@@ -632,10 +525,11 @@ pub(crate) async fn ran(
     // command that actually broke rather than the one that never got a turn.
     if let Some(failed) = &not_met {
         for (at, plan) in planned.iter_mut().enumerate() {
-            let unmet = checks[at]
-                .requires()
-                .iter()
-                .any(|needed| !met.iter().any(|had| had == needed.name()));
+            let dir = checks[at].manifest_dir();
+            let unmet = checks[at].requires().iter().any(|needed| {
+                !met.iter()
+                    .any(|(had, name)| had == dir && name == needed.name())
+            });
             if let (true, Planned::Command { name, .. }) = (unmet, &*plan) {
                 let observed = failed.blocked();
                 announcing.finished(at, &checks[at], &observed, Duration::ZERO);
@@ -762,7 +656,7 @@ pub(crate) async fn ran(
                 };
                 ledger.granted(at, announcing);
                 own_places += checks[at].places().get() as usize;
-                let worktree: PathBuf = worktree.clone();
+                let worktree: PathBuf = within(&worktree, checks[at].manifest_dir());
                 // **Cloned and added to per Check, not once for the batch**:
                 // the number is this Check's own, lowered where it declared
                 // one, and the batch holds Checks that declared different
@@ -835,7 +729,7 @@ pub(crate) async fn ran(
                             && failed_first.is_none()
                             && !advances(&checks[at], &observed)
                         {
-                            failed_first = Some(checks[at].label().to_string());
+                            failed_first = Some(checks[at].key().to_string());
                             halting = None;
                         }
                     }

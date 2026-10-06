@@ -28,9 +28,9 @@ use crate::tests::reviewing::{a_fleet_reviewing_the_first_step, at_the_gate};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
-fn root(home: &TempDir) -> String {
+pub(crate) fn root(home: &TempDir) -> String {
     home.path().to_string_lossy().to_string()
 }
 
@@ -39,7 +39,7 @@ fn slot(home: &TempDir, n: u32) -> PathBuf {
 }
 
 /// Propose and approve a Job, and admit what there is room for.
-async fn approved(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+pub(crate) async fn approved(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
     let job = fleet.propose(a_proposal(title)).await.expect("proposed");
     worktree_directory(home, &job);
     fleet.approve(job.id()).await.expect("approved");
@@ -205,7 +205,7 @@ async fn terminal_states_release_the_slot_and_waiting_ones_do_not() {
 
 /// Worked through the gate to `completed_success`, which is guarded on every
 /// step having advanced, so it cannot be moved there by hand.
-async fn finished(fleet: &Fixture, job: JobId) -> JobId {
+pub(crate) async fn finished(fleet: &Fixture, job: JobId) -> JobId {
     submitted_by_the_one(fleet, diff_evidence())
         .await
         .expect("a diff");
@@ -326,6 +326,9 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
     fleet
         .vcs()
         .keep_next_release("armada/1-x has 2 commits on neither the remote nor the base");
+    fleet
+        .vcs()
+        .refuse_next_park(adapter_traits::SlotParkRefused::OnNoBranch);
 
     let loaded = fleet.load(&job).await.expect("the Job");
     fleet
@@ -351,7 +354,7 @@ async fn a_release_the_pool_refuses_leaves_the_slot_held_and_the_job_s_log_says_
     let said = std::fs::read_to_string(crate::transcript::log_of(&root(&home), &handle))
         .unwrap_or_default();
     assert!(
-        said.contains("2 commits on neither the remote nor the base"),
+        said.contains("HEAD is detached"),
         "the Job's own log says why: {said}"
     );
 }

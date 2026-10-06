@@ -27,7 +27,9 @@
 //! [`declared`](crate::job::declared): `xtask::rules_enums` reads each in the
 //! file its variants are spelled in, so they lose nothing by sitting alone.
 
+use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::num::NonZeroU32;
@@ -196,6 +198,24 @@ impl ResolvedCheck {
     /// use, so a person reading the two sees the same word.
     pub fn label(&self) -> &str {
         self.name().unwrap_or_else(|| self.kind())
+    }
+
+    /// What tells this Check from every other on a step: its [`label`], and
+    /// for a workspace's Check the directory before it, `<dir>:<name>`. Two
+    /// manifests may each declare `test`, and a recorded row, a live row, a
+    /// past duration and a reused answer are all found by this.
+    ///
+    /// **The root's is its bare label**, as it was before workspaces gated, so
+    /// a repository with none keeps every key it ever wrote.
+    ///
+    /// [`label`]: ResolvedCheck::label
+    pub fn key(&self) -> Cow<'_, str> {
+        match self {
+            ResolvedCheck::ManifestCheck {
+                name, manifest_dir, ..
+            } if !manifest_dir.is_empty() => Cow::Owned(format!("{manifest_dir}:{name}")),
+            _ => Cow::Borrowed(self.label()),
+        }
     }
 
     /// Which paths this Check covers, where it declares any. **`None` on a

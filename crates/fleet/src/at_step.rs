@@ -5,6 +5,7 @@
 //! gate, the dispatch loop and the briefing all need, and only one of the three
 //! decides anything.
 
+use crate::gated::Gated;
 use adapter_traits::Worktree;
 use core_model::{Attempt, EvidenceRef, FrozenWorkflow, ResolvedStep, Spent, StepEvidence, StepId};
 
@@ -41,6 +42,9 @@ pub struct AtStep<'a> {
     /// Whether a group follows this one on the step, so its `runs_at:
     /// handoff` Checks wait for the last group. Spike 022, slice 2.
     handoff_held: bool,
+    /// Which manifests the change reached, where the repository has
+    /// workspaces. `None` is the root alone, as every repository was.
+    gated: Option<&'a Gated>,
 }
 
 /// Whether a pass puts the work to the Judge.
@@ -62,6 +66,7 @@ impl<'a> AtStep<'a> {
             spent: Spent::FIRST,
             looks: Looks::Asked,
             handoff_held: false,
+            gated: None,
         })
     }
 
@@ -80,6 +85,7 @@ impl<'a> AtStep<'a> {
             spent: Spent::FIRST,
             looks: Looks::Asked,
             handoff_held: false,
+            gated: None,
         })
     }
 
@@ -114,6 +120,16 @@ impl<'a> AtStep<'a> {
             handoff_held: held,
             ..self
         }
+    }
+
+    /// The same position, over the manifests the change reached.
+    pub(crate) fn over(self, gated: Option<&'a Gated>) -> AtStep<'a> {
+        AtStep { gated, ..self }
+    }
+
+    /// Which manifests the change reached, where the repository has workspaces.
+    pub(crate) fn gated(&self) -> Option<&'a Gated> {
+        self.gated
     }
 
     /// Whether this gate holds back its `runs_at: handoff` Checks.
@@ -165,6 +181,7 @@ impl<'a> AtStep<'a> {
             spent: Spent::FIRST,
             looks: Looks::Asked,
             handoff_held: false,
+            gated: None,
         })
     }
 

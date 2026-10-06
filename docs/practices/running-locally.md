@@ -721,7 +721,9 @@ behind. A need is spent when its branch lands and given back when the branch no
 longer exists here. **Nothing expires by time**: a stalled need holds the
 branches behind it until a person runs `armada need --release <path>` from its
 branch, or deletes the branch. The state is under the git common directory, in
-`armada-needs/`.
+`armada-needs/`. **`armada land preflight` refuses a branch that appends a
+migration or changes the protocol minor with no need declared for that path**,
+and says to run `armada need <path> "<what>"`; a major change passes.
 
 **What it needs:** a clean tree with commits ahead of `main`, push access to
 `origin`, and an `armada` on `PATH` that knows the `land` verb — `scripts/land`

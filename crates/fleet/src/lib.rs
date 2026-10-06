@@ -121,6 +121,7 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gated;
 mod gating;
 mod group;
 mod grouping;
@@ -143,6 +144,7 @@ mod joining_the_line;
 pub mod journal;
 pub mod judging;
 pub mod keeping;
+mod keeping_gates;
 mod kept_reply;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.
 pub mod kit;

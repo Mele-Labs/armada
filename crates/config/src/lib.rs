@@ -54,7 +54,7 @@ pub use catalogue::{
 };
 pub use error::{Disagreement, Fault, LoadError, Refusal, ResolveError, UnknownCheck};
 pub use fields::{workflow_fields, Field};
-pub use gating::{gating, Gate, GateWhy};
+pub use gating::{gating, owner, Gate, GateWhy};
 pub use live::{Adopted, Frozen, LiveKey, Moved, Reloads};
 pub use manifest::{
     BadSeedPath, Check, Command, Harness, Link, Manifest, MergeBy, Preparation, Seed, Server,

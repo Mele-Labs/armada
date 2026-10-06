@@ -65,6 +65,7 @@ where
             None,
             core_model::Attempt::FIRST,
             None,
+            None,
         )
         .await;
         // Kept apart from a whole run of this Check — the test alone is
@@ -73,7 +74,7 @@ where
             Observed::Command(Exit::Code(_)) => Some(done.took),
             _ => None,
         }) {
-            self.kept_one_test_timing(&request.repository, request.run.label(), took)
+            self.kept_one_test_timing(&request.repository, &request.run.key(), took)
                 .await;
         }
         let last = completed

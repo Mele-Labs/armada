@@ -43,6 +43,7 @@ mod scouting;
 mod snapshot;
 mod standing;
 mod transcript;
+mod undeclared;
 mod under_review;
 mod work_product;
 mod worktree;
