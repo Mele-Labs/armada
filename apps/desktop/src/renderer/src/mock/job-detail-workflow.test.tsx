@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
+import { executingSequential } from "@armada/jobs/fixtures/build/arc";
 import { GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
 
 import { entered, motion, mount, unmountAfterEach } from "./testing";

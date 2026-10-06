@@ -4,7 +4,7 @@
 // at once for a Check that has ended. `check-logs`, the scenario the walk of the same change plays.
 
 import type { FollowedLandLog, FollowedLog, LandCheckAt } from "@armada/protocol";
-import { LIVE_LOGS } from "@armada/screens/src/fixtures/build/arc-checking";
+import { LIVE_LOGS } from "@armada/jobs/fixtures/build/arc-checking";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { FleetHandle } from "./moment";

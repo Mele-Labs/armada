@@ -4,10 +4,10 @@
 // the same name plays.
 
 import type { CheckOutput, CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, ManifestCheckRow, MergeLines } from "@armada/protocol";
-import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
-import { ARC_DRONES } from "@armada/screens/src/fixtures/build/arc-plan";
-import { ARC_HANDLE, ARC_JOB_ID, ARC_TITLE } from "@armada/screens/src/fixtures/build/arc-base";
-import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
+import { everyDroneHad } from "@armada/jobs/fixtures/build/drones-had";
+import { ARC_DRONES } from "@armada/jobs/fixtures/build/arc-plan";
+import { ARC_HANDLE, ARC_JOB_ID, ARC_TITLE } from "@armada/jobs/fixtures/build/arc-base";
+import { executingSequential } from "@armada/jobs/fixtures/build/arc";
 import { JOB_HANDLE, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";

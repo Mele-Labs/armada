@@ -58,7 +58,8 @@ import type {
 import type { HelmContext, JobSummary } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
-import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, PauseAct, Taken, TakenAct, TaskAct } from "@armada/screens";
+import type { PauseAct, Taken, TakenAct } from "@armada/screens";
+import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, TaskAct } from "@armada/jobs";
 import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";
 import { patternFor, useHaptics } from "@armada/components";
 import { proposeRequest } from "./dispatch";

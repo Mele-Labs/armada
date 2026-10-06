@@ -18,7 +18,7 @@ import { page, userEvent } from "vitest/browser";
 import { FLEET_DOT_TONE, fleetSaid } from "@armada/components";
 import type { Connection } from "@armada/protocol";
 import { SHORT_LABEL } from "@armada/shell";
-import { workingAPlan } from "@armada/screens/src/fixtures/build/index";
+import { workingAPlan } from "@armada/jobs/fixtures/build/index";
 
 import { onJob } from "./scenario";
 import { mount, unmountAfterEach } from "./testing";

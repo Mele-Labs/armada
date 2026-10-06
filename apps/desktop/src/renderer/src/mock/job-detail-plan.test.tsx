@@ -6,12 +6,12 @@ import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
 import { issueLink } from "@armada/protocol";
-import { ARC_JOB_ID } from "@armada/screens/src/fixtures/build/arc";
-import { running, runningWaitingOnACommand } from "@armada/screens/src/fixtures/build/index";
+import { ARC_JOB_ID } from "@armada/jobs/fixtures/build/arc";
+import { running, runningWaitingOnACommand } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import { WAITING_CALL } from "@armada/screens/src/fixtures/build/running";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/screens/src/fixtures/plans";
+import { PLAN_PARTWAY, PLAN_WITH_A_DROPPED_TASK, withPlan } from "@armada/jobs/fixtures/plans";
 
 import type { BridgeApi } from "../../../shared/api";
 import { commandOutstanding, runningWithSettings } from "./job-detail-fixtures";

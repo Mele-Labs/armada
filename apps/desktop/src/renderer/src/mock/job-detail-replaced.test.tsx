@@ -7,7 +7,7 @@
 
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { killed, running } from "@armada/screens/src/fixtures/build/index";
+import { killed, running } from "@armada/jobs/fixtures/build/index";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { Watched } from "@armada/protocol";

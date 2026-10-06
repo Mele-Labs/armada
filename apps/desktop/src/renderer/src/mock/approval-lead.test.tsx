@@ -7,7 +7,7 @@
 
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import { awaitingApproval } from "@armada/screens/src/fixtures/build/index";
+import { awaitingApproval } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 
 import { withRow } from "./job-detail-fixtures";

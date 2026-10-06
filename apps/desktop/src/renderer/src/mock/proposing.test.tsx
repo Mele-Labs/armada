@@ -14,7 +14,7 @@ import { expect, test, describe } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { JobDetail, JobSummary, ProposalSettled } from "@armada/protocol";
-import { filled } from "@armada/screens";
+import { filled } from "@armada/jobs";
 
 import { scenarioNamed } from "./scenario";
 import type { FleetHandle } from "./scenario";

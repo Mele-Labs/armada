@@ -9,8 +9,8 @@
 // scenario or the other.
 
 import type { AddTask, DropTask, EditTask, MovePlan, PlanTask, StepDetail, WorkPlan } from "@armada/protocol";
-import type { GroupView } from "@armada/screens/src/draft/group";
-import type { TaskView } from "@armada/screens/src/draft/task";
+import type { GroupView } from "@armada/jobs/draft/group";
+import type { TaskView } from "@armada/jobs/draft/task";
 
 /** The next `T<n>` neither the plan nor the groups hold. Ids are never reused. */
 export function nextTaskId(plan: WorkPlan, groups: readonly GroupView[] = []): string {

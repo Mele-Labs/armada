@@ -5,7 +5,7 @@
 
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { reviewAtDelivery, queued, retryingCheckFailure, running } from "@armada/screens/src/fixtures/build/index";
+import { reviewAtDelivery, queued, retryingCheckFailure, running } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";

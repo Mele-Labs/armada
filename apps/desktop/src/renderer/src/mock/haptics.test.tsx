@@ -8,7 +8,7 @@
 import { expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import type { Outcome } from "@armada/protocol";
-import { reviewAtDelivery } from "@armada/screens/src/fixtures/build/index";
+import { reviewAtDelivery } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import type { BridgeApi } from "../../../shared/api";

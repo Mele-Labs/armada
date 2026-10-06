@@ -263,7 +263,7 @@ says how to read one that is still draining.
 **Where a file sits near a threshold, leave headroom.** A branch and `main` can
 each sit under a limit that the two together cross, and `ci` measures the merged
 tree. Confirmed 2026-09-12: #730 passed `verify-foundations` at 898 lines in
-`packages/screens/src/JobDetail.tsx`; `main` grew the same file by seven while
+`packages/surfaces/jobs/src/JobDetail.tsx`; `main` grew the same file by seven while
 the branch was open, and the merge landed it at 905, over the 900-line rule.
 
 **Bring a moved `main` in by merging it, never by rebasing.** One pass meets

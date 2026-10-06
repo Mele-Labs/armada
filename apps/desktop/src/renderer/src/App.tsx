@@ -52,8 +52,8 @@ import { Worktrees } from "@armada/cleanup";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/manifest";
 import { Setup, useSetup } from "@armada/setup";
 import { Locate, LocatedNotice, useLocate } from "@armada/setup";
-import { JobDetail, LandCheckLogSheet } from "@armada/screens";
-import type { JobDraft } from "@armada/screens/src/draft/held";
+import { JobDetail, LandCheckLogSheet } from "@armada/jobs";
+import type { JobDraft } from "@armada/jobs/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
 import {

@@ -1824,7 +1824,7 @@ still stands for the text itself, which is why nothing beside the count carries
 one.
 
 **Bridge draws each field where the Job already draws it**, through one fold
-(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+(`filled`, in `packages/surfaces/jobs/src/proposal.ts`): the settled workflow is the
 row's Workflow column, the settled title is the row's title, the done-when lines
 are the Job's criteria and the settings are its urgency. The wait inside
 Overview's lead says which of the four the call has got to, because that is the

@@ -6,6 +6,7 @@
 
 import { connected as connectedOver, onBoard as onBoardOver, unanswered } from "@armada/bridge-api";
 import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@armada/bridge-api";
+import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -15,7 +16,7 @@ import type { BridgeState } from "../../../shared/bridge";
 export { unanswered };
 
 /** One moment: what is published before anything is opened, and the reads behind each Job. */
-export type Scenario = ScenarioOf<BridgeState, BridgeApi>;
+export type Scenario = ScenarioOf<BridgeState, BridgeApi, ArcDraft>;
 
 /** What a scenario's `behaves` reaches: the state as published, and the one way to change it. */
 export type FleetHandle = FleetHandleOf<BridgeState>;

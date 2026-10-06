@@ -8,7 +8,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 import type { StepDetail } from "@armada/protocol";
-import { killed } from "@armada/screens/src/fixtures/build/index";
+import { killed } from "@armada/jobs/fixtures/build/index";
 import { freshStep, watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 

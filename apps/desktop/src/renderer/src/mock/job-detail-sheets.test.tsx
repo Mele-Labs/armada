@@ -5,7 +5,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { } from "@armada/protocol";
-import { escalatedGateFailure, running } from "@armada/screens/src/fixtures/build/index";
+import { escalatedGateFailure, running } from "@armada/jobs/fixtures/build/index";
 import { JOB_ID } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
@@ -114,7 +114,7 @@ const ARMADA_RUN_SHEET_READ = {
       { name: "bridge_build", run: "pnpm -C apps/desktop build", narrows: false, requires: [], expect_exit_code: 0, destructive: false, frozen: true },
       { name: "storybook", run: "pnpm -C packages/components build-storybook", narrows: false, requires: [], expect_exit_code: 0, destructive: false, frozen: true },
       { name: "bridge_test", run: "pnpm bridge-test", narrows: false, requires: [], expect_exit_code: 0, destructive: false, frozen: true },
-      { name: "format", run: "cargo fmt --all --check", narrows: true, narrow_run: "rustfmt --check --edition 2021 packages/screens/src/JobDetail.tsx", requires: ["fmt"], expect_exit_code: 0, destructive: false, frozen: true },
+      { name: "format", run: "cargo fmt --all --check", narrows: true, narrow_run: "rustfmt --check --edition 2021 packages/surfaces/jobs/src/JobDetail.tsx", requires: ["fmt"], expect_exit_code: 0, destructive: false, frozen: true },
     ],
     commands: [
       { name: "fmt", run: "cargo fmt --all", narrows: false, requires: [], expect_exit_code: 0, destructive: false, frozen: true },
