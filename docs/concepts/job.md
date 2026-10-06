@@ -492,6 +492,13 @@ marker is the Job's own, and lifting a freeze would not start it. Resuming in a
 frozen repository leaves the Job `queued` reading `frozen`. The queued reasons'
 other readings are derived at read time; this one is derived from a stored marker.
 
+**A person is not the only one who pauses.** Fleet pauses a Job parked at
+`awaiting_review`, `awaiting_repair` or `escalated` when other work is waiting for
+a slot and the pool is full, and the marker then reads `by: fleet`. Fleet never
+resumes it: a person's Resume does, and puts the gate back as it was. A `running`
+Job and a finished one are never taken. [Fleet](fleet.md), *A paused Job gives its
+slot back*, has the rule.
+
 **A paused Job is still non-terminal**, so a Job that depends on it stays
 blocked, and its port span is kept. A person's act on it that needs a worktree
 is refused as `fleet.paused` ("resume it first"); Kill works. A pause is
