@@ -38,6 +38,7 @@ mod merge_line;
 mod migrate;
 mod model_override;
 mod model_per_task;
+mod pausing;
 mod plan;
 mod ports;
 mod preferences;

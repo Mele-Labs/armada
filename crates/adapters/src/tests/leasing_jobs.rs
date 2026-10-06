@@ -228,3 +228,60 @@ fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
     assert!(warm[0].warm);
     assert_eq!(warm[0].behind, Some(2));
 }
+
+/// A pause's whole road through the real pool: the work is committed to the
+/// Job's own branch, the slot goes to somebody else, and the Job comes back to
+/// whichever slot is free with its file at the branch's tip.
+#[test]
+fn a_parked_jobs_work_is_at_its_branch_s_tip_in_whichever_slot_it_comes_back_to() {
+    let repo = a_repository();
+    let pool = slots(&repo, 2);
+    let (slot, path) = leased(&repo, &pool, "1-a-job", "01JOB");
+    std::fs::write(path.join("wip.txt"), "half a thought\n").expect("a file to keep");
+
+    let parked = GitVcs.park_slot(&pool, slot, "01JOB").expect("it parks");
+    assert_eq!(parked.branch, "armada/1-a-job");
+    assert!(parked.commit.is_some(), "the untracked file was committed");
+    assert_eq!(
+        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        SlotStanding::Free
+    );
+
+    // Somebody else takes slot 1 while the Job is parked.
+    let (taken, _) = leased(&repo, &pool, "2-another", "01OTHER");
+    assert_eq!(taken, slot, "the freed slot is the first one free");
+
+    let back = match GitVcs.lease_existing_slot(&pool, &parked.branch, "01JOB") {
+        Ok(SlotLeased::Took { slot, worktree, .. }) => (slot, PathBuf::from(worktree.path())),
+        other => panic!("the Job came back to no slot: {other:?}"),
+    };
+    assert_ne!(back.0, slot, "it came back to the other slot");
+    assert_eq!(branch_of(&back.1), "armada/1-a-job");
+    assert_eq!(
+        std::fs::read_to_string(back.1.join("wip.txt")).expect("the file came with the branch"),
+        "half a thought\n"
+    );
+    assert_eq!(
+        GitVcs.slot_standing(&pool, back.0, "01JOB"),
+        SlotStanding::Held
+    );
+}
+
+#[test]
+fn a_park_refused_by_the_pool_says_so_and_keeps_the_slot() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, _) = leased(&repo, &pool, "1-a-job", "01JOB");
+
+    let refused = GitVcs
+        .park_slot(&pool, slot, "01SOMEBODY")
+        .expect_err("not theirs");
+    assert!(matches!(
+        refused,
+        adapter_traits::SlotParkRefused::HeldByAnother(_)
+    ));
+    assert_eq!(
+        GitVcs.slot_standing(&pool, slot, "01JOB"),
+        SlotStanding::Held
+    );
+}

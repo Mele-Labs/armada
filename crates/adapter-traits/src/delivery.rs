@@ -390,6 +390,10 @@ pub enum NotMerged {
     /// The branch's head carries a tree its Checks never passed on, so nothing
     /// was pushed. Only `merge_by: push` says this; the answer is to run them.
     Unchecked { said: String },
+    /// A need ahead of this Job's on the same file has not landed, so Fleet did
+    /// not ask for the merge. Under `merge_by: forge` as under `push`: it is
+    /// Fleet that presses, and the forge's own button is not held. #1059.
+    WaitingBehind { said: String },
     /// The forge refused and said something this vocabulary has no name for.
     ///
     /// **Never folded into the eight above.** A guess about which kind a
@@ -418,6 +422,7 @@ impl NotMerged {
             NotMerged::Unchecked { said } => {
                 ("the branch's head is not what its Checks passed on", said)
             }
+            NotMerged::WaitingBehind { said } => ("a need ahead of this Job has not landed", said),
             NotMerged::Refused { said } => ("the forge refused", said),
         };
         let mut out = String::from("the merge did not happen — ");
@@ -439,6 +444,7 @@ impl NotMerged {
             | NotMerged::BaseMoved { said }
             | NotMerged::GateFailed { said }
             | NotMerged::Unchecked { said }
+            | NotMerged::WaitingBehind { said }
             | NotMerged::Refused { said } => said,
         }
     }
@@ -456,6 +462,7 @@ impl NotMerged {
             "base_moved" => NotMerged::BaseMoved { said },
             "gate_failed" => NotMerged::GateFailed { said },
             "unchecked" => NotMerged::Unchecked { said },
+            "waiting_behind" => NotMerged::WaitingBehind { said },
             _ => NotMerged::Refused { said },
         }
     }
@@ -474,6 +481,7 @@ impl NotMerged {
             NotMerged::BaseMoved { .. } => "base_moved",
             NotMerged::GateFailed { .. } => "gate_failed",
             NotMerged::Unchecked { .. } => "unchecked",
+            NotMerged::WaitingBehind { .. } => "waiting_behind",
             NotMerged::Refused { .. } => "refused",
         }
     }

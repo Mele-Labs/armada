@@ -27,6 +27,7 @@ pub mod env;
 pub mod gate;
 mod gating;
 pub mod git;
+mod heads_up;
 pub(crate) mod hold;
 pub mod lock;
 mod logs;
@@ -66,7 +67,7 @@ pub use repo::{common_git_dir, current_branch, merge_base};
 pub use runner::{ensure_runner, spawn_detached, EnsureRunnerError};
 pub use runner_loop::run_runner;
 pub use stamp::{read_stamp, write_stamp, PreflightStamp};
-pub use status::{status, UNKNOWN};
+pub use status::{exit_for, heads_up, status, HEADS_UP, UNKNOWN};
 pub use stop::Refused;
 pub use withdraw::{withdraw, Withdrawn};
 pub use worktree::{

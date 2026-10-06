@@ -24,6 +24,7 @@
 mod ask;
 mod dispatch;
 mod fixing;
+mod needing;
 mod noting;
 mod permission;
 mod planning;
@@ -41,6 +42,7 @@ use crate::codec::{encode, Unencodable};
 pub use ask::{AskQuestion, AskedOption, ASK_FIELDS, ASK_TOOL, FEWEST_OPTIONS, MOST_OPTIONS};
 pub use dispatch::{DispatchJob, DISPATCH_FIELDS, DISPATCH_TOOL};
 pub use fixing::{DraftFix, FIX_FIELDS, FIX_TOOL};
+pub use needing::{NeedClaim, NEED_FIELDS};
 pub use noting::{LeaveNote, MOST_NOTE_CHARS, NOTE_FIELDS, NOTE_TOOL};
 pub use permission::{running, PermissionAsked, PERMISSION_FIELDS, PERMISSION_TOOL};
 pub use planning::{PlanArgument, PlanCall, ADD_TASK_TOOL, RECORD_PLAN_TOOL, UPDATE_TASK_TOOL};

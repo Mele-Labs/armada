@@ -118,6 +118,9 @@ pub struct Turned {
     /// The Jobs admitted because the bound had room. Ordinarily empty, and
     /// longer than one only where several came free at once.
     pub admitted: Vec<JobId>,
+    /// The paused Jobs given a slot back this turn, because a resume had found
+    /// the pool full and one has freed. Empty on nearly every turn.
+    pub reseated: Vec<JobId>,
     /// The Drones started beside a Job's kept one, on tasks marked safe to
     /// run at once. Spike 022, slice 5.
     pub beside: Vec<core_model::DroneId>,
@@ -314,6 +317,8 @@ where
         // the only watcher here whose subject is a Job rather than a Drone.
         turned.unattended = self.watch_unattended().await?;
         turned.admitted = self.admit_next().await?;
+        // After admission, so the queue had the freed slot first.
+        turned.reseated = self.seat_resuming().await?;
         // After admission, so a Job waiting to start had the room first.
         turned.beside = self.crew_next().await?;
         Ok(turned)

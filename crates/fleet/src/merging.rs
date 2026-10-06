@@ -96,6 +96,22 @@ where
         // question: `awaiting_review` or nothing.
         self.at_the_gate(&job)?;
         let url = self.pull_request_of(job_id).await?;
+        // **Before the forge is touched and before the line is joined**, under
+        // `forge` and `push` alike: it is Fleet that presses either way. A need
+        // ahead of this Job's on a file it declared holds the merge until that
+        // one has landed or been given back. `crate::needing`, #1059.
+        if let Err(held) = self.held_behind_needs(&job).await {
+            if let Adrift::NotMerged { why, .. } = &held {
+                self.said_about_the_merge(
+                    &job,
+                    Level::Warn,
+                    "the merge waits behind a need another Job or branch declared first",
+                    &url,
+                    Some(why),
+                );
+            }
+            return Err(held);
+        }
         // **The loudest line in the log, and it is written before the write.**
         // Every other act Fleet takes is confined to a worktree Fleet made; a
         // line written afterwards would be missing on exactly the run where
@@ -238,6 +254,12 @@ where
             .await
             .a_machine_may_merge(forge)
         {
+            return;
+        }
+        // Before `merged_by_policy` takes the pull request, so a Job held behind
+        // a need is asked again on the next rotation, once what it waits
+        // behind has landed. #1059.
+        if self.held_behind_needs(&job).await.is_err() {
             return;
         }
         {

@@ -109,13 +109,16 @@ pub(crate) enum JobTree {
     Here(WorktreeSpec),
     /// The record names a slot the Job no longer holds, and why.
     Lost { slot: u32, why: String },
+    /// The Job is paused: its work is on its branch and no checkout holds it.
+    /// `crate::pausing`.
+    Parked,
 }
 
 impl JobTree {
     pub(crate) fn here(self) -> Option<WorktreeSpec> {
         match self {
             JobTree::Here(spec) => Some(spec),
-            JobTree::Lost { .. } => None,
+            JobTree::Lost { .. } | JobTree::Parked => None,
         }
     }
 }
@@ -137,6 +140,11 @@ where
         served: &Served,
         job: &Job,
     ) -> Result<JobTree, WorktreeSpecRefused> {
+        // Before the path is derived: a parked Job's derived path is where
+        // nothing is, and reading it as `Here` would be a worktree that is gone.
+        if job.is_parked() {
+            return Ok(JobTree::Parked);
+        }
         let spec = spec_of(served.root(), job)?;
         let Some(slot) = spec.slot() else {
             return Ok(JobTree::Here(spec));
@@ -174,7 +182,7 @@ where
         };
         match self.job_tree(served, job).map_err(unworkable)? {
             JobTree::Here(spec) => Ok(spec),
-            JobTree::Lost { .. } => {
+            JobTree::Lost { .. } | JobTree::Parked => {
                 WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
             }
         }
@@ -292,9 +300,11 @@ where
 
     /// Whether a Job that has never had a worktree would find no slot free in
     /// its repository's pool. **One answer for admission and the Board**, as
-    /// `volume_is_short` is. A Job already holding one is never short.
+    /// `volume_is_short` is. A Job already holding one is never short, and a parked one holds none.
     pub(crate) fn slot_is_short(&self, job: &Job) -> bool {
-        if job.branch().is_some() || job.worktree_slot().is_some() {
+        // A parked Job is waiting for a slot like a new one, though it has a
+        // branch: `reseat` is what leases it.
+        if !job.is_parked() && (job.branch().is_some() || job.worktree_slot().is_some()) {
             return false;
         }
         let Ok(served) = self.served_by(job) else {

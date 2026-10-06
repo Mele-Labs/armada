@@ -18,6 +18,7 @@ mod cli;
 mod declared;
 mod kit;
 mod land;
+mod land_heads_up;
 mod leasing;
 mod list_files;
 mod locating;

@@ -69,6 +69,7 @@ async fn a_finished_job_says_which_files_were_outside_what_a_step_promised() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src/parse.rs".to_string()],
         },
     )
@@ -141,6 +142,7 @@ async fn a_step_that_promised_to_touch_nothing_puts_every_path_outside_it() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: Vec::new(),
         },
     )
@@ -182,6 +184,7 @@ async fn a_step_that_redeclared_is_read_against_what_it_declared_last() {
         declared_by_the_one(
             &fleet,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: paths.iter().map(|path| path.to_string()).collect(),
             },
         )
@@ -225,6 +228,7 @@ async fn a_drone_that_changed_nothing_drifts_from_nothing() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )

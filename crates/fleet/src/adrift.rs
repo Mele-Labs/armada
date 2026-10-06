@@ -554,6 +554,28 @@ pub enum Adrift {
     /// **Never answered by leasing another.** The earlier steps' work was in
     /// that slot, and a fresh one would start the Job over without saying so.
     SlotLost { job: JobId, slot: u32, why: String },
+    /// A person's act on a Job that is paused, which has no worktree to act
+    /// on. **Resume it first.** Bridge turns this into an offer to do so.
+    Paused { job: JobId },
+    /// A pause on a status that cannot hold one: only a Job with a worktree to
+    /// give back and a place to come back to can pause.
+    NotPausable { job: JobId, status: JobStatus },
+    /// A pause on a Job that already is.
+    AlreadyPaused { job: JobId },
+    /// A resume on a Job that is not paused.
+    NotPaused { job: JobId },
+    /// A pause on a Job that holds no pool slot: never dispatched, or cut
+    /// before the pool. There is nothing to park.
+    NothingToPark { job: JobId },
+    /// The pool or git refused to park the Job's work. **Nothing changed**:
+    /// the Job holds its slot and its Drone is where it was.
+    CannotPark {
+        job: JobId,
+        refused: adapter_traits::SlotParkRefused,
+    },
+    /// A resume that could not put the Job's branch in a slot, and why. The
+    /// Job is still paused.
+    NotReseated { job: JobId, why: String },
     /// A proposal carried a title nothing could be picked out of a list by.
     Unnameable,
     /// An override carried no reason.

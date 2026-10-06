@@ -106,7 +106,9 @@ pub use phase::StepPhase;
 pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupRuns, GroupState};
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
-pub use record::{Answered, Job, NewJob, NewProposal, StepTransitioned, Transitioned};
+pub use record::{
+    Answered, Job, NewJob, NewProposal, Pause, PausedBy, StepTransitioned, Transitioned,
+};
 pub use review::{
     Area, Became, Bucket, ChangedTest, Confidence, Dismissal, Finding, FollowUp, Proves,
     ReviewRecord, TestChange, TestsInChange, Untested, ViewStep,

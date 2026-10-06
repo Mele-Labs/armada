@@ -141,6 +141,13 @@ where
         if job.status() != CoreJobStatus::Queued {
             return Ok(Waiting::on(None));
         }
+        // **Before the freeze**: the marker is the Job's own, and lifting a
+        // freeze would not start it. A resume found no slot and is waiting,
+        // which falls through to `waiting_on_resources` below. Admission's own
+        // predicate, in `next_queued`.
+        if job.pause().is_some_and(|pause| !pause.resuming) {
+            return Ok(Waiting::on(Some(CoreQueuedReason::Paused)));
+        }
         // **First, because nothing below would start the Job while it holds**,
         // and only a person lifts it. Admission's own predicate.
         let frozen_by = self.frozen_by(job);

@@ -51,6 +51,13 @@ pub(crate) enum News {
         handle: String,
         said: String,
     },
+    /// Someone declared a need on this path before this Job did. **Held, not
+    /// merely told**: this Job's merge waits behind it. #1059.
+    Ahead {
+        path: String,
+        /// Each need ahead, as `adapters::needs::Need::describe` says it.
+        ahead: Vec<String>,
+    },
     /// Where a fix for a test this Job's Checks failed on stands. #1001.
     Fix {
         title: String,
@@ -98,12 +105,23 @@ impl PeersChanged {
     }
 
     fn rendered(news: &[News], landed_reaches: &str) -> PeersChanged {
-        let about_paths = news.iter().any(|item| !matches!(item, News::Fix { .. }));
+        let about_paths = news
+            .iter()
+            .any(|item| !matches!(item, News::Fix { .. } | News::Ahead { .. }));
         let mut text = String::from("OTHER JOBS WRITING WHERE YOU ARE\n\n");
         if about_paths {
             text.push_str(
                 "Other Jobs in this repository change files this Job changes too. Nothing is \
                  stopped, and nobody waits on you.\n",
+            );
+        }
+        if news.iter().any(|item| matches!(item, News::Ahead { .. })) {
+            text.push_str(
+                "Another Job or branch declared a need on a file before you did. Your work is \
+                 held at the merge until what is ahead of you there has landed or been given \
+                 back, so you land in order and nothing is renumbered. Take the value after \
+                 what they took, and say which you took by calling `declare_scope` again with \
+                 `took` on the need.\n",
             );
         }
         if news.iter().any(|item| matches!(item, News::Fix { .. })) {
@@ -183,6 +201,9 @@ fn line(item: &News) -> String {
              not Armada's:\n{}",
             crate::remarks::fenced(said).trim_end()
         ),
+        News::Ahead { path, ahead } => {
+            format!("\n- Ahead of you on `{path}`: {}.", ahead.join("; "))
+        }
         News::Fix {
             title,
             handle,
@@ -456,10 +477,16 @@ where
                 .owed
                 .keys()
                 .filter(|job| {
-                    peering
-                        .last_told
-                        .get(*job)
-                        .is_none_or(|last| elapsed(last, &now) >= SPACING)
+                    // Who is ahead is owed at once: a Drone that picks its
+                    // value before hearing it renumbers after. #1059.
+                    let ahead = peering.owed[*job]
+                        .iter()
+                        .any(|item| matches!(item, News::Ahead { .. }));
+                    ahead
+                        || peering
+                            .last_told
+                            .get(*job)
+                            .is_none_or(|last| elapsed(last, &now) >= SPACING)
                 })
                 .cloned()
                 .collect()

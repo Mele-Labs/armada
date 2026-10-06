@@ -493,6 +493,36 @@ impl fmt::Display for Adrift {
                  its own any more, so Fleet will not go on with it or lease it another",
                 job.as_str()
             ),
+            Adrift::Paused { job } => write!(
+                out,
+                "{} is paused and has no worktree to act on. Resume it first",
+                job.as_str()
+            ),
+            Adrift::NotPausable { job, status } => write!(
+                out,
+                "{} is {}, which a pause cannot hold. Only a Job working, waiting in the \
+                 queue or held for a person can be paused",
+                job.as_str(),
+                status.as_wire()
+            ),
+            Adrift::AlreadyPaused { job } => write!(out, "{} is already paused", job.as_str()),
+            Adrift::NotPaused { job } => write!(out, "{} is not paused", job.as_str()),
+            Adrift::NothingToPark { job } => write!(
+                out,
+                "{} holds no worktree slot, so there is no work to park",
+                job.as_str()
+            ),
+            Adrift::CannotPark { job, refused } => write!(
+                out,
+                "{} was not paused, and nothing changed: {}",
+                job.as_str(),
+                refused.said()
+            ),
+            Adrift::NotReseated { job, why } => write!(
+                out,
+                "{} is still paused: its branch could not be put in a slot, because {why}",
+                job.as_str()
+            ),
             Adrift::Unnameable => out.write_str("a Job needs a title somebody can read"),
             Adrift::Unreasoned { job } => write!(
                 out,
@@ -806,6 +836,13 @@ impl Adrift {
             | Adrift::NotReplaceable { job }
             | Adrift::WorkflowWithdrawn { job, .. }
             | Adrift::NotResumable { job, .. }
+            | Adrift::Paused { job }
+            | Adrift::NotPausable { job, .. }
+            | Adrift::AlreadyPaused { job }
+            | Adrift::NotPaused { job }
+            | Adrift::NothingToPark { job }
+            | Adrift::CannotPark { job, .. }
+            | Adrift::NotReseated { job, .. }
             | Adrift::NoStepStopped { job }
             | Adrift::NoDroneToRedirect { job }
             | Adrift::DroneNotLive { job, .. }
@@ -994,6 +1031,15 @@ impl Error for Adrift {
             | Adrift::DroneStillThere { .. }
             | Adrift::WorktreeGone { .. }
             | Adrift::SlotLost { .. }
+            // A pause says what the Job's record holds or what the pool said,
+            // as a sentence; none wraps an `Error`.
+            | Adrift::Paused { .. }
+            | Adrift::NotPausable { .. }
+            | Adrift::AlreadyPaused { .. }
+            | Adrift::NotPaused { .. }
+            | Adrift::NothingToPark { .. }
+            | Adrift::CannotPark { .. }
+            | Adrift::NotReseated { .. }
             // The two a merge makes. `NotMerged` is not an `Error` either.
             | Adrift::NothingToMerge { .. }
             | Adrift::NotMerged { .. }

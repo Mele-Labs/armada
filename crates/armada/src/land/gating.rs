@@ -12,6 +12,7 @@ use super::caches::{base_foundations, checks_on_the_base};
 use super::dir::StateDir;
 use super::env::Env;
 use super::gate::{foundations_delta, not_installed, FoundationsComparison};
+use super::heads_up::Asked;
 use super::outcome::{CheckRun, CheckState, OutcomePatch, OutcomeState};
 use super::prepare::{nothing_left, setup};
 use super::queue::QueueEntry;
@@ -52,6 +53,7 @@ pub fn foundations(
         // A half of a split batch gates again: what the whole ran is not this run's.
         OutcomePatch {
             checks: Some(Vec::new()),
+            own_failures: Some(Vec::new()),
             ..OutcomePatch::default()
         },
     )?;
@@ -153,6 +155,7 @@ pub fn checks(
         .collect();
     let mut narrowed = Vec::new();
     let mut reach = None;
+    let mut asked = Asked::default();
     // Where the base moved, said as the status line says it, once it has.
     let moved_while = |now: &str, said: &str, left: &[String]| {
         let skipped = match left {
@@ -174,6 +177,7 @@ pub fn checks(
             OutcomePatch {
                 logs: Some(log_paths.to_vec()),
                 checks: Some(runs.to_vec()),
+                own_failures: Some(Vec::new()),
                 ..OutcomePatch::default()
             },
         )
@@ -257,21 +261,33 @@ pub fn checks(
         }
         match not_installed(&ran.output) {
             Some(missing) => uninstalled.push(format!("{name} ({missing})")),
-            None => failed.push(name.clone()),
+            None => {
+                failed.push(name.clone());
+                // Said now, not at the end, while a later Check still runs;
+                // the last one has the verdict right behind it.
+                if n + 1 < rerun.len() {
+                    asked.ask(repo, state, env, group, base, logs, name, &runs, &log_paths)?;
+                }
+            }
         }
     }
     nothing_left(&where_, "the Checks")?;
 
-    let mut already = Vec::new();
-    let mut base_timed_out = Vec::new();
-    if !failed.is_empty() {
+    let mut already = asked.already.clone();
+    let mut base_timed_out = asked.timed_out.clone();
+    let unasked: Vec<String> = failed
+        .iter()
+        .filter(|name| !asked.names.contains(name))
+        .cloned()
+        .collect();
+    if !unasked.is_empty() {
         tell(
             state,
             group,
             OutcomeState::Gating,
             format!(
                 "{} failed; asking whether {} fails them too",
-                failed.join(", "),
+                unasked.join(", "),
                 env.base
             ),
             OutcomePatch {
@@ -280,14 +296,15 @@ pub fn checks(
                 ..OutcomePatch::default()
             },
         )?;
-        let on_base = checks_on_the_base(repo, state, base, &failed, env, logs)?;
-        (already, base_timed_out) = (on_base.already, on_base.timed_out);
-        failed.retain(|name| !already.contains(name));
-        for name in &already {
-            log_paths.push(path_string(
-                &logs.join(format!("{name}-on-{}.log", env.base)),
-            ));
-        }
+        let on_base = checks_on_the_base(repo, state, base, &unasked, env, logs)?;
+        already.extend(on_base.already);
+        base_timed_out.extend(on_base.timed_out);
+    }
+    failed.retain(|name| !already.contains(name));
+    for name in &already {
+        log_paths.push(path_string(
+            &logs.join(format!("{name}-on-{}.log", env.base)),
+        ));
     }
 
     if !uninstalled.is_empty() {

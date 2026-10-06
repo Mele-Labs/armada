@@ -118,6 +118,15 @@ const NOTE_ALREADY_WAITING: &str = "fleet.note_already_waiting";
 /// is the caller asking for the wrong act, not Fleet breaking, and a 500 sends
 /// them to retry something that will fail identically for ever.
 const NOT_RESUMABLE: &str = "fleet.not_resumable";
+/// A person's act on a Job that is paused. A 409: resume it first, and Bridge
+/// offers to.
+pub(crate) const PAUSED: &str = "fleet.paused";
+/// A pause or a resume the Job's own record refuses: a status that cannot
+/// pause, one already paused, one not paused, or no slot to park. A 409.
+const NOT_PAUSABLE: &str = "fleet.not_pausable";
+/// The pool or git would not park the Job's work, or take it back. A 409 and
+/// nothing changed.
+const PAUSE_REFUSED: &str = "fleet.pause_refused";
 /// A person asked a Job to show its work and it cannot run: no harness, no
 /// worktree, no spec, the spec gone, a Drone working, or a press already out.
 /// A 409, and its own code because what a person does next is none of the
@@ -227,6 +236,11 @@ const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
 /// red on the merge. Its own code because the answer is the branch's, and
 /// apart from [`MERGE_CHECKS_NOT_PASSED`] because these are Armada's Checks.
 const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
+/// A need ahead of this Job's on the same file has not landed, so Fleet did not
+/// press the merge. Its own code because the answer is to wait, or for a person
+/// to give the need back (`armada need --release`); nothing about the Job or the
+/// forge is wrong. A 409, under `forge` and `push` alike. `#1059`.
+const MERGE_WAITING_BEHIND: &str = "fleet.merge_waiting_behind";
 /// Nothing on this machine could ask the forge. **A 500**, unlike the four
 /// above: nothing about the request is wrong and asking again is reasonable
 /// once whoever runs Fleet has signed in.
@@ -417,6 +431,22 @@ where
                 WireError::raised(NOT_RESUMABLE, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),
+            Adrift::Paused { job } => Refusal::IllegalMove(
+                WireError::raised(PAUSED, said, self.run_id()).about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::NotPausable { job, .. }
+            | Adrift::AlreadyPaused { job }
+            | Adrift::NotPaused { job }
+            | Adrift::NothingToPark { job } => Refusal::IllegalMove(
+                WireError::raised(NOT_PAUSABLE, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::CannotPark { job, .. } | Adrift::NotReseated { job, .. } => {
+                Refusal::IllegalMove(
+                    WireError::raised(PAUSE_REFUSED, said, self.run_id())
+                        .about_job(ipc::JobId::from(job)),
+                )
+            }
             Adrift::CannotShowAgain { job, .. } => Refusal::IllegalMove(
                 WireError::raised(CANNOT_SHOW_AGAIN, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
@@ -779,6 +809,9 @@ where
                     NotMerged::NotOpen { .. } => Refusal::IllegalMove(raised(MERGE_NOT_OPEN)),
                     NotMerged::BaseMoved { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),
                     NotMerged::GateFailed { .. } => Refusal::IllegalMove(raised(MERGE_GATE_FAILED)),
+                    NotMerged::WaitingBehind { .. } => {
+                        Refusal::IllegalMove(raised(MERGE_WAITING_BEHIND))
+                    }
                     // Never reaches here: `crate::pushing_onto_base` runs the
                     // Checks it asks for, and spends its rounds as a moved base.
                     NotMerged::Unchecked { .. } => Refusal::IllegalMove(raised(MERGE_BASE_MOVED)),

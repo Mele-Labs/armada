@@ -168,6 +168,8 @@ pub mod mint;
 /// under `.armada/` is named by the handle**, and half the places that write a
 /// Job's log line hold only its id.
 mod naming;
+/// What a Job says it needs on a file, and the order its landing takes. `#1059`.
+mod needing;
 /// Noticing what became of a Job's pull request. **Fleet may merge, and the
 /// decision is what stays a person's** — a press from Bridge is
 /// `crate::merging` and reaches the same four things this module does about a
@@ -184,10 +186,11 @@ mod one_drone;
 mod ordering;
 pub mod overlap;
 pub mod overruling;
+/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
+mod pausing;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
-/// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
 mod pending_evidence;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.

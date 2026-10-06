@@ -76,6 +76,7 @@ async fn held_red(
     crate::tests::tools::declared_by_the_one(
         &fleet,
         &ipc::mcp::DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )
