@@ -155,7 +155,7 @@ A **port span that cannot be re-claimed during a scope revision** is the case wi
 
 ### Freeze gating (what the repository has said)
 
-**A frozen gating Manifest holds a Job at `queued`, reading `frozen`.** It is asked first, before a dependency, a budget or headroom: while it holds, none of those would start the Job either, and only a person lifts it. `frozen_by` beside the label names which Manifest, and admission and the label ask one predicate, `fleet::freezing`.
+**A frozen gating Manifest holds a Job at `queued`, reading `frozen`.** It is asked first after `paused` (a Job a person paused reads that, and lifting a freeze would not start it), before a dependency, a budget or headroom: while it holds, none of those would start the Job either, and only a person lifts it. `frozen_by` beside the label names which Manifest, and admission and the label ask one predicate, `fleet::freezing`.
 
 **A running Job is held at its next step boundary, not stopped.** The step it is on finishes; once it passes its gate the Drone stands down on the same `running -> queued` edge a dispatching parent takes, and re-admission puts a fresh Drone on the next step when the freeze lifts.
 
@@ -408,6 +408,23 @@ records, which is never committed; `armada worktree lease` and Fleet both read
 it. Once a slot is added or removed, that list stands in for `setup.worktrees`,
 which stays the size a fresh machine starts at. Bridge's Cleanup offers each act
 in the panel of the slot's tile, and `change_slot_pool` is the act on the wire.
+
+### A paused Job gives its slot back
+
+**A Job a person pauses holds no slot.** Fleet ends its Drones, parks its work
+on its branch with the pool's Park (a `WIP:` commit, never pushed), and gives
+the slot back, so a stopped-for-now Job does not sit on one of the pool's few
+checkouts. [Job](job.md), *Pausing a Job*, has what the Job reads as meanwhile.
+
+| Act | What happens |
+|---|---|
+| Pause | A running Job's Drones end first, since parking under a live writer would commit half a write; then Park, then the marker and slot are written together and the Job goes `queued`. A gate holds no Drone, so it parks first and a refusal changes nothing. Refused while its Checks run, on a status that cannot pause, on a Job already paused, and when the pool or git refuses the park, with the pool's reason. Where the Drone had to go before the pool refused, the Job is left `escalated` on `would_not_start` |
+| Resume | Leases the Job's own branch at its tip into **whichever slot is free**, which need not be the one it left, so its worktree path is read from the record again. A queued Job is let into the line and admission leases it; a gate Job leases at once, or waits for the first slot a turn finds free, after admission has filled the queue |
+
+> **Rule.** A person's act on a paused Job is refused as `fleet.paused` before it
+> reads a worktree, and Kill still works on it.
+> Why: it has no worktree to act on, and a derived path nothing is at would read
+> as a worktree that is gone.
 
 ### Cleaning up from the grid
 

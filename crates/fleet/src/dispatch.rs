@@ -40,6 +40,7 @@ use crate::daemon::Fleet;
 use crate::drone::{aftermath, Aftermath, Ending, Left};
 use crate::gate::{apply, Ruling};
 use crate::grouping::GroupEnd;
+use crate::pausing::Reseat;
 use crate::session::{LiveSession, Occasion};
 use crate::terms::Declaring;
 use crate::working::Working;
@@ -77,6 +78,23 @@ where
         working: &mut Option<Working>,
     ) -> Result<Dispatched, Adrift> {
         if job.branch().is_some() {
+            // A paused Job's branch is in no slot: lease one first, here and
+            // not in `readmitted`, because only a dispatch can answer `NoSlot`.
+            let job = match job.is_parked() {
+                true => match self.reseat(&job).await {
+                    Ok(Reseat::Seated(seated)) => seated,
+                    Ok(Reseat::Full) => return Ok(Dispatched::NoSlot),
+                    Err(cause) => {
+                        // Admitted and stopped, for `readmitted`'s reason: left
+                        // `queued` it would fail every turn and stop admission.
+                        let job = self.move_job(&job, Target::Running, Actor::Fleet).await?;
+                        self.stopped_before_a_drone(&job, EscalationTrigger::NoWorktree)
+                            .await?;
+                        return Err(cause);
+                    }
+                },
+                false => job,
+            };
             return self
                 .readmitted(job, working)
                 .await

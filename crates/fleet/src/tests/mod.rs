@@ -130,6 +130,7 @@ mod noticing;
 mod out_of_bounds;
 mod overlap;
 mod overruling;
+mod pausing;
 mod paying;
 mod peer;
 mod peers;

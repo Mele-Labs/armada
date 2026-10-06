@@ -73,8 +73,9 @@ pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased, SlotPool,
-    SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork,
+    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
+    SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
+    SlotStanding, StrandedWork,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
@@ -357,6 +358,27 @@ pub trait Vcs {
         &self,
         pool: &SlotPool,
         spec: &WorktreeSpec,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error>;
+
+    /// Commit everything in the Job's slot to its own branch and give the slot
+    /// back, pushing nothing. **A pause's half of the pool**: the work stays on
+    /// the branch, and [`lease_existing_slot`](Vcs::lease_existing_slot) puts a
+    /// slot back on it at the tip. Refused, the Job keeps the slot.
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
+    /// Lease a slot onto `branch`, which exists, at its tip, held by `job_id`.
+    /// [`SlotLeased::Full`] is every slot held; it waits, and is not an error.
+    /// **Not necessarily the slot the Job parked from.**
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error>;
 

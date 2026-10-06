@@ -177,20 +177,26 @@ impl Urgency {
     }
 }
 
-/// Why an approved Job has not started. **Derived, never stored.**
+/// Why an approved Job has not started. **Derived, never stored** — `Paused`
+/// is derived from a marker that is.
 ///
 /// `job-statuses.toml` applies the recomputed-label rule literally on `queued`:
 /// CPU, memory and disk all free without anything moving the Job, so a stored
 /// value would be wrong from the moment it was written. It is computed from
 /// `dependencies` and live headroom at read time.
 ///
-/// **Three variants and not four.** The registry's vocabulary reads
-/// `blocked_by_dependency / over_budget / waiting_on_resources / none`, and
-/// `none` is the absence of one — `Option<QueuedReason>` carries it, so there
-/// is no variant meaning "no reason" for a renderer to have a case for.
+/// The registry's vocabulary reads `paused / frozen / blocked_by_dependency /
+/// over_budget / waiting_on_resources / none`. **`none` is the absence of
+/// one**: `Option<QueuedReason>` carries it, so there is no variant meaning
+/// "no reason" for a renderer to have a case for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueuedReason {
-    /// A Manifest gating it says `freeze: true`. **Asked first**, because only a
+    /// A person (or Fleet) paused it and it has not been resumed. **Asked
+    /// before `Frozen`**: the marker is the Job's own, and lifting a freeze
+    /// would not start it. Derived from the stored `pause` marker, which is
+    /// the one thing here that is stored.
+    Paused,
+    /// A Manifest gating it says `freeze: true`. **Asked next**, because only a
     /// person lifts it; `JobSummary.frozen_by` says which Manifest.
     Frozen,
     /// A Job it depends on has not reached `completed_success`.
@@ -218,6 +224,7 @@ pub enum QueuedReason {
 impl QueuedReason {
     /// Every variant, in the order `job-statuses.toml` names them.
     pub const ALL: &'static [QueuedReason] = &[
+        QueuedReason::Paused,
         QueuedReason::Frozen,
         QueuedReason::BlockedByDependency,
         QueuedReason::OverBudget,
@@ -226,6 +233,7 @@ impl QueuedReason {
 
     pub fn as_wire(&self) -> &'static str {
         match self {
+            QueuedReason::Paused => "paused",
             QueuedReason::Frozen => "frozen",
             QueuedReason::BlockedByDependency => "blocked_by_dependency",
             QueuedReason::OverBudget => "over_budget",

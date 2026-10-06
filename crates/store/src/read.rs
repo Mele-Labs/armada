@@ -335,6 +335,9 @@ impl Store {
             None => created,
         };
 
+        // Read back for `branch`'s reason. Null on every Job nobody has paused.
+        let created = crate::pausing::read_pause(row, created)?;
+
         Ok((replay(created, events)?, cached))
     }
 
