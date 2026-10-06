@@ -136,7 +136,7 @@ setup before the step: restoring caches, installing, building `armada`.
 | `screens_test` | 49 to 55 | |
 | `components_test` | 64 to 108 | |
 | `hooks_test` | 1 | |
-| `foundations`, whole job | 40 cold, 28 with the Rust cache warm | Main's own run is 8 of those when it is not cached |
+| `foundations`, whole job | 40 cold, 28 to 32 warm | Main's own run adds 8 when its reading is not cached. Setup and checkout are most of the rest |
 | `desktop_test` per shard | 68 to 275 | The slowest shard varied the most between runs |
 
 **A whole `test` was not measured to completion.** It stopped at the first
