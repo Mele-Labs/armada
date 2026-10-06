@@ -406,7 +406,8 @@ impl Announcing {
                 let known = known.filter(|_| again.finishes);
                 row.started_at = None;
                 row.took_ms = known.map(|_| 0);
-                row.ran = known.and_then(|observed| self::row(&bound.requester, attempt, check, observed));
+                row.ran = known
+                    .and_then(|observed| self::row(&bound.requester, attempt, check, observed));
                 row.output_path = None;
                 row.stopped_by = None;
                 row.waiting_behind = None;
@@ -593,9 +594,11 @@ impl Announcing {
             return;
         }
         let at = Self::slot(bound, at);
-        let ran = row(&bound.requester, bound.attempt.number(), check, observed).map(|run| ipc::CheckRun {
-            produced: Some(stopped_by(because)),
-            ..run
+        let ran = row(&bound.requester, bound.attempt.number(), check, observed).map(|run| {
+            ipc::CheckRun {
+                produced: Some(stopped_by(because)),
+                ..run
+            }
         });
         self.moved(bound, at, |held, _| {
             held.took_ms = Some(took.as_millis() as u64);

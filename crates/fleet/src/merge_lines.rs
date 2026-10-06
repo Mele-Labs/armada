@@ -311,7 +311,12 @@ fn ended(
                     OutcomeState::Gating | OutcomeState::Red | OutcomeState::Stopped
                 )
             })
-            .map(|held| held.checks.iter().map(|run| check_of(run, branch)).collect())
+            .map(|held| {
+                held.checks
+                    .iter()
+                    .map(|run| check_of(run, branch))
+                    .collect()
+            })
             .unwrap_or_default(),
     }
 }

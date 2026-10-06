@@ -387,7 +387,10 @@ async fn a_line_that_moves_on_disk_is_published_whole() {
 #[tokio::test]
 async fn a_check_the_line_started_says_when_and_one_waiting_does_not() {
     let home = TempDir::new();
-    git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
+    git(
+        home.path(),
+        &["-c", "init.defaultBranch=main", "init", "--quiet"],
+    );
     let origin = format!("https://{}armada-dev/armada.git", adapters::FORGE_HOST);
     git(home.path(), &["remote", "add", "origin", &origin]);
     let state = StateDir::resolve(home.path()).expect("a state directory");
@@ -405,7 +408,11 @@ async fn a_check_the_line_started_says_when_and_one_waiting_does_not() {
         OutcomePatch {
             checks: Some(vec![
                 started("build", CheckState::Passed, Some("2026-10-06T10:00:00Z")),
-                started("screens_test", CheckState::Running, Some("2026-10-06T10:01:00Z")),
+                started(
+                    "screens_test",
+                    CheckState::Running,
+                    Some("2026-10-06T10:01:00Z"),
+                ),
                 started("desktop_test", CheckState::Waiting, None),
             ]),
             ..OutcomePatch::default()
@@ -426,6 +433,10 @@ async fn a_check_the_line_started_says_when_and_one_waiting_does_not() {
         .collect();
     assert_eq!(
         at,
-        [Some("2026-10-06T10:00:00Z"), Some("2026-10-06T10:01:00Z"), None]
+        [
+            Some("2026-10-06T10:00:00Z"),
+            Some("2026-10-06T10:01:00Z"),
+            None
+        ]
     );
 }

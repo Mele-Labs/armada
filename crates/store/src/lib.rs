@@ -168,9 +168,9 @@ mod write;
 #[cfg(test)]
 mod tests;
 
+pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
-pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};

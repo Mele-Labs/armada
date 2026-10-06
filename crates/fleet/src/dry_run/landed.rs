@@ -12,8 +12,8 @@ use core_model::JobId;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{ChecksReported, Plan, HEADING};
-use crate::converging::elapsed;
 use crate::checking::Completed;
+use crate::converging::elapsed;
 use crate::daemon::Fleet;
 use crate::session::{LiveSession, Occasion};
 use crate::underway::{Heard, Landed};
@@ -33,7 +33,10 @@ impl ChecksReported {
 
     /// Where a run that is still going stands, told on a timer so the Drone
     /// never has to ask: what runs and for how long, what waits, what is done.
-    pub(super) fn standing(rows: &[ipc::CheckUnderway], now: &core_model::Timestamp) -> ChecksReported {
+    pub(super) fn standing(
+        rows: &[ipc::CheckUnderway],
+        now: &core_model::Timestamp,
+    ) -> ChecksReported {
         let named = |names: Vec<String>| names.join(", ");
         let running = rows
             .iter()
@@ -59,12 +62,17 @@ impl ChecksReported {
             lines.push(format!("Running: {}.", named(running)));
         }
         if !waiting.is_empty() {
-            lines.push(format!("Waiting for a Check slot or a Command: {}.", named(waiting)));
+            lines.push(format!(
+                "Waiting for a Check slot or a Command: {}.",
+                named(waiting)
+            ));
         }
         if !done.is_empty() {
             lines.push(format!("Done: {}.", named(done)));
         }
-        lines.push("Each result arrives as its own turn, and the last one says the run is over.".into());
+        lines.push(
+            "Each result arrives as its own turn, and the last one says the run is over.".into(),
+        );
         ChecksReported(lines.join(" ").replacen(". Running", ".\n\nRunning", 1))
     }
 

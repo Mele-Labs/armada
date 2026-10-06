@@ -20,9 +20,9 @@ use ipc::{
     AlertList, BriefContents, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet,
     CommandExplained, DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth,
     FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
-    JobResources, KeptFrame, ManifestChecks, ManifestConfig, ManifestDrift, ManifestFile, ManifestId,
-    ManifestReading, ManifestSummary, ModelChoices, ReportList, RunList, RunOutput, RunSheet,
-    WorkflowSummary, WorktreesHeld,
+    JobResources, KeptFrame, ManifestChecks, ManifestConfig, ManifestDrift, ManifestFile,
+    ManifestId, ManifestReading, ManifestSummary, ModelChoices, ReportList, RunList, RunOutput,
+    RunSheet, WorkflowSummary, WorktreesHeld,
 };
 
 /// What a caller asked for of a frame's bytes.

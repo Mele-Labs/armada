@@ -223,9 +223,14 @@ fn a_verify_step_carries_its_state_flat_and_reads_back() {
 fn a_run_record_from_before_the_requester_reads_as_outside_a_job() {
     let mut value: serde_json::Value =
         serde_json::from_str(&encode(&a_record()).expect("plain data")).expect("json");
-    value.as_object_mut().expect("an object").remove("requester");
+    value
+        .as_object_mut()
+        .expect("an object")
+        .remove("requester");
     let older = value.to_string();
     let read: RunRecord = decode("an older run", older.as_bytes()).expect("it reads");
     assert_eq!(read.requester, crate::Requester::outside());
-    assert!(encode(&read).expect("plain data").contains(r#""requester":{"kind":"outside"}"#));
+    assert!(encode(&read)
+        .expect("plain data")
+        .contains(r#""requester":{"kind":"outside"}"#));
 }

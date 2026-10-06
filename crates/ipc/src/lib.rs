@@ -27,8 +27,6 @@
 /// What is waiting on a person, in two buckets. **Derived from the Jobs Fleet
 /// holds, never stored** — which is why nothing publishes `alert.raised`.
 mod alerts;
-/// A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
-mod asked;
 /// A form's edits to `armada.yml`, as edits — the half of Journey 9's *Editing*
 /// that changes only the lines it touches.
 mod amending;
@@ -38,6 +36,8 @@ mod approval_ask;
 /// What a person decides about a Job before it runs: the approval body,
 /// `edit_job`, a criterion's origin and the branch list. Spike 022, slice 4.
 mod approving;
+/// A Drone's own run of a step's Checks, as a row of its own. Since 23.40.
+mod asked;
 /// How many times a step was worked, and what each run came to. **The record
 /// held it and nothing served it** — see the module.
 mod asking;
@@ -106,15 +106,15 @@ mod judged;
 mod kit;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
+/// The merge line `armada land` keeps in each served repository, as Fleet reads it.
+/// Every Check run one repository's Jobs asked for or ran. Since 23.40.
+mod manifest_checks;
 /// A possible `armada.yml` per workspace, and the edits and Write that finish it.
 mod manifest_proposal;
 /// The Evidence tool's transport. **A different seam** — Fleet to Drone, not
 /// Fleet to Bridge — so it is a module rather than a flat re-export and none of
 /// its types are in `operations.toml`.
 pub mod mcp;
-/// The merge line `armada land` keeps in each served repository, as Fleet reads it.
-/// Every Check run one repository's Jobs asked for or ran. Since 23.40.
-mod manifest_checks;
 mod merge_line;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
@@ -137,8 +137,6 @@ mod reclaimed;
 /// checkout. **A rehearsal, never a verdict** — nothing in it is a Check row
 /// or Evidence.
 mod rehearsal;
-/// Who asked for a Check run, as a typed value. Since 23.40.
-mod requester;
 /// What people wrote on a Job's pull request, and which of it a person picks.
 /// **The one place this seam carries text from outside this machine.**
 mod remarks;
@@ -146,6 +144,8 @@ mod remarks;
 mod report;
 /// The repositories one Fleet serves, and adding one by folder.
 mod repositories;
+/// Who asked for a Check run, as a typed value. Since 23.40.
+mod requester;
 /// What one Job holds on this machine, and what came of asking whether it is
 /// working. **The other axis from `spend`**, which answers the model's cost.
 mod resources;
@@ -196,10 +196,6 @@ mod work_plan;
 mod tests;
 
 pub use alerts::{Alert, AlertList};
-pub use asked::{AskedRun, AskedRunState};
-pub use manifest_checks::{
-    ManifestCheckLog, ManifestCheckRow, ManifestChecks, SOURCE_ASKED_RUN, SOURCE_GATE,
-};
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
     ManifestEdit, ManifestEdited, NamedCheck, NamedCommand, NamedPort, NarrowingDraft, PolicyWords,
@@ -211,6 +207,7 @@ pub use approving::{
     CriterionWritten, DispatchSettings, EditJob, Effort, GateChoice, LandingChoice, LandingRule,
     LandingUnit, LandsWhen, PolicyOverrides, SetLandingTarget, StepTuning, ToProposer,
 };
+pub use asked::{AskedRun, AskedRunState};
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
@@ -297,6 +294,9 @@ pub use limits::{
     ChecksAtOnce, DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent,
     SaveLimits, Within,
 };
+pub use manifest_checks::{
+    ManifestCheckLog, ManifestCheckRow, ManifestChecks, SOURCE_ASKED_RUN, SOURCE_GATE,
+};
 pub use manifest_proposal::{
     Band, EditManifestProposal, ManifestProposal, ManifestProposals, PolicyKey, ProposalEdit,
     ProposedCheck, ProposedCommand, ProposedId, ProposedPolicy, ProposedPort, ProposedRunner,
@@ -322,7 +322,6 @@ pub use reclaimed::{
     BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedSaved, ReclaimedWorktree,
     WorktreeReclaimed,
 };
-pub use requester::Requester;
 pub use rehearsal::{
     CheckoutRunDiff, CheckoutRunList, CheckoutRunMessage, CheckoutRunOpened, CheckoutRunRecord,
     CheckoutRunSheet, CheckoutRunUnderway, DiffAgainst, NamedRun, RunDiffReading, RunEntry,
@@ -335,6 +334,7 @@ pub use rehearsal::{
 pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
 pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
 pub use repositories::{AddRepository, CloneRepository, RepositoryList, RepositorySummary};
+pub use requester::Requester;
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
     Look, WorktreeOnDisk,

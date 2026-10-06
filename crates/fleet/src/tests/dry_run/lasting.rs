@@ -8,8 +8,8 @@ use std::time::Duration;
 
 use crate::gate::CheckBudget;
 use crate::tests::dry_run::{
-    a_fleet_budgeted, a_quiet_drone, checks_in, one_step, started, the_one_drone, transcript,
-    Held, A_CHECK_RUN_HAS_LONG_ENOUGH,
+    a_fleet_budgeted, a_quiet_drone, checks_in, one_step, started, the_one_drone, transcript, Held,
+    A_CHECK_RUN_HAS_LONG_ENOUGH,
 };
 use crate::tests::tmp::TempDir;
 
@@ -98,8 +98,6 @@ async fn a_run_that_goes_on_tells_the_drone_where_it_stands_without_being_asked(
         })
         .await
         .expect("the Drone was never told where the run stands");
-    assert!(checks_in(&said)
-        .iter()
-        .any(|turn| turn.contains("`suite`")));
+    assert!(checks_in(&said).iter().any(|turn| turn.contains("`suite`")));
     drop(held);
 }

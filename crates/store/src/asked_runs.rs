@@ -242,9 +242,7 @@ fn read(row: &rusqlite::Row<'_>, this_fleet: &Ulid) -> Result<AskedRun, RowError
         state,
         checks: list("checks")?,
         narrowed: narrowed != 0,
-        only_check: row
-            .get("only_check")
-            .map_err(column(TABLE, "only_check"))?,
+        only_check: row.get("only_check").map_err(column(TABLE, "only_check"))?,
         logs: list("logs")?,
     })
 }

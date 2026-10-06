@@ -799,7 +799,8 @@ where
                 .collect(),
             Err(_) => Vec::new(),
         };
-        self.asked_ends(asked, asked::state_of(&ran, ending), &logs).await;
+        self.asked_ends(asked, asked::state_of(&ran, ending), &logs)
+            .await;
         // Whether or not the step still waits: what ran to a code was measured.
         self.kept_timings(&plan.record, showing.timings()).await;
         self.kept_runs(&plan.record, showing.runs()).await;

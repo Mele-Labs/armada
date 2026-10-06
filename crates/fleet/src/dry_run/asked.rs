@@ -137,12 +137,7 @@ where
     }
 
     /// Close the run's row, whichever way it ended.
-    pub(super) async fn asked_ends(
-        &self,
-        asked: Asked,
-        state: store::AskedState,
-        logs: &[String],
-    ) {
+    pub(super) async fn asked_ends(&self, asked: Asked, state: store::AskedState, logs: &[String]) {
         let Some(row) = asked.row else { return };
         let now = self.now();
         let _ = self

@@ -604,9 +604,12 @@ where
         let asked: Vec<(u32, String, String)> = asked
             .iter()
             .flat_map(|run| {
-                run.checks.iter().zip(&run.logs).filter_map(|(check, path)| {
-                    (!path.is_empty()).then(|| (run.attempt, check.clone(), path.clone()))
-                })
+                run.checks
+                    .iter()
+                    .zip(&run.logs)
+                    .filter_map(|(check, path)| {
+                        (!path.is_empty()).then(|| (run.attempt, check.clone(), path.clone()))
+                    })
             })
             .collect();
         crate::check_output::kept_output(

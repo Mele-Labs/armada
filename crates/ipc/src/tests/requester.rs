@@ -83,10 +83,15 @@ fn an_answer_cut_short_says_so_and_a_whole_one_says_nothing() {
         total: 0,
         truncated: false,
     };
-    assert_eq!(encode(&whole).expect("plain data"), r#"{"rows":[],"total":0}"#);
+    assert_eq!(
+        encode(&whole).expect("plain data"),
+        r#"{"rows":[],"total":0}"#
+    );
     let cut = crate::ManifestChecks {
         truncated: true,
         ..whole
     };
-    assert!(encode(&cut).expect("plain data").contains(r#""truncated":true"#));
+    assert!(encode(&cut)
+        .expect("plain data")
+        .contains(r#""truncated":true"#));
 }

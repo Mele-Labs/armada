@@ -97,7 +97,10 @@ async fn an_asked_run_is_a_row_from_its_start_and_closed_when_it_ends() {
     assert_eq!(rows[0].state, store::AskedState::Passed);
     assert!(rows[0].finished_at.is_some());
     assert!(
-        rows[0].logs.iter().any(|log| log.ends_with("implement.1.dry.0.log")),
+        rows[0]
+            .logs
+            .iter()
+            .any(|log| log.ends_with("implement.1.dry.0.log")),
         "{:?}",
         rows[0].logs
     );
@@ -221,7 +224,10 @@ async fn the_job_detail_and_the_run_list_return_the_asked_run() {
         .find(|step| step.step_id.as_str() == "implement")
         .expect("the step");
     assert_eq!(step.asked_runs.len(), 1);
-    assert_eq!(step.asked_runs[0].requester, by_the_drone(&fleet, &job, &drone));
+    assert_eq!(
+        step.asked_runs[0].requester,
+        by_the_drone(&fleet, &job, &drone)
+    );
     assert_eq!(step.asked_runs[0].state, ipc::AskedRunState::Failed);
     assert!(step.check_runs.is_empty(), "never among the gate's rows");
 
@@ -279,8 +285,19 @@ async fn the_log_says_when_a_run_started_and_when_it_ended_and_who_asked() {
         .find(|line| line.contains(crate::retro::lines::A_DRONE_RAN_CHECKS))
         .expect("a line for the end");
     for line in [started_line, ended_line] {
-        for field in ["ran", "failed", "narrowed", "failed_checks", "drone", "task", "attempt"] {
-            assert!(line.contains(&format!("\"{field}\"")), "{field} missing: {line}");
+        for field in [
+            "ran",
+            "failed",
+            "narrowed",
+            "failed_checks",
+            "drone",
+            "task",
+            "attempt",
+        ] {
+            assert!(
+                line.contains(&format!("\"{field}\"")),
+                "{field} missing: {line}"
+            );
         }
         assert!(line.contains(drone.as_str()), "{line}");
     }
@@ -318,7 +335,10 @@ async fn a_second_ask_is_told_how_long_the_run_has_gone_and_where_it_is() {
     assert!(refused.contains("Wait for their report"), "{refused}");
     assert!(refused.contains("later turn"), "{refused}");
     for never in ["poll", "check again", "ask again", "status"] {
-        assert!(!refused.to_lowercase().contains(never), "{never}: {refused}");
+        assert!(
+            !refused.to_lowercase().contains(never),
+            "{never}: {refused}"
+        );
     }
     let _ = running.finished().await;
 }
@@ -456,7 +476,11 @@ fn an_answer_is_cut_to_the_newest_and_says_so() {
         logs: Vec::new(),
         asked_run_id: None,
     };
-    let rows = vec![row("2026-10-01T00:00:00Z"), row("2026-10-03T00:00:00Z"), row("2026-10-02T00:00:00Z")];
+    let rows = vec![
+        row("2026-10-01T00:00:00Z"),
+        row("2026-10-03T00:00:00Z"),
+        row("2026-10-02T00:00:00Z"),
+    ];
     let read = crate::manifest_checks::newest(rows, 2);
     assert_eq!(read.total, 3);
     assert!(read.truncated);

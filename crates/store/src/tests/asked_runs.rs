@@ -37,7 +37,10 @@ fn a_run_is_written_when_it_starts_and_updated_when_it_ends() {
     assert_eq!(started[0].state, AskedState::Running);
     assert_eq!(started[0].finished_at, None);
     assert_eq!(started[0].drone.as_str(), "01DRONE");
-    assert_eq!(started[0].task.map(|task| task.to_string()), Some("T2".to_string()));
+    assert_eq!(
+        started[0].task.map(|task| task.to_string()),
+        Some("T2".to_string())
+    );
     assert_eq!(started[0].checks, ["suite", "lint"]);
     assert!(started[0].narrowed);
     assert_eq!(started[0].only_check.as_deref(), Some("suite"));
@@ -55,10 +58,7 @@ fn a_run_is_written_when_it_starts_and_updated_when_it_ends() {
     let store = open(&dir);
     let ended = store.asked_runs(&job, &fleet).expect("it reads back");
     assert_eq!(ended[0].state, AskedState::Failed);
-    assert_eq!(
-        ended[0].finished_at,
-        Some(at("2026-10-06T10:01:30.000Z"))
-    );
+    assert_eq!(ended[0].finished_at, Some(at("2026-10-06T10:01:30.000Z")));
     assert_eq!(ended[0].logs, ["records/implement.1.dry.0.log"]);
 }
 
@@ -77,7 +77,11 @@ fn a_run_still_running_for_a_fleet_that_is_gone_reads_as_lost() {
     let same = store
         .asked_runs(&job, &Ulid::carried("01FLEETONE"))
         .expect("it reads back");
-    assert_eq!(same[0].state, AskedState::Running, "its own Fleet still runs it");
+    assert_eq!(
+        same[0].state,
+        AskedState::Running,
+        "its own Fleet still runs it"
+    );
     let later = store
         .asked_runs(&job, &Ulid::carried("01FLEETTWO"))
         .expect("it reads back");
