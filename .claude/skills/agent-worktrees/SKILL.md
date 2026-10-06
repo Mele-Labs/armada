@@ -22,7 +22,7 @@ The repository keeps a pool of warm slots instead — `setup.worktrees` in
 `armada.yml`, eight by default — and the pool is the cap.
 
 ```
-path=$(armada worktree lease <branch>)   # waits while every slot is held
+slot=$(armada worktree lease <branch>)   # waits while every slot is held; never `path=`, zsh ties it to PATH
 armada worktree --status                 # who holds each, and since when
 armada worktree release <path>           # after the owner merges the pull request
 ```
@@ -37,6 +37,12 @@ with `git reset --keep`). After any restart run `git -C <slot> branch
 `armada worktree lease --existing <branch>`. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
+**A lease taken in one tool call can read free when the call ends**, because the
+holder is the shell that ran it. Confirmed 6 Oct 2026, twice in one session:
+`--status` said `holder is gone after 0m` on slots just leased, and another
+session was given each, with an agent's uncommitted work landing on its branch.
+Take the lease and do the work that needs the slot in one background task, and
+commit before it ends; a branch with its commits is safe whoever has the slot.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
