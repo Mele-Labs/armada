@@ -33,7 +33,8 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, AdmissionHold, Component, Envelope, FieldValue, Job, JobId, JobStatus, Level, Target,
+    Actor, AdmissionHold, Component, Envelope, FieldValue, Job, JobId, JobStatus, Level, PausedBy,
+    Target,
 };
 use store::Moved;
 
@@ -334,6 +335,14 @@ where
         let mut waiting = Vec::new();
         for job in loaded.jobs {
             if job.status() != JobStatus::Queued || short_on_volume.contains(job.id()) {
+                continue;
+            }
+            // Paused by a person and not yet resumed. First: it is the Job's
+            // own marker, and lifting a freeze would not start it.
+            if job
+                .pause()
+                .is_some_and(|pause| pause.by == PausedBy::Person && !pause.resuming)
+            {
                 continue;
             }
             // A frozen repository starts nothing, whoever put the Job here —
