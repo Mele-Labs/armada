@@ -63,6 +63,11 @@ printf '%s\n' "$said" >> "$state/sessions/$id"
 remembered=$(paste -s -d ',' "$state/sessions/$id" | sed 's/,/, /g')
 printf '{"type":"system","subtype":"init","session_id":"%s","model":"stand-in","mcp_servers":[]}\n' "$id"
 case "$said" in
+  *humanize*)
+    printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_s","name":"Skill","input":{"skill":"humanizer"}}]}}\n'
+    printf '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_s","content":"Launching skill: humanizer"}]}}\n'
+    printf '{"type":"user","isSynthetic":true,"message":{"content":[{"type":"text","text":"# humanizer\\n\\n## Source\\n\\nWikipedia: Signs of AI writing"}]}}\n'
+    ;;
   *edit*)
     printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Edit","input":{"file_path":"@ROOT@/crates/api/src/lib.rs","old_string":"a","new_string":"b"}}]}}\n'
     printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"sed -i s/a/b/ elsewhere.rs"}}]}}\n'
@@ -483,5 +488,26 @@ async fn a_write_to_the_checkout_is_helms_own_event_and_a_shell_line_is_not() {
         called,
         ["Edit", "Bash"],
         "both calls are on the thread, whatever the stream published: {called:?}"
+    );
+}
+
+/// A skill Helm calls arrives as a `user` turn carrying the skill's whole body.
+/// It is the harness's text and never Helm's reply: only the answer after it is.
+#[tokio::test]
+async fn a_skills_injected_text_is_not_part_of_the_reply() {
+    let home = TempDir::new();
+    let fleet = hosted(&home);
+    let mut live = fleet.observe_helm(None).await.expect("a conversation").live;
+
+    asked(&fleet, "humanize").await;
+    let first = reply(&mut live).await;
+
+    assert_eq!(said(&first), ["remembered: humanize"], "{first:?}");
+    assert!(
+        first.iter().any(|message| matches!(
+            message,
+            HelmMessage::Row(row) if matches!(&row.row().saw, Saw::Called { tool, .. } if tool == "Skill")
+        )),
+        "the call itself is still a row: {first:?}"
     );
 }

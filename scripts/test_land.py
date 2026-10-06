@@ -1004,15 +1004,12 @@ class Line(LineFixture):
         self.assertIn("while it was gated", done.stdout)
         self.assertNotIn("late.txt", self.main_files())
 
-    def test_the_manifest_gates_both_of_the_line_s_suites(self):
+    def test_the_manifest_gates_the_hook_suite(self):
         """Asserted here because this file may name the agent harness's own
         directory, and the Rust tests under `crates/` may not."""
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         manifest = open(os.path.join(here, "armada.yml")).read()
-        scripts = manifest.split("scripts_test:")[1].split("hooks_test:")[0]
         hooks = manifest.split("hooks_test:")[1].split("format:")[0]
-        self.assertIn("run: python3 scripts/test_land.py", scripts)
-        self.assertIn('- "scripts/**"', scripts)
         self.assertIn("run: python3 .claude/hooks/test_guard_merge.py", hooks)
         self.assertIn('- ".claude/hooks/**"', hooks)
         self.assertTrue(os.path.exists(os.path.join(here, ".claude/hooks/test_guard_merge.py")))

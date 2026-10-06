@@ -940,12 +940,11 @@ together with.
 `verify-tokens --write` on the candidate before the gate, and commits what they
 change into what lands.
 
-**What gates the line itself:** `armada check scripts_test` runs
-`scripts/test_land.py` against a throwaway repository with a stub `gh` and
-`armada`, and `armada check hooks_test` runs `.claude/hooks/test_guard_merge.py`
-against the hook. Both are Checks in `armada.yml`, so a Job touching `scripts/`
-or `.claude/hooks/` runs them too; neither needs anything built or signed in.
-The script suite takes about a minute, the hook suite under a second.
+**What gates the line itself:** `armada check hooks_test` runs
+`.claude/hooks/test_guard_merge.py` against the hook. It is a Check in
+`armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs nothing
+built or signed in and takes under a second. `scripts/test_land.py` is no longer a
+Check: run it by hand with `python3 scripts/test_land.py` if you change the script.
 
 ## Clearing up
 

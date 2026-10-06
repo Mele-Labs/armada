@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, DroneEvent, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, DroneEvent, Speaker, Vcs, WorkProduct};
 use api::{Conversations as Surface, ObservedHelm, Refusal};
 use core_model::StepId;
 use ipc::{
@@ -420,6 +420,20 @@ impl Heard for Rows {
     fn heard(&self, events: &[DroneEvent]) {
         let at = self.clock.now();
         for event in events {
+            // **Prose that arrived on the session's input channel is never
+            // Helm's reply.** A skill the session calls is injected as a user
+            // turn carrying its whole body, and it reads as text exactly as
+            // the brief coming back does; the thread draws every `said` row
+            // as Helm's, so it is dropped here, where `Speaker` is still known.
+            if matches!(
+                event,
+                DroneEvent::Said {
+                    by: Speaker::Armada,
+                    ..
+                }
+            ) {
+                continue;
+            }
             self.published_as_a_write(event, &at);
             // `seen` labels a row with a Drone's step, and a conversation has
             // none, so the label is taken off again.
