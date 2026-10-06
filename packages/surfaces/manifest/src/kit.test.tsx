@@ -6,17 +6,27 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { allowlistRead, NOT_READ_ALLOWLIST } from "./kit-inventory";
-import { DRIFT_GONE, GH_ISSUE_VIEW, KIT_SERVERS, manifesting } from "./manifest-fleet";
-import type { Manifesting } from "./manifest-fleet";
-import { pressable } from "./scrolled";
-import { mount, unmountAfterEach } from "./testing";
+import {
+  allowlistRead,
+  DRIFT_GONE,
+  GH_ISSUE_VIEW,
+  KIT_SERVERS,
+  manifesting,
+  mount,
+  NOT_READ_ALLOWLIST,
+  pressable,
+  unmountAfterEach,
+} from "@armada/desktop/mock";
+import type { Manifesting } from "@armada/desktop/mock";
 
 unmountAfterEach();
 
+// Core and Manifest only: the surface's own members, and the scenario answers the rest.
+const SLICES = { slices: ["core", "manifest"] } as const;
+
 /** The Kit surface, by the rail. */
 async function kit(options: Manifesting = {}): Promise<void> {
-  mount(manifesting(options));
+  mount(manifesting(options), SLICES);
   await page.getByRole("button", { name: "Kit", exact: true }).click();
 }
 

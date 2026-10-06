@@ -44,6 +44,7 @@
     "@armada/cleanup": "workspace:*",
     "@armada/components": "workspace:*",
     "@armada/helm": "workspace:*",
+    "@armada/manifest": "workspace:*",
     "@armada/overview": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",

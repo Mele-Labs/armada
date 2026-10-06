@@ -12,7 +12,7 @@ import { JOB_HANDLE, JOB_ID, repository } from "@armada/screens/src/fixtures/bui
 
 import type { BridgeApi } from "../../../shared/api";
 import { holding } from "./holding";
-import { sheet, manifesting } from "./manifest-fleet";
+import { sheet, manifesting } from "./manifest-fake";
 import type { FleetHandle, Scenario } from "./moment";
 
 /** How far apart the running Check's lines arrive: inside a walk step's five-second wait. */

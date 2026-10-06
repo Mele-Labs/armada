@@ -3,7 +3,7 @@
 
 import type { RunPageEntry, RunPageGroup } from "@armada/components";
 import type { CheckoutRunFollowed, CheckoutRunRecord, RunEntry, StartCheckoutRun } from "@armada/protocol";
-import { isServerEntry, nameOf } from "./rehearsal";
+import { isServerEntry, nameOf } from "@armada/screens/src/rehearsal";
 
 export const WORKSPACE_PREFIX = "workspace:";
 

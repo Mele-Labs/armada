@@ -9,11 +9,8 @@
 import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
-import {
-  checkoutRunnablesOf,
-  studioName,
-  titleOf,
-} from "@armada/screens";
+import { checkoutRunnablesOf } from "@armada/manifest";
+import { studioName, titleOf } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { absentIn, carryOut, dormantIn } from "./palette";
 

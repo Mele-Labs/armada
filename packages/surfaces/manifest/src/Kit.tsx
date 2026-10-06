@@ -33,8 +33,8 @@ import type { ReactNode } from "react";
 
 import { KitServers, KitSetup } from "@armada/components";
 
-import { said } from "./copy";
-import { addressReads, addressTyped, useKit, type KitSlice } from "./manifest-kit";
+import { said } from "@armada/screens/src/copy";
+import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
 
 export type KitProps = KitSlice & {
   /**

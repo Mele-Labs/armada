@@ -141,7 +141,8 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
-Cleanup and Overview have moved both.
+Cleanup, Overview, Helm, Setup and Manifest have moved both, and Settings its slice
+(it has no fleet); Jobs has not.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -195,7 +196,7 @@ What it settled for the next surface:
   `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings and Helm do.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings, Helm, Setup and Manifest do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
@@ -211,6 +212,22 @@ What it settled for the next surface:
   imports the Manifest surface. The scenario's `behaves` answers them, so its tests mount
   `slices: ["core", "setup"]` and no more. A type main, preload and Manifest read (`setup-reads`,
   `locate-reads`) and `AskRepository`, which App, Composing and Studios mount, stay in screens.
+- **Manifest, the largest, took four commits** (move set and package; API slice; fake and
+  tests; gate). The move set follows the importers that stay: `verify` (Setup reads it), `seed` and
+  `origin` (rehearsal, `Row` and `facts` read them), and the wire-reading types `editing`,
+  `manifest-allows` and `manifest-kit` stayed. **Desktop's own importers of a moved file
+  (`App`, `PaletteMount`) do not keep it in screens**: they repoint to `@armada/<x>`, as
+  Studios' did. **A test that asserts a staying file through a moving one is split**:
+  `seed.test`'s Setup-line claim moved to `checkout-seed.test` and the rest stayed.
+- **A scenario built on another owner's fixtures stays in desktop.** `checking()` builds on
+  Job arc fixtures and `holding`, and the Checks page is a Job's, so `checks-fleet.ts` stays
+  and the Manifest slice still lists it; its `depends_on` names that file and `holding.ts`.
+  Two surfaces that both export a same-named fixture (`VERIFY_ENDED`) are resolved in the
+  harness by an explicit re-export, not by editing either fake.
+- **Manifest members answered inside another surface's moment stay there.** Setup's
+  `settingUp` answers `watchCheckoutRunSheet` and `startCheckoutVerify` through its own
+  `SettingUpApi` and `SettingUpState`. Sibling surfaces never import each other, so Manifest
+  moving does not change that.
 - **A surface whose tests mount a screen, not the app, depends on none of the app.**
   Cleanup's `Worktrees*.test.tsx` use `@armada/screens/src/mounted`, so its
   `depends_on` stops at screens, the shared packages and the three desktop files the
@@ -233,7 +250,7 @@ and the shared helper types beside it, never another slice.** Core's `state` and
 `subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
 typecheck if the composition drifts from them. A slice moves into its surface
-package as `/api`, as above; Studios, Cleanup and Overview have. **A type another
+package as `/api`, as above; every surface but Jobs has. **A type another
 package reads stays where they can reach it**: Overview's `overview-reads` (Settings and
 the wire types read it) and `recent` (`Row` reads it) stayed in screens.
 

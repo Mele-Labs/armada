@@ -10,8 +10,8 @@
 import type { RunPageEntry } from "@armada/components";
 import type { CheckoutRunRecord, RunEntry, ServerEntry } from "@armada/protocol";
 import { sameCheckoutEntry } from "./checkout-workspace";
-import { clockOf } from "./duration";
-import { runOutcomeOf, SERVER_PREFIX } from "./rehearsal";
+import { clockOf } from "@armada/screens/src/duration";
+import { runOutcomeOf, SERVER_PREFIX } from "@armada/screens/src/rehearsal";
 
 /**
  * What a row carries beyond its own declaration: whether its line drifted, and

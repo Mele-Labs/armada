@@ -51,12 +51,12 @@ import {
 } from "./checkout-workspace";
 
 export { checkoutResultRunOf, runningEntryOf };
-import { absoluteOf, clockOf, span } from "./duration";
-import { openServerLink } from "./opening";
-import { CHECK_PREFIX, COMMAND_PREFIX, isServerEntry, nameOf, runOutcomeOf } from "./rehearsal";
-import { saying, SETUP_PREFIX } from "./rehearsal";
-import { seedSaid } from "./seed";
-import { driftGoneOf } from "./verify";
+import { absoluteOf, clockOf, span } from "@armada/screens/src/duration";
+import { openServerLink } from "@armada/screens/src/opening";
+import { CHECK_PREFIX, COMMAND_PREFIX, isServerEntry, nameOf, runOutcomeOf } from "@armada/screens/src/rehearsal";
+import { saying, SETUP_PREFIX } from "@armada/screens/src/rehearsal";
+import { seedSaid } from "@armada/screens/src/seed";
+import { driftGoneOf } from "@armada/screens/src/verify";
 
 /** What the Manifest surface asks of the host. One prop, `rehearsal`'s precedent. */
 export type ManifestSlice = {

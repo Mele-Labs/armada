@@ -10,8 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ManifestFormDraft, ManifestFormProps } from "@armada/components";
 import type { EditManifest, ManifestDeclared, ManifestReading, ManifestSpend } from "@armada/protocol";
 
-import { clockOf } from "./duration";
-import type { ManifestEditAnswer, ManifestFileRead, ManifestSpendRead } from "./editing";
+import { clockOf } from "@armada/screens/src/duration";
+import type { ManifestEditAnswer, ManifestFileRead, ManifestSpendRead } from "@armada/screens/src/editing";
 import { budgetWarningsOf, draftOf, editsOf, problemsOf } from "./form-edits";
 import { unlandedSaying } from "./manifest-file";
 

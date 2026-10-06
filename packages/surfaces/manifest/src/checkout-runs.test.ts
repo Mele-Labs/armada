@@ -21,7 +21,7 @@ import {
   runningEntryOf,
 } from "./checkout-runs";
 import { checkoutStartOf, followedWorkspaceOf } from "./checkout-workspace";
-import { driftGoneOf } from "./verify";
+import { driftGoneOf } from "@armada/screens/src/verify";
 
 function entry(name: string, run: string, over: Partial<RunEntry> = {}): RunEntry {
   return {

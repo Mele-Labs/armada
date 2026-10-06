@@ -24,14 +24,14 @@ import type {
   VerifyStep,
 } from "@armada/protocol";
 
+import { onBoard } from "@armada/bridge-api";
+import type { FleetHandle, PublishedCore, Scenario } from "@armada/bridge-api";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { sheet } from "@armada/screens/src/fixtures/run-sheet";
 
-import type { BridgeApi } from "../../../shared/api";
+import type { ManifestApi, ManifestState } from "../api";
 import { KIT_INVENTORY, withAllowlist } from "./kit-inventory";
 import { appliedTo } from "./manifest-applied";
-import { onBoard } from "./moment";
-import type { FleetHandle, Scenario } from "./moment";
 
 
 /** Where Fleet resolved the Manifest, in the shape `root.join("armada.yml")` gives. */
@@ -302,11 +302,14 @@ export type Manifesting = {
   picked?: boolean;
 };
 
-/** A connected Fleet serving this repository, picked, with its Manifest as the options say. */
-export function manifesting(options: Manifesting = {}): Scenario {
+/** The state this Fleet writes beside Manifest's own: the repository it serves and the one picked. Desktop's `BridgeState` has all of them. */
+export type ManifestingState = PublishedCore & ManifestState;
+
+/** A connected Fleet serving this repository, picked, with its Manifest as the options say, over the app's whole state `S` and API `A`. */
+export function manifesting<S extends ManifestingState, A extends ManifestApi>(nothingYet: S, options: Manifesting = {}): Scenario<S, A> {
   const one = repository();
   const served = options.setUp === false ? { root: one.root, records_root: one.records_root } : one;
-  const base = onBoard([], {
+  const base = onBoard<S, A>(nothingYet, [], {
     repositories: [served],
     picked: options.picked === false ? null : served.root,
   });
@@ -314,11 +317,12 @@ export function manifesting(options: Manifesting = {}): Scenario {
     ...base,
     name: "manifest",
     says: "This repository's own Manifest, on a Fleet that saves, edits and runs it",
-    behaves: (fleet) => behaviour(fleet, options),
+    // `S` is the app's whole state; this Fleet writes only the fields `ManifestState` names.
+    behaves: (fleet) => behaviour(fleet as unknown as FleetHandle<ManifestState>, options) as Partial<A>,
   };
 }
 
-function behaviour(fleet: FleetHandle, options: Manifesting): Partial<BridgeApi> {
+function behaviour(fleet: FleetHandle<ManifestState>, options: Manifesting): Partial<ManifestApi> {
   const { save = "took", edit = "took", drift = DRIFT_CURRENT, spend = NO_SPEND } = options;
   const runs = options.runs ?? { runs: [], unreadable: [] };
   let disk = MANIFEST_TEXT;
