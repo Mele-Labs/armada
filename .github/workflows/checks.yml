@@ -1,0 +1,346 @@
+# Runs this repository's Checks on pull requests, in the merge queue and after
+# a merge to main, and reports them as `ci`, `needs` and `desktop_test`.
+# docs/practices/ci.md says what each trigger is for and how a Check is added.
+#
+# This workflow gates nothing by itself: a ruleset that requires `ci` does.
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the run it supersedes. A merge group or
+# a push to main is keyed by its own commit, so nothing else cancels it.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # Decides which Checks run. `armada covers` is the same answer the merge line
+  # and Fleet's gate ask, so a path hits the same Checks here as there.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      checks: ${{ steps.covers.outputs.checks }}
+      whole: ${{ steps.paths.outputs.whole }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: plan
+
+      - name: Build armada
+        run: cargo build -p armada --locked
+
+      # The merge line's rule (docs/capabilities/merge-line.md, *Choosing what
+      # reruns*): a Check runs when it covers what the branch changed or what
+      # landed on main since the branch was cut, either side. HEAD is the merge
+      # GitHub tests, HEAD^1 is current main and HEAD^2 the branch. The event's
+      # own base sha is the main of the day the PR opened, so it is not used.
+      # `--no-renames` lists both sides of a rename.
+      - name: Changed paths
+        id: paths
+        env:
+          EVENT: ${{ github.event_name }}
+          MG_BASE: ${{ github.event.merge_group.base_sha }}
+          MG_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          mkdir plan
+          case "$EVENT" in
+            pull_request)
+              mb=$(git merge-base HEAD^1 HEAD^2)
+              { git diff --name-only --no-renames "$mb" HEAD^2; git diff --name-only --no-renames "$mb" HEAD^1; } | sort -u > plan/changed.txt
+              whole=false ;;
+            merge_group) git diff --name-only --no-renames "$MG_BASE" "$MG_HEAD" > plan/changed.txt; whole=false ;;
+            *) : > plan/changed.txt; whole=true ;;
+          esac
+          echo "whole=$whole" >> "$GITHUB_OUTPUT"
+          echo "MACHINE plan cores=$(nproc) $(grep MemTotal /proc/meminfo)"
+          echo "CHANGED $EVENT whole=$whole"
+          cat plan/changed.txt
+
+      # A failure here fails the job, so a plan that cannot be made never
+      # reads as a plan that runs nothing. Checks that are not in CI are
+      # dropped from the answer: docs/practices/ci.md, *Not in CI*.
+      - name: Which Checks
+        id: covers
+        env:
+          WHOLE: ${{ steps.paths.outputs.whole }}
+        run: |
+          set -euo pipefail
+          ci='["build","test","acceptance","typecheck","bridge_build","storybook","screens_test","components_test","format","hooks_test","desktop_test"]'
+          if [ "$WHOLE" = true ]; then
+            checks=$ci
+          else
+            ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
+            checks=$(jq -R -s -c --argjson ci "$ci" 'split("\n") | map(select(length > 0)) | map(select(. as $c | $ci | index($c)))' plan/covers.txt)
+          fi
+          echo "checks=$checks" >> "$GITHUB_OUTPUT"
+          echo "CHECKS $checks"
+          echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: plan
+          path: plan
+          retention-days: 3
+
+  build:
+    name: build
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'build')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: plan
+          path: plan
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: build
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: build
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check build; else armada check build --changed < plan/changed.txt; fi
+
+  test:
+    name: test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: plan
+          path: plan
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          nextest: "true"
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: test
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
+
+  # Whole, with no `--changed`: the Check has no narrowing, and it is the one
+  # run of a milestone's claim.
+  acceptance:
+    name: acceptance
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'acceptance')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: acceptance
+          nextest: "true"
+      - run: cargo build -p armada --locked
+      - uses: ./.github/actions/run-check
+        with:
+          name: acceptance
+          cmd: |
+            export PATH="$PWD/target/debug:$PATH"
+            armada check acceptance
+
+  format:
+    name: format
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'format')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: format
+          cache: "false"
+      - uses: ./.github/actions/run-check
+        with:
+          name: format
+          cmd: cargo fmt --all --check
+
+  typecheck:
+    name: typecheck
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'typecheck')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: typecheck
+          cmd: pnpm typecheck
+
+  bridge_build:
+    name: bridge_build
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'bridge_build')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+      - uses: ./.github/actions/run-check
+        with:
+          name: bridge_build
+          cmd: pnpm -C apps/desktop build
+
+  storybook:
+    name: storybook
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'storybook')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: storybook
+          cmd: pnpm -C packages/components build-storybook
+
+  screens_test:
+    name: screens_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'screens_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: screens_test
+          cmd: pnpm --dir packages/screens exec vitest run --maxWorkers=$WIDTH
+
+  components_test:
+    name: components_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'components_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: components_test
+          cmd: pnpm --dir packages/components exec vitest run --maxWorkers=$WIDTH
+
+  hooks_test:
+    name: hooks_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'hooks_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: hooks_test
+          cmd: python3 .claude/hooks/test_guard_merge.py
+
+  # macOS, because desktop_test is the one Check that needs it, sharded four
+  # ways to stay inside the runners the free plan gives at once. Kept out of
+  # `ci` until it is stable: docs/practices/ci.md.
+  desktop_test_shard:
+    name: desktop_test_shard
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'desktop_test')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: desktop_test shard ${{ matrix.shard }}/4
+          cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2
+
+  # The name a ruleset will require, once desktop_test is stable. Passes when
+  # the plan skipped the shards, fails when any shard failed or was cancelled.
+  desktop_test:
+    name: desktop_test
+    if: always()
+    needs: [plan, desktop_test_shard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Read the shards
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
+          echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
+
+  # The one name the ruleset requires for everything but desktop_test. A Check
+  # the plan skipped passes; one that failed or was cancelled fails; a plan
+  # that failed fails, so a change is never green because nothing was chosen.
+  ci:
+    name: ci
+    if: always()
+    needs:
+      - plan
+      - build
+      - test
+      - acceptance
+      - format
+      - typecheck
+      - bridge_build
+      - storybook
+      - screens_test
+      - components_test
+      - hooks_test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Read the Checks
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
+          echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
