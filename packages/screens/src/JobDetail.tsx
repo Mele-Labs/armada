@@ -74,7 +74,7 @@ import { OPEN_JOB_ATTRIBUTE } from "./open-job";
 import { useWalkedOnOpen } from "./walked";
 
 export type { ConfirmableAct, HeldAct, JobAct } from "./Acts";
-export type { FoldedReads } from "./mine";
+export type { FoldedReads } from "./folded-reads";
 export { renderFor } from "./render";
 export type { Render } from "./render";
 export type { DetailTab } from "./detail-tabs";

@@ -57,7 +57,7 @@ import type { ConfirmableAct, HeldAct, TaskAct } from "./Acts";
 import type { Outstanding } from "./outstanding";
 import type { JobDraft } from "./draft/held";
 import type { FrameSrc, ReadFrame } from "./frames";
-import type { FoldedReads } from "./mine";
+import type { FoldedReads } from "./folded-reads";
 import type { OpenArtifact, OpenPullRequest } from "./opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
 import type { ReadBrief } from "./pulse-brief";

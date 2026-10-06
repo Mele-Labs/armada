@@ -1,7 +1,7 @@
 // The default folded reads. Apart from `base.ts`, the shared core, because the type
 // is a Job detail's.
 
-import type { FoldedReads } from "../../JobDetail";
+import type { FoldedReads } from "../../folded-reads";
 import { NO_DIFF, NO_EVIDENCE, NO_FOOTPRINT, NO_REMARKS } from "./base";
 
 /** The default folded reads — every read `JobDetail.recorded` needs, empty. */
