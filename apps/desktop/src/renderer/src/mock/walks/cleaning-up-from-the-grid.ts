@@ -1,7 +1,8 @@
 // Cleanup as one grid of tiles. A press on a tile opens the panel that manages
 // that worktree: what it holds, and the acts that fit it. A finished Job's bay
-// is released only once nothing in it is uncommitted; a worktree outside the pool
-// is removed after a confirm that lists the files it deletes; a running Job's
+// is released after a confirm that says its uncommitted files are committed to
+// the Job's branch as a WIP commit; a worktree outside the pool is committed to
+// the same way and then removed; the Job's own Clear says the same; a running Job's
 // holds the tree and offers nothing; two worktrees outside the pool sit after
 // the bays, one with a branch to delete; a stranded bay is rescued and a closed
 // one reopened. The old list below the bays, and its bulk press, are gone.
@@ -27,11 +28,17 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { look: role("list", "Worktree slots"), say: "One grid: the pool's bays, a tile to add one, and the Jobs' worktrees outside it" },
   { press: TILE(1), say: "A finished Job's bay opens its panel" },
   { look: inside(PANEL(1), role("region", "What it holds", { exact: true })), say: "What it holds: uncommitted changes, and commits not on main" },
+  { press: IN_PANEL(1, "button", /Debounce the Job Board/), say: "The bay's Job opens over Cleanup" },
+  { press: role("button", "Reclaim worktree"), say: "The Job's own Clear, on the same worktree" },
+  { look: dialog("Give this job's worktree back?"), say: "It says the same: the uncommitted files committed to the branch, the slot released, the branch kept" },
+  { press: inside(dialog("Give this job's worktree back?"), role("button", "Cancel", { exact: true })), say: "Cancel sends nothing" },
+  { press: role("button", "Back to Cleanup"), say: "Back to the grid" },
+  { press: TILE(1), say: "The bay again" },
   { hover: IN_PANEL(1, "button", "Clear"), say: "Clear says which worktree it acts on and what happens to the branch" },
   { press: IN_PANEL(1, "button", "Clear"), say: "Clear asks first" },
-  { look: role("group", "Clear slot-1", { exact: true }), say: "It lists the git effects: the slot released, the worktree kept, the files that hold the release up, the branch kept" },
+  { look: role("group", "Clear slot-1", { exact: true }), say: "It says what will happen: the uncommitted files committed to the branch as a WIP commit, the slot released, the branch kept" },
   { press: inside(role("group", "Clear slot-1", { exact: true }), role("button", "Clear", { exact: true })), say: "Sent" },
-  { look: inside(PANEL(1), role("alert")), say: "A slot with uncommitted changes is not released, and the panel says so" },
+  { look: inside(PANEL(1), role("status")), say: "Committed to the branch, slot released" },
   { press: SHUT(1), say: "Back to the grid" },
   { press: TILE(5), say: "A running Job's bay" },
   { look: inside(PANEL(5), role("region", "What it holds", { exact: true })), say: "Its row is the Job's status, as the Board draws it, and the panel offers nothing to do" },
@@ -39,9 +46,9 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { press: SHUT(5), say: "Back to the grid" },
   { press: OUTSIDE(REJECTED), say: "A worktree outside the pool, in the same grid, opens the same panel" },
   { press: inside(OUTSIDE_PANEL(REJECTED), role("button", "Clear", { exact: true })), say: "Clear on a worktree outside the pool" },
-  { look: role("group", /^Clear /), say: "It removes the worktree at its path, deletes the uncommitted files it lists, and keeps the branch" },
+  { look: role("group", /^Clear /), say: "It commits the uncommitted files it lists to the branch, removes the worktree at its path, and keeps the branch" },
   { press: inside(role("group", /^Clear /), role("button", "Clear", { exact: true })), say: "Sent" },
-  { look: inside(OUTSIDE_PANEL(REJECTED), role("status")), say: "Worktree removed, branch kept with its commits not on main" },
+  { look: inside(OUTSIDE_PANEL(REJECTED), role("status")), say: "Committed to the branch, worktree removed" },
   { press: SHUT_OUTSIDE(REJECTED), say: "Back to the grid" },
   { press: OUTSIDE(FAILED), say: "A worktree already removed, with its branch left" },
   { press: inside(OUTSIDE_PANEL(FAILED), role("button", "Delete branch", { exact: true })), say: "Delete branch asks first" },
