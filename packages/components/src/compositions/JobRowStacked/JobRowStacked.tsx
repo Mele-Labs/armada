@@ -185,6 +185,13 @@ export type JobRowStackedProps = {
   /** De-emphasised: `--border-subtle` and `--fg-subtle`, never an alpha. */
   dimmed?: boolean;
   /**
+   * How many Jobs deep the row sits under the one it waits on. The row stays a
+   * direct option of its list, so the indent is padding on the row itself.
+   */
+  depth?: number;
+  /** A mark beside the headline, which names itself on hover. */
+  mark?: ReactNode;
+  /**
    * The status changed while the list was showing it. `remaining` walks from 1 to 0 across
    * `--duration-decay`, taking the tint from `--row-tint-recent` down to `--row-tint`, and `note`
    * says what changed and how long ago, fading with it. The caller keeps the clock, so a story can
@@ -262,6 +269,8 @@ export function JobRowStacked({
   focused,
   selected,
   dimmed,
+  depth,
+  mark,
   changed,
   onOpen,
   onCopied,
@@ -302,6 +311,7 @@ export function JobRowStacked({
       data-focused={focused || undefined}
       data-selected={selected || undefined}
       data-dimmed={dimmed || undefined}
+      data-depth={depth || undefined}
       data-badge-wide={badgeWide || undefined}
       // **The row's tint is the badge's own hue**, from the same `status` stem the
       // badge maps to `--status-{stem}` — one prop feeding both, so the row and its
@@ -309,6 +319,7 @@ export function JobRowStacked({
       style={
         {
           "--armada-row-hue": `var(--status-${status})`,
+          ...(depth ? { "--armada-row-depth": depth } : {}),
           ...(changed === undefined ? {} : { "--armada-row-recent": clamp01(changed.remaining) }),
         } as CSSProperties
       }
@@ -328,6 +339,7 @@ export function JobRowStacked({
           <span className="armada-job-row__title" title={typeof headline === "string" ? headline : undefined}>
             {headline}
           </span>
+          {mark === undefined ? null : <span className="armada-job-row__mark">{mark}</span>}
           {changed === undefined ? null : (
             <span
               className="armada-job-row__changed"

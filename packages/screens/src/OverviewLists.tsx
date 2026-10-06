@@ -22,15 +22,17 @@
 // Mounted beneath the summary strip #921 put here. Since the Job Board went, this is where every
 // Job is listed, Done included — `overview-lists.ts` says why that section arrived.
 
-import { ActiveJobsList } from "@armada/components";
+import { ActiveJobsList, Button, Tooltip, WaveCanvas } from "@armada/components";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
+import { Waypoints } from "lucide-react";
 import { BoardEmpty, OverviewEmpty } from "./BoardEmpty";
 import type { BoardSection } from "./board";
 import { columnsFor, repositoryOf } from "./board";
 import { boardPressOf, verbOf } from "./keys";
 import { headlineOf } from "./lineage";
 import { useListCursor, useListKeydown } from "./list-keyboard";
-import { overviewListsOf } from "./overview-lists";
+import { overviewGraphOf } from "./overview-graph";
+import { nestedOf, overviewListsOf } from "./overview-lists";
 import { readingOf } from "./reading";
 import { useRecentChanges } from "./recent";
 import { isTerminal, Row } from "./Row";
@@ -86,7 +88,13 @@ export type OverviewListsProps = {
    * the Board.
    */
   onCursor?: (jobId: string | null) => void;
+  /** The Jobs as the sectioned list or as the graph their dependencies make. Absent is the list. */
+  view?: OverviewView;
+  /** The toggle pressed. Absent draws no toggle. */
+  onView?: (view: OverviewView) => void;
 };
+
+export type OverviewView = "list" | "graph";
 
 export function OverviewLists({
   jobs,
@@ -106,6 +114,8 @@ export function OverviewLists({
   onCompose,
   onCopied,
   onCursor,
+  view = "list",
+  onView,
 }: OverviewListsProps) {
   const pickedRepository = repositories.find((one) => one.root === picked) ?? null;
   const all = picked === null;
@@ -155,10 +165,14 @@ export function OverviewLists({
   }
   useListKeydown(press);
 
-  const rowOf = (job: JobSummary) => (
+  const graph = view === "graph" ? overviewGraphOf(drawn, { onOpen, onKill, onRedispatch }) : null;
+
+  const rowOf = ({ job, depth, alsoWaits }: { job: JobSummary; depth: number; alsoWaits: boolean }) => (
     <Row
       key={job.id}
       job={job}
+      depth={depth}
+      alsoWaits={alsoWaits}
       headline={headlineOf(job, dispatch.get(job.id))}
       stale={stale}
       now={now}
@@ -183,7 +197,28 @@ export function OverviewLists({
       // whichever section it is in.
       onFocusCapture={onFocusCapture}
     >
-      {sections.length === 0 && disconnected === null && repositories.length > 0 ? (
+      {onView === undefined || sections.length === 0 ? null : (
+        <div className="armada-screen__overview-view">
+          {/* One glyph, `waypoints`, the registry's graph view toggle: pressed is the graph. */}
+          <Tooltip label={view === "graph" ? "Back to the list" : "Graph"}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Graph"
+              aria-pressed={view === "graph"}
+              onClick={() => onView(view === "graph" ? "list" : "graph")}
+            >
+              <Waypoints size={16} />
+            </Button>
+          </Tooltip>
+        </div>
+      )}
+      {graph !== null && sections.length > 0 ? (
+        <div className="armada-screen__overview-graph">
+          <WaveCanvas nodes={graph.nodes} edges={graph.edges} label="Jobs and what they wait on" />
+        </div>
+      ) : sections.length === 0 && disconnected === null && repositories.length > 0 ? (
         // The null result is a card of its own on the canvas, not a well inside a panel — a
         // card inside the panel would be a card in a card. `BoardEmpty`'s order: a fault or a
         // fresh install reads first, and both keep the panel below unchanged. #1262.
@@ -225,7 +260,7 @@ export function OverviewLists({
             label={section.label}
             columns={columns}
           >
-            {section.jobs.map(rowOf)}
+            {nestedOf(section.jobs).map(rowOf)}
           </ActiveJobsList>
         ))
       )}
