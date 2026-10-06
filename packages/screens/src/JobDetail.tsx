@@ -111,20 +111,20 @@ function OneJob(props: JobDetailProps) {
   // above resets it with everything else.
   const opened = props.opening;
   const [tab, setTab] = useState<DetailTab>(
-    opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
+    opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
   );
   // The step Workflow opens on, where the Record's or the Drones' reading sent
   // a person there. Cleared by the strip, so the next visit opens on nothing.
-  const [opensStep, setOpensStep] = useState<string | undefined>(opened?.drone === undefined ? opened?.step : undefined);
+  const [opensStep, setOpensStep] = useState<string | undefined>(opened?.drone === undefined && opened?.task === undefined ? opened?.step : undefined);
   // The task Plan opens on, where the Drones' reading sent a person there.
   // Cleared by the strip, on `opensStep`'s terms.
-  const [opensTask, setOpensTask] = useState<string | undefined>(undefined);
+  const [opensTask, setOpensTask] = useState<string | undefined>(opened?.task);
   // The group Plan opens on, where the run's canvas sent a person there. On `opensTask`'s terms.
   const [opensGroup, setOpensGroup] = useState<string | undefined>(undefined);
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
-  const [opensDrone, setOpensDrone] = useState<string | undefined>(opened?.drone);
+  const [opensDrone, setOpensDrone] = useState<string | undefined>(opened?.task === undefined ? opened?.drone : undefined);
   const [opensRow, setOpensRow] = useState<string | undefined>(undefined);
   // The way back across a jump between destinations — `trail.ts`.
   const trail = useTrail((to) => {

@@ -161,11 +161,11 @@ function landEntriesOf(lines: readonly MergeLine[]): CheckEntry[] {
 }
 
 /** Where a press on who asked goes: a Job, at a step or a Drone, or the merge line at a branch. */
-export type AskerOpens = { to: "job"; jobId: string; step?: string; drone?: string } | { to: "merge-line"; branch?: string };
+export type AskerOpens = { to: "job"; jobId: string; step?: string; drone?: string; task?: string } | { to: "merge-line"; branch?: string };
 
 /**
  * Who asked, as one line of bare facts, and where pressing it goes. **Every kind but `outside` opens
- * its requester**: a gate its Job at the step, a Drone its Job at that Drone, the merge line at the
+ * its requester**: a gate its Job at the step, a Drone's task its Job at that task, a Drone's step its Job at that Drone, the merge line at the
  * branch. Absent `opens` is plain text, which is `outside` and any kind with no id to go to.
  */
 export type Asker = { label: string; opens?: AskerOpens };
@@ -181,6 +181,12 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
         ...(jobId === undefined ? {} : { opens: { to: "job", jobId, ...(step === undefined ? {} : { step }) } as const }),
       };
     case "drone_task":
+      return {
+        label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task),
+        ...(jobId === undefined
+          ? {}
+          : { opens: { to: "job", jobId, ...(task === undefined ? (drone === undefined ? {} : { drone }) : { task }), ...(task !== undefined || step === undefined ? {} : { step }) } as const }),
+      };
     case "drone_step":
       return {
         label: said(drone === undefined ? "Drone" : `Drone ${drone}`, job, step, task),
