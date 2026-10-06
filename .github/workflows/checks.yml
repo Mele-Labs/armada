@@ -298,7 +298,7 @@ jobs:
           browsers: "true"
       - uses: ./.github/actions/run-check
         with:
-          name: desktop_test_shard
+          name: desktop_test shard ${{ matrix.shard }}/4
           cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2
 
   # The name a ruleset will require, once desktop_test is stable. Passes when
