@@ -245,6 +245,18 @@ class Preview(unittest.TestCase):
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
 
+    def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        with open(os.path.join(self.stub, "line"), "w") as f:
+            f.write("`--status` is not a flag this verb takes\n")
+        env = {**os.environ,
+               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
+               "STUB_DIR": self.stub}
+        done = subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
+                              capture_output=True, text=True, env=env)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("said:", done.stderr)
+
 
 RESTART = os.path.join(HERE, "scripts", "restart")
 
@@ -319,6 +331,15 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("refusing — drone-j1's Drone is working", said)
         self.assertNotIn("unheard", said)
 
+    def test_the_refusal_comes_before_the_build(self):
+        self.fleet({"j1": "running"})
+        built = os.path.join(self.dir, "built")
+        with open(os.path.join(self.bin, "cargo"), "w") as f:
+            f.write(f'#!/bin/sh\ntouch "{built}"\n')
+        code, said = self.restart()
+        self.assertNotEqual(code, 0)
+        self.assertFalse(os.path.exists(built), said)
+
     def test_dry_run_without_adopt_says_it_would_refuse(self):
         self.fleet({"j1": "running"})
         code, said = self.restart("--dry-run")
@@ -373,18 +394,6 @@ class PreviewAdopt(unittest.TestCase):
         done = self.run_preview("--watch", "--restart", "--adopt")
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("--watch never restarts Fleet", done.stderr)
-
-    def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
-        self.branch("feat/a", {"a.txt": "a\n"})
-        with open(os.path.join(self.stub, "line"), "w") as f:
-            f.write("`--status` is not a flag this verb takes\n")
-        env = {**os.environ,
-               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
-               "STUB_DIR": self.stub}
-        done = subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
-                              capture_output=True, text=True, env=env)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("said:", done.stderr)
 
 
 if __name__ == "__main__":
