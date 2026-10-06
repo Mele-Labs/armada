@@ -397,6 +397,11 @@ const PROVISIONAL_ALLOWANCE: Allowance = Allowance::of(Micros::dollars(10), 300)
 /// this loop rather than poll it.
 const PROVISIONAL_TURN_INTERVAL: Duration = Duration::from_millis(250);
 
+/// `build-sweep-interval-minutes`: how often Fleet trims every checkout's
+/// `target/`. An hour: a stale file is a fortnight old, so nothing is gained by
+/// looking more often than a person would notice.
+const PROVISIONAL_SWEEP_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
 /// Serve until a signal says stop, adding `repository` first where one is given.
 ///
 /// **The one argument is added, as `add_repository` would add it**, and kept
@@ -586,6 +591,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         events.clone(),
         fleet::merge_lines::EVERY,
         |unread| eprintln!("{unread}"),
+    );
+    // Stale build output, trimmed in every checkout of each served repository.
+    fleet::sweeping::keep_sweeping(
+        Arc::clone(&fleet),
+        PROVISIONAL_SWEEP_INTERVAL,
+        adapters::leasing::Trim::SHIPPED,
+        |said| eprintln!("{said}"),
     );
     // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
     let clock = SystemClock::new();

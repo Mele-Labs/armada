@@ -54,7 +54,7 @@ pub fn read(roots: &[String], found: &mut Found, now: SystemTime) -> (MergeLines
 }
 
 /// The served roots, Manifest or none, in the order they were added.
-async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
+pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
         .list_repositories()
         .await
