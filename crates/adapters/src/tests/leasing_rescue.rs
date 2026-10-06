@@ -124,6 +124,8 @@ fn each_commit_says_whether_it_exists_anywhere_but_the_slot() {
     repo.commit_one("landed.rs", "fn landed() {}\n", "Landed here only");
     git(&slot, &["merge", "-q", "--no-edit", "main"]);
     commit("mine.rs", "Only in the slot");
+    // Commits on its branch no longer strand a slot; a dirty file does.
+    std::fs::write(slot.join("wip.rs"), "not committed").unwrap();
 
     let work = pool.stranded_work(1).expect("stranded");
     let home = |subject: &str| {

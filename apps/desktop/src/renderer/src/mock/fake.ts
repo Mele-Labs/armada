@@ -19,6 +19,7 @@ import { keeping } from "./studio-fleet";
 import { branchDeletedIn, forgottenIn, reclaimedIn } from "./cleanup-fleet";
 import { reshaped, rescued, scoutRead } from "./slots-fleet";
 import type { RescueOutcome } from "@armada/screens/src/slot-rescue";
+import { onTimePassing } from "./time-passes";
 import { accepted, askedAgain } from "./undecided-fleet";
 import { answered, listed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
@@ -587,6 +588,15 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     tap: () => undefined,
   };
   const fake = { ...api, ...scenario.behaves?.({ state: () => state, publish }) };
+  let passed = 0;
+  onTimePassing(
+    scenario.later === undefined
+      ? undefined
+      : () => {
+          const change = scenario.later?.[passed++];
+          if (change !== undefined) publish(change);
+        },
+  );
   DRAFTS.set(fake, {
     current: () => draft,
     subscribe: (onDraft) => {

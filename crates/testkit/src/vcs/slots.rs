@@ -431,13 +431,13 @@ impl FakeVcs {
     }
 
     /// Make the next release refuse, as the pool does for a dirty tree or
-    /// unlanded commits.
+    /// commits on no branch.
     pub fn keep_next_release(&self, why: &str) {
         self.slots.keep_next(why);
     }
 
     /// Make every release refuse, so a Job that ends keeps its slot — what the
-    /// pool does when its work is on neither the remote nor the base.
+    /// pool does when its tree is dirty or its commits are on no branch.
     pub fn keep_every_release(&self, why: &str) {
         self.slots.keep_every(why);
     }

@@ -191,7 +191,15 @@ fn worktree_leases_releases_and_lists() {
     assert_eq!(
         asked("worktree lease fix-the-gate"),
         Ok(Verb::Worktree(WorktreeAct::Lease {
-            branch: "fix-the-gate".to_string()
+            branch: "fix-the-gate".to_string(),
+            existing: false
+        }))
+    );
+    assert_eq!(
+        asked("worktree lease --existing fix-the-gate"),
+        Ok(Verb::Worktree(WorktreeAct::Lease {
+            branch: "fix-the-gate".to_string(),
+            existing: true
         }))
     );
     assert_eq!(

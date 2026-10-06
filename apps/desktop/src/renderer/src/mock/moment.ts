@@ -65,6 +65,12 @@ export type Scenario = {
    * Writes, a clone — which a fixed read cannot hold.
    */
   behaves?: (fleet: FleetHandle) => Partial<BridgeApi>;
+  /**
+   * What is published next, one entry each time a walk's `later` step moves on. A turn of the
+   * merge line drawn moment by moment: nothing here arrives on its own clock, so a step is never
+   * caught between two.
+   */
+  later?: readonly Partial<BridgeState>[];
 };
 
 /** What a scenario's `behaves` reaches: the state as published, and the one way to change it. */

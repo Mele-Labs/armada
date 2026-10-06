@@ -29,6 +29,7 @@ import type { JobDraft } from "./draft/held";
 import type { GroupState, GroupView } from "./draft/group";
 import type { TaskView } from "./draft/task";
 import {
+  awaitingSaid,
   besideSaid,
   caseReads,
   casesOf,
@@ -52,17 +53,37 @@ function hasRun(state: GroupState): boolean {
 }
 
 /**
+ * Whether the step's gate, running now, is this group's.
+ *
+ * **Fleet never serves a group as `checking`** — it draws that state from the
+ * step's own `checking` (`GroupState` in `plan_group.rs`) — so a served group
+ * stays `running` while its Checks run, and reading only the state left every
+ * Check `not run` beside a step panel showing six passed (owner, 5 Oct 2026).
+ * `checking` names no group, and groups run one at a time, so the gate is the
+ * group in flight's. **Not another's**: a finished row naming a different group
+ * (#1652) means this gate is not this one's, and a group that has not begun
+ * takes none.
+ */
+function gateIsHere(group: GroupView, step: StepDetail | undefined): boolean {
+  if (group.state === "checking") return true;
+  if (group.state !== "running" && group.state !== "joining") return false;
+  const gate = step?.checking;
+  if (gate === undefined) return false;
+  return gate.checks.every((one) => one.ran?.group === undefined || one.ran.group === group.id);
+}
+
+/**
  * What one Check at this boundary reads as.
  *
  * **Attributed by the group's own state and never by the run alone.** A step's
  * `check_runs` is one list for every group in it, so a passed group would
  * otherwise take a later group's red.
  *
- * **A group checking reads each Check off the gate**, which is this boundary's
- * own while it runs: waiting is not run, started is running, finished is what
- * it came to. Every one read `running` until a segment became a press (2 Oct
- * 2026), and a running segment that opens nothing, because its Check has not
- * started, says two things at once.
+ * **A group whose gate is running reads each Check off the gate**, which is
+ * this boundary's own while it runs: waiting is not run, started is running,
+ * finished is what it came to. Every one read `running` until a segment became
+ * a press (2 Oct 2026), and a running segment that opens nothing, because its
+ * Check has not started, says two things at once.
  */
 function checkReads(
   group: GroupView,
@@ -71,7 +92,7 @@ function checkReads(
   step: StepDetail | undefined,
 ): GroupBoundaryCheck["reads"] {
   if (failed.includes(name)) return "failed";
-  if (group.state === "checking") return underwayReads(step?.checking?.checks.find((one) => one.name === name));
+  if (gateIsHere(group, step)) return underwayReads(step?.checking?.checks.find((one) => one.name === name));
   return hasRun(group.state) ? "passed" : "not run";
 }
 
@@ -88,11 +109,27 @@ function underwayReads(live: CheckUnderway | undefined): GroupBoundaryCheck["rea
  * passed`, with no number**: the bar beside it is already how many
  * (`design-system.md`, hard rule 7).
  */
-export function verdictSaid(group: GroupView, failed: readonly string[]): string | undefined {
-  if (group.state === "checking") return "running now";
-  if (!hasRun(group.state)) return undefined;
+export function verdictSaid(
+  group: GroupView,
+  failed: readonly string[],
+  step?: StepDetail,
+): string | undefined {
+  if (gateIsHere(group, step)) return "running now";
+  if (!hasRun(group.state)) return waitingSaid(group);
   if (failed.length > 0) return `${failed.join(", ")} failed`;
   return group.checks_selected.length === 0 ? undefined : "all passed";
+}
+
+/**
+ * What a running group's Checks wait on: the tasks not yet in. **A group's gate
+ * runs at its end**, once no task is open or working (`docs/concepts/plan.md`,
+ * *A Drone per task*), so until then `not run` is a wait and not a skip. A
+ * group that has not begun says nothing: all of it would be waiting.
+ */
+function waitingSaid(group: GroupView): string | undefined {
+  if (group.state !== "running" && group.state !== "joining") return undefined;
+  const out = group.tasks.filter((task) => task.state === "open" || task.state === "working");
+  return out.length === 0 ? undefined : `Waiting on ${out.map((task) => task.id).join(", ")}`;
 }
 
 // What stopping a group forbids was a sentence here until 28 Sep, when the
@@ -145,7 +182,7 @@ function logOf(
   name: string,
   run: ReturnType<typeof runOf>,
 ): JobCheckLog | undefined {
-  if (group.state === "checking") {
+  if (gateIsHere(group, step)) {
     const live = step?.checking?.checks.find((one) => one.name === name)?.output_path;
     return live === undefined ? undefined : { name, kept: basename(live), live: true };
   }
@@ -179,7 +216,7 @@ function checkOf(
 ): GroupBoundaryCheck {
   const reads = checkReads(group, name, failed, step);
   // The step's runs are an earlier group's while this one is still checking.
-  const run = group.state === "checking" ? undefined : runOf(step, name, reads, group);
+  const run = gateIsHere(group, step) ? undefined : runOf(step, name, reads, group);
   const told = reads === "failed" ? run : undefined;
   const log = logOf(group, step, name, run);
   return {
@@ -229,10 +266,12 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTas
   const turns = turnsSaid(task);
   const cost = costSaid(task);
   const later = touchedBy.get(task.id);
+  const awaiting = awaitingSaid(task.state);
   return {
     id: task.id,
     title: task.title,
     mark: markOf(task.state),
+    ...(awaiting === undefined ? {} : { statusSays: awaiting }),
     ...(task.tier === undefined ? {} : { tier: task.tier }),
     ...(task.model === undefined ? {} : { model: task.model }),
     runBy: runBySaid(task),
@@ -259,7 +298,7 @@ export function boundaryOf(
 ): GroupBoundaryProps {
   const failed = failedChecksOf(whole, group);
   const checks = group.checks_selected.map((name) => checkOf(group, name, failed, step, onOpenCheckLog));
-  const verdict = verdictSaid(group, failed);
+  const verdict = verdictSaid(group, failed, step);
   const retry = retrySaid(group.retry_count);
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
   // **What dropped a case, where one did.** `reads` is the whole of what a row

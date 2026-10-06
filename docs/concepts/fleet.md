@@ -354,9 +354,11 @@ worktrees a repository leases* — until a person changes the pool on this machi
 | Act | What happens |
 |---|---|
 | Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
-| Release | Refused while the tree has anything uncommitted, or commits on neither the remote nor the base. Otherwise HEAD is detached where it stands, so the branch is free to land, and the build stays |
+| Release | Refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
+| Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Refused on a checkout on no branch, on the base, on a branch the lease does not name, and while a take or release is under way. It answers with the commit and the paths it took |
+| Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist and for one another checkout already has, naming where. `armada worktree lease --existing <branch>` |
 | Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
-| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, then deletes its branch; a Job that has not ended keeps its slot |
+| Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, and also refuses commits on neither the remote nor the base, since it then deletes the branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
 | Remove | The slot named, and only a free or unmade one, never the last. A made one's checkout goes by `git worktree remove`, which refuses one holding anything uncommitted; held, stranded and busy slots are refused by name. The other slots keep their numbers |
 | Rescue | On a stranded slot only, and only on a person's press: starts a Scout that reads the slot's checkout, and keeps its Finding against the slot. Then the person chooses Scrap or Stash below |
@@ -371,7 +373,7 @@ release at a time. The holder is the process that ran the shell the command was
 run from — an agent's session, or the terminal a person typed in.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
-> clean and nothing on it is unlanded. Otherwise it stays held, and a lease
+> clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
 > waiting for a slot names it.
 > Why: a slot is reused, and reuse must never be what throws work away.
 
@@ -482,7 +484,7 @@ derived — `../contracts/system-architecture.md`. Its branch is still
 | Waiting to start, every slot held | It stays `queued`, and the Board says `waiting_on_resources` — the same predicate admission asks |
 | `running`, `awaiting_review`, `escalated`, interrupted | Held |
 | `completed_success` | Held until a person clears the Job, and `armada worktree --status` reads `done`. Cleared, it is released by the pool's rules |
-| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or unlanded commits, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
+| `completed_failed`, `rejected`, `killed`, `superseded` | Released by the pool's rules. Refused for a dirty tree or commits on no branch, it stays held, the Job's log says why, and `armada worktree --status` reads `kept` |
 | Ended, its slot kept | Released again by the sweep once every safety test passes, or by a person with `armada worktree release <path>` or `armada clean --force`. A completed Job's is not swept |
 
 > **Rule.** A Job never loses its slot quietly. One whose recorded slot is

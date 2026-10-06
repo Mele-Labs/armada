@@ -361,7 +361,7 @@ export function PlanWell({
       <div className="armada-inside__plan">
         <div className="armada-inside__plan-progress">
           <StepBar
-            tasks={notDropped.map((task) => (task.state === "handed_in" ? "working" : task.state))}
+            tasks={notDropped.map((task) => task.state)}
             label={`${done} of ${notDropped.length} tasks`}
           />
           <span className="armada-inside__plan-figure">
