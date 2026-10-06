@@ -617,14 +617,6 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   // Over, before running: a Job that finished has no running step to name and
   // would otherwise fall through to the quiet line.
   if (lifecycle?.terminal === true) {
-    if (fixes?.state === "fixed") {
-      return {
-        said: "Fixed main",
-        because: `#${fixes.fixed_in} · ${fixes.check} green`,
-        act: "Read the log",
-        opens: { mainLog: { check: fixes.check, branch: "main" } },
-      };
-    }
     return { said: "Done", because: tasksSaid(whole) };
   }
 
