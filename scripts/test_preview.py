@@ -245,6 +245,18 @@ class Preview(unittest.TestCase):
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
 
+    def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        with open(os.path.join(self.stub, "line"), "w") as f:
+            f.write("`--status` is not a flag this verb takes\n")
+        env = {**os.environ,
+               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
+               "STUB_DIR": self.stub}
+        done = subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
+                              capture_output=True, text=True, env=env)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("said:", done.stderr)
+
 
 RESTART = os.path.join(HERE, "scripts", "restart")
 
@@ -382,18 +394,6 @@ class PreviewAdopt(unittest.TestCase):
         done = self.run_preview("--watch", "--restart", "--adopt")
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("--watch never restarts Fleet", done.stderr)
-
-    def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
-        self.branch("feat/a", {"a.txt": "a\n"})
-        with open(os.path.join(self.stub, "line"), "w") as f:
-            f.write("`--status` is not a flag this verb takes\n")
-        env = {**os.environ,
-               "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
-               "STUB_DIR": self.stub}
-        done = subprocess.run([sys.executable, PREVIEW], cwd=self.repo,
-                              capture_output=True, text=True, env=env)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn("said:", done.stderr)
 
 
 if __name__ == "__main__":
