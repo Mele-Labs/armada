@@ -35,6 +35,9 @@ LAND = os.path.join(HERE, "scripts", "land")
 REAL_ARMADA = os.path.join(HERE, "target", "debug", "armada")
 # The states `--status` exits 3 for.
 IN_LINE = ("waiting", "gating", "merging")
+# What `--status` exits while the turn still runs but a Check has failed that
+# the base is green for.
+HEADS_UP = 10
 
 
 def setUpModule():
@@ -329,7 +332,7 @@ class LineFixture(unittest.TestCase):
         said = time.monotonic() + 60
         while True:
             done = self.land(where, "--status", branch, check=False)
-            if done.returncode != 3:
+            if done.returncode not in (3, HEADS_UP):
                 return done
             if said is not None and time.monotonic() > said:
                 print(f"\n{self.id()}: still waiting on {branch}\n{done.stdout}", file=sys.stderr)
@@ -1681,6 +1684,129 @@ class Adaptive(LineFixture):
         self.greens(names)
         self.assertNotEqual(self.outcome("fix/next-a")["runner"], red_runner, "a runner of its own")
         self.assertTrue(self.gated_together(names[:2]), "the halved size, read from disk")
+
+class FailedCheck(LineFixture):
+    """A Check that fails while others still run is told to the branch then,
+    where the base is green for it."""
+
+    def held_ui(self, name, test_sh, extra=None):
+        """A branch whose `test` does `test_sh` and whose `ui` waits for a
+        file, so the turn is held after `test` has failed. Returns the
+        worktree and the file that lets `ui` finish."""
+        gate = os.path.join(self.root, "ui-open")
+        files = {
+            "ui/x.ts": "1\n",
+            "checks/ui.sh": f"while [ ! -f {gate} ]; do sleep 0.1; done\n",
+        }
+        if test_sh is not None:
+            files["checks/test.sh"] = test_sh
+        files.update(extra or {})
+        where = self.branch(name, files)
+        self.land(where, "preflight")
+        self.land(where)
+        return where, gate
+
+    def in_ui(self, branch):
+        self.until(branch, lambda: "running ui" in self.outcome(branch).get("detail", ""),
+                   "the turn never reached ui")
+
+    def base_runs(self, check):
+        with open(self.env["LAND_TEST_CHANGED"]) as held:
+            runs = [json.loads(line) for line in held.read().splitlines()]
+        return [run for run in runs if run["check"] == check and "/land/base" in run["at"]]
+
+    def test_a_failure_the_base_is_green_for_is_told_while_the_turn_runs(self):
+        where, gate = self.held_ui("fix/fails-early", "exit 1\n")
+        self.in_ui("fix/fails-early")
+        done = self.land(where, "--status", "fix/fails-early", check=False)
+        self.assertEqual(done.returncode, HEADS_UP, done.stdout)
+        self.assertIn("gating", done.stdout, "the turn is still going")
+        said = next(line for line in done.stdout.splitlines() if line.startswith("test failed"))
+        self.assertRegex(said, r"^test failed \(log \S+/test\.log\); main is green for it\.")
+        self.assertIn("The turn is still running its other Checks; do not push this branch", said)
+        self.assertTrue(os.path.exists(said.split("(log ")[1].split(")")[0]))
+        self.assertEqual(self.outcome("fix/fails-early")["own_failures"], ["test"])
+        open(gate, "w").close()
+        done = self.settle(where, "fix/fails-early")
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertIn("test failed", done.stdout)
+        self.assertEqual(len(self.base_runs("test")), 1, "main was asked once, mid-turn")
+
+    def test_a_failure_main_has_too_is_not_told_early(self):
+        after = self.branch("fix/behind-red-main", {"ui/x.ts": "1\n"})
+        gate = os.path.join(self.root, "ui-open")
+        self.onto_main({"checks/test.sh": "exit 1\n",
+                        "checks/ui.sh": f"while [ ! -f {gate} ]; do sleep 0.1; done\n"},
+                       "break test on main, and hold ui")
+        self.land(after, "preflight")
+        self.land(after)
+        self.in_ui("fix/behind-red-main")
+        done = self.land(after, "--status", "fix/behind-red-main", check=False)
+        self.assertEqual(done.returncode, 3, done.stdout)
+        self.assertNotIn("is green for it", done.stdout)
+        self.assertEqual(self.outcome("fix/behind-red-main").get("own_failures", []), [])
+        self.assertEqual(self.outcome("fix/behind-red-main")["already"], ["test"])
+        open(gate, "w").close()
+        done = self.settle(after, "fix/behind-red-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("test already fails on main", done.stdout)
+
+    def test_a_turn_with_no_failure_exits_as_it_always_did(self):
+        where, gate = self.held_ui("fix/all-green", None)
+        self.in_ui("fix/all-green")
+        done = self.land(where, "--status", "fix/all-green", check=False)
+        self.assertEqual(done.returncode, 3, done.stdout)
+        self.assertNotIn("is green for it", done.stdout)
+        open(gate, "w").close()
+        self.assertEqual(self.settle(where, "fix/all-green").returncode, 0)
+
+    def test_a_failure_the_last_check_makes_is_not_a_heads_up(self):
+        # Nothing is left to wait through, and the verdict is right behind it.
+        where = self.branch("fix/fails-last", {"checks/test.sh": "exit 1\n"})
+        self.land(where, "preflight")
+        self.land(where)
+        seen = set()
+        while True:
+            done = self.land(where, "--status", "fix/fails-last", check=False)
+            seen.add(done.returncode)
+            if done.returncode not in (3, HEADS_UP):
+                break
+            time.sleep(0.05)
+        self.assertEqual(done.returncode, 4, done.stdout)
+        self.assertNotIn(HEADS_UP, seen)
+
+    def test_main_is_asked_once_about_a_check_it_answered_mid_turn(self):
+        # A timeout on main is not cached, so a second ask would run it again.
+        self.env["ARMADA_LAND_CHECK_LIMIT"] = "2"
+        after = self.branch("fix/behind-a-hung-main", {"ui/x.ts": "1\n"})
+        self.onto_main({"checks/test.sh": "[ -f ui/x.ts ] && exit 1\nsleep 600\n",
+                        "checks/ui.sh": "true\n"}, "test hangs on main unless ui/x.ts is there")
+        self.land(after, "preflight")
+        self.land(after)
+        done = self.settle(after, "fix/behind-a-hung-main")
+        self.assertEqual(done.returncode, 7, done.stdout)
+        self.assertIn("test timed out on main itself", done.stdout)
+        self.assertEqual(len(self.base_runs("test")), 1, "main ran test once, not once per ask")
+
+    def test_a_batch_is_told_it_is_a_heads_up_for_the_whole_batch(self):
+        gate, held = self.blocked()
+        names = ["fix/at-fault", "fix/innocent"]
+        mine, other = self.queue([
+            (names[0], {"checks/test.sh": "exit 1\n"}),
+            (names[1], {"ui/b.ts": "1\n", "hold.txt": "1\n"}),
+        ])
+        open(gate, "w").close()
+        self.until(names[0], lambda: "running ui" in self.outcome(names[0]).get("detail", "")
+                   and "fix/innocent" in self.outcome(names[0])["detail"], "the batch never reached ui")
+        for where, name in zip((mine, other), names):
+            done = self.land(where, "--status", name, check=False)
+            self.assertEqual(done.returncode, HEADS_UP, done.stdout)
+            self.assertIn("heads-up for the whole batch", done.stdout)
+            self.assertIn("the split will name the branch at fault", done.stdout)
+        open(held, "w").close()
+        self.assertEqual(self.settle(mine, names[0]).returncode, 4)
+        self.assertEqual(self.settle(other, names[1]).returncode, 0, "the innocent member lands")
+
 
 
 if __name__ == "__main__":
