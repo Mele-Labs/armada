@@ -79,6 +79,7 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
 | Every workspace key except the desktop tests and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
+| `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
 
@@ -130,7 +131,8 @@ HEAD^1 (main's tip) ─────────────> verify-foundations,
 1. Declare it in the manifest that owns it, with a `when:` list or none.
 2. A workspace Check that is a Node command needs nothing else when its name is in `MATRIX` in `.github/ci/plan.py`; add the name there otherwise, and to `NO_BROWSER` if no browser opens.
 3. A root Check needs a job in `checks.yml` gated with `if: contains(fromJSON(needs.plan.outputs.checks), '<name>')`, the name in `ROOT`, and the job in `ci`'s `needs`.
-4. A Check CI should not run goes in `EXCLUDED` with its reason.
+4. A workspace Check that is a Rust command needs a job like `xtask_test`, its key in `RUST` in `plan.py`, and the job in `ci`'s `needs`.
+5. A Check CI should not run goes in `EXCLUDED` with its reason.
 
 ## Measured on a trial pull request
 
@@ -165,7 +167,6 @@ failure, which was a Linux-only test failing on `main`.
 | Check | Why |
 |---|---|
 | `scripts_test` | Dropped. It tested `armada land`, which this workflow replaces, and failed on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
-| `xtask_test` of `apps/desktop` | In `EXCLUDED` in `plan.py`. A Rust Check CI never ran; the root `test` runs xtask's tests. Named, so the plan does not fail on it |
 | `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 

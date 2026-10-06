@@ -172,6 +172,26 @@ jobs:
             export PATH="$PWD/target/debug:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
 
+  # The xtask tests read `apps/` and `packages/` (vocabulary, error codes,
+  # design rules). Nextest directly, as `apps/desktop/armada.yml` runs it: the
+  # plan's `armada` is a Node-job artifact, and this job builds only xtask.
+  xtask_test:
+    name: apps/desktop:xtask_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:xtask_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: xtask_test
+          nextest: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: apps/desktop:xtask_test
+          cmd: cargo nextest run -p xtask --test-threads "$WIDTH"
+
   # Whole, with no `--changed`: the Check has no narrowing, and it is the one
   # run of a milestone's claim.
   acceptance:
@@ -443,6 +463,7 @@ jobs:
       - typecheck
       - workspace_check
       - hooks_test
+      - xtask_test
       - foundations
     runs-on: ubuntu-latest
     timeout-minutes: 45

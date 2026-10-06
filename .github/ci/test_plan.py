@@ -30,11 +30,22 @@ class Planning(unittest.TestCase):
         self.assertIn("apps/desktop:desktop_test", answer["checks"])
         self.assertNotIn("apps/desktop:desktop_test", [row["key"] for row in answer["matrix"]["include"]])
 
-    def test_an_excluded_key_is_named_and_not_run(self):
+    def test_the_xtask_tests_have_their_own_rust_job_and_no_matrix_entry(self):
         answer = plan(KEYS)
-        self.assertEqual(answer["excluded"], ["apps/desktop:xtask_test"])
-        self.assertNotIn("apps/desktop:xtask_test", answer["checks"])
+        self.assertIn("apps/desktop:xtask_test", answer["checks"])
+        self.assertNotIn("apps/desktop:xtask_test", [row["key"] for row in answer["matrix"]["include"]])
+        self.assertEqual(answer["excluded"], [])
         self.assertEqual(answer["unrun"], [])
+
+    def test_an_excluded_key_is_named_and_not_run(self):
+        import plan as module
+        module.EXCLUDED["packages/x:skip"] = "test"
+        try:
+            answer = plan(["packages/x:skip"])
+        finally:
+            del module.EXCLUDED["packages/x:skip"]
+        self.assertEqual(answer["excluded"], ["packages/x:skip"])
+        self.assertEqual(answer["checks"], [])
 
     def test_a_key_nothing_runs_is_reported(self):
         self.assertEqual(plan(["packages/x:lint", "mystery"])["unrun"], ["packages/x:lint", "mystery"])

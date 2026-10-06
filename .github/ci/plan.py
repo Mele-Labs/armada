@@ -20,6 +20,9 @@ ROOT = {"build", "test", "acceptance", "typecheck", "format", "hooks_test"}
 # no `--shard`.
 SHARDED = {"apps/desktop:desktop_test"}
 
+# Run by a static Rust job: a workspace Check whose command is cargo, not Node.
+RUST = {"apps/desktop:xtask_test"}
+
 # Workspace Checks by name that the Linux matrix job runs.
 MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "test"}
 
@@ -27,9 +30,7 @@ MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_
 NO_BROWSER = {"typecheck", "bridge_build"}
 
 # Keys CI deliberately does not run, and why.
-EXCLUDED = {
-    "apps/desktop:xtask_test": "a Rust Check; CI has never run it, and the root `test` runs xtask's tests",
-}
+EXCLUDED = {}
 
 
 def plan(keys):
@@ -40,7 +41,7 @@ def plan(keys):
             excluded.append(key)
         elif ":" not in key and key in ROOT:
             run.append(key)
-        elif key in SHARDED:
+        elif key in SHARDED or key in RUST:
             run.append(key)
         elif ":" in key and name in MATRIX:
             run.append(key)
