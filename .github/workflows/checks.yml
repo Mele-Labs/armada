@@ -229,7 +229,7 @@ jobs:
   # as `armada check <key>` in that workspace's directory. The key is the
   # display name.
   workspace_check:
-    name: ${{ matrix.key }}
+    name: ${{ matrix.key || 'workspace_check' }}
     needs: plan
     if: needs.plan.outputs.has_matrix == 'true'
     runs-on: ubuntu-latest
