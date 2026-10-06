@@ -1,6 +1,6 @@
 // A walk: a short named script of steps over a mock scenario, which the mock
 // plays in the browser on `?walk=<name>`, `capture/walk.mjs` photographs, and
-// `walks.test.tsx` runs as a test. `docs/practices/running-locally.md`, *Walks*.
+// the `walks-*of4.test.tsx` files run as tests. `docs/practices/running-locally.md`, *Walks*.
 //
 // **One way of finding a target and one way of pressing it, for all three.**
 // A test that pressed with Playwright while the link pressed with this would
