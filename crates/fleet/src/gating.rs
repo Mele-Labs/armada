@@ -22,18 +22,19 @@ use crate::repositories::Served;
 /// **The outcome is a placeholder**, as no Check has run. The gate writes the
 /// real one.
 pub(crate) fn gate_manifests(served: &Served, paths: Option<&[String]>) -> Vec<GateManifest> {
-    let workspaces = served.workspaces();
+    let held = served.workspaces();
+    let workspaces: &[Manifest] = &held;
     if workspaces.is_empty() {
         return Vec::new();
     }
     let root = served.manifest();
     let gating: Vec<&Manifest> = match paths {
-        None => std::iter::once(root).chain(workspaces).collect(),
+        None => std::iter::once(root).chain(workspaces.iter()).collect(),
         Some(paths) => config::gating(root, workspaces, &naming_workspaces(workspaces, paths))
             .iter()
             .filter_map(|gate| {
                 std::iter::once(root)
-                    .chain(workspaces)
+                    .chain(workspaces.iter())
                     .find(|manifest| manifest.dir() == gate.dir)
             })
             .collect(),
