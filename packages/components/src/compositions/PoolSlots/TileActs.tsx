@@ -65,10 +65,10 @@ export type TileActsProps = {
 /**
  * What each reclaim act does, from `reclaim_worktree`, `delete_branch` and
  * `forget_job`. **A bay is released to the pool**: its worktree stays and HEAD
- * is detached, and the release is refused while anything is uncommitted. A
- * worktree outside the pool is removed with `git worktree remove`. Either way
- * the branch is deleted only where the base has all its commits, and kept
- * otherwise. Delete branch is refused while the worktree is on disk.
+ * is detached. A worktree outside the pool is removed with `git worktree
+ * remove`. **Uncommitted files are committed to the branch first, either way**,
+ * and the branch is kept. With none, the branch is deleted only where the base
+ * has all its commits. Delete branch is refused while the worktree is on disk.
  */
 export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget", string> {
   const { slot, held } = row;
@@ -77,11 +77,16 @@ export function tipsOf(row: TileRow): Record<"clear" | "branch" | "forget", stri
   const base = row.cost?.branch?.base ?? slot?.base ?? "main";
   const tip = row.cost?.branch?.tip;
   const keeps = `Deletes branch ${branch} only if ${base} has all its commits, otherwise keeps it.`;
+  const saves = (row.cost?.files.length ?? 0) > 0;
+  const saved = `Commits the uncommitted files to branch ${branch} as a WIP commit`;
   return {
-    clear:
-      slot === undefined
+    clear: saves
+      ? slot === undefined
+        ? `${saved}, then removes the worktree at ${held?.path ?? name}. Keeps branch ${branch}.`
+        : `${saved}, then releases ${name} to the pool. Keeps branch ${branch}.`
+      : slot === undefined
         ? `Removes the worktree at ${held?.path ?? name}. ${keeps}`
-        : `Releases ${name} to the pool: detaches its worktree at .armada/slots/${name} from ${branch} and keeps the directory. Refused while it has uncommitted changes. ${keeps}`,
+        : `Releases ${name} to the pool: detaches its worktree at .armada/slots/${name} from ${branch} and keeps the directory. ${keeps}`,
     branch: `Deletes branch ${branch}${tip === undefined ? "" : ` at ${tip}`}. Its commits not on ${base} stay reachable only from that commit.`,
     forget: `Deletes the record of Job ${row.job ?? held?.job_title ?? ""}. The worktree and branch are not touched.`,
   };

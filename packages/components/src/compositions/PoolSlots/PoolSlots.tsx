@@ -9,6 +9,7 @@ import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 export type { ClearCost, Offered, TileRow } from "./tiles";
+export { ClearSaves } from "./ClearSaves";
 
 /**
  * Cleanup's grid, one tile per worktree and each styled by what holds it. A

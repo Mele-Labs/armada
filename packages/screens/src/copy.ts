@@ -11,6 +11,7 @@
 // file's subject; which control draws them is that file's.
 
 import type { DialogTone } from "@armada/components";
+import { reclaimedSaid, slotNameOf } from "./held";
 
 import type {
   CommandAnswer,
@@ -134,6 +135,7 @@ export function said(outcome: Outcome): string {
  * about it rather than that something went wrong.
  */
 export function reclaimed(answer: WorktreeReclaimed): string {
+  if (answer.saved != null) return reclaimedSaid(answer, slotNameOf(answer.worktree.path) !== null)[0]!;
   const checkout = answer.worktree.removed
     ? `The worktree at ${answer.worktree.path} is gone.`
     : `The worktree at ${answer.worktree.path} is still there — ${answer.worktree.why ?? "no reason was given"}.`;
@@ -190,10 +192,10 @@ export const CONFIRM: Record<ConfirmableAct, { title: string; body: string; tone
   reclaim_worktree: {
     title: "Give this job's worktree back?",
     body:
-      "The checkout is deleted and the disk it was using comes back. The job stays on the " +
-      "board with everything it recorded — this removes a directory, not the job. Its branch " +
-      "is deleted only if the base branch already has every commit on it; one holding work " +
-      "nothing has taken is kept, and the answer says so.",
+      "Releases its slot to the pool, or removes a worktree outside the pool. Uncommitted " +
+      "files are committed to its branch first. The branch is deleted only if the base branch " +
+      "has every commit on it; one holding work nothing has taken is kept. The job stays on " +
+      "the board with everything it recorded.",
   },
   restart_step: {
     title: "Restart this step?",
