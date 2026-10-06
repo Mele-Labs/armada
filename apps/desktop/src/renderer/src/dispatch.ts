@@ -20,7 +20,7 @@ import type { StagedAttachment } from "@armada/protocol";
  * Read a request, and answer with the one thing left to do about it.
  *
  * **No guard here.** Nothing about this call is idempotent, and the form is
- * what stops a second press — see `DispatchJob` in `@armada/screens`. A guard
+ * what stops a second press — see `DispatchJob` in `@armada/jobs`. A guard
  * in two places is two answers about whether a request went out.
  *
  * `repository` is the root New job's own ask answered, on All — #959: the
