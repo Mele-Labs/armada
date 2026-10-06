@@ -4,7 +4,8 @@
       "Bash(git push)",
       "Bash(git push *)",
       "Bash(scripts/land --status:*)",
-      "Bash(scripts/land preflight)"
+      "Bash(scripts/land preflight)",
+      "Bash(armada *)"
     ]
   },
   "hooks": {

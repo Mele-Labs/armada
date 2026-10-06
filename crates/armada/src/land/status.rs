@@ -5,7 +5,7 @@ use std::path::Path;
 
 use super::dir::StateDir;
 use super::env::Env;
-use super::outcome::read_outcome;
+use super::outcome::{read_outcome, together, Outcome, OutcomeState};
 use super::queue::queued;
 use super::repo::{common_git_dir, current_branch};
 use super::stop::Refused;
@@ -14,6 +14,53 @@ use super::stop::Refused;
 /// `scripts/land`'s `EXIT["unknown"]`, the one code no
 /// [`super::outcome::OutcomeState`] carries.
 pub const UNKNOWN: u8 = 8;
+
+/// The exit `--status` gives while a turn is still running but a Check of this
+/// branch's group has failed and the base is green for it: the one code that
+/// means "stop waiting for the end, and do not push".
+pub const HEADS_UP: u8 = 10;
+
+/// What a gating branch is told about its failed Checks, one line each; none
+/// where the turn has no failure the base is green for. A group of more than
+/// one cannot pin the failure on a member, and says so.
+pub fn heads_up(held: &Outcome, base: &str) -> Vec<String> {
+    if held.state != OutcomeState::Gating {
+        return Vec::new();
+    }
+    let batch = !together(&held.detail).1.is_empty();
+    held.own_failures
+        .iter()
+        .map(|name| {
+            let log = held
+                .logs
+                .iter()
+                .find(|path| path.ends_with(&format!("/{name}.log")))
+                .map_or(String::new(), |path| format!(" (log {path})"));
+            let who = if batch {
+                format!(
+                    "{name} failed in this batch{log}; {base} is green for it. This is a \
+                     heads-up for the whole batch: the split will name the branch at fault, \
+                     and your own verdict follows at the end."
+                )
+            } else {
+                format!("{name} failed{log}; {base} is green for it.")
+            };
+            format!(
+                "{who} The turn is still running its other Checks; do not push this \
+                 branch, a push is dropped as stale."
+            )
+        })
+        .collect()
+}
+
+/// The exit code for a branch's outcome: its state's, or [`HEADS_UP`] in place
+/// of "still going" once [`heads_up`] has something to say.
+pub fn exit_for(held: &Outcome, base: &str) -> u8 {
+    match heads_up(held, base).is_empty() {
+        true => held.state.exit_code() as u8,
+        false => HEADS_UP,
+    }
+}
 
 /// Print the line and one branch's own outcome, and answer with the exit
 /// code `docs/practices/running-locally.md` documents for it.
@@ -32,7 +79,9 @@ pub fn status(cwd: &Path, branch: Option<&str>) -> Result<u8, Refused> {
 
     // The runner's ceiling, where one has recorded it: this process's
     // environment need not be the runner's.
-    let size = super::size::describe(&state, Env::read().batch);
+    let env = Env::read();
+    let base = env.base.clone();
+    let size = super::size::describe(&state, env.batch);
     if line.is_empty() {
         println!("merge line: empty, {size}");
     } else {
@@ -70,5 +119,8 @@ pub fn status(cwd: &Path, branch: Option<&str>) -> Result<u8, Refused> {
             println!("  {item}");
         }
     }
-    Ok(held.state.exit_code() as u8)
+    for said in heads_up(&held, &base) {
+        println!("{said}");
+    }
+    Ok(exit_for(&held, &base))
 }

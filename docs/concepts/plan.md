@@ -110,6 +110,8 @@ them is still on the branch, so the plan does not reset with the step.
 
 **Neither is a Drone's or a person's to set.** `update_task` refuses both, because Fleet marks them from a hand-in and from a group's Checks.
 
+**A task carries its needs** (#1059). A task of `record_plan` or `add_task` takes `needs`, each a path and what is needed there, and Fleet declares them as it keeps the plan. They are the Job's and not the task's: dropping the task does not give one back. `docs/concepts/fleet.md`, *Declared needs*.
+
 **A done task a later task edits stays done, and is flagged.** The work behind it is still on the branch, so nothing reopens it; what a person needs is to know that somebody wrote into its files afterwards, which the flag says and the state does not.
 
 ## Groups

@@ -760,6 +760,16 @@ nearly every Check on the way in.
 Poll `--status`, which answers from disk in well under a second, until it stops
 saying the branch is in line.
 
+**A Check that fails while others still run is told to you then**, not when the
+turn ends. When `main` is green for it, `--status` exits 10 and prints, for
+example, `test failed (log <path>); main is green for it. The turn is still
+running its other Checks; do not push this branch, a push is dropped as stale.`
+Read the log and start fixing. The turn goes on and ends red as before. A Check
+that fails on `main` too is `main`'s, and stays exit 3 until the turn says so.
+While your branch gates with others, the line says it is a heads-up for the whole
+batch: the failure cannot be pinned on one member until the split, which names
+the one at fault, and each member's own verdict follows at the end.
+
 **`--withdraw` takes a branch out of the line**, and says what it did. A waiting
 branch is never gated and reads `stopped`. One in a turn now is dropped from any
 gate it is waiting for, but a gate already running finishes and can still land
@@ -770,6 +780,7 @@ it, and the command says so.
 | 0 | Landed, queued, or ready | Landed: remove your worktree with the printed commands |
 | 1 | Refused before joining | Read the line; usually commit or preflight |
 | 3 | Still in line | Poll again |
+| 10 | Still in line, and a Check has failed that `main` is green for | Read the named log and start the fix; do not push, the turn ends red |
 | 4 | Red | Read the named logs; fix on your branch, then preflight and land |
 | 5 | Conflict | Merge `origin/main` in, commit, preflight and land |
 | 7 | Stopped | Read the reason; nothing was merged unless it says so. A Check naming a command this machine does not have lands here, not in red |
@@ -780,6 +791,9 @@ One that fails there too is reported as `main`'s, by name, and the turn stops
 rather than reddening — fix `main` and land that first. One that times out on
 `main` says so, with the limit, rather than that it fails there; land again. That
 rerun happens only on a turn that went red, and only for the Checks that failed.
+With a Check still to run after the failure, it is asked right away, once per
+Check and `main` commit, and a green answer is the exit 10 above. A Check that
+failed last is asked as before.
 
 **Each turn's logs stay on disk for two weeks**, under
 `.git/armada-land/logs/<entry>/<turn>/` in the main checkout, one directory per

@@ -89,6 +89,8 @@ class Refuses(unittest.TestCase):
         reason = json.loads(run.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn("scripts/land preflight", reason)
         self.assertIn("docs/capabilities/merge-line.md", reason)
+        self.assertIn("until it stops exiting 3", reason)
+        self.assertIn("Exit 10 is not the end", reason)
 
 
 def checkout(root: pathlib.Path, name: str, branch: str) -> str:

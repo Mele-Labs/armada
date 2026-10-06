@@ -89,6 +89,7 @@ pub fn land(cwd: &Path, env: &Env) -> Result<Queued, Refused> {
             logs: Vec::new(),
             failed: Vec::new(),
             already: Vec::new(),
+            own_failures: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
             checks: Vec::new(),

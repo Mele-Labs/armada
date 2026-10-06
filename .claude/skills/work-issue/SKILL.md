@@ -220,6 +220,12 @@ scripts/land             # joins the line and returns at once
 scripts/land --status    # poll in short foreground calls
 ```
 
+**Exit 3 is still going; exit 10 is still going and already failing.** A Check
+of your branch failed that `main` is green for, and the turn is running its
+other Checks. The status names the Check and its log. Read the log and start the
+fix now; do not push the branch, since a push is dropped as stale. The turn
+still ends red, and that is the verdict.
+
 **A red turn comes back to you.** Read the logs it names, fix on the branch,
 then preflight and land again.
 
@@ -299,6 +305,20 @@ output"* in the brief. An agent starts cold, and what it reads to find its place
 is most of what it costs. Confirmed 2 Oct 2026: four Studio agents briefed with
 five skills each and file names without lines used 61k–551k tokens apiece, and
 the session's own `/context` put reads at 55% of everything it took in.
+
+**Put the numbers and the Checks in the brief, because an agent never loads this
+skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
+say *"before choosing a protocol minor or a store migration number, run `armada
+need`"*, or each agent takes the next one from `main`. Confirmed 4 to 5 Oct
+2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
+V109 that another branch had taken, and the merge line sent each back to be
+renumbered by hand, five full requeues. The brief must also name what the line
+will run on the files the agent touched: *"run every test module that references
+what you changed, then `armada check typecheck`, `cargo fmt --all --check` and
+`cargo xtask verify-foundations`; a new operation needs `tests::served`."* The
+same session lost four more turns to a route-table test, a fixture that no
+longer typechecked, a rustfmt line and a story-title rule, each red on the line
+and green in the agent's report.
 
 **Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a
 merge or a conflict, a doc or registry edit, a fix whose cause the brief already

@@ -154,6 +154,8 @@ where
         self.kept_plan(&job, &step, &paths).await;
         // After the record, which is what the comparison reads. #998.
         self.claims_announced(&job).await;
+        // A need is declared through the call that corrects the scope. #1059.
+        self.needs_declared(&job, &declaration.needs).await;
         Ok(Declared)
     }
 
