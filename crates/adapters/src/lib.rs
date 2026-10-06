@@ -66,8 +66,6 @@ mod merging_in;
 mod merging_the_base_in;
 /// What a branch needs on a path, shared by `armada need` and Fleet's Jobs. `#1059`.
 pub mod needs;
-/// A branch that changes a watched path with no need declared is refused. `#1059`.
-pub mod undeclared;
 /// The step onto a base, shared by `armada land` and `merge_by: push`.
 pub mod onto_base;
 mod pull_request_diff;
@@ -81,6 +79,8 @@ mod scouting;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
 mod transcript;
+/// A branch that changes a watched path with no need declared is refused. `#1059`.
+pub mod undeclared;
 mod under_review;
 mod watching;
 mod work_product;
