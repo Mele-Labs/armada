@@ -1,8 +1,13 @@
 # CI
 
-**Kind:** practice. **Covers:** `.github/workflows/checks.yml` and `.github/ci/`, the workflow that
-runs this repository's Checks and `cargo xtask verify-foundations` on GitHub. It reports them and gates nothing: a
-ruleset that requires its names does the gating, and none exists yet.
+**Kind:** practice. **Covers:** `.github/workflows/checks.yml` and `.github/ci/`, the
+workflow that runs this repository's Checks and `cargo xtask verify-foundations` on
+GitHub, and with pull requests it replaces the local merge line. Why, and what was
+measured: `.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
+The workflow reports and gates nothing itself: a ruleset on `main` that requires
+`ci` does the gating. The repository allows merge commits only, auto-merge is
+enabled, and the owner, as admin, bypasses the ruleset so the draining line still
+works.
 
 ## What runs when
 
@@ -54,9 +59,8 @@ build of `armada` failing, is red, never an empty plan.
 | `needs` | Fleet's check says so | Not defined here. Reserved: Fleet publishes it |
 | `desktop_test` | The plan succeeded and no shard failed or was cancelled | A failed shard, a failed plan |
 
-**A Check the plan skipped counts as passed.** `ci` is the one name a ruleset
-requires for the Checks below, and a ruleset will require `ci`, `needs` and later
-`desktop_test`.
+**A Check the plan skipped counts as passed.** `ci` is the one name the ruleset
+requires for the Checks below. `needs` and later `desktop_test` are to be added.
 
 ## Where each Check runs
 
@@ -148,7 +152,7 @@ failure, which was a Linux-only test failing on `main`.
 
 | Check | Why |
 |---|---|
-| `scripts_test` | Tests `armada land`, which this workflow replaces. Also fails on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
+| `scripts_test` | Dropped. It tested `armada land`, which this workflow replaces, and failed on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
 | `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 
@@ -166,10 +170,10 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 |---|---|
 | Convert the append-only list files; GitHub ignores `merge=union` | `.gitattributes`, `docs/practices/list-files.md` |
 | Fleet publishes the `needs` check | Fleet |
-| A ruleset requiring `ci` and `needs`, and later `desktop_test` | Repository settings |
+| The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
-| Change agents' landing instructions | `.claude/hooks/guard_merge.py`, `docs/practices/running-locally.md`, the `work-issue` skill |
-| Retire `scripts_test` and `armada land` | `armada.yml`, `crates/armada/src/land/` |
+| Retire `armada land` | `crates/armada/src/land/` |
+| Bridge's merge line becomes a thin view of open pull requests, and Armada prompts when `main` goes red | Bridge, Fleet. Not built |
 | `.github/**` matches no `when:` in armada.yml, so a workflow change is exercised only by the plan job | `armada.yml` |
 
 ## What `foundations` measured and what it did not

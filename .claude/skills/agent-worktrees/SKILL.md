@@ -253,6 +253,17 @@ shell. Prefer a `python3` heredoc over a pipeline for anything that has to parse
 statically, so without it each of a thousand-odd test binaries carries its own
 copy of the full debug info for the whole dependency graph.
 
+**Stale build output is trimmed, and a slot stays warm.** Cargo never deletes an
+old dependency build, incremental session or test binary, and on 6 Oct 2026 24
+checkouts reached 50 GB each. A `release` (and `armada clean` giving back a
+Job's slot) drops every file under the slot's `target/` that no build has
+written in 14 days, and removes the whole `target/` if it is still over 20 GiB.
+Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
+slots held or free, bases, land trees, preview, and the Job and agent worktrees.
+A `target/` with a cargo build running in it is skipped. Settings:
+`slot-build-trim-after-days`, `slot-build-ceiling-gib`,
+`build-sweep-interval-minutes`. Do not delete `target/` by hand to save space.
+
 **Do not share one `CARGO_TARGET_DIR` between worktrees to save space.** It was
 tried: two manifest directories against one target poisoned the incremental cache
 and produced phantom link failures on `main` that took a `cargo clean` to clear.
