@@ -35,6 +35,11 @@ use crate::error::{Disagreement, ResolveError, UnknownCheck};
 use crate::manifest::{Check, Manifest};
 use crate::workflow::{MechanicalCheck, Step, WorkflowDef};
 
+/// How many passes a step's back edge may make where the step names no
+/// `iteration_cap`. The schema's `default_gate_policy.iteration_cap`, which is
+/// five in every sample; the block itself is not read, so the value is here.
+pub const DEFAULT_ITERATION_CAP: u32 = 5;
+
 /// A workflow that can be dispatched against a specific Manifest.
 ///
 /// Holding one means every Check its steps name was declared by that Manifest
@@ -320,12 +325,16 @@ fn resolve_step(
     )
     // **Both keys through one builder**, which is the shape `dispatching` set
     // and the reason `frozen`'s ten positional arguments did not become
-    // twelve. The cap is a count and never an `Option` on the record: absent
-    // and "no loop here" are the same sentence, and `looping` states why zero
-    // is the fail-closed answer.
+    // twelve. The cap is a count and never an `Option` on the record. A step
+    // that emits a verdict and names no cap gets [`DEFAULT_ITERATION_CAP`],
+    // which is what keeps a back edge from running a Job forever now that
+    // nothing else declares one; a step with no edge has no cap to default.
     .looping(
         step.verdict_routing().clone(),
-        step.iteration_cap().unwrap_or(0),
+        match step.verdict_routing().is_empty() {
+            true => 0,
+            false => step.iteration_cap().unwrap_or(DEFAULT_ITERATION_CAP),
+        },
     )
     .quiet_after(step.quiet_after_seconds())
     .poking(step.poke_limit())

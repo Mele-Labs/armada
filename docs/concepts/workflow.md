@@ -1,6 +1,6 @@
 # Workflow
 
-**What it is:** The template a Job runs against: an ordered or loop-capable set of steps, each carrying its mechanical checks, Judge checks, evidence scope, advance gate and retry/iteration policy. Referenced by `workflow_id` and frozen into the Job at the approval press, so the yardstick cannot move under the work.
+**What it is:** The template a Job runs against: an ordered set of steps, any of which may send the work back to an earlier one, each carrying its mechanical checks, Judge checks, evidence scope, advance gate and retry/iteration policy. Referenced by `workflow_id` and frozen into the Job at the approval press, so the yardstick cannot move under the work.
 
 ---
 
@@ -16,7 +16,7 @@ The system below enforces that principle mechanically wherever possible, and che
 
 ## Workflow schema
 
-Every workflow is a `WorkflowDef`: an ordered (or loop-capable) set of steps.
+Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape.
 
 **The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
 
@@ -40,7 +40,9 @@ Every workflow is a `WorkflowDef`: an ordered (or loop-capable) set of steps.
 
 **The settings freeze at approval, with the workflow** — see [Job](job.md), Reading the request is a status, and approval is what locks. A box can take a declaration away and never add one: unticked Checks drop the repository's Checks the step named, and an unticked Judge drops what it would read. **An override of the repository's rule holds for the life of the Job, however the rule moves** (the owner's call of 1 Oct 2026, spike 022 answer 4): the step keeps deferring on the record, and the override is laid over the repository's word at every gate, so the Record shows what each gate read.
 
-**Not all workflows are linear.** Coding workflows (Feature, Bug, Refactor) are a fixed sequence. Planning/exploratory workflows (Design Plan, Investigation) are draft↔feedback loops that repeat until converged or capped.
+**A workflow is its steps, and any step may send the work back.** There is no label saying a workflow is linear or a loop. A step that emits a verdict names an earlier step in `verdict_routing`, and that is the only declaration of a back edge: it must name a step before it, and a step naming itself or a later one is refused. Coding workflows (Feature, Bug, Refactor) go forward; Design Plan returns from `present` to `draft` until converged or capped.
+
+**The passes cap is what stops a back edge running forever.** A step with `verdict_routing` and no `iteration_cap` takes the default, five, from `default_gate_policy`; a step with a cap and no routing is refused, since there is nothing to bound.
 
 **A workflow's one outbound edge creates a Job and never dispatches one.** `on_fail` and `verdict_routing` jump between steps inside a definition; `on_complete` names a `workflow_id` to follow this one.
 
@@ -79,13 +81,13 @@ Picking one by hand stays available and is the override, not the path. That docu
 
 **That is Armada holding an opinion it used to refuse.** An empty `.armada/workflows/` was refused because a repository declares how its own work is done, and a carried set is Armada saying how work is done by default. The trade is accepted, and overriding is one file so that the default does not become the only way.
 
-**A definition from Kit or Armada that does not fit is left out, not refused.** One that will not parse, will not resolve against the repository, or shares its id with another file in the same place, is set aside and named when Fleet starts, and the next place down answers for its id — the sentence says whose. A repository's own stays strict at start, duplicate ids included.
+**A definition that does not fit is left out, not refused, wherever it came from.** One that will not parse, will not resolve against the repository, or shares its id with another file in the same place, is set aside and named when Fleet starts, and the next place down answers for its id — the sentence says whose. Two files in one place sharing an id are both left out. The repository's own is held to the same rule as Kit's and Armada's: a file somebody wrote badly does not stop Fleet starting, and the others stand.
 
-**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders reads them after a hand edit, with the settle window `armada.yml`'s watch uses. **A re-read is lenient where start is strict**: a file of the repository's own that does not fit is left out with its reason, the way Kit's is, and the others stand. A Job already running holds a frozen copy and does not move.
+**Fleet reads the places a definition comes from again while it runs.** A definition saved or edited under the repository's `.armada/workflows/` or Kit's folder is held without a restart: `save_workflow` reads them before it answers, and a watch on both folders reads them after a hand edit, with the settle window `armada.yml`'s watch uses. **A re-read leaves out by the same rule as start**: a file that does not fit is left out with its reason and the others stand. A Job already running holds a frozen copy and does not move.
 
 **Saving one is `save_workflow`.** The caller names the place, the repository's own or Kit's, and sends the definition whole. Fleet parses it against the models this machine offers and resolves it against the Manifest, the parse and the resolve a catalogue does, so what is saved is what would load; a definition that does not fit is refused with the loader's reason and nothing is written. A definition already holding the id in that place is replaced only where the call says `overwrite`, and the file that held it is the one replaced, whatever it is called. Where both Kit and the repository define an id, the repository's runs.
 
-**A Job says which place its workflow came from.** The frozen workflow carries `source` — `armada`, `kit` or `repository` — beside its steps, so the answer outlives the files. Fleet also says it for every workflow when it starts. No surface in Bridge shows it yet.
+**A Job says which place its workflow came from.** The frozen workflow carries `source` — `armada`, `kit` or `repository` — beside its steps, so the answer outlives the files. Fleet also says it for every workflow when it starts, and `list_workflows` says it with the file and each definition of the same id a more specific place replaced, so a surface can mark the source and draw the replaced ones apart. `get_workflow` reads any one of them whole, as the text `save_workflow` takes back. Fleet's health says whether anything was left out and never how many.
 
 **Feature is the pattern other coding workflows follow; Bug is the sample to copy from.** Design Plan is the only loop; Prototype is the only workflow with gateless steps.
 

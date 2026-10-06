@@ -128,11 +128,12 @@ impl Locating for Locator {
     }
 
     fn workflows(&self, root: &Path, manifest: &config::Manifest) -> Catalogued {
-        let (workflows, left_out) =
+        let (workflows, left_out, files) =
             crate::setup::workflows_again(root, &self.kit, &self.roster, manifest);
         Catalogued {
             workflows,
             left_out: left_out.iter().map(fleet::left_out_workflow).collect(),
+            files,
         }
     }
 
@@ -163,12 +164,17 @@ impl Locating for Locator {
                     .iter()
                     .map(fleet::left_out_workflow)
                     .collect();
+                let files = setup.files().to_vec();
                 let (manifest, workflows, reloads) = setup.into_parts();
                 self.pending
                     .lock()
                     .unwrap_or_else(PoisonError::into_inner)
                     .insert(root_text.clone(), reloads);
-                Some(SetUp::of(manifest, workflows).leaving_out(left_out))
+                Some(
+                    SetUp::of(manifest, workflows)
+                        .leaving_out(left_out)
+                        .with_files(files),
+                )
             }
             Err(SetupRefused::NoManifest { .. }) => None,
             Err(why) => {

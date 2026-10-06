@@ -10,9 +10,8 @@
 # enum `core-model` will hold without a mapping in between.
 #
 # `transitions_in` and `transitions_out` are derivable from
-# job-transitions.toml and are carried anyway, for the reason WorkflowDef's
-# own `structure` field is carried: declared intent checked against what was
-# actually wired. A rule reads both and fails where they disagree.
+# job-transitions.toml and are carried anyway: declared intent checked against
+# what was actually wired. A rule reads both and fails where they disagree.
 #
 # `step_states` is derived the same way and checked the same way, against the
 # step machine rather than against this file's neighbour: STEP_EDGES walked

@@ -50,12 +50,15 @@ export function screenOf(where: {
   studying: boolean;
   kitting: boolean;
   settling: boolean;
+  /** The Workflow creator. Optional, since only the window itself draws it. */
+  workflowing?: boolean;
 }): HelmScreen {
   if (where.reading) return "job_detail";
   if (where.clearing) return "cleanup";
   if (where.manifesting) return "manifest";
   if (where.studying) return "studio";
   if (where.kitting) return "kit";
+  if (where.workflowing === true) return "workflows";
   // **Last, and it was missing entirely until #1275.** A person on Settings
   // was told to Helm as being on the Board, which is the gap #1287 left when
   // it added `studio` and stopped.
@@ -112,6 +115,7 @@ const SCREEN_LABEL: Record<Exclude<HelmScreen, "job_detail">, string> = {
   studio: "Studios",
   kit: "Kit",
   settings: "Settings",
+  workflows: "Workflows",
 };
 
 /**

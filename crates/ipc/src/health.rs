@@ -33,6 +33,12 @@ pub struct FleetHealth {
     /// resolved once when Fleet started. `#1127` — Bridge had no way to read
     /// what Fleet actually decided, only the setting's own description.
     pub helm_action_authority: HelmActionAuthority,
+    /// Whether any served repository left a workflow definition out, so a rail
+    /// can warn without counting. **A boolean and never a number**: the list is
+    /// `list_left_out_workflows`, and what a person is told is that something
+    /// is there to read. `false` from a Fleet older than 23.33.
+    #[serde(default)]
+    pub workflows_left_out: bool,
 }
 
 /// How far this machine lets Helm act, as the wire spells `fleet::helm::

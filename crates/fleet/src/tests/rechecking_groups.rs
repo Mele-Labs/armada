@@ -23,7 +23,7 @@ type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 /// A Drone per task, two retries, a Check that passes once `pass` exists beside
 /// the worktree, and a Judge that reads the plan through `reference_docs`.
 fn the_workflow(home: &TempDir) -> config::ResolvedWorkflow {
-    let text = "version: 1\nworkflow_id: fixture-groups\nname: fixture\nstructure: linear\n\
+    let text = "version: 1\nworkflow_id: fixture-groups\nname: fixture\n\
          steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
          evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
          - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \

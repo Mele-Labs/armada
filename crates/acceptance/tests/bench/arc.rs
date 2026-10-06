@@ -63,7 +63,6 @@ pub fn feature_with_a_drone_per_task() -> core_model::FrozenWorkflow {
 version: 1
 workflow_id: feature-per-task
 name: feature
-structure: linear
 steps:
   - id: plan
     label: "Plan the change"
@@ -112,7 +111,6 @@ pub fn per_task_with_two_retries() -> config::ResolvedWorkflow {
 version: 1
 workflow_id: per-task-with-retries
 name: feature
-structure: linear
 steps:
   - id: plan
     label: "Plan the change"
@@ -192,7 +190,6 @@ pub fn landing_by_the_repository() -> core_model::FrozenWorkflow {
 version: 1
 workflow_id: feature-landing-by-rule
 name: feature
-structure: linear
 steps:
   - id: plan
     label: "Plan the change"

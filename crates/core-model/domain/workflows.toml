@@ -34,9 +34,8 @@
 #   version           - the sample's version
 #   sample            - path to the WorkflowDef, relative to this file
 #   status            - Reference sample | Designed | Policy variant | Needs design
-#   structure         - linear | loop
 #   steps             - the definition step count, which is not the rendered
-#                       row count on a loop
+#                       row count where a step routes back
 #   gate_profile      - what it takes to advance, in one sentence
 #   what_it_exercises - why this workflow is worth having as a distinct shape
 #   open_questions    - questions the source left open against this row
@@ -45,7 +44,6 @@
 [workflows.architecture_plan]
 name = "Architecture Plan"
 status = "Policy variant"
-structure = "loop"
 gate_profile = "As Design Plan"
 what_it_exercises = "Nothing — no structural difference from Design Plan"
 notes = "A variant of Design Plan in name only. Same loop shape, same gates, same evidence type. Nothing structural differs, so it needs no `WorkflowDef` of its own; it is a label on a Design Plan Job."
@@ -56,7 +54,6 @@ workflow_id = "bug"
 version = 2
 sample = "workflow-samples/bug.json"
 status = "Reference sample"
-structure = "linear"
 steps = 7
 gate_profile = "Check + Judge on the first three steps, Check only on regression_verify, Manifest rule at review and merge, human at review by default"
 what_it_exercises = "Every field type: mechanical check, Judge check, panel, gaming check with a baseline, hard-prerequisite evidence, a backward on_fail, and two manifest_rule gates. The one to copy from."
@@ -95,7 +92,6 @@ workflow_id = "code_review"
 version = 1
 sample = "workflow-samples/code-review.json"
 status = "Designed"
-structure = "linear"
 steps = 3
 gate_profile = "artifact_exists on both working steps, a Judge panel of 2 against rubber-stamping, and a human gate only if the repo asks for one. No merge step — it lands nothing."
 what_it_exercises = "The inverted case. The diff is the Drone's input, not its output, so it moves from work product to yardstick — and the gaming risk flips from fabricating to rubber-stamping. Sole user of ref_source. The diff is injected into the Drone's context rather than verified after the fact."
@@ -153,10 +149,9 @@ workflow_id = "design_plan"
 version = 1
 sample = "workflow-samples/design-plan.json"
 status = "Designed"
-structure = "loop"
 steps = 2
 gate_profile = "No Check tier at all. A human gate on every iteration — the evidence is a document, so every pass is yours to judge."
-what_it_exercises = "The only instantiated loop. Sole sample for structure: loop, verdict_routing, iteration_cap, and a three-value human gate. Half of Armada's declared workflow shapes had no schema before this row."
+what_it_exercises = "The only instantiated loop. Sole sample for a back edge by verdict_routing, iteration_cap, and a three-value human gate. Half of Armada's declared workflow shapes had no schema before this row."
 notes = """
 The first instantiated loop sample: `verdict_routing`, `iteration_cap` and the three-value human gate have no earlier sample to derive from. Drawn shape: `draft → present → decide`, with `request_changes` looping `present` back to `draft`, an iteration cap of 5, and no Check tier. Field usage is in `fields` below.
 
@@ -168,7 +163,6 @@ Settled since: whose `iteration_count` increments is the emitting step's, which 
 """
 
 [workflows.design_plan.fields]
-"structure: loop" = { on = "the `WorkflowDef`", meaning = "The only other value besides `linear`" }
 verdict_routing = { on = "`present`, the step that emits the verdict", meaning = "`{ \"request_changes\": \"draft\" }` declares the loop edge; it lives on the emitting step so one workflow can carry more than one loop" }
 iteration_cap = { on = "`present`", meaning = "Overrides `default_gate_policy.iteration_cap`; reaching it escalates like a stuck gate. Not `retry_limit` — nothing failed" }
 "advance_gate: human_always" = { on = "`present`", meaning = "Returns `approve` / `request_changes` / `reject`, not a boolean" }
@@ -192,7 +186,6 @@ workflow_id = "epic"
 version = 1
 sample = "../../../.armada/workflows/epic.json"
 status = "Shipped"
-structure = "loop"
 steps = 2
 gate_profile = "A person reads each wave's plan and the Jobs it proposed, and releases them in one press. `plan` is human_always and proposes the wave; `roll_up` is human_always and is where the loop turns."
 what_it_exercises = "The only workflow whose product is other Jobs. Sole holder of `may_dispatch_jobs`, on the step a person answers: what it proposes waits at `awaiting_approval` for `approve_wave` (spike 022, slice 6)."
@@ -214,7 +207,6 @@ workflow_id = "feature"
 version = 1
 sample = "workflow-samples/feature.json"
 status = "Designed"
-structure = "linear"
 steps = 7
 gate_profile = "Check + Judge on the first four steps, human always at review, Manifest rule at merge. The only sample using human_always as a literal advance_gate value."
 what_it_exercises = "The template the other coding workflows derive from. Only instance of human_always, of two mechanical_checks on one step, and of two Manifest Checks on one step. Written in the array form decided Aug 22 2026."
@@ -236,7 +228,6 @@ reference_docs = "Carries `\"ticket\"`, which is not a path; the type was widene
 [workflows.investigation_research_spike]
 name = "Investigation / Research Spike"
 status = "Designed"
-structure = "loop"
 steps = 4
 gate_profile = "No mechanical tier and no Judge gate. Human gate on every iteration, as Design Plan"
 what_it_exercises = "The only designed workflow with no fallback done signal, so the thrashing tripwire is the sole safety net rather than a backstop"
@@ -255,7 +246,6 @@ Designed but not instantiated — no `WorkflowDef` sample exists yet.
 [workflows.plan_review]
 name = "Plan Review"
 status = "Policy variant"
-structure = "loop"
 gate_profile = "As Design Plan"
 what_it_exercises = "Nothing yet — its existence as a top-level workflow is open"
 notes = """
@@ -269,7 +259,6 @@ Open: Is Plan Review a top-level workflow or a step inside Design Plan?
 [workflows.production_support_incident]
 name = "Production Support Incident"
 status = "Policy variant"
-structure = "linear"
 gate_profile = "As Bug, with tighter retry and escalation thresholds and a shorter heartbeat interval. The dispatch gate is unchanged — no variant weakens it."
 what_it_exercises = "Policy as the axis of variation — the same steps under a different gate policy"
 open_questions = ["Does Job carry urgency, and may any pre-dispatch gate be skipped under an incident?"]
@@ -301,7 +290,6 @@ workflow_id = "prototype"
 version = 1
 sample = "workflow-samples/prototype.json"
 status = "Designed"
-structure = "linear"
 steps = 3
 gate_profile = "Two of three steps have no gate at all. One human gate. auto_merge never."
 what_it_exercises = "A step with no Check and no Judge — Fleet advances it outright. The canvas settled this as the common case rather than an edge one, and no sample carried it."
@@ -322,7 +310,6 @@ workflow_id = "refactor"
 version = 1
 sample = "workflow-samples/refactor.json"
 status = "Designed"
-structure = "linear"
 steps = 6
 gate_profile = "Check + Judge on all three working steps. The test Check is a hard prerequisite — no green suite, no advance, even on retry. Judge reads the test-file diff directly."
 what_it_exercises = "The gaming-check path end to end, and the no-parsing rule: one Manifest Check exit code is the whole mechanical tier, and every question about what the tests now cover is a Judge reading the diff"
@@ -351,7 +338,6 @@ workflow_id = "revert"
 version = 1
 sample = "workflow-samples/revert.json"
 status = "Designed"
-structure = "linear"
 steps = 5
 gate_profile = "Check + Judge on the revert step at panel_size 3, mechanical only at verify, human always at review, Manifest rule at merge. The second workflow after Feature to use human_always, and the only one to raise panel_size above 1 on a working step."
 what_it_exercises = "Undoing landed work. The only workflow that inherits its scope instead of having it classified, and the only one whose yardstick is another Job rather than an earlier step of its own. First sample written in the criteria[] form."

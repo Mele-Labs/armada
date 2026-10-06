@@ -86,6 +86,20 @@ test("screenOf names Settings rather than falling through to Overview", () => {
   expect(screenOf({ ...none, settling: true })).toBe("settings");
 });
 
+test("screenOf names Workflows, and Kit still outranks it", () => {
+  const none = {
+    reading: false,
+    clearing: false,
+    manifesting: false,
+    studying: false,
+    kitting: false,
+    settling: false,
+  };
+  expect(screenOf({ ...none, workflowing: true })).toBe("workflows");
+  expect(screenOf({ ...none, workflowing: true, kitting: true })).toBe("kit");
+  expect(locationOf({ screen: "workflows" }, [])).toBe("Workflows");
+});
+
 test("cursorRowFor sends Overview's cursor on Overview", () => {
   expect(cursorRowFor({ screen: "overview", overview: "14" })).toBe("14");
 });

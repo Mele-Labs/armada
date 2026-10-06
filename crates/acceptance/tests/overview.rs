@@ -225,6 +225,7 @@ fn health_survives_the_wire_with_the_unprobed_half_still_on_it() {
             because: "Doctor's grid is not built".to_string(),
         }],
         helm_action_authority: HelmActionAuthority::Acting,
+        workflows_left_out: true,
     };
     let received: FleetHealth = round_trip_health(&health);
     assert_eq!(received.probes.len(), 1);

@@ -68,7 +68,7 @@ fn a_fleet_showing(home: &TempDir, run: &str) -> Arc<Fixture> {
 fn a_fleet_showing_a_claimed_port(home: &TempDir) -> Arc<Fixture> {
     let def = WorkflowDef::parse(
         std::path::Path::new("fixture-shown-port.yml"),
-        "version: 1\nworkflow_id: fixture-shown-port\nname: fixture\nstructure: linear\nsteps:\n  \
+        "version: 1\nworkflow_id: fixture-shown-port\nname: fixture\nsteps:\n  \
          - id: show\n    label: \"Show\"\n    evidence: {submitted: {type: diff}, captured: true}\n    delivers: false\n    \
          advance_gate: human_always\n",
         &Roster::offering_nothing(),
@@ -109,7 +109,7 @@ evidence:
 fn a_fleet_showing_two_captured_steps(home: &TempDir) -> Arc<Fixture> {
     let def = WorkflowDef::parse(
         std::path::Path::new("fixture-shown-two.yml"),
-        "version: 1\nworkflow_id: fixture-shown-two\nname: fixture\nstructure: linear\nsteps:\n  \
+        "version: 1\nworkflow_id: fixture-shown-two\nname: fixture\nsteps:\n  \
          - id: show\n    label: \"Show\"\n    evidence: {submitted: {type: diff}, captured: \
          true}\n    delivers: false\n    advance_gate: auto\n  - id: show_more\n    label: \"Show \
          more\"\n    evidence: {submitted: {type: diff}, captured: true}\n    delivers: false\n    \

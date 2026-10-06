@@ -1857,9 +1857,10 @@ The block's fixed wording, which sits between *On a Studio* and *How you answer*
 ```
 ┌─ AUTHORING A WORKFLOW ─────────────────────────
 │ A workflow is the template a Job runs against:
-│ an ordered or looping set of steps, each with
-│ its checks, its gate and its limits. A person
-│ may ask you to help write one. It lives in one
+│ an ordered set of steps, any of which may send
+│ the work back to an earlier one, each with its
+│ checks, its gate and its limits. A person may
+│ ask you to help write one. It lives in one
 │ of two places, and the person chooses: this
 │ repository's own `.armada/workflows/`, which
 │ only this repository uses, or Kit's

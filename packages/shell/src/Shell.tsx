@@ -135,6 +135,8 @@ export type ShellProps = {
    * an empty screen. The merge line, until there is a line to show.
    */
   hidden?: readonly string[];
+  /** A mark on a rail row, by surface id, and what its tooltip says. */
+  warned?: Readonly<Record<string, string>>;
   /** Every question waiting on a person, from every repository, as the dock's cards. Oldest first. */
   questions?: readonly DockQuestion[];
   /**
@@ -172,6 +174,7 @@ export function Shell({
   showing,
   onSurface,
   hidden = [],
+  warned = {},
   questions = [],
   asking = 0,
   helm,
@@ -229,6 +232,7 @@ export function Shell({
             label: surface.label,
             icon: surface.icon,
             shortcut: surface.shortcut,
+            ...(warned[surface.id] === undefined ? {} : { warning: warned[surface.id] }),
             // **No row carries a count.** The Board's did — active Jobs, the
             // owner's ruling of 11 Sep 2026 — and that row went with the page.
             // Stats already carries every count the column shows, and a second

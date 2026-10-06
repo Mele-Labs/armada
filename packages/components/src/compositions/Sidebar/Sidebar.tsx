@@ -1,6 +1,7 @@
-import { PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
+import { PanelLeftClose, Ban, PanelLeftOpen, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useShortcutReveal } from "../../shortcut-reveal";
 
 /**
@@ -46,6 +47,11 @@ export type SidebarItem = {
    * reaches every surface without a label to read.
    */
   shortcut?: string;
+  /**
+   * What the surface behind this row holds that a person should look at, said
+   * on a 12px mark after the label. A mark, never a count. Absent draws none.
+   */
+  warning?: string;
 };
 
 export type SidebarProps = {
@@ -105,7 +111,7 @@ function Item({
       aria-current={active ? "page" : undefined}
       // The label is the accessible name in both states; collapsing hides it
       // visually and nothing else.
-      aria-label={collapsed ? item.label : undefined}
+      aria-label={collapsed || item.warning !== undefined ? item.label : undefined}
       onClick={() => onSelect?.(item.id)}
     >
       {/* The chip is the column's, not the glyph's: the palette draws the same
@@ -115,6 +121,13 @@ function Item({
         <item.icon size={NAV_ICON} strokeWidth={NAV_STROKE} />
       </span>
       {collapsed ? null : <span className="armada-sidebar__label">{item.label}</span>}
+      {!collapsed && item.warning !== undefined ? (
+        <Tooltip label={item.warning}>
+          <span className="armada-sidebar__warning" role="img" aria-label={item.warning}>
+            <Ban size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
       {!collapsed && item.count !== undefined ? (
         <span className="armada-sidebar__count">{item.count}</span>
       ) : null}

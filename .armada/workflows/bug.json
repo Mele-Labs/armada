@@ -62,7 +62,6 @@
   "workflow_id": "bug",
   "name": "bug",
   "for_requests": "Something that is broken: it used to work, or is meant to work, and does not, and what is wanted is the cause found and fixed. Taking a change that already landed back out whole is a revert, and adding or changing what the software does on purpose is a feature.",
-  "structure": "linear",
   "steps": [
     {
       "id": "plan",

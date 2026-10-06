@@ -348,8 +348,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use setup::{
-    LeftOutWorkflow, ManifestSummary, ModelChoices, SaveWorkflow, StepPhase, WorkflowSaved,
-    WorkflowScope, WorkflowStep, WorkflowSummary,
+    LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
+    WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,
 };
 pub use showing::{KeptFrame, NamedSpec, ShowAgain, ShownAgain, ShownSet, SpecPicked};
 pub use since::{EventTally, EventsSince};

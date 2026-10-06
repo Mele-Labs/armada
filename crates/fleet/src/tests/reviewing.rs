@@ -322,7 +322,7 @@ async fn a_step_after_a_human_boundary_does_not_advance_on_a_rebase_it_did_not_r
     let mut fittings = fittings(&home, FakeWorkProduct::untouched());
     let def = config::WorkflowDef::parse(
         std::path::Path::new("fixture.yml"),
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\n\
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\n\
          steps:\n  - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
          mechanical_checks:\n      - type: diff_nonempty\n    delivers: false\n    advance_gate: human_always\n  - \
          id: verify\n    label: \"Verify\"\n    evidence: {submitted: {type: diff}}\n    \

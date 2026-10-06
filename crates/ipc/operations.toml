@@ -701,6 +701,8 @@ agent_access = "Yes"
 description = "All Doctor probes"
 notes = """
 The one call that must work when Fleet is down. The probe count is not stated here; it is Doctor's, in docs/concepts/doctor.md.
+
+**Since 23.33 it says whether any workflow definition was left out**, as `workflows_left_out`, a boolean on the answer itself and not a probe. It is never a count: a rail warns that something is there to read, and `list_left_out_workflows` is where each reason is. True where any served repository left one out.
 """
 
 [operations.get_job]
@@ -1217,6 +1219,8 @@ One workflow at M1 — `Fittings` holds exactly one — and the row is still a l
 A step was a bare id until `mechanical_checks` was added to it. Bridge printed "No operation serves this step's checks" under every step because nothing on the wire could say otherwise, and for the `bug` workflow the truth is that none of its four steps declares one. `get_job` answers from these same values rather than a second copy.
 
 **A step now carries its advance gate and what it asks the Judge, which is the whole of what this answers that `get_job` does not answer sooner.** This is where a person decides whether to approve a dispatch: afterwards the rail says what happened, and here they are agreeing to it. A workflow that will stop and wait for them at `handoff`, and spend Judge calls at `implement`, previewed as neither. Both are the shapes the rail already uses, and the criteria themselves stay off the wire — counts and states, never a question.
+
+**Since 23.33 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
 """
 
 [operations.list_left_out_workflows]
@@ -1227,13 +1231,26 @@ description = "The Kit and carried workflow definitions Fleet runs without, each
 notes = """
 #425. `config`'s catalogue leaves out a Kit or carried definition that will not parse, will not resolve against this repository, or shares an id with a sibling in its own place, and Fleet printed each only at start. A person who customised `bug` in Kit and picks `bug` in the composer was running Armada's without any way to find out.
 
-**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here only when it was written or edited under a Fleet that was already running (protocol 23.28): one that does not fit refuses Fleet's start, and is set aside, with its reason, by a re-read.
+**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here as Kit's is (protocol 23.29): one that does not fit is set aside with its reason at start and on every re-read, and before 23.29 it refused Fleet's start.
 
 **Per repository**, named by `?manifest_id=` and the one Fleet started in where absent: whether a Kit or carried definition resolves depends on that repository's own Checks.
 
 `said` is the sentence Fleet prints, rendered and never matched on. `file` is absolute, on `ManifestSummary.path`'s ground: two processes on one machine agreeing where a file is.
 
 `agent_access` is `Yes` on `list_workflows`' terms: a Helm about to propose `bug` should be able to see that the `bug` it would get is not Kit's.
+"""
+
+[operations.get_workflow]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One workflow definition as its file holds it, for an editor, from any of the three places"
+notes = """
+`GET /workflows/definition?workflow_id=&source=&manifest_id=`, protocol 23.33. The answer is a `WorkflowDefinition`: the id, the place (`armada`, `kit` or `repository`), the file as Fleet read it, `definition` and `overridden_by`. **`definition` is the file's text and not a tree**, the shape `save_workflow` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
+
+`source` is optional. Absent is the definition that runs; present reads one a more specific place replaced, which `list_workflows` names on the winner's `overrides`. A definition left out is not here: it is on `list_left_out_workflows` with its reason, and a file that did not parse has no id to ask for. 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. Per repository, by `?manifest_id=`, the one Fleet started in where absent.
+
+`agent_access` is `Yes` on `list_workflows`' terms: Helm helping to edit a workflow reads the file it is editing.
 """
 
 [operations.save_workflow]
@@ -1246,9 +1263,9 @@ notes = """
 
 **Checked before anything is written, with the rules a loader applies.** `config::fit` parses the definition against this machine's models and resolves it against the repository's Manifest, the parse and the resolve a catalogue does, so a definition that is saved is one that loads. A refusal carries the loader's own sentence, every fault of it, and nothing is written: not the file, not the folder, not a temporary one. 422 `fleet.workflow_unfit` where it does not fit, and `fleet.workflow_id_not_a_name` where its `workflow_id` is not letters, digits, `-` and `_`.
 
-**Replacing is said.** A definition that already holds the id in that scope is found by the id it declares and not by the file's name, since the repository's own place is strict at start and two files naming one id would refuse it. 422 `fleet.workflow_exists`, naming the file, unless `overwrite` is `true`; with it the file that held the id is the one replaced. A file named for the id that defines something else is never replaced. 500 `fleet.workflow_unwritable` where the file cannot be written.
+**Replacing is said.** A definition that already holds the id in that scope is found by the id it declares and not by the file's name, since two files in one place naming one id leave both out. 422 `fleet.workflow_exists`, naming the file, unless `overwrite` is `true`; with it the file that held the id is the one replaced. A file named for the id that defines something else is never replaced. 500 `fleet.workflow_unwritable` where the file cannot be written.
 
-**Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start is unchanged, and still refuses a repository whose own definition does not fit.
+**Held when it answers.** Fleet reads the three places again before answering, so the workflow is dispatchable at once and `list_workflows` shows it. A file written by hand is read again by the watch on both folders, after the same settle window `armada.yml`'s has. Either way a definition that does not fit is left out with its reason on `list_left_out_workflows` and the rest stand; start does the same, and since 23.29 no longer refuses a repository whose own definition does not fit.
 
 `agent_access` is `Helm only`, `edit_manifest`'s reason: what is written decides what every Job here is gated on. Helm calls it on a person's ask and never unasked. **A save that carries `overwrite: true` is put to the person**, as destructive, and a first save is not, because the call without it cannot replace anything — `fleet::helm::deciding`.
 """

@@ -482,9 +482,8 @@ fn workflow_text(
     delivers: Sends<'_>,
     held: Held<'_>,
 ) -> String {
-    let mut text = String::from(
-        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nstructure: linear\nsteps:\n",
-    );
+    let mut text =
+        String::from("version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n");
     for (n, step) in steps.iter().enumerate() {
         // A person's gate outranks both, because it names an actor rather
         // than a tier: `config`'s own parser accepts `human_always` beside

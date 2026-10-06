@@ -20,7 +20,6 @@ const TWO_STEPS: &str = r#"
 version: 1
 workflow_id: scoped
 name: scoped
-structure: linear
 steps:
   - id: implement
     label: Implement
@@ -44,7 +43,6 @@ const BARE_STEP: &str = r#"
 version: 1
 workflow_id: scoped
 name: scoped
-structure: linear
 steps:
   - id: implement
     label: Implement

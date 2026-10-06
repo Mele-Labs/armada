@@ -123,6 +123,8 @@ pub struct StartingIn {
     pub workflows: BTreeMap<WorkflowId, ResolvedWorkflow>,
     /// The Kit and carried definitions left out of `workflows`.
     pub left_out: Vec<ipc::LeftOutWorkflow>,
+    /// Every definition file read, as `config`'s catalogue kept them.
+    pub files: Vec<config::WorkflowFile>,
     pub manifest: Manifest,
 }
 
@@ -334,7 +336,8 @@ where
                     first.root,
                     first.records_root,
                     crate::repositories::SetUp::of(first.manifest, first.workflows)
-                        .leaving_out(first.left_out),
+                        .leaving_out(first.left_out)
+                        .with_files(first.files),
                 ),
                 None => crate::repositories::Repositories::none(),
             }),

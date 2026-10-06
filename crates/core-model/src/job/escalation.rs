@@ -129,7 +129,7 @@ pub enum EscalationTrigger {
     /// [`declared_edge`](Self::declared_edge), which returns the second. Both
     /// are its own and the definition above is reached through the first.
     Interrupted,
-    /// A loop workflow's step hit its `iteration_cap`. Nothing failed — the
+    /// A step that routes back hit its `iteration_cap`. Nothing failed — the
     /// loop did not converge, which is why the count that tripped it is
     /// `iteration_count` and never the retry budget.
     LoopCap,

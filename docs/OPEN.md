@@ -13,7 +13,7 @@ on purpose and makes the gate name what was waiting.
 
 ## crates/core-model/domain/README.md
 
-- **[workflowdef-schema-gaps]** Five keys appear in the workflow samples with no row in the field catalogue: `workflow_id`, `version`, `order`, `required`, `manifest_rule_overrides`. The `structure` field's prose also cites an `id` row that does not exist. What decides it: the samples are the working shape and the catalogue is the schema, so either the catalogue is incomplete or the samples carry keys nothing reads. Only one can be true, and the answer decides what a parser accepts.
+- **[workflowdef-schema-gaps]** Five keys appear in the workflow samples with no row in the field catalogue: `workflow_id`, `version`, `order`, `required`, `manifest_rule_overrides`. What decides it: the samples are the working shape and the catalogue is the schema, so either the catalogue is incomplete or the samples carry keys nothing reads. Only one can be true, and the answer decides what a parser accepts.
 
 ## docs/concepts/bridge.md
 
