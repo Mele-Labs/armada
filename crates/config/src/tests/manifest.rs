@@ -5,6 +5,7 @@
 //! eight and listed nine. Counting again would only move the number, so the
 //! counts are gone and the list lives in `crate::manifest`.
 
+mod auto_release;
 mod merge_by;
 mod ports;
 mod seed;
@@ -688,14 +689,21 @@ fn a_setup_with_no_requires_is_refused() {
 }
 
 #[test]
-fn requires_seed_and_worktrees_are_the_only_keys_setup_has() {
+fn the_five_keys_setup_has_are_the_only_ones() {
     let refused = refusals(parse(
         "version: 1\nid: a\ncommands:\n  fmt:\n    run: x\n\
          setup:\n  requires: [fmt]\n  timeout: 60\n",
     ));
     assert!(matches!(
         fault_at(&refused, "setup.timeout"),
-        Fault::Unknown { known } if *known == ["requires", "seed", "worktrees"]
+        Fault::Unknown { known } if *known
+            == [
+                "requires",
+                "seed",
+                "worktrees",
+                "auto_release",
+                "auto_release_grace_minutes"
+            ]
     ));
 }
 
