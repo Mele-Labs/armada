@@ -4,11 +4,12 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    RescueRefused, SlotChange, SlotKept, SlotLeased, SlotPool, SlotReading, SlotRefused,
-    SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree, WorktreeSpec,
+    RescueRefused, SlotChange, SlotKept, SlotLeased, SlotParkRefused, SlotParked, SlotPool,
+    SlotReading, SlotRefused, SlotRescue, SlotRescued, SlotStanding, StrandedWork, Worktree,
+    WorktreeSpec,
 };
 
-use super::{Holder, LeaseRefused, Leased, Pool, SlotState, Unshaped};
+use super::{Holder, LeaseRefused, Leased, ParkRefused, Pool, SlotState, Unshaped};
 
 fn pool(slots: &SlotPool) -> Pool {
     Pool::at(
@@ -30,11 +31,7 @@ pub(crate) fn lease(
     spec: &WorktreeSpec,
     job: &str,
 ) -> Result<SlotLeased, LeaseRefused> {
-    // Read here, at the edge: only `--status` reads it, to say for how long.
-    let since = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|since| since.as_secs())
-        .unwrap_or(0);
+    let since = since();
     let branch = spec.branch();
     match pool(slots).try_lease(&branch, &Holder::job(job), since, &not_here)? {
         Leased::Full(_) => Ok(SlotLeased::Full),
@@ -43,6 +40,52 @@ pub(crate) fn lease(
             worktree: Worktree::at(lease.path().to_string_lossy(), branch),
             reused: !lease.made(),
         }),
+    }
+}
+
+/// Read here, at the edge: only `--status` reads it, to say for how long.
+fn since() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|since| since.as_secs())
+        .unwrap_or(0)
+}
+
+/// A slot onto a branch that exists, at its tip: the other half of a park.
+pub(crate) fn lease_existing(
+    slots: &SlotPool,
+    branch: &str,
+    job: &str,
+) -> Result<SlotLeased, LeaseRefused> {
+    match pool(slots).try_lease_existing(branch, &Holder::job(job), since(), &not_here)? {
+        Leased::Full(_) => Ok(SlotLeased::Full),
+        Leased::Took(lease) => Ok(SlotLeased::Took {
+            slot: lease.slot() as u32,
+            worktree: Worktree::at(lease.path().to_string_lossy(), branch),
+            reused: !lease.made(),
+        }),
+    }
+}
+
+/// Commit the Job's work to its branch and give the slot back.
+pub(crate) fn park(slots: &SlotPool, slot: u32, job: &str) -> Result<SlotParked, SlotParkRefused> {
+    match pool(slots).park(slot as usize, &Holder::job(job)) {
+        Ok(parked) => Ok(SlotParked {
+            branch: parked.branch,
+            commit: parked.committed.map(|committed| committed.commit),
+        }),
+        Err(ParkRefused::NotASlot(_) | ParkRefused::NotLeased(_)) => {
+            Err(SlotParkRefused::NotLeased)
+        }
+        Err(ParkRefused::HeldByAnother(who)) => Err(SlotParkRefused::HeldByAnother(who)),
+        Err(ParkRefused::Busy) => Err(SlotParkRefused::Busy),
+        Err(ParkRefused::OnNoBranch) => Err(SlotParkRefused::OnNoBranch),
+        Err(ParkRefused::OnTheBase(base)) => Err(SlotParkRefused::OnTheBase(base)),
+        Err(ParkRefused::OnAnotherBranch { leased, on }) => {
+            Err(SlotParkRefused::OnAnotherBranch { leased, on })
+        }
+        Err(ParkRefused::Release(refused)) => Err(SlotParkRefused::Release(refused.said())),
+        Err(ParkRefused::Vcs(why)) => Err(SlotParkRefused::Vcs(why)),
     }
 }
 

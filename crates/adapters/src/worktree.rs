@@ -27,8 +27,8 @@ use std::fs;
 use std::path::Path;
 
 use adapter_traits::{
-    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotPool, SlotReading,
-    SlotStanding, Vcs, Worktree, WorktreeSpec,
+    BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotParkRefused,
+    SlotParked, SlotPool, SlotReading, SlotStanding, Vcs, Worktree, WorktreeSpec,
 };
 use git2::{BranchType, ErrorCode, Repository, WorktreeAddOptions};
 
@@ -158,6 +158,29 @@ impl Vcs for GitVcs {
                     // lease's, said the same way.
                     other => other.said(),
                 },
+            }
+        })
+    }
+
+    fn park_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        job_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        crate::leasing::jobs::park(pool, slot, job_id)
+    }
+
+    fn lease_existing_slot(
+        &self,
+        pool: &SlotPool,
+        branch: &str,
+        job_id: &str,
+    ) -> Result<SlotLeased, Self::Error> {
+        crate::leasing::jobs::lease_existing(pool, branch, job_id).map_err(|refused| {
+            CreateWorktreeError::SlotNotLeased {
+                repo: pool.repo_root().to_string(),
+                why: refused.said(),
             }
         })
     }
