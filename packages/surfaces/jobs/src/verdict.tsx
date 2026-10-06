@@ -1,0 +1,833 @@
+// The verdict sheet's own data: what the four blocks and the figures are built
+// from, for the one step a Job is waiting at or finished on.
+//
+// **Everything here reads one `StepDetail`** — the panel's `open` step, the
+// same one `Decide` and `phasesOf` already read. A finished Job whose record
+// spans several steps is a real reading this file does not attempt: the wire
+// fields the verdict sheet is built from name a single step's `check_runs`
+// and `judged`, and the open step is the one every other region on this panel
+// already agrees is "the step this Job is about".
+//
+// **`checksOf` alone is not the whole gate.** It joins from `step.checks`, the
+// declaration, so a mechanical check with no declared counterpart —
+// `artifact_exists` on a workflow with no other tier — has a run and no row.
+// `mechanicalRunsOf` is the other half of that read, and both are folded into
+// one list here so nothing a gate actually ran goes missing from the record.
+//
+// **The fifth arrangement is `verdict-answered.tsx`, not here.**
+
+import { openPullRequest, type OpenPullRequest } from "@armada/screens/src/opening";
+import type { ReactNode } from "react";
+import { Minus } from "lucide-react";
+import {
+  CheckRuns,
+  PullRequestCard,
+  VerdictSheet,
+  type CheckRun as CheckRunRow,
+  type VerdictFigure,
+  type VerdictSheetProps,
+} from "@armada/components";
+import { ReviewedGate, type PendingChanges } from "./confidence";
+import { ciOf, ciShown } from "./ci";
+import { NO_FRAMES, type Frames } from "./frames";
+import { capturedOf, groundsOf } from "./grounds";
+import type {
+  Diff,
+  Evidence,
+  JobDetail as JobWhole,
+  JobSummary,
+  JudgeAnswer,
+  PullRequestDetail,
+  Remarks,
+  StepDetail,
+  Submitted,
+} from "@armada/protocol";
+
+import { money, onlyCurrentAttempt, pullRequestNumber, settledBadgeOf } from "@armada/screens/src/facts";
+import { elapsedSince } from "@armada/screens/src/duration";
+import { sitting } from "@armada/screens/src/held";
+import { checkRow, judgeRow, saidOf, iconOf } from "./checks";
+import { proofSummaryOf } from "./proof-summary";
+import { Decide } from "./Decide";
+import { PlanReview, type PlanReviewProps } from "./plan-review";
+import { JudgeAsked, judgeAskedOn } from "./judge-asked";
+import { checksOf, didNotPass, didPass, mechanicalRunsOf, panelsOf } from "./gates";
+import { basename, keptOf, type Opens } from "./phases";
+import type { Render } from "./render";
+import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
+
+/**
+ * Whether this Job's frozen workflow ever opens a pull request.
+ *
+ * **Three answers, because two facts do not imply each other.** `true` where
+ * any step says `delivers`, `false` where every step says it does not, and
+ * `undefined` where at least one step cannot say and none has said `true` —
+ * the one case a client must not round to a claim either way.
+ */
+export function neverDelivers(steps: readonly StepDetail[]): boolean | undefined {
+  if (steps.length === 0) return undefined;
+  if (steps.some((step) => step.delivers === true)) return false;
+  if (steps.every((step) => step.delivers === false)) return true;
+  return undefined;
+}
+
+/**
+ * Whether this Job's frozen workflow ever stops for a person.
+ *
+ * Same three-answer shape as [`neverDelivers`], read off `advance_gate`
+ * instead of `delivers`. `render.ts`'s `reviewing` already tells a live Job
+ * that is stopped for one apart from a Job that is not; this is what a
+ * **finished** Job needs, because the render alone cannot say whether the
+ * ending it reached ever asked anybody anything.
+ */
+export function neverAsksAPerson(steps: readonly StepDetail[]): boolean | undefined {
+  if (steps.length === 0) return undefined;
+  if (steps.some((step) => step.advance_gate === "human_always")) return false;
+  if (steps.every((step) => step.advance_gate !== undefined)) return true;
+  return undefined;
+}
+
+/**
+ * `crates/core-model/src/job/workflow.rs::ARTIFACT_EXISTS` — the one
+ * mechanical check that is not really a gate: it confirms the deliverable
+ * exists and looks at nothing about what it says.
+ */
+const ARTIFACT_EXISTS = "artifact_exists";
+
+/**
+ * Whether nothing beyond the deliverable's existence looked at this step.
+ *
+ * **No Judge, and no Check but `artifact_exists`.** A step declaring a real
+ * Check — `diff_nonempty`, a Manifest Check — has something else gating it
+ * and this reads `false`; a step Fleet cannot describe at all has no checks
+ * to test this against either, which is `provesItNoteOf`'s "cannot say" case
+ * and not this one — so this is `false` there too, on an empty list rather
+ * than a true one.
+ */
+function nothingButExistence(step: StepDetail): boolean {
+  if ((step.judge_checks?.length ?? 0) > 0) return false;
+  const named = [
+    ...checksOf(step).map((read) => read.name),
+    ...mechanicalRunsOf(step).map((run) => run.name),
+  ];
+  return named.length > 0 && named.every((name) => name === ARTIFACT_EXISTS);
+}
+
+/** What the checklist's own row says where [`nothingButExistence`] is true. */
+const NOTHING_CHECKED_WHAT_IT_SAYS = "Nothing checked what it says";
+
+/** The rows for "what proves it" — every Check this attempt ran, and the Judge's. */
+export function provesItOf(
+  step: StepDetail,
+  criteria: JobWhole["acceptance_criteria"],
+  now: number,
+  /** Fleet's own reason the gate could not decide. */
+  undecided?: string,
+  /** A person's own words for overruling this step, where the log kept one. */ reason?: string,
+): CheckRunRow[] {
+  const rows = checksOf(step).map((read) => checkRow(read, now));
+  for (const run of mechanicalRunsOf(step)) {
+    rows.push({
+      id: run.name,
+      says: saidOf(run),
+      identifier: run.name,
+      named: didNotPass(run) ? "failed" : "passed",
+      icon: iconOf(run),
+      ...(run.produced === undefined ? {} : { result: run.produced }),
+    });
+  }
+  const panels = panelsOf(step, criteria);
+  const judge = judgeRow(step, panels, undecided, reason);
+  if (judge !== undefined) rows.push(judge);
+  // **The row that says nothing else looked.** Drawn from the same data that
+  // decides `provesItNoteOf`'s closing sentence, on a workflow whose only
+  // mechanical tier is confirming the deliverable exists — never hard-coded
+  // to a render or a workflow name, so a workflow that later adds a real
+  // Check or a Judge loses the row on its own.
+  if (nothingButExistence(step)) {
+    rows.push({
+      id: "nothing-checked",
+      says: NOTHING_CHECKED_WHAT_IT_SAYS,
+      identifier: "no Judge · no Checks",
+      icon: Minus,
+    });
+  }
+  return rows;
+}
+
+/**
+ * The line under the checklist. **Only where nothing semantic looked at the
+ * work** — a step with a Judge declared says nothing extra here, because the
+ * checklist above it already carries the panel's own row.
+ *
+ * **A step with no Check of its own says nothing either.** It said *Fleet
+ * cannot say what gates this step* — false on every delivering step, whose
+ * proof is the steps before it (the owner's Job 2, 2 Oct 2026). `proofOf`
+ * lists those.
+ */
+export function provesItNoteOf(step: StepDetail, render: Render): string | undefined {
+  if ((step.judge_checks?.length ?? 0) > 0) return undefined;
+  if (checksOf(step).length === 0 && mechanicalRunsOf(step).length === 0) return undefined;
+  return render === "finished"
+    ? "Every step advanced on its own. No person was asked, and no gate read the review."
+    : "Reading the document is the review. Your answer is the only verdict this step gets.";
+}
+
+/** What proves the work, one list per step that measured anything, in workflow order. */
+export type Proof = { label: string; state: StepDetail["state"]; rows: CheckRunRow[] }[];
+
+/**
+ * What proves the work: **every step's Checks and Judge, not the waiting
+ * step's alone.** What is signed off at a gate is the branch, and the step a
+ * person reviews at usually verifies nothing of its own — the lead counts the
+ * same way (`the-lead-counts-the-whole-jobs-evidence`). Fleet's reason the
+ * gate could not decide, and a person's overrule, belong to the open step.
+ */
+export function proofOf(
+  steps: readonly StepDetail[],
+  open: StepDetail,
+  criteria: JobWhole["acceptance_criteria"],
+  now: number,
+  undecided?: string,
+  reason?: string,
+): Proof {
+  return [...steps]
+    .sort((a, b) => a.ordinal - b.ordinal)
+    .map((step) => {
+      const mine = step.step_id === open.step_id;
+      return {
+        label: step.label,
+        state: step.state,
+        rows: provesItOf(step, criteria, now, mine ? undecided : undefined, mine ? reason : undefined),
+      };
+    })
+    .filter((one) => one.rows.length > 0);
+}
+
+/** Where no step measured anything — said plainly, the owner's ask of 2 Oct 2026. */
+export const NOTHING_PROVED = "No Check ran on this work, and no Judge read it.";
+
+/**
+ * Armada's own Checks across the Job, in one line — `21/21 Checks passed`.
+ * The latest attempt of each step, skips out of both figures: the lead's count.
+ */
+export function checksLineOf(steps: readonly StepDetail[]): string | undefined {
+  const measured = steps
+    .flatMap((step) => onlyCurrentAttempt(step.check_runs))
+    .filter((run) => didPass(run) || didNotPass(run));
+  if (measured.length === 0) return undefined;
+  const passed = measured.filter(didPass).length;
+  return `${passed}/${measured.length} ${measured.length === 1 ? "Check" : "Checks"} passed`;
+}
+
+/** What was done — the Drone's own claim, or why there is nothing to read yet. */
+export function cameBackOf(claim: Submitted | undefined): string {
+  return claim?.claimed ?? "This step has not submitted its evidence yet.";
+}
+
+/** What was skipped — `not_claimed`, or the named absence of a boundary. */
+export function leftAloneOf(claim: Submitted | undefined): string {
+  if (claim === undefined) return "This step has not submitted its evidence yet.";
+  return claim.not_claimed ?? "This step's submission drew no boundary around what it did not change.";
+}
+
+/** The acceptance criteria, as the sentences a person asked for. */
+export function criteriaOf(whole: JobWhole | null): string[] {
+  return (whole?.acceptance_criteria ?? []).map((one) => one.text);
+}
+
+/**
+ * The paragraph Fleet opens every `risks` section with
+ * (`crates/fleet/src/review.rs`, `risks_of`). The owner, 2 Oct 2026: *"this
+ * text is AI slop"*. It says nothing about this Job, so the record drops it;
+ * the pull request body still carries it until Fleet stops writing it.
+ */
+const RISKS_PREAMBLE = /^Every line below is something Fleet ran\b[^\n]*(?:\n(?!\n)[^\n]*)*\n*/;
+
+/**
+ * What was not checked, and what the base carries that this Job did not
+ * write — Fleet's own `risks` section, the same words the pull request's
+ * "Risks" carries, less its standing preamble. Absent where Fleet has composed
+ * no review yet, or where the preamble was all it said.
+ */
+export function risksOf(whole: JobWhole | null): string | undefined {
+  const risks = whole?.review?.risks?.trim().replace(RISKS_PREAMBLE, "").trim();
+  return risks === undefined || risks.length === 0 ? undefined : risks;
+}
+
+/** The figures, in the order the drawing runs them. */
+export function figuresOf({
+  job,
+  whole,
+  step,
+  render,
+  diff,
+  opens,
+  now,
+  drones = false,
+}: {
+  job: JobSummary;
+  whole: JobWhole | null;
+  step: StepDetail;
+  render: Render;
+  diff: Diff;
+  opens: Opens;
+  now: number;
+  /** Whether to add how many Drones ran. Off by default — the fifth arrangement's own ask. */
+  drones?: boolean;
+}): VerdictFigure[] {
+  const never = neverDelivers(whole?.steps ?? []);
+  const figures: VerdictFigure[] = [];
+
+  if (never === true) {
+    const kept = keptOf(step, opens);
+    if (kept.length > 0) {
+      figures.push({ label: "Document", value: basename(kept[0]?.path ?? ""), mono: true });
+    }
+  } else {
+    // No branch yet draws no Branch figure: an empty slot stays empty.
+    if (job.branch !== undefined) figures.push({ label: "Branch", value: job.branch, mono: true });
+    const files = filesCountOf(diff, job.id);
+    if (files !== undefined) figures.push({ label: "Files", value: String(files), mono: true });
+  }
+
+  const took = tookOf(job, whole, now);
+  if (took !== undefined) figures.push({ label: "Took", value: took, mono: true });
+
+  if (drones && whole?.spend?.drones !== undefined)
+    figures.push({ label: "Drones", value: String(whole.spend.drones), mono: true });
+  const steps = whole?.steps ?? [];
+  if (steps.length > 0) {
+    const advanced = steps.filter((one) => one.state === "advanced").length;
+    figures.push({
+      label: "Steps",
+      value: `${advanced} of ${steps.length} ${render === "finished" ? "advanced" : "passed"}`,
+      mono: true,
+    });
+  }
+
+  if (never === true) {
+    figures.push({ label: "Pull request", value: "never, for this workflow", mono: true });
+  }
+
+  return figures;
+}
+
+/** How many files this Job's worktree holds against the branch it was cut from. */
+function filesCountOf(diff: Diff, jobId: string): number | undefined {
+  const mine = diff.state !== "none" && diff.jobId === jobId ? diff : null;
+  if (mine === null || mine.state !== "read" || mine.work === undefined) return undefined;
+  return mine.work.files.length;
+}
+
+/**
+ * How long the Job has run, and what it has spent, as one figure.
+ *
+ * **`undefined` while `started_at` is absent** — a Job that has never run has
+ * nothing to report here, and `created_at` would count the wait for approval
+ * as run time.
+ */
+export function tookOf(job: JobSummary, whole: JobWhole | null, now: number): string | undefined {
+  const elapsed = elapsedSince(job.started_at, now);
+  if (elapsed === undefined) return undefined;
+  const spend = whole?.spend;
+  return spend === undefined ? elapsed : `${elapsed} · ${money(spend.cost_micros)}`;
+}
+
+/** What the pull request card says beside its number, where each was served. */
+export type PullRequestFacts = {
+  /** The branch it carries — `JobSummary.branch`. */
+  branch?: string;
+  /** Armada's own Checks across the Job, `checksLineOf`'s line. */
+  checks?: string;
+  /** Its title — `delivery.pull_request_title`. Since 23.5; absent where no read has named it. */
+  title?: string;
+  /** How many comments it holds — `delivery.pull_request_comments`. Since 23.5; absent is unknown. */
+  comments?: number;
+  /** What became of it — `delivery.landed`. Absent is open. */
+  landed?: string;
+};
+
+/**
+ * The pull request's title and comment count as Fleet keeps them on
+ * `delivery`, open or settled. Since protocol 23.5. **A title Fleet already
+ * holds shows**: where none is kept yet, the live read's title stands in for
+ * it. **Each still absent is drawn as nothing** — an old pull request no read has named, or a count nobody took —
+ * never as a count of none or a stand-in title. A served 0 is a count, and is drawn.
+ */
+export function pullRequestNamedOf(whole: JobWhole | null): Pick<PullRequestFacts, "title" | "comments"> {
+  const delivery = whole?.delivery;
+  const title = delivery?.pull_request_title ?? delivery?.pull_request_detail?.title;
+  return {
+    ...(title === undefined ? {} : { title }),
+    ...(delivery?.pull_request_comments === undefined ? {} : { comments: delivery.pull_request_comments }),
+  };
+}
+
+/**
+ * The pull request, where this Job has one: a `PullRequestCard` that opens it.
+ *
+ * **The card draws on the address alone.** Before a read has named the pull
+ * request there is no title to show, and the owner asked on 11 Sep 2026
+ * for the review to reach its pull request without going back up to the
+ * header. It opens through `openPullRequest`, the header's own path, so the
+ * address a click carries never decides what opens.
+ */
+export function pullRequestBlockOf(
+  address: string | undefined,
+  detail: PullRequestDetail | undefined,
+  now: number,
+  onOpen?: () => void,
+  /**
+   * Present where the branch's last commit never reached this pull request —
+   * `whole.delivery.unpushed`. Since protocol 11.2, `#691`. **The presence is
+   * drawn, never Fleet's sentence**, which names a commit and a base.
+   */
+  unpushed?: string,
+  facts: PullRequestFacts = {},
+): ReactNode | undefined {
+  if (address === undefined) return undefined;
+  const number =
+    detail?.number === undefined ? (pullRequestNumber(address) ?? "Pull request") : `#${detail.number}`;
+  const currency = currencyLineOf(detail?.currency, now);
+  const state = settledBadgeOf(facts.landed);
+  return (
+    <PullRequestCard
+      number={number}
+      address={address}
+      {...(facts.title === undefined ? {} : { title: facts.title })}
+      {...(facts.branch === undefined ? {} : { branch: facts.branch })}
+      {...(state === undefined ? {} : { state })}
+      {...(facts.checks === undefined ? {} : { checks: facts.checks })}
+      {...(facts.comments === undefined ? {} : { comments: facts.comments })}
+      {...(onOpen === undefined ? {} : { onOpen })}
+    >
+      {currency === undefined ? null : (
+        <p className={currency.conflicted ? "text-xs text-fg-default" : "text-2xs text-fg-subtle"}>
+          {currency.said}
+        </p>
+      )}
+      {unpushed === undefined ? null : (
+        <p className="text-xs text-fg-default">
+          The work here is committed but has not reached this pull request yet.
+        </p>
+      )}
+    </PullRequestCard>
+  );
+}
+
+/**
+ * What the last attempt to keep this pull request's branch current against a
+ * moved base says, where main has ever moved under it. `#663`.
+ *
+ * **`undefined` is the ordinary case.** Most of a pull request's life the
+ * branch has never needed to move, and this block says nothing about it —
+ * silence here is not a gap, it is the base never having moved.
+ *
+ * **Plain words, and none of Fleet's own.** The owner rejects mechanism on
+ * screen — no commit id, no "rebase", no "push", no "forge" — so this says
+ * what changed for a person, not what Fleet ran.
+ */
+export function currencyLineOf(
+  currency: PullRequestDetail["currency"],
+  now: number,
+): { said: string; conflicted: boolean } | undefined {
+  if (currency === undefined) return undefined;
+  if (currency.conflict_files === undefined || currency.conflict_files.length === 0) {
+    const age = sitting(currency.rebased_at, now);
+    // "just now" does not take "ago" after it — `sitting`'s own floor,
+    // "under a minute", reads the same way for the same reason.
+    const said =
+      age === null || age === "under a minute"
+        ? "Up to date with main, checked just now."
+        : `Up to date with main, checked ${age} ago.`;
+    return { said, conflicted: false };
+  }
+  const files = currency.conflict_files.join(", ");
+  return {
+    said: `Main has changes that clash with this branch in ${files}. Fleet left the branch as it was.`,
+    conflicted: true,
+  };
+}
+
+/** What `verdictOf` is built from — the panel's own reading of one Job and its open step. */
+export type VerdictArgs = {
+  job: JobSummary;
+  whole: JobWhole | null;
+  step: StepDetail;
+  render: Render;
+  diff: Diff;
+  opens: Opens;
+  now: number;
+  /** This step's own submission, where the Drone has made one. */
+  claim: Submitted | undefined;
+  /** The pull request address and its live detail, off `JobDetail.delivery`, and how to open it. */
+  pullRequest?: {
+    address: string | undefined;
+    detail: PullRequestDetail | undefined;
+    onOpen?: () => void;
+    /** Present where the last commit never reached this pull request. Since protocol 11.2, `#691`. */
+    unpushed?: string;
+  };
+  /** Fleet's own reason the gate could not decide, scoped to this step. */
+  undecided?: string;
+  /** A person's own words for overruling the open step, where the log kept one. */
+  reason?: string;
+  /** Whether the figures add how many Drones ran. */
+  drones?: boolean;
+};
+
+/**
+ * The whole of the verdict sheet's data, save `actions` — the acts a person
+ * may take, which are `Decide`'s own region and never this file's to build.
+ */
+export function verdictOf({
+  job,
+  whole,
+  step,
+  render,
+  diff,
+  opens,
+  now,
+  claim,
+  pullRequest,
+  undecided,
+  reason,
+  drones,
+}: VerdictArgs): Omit<VerdictSheetProps, "actions" | "note" | "recordNote"> {
+  const kept = keptOf(step, opens);
+  const steps = whole?.steps ?? [step];
+  const never = neverDelivers(whole?.steps ?? []);
+  const proof = proofOf(steps, step, whole?.acceptance_criteria ?? [], now, undecided, reason);
+  const block =
+    pullRequest === undefined
+      ? undefined
+      : pullRequestBlockOf(pullRequest.address, pullRequest.detail, now, pullRequest.onOpen, pullRequest.unpushed, {
+          ...(job.branch === undefined ? {} : { branch: job.branch }),
+          ...(checksLineOf(steps) === undefined ? {} : { checks: checksLineOf(steps) }),
+          ...pullRequestNamedOf(whole),
+          ...(whole?.delivery?.landed === undefined ? {} : { landed: whole.delivery.landed }),
+        });
+  const note = proof.length === 0 ? NOTHING_PROVED : provesItNoteOf(step, render);
+  // The card names the branch, so the figures do not name it twice.
+  const figures = figuresOf({ job, whole, step, render, diff, opens, now, drones }).filter(
+    (figure) => block === undefined || figure.label !== "Branch",
+  );
+  return {
+    title: job.title,
+    criteria: criteriaOf(whole),
+    criteriaAbsent: "This Job's frozen workflow named no acceptance criteria.",
+    cameBack: cameBackOf(claim),
+    ...(never === true && kept.length > 0 ? { deliverable: kept[0]?.opening } : {}),
+    ...(block === undefined ? {} : { pullRequest: block }),
+    provesIt: proof.map((one) => (
+      <CheckRuns key={one.label} label={one.label} rows={one.rows} summary={proofSummaryOf(one.state, one.rows)} />
+    )),
+    ...(note === undefined ? {} : { provesItNote: note }),
+    ...(risksOf(whole) === undefined ? {} : { risks: risksOf(whole) }),
+    leftAlone: leftAloneOf(claim),
+    figures,
+  };
+}
+
+/** The three readings the verdict sheet's slots all need from the panel. */
+export type VerdictReads = { diff: Diff; evidence: Evidence; remarks: Remarks };
+
+export type VerdictSlotAtGateArgs = {
+  job: JobSummary;
+  whole: JobWhole | null;
+  open: StepDetail;
+  render: Render;
+  recorded: VerdictReads;
+  opensRecords: Opens;
+  now: number;
+  claimed: Submitted | undefined;
+  /** The frames this window holds, for What the Job captured. Absent draws each as still reading. */
+  frames?: Frames;
+  /** Fleet's own reason the gate could not decide, scoped to this step. */
+  undecided?: string;
+  onNeedMaterial: (jobId: string | null) => void;
+  onNeedRemarks: (jobId: string | null) => void;
+  stale: boolean;
+  /** Something sent under `acting` is out on this Job. #1117. */
+  acting: boolean;
+  deciding: boolean;
+  /** Which act at this gate is out, where `deciding` is set. #1117. */
+  decidingAct?: DecidingAct | undefined;
+  /** Which act `acting` is. #1117. */
+  actingAct?: ActingAct | undefined;
+  /** What Fleet said to the last act on this Job, so the gate's pressed control answers. */
+  answered?: ActAnswer | undefined;
+  onMergePullRequest: (jobId: string) => void;
+  /** Start the pull request's failed CI runs again. #905. */
+  onRerunFailedChecks?: (jobId: string) => void;
+  /** Send the branch back for a Drone to find out why CI failed. #905. */
+  onInvestigateFailedChecks?: (jobId: string) => void;
+  /** Queue a Job after this one lands, from a For context finding. #906. */
+  onQueueAfterFinding?: (jobId: string, finding: string) => void;
+  /** File the issue a person confirmed, drafted from a For context finding. #906. */
+  onFileFindingIssue?: (jobId: string, finding: string, title: string, body: string) => void;
+  /** Open the issue a finding became. #906. */
+  onOpenFindingIssue?: (jobId: string, finding: string) => void;
+  onApproveReview: (jobId: string) => void;
+  onRequestChanges: (jobId: string, note: string, withWalkNotes?: boolean) => void;
+  onRemoveWalkNote?: (jobId: string, noteId: string) => void;
+  onReject: (jobId: string) => void;
+  onTakeUpRemarks: (jobId: string, remarks: string[]) => void;
+  onOpenRemarkLink: (jobId: string, remarkId: string) => void;
+  onOpenPullRequest: OpenPullRequest;
+  onSaid: (sentence: string) => void;
+  /** Answer the question a judge refusal opened. `answer_judge` is one press. */
+  onAnswerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => void;
+  /** Opens the Job's whole diff, from a View step. #904. */
+  onOpenDiff?: () => void;
+  /** Dismisses a finding the review raised, with the reason. #907. */
+  onDismissFinding?: (jobId: string, finding: string, reason: string) => void;
+  /**
+   * What Plan's own review takes, drawn where the waiting step claimed a plan.
+   * **Built by the host and passed whole** — `PlanReview` reads nothing of
+   * this gate's own acts or pending state beyond what is in here.
+   */
+  plan: PlanReviewProps;
+};
+
+/**
+ * The verdict sheet at a gate — cases 1 through 3 of `why-b.md`. `Decide`'s
+ * acts and confirmations are unchanged; they sit at `actions`, and everything
+ * around them is the record built from the same Job.
+ */
+export function verdictSlotAtGate({
+  job,
+  whole,
+  open,
+  render,
+  recorded,
+  opensRecords,
+  now,
+  claimed,
+  frames,
+  undecided,
+  onNeedMaterial,
+  onNeedRemarks,
+  stale,
+  acting,
+  actingAct,
+  answered,
+  deciding,
+  decidingAct,
+  onMergePullRequest,
+  onRerunFailedChecks,
+  onInvestigateFailedChecks,
+  onQueueAfterFinding,
+  onFileFindingIssue,
+  onOpenFindingIssue,
+  onApproveReview,
+  onRequestChanges,
+  onRemoveWalkNote,
+  onReject,
+  onTakeUpRemarks,
+  onOpenRemarkLink,
+  onOpenPullRequest,
+  onSaid,
+  onAnswerJudge,
+  onOpenDiff,
+  onDismissFinding,
+  plan,
+}: VerdictSlotAtGateArgs): ReactNode {
+  // A judge question outranks the rest of this slot: the gate is a human
+  // boundary either way, but this step is answered before it is reviewed.
+  // `JudgeAsked` is the one block Plan and the step panel draw for it too.
+  if (judgeAskedOn(whole, open)) {
+    return (
+      <JudgeAsked
+        jobId={job.id}
+        whole={whole}
+        step={open}
+        stale={stale}
+        acting={acting}
+        actingAct={actingAct}
+        onAnswerJudge={onAnswerJudge}
+      />
+    );
+  }
+  // **What the step claimed decides what is reviewed**, never its label, id
+  // or place in the workflow — `evidence_type` is Fleet's word off the frozen
+  // step. A plan is reviewed as Plan reviews it, open, in place of the
+  // work record (owner, 30 Sep 2026): a record about work that has not
+  // started asked for approval without showing what was being approved. No
+  // claim yet keeps the work review below.
+  //
+  // **Nothing while this Job's claims are still being read.** Until they
+  // arrive the gate cannot know which review it is, and drawing the work's
+  // Approve first asked for a decision on something not yet shown (owner,
+  // 30 Sep 2026). A failed read is known, and draws the work review with
+  // `Decide`'s own line saying the claims could not be read.
+  const evidence = recorded.evidence;
+  const settled = evidence.state === "read" || evidence.state === "failed";
+  if (!settled || evidence.jobId !== job.id) return undefined;
+  if (claimed?.evidence_type === "plan") return <PlanReview {...plan} />;
+  const address = whole?.delivery?.pull_request;
+  const detail = whole?.delivery?.pull_request_detail;
+  const unpushed = whole?.delivery?.unpushed;
+  const conflicted = currencyLineOf(detail?.currency, now)?.conflicted === true || unpushed !== undefined;
+  const never = neverDelivers(whole?.steps ?? []);
+  // Never `auto_merge`: approving here never merges regardless of that
+  // policy, which holds a later, separate gate (`fleet::gate`, `reviewing`).
+  //
+  // **Absent where there is a pull request to decide on** — each act's own
+  // sentence is a tooltip on its button in `ReviewDecision` instead.
+  const note: ReactNode =
+    never === true
+      ? "Approving ends the Job here. Nothing is merged, and no pull request is waiting on it."
+      : address === undefined
+        ? "The run tree on the left is where each step's own evidence is. This reads the Job."
+        : undefined;
+  const sheetWith = (pending?: PendingChanges) => (
+    <VerdictSheet
+      {...verdictOf({
+        job,
+        whole,
+        step: open,
+        render,
+        diff: recorded.diff,
+        opens: opensRecords,
+        now,
+        claim: claimed,
+        pullRequest: {
+          address,
+          detail,
+          onOpen: () =>
+            void openPullRequest(onOpenPullRequest, job.id).then((because) => {
+              if (because !== null) onSaid(because);
+            }),
+          unpushed,
+        },
+        undecided,
+      })}
+      note={note}
+      actions={
+        <Decide
+          job={job}
+          onNeedMaterial={onNeedMaterial}
+          onNeedRemarks={onNeedRemarks}
+          evidence={recorded.evidence}
+          remarks={recorded.remarks}
+          stale={stale}
+          deciding={deciding}
+          decidingAct={decidingAct}
+          answered={answered}
+          {...(address === undefined ? {} : { pullRequest: address, conflicted })}
+          onMerge={onMergePullRequest}
+          onApprove={onApproveReview}
+          onRequestChanges={onRequestChanges}
+          walkNotes={whole?.walk_notes ?? []}
+          {...(onRemoveWalkNote === undefined ? {} : { onRemoveWalkNote })}
+          onReject={onReject}
+          onTakeUpRemarks={onTakeUpRemarks}
+          onOpenRemarkLink={onOpenRemarkLink}
+          {...(pending ?? {})}
+        />
+      }
+    />
+  );
+  // Armada's review comes first, above the record it is about. #903.
+  const confidence = whole?.confidence;
+  // **The record is open at the gate**, its cards straight under the lead. It
+  // folded from 29 Sep 2026 until the owner took the fold away on 2 Oct
+  // (`2026-09-29-the-review-gate-sits-under-the-lead.md`).
+  if (confidence === undefined) return sheetWith(undefined);
+  const captured = capturedOf(open, claimed, frames ?? NO_FRAMES);
+  return (
+    <ReviewedGate
+      confidence={confidence}
+      diff={recorded.diff}
+      jobId={job.id}
+      grounds={groundsOf(open, whole?.acceptance_criteria ?? [], claimed, recorded.diff)}
+      {...(captured === undefined ? {} : { captured })}
+      {...(onOpenDiff === undefined ? {} : { onOpenDiff })}
+      {...(onDismissFinding === undefined
+        ? {}
+        : {
+            onDismissFinding: (finding: string, reason: string) =>
+              onDismissFinding(job.id, finding, reason),
+          })}
+      // `dismiss_finding` is a `DecidingAct`, and the View it opens closes on
+      // its own press before Fleet answers — so what this guards is a second
+      // decision going out while another one at this gate is already on its
+      // way, not this control's own wait. #1117.
+      deciding={deciding}
+      {...(!ciShown(detail?.checks, conflicted)
+        ? {}
+        : {
+            ci: ciOf(detail?.checks, conflicted, {
+              ...(onInvestigateFailedChecks === undefined
+                ? {}
+                : { onInvestigate: () => onInvestigateFailedChecks(job.id) }),
+              ...(onRerunFailedChecks === undefined
+                ? {}
+                : { onRerun: () => onRerunFailedChecks(job.id) }),
+              disabled: stale || deciding,
+            }),
+          })}
+      {...(onQueueAfterFinding === undefined || onFileFindingIssue === undefined
+        ? {}
+        : {
+            acts: {
+              onQueueAfter: (finding: string) => onQueueAfterFinding(job.id, finding),
+              onFileIssue: (finding: string, title: string, body: string) =>
+                onFileFindingIssue(job.id, finding, title, body),
+              ...(onOpenFindingIssue === undefined
+                ? {}
+                : { onOpenIssue: (finding: string) => onOpenFindingIssue(job.id, finding) }),
+              disabled: stale || deciding,
+            },
+          })}
+      sheet={(pending) => sheetWith(pending)}
+    />
+  );
+}
+
+export type VerdictSlotFinishedArgs = {
+  job: JobSummary;
+  whole: JobWhole | null;
+  open: StepDetail;
+  render: Render;
+  recorded: VerdictReads;
+  opensRecords: Opens;
+  now: number;
+  claimed: Submitted | undefined;
+  /** Fleet's own reason the gate could not decide, scoped to this step. */
+  undecided?: string;
+};
+
+/**
+ * The verdict sheet at a finish nothing asked — case 4 of `why-b.md`. No
+ * `actions`, so the sheet draws its own dashed record note in their place.
+ */
+export function verdictSlotFinished({
+  job,
+  whole,
+  open,
+  render,
+  recorded,
+  opensRecords,
+  now,
+  claimed,
+  undecided,
+}: VerdictSlotFinishedArgs): ReactNode {
+  return (
+    <VerdictSheet
+      {...verdictOf({
+        job,
+        whole,
+        step: open,
+        render,
+        diff: recorded.diff,
+        opens: opensRecords,
+        now,
+        claim: claimed,
+        undecided,
+      })}
+    />
+  );
+}
