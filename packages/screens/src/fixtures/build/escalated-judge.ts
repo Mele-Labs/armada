@@ -31,7 +31,6 @@ import {
   droneEnded,
   evidenceRead,
   droneLogs,
-  foldedReads,
   holdsRead,
   instructed,
   job,
@@ -50,6 +49,7 @@ import {
   watchedRead,
   workflow,
 } from "./base";
+import { foldedReads } from "./folded";
 import { briefBytes, briefName, gamingBrief, judgeBrief } from "./briefs";
 
 const BRIEF_PATH = (name: string) => `.armada/briefs/77-split-the-settings-reducer/regression_verify.1.${name}.md`;

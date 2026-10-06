@@ -63,7 +63,7 @@ import type {
   ManifestSaveAnswer,
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
-import type { CheckoutRunDiffRead } from "@armada/protocol";
+import type { CheckoutRunDiffRead, ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "./workflows";
@@ -691,6 +691,8 @@ export type BridgeApi = {
   editManifest: (body: EditManifest) => Promise<ManifestEditAnswer>;
   /** The costliest and the longest past Job here, for the budget warning. */
   readManifestSpend: () => Promise<ManifestSpendRead>;
+  /** Every Check a Job's gate wrote or a Drone asked for, newest first. A read. */
+  readManifestChecks: () => Promise<ManifestChecksRead>;
 
   /** Scan: every workspace in the checkout, read-only. No path crosses. */
   readRepositoryScan: () => Promise<RepositoryScanRead>;

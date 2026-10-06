@@ -38,7 +38,10 @@ const TWO_CHILDREN: &str =
     "set -m; sleep 30 & set +m; sleep 31 & echo BUSY; while IFS= read -r line; do :; done";
 
 /// A Drone with one child, in its own group like any other.
-const ONE_CHILD: &str = "sleep 31 & echo BUSY; while IFS= read -r line; do :; done";
+// `wait` collects the child the moment it dies. Without it dash, which only
+// reaps between commands, leaves a killed child a zombie that `ps` still lists
+// while this shell sits in `read`; a real Drone is not a shell.
+const ONE_CHILD: &str = "sleep 31 & c=$!; echo BUSY; wait $c; while IFS= read -r line; do :; done";
 
 fn a_drone(script: &str) -> FakeHarness {
     FakeHarness::running("/bin/sh", &["-c", script]).reading(
