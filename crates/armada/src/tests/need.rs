@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::land::{nonce, write_queue_entry, QueueEntry, StateDir};
-use crate::need::{declared_text, status_text, waiting_text, Needs};
+use crate::need::{declare, declared_text, status_text, waiting_text, Needs};
 use crate::tests::TempDir;
 
 const PATH: &str = "crates/store/src/migrations.rs";
@@ -66,15 +66,11 @@ fn the_second_declarer_is_told_who_is_ahead_and_waits_for_it_to_land() {
     let needs = Needs::of(repo.path()).expect("needs");
     let state = StateDir::resolve(repo.path()).expect("state");
 
-    let one = needs
-        .declare(repo.path(), "first", PATH, "a new migration")
-        .expect("declared");
+    let one = declare(&needs, repo.path(), "first", PATH, "a new migration").expect("declared");
     assert!(one.ahead.is_empty());
     needs.took("first", PATH, "V95").expect("took");
 
-    let two = needs
-        .declare(repo.path(), "second", PATH, "a new migration")
-        .expect("declared");
+    let two = declare(&needs, repo.path(), "second", PATH, "a new migration").expect("declared");
     let told = declared_text(&two);
     assert!(told.contains("first: a new migration, took V95"), "{told}");
 
@@ -102,12 +98,8 @@ fn the_second_declarer_is_told_who_is_ahead_and_waits_for_it_to_land() {
 fn a_deleted_branch_s_need_blocks_nobody() {
     let repo = a_repository_with(&["gone", "waiting"]);
     let needs = Needs::of(repo.path()).expect("needs");
-    needs
-        .declare(repo.path(), "gone", PATH, "a new migration")
-        .expect("declared");
-    needs
-        .declare(repo.path(), "waiting", PATH, "a new migration")
-        .expect("declared");
+    declare(&needs, repo.path(), "gone", PATH, "a new migration").expect("declared");
+    declare(&needs, repo.path(), "waiting", PATH, "a new migration").expect("declared");
     assert_eq!(needs.behind("waiting").len(), 1);
 
     git(repo.path(), &["branch", "-D", "gone"]);
@@ -119,19 +111,13 @@ fn a_deleted_branch_s_need_blocks_nobody() {
 fn declaring_again_records_nothing_and_release_gives_back() {
     let repo = a_repository_with(&["only", "next"]);
     let needs = Needs::of(repo.path()).expect("needs");
-    let first = needs
-        .declare(repo.path(), "only", PATH, "a minor")
-        .expect("declared");
-    let again = needs
-        .declare(repo.path(), "only", PATH, "a minor")
-        .expect("declared");
+    let first = declare(&needs, repo.path(), "only", PATH, "a minor").expect("declared");
+    let again = declare(&needs, repo.path(), "only", PATH, "a minor").expect("declared");
     assert!(again.already && !first.already);
     assert_eq!(first.mine.place, again.mine.place);
     assert_eq!(needs.standing().len(), 1);
 
-    needs
-        .declare(repo.path(), "next", PATH, "a minor")
-        .expect("declared");
+    declare(&needs, repo.path(), "next", PATH, "a minor").expect("declared");
     let listed = status_text(&needs.standing());
     assert!(
         listed.contains("1. only: a minor") && listed.contains("2. next: a minor"),
@@ -151,9 +137,7 @@ fn a_branch_that_already_changed_the_path_is_told_to_search_for_its_old_number()
         &["update-ref", "refs/remotes/origin/main", "HEAD"],
     );
     let needs = Needs::of(repo.path()).expect("needs");
-    needs
-        .declare(repo.path(), "early", PATH, "a new migration")
-        .expect("declared");
+    declare(&needs, repo.path(), "early", PATH, "a new migration").expect("declared");
 
     git(repo.path(), &["checkout", "--quiet", "-b", "late"]);
     let file = repo.path().join(PATH);
@@ -162,9 +146,7 @@ fn a_branch_that_already_changed_the_path_is_told_to_search_for_its_old_number()
     git(repo.path(), &["add", PATH]);
     git(repo.path(), &["commit", "--quiet", "-m", "took V95"]);
 
-    let late = needs
-        .declare(repo.path(), "late", PATH, "a new migration")
-        .expect("declared");
+    let late = declare(&needs, repo.path(), "late", PATH, "a new migration").expect("declared");
     assert!(late.late);
     assert!(declared_text(&late).contains("search comments and docs"));
 }

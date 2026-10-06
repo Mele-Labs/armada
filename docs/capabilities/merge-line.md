@@ -244,8 +244,14 @@ directory, with its branch, path, what was said, what the branch took, and when.
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
 
-This is the half for agents outside Fleet. Fleet's own plan tasks, the store and
-the protocol are the other half and do not exist yet.
+This is the half for agents outside Fleet, and Fleet's half is the same files.
+A Job's branch is its identity, so a Drone declares through `declare_scope` or a
+plan's task and Fleet writes the need `armada need` would have written, through
+`adapters::needs`; Fleet's own press to merge reads the same line and refuses
+with `fleet.merge_waiting_behind` while a need ahead stands, under `forge` and
+`push` alike (`docs/concepts/fleet.md`, *Declared needs*). A Job reaching a
+terminal status spends or gives back what it held, so `armada land` stops
+holding a branch behind it. Nothing is added to the store or to a plan's task.
 
 ## Where each part goes in Fleet
 

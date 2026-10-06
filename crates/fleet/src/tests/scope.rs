@@ -265,6 +265,7 @@ async fn a_job_that_drifted_is_answerable_rather_than_over() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -368,6 +369,7 @@ async fn a_step_editing_outside_its_plan_is_caught_while_it_runs() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -414,6 +416,7 @@ async fn a_path_gone_by_the_next_reading_is_never_reported_as_drift() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -447,6 +450,7 @@ async fn the_same_drift_is_reported_once_and_not_every_turn() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -480,6 +484,7 @@ async fn a_drifting_drone_is_told_once_per_path_and_not_again() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -532,6 +537,7 @@ async fn declaring_again_replaces_the_plan_and_clears_what_drifted() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )
@@ -546,6 +552,7 @@ async fn declaring_again_replaces_the_plan_and_clears_what_drifted() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )
@@ -570,6 +577,7 @@ async fn a_step_with_no_scope_is_not_watched_and_takes_no_declaration() {
     let refused = declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["src".to_string()],
         },
     )
@@ -601,6 +609,7 @@ async fn a_declaration_naming_an_excluded_path_is_refused_where_it_is_made() {
     let refused = declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["secrets/keys.toml".to_string()],
         },
     )
@@ -663,6 +672,7 @@ async fn the_plan_does_not_survive_the_step_it_was_declared_for() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["docs".to_string()],
         },
     )

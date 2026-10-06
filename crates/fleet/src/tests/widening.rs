@@ -386,6 +386,7 @@ async fn an_ordinary_boundary_is_asked_about_and_then_declarable() {
     let refused = declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["crates/parser".to_string(), "crates/config".to_string()],
         },
     )
@@ -413,6 +414,7 @@ async fn an_ordinary_boundary_is_asked_about_and_then_declarable() {
     declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec!["crates/parser".to_string(), "crates/config".to_string()],
         },
     )
@@ -448,6 +450,7 @@ async fn an_absolute_boundary_is_refused_at_both_doors_and_no_answer_moves_it() 
     let refused = declared_by_the_one(
         &fleet,
         &DeclareScope {
+            needs: Vec::new(),
             context_paths: vec![".env".to_string()],
         },
     )

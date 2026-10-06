@@ -201,7 +201,7 @@ This sentence used to say the opposite, and the overlap warning below was writte
 
 **The working Drones are told too, and only within one repository.** When a Job first claims a path another claims, both Drones hear which Job and which paths; when one lands, the other hears what it changed there. News is spaced so a busy repository does not interrupt a Drone every few seconds, and a Job with no live Drone hears it in its next opening brief. `docs/contracts/agent-prompt.md`, The peer turn, has the wording. It is the same comparison as the warning on detail, and it holds nothing either.
 
-**It is deliberately not a lease.** Why: `write_targets` is a declaration and a Drone's worktree is a whole-repo checkout, so a hold over declared paths would serialise the Jobs that declared honestly and miss the one that wrote somewhere it never named — which is the collision nobody saw coming.
+**Overlap is not ordered; a declared need is.** The warning is deliberately not a lease. Why: `write_targets` is a declaration and a Drone's worktree is a whole-repo checkout, so a hold over declared paths would serialise the Jobs that declared honestly and miss the one that wrote somewhere it never named — which is the collision nobody saw coming.
 
 **It compares what two Jobs claimed, and a claim is not a write.** The Job that never names a path and writes there anyway produces nothing here, and cannot: that is the same whole-repo checkout the paragraph above turns on. The check that reads a real diff is the per-step drift check, and it measures one step against its own plan.
 
@@ -212,6 +212,26 @@ This sentence used to say the opposite, and the overlap warning below was writte
 **Every unfinished Job, not only the running ones.** The pair is one fact and it has to read the same from either side; naming only the running peers would have made two Jobs' detail views disagree about whether there is a collision. The other Job's status travels with the warning, so a person can see which of the two is already writing.
 
 The remedy needs no new state: `depends_on` already sequences Jobs and already parks the waiting one at `blocked_by_dependency`. **Taking it is not built** — there is no operation that writes an edge onto a Job that already exists, and this page says above that a Job's edges are written once, at creation. That write-once property is what lets DAG scheduling above skip a topological sort, so an operation that breaks it is not a small one; `#231` is where that is settled. What a person has today is the two gate answers they already had.
+
+### Declared needs
+
+**Decided by the owner, 2 Oct 2026, built 5 Oct 2026 (#1059).** A need is a path and what is needed there, in the declarer's words: `crates/store/src/migrations.rs`, *a new migration*. No repository declares kinds up front, because the file is the resource. Overlap above stays a warning; a declared need is the part that is ordered. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md` has the reasoning.
+
+**One order, shared with `armada need`.** A need is a JSON file per branch and path under `armada-needs/` in the clone's common git directory, and a Job's branch is its identity. Fleet reads and writes those files through `adapters::needs`, which `armada need` uses too, so a Job and a session on its own branch see the same line and neither can be ahead of the other without having declared first. Nothing is in the store.
+
+| | |
+|---|---|
+| **Declaring** | A Drone adds `needs` to `declare_scope`, the call that corrects its scope, or to a task of `record_plan` or `add_task`. A plan's task carries its needs by declaring them as the plan is kept; the file is the record, so nothing is added to a plan's task |
+| **First goes first** | Declaring again records nothing. A Drone says what it took by calling again with `took` on the need |
+| **A later declarer is told** | Which branch is ahead and what it took, in the peer turn, **at once** rather than after the spacing, and in the next opening brief where no Drone is on the Job. `docs/contracts/agent-prompt.md`, *The peer turn* |
+| **Landing follows the order** | A press to merge is refused while a need ahead of the Job's on the same file stands, as `fleet.merge_waiting_behind`, naming what it waits behind. The sweep that merges for `auto_merge` asks again each rotation |
+| **Spent or given back** | When the Job reaches a terminal status: spent if it landed, given back if it was dropped, which is one removal. A branch deleted locally is given back by whatever reads next |
+
+**`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the Job is noticed landing. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
+
+**Nothing expires by time.** A need that stalls holds every Job behind it, the cost the owner took. A person gives it back with `armada need --release <path>`, run from the branch; an act on a Job's detail that does the same is not built.
+
+**A task that is dropped does not give its need back.** A need is the Job's, not the task's, so it stands until the Job ends or a person releases it.
 
 ### A test broken on main
 

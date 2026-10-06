@@ -127,6 +127,7 @@ async fn declares(fleet: &Fixture, job: &JobId, path: &str) -> Result<(), NotDec
         .declare_scope(
             job,
             &DeclareScope {
+                needs: Vec::new(),
                 context_paths: vec![path.to_string()],
             },
         )
