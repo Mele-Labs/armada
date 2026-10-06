@@ -587,6 +587,7 @@ export const CHANNELS = {
   // The forms' two: edits as keys rather than text, and what past Jobs cost.
   editManifest: "bridge:edit-manifest",
   readManifestSpend: "bridge:read-manifest-spend",
+  readManifestChecks: "bridge:read-manifest-checks",
   // Setup: four entries, one per operation, on `readManifestFile`'s terms.
   readRepositoryScan: "bridge:read-repository-scan",
   readManifestProposals: "bridge:read-manifest-proposals",

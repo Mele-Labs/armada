@@ -2,6 +2,7 @@
 // `GET /manifest/checks`, `list_manifest_checks`. Since 23.38.
 // The Rust half is `crates/ipc/src/manifest_checks.rs`.
 
+import type { Outcome } from "./reads";
 import type { Requester } from "./requester";
 
 /** `source` of a row a gate wrote. */
@@ -55,6 +56,13 @@ export type ManifestCheckRow = {
   /** The asked run's own id, on an `asked_run` row. */
   asked_run_id?: number;
 };
+
+/**
+ * What `list_manifest_checks` came back as. Answered to the caller rather than held as state,
+ * `CheckOutputRead`'s reason: the Checks page asks once on opening and again as a run ends.
+ * Bridge-only, not on the wire.
+ */
+export type ManifestChecksRead = { ok: true; checks: ManifestChecks } | { ok: false; outcome: Outcome };
 
 export type ManifestCheckLog = {
   check: string;

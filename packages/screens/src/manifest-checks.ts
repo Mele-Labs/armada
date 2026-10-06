@@ -6,7 +6,8 @@
 // is Verify's waiting steps**: nothing else on the wire says a Check was asked for and has not
 // started. No new read, no new wire shape.
 
-import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type MergeLine, type Requester } from "@armada/protocol";
+import { requesterOf, type CheckoutRunRecord, type CheckoutRunSheet, type LandCheckAt, type ManifestCheckLog, type ManifestCheckRow, type MergeLine, type Requester } from "@armada/protocol";
+import { CHECK_OUTCOME } from "@armada/components";
 import type { CheckDetail, CheckListRow, CheckListStatus } from "@armada/components";
 
 import { absoluteOf, clockOf, lasting } from "./duration";
@@ -34,6 +35,12 @@ export type CheckEntry = {
   finishedAt?: string;
   /** Which run of its step, on a reported Check. */
   attempt?: number;
+  /** How long an asked run took. A gate row has none. */
+  tookMs?: number;
+  /** The Job a reported Check belongs to, which its logs are read under. */
+  job?: { id: string; handle: string };
+  /** Each of a reported Check's logs, `get_check_output`'s `kept`. */
+  logs?: readonly ManifestCheckLog[];
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
   says?: string;
 };
@@ -56,7 +63,7 @@ export function checkEntriesOf(
   sheet: CheckoutRunSheet | undefined,
   runs: readonly CheckoutRunRecord[],
   lines: readonly MergeLine[] = [],
-  reported: readonly ReportedCheck[] = [],
+  reported: readonly ManifestCheckRow[] = [],
 ): CheckEntry[] {
   const land = landEntriesOf(lines);
   if (sheet === undefined) return land;
@@ -84,7 +91,7 @@ export function checkEntriesOf(
   }
   // Ended runs and reported Checks read as one history, newest first.
   const ended = [...[...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord), ...reported.map(entryOfReported)].sort(
-    (one, two) => (two.startedAt ?? "").localeCompare(one.startedAt ?? ""),
+    (one, two) => (two.startedAt ?? two.finishedAt ?? "").localeCompare(one.startedAt ?? one.finishedAt ?? ""),
   );
   return [...out.values(), ...waiting, ...land, ...ended];
 }
@@ -147,7 +154,7 @@ export type Asker = { label: string; opens?: AskerOpens };
 export function askerOf(requester: Requester, jobLabel: (jobId: string) => string): Asker {
   const { kind, job_id: jobId, step, task_id: task, drone_id: drone, branch } = requester;
   const said = (...parts: (string | undefined)[]) => parts.filter((one): one is string => one !== undefined).join(" · ");
-  const job = jobId === undefined ? undefined : jobLabel(jobId);
+  const job = jobId === undefined ? undefined : (requester.handle ?? jobLabel(jobId));
   switch (kind) {
     case "gate":
       return {
@@ -171,26 +178,8 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
   }
 }
 
-/**
- * A Check Fleet reports for a requester other than the checkout: a Job's gate, or a Drone's own
- * run. **Shaped from `requester.ts` ahead of the manifest-wide read that will serve them**, so the
- * wire type replaces this one and `checkEntriesOf` takes the rows as they are.
- */
-export type ReportedCheck = {
-  /** Unique across the list: a gate row's key, or an asked run's own number with the Check. */
-  id: string;
-  name: string;
-  requester: Requester;
-  /** `waiting`, `running`, `passed`, `failed`, `stopped`, or an asked run's `lost`. */
-  state: string;
-  started_at?: string;
-  finished_at?: string;
-  /** Which run of the step it was. */
-  attempt?: number;
-};
-
-const REPORTED_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
-  waiting: { status: "waiting" },
+/** An asked run's own states, which the gate's outcomes do not share. */
+const ASKED_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
   running: { status: "running" },
   passed: { status: "passed" },
   failed: { status: "failed" },
@@ -198,18 +187,34 @@ const REPORTED_STATE: Record<string, { status: CheckListStatus; says?: string }>
   lost: { status: "stopped", says: "lost" },
 };
 
-function entryOfReported(one: ReportedCheck): CheckEntry {
-  const held = REPORTED_STATE[one.state] ?? { status: "waiting" as const };
+/** A gate outcome on the marks a row has, said in the registry's own verb where it is not plain. */
+function gateStatus(outcome: string): { status: CheckListStatus; says?: string } {
+  if (outcome === "passed") return { status: "passed" };
+  if (outcome === "failed") return { status: "failed" };
+  const verb = CHECK_OUTCOME[outcome]?.verb ?? outcome;
+  // Never started and not run are a Check that was not measured: neither a pass nor a failure.
+  return outcome === "never_ran" || outcome === "skipped"
+    ? { status: "waiting", says: verb }
+    : { status: "failed", says: verb };
+}
+
+/** One gate or asked-run row off the manifest-wide read, as a list entry. */
+export function entryOfReported(row: ManifestCheckRow): CheckEntry {
+  const held = row.source === "asked_run" ? (ASKED_STATE[row.state] ?? { status: "waiting" as const }) : gateStatus(row.state);
+  const key = row.asked_run_id !== undefined ? `run${row.asked_run_id}` : `${row.step}.${row.attempt}.${row.group ?? ""}.${row.name}`;
   return {
-    id: `reported:${one.id}`,
-    name: one.name,
+    id: `reported:${row.job_id}:${key}`,
+    name: row.name,
     status: held.status,
     command: "",
-    requester: one.requester,
+    requester: row.requester,
+    job: { id: row.job_id, handle: row.job_handle },
+    ...(row.logs === undefined || row.logs.length === 0 ? {} : { logs: row.logs }),
     ...(held.says === undefined ? {} : { says: held.says }),
-    ...(one.started_at === undefined ? {} : { startedAt: one.started_at }),
-    ...(one.finished_at === undefined ? {} : { finishedAt: one.finished_at }),
-    ...(one.attempt === undefined ? {} : { attempt: one.attempt }),
+    ...(row.started_at === undefined ? {} : { startedAt: row.started_at }),
+    ...(row.ended_at === undefined ? {} : { finishedAt: row.ended_at }),
+    ...(row.took_ms === undefined ? {} : { tookMs: row.took_ms }),
+    attempt: row.attempt,
   };
 }
 
@@ -226,7 +231,11 @@ export function checkRowOf(entry: CheckEntry, jobLabel: (jobId: string) => strin
     by: askerOf(entry.requester, jobLabel).label,
     ...(started === undefined ? {} : { started }),
     ...(startedExact === undefined ? {} : { startedExact }),
-    ...(record === undefined ? {} : { duration: lasting(record.duration_ms) }),
+    ...(record !== undefined
+      ? { duration: lasting(record.duration_ms) }
+      : entry.tookMs === undefined
+        ? {}
+        : { duration: lasting(entry.tookMs) }),
   };
 }
 
@@ -241,6 +250,8 @@ export function checkDetailsOf(entry: CheckEntry, requestedBy?: CheckDetail["val
   if (entry.requestedAt !== undefined) details.push({ label: "Requested", value: absoluteOf(entry.requestedAt) ?? entry.requestedAt });
   if (entry.startedAt !== undefined) details.push({ label: "Started", value: absoluteOf(entry.startedAt) ?? entry.startedAt });
   if (record === undefined && entry.finishedAt !== undefined) details.push({ label: "Ended", value: absoluteOf(entry.finishedAt) ?? entry.finishedAt });
+  if (record === undefined && entry.tookMs !== undefined) details.push({ label: "Took", value: lasting(entry.tookMs) });
+  if (record === undefined && entry.job !== undefined) details.push({ label: "Job", value: entry.job.handle, mono: true });
   if (record !== undefined) {
     details.push({ label: "Ended", value: absoluteOf(record.ended_at) ?? record.ended_at });
     details.push({ label: "Took", value: lasting(record.duration_ms) });

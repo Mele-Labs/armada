@@ -229,6 +229,7 @@ export const readManifestFile = () => window.armada.readManifestFile();
 export const saveManifestFile = (body: SaveManifestFile) => window.armada.saveManifestFile(body);
 export const editManifest = (body: EditManifest) => window.armada.editManifest(body);
 export const readManifestSpend = () => window.armada.readManifestSpend();
+export const readManifestChecks = () => window.armada.readManifestChecks();
 // Setup: Scan, the proposals, one edit, Write.
 export const readRepositoryScan = () => window.armada.readRepositoryScan();
 export const readManifestProposals = () => window.armada.readManifestProposals();

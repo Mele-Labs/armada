@@ -52,7 +52,7 @@ import { Worktrees } from "@armada/screens";
 import { Manifest, useManifestEditing, useManifestForm } from "@armada/screens";
 import { Setup, useSetup } from "@armada/screens";
 import { Locate, LocatedNotice, useLocate } from "@armada/screens";
-import { JobDetail, type JobOpening } from "@armada/screens";
+import { JobDetail } from "@armada/screens";
 import type { JobDraft } from "@armada/screens/src/draft/held";
 import { failingIn, raisedFailure } from "./failing";
 import { Toasts, useRaised } from "./raised";
@@ -135,7 +135,7 @@ import {
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
-import { ChecksSurface } from "./checks-surface";
+import { ChecksSurface, useAsked } from "./checks-surface";
 import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -186,13 +186,7 @@ export function App({ draft }: AppProps = {}) {
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
-  // Where a Job opens when the Checks page's requester link sent a person to a step or a Drone, and
-  // the merge line branch its link asked for. Each is let go with what it was for.
-  const [opening, setOpening] = useState<{ jobId: string; to: JobOpening } | null>(null);
-  const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (openJob === null) setOpening(null);
-  }, [openJob]);
+  const asked = useAsked(openJob); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   // The section a pressed notification asked for. **A token rather than a
   // call**: the press may have arrived over the composer or over a Job, so
   // Overview is not mounted yet, and it opens and scrolls to the section once
@@ -514,7 +508,7 @@ export function App({ draft }: AppProps = {}) {
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
-    setMergeFocus(undefined);
+    asked.setMergeFocus(undefined);
     setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks);
     setStudying(surfaceId === SURFACE.studios);
     setOpenStudio(null);
@@ -732,7 +726,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary key={reading.id} region="the job detail" {...guarded}>
                 <JobDetail
                   job={reading}
-                  {...(opening?.jobId === reading.id ? { opening: opening.to } : {})}
+                  {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
                   // Every Job, not the picked repository's: a member dispatched
                   // by this one is still its member while the rail is filtered.
                   board={state.jobs}
@@ -898,7 +892,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} {...(mergeFocus === undefined ? {} : { focus: mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); setMergeFocus(branch); }} {...guarded} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.

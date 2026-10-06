@@ -52,6 +52,7 @@ export function JobCheckLogSheet({
   following,
   floor,
   onOpenRecord,
+  bands,
   onClose,
 }: {
   log: JobCheckLog;
@@ -60,6 +61,8 @@ export function JobCheckLogSheet({
   floor: boolean;
   /** Go to this Check's own Record row. Absent where the Record holds none: no control is drawn. */
   onOpenRecord?: () => void;
+  /** Facts of the Check, held under the head while the log scrolls. */
+  bands?: ReactNode;
   onClose: () => void;
 }) {
   const { follow, reading } = following;
@@ -83,6 +86,7 @@ export function JobCheckLogSheet({
         rows={held?.state === "got" ? rowsOf(held.output) : []}
         {...(held?.state === "absent" ? { emptyNote: held.note } : {})}
         {...(onOpenRecord === undefined ? {} : { onOpenRecord })}
+        {...(bands === undefined ? {} : { bands })}
         floor={floor}
         onClose={onClose}
       />
@@ -99,6 +103,7 @@ export function JobCheckLogSheet({
       rows={liveRowsOf(reading, log.kept)}
       {...(note === undefined ? {} : { emptyNote: note })}
       {...(onOpenRecord === undefined ? {} : { onOpenRecord })}
+      {...(bands === undefined ? {} : { bands })}
       floor={floor}
       onClose={onClose}
     />

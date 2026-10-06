@@ -3,15 +3,13 @@
 // Command and a Setup entry, which the Checks page leaves out. `checks`, the scenario the walk of
 // the same name plays.
 
-import type { CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, MergeLines } from "@armada/protocol";
-import type { ReportedCheck } from "@armada/screens";
+import type { CheckOutput, CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, ManifestCheckRow, MergeLines } from "@armada/protocol";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
-import { DRONE_ID, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { DRONE_ID, JOB_HANDLE, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
 import { holding } from "./holding";
 import { sheet, manifesting } from "./manifest-fleet";
-import { setReportedChecks } from "../reported-checks";
 import type { FleetHandle, Scenario } from "./moment";
 
 /** How far apart the running Check's lines arrive: inside a walk step's five-second wait. */
@@ -119,38 +117,70 @@ const LAND_LOGS: Record<string, string[]> = {
   "fleet/pulse-log-rows desktop_test": [" RUN  v4.1.11 /Users/user/armada/apps/desktop", " ✓ src/main/connection.test.ts (18 tests) 211ms"],
 };
 
+/** Each of these opens a log by its `kept` name, read under the Job as `get_check_output` does. */
+const REPRO_DRONE = "01M1HHJ6XB001BZJZ4BE2RPR0A";
+
 /**
- * What Fleet will report for the Job's gate and its Drones, in the shape `requester.ts` gives each
- * kind. A fixture ahead of the manifest-wide read: the real rows replace it.
+ * What `list_manifest_checks` answers, newest first: a gate's Check, a Drone's run on a task, still
+ * going, and a Drone's run of two Checks on a step. **A gate row has no start or duration**, only
+ * when its ruling was written.
  */
-const REPORTED: ReportedCheck[] = [
+const REPORTED: ManifestCheckRow[] = [
   {
-    id: "gate-root_cause-components_test",
-    name: "components_test",
-    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause" },
-    state: "passed",
-    started_at: "2026-10-06T13:20:00Z",
-    finished_at: "2026-10-06T13:23:10Z",
-    attempt: 2,
-  },
-  {
-    id: "asked-17-scripts_test",
+    source: "asked_run",
+    requester: { kind: "drone_task", job_id: JOB_ID, step: "fix", task_id: "T2", drone_id: DRONE_ID, handle: JOB_HANDLE },
+    job_id: JOB_ID,
+    job_handle: JOB_HANDLE,
+    job_title: "Split the settings reducer",
+    step: "fix",
+    attempt: 1,
     name: "scripts_test",
-    requester: { kind: "drone_task", job_id: JOB_ID, step: "fix", task_id: "T2", drone_id: DRONE_ID },
     state: "running",
     started_at: "2026-10-06T14:18:30Z",
-    attempt: 1,
+    logs: [{ check: "scripts_test", kept: "fix.1.ask.scripts_test.log" }],
+    asked_run_id: 17,
   },
   {
-    id: "asked-9-hooks_test",
-    name: "hooks_test",
-    requester: { kind: "drone_step", job_id: JOB_ID, step: "repro", drone_id: "01M1HHJ6XB001BZJZ4BE2RPR0A" },
+    source: "gate",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
+    job_id: JOB_ID,
+    job_handle: JOB_HANDLE,
+    job_title: "Split the settings reducer",
+    step: "root_cause",
+    attempt: 2,
+    name: "components_test",
+    state: "passed",
+    ended_at: "2026-10-06T13:23:10Z",
+    logs: [{ check: "components_test", kept: "root_cause.2.components_test.log" }],
+  },
+  {
+    source: "asked_run",
+    requester: { kind: "drone_step", job_id: JOB_ID, step: "repro", drone_id: REPRO_DRONE, handle: JOB_HANDLE },
+    job_id: JOB_ID,
+    job_handle: JOB_HANDLE,
+    job_title: "Split the settings reducer",
+    step: "repro",
+    attempt: 1,
+    name: "hooks_test, format",
     state: "failed",
     started_at: "2026-10-06T13:05:00Z",
-    finished_at: "2026-10-06T13:05:09Z",
-    attempt: 1,
+    ended_at: "2026-10-06T13:05:09Z",
+    took_ms: 9_000,
+    logs: [
+      { check: "hooks_test", kept: "repro.1.ask.hooks_test.log" },
+      { check: "format", kept: "repro.1.ask.format.log" },
+    ],
+    asked_run_id: 9,
   },
 ];
+
+/** The Job's Check logs, by `kept`. */
+const JOB_LOGS: Record<string, string[]> = {
+  "root_cause.2.components_test.log": ["$ vitest run", " ✓ src/Sheet.stories.tsx (14 tests) 211ms", " Test Files  182 passed (182)"],
+  "repro.1.ask.hooks_test.log": ["$ python3 -m unittest", "Ran 6 tests in 0.04s", "OK"],
+  "repro.1.ask.format.log": ["$ cargo fmt --all --check", "Diff in crates/fleet/src/lib.rs:12:"],
+  "fix.1.ask.scripts_test.log": ["$ python3 -m unittest scripts/test_land.py", "test_preflight (test_land.Land) ... ok"],
+};
 
 export function checking(): Scenario {
   const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
@@ -162,10 +192,7 @@ export function checking(): Scenario {
     state: { ...jobs.state, repository: base.state.repository, mergeLines: LINE },
     reads: jobs.reads,
     says: "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them",
-    behaves: (fleet) => {
-      setReportedChecks(REPORTED);
-      return { ...base.behaves?.(fleet), ...printing(fleet) };
-    },
+    behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet), ...jobChecks(fleet) }),
   };
 }
 
@@ -207,6 +234,27 @@ function printing(fleet: FleetHandle): Partial<BridgeApi> {
       return lines === undefined
         ? { ok: false, outcome: { ok: false, why: "not_connected" } }
         : { ok: true, output: { id: runId, name: runId.replace("crun_", ""), path: `.armada/runs/${runId}/output.log`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true } };
+    },
+  };
+}
+
+/** `list_manifest_checks`, and the Job's own Check logs: read whole, and followed on the running one. */
+function jobChecks(fleet: FleetHandle): Partial<BridgeApi> {
+  return {
+    readManifestChecks: async () => ({ ok: true, checks: { rows: REPORTED, total: REPORTED.length } }),
+    readCheckOutput: async (_jobId, kept) => {
+      const lines = JOB_LOGS[kept];
+      if (lines === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+      const output: CheckOutput = { attempt: 1, name: kept, path: `.armada/${kept}`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true };
+      return { ok: true, output };
+    },
+    followCheckOutput: async (jobId, kept) => {
+      const lines = kept === null ? undefined : JOB_LOGS[kept];
+      if (jobId === null || kept === null || lines === undefined) {
+        fleet.publish({ followed: { state: "none" } });
+        return;
+      }
+      fleet.publish({ followed: { state: "following", jobId, kept, name: kept, attempt: 1, path: `.armada/${kept}`, fromLine: 1, lines } });
     },
   };
 }

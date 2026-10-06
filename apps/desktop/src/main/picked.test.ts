@@ -175,6 +175,7 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await editing.saveFile({ read: "", text: "" });
   await editing.edit({ read: "", edits: [] });
   await editing.readSpend();
+  await editing.readChecks();
   await editing.setup.readScan();
   await editing.setup.readProposals();
   await editing.setup.edit({ dir: ".", edit: { edit: "id", id: "x" } });
@@ -212,6 +213,7 @@ const EVERY_ROUTE = [
   "/jobs/from_request",
   "/manifest/allowed_commands",
   "/manifest/allowed_commands/remove",
+  "/manifest/checks",
   "/manifest/drift",
   "/manifest/edit",
   "/manifest/file",

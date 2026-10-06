@@ -65,17 +65,21 @@ test("every kind but outside opens its requester", () => {
   expect(askerOf({ kind: "outside" }, label)).toEqual({ label: "Started outside a Job" });
 });
 
-test("reported gate and Drone rows join the history newest first, with their requester", () => {
+test("gate and asked-run rows join the history newest first, with their requester and handle", () => {
+  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "fix", attempt: 1 };
   const reported = [
-    { id: "g", name: "test", requester: { kind: "gate", job_id: "1", step: "fix" }, state: "passed", started_at: "2026-10-06T13:00:00Z" },
-    { id: "a", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d" }, state: "lost", started_at: "2026-10-06T14:00:00Z" },
+    { ...base, source: "gate", name: "test", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "timed_out", ended_at: "2026-10-06T13:00:00Z" },
+    { ...base, source: "asked_run", name: "build", requester: { kind: "drone_step", job_id: "1", step: "fix", drone_id: "d", handle: "1-a-job" }, state: "lost", started_at: "2026-10-06T14:00:00Z", logs: [{ check: "build", kept: "k.log" }], asked_run_id: 4 },
   ];
-  const rows = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [], reported).map((one) => checkRowOf(one, label));
+  const entries = checkEntriesOf(sheet, [ran("build", "2026-10-06T13:30:00Z")], [], reported);
+  const rows = entries.map((one) => checkRowOf(one, label));
   expect(rows.slice(2).map((one) => [one.name, one.by, one.says])).toEqual([
-    ["build", "Drone d · job-1 · fix", "lost"],
+    ["build", "Drone d · 1-a-job · fix", "lost"],
     ["build", "Started outside a Job", "passed"],
-    ["test", "Gate · job-1 · fix", "passed"],
+    ["test", "Gate · 1-a-job · fix", "outran its budget"],
   ]);
+  expect(entries[2]?.logs).toEqual([{ check: "build", kept: "k.log" }]);
+  expect(entries[2]?.job).toEqual({ id: "1", handle: "1-a-job" });
 });
 
 test("a merge line Check is a row with the line's requester and the names its log is asked by", () => {

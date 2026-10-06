@@ -10,21 +10,25 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Button, CheckDetails, CheckList, ConsoleOutput, type ConsoleRow } from "@armada/components";
+import { Button, CheckDetails, CheckList, ConsoleOutput, Tabs, type ConsoleRow } from "@armada/components";
 import type {
   CheckoutRunFollowed,
   CheckoutRunListRead,
   CheckoutRunRecord,
   CheckoutRunSheetRead,
   FollowedLandLog,
+  FollowedLog,
+  ManifestCheckRow,
+  ManifestChecksRead,
   LandCheckAt,
   MergeLine,
   RunOutputRead,
 } from "@armada/protocol";
 
-import { LandCheckLogSheet } from "./check-log-sheet";
+import { JobCheckLogSheet, LandCheckLogSheet } from "./check-log-sheet";
 import type { JobOpening } from "./detail-props";
-import { askerOf, checkDetailsOf, checkEntriesOf, checkRowOf, type Asker, type CheckEntry, type ReportedCheck } from "./manifest-checks";
+import { askerOf, checkDetailsOf, checkEntriesOf, checkRowOf, type Asker, type CheckEntry } from "./manifest-checks";
+import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "./outputs";
 import { LogSheet } from "./log-sheet";
 
 export type ManifestChecksProps = {
@@ -41,8 +45,12 @@ export type ManifestChecksProps = {
   /** The merge line Check being followed, and the ask to follow one. */
   landFollowed: FollowedLandLog;
   onFollowLand: (at: LandCheckAt | null) => void;
-  /** Checks Fleet reports for a Job's gate or a Drone, beside the checkout's and the merge line's. */
-  reported: readonly ReportedCheck[];
+  /** `list_manifest_checks`: a Job's gate Checks and a Drone's own runs, beside the checkout's and the merge line's. */
+  onReadChecks: () => Promise<ManifestChecksRead>;
+  /** A Job's Check log, read whole or followed while it is written. */
+  onReadCheckOutput: ReadCheckOutput;
+  onFollowCheckOutput: FollowCheckOutput;
+  followedLog: FollowedLog;
   /** A Job as a person names it, for the link to it. */
   jobLabel: (jobId: string) => string;
   /** Where a requester is opened: a Job at a step or a Drone, and the merge line at a branch. */
@@ -53,7 +61,8 @@ export type ManifestChecksProps = {
 };
 
 export function ManifestChecks(props: ManifestChecksProps) {
-  const { sheet, onListRuns, lines, reported, jobLabel, floor } = props;
+  const { sheet, onListRuns, onReadChecks, lines, jobLabel, floor } = props;
+  const [reported, setReported] = useState<readonly ManifestCheckRow[]>([]);
   const [runs, setRuns] = useState<readonly CheckoutRunRecord[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const data = sheet.state === "read" ? sheet.sheet : undefined;
@@ -68,10 +77,13 @@ export function ManifestChecks(props: ManifestChecksProps) {
     void onListRuns().then((read) => {
       if (current && read.ok) setRuns(read.runs.runs);
     });
+    void onReadChecks().then((read) => {
+      if (current && read.ok) setReported(read.checks.rows);
+    });
     return () => {
       current = false;
     };
-  }, [onListRuns, runningId, verifyId, verifyEnded]);
+  }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
 
   const entries = useMemo(() => checkEntriesOf(data, runs, lines, reported), [data, runs, lines, reported]);
   const open = entries.find((one) => one.id === openId);
@@ -90,10 +102,43 @@ export function ManifestChecks(props: ManifestChecksProps) {
           floor={floor}
           onClose={() => setOpenId(null)}
         />
+      ) : open.job !== undefined && open.logs !== undefined ? (
+        <ReportedLogPanel key={open.id} entry={open} job={open.job.id} logs={open.logs} {...props} onClose={() => setOpenId(null)} />
       ) : (
         <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={() => setOpenId(null)} />
       )}
     </div>
+  );
+}
+
+/**
+ * A gate's or a Drone's Check: its log read under its Job, followed while an asked run goes. A run
+ * of several Checks has a log each, and a tab picks which is read.
+ */
+function ReportedLogPanel(
+  props: ManifestChecksProps & { entry: CheckEntry; job: string; logs: NonNullable<CheckEntry["logs"]>; onClose: () => void },
+) {
+  const { entry, job, logs, floor, onClose } = props;
+  const [at, setAt] = useState(0);
+  const outputs = useCheckOutputs(props.onReadCheckOutput, job);
+  const following = useFollowing(props.onFollowCheckOutput, props.followedLog, job);
+  const log = logs[Math.min(at, logs.length - 1)]!;
+  return (
+    <JobCheckLogSheet
+      log={{ name: log.check, kept: log.kept, live: entry.status === "running" }}
+      outputs={outputs}
+      following={following}
+      bands={
+        <>
+          {logs.length < 2 ? null : (
+            <Tabs items={logs.map((one, n) => ({ id: String(n), label: one.check }))} value={String(at)} onChange={(id) => setAt(Number(id))} />
+          )}
+          <FactsOf {...props} />
+        </>
+      }
+      floor={floor}
+      onClose={onClose}
+    />
   );
 }
 

@@ -462,6 +462,7 @@ export function fakeBridge(scenario: Scenario): BridgeApi {
     saveManifestFile: async () => unread("/manifest/file"),
     editManifest: async () => unread("/manifest/edit"),
     readManifestSpend: async () => refused("/manifest/spend"),
+    readManifestChecks: async () => refused("/manifest/checks"),
 
     readRepositoryScan: async () => refused("/repositories/scan"),
     readManifestProposals: async () => refused("/manifest/proposals"),
