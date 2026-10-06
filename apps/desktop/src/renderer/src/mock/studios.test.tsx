@@ -12,7 +12,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { mountApp, type Mounted } from "./mount";
 import { everyKind, studying } from "./studio-fleet";
-import { entered, openHelm } from "./testing";
+import { entered, openHelm, whenFleet } from "./testing";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
 
@@ -136,7 +136,7 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   const before = fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position;
 
   drag(node(/^Note: Drag me somewhere/).element(), 160, 120);
-  await expect.poll(() => fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position.x).toBeGreaterThan(before.x + 60);
+  await whenFleet(fleet, () => fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position.x > before.x + 60);
   const left = fleet.studios()[0]!.nodes.find((one) => one.kind === "note")!.position;
   expect(left.y).toBeGreaterThan(before.y + 30);
 
@@ -173,7 +173,8 @@ test("a Studio started, laid out, closed, reopened read-only, continued, and a r
   expect(page.getByText("Read-only", { exact: true }).query()).toBeNull();
   await answers.hover();
   await page.getByRole("button", { name: /^Accept: Finding What does the note point at\? answers Note Drag me somewhere/ }).click();
-  await expect.poll(() => fleet.studios()[0]!.edges.map((edge) => edge.standing)).toEqual(["accepted"]);
+  await whenFleet(fleet, () => fleet.studios()[0]!.edges.map((edge) => edge.standing).join() === "accepted");
+  expect(fleet.studios()[0]!.edges.map((edge) => edge.standing)).toEqual(["accepted"]);
   await expect.poll(() => page.getByRole("button", { name: /^Accept: / }).query()).toBeNull();
 });
 
@@ -193,7 +194,7 @@ test("a Studio named by hand, with a note typed and a link pasted, survives a re
   await page.getByRole("button", { name: "Rename Untitled Studio" }).click();
   await userEvent.keyboard("The Board's legend{Enter}");
   await expect.element(page.getByRole("heading", { name: "The Board's legend" })).toBeVisible();
-  await expect.poll(() => fleet.studios()[0]!.named_by).toBe("person");
+  await whenFleet(fleet, () => fleet.studios()[0]!.named_by === "person");
 
   // The rail, and the two keys behind it. `N` is the note and `V` the link,
   // read off the registry by the surface that binds them. It was a `+ Node`
@@ -253,7 +254,7 @@ test("Delete 1 node confirms, with Cancel first, and takes the node's edges with
   await expect.element(confirm.getByText("1 node goes from this Studio, with the 1 edge on it.")).toBeVisible();
   await confirm.getByRole("button", { name: "Delete 1 node" }).click();
 
-  await expect.poll(() => fleet.studios()[0]!.nodes.map((one) => one.kind)).toEqual(["note"]);
+  await whenFleet(fleet, () => fleet.studios()[0]!.nodes.map((one) => one.kind).join() === "note");
   expect(fleet.studios()[0]!.edges).toEqual([]);
 });
 
@@ -557,7 +558,7 @@ test("putting a draft down sends the written one already open, and drops a blank
   await userEvent.keyboard("https://example.invalid/legend");
   await page.getByRole("button", { name: "Add a Note", exact: true }).click();
   await pressBoard(2);
-  await expect.poll(() => kept().length).toBe(before + 1);
+  await whenFleet(fleet, () => kept().length === before + 1);
   await expect.element(drafted("Note")).toBeVisible();
   expect(drafted("Link").query()).toBeNull();
 });
@@ -606,9 +607,9 @@ test("a proposed relation is answered on its own edge, and no queue sits in the 
   await proposal.getByRole("button", { name: /^Accept: Note It wraps at 720 wide same as / }).click();
 
   await expect.poll(() => dot.query()).toBeNull();
-  await expect
-    .poll(() => fleet.studios().flatMap((one) => one.edges).filter((edge) => edge.kind === "same_as").map((edge) => edge.standing))
-    .toEqual(["accepted"]);
+  const sameAs = () => fleet.studios().flatMap((one) => one.edges).filter((edge) => edge.kind === "same_as").map((edge) => edge.standing);
+  await whenFleet(fleet, () => sameAs().join() === "accepted");
+  expect(sameAs()).toEqual(["accepted"]);
   // The relation itself stays: accepting settles the standing, not the kind.
   await expect.element(page.getByText("same as", { exact: true })).toBeVisible();
 });
@@ -683,7 +684,7 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await asked("Cluster").click();
   await expect.element(node(/^Cluster: Counts go stale/)).toBeVisible();
   // Every Note it was made of keeps an edge to it, so the Cluster says where it came from.
-  await expect.poll(() => fleet.studios()[0]!.edges.filter((edge) => edge.kind === "produced").length).toBe(2);
+  await whenFleet(fleet, () => fleet.studios()[0]!.edges.filter((edge) => edge.kind === "produced").length === 2);
 
   await pick(/^Cluster: Counts go stale/);
   await act("Write up");
@@ -701,9 +702,9 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
   await act("Edit draft");
   await page.getByRole("textbox", { name: "Body" }).fill("Both counts are read off a row that is stale.");
   await asked("Save draft").click();
-  await expect
-    .poll(() => fleet.studios()[0]!.nodes.find((one) => one.kind === "issue_draft"))
-    .toMatchObject({ body: "Both counts are read off a row that is stale." });
+  const saved = () => fleet.studios()[0]!.nodes.find((one) => one.kind === "issue_draft");
+  await whenFleet(fleet, () => saved()?.body === "Both counts are read off a row that is stale.");
+  expect(saved()).toMatchObject({ body: "Both counts are read off a row that is stale." });
 
   await pick(/^Issue draft: Counts go stale after what they count changes/);
   await act("Dispatch");
@@ -713,7 +714,7 @@ test("two Notes clustered, the Cluster written up, the draft edited and dispatch
     .toBe("Counts go stale after what they count changes\n\nBoth counts are read off a row that is stale.");
   await asked("Dispatch").click();
 
-  await expect.poll(() => fleet.studios()[0]!.nodes.filter((one) => one.kind === "job").length).toBe(1);
+  await whenFleet(fleet, () => fleet.studios()[0]!.nodes.filter((one) => one.kind === "job").length === 1);
   const studio = fleet.studios()[0]!;
   const job = studio.nodes.find((one) => one.kind === "job")!;
   const draft = studio.nodes.find((one) => one.kind === "issue_draft")!;
@@ -741,12 +742,11 @@ test("a Contradiction is ended as Resolved here, with the answer kept on the nod
   await page.getByRole("textbox", { name: "Answer" }).fill("The Board wins; the row is stale");
   await asked("Resolve").click();
 
-  await expect
-    .poll(() => fleet.studios()[0]!.nodes[0])
-    .toMatchObject({
-      state: "resolved_here",
-      answer: "The Board wins; the row is stale",
-    });
+  await whenFleet(fleet, () => (fleet.studios()[0]!.nodes[0] as { state?: string }).state === "resolved_here");
+  expect(fleet.studios()[0]!.nodes[0]).toMatchObject({
+    state: "resolved_here",
+    answer: "The Board wins; the row is stale",
+  });
   // Ended once: nothing offers a second outcome on it.
   await pick(/^Contradiction: The chip reads the Board/);
   expect(offered("Not a problem").query()).toBeNull();
@@ -802,7 +802,8 @@ test("a pasted address is asked about, takes a line of its own, and keeps it acr
   await userEvent.fill(page.getByLabelText("Your line", { exact: true }), "why the card said nothing");
   await asked("Save line").click();
   await expect.element(node(/^Link: why the card said nothing/)).toBeVisible();
-  await expect.poll(() => fleet.studios()[0]!.nodes[0]).toMatchObject({
+  await whenFleet(fleet, () => (fleet.studios()[0]!.nodes[0] as { said?: string }).said === "why the card said nothing");
+  expect(fleet.studios()[0]!.nodes[0]).toMatchObject({
     kind: "link",
     address: PASTED,
     said: "why the card said nothing",
@@ -889,7 +890,8 @@ test("reading an epic in asks what to take, and narrowing leaves what a person w
   await expect.element(page.getByLabelText("Take", { exact: true })).toHaveValue("open");
   await asked("Read in").click();
   await expect.element(node(/^Issue: An issue cannot be read into a Studio/)).toBeVisible();
-  await expect.poll(() => epic()).toMatchObject({ read_in: { issues: 2, total: 3, took: "open", left_out: 1 } });
+  await whenFleet(fleet, () => (epic() as { read_in?: object } | undefined)?.read_in !== undefined);
+  expect(epic()).toMatchObject({ read_in: { issues: 2, total: 3, took: "open", left_out: 1 } });
   // The Epic says which state it took and how many it left out.
   await expect.element(node(/^Epic: Studio/)).toHaveTextContent("Open issues only");
   await expect.element(node(/^Epic: Studio/)).toHaveTextContent("1 left out");
@@ -912,7 +914,8 @@ test("reading an epic in asks what to take, and narrowing leaves what a person w
   await expect.element(page.getByLabelText("Take", { exact: true })).toHaveValue("everything");
   await userEvent.selectOptions(page.getByLabelText("Take", { exact: true }), "open");
   await asked("Read in").click();
-  await expect.poll(() => epic()).toMatchObject({ read_in: { issues: 3, took: "open", left_out: 1, kept: 1 } });
+  await whenFleet(fleet, () => (epic() as { read_in?: { issues: number } } | undefined)?.read_in?.issues === 3);
+  expect(epic()).toMatchObject({ read_in: { issues: 3, took: "open", left_out: 1, kept: 1 } });
   await expect.element(node(/^Issue: Promotion: cluster, defer, write up/)).toBeVisible();
   await expect.element(node(/^Deferral: does this still hold\?/)).toBeVisible();
   await expect.element(node(/^Epic: Studio/)).toHaveTextContent("1 kept, worked on");
@@ -1017,23 +1020,25 @@ test("a node holding an address opens in the browser, and a node without one off
   // Read-only is no reason not to look at what a node points at.
   await pick(/^Issue: Read a source a person already has/);
   await act("Open");
-  await expect.poll(() => fleet.browsed()).toEqual(["https://example.invalid/o/r/issues/1293"]);
+  await whenFleet(fleet, () => fleet.browsed().length === 1);
+  expect(fleet.browsed()).toEqual(["https://example.invalid/o/r/issues/1293"]);
 
   await pick(/^Link: why the ids collide/);
   await act("Open");
-  await expect.poll(() => fleet.browsed()).toEqual([
+  await whenFleet(fleet, () => fleet.browsed().length === 2);
+  expect(fleet.browsed()).toEqual([
     "https://example.invalid/o/r/issues/1293",
     "https://react.dev/reference/react/useId",
   ]);
 
   await pick(/^Pull request: where dispatch landed/);
   await act("Open");
-  await expect.poll(() => fleet.browsed()).toHaveLength(3);
+  await whenFleet(fleet, () => fleet.browsed().length === 3);
   expect(fleet.browsed()[2]).toBe("https://example.invalid/o/r/pull/1391");
 
   await pick(/^Epic: Studio/);
   await act("Open");
-  await expect.poll(() => fleet.browsed()).toHaveLength(4);
+  await whenFleet(fleet, () => fleet.browsed().length === 4);
   expect(fleet.browsed()[3]).toBe("https://example.invalid/o/r/milestone/17");
 
   // A Finding holds no address, so nothing offers to open one — and Bridge is
@@ -1100,7 +1105,7 @@ test("every node picked is deleted by one act, confirmed once, and the Studio is
 
   await confirm.getByRole("button", { name: "Delete 18 nodes" }).click();
   // One write: the Studio is empty, and every edge went with the nodes.
-  await expect.poll(() => fleet.studios()[0]!.nodes).toEqual([]);
+  await whenFleet(fleet, () => fleet.studios()[0]!.nodes.length === 0);
   expect(fleet.studios()[0]!.edges).toEqual([]);
   // An empty Studio draws an empty whiteboard: no sentence stands in for the nodes.
   expect(page.getByText("Nothing on this Studio yet.", { exact: false }).query()).toBeNull();

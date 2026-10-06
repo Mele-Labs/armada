@@ -2,11 +2,13 @@
 // down after, and reach a surface the way a person does — by the rail.
 
 import { afterEach, expect, onTestFinished } from "vitest";
+import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
 import { mountApp } from "./mount";
 import type { Mounted } from "./mount";
 import type { Scenario } from "./scenario";
+import type { StudioKeeping } from "./studio-fleet";
 
 let mounted: { app: Mounted; host: HTMLElement }[] = [];
 
@@ -123,6 +125,38 @@ export const rows = (): HTMLElement[] => [...document.querySelectorAll<HTMLEleme
  */
 export async function listed(): Promise<void> {
   await expect.poll(() => rows().length).toBeGreaterThan(0);
+}
+
+/**
+ * Resolves when `spy` has been called `times`, at once if it already has. **An awaited call, not a
+ * poll**: a poll gives up after five seconds, which a loaded run can spend before the press is
+ * even handled. Call it before the act that makes the call, or after — it wraps what the spy does.
+ */
+export function whenCalled(spy: Mock, times = 1): Promise<void> {
+  if (spy.mock.calls.length >= times) return Promise.resolve();
+  return new Promise((resolve) => {
+    const through = spy.getMockImplementation();
+    spy.mockImplementation(function (this: unknown, ...args: unknown[]) {
+      const answer = through?.apply(this, args);
+      if (spy.mock.calls.length >= times) resolve();
+      return answer;
+    });
+  });
+}
+
+/**
+ * Resolves once the fake Fleet's Studios or browsed addresses satisfy `held`, at once if they
+ * already do. The same wait as `whenCalled`, on state the fake keeps rather than a function.
+ */
+export function whenFleet(fleet: Pick<StudioKeeping, "onChange">, held: () => boolean): Promise<void> {
+  if (held()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const stop = fleet.onChange(() => {
+      if (!held()) return;
+      stop();
+      resolve();
+    });
+  });
 }
 
 /**
