@@ -69,13 +69,15 @@ import type { OpenStudioFrom } from "./open-studio";
 /**
  * Where a Job opens, when something other than its own Board row opened it: a Check's requester
  * is a step or a Drone. **Read once, as the Job opens**, so it is never held over the next visit.
- * A Drone wins over a step: its sheet is the more specific place.
+ * A task wins over a Drone, and a Drone over a step: each is the more specific place.
  */
 export type JobOpening = {
   /** The Workflow step to open on its tab. */
   step?: string;
   /** The Drone to open on the Drones tab. */
   drone?: string;
+  /** The task to open on its panel in Plan. */
+  task?: string;
 };
 
 export type JobDetailProps = {

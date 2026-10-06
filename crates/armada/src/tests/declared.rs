@@ -383,17 +383,48 @@ fn covering_refuses_a_directory_with_no_manifest() {
     assert!(refused.contains("armada.yml"), "{refused}");
 }
 
-/// **This repository's own Manifest.** A Bridge-only change does not pay for
-/// `acceptance`, and a Rust one does.
+/// **This repository's own Manifests.** A Bridge-only change does not pay for
+/// `acceptance`, and a Rust one does. The Bridge's Checks are keyed by the
+/// workspace that declares them, and a change to one package gates that
+/// package and what reads it.
 #[test]
 fn this_repositorys_checks_are_chosen_by_their_when() {
     let bridge = hits(&["apps/desktop/src/x.ts"]);
-    assert!(bridge.contains(&"typecheck".to_string()), "{bridge:?}");
+    assert!(
+        bridge.contains(&"apps/desktop:typecheck".to_string()),
+        "{bridge:?}"
+    );
     assert!(!bridge.contains(&"acceptance".to_string()), "{bridge:?}");
+    assert!(
+        !bridge.iter().any(|key| key.starts_with("packages/")),
+        "nothing under `packages/` reads `apps/desktop`: {bridge:?}"
+    );
+
+    let components = hits(&["packages/components/src/Badge.tsx"]);
+    for key in [
+        "packages/components:components_test",
+        "packages/screens:screens_test",
+        "apps/desktop:desktop_test",
+    ] {
+        assert!(
+            components.contains(&key.to_string()),
+            "{key}: {components:?}"
+        );
+    }
+    let screens = hits(&["packages/screens/src/x.ts"]);
+    assert!(screens.contains(&"packages/screens:screens_test".to_string()));
+    assert!(
+        !screens.contains(&"packages/components:components_test".to_string()),
+        "components does not read screens: {screens:?}"
+    );
 
     let rust = hits(&["crates/fleet/src/lib.rs"]);
     assert!(rust.contains(&"acceptance".to_string()), "{rust:?}");
     assert!(!rust.contains(&"typecheck".to_string()), "{rust:?}");
+    assert!(
+        !rust.iter().any(|key| key.contains(':')),
+        "a crate change gates no workspace: {rust:?}"
+    );
 
     // The gate leaves "passes" to `acceptance`, so a file the suite embeds
     // has to reach it.
@@ -453,11 +484,20 @@ fn what_the_narrowed_checks_read_still_selects_them() {
         assert!(hit.contains(&"test".to_string()), "{path}: {hit:?}");
     }
     // `xtask`'s own tests read the Bridge tree, and nothing compiles it in.
+    // The root owns only what no workspace claims, so a path under a
+    // workspace reaches that run through `apps/desktop:xtask_test`, and a
+    // package nobody owns still reaches the root's `test`.
     for path in ["apps/desktop/src/x.ts", "packages/components/src/Badge.tsx"] {
         let hit = hits(&[path]);
-        assert!(hit.contains(&"test".to_string()), "{path}: {hit:?}");
+        assert!(
+            hit.contains(&"apps/desktop:xtask_test".to_string()),
+            "{path}: {hit:?}"
+        );
         assert!(!hit.contains(&"build".to_string()), "{path}: {hit:?}");
     }
+    let unowned = hits(&["packages/tokens/x.css"]);
+    assert!(unowned.contains(&"test".to_string()), "{unowned:?}");
+    assert!(!unowned.contains(&"build".to_string()), "{unowned:?}");
     for path in ["crates/ipc/build.rs", "xtask/src/main.rs", "Cargo.toml"] {
         assert!(hits(&[path]).contains(&"format".to_string()), "{path}");
     }

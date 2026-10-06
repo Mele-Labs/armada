@@ -257,6 +257,7 @@ can find them.
 | Putting a decision to a person, and writing the options | `asking-a-person` |
 | Running a whole milestone from one approval, wave by wave | `epic-as-one-job` |
 | Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
+| Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
 | Walking the owner through what this session left waiting on him, one question at a time | `review-open-items` |
 | Asking the code graph how something works | `gitnexus-exploring` |
 | Asking the code graph what a change breaks | `gitnexus-impact-analysis` |

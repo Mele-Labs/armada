@@ -89,8 +89,9 @@ describe("Job 2's groups, merged, as Fleet served them", () => {
     await expect.element(short).toBeVisible();
     // What is drawn, and not the closed bubble, which holds the whole of it.
     expect(wordsOf(first.element()).filter((one) => one.text.includes(COMMIT))).toEqual([]);
+    // The tooltip names its bubble in an effect, which can run after the commit is on screen.
+    await expect.poll(() => short.element().closest("[aria-describedby]")).not.toBeNull();
     const described = short.element().closest("[aria-describedby]");
-    expect(described).not.toBeNull();
     await expect.element(described as HTMLElement).toHaveAccessibleDescription(`Commit ${COMMIT}`);
   });
 

@@ -5,7 +5,10 @@
 
 import type { CheckOutput, CheckoutRunRecord, CheckoutRunSheetRead, CheckoutVerify, ManifestCheckRow, MergeLines } from "@armada/protocol";
 import { everyDroneHad } from "@armada/screens/src/fixtures/build/drones-had";
-import { DRONE_ID, JOB_HANDLE, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
+import { ARC_DRONES } from "@armada/screens/src/fixtures/build/arc-plan";
+import { ARC_HANDLE, ARC_JOB_ID, ARC_TITLE } from "@armada/screens/src/fixtures/build/arc-base";
+import { executingSequential } from "@armada/screens/src/fixtures/build/arc";
+import { JOB_HANDLE, JOB_ID, repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
 import { holding } from "./holding";
@@ -128,11 +131,11 @@ const REPRO_DRONE = "01M1HHJ6XB001BZJZ4BE2RPR0A";
 const REPORTED: ManifestCheckRow[] = [
   {
     source: "asked_run",
-    requester: { kind: "drone_task", job_id: JOB_ID, step: "fix", task_id: "T2", drone_id: DRONE_ID, handle: JOB_HANDLE },
-    job_id: JOB_ID,
-    job_handle: JOB_HANDLE,
-    job_title: "Split the settings reducer",
-    step: "fix",
+    requester: { kind: "drone_task", job_id: ARC_JOB_ID, step: "implement", task_id: "T2", drone_id: ARC_DRONES.T2 ?? "T2", handle: ARC_HANDLE },
+    job_id: ARC_JOB_ID,
+    job_handle: ARC_HANDLE,
+    job_title: ARC_TITLE,
+    step: "implement",
     attempt: 1,
     name: "scripts_test",
     state: "running",
@@ -184,8 +187,8 @@ const JOB_LOGS: Record<string, string[]> = {
 
 export function checking(): Scenario {
   const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
-  // The Job the gate's and the Drones' requesters open, with its steps and Drones.
-  const jobs = holding("checks", "", [everyDroneHad()]);
+  // The Job the gate's and the Drones' requesters open, with its steps and Drones, and one with a plan, which a task's requester opens.
+  const jobs = holding("checks", "", [everyDroneHad(), ...executingSequential().fixtures]);
   return {
     ...base,
     name: "checks",

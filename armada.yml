@@ -47,7 +47,7 @@ base: main
 # on `screens_test`, 1178 tests in 7.61s becomes 11 in 245ms. #1456.
 #
 # **`exec` rather than the package script**, which is #1205's finding and the
-# reason `one_test` below is written the same way. `pnpm -C <dir> test --
+# reason every `one_test` is written the same way. `pnpm -C <dir> test --
 # --maxWorkers=4` reaches vitest as `vitest run -- --maxWorkers=4`, and an
 # argument after a bare `--` is a positional rather than an option, so vitest
 # reads it, discards it and exits zero. Measured 18 Sep on `desktop_test`, peak
@@ -57,9 +57,16 @@ base: main
 # for every shape a runner is given.
 #
 # **`runs_at: gate` keeps a Check out of a Drone's own run** and nowhere else —
-# the gate still runs it (#849). The two here are the slowest things a Drone
-# asked for: `storybook` at 1m21s–2m42s and the story tests at up to 184s,
-# measured on 14 Sep 2026.
+# the gate still runs it (#849). The two are the slowest things a Drone asked
+# for: `storybook` at 1m21s–2m42s and the story tests at up to 184s, measured
+# on 14 Sep 2026. They are `packages/components`' now.
+#
+# **The Bridge's Checks are in `packages/components`, `packages/screens` and
+# `apps/desktop`, each in its own `armada.yml`**, and what is below is the
+# rest. A manifest gates a change that touches a path it owns or one its
+# `depends_on` names, and the root owns the paths no workspace claims — so the
+# root's `when` lists below never see `apps/desktop`, `packages/components` or
+# `packages/screens`. `docs/concepts/manifest.md`, *Workspace gating*.
 checks:
   build:
     # `--locked`: a Check that updates the lockfile changed what it measured.
@@ -128,6 +135,12 @@ checks:
     # Bridge-only change paid. Owner, 4 Oct 2026. A path a member other than
     # xtask reads does not belong here: it would run without the tests that
     # read it.
+    #
+    # **`outside` is now `brand`, `protocol`, `shell`, `tokens` and `icons`
+    # alone**: the root owns only what no workspace claims, so a change under
+    # `apps/desktop`, `packages/components` or `packages/screens` never reaches
+    # this Check. `apps/desktop`'s `xtask_test` is that same `-p xtask` run for
+    # them.
     narrow:
       run: cargo nextest run --test-threads ${width} -p xtask
       each: "-p {}"
@@ -200,26 +213,17 @@ checks:
       - ".armada/workflows/**"
       - ".config/nextest.toml"
 
-  # The Bridge half — `build` and `test` say nothing about `apps/` or
-  # `packages/`. Three, because none subsumes another. All need `node_modules`,
-  # which `bootstrap` below puts in the worktree before any of them run. Left
-  # to install on demand, the three race each other into one empty tree and
-  # whichever loses reports a missing module — #227.
+  # The Bridge half moved to `packages/components`, `packages/screens` and
+  # `apps/desktop`, each with its own `armada.yml`, so a change to one package
+  # gates that package's Checks and what depends on it. `armada covers` names
+  # the Checks a change reaches. What is left here is the packages nothing owns:
+  # `brand`, `protocol`, `shell`, `tokens` and `icons`.
   typecheck:
-    # Two commands, because neither config reaches the other's files and there
-    # is no third that covers both. `apps/desktop` needs `-b`: its tsconfig
-    # owns only referenced projects. `-b` is incremental and re-checks a project
-    # whose inputs changed, so `--force` is not needed; its build info lives in
-    # the uncommitted `out/`, so a fresh worktree checks everything. The library
-    # is one project that writes no build info, so `--noEmit -p` is the whole
-    # job.
-    #
     # Named rather than left to `pnpm -r`, which skips a package that declares
     # no `typecheck` — silently, which is how the library went unchecked for as
-    # long as it existed. `storybook` below is not a substitute: Vite
-    # transpiles per file and typechecks none of it, and desktop's own pass
-    # reaches only the components it imports, never a story. A `ShieldMinus`
-    # used without importing it threw on render, on main, until #235.
+    # long as it existed. Only the three that have the script and no manifest of
+    # their own: `tokens` and `icons` have no TypeScript, and the three
+    # packages with a manifest typecheck there.
     #
     # **The names are in a `package.json` script and not here, because a `run`
     # gets no shell.** This line was `pnpm -C … && pnpm -C …`; the runner
@@ -231,127 +235,11 @@ checks:
     # **No `narrow`, and that is an answer rather than an omission.** A project
     # is the unit a TypeScript compilation has: `tsc` reads the files its
     # tsconfig references whatever is handed to it, so there is nothing
-    # narrower to run. A Check that declares none runs whole, which is what the
-    # three below do too.
+    # narrower to run.
     #
     # `domain/**` and `protocol-version.toml`: codegen emits TypeScript from
-    # them, so a change there is a change to compiled code.
-    when:
-      - "apps/**"
-      - "packages/**"
-      - "crates/core-model/domain/**"
-      - "protocol-version.toml"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-
-  bridge_build:
-    # Catches what `typecheck` cannot: an import that resolves in the editor
-    # and not in the bundle.
-    run: pnpm -C apps/desktop build
-    when:
-      - "apps/**"
-      - "packages/**"
-      - "crates/core-model/domain/**"
-      - "protocol-version.toml"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-
-  storybook:
-    run: pnpm -C packages/components build-storybook
-    # Built at the gate, never in a Drone's run: see `runs_at` atop `checks`.
-    runs_at: gate
-    # A dozen Chromium processes against a shipped limit of 5 timed out
-    # unrelated browser tests sharing the machine on 14 Sep. #1102.
-    places: 3
-    # Shorter than the two above: nothing under `apps/` concerns it.
-    when:
-      - "packages/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-
-  # The Bridge's tests, one Check per package so each can say where it runs.
-  # They were one `bridge_test` chaining all three with `&&`, which hid two
-  # suites once (#613) and could not keep the story tests out of a Drone's run.
-  # `pnpm bridge-test` still chains them for a person. None subsumes another:
-  # `typecheck` runs no TypeScript and `storybook` renders no story.
-  desktop_test:
-    # Main's own state machines in node, against a `ws` server on a loopback
-    # port — nothing else here runs main (#324).
-    run: pnpm --dir apps/desktop exec vitest run --maxWorkers=${width}
-    runner:
-      name: vitest
-      dir: apps/desktop
-    # One test by name, which Fleet runs against a checkout of main
-    # before a Drone's `draft_fix` drafts anything — same shape as the two
-    # Rust one_test lines above, `vitest -t` in place of `nextest -E`. #1203.
-    # `-t` is a regex matching anywhere in a test's name; `{}` arrives
-    # escaped, so an apostrophe, a quote or a bracket matches itself.
-    #
-    # **One worker, because `-t` still loads every file.** Vitest imports all
-    # 98 browser files to find the one test, about 650 modules each, and every
-    # request is an event on the one Playwright connection the running test's
-    # presses go through. Unbounded, the other workers' loading kept that test's
-    # first press from reaching the page for over three seconds: "reading an
-    # epic in" passed 3 runs in 10, and 4 in 10 at four workers. A failed file
-    # runs first the next time, in the thick of it, so one failure made the
-    # next. At one worker nothing loads while the test runs: 5 in 5, and in
-    # 12s rather than 20 to 30.
-    one_test:
-      run: pnpm --dir apps/desktop exec vitest run --maxWorkers=1 -t {}
-    # Lighter than the two browser suites below, but still node processes
-    # against a real server: #1102.
-    places: 2
-    when:
-      - "apps/**"
-      - "packages/**"
-      - "crates/core-model/domain/**"
-      - "protocol-version.toml"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-
-  screens_test:
-    # Pure modules in node, and screens in a browser project, because a screen
-    # cannot be storied: `xtask/src/rules_layers.rs` refuses the import.
-    run: pnpm --dir packages/screens exec vitest run --maxWorkers=${width}
-    runner:
-      name: vitest
-      dir: packages/screens
-    # See desktop_test's one_test above. #1203.
-    one_test:
-      run: pnpm --dir packages/screens exec vitest run -t {}
-    # A dozen Chromium processes against a shipped limit of 5 timed out
-    # unrelated browser tests sharing the machine on 14 Sep. #1102.
-    places: 3
-    when:
-      - "packages/**"
-      - "crates/core-model/domain/**"
-      - "protocol-version.toml"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-
-  components_test:
-    # Every component story in a real browser through `@storybook/addon-vitest`;
-    # a `play` function has its assertions run. Whole screens are tested
-    # through `App` on the mock Fleet instead, in `desktop_test`.
-    run: pnpm --dir packages/components exec vitest run --maxWorkers=${width}
-    runner:
-      name: vitest
-      dir: packages/components
-    runs_at: gate
-    # See desktop_test's one_test above. The Storybook interaction tests'
-    # own names (a story's `name`, not its export) are what a Drone names
-    # here — confirmed against `ALongBatchScrolled`'s "A long batch,
-    # scrolled" in #1145/#1192. #1203.
-    one_test:
-      run: pnpm --dir packages/components exec vitest run -t {}
-    # A dozen Chromium processes against a shipped limit of 5 timed out
-    # unrelated browser tests sharing the machine on 14 Sep. #1102.
-    places: 3
+    # them into `packages/protocol`, so a change there is a change to compiled
+    # code. A path under `apps/` is a workspace's, so none is named.
     when:
       - "packages/**"
       - "crates/core-model/domain/**"
