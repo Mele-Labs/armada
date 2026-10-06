@@ -367,7 +367,9 @@ where
             // A reclaim on a Job that is not yet terminal. The same shape as
             // the forget above and a code of its own, because the act a person
             // is told to try instead is not the same one.
-            Adrift::NotReclaimable { job, .. } | Adrift::SlotKept { job, .. } => Refusal::IllegalMove(
+            Adrift::NotReclaimable { job, .. }
+            | Adrift::SlotKept { job, .. }
+            | Adrift::WorktreeNotSaved { job, .. } => Refusal::IllegalMove(
                 WireError::raised(NOT_RECLAIMABLE, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
             ),

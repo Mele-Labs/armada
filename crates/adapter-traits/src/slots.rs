@@ -171,21 +171,23 @@ impl SlotParkRefused {
     pub fn said(&self) -> String {
         match self {
             SlotParkRefused::OnNoBranch => String::from(
-                "the checkout is on no branch, so there is nothing to park the work onto",
+                "HEAD is detached, so there is no branch to commit the uncommitted files to",
             ),
-            SlotParkRefused::OnTheBase(base) => {
-                format!("the checkout is on {base}, the base itself, not a branch of the Job's own")
-            }
-            SlotParkRefused::OnAnotherBranch { leased, on } => {
-                format!("the checkout is on {on}, and the Job's branch is {leased}")
-            }
+            SlotParkRefused::OnTheBase(base) => format!(
+                "the worktree is on {base}, the base branch, so the uncommitted files were not \
+                 committed there"
+            ),
+            SlotParkRefused::OnAnotherBranch { leased, on } => format!(
+                "the worktree is on branch {on}, not {leased}, so the uncommitted files were not \
+                 committed"
+            ),
             SlotParkRefused::HeldByAnother(who) => format!("{who} holds it"),
             SlotParkRefused::Busy => String::from("a lease or a release is under way on it"),
             SlotParkRefused::NotLeased => {
                 String::from("nothing leased it, so there is nothing to park")
             }
             SlotParkRefused::Release(why) => {
-                format!("the work is committed, but the slot stays held: {why}")
+                format!("the uncommitted files were committed, but the slot stays held: {why}")
             }
             SlotParkRefused::Vcs(why) => why.clone(),
         }

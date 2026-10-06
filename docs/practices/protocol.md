@@ -3049,6 +3049,25 @@ answer is the `Lesson`.
 
 **Bridge's half**, mirrored by hand in `packages/protocol`: `RetroChange` and the `change` and `applied` fields on `RetroItem` and `Lesson` (`retro.ts`), `AlwaysAllowScope` and `AnswerCommand.scope` (`commanding.ts`), and `KitAllowedCommand`, `KitAllowedCommands` and `RemoveKitAllowedCommand` (`kit.ts`). Bridge sends `scope: kit` only with a `rule`, and the allowlist rows it draws are the `allowlist` kind of `get_kit_inventory`, read in place of *not read*.
 
+## Protocol 23.37: Clear commits uncommitted files
+
+The owner, 5 Oct 2026: freeing a worktree loses nothing once its work is committed on a branch.
+`../../.claude/decisions/2026-10-05-a-branch-commit-is-enough-to-free-a-slot.md`; `../concepts/fleet.md`,
+*Worktree slots*.
+
+**Additive only.** One optional field; a Bridge before 23.37 reads past it and says nothing about
+what was committed.
+
+| Change | Where | Carries | Absent |
+| --- | --- | --- | --- |
+| `saved` | `WorktreeReclaimed` | `{ "commit", "files" }`: the WIP commit a Clear made on `branch.branch`, and the files it took | No uncommitted files, and every answer before 23.37 |
+
+`reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
+branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same
+way before it is removed.
+
+**Bridge's half**, mirrored by hand: `ReclaimedSaved` and `WorktreeReclaimed.saved` in `reclaimed.ts`.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

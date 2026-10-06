@@ -435,3 +435,21 @@ fn a_clean_or_locked_worktree_is_not_committed_to() {
         "a locked worktree keeps its files as they are"
     );
 }
+
+/// A plain directory where a worktree should be answers git with the base
+/// checkout, and a Clear must not commit what that holds.
+#[test]
+fn a_plain_directory_at_the_worktree_path_is_not_committed_to() {
+    let repo = TempRepo::with_a_commit();
+    let spec = spec_for(&repo, JOB);
+    std::fs::create_dir_all(spec.worktree_path()).expect("a plain directory");
+    std::fs::write(repo.root().join("base-checkout.txt"), "not the Job's\n").expect("a file");
+
+    let saved = crate::leasing::save_worktree(&spec, JOB).expect("nothing to refuse");
+
+    assert!(saved.is_none());
+    assert_eq!(
+        repo.git(&["status", "--porcelain"]).trim(),
+        "?? base-checkout.txt"
+    );
+}

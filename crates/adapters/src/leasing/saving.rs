@@ -9,7 +9,7 @@ use git2::{Repository, WorktreeLockStatus};
 
 use adapter_traits::WorktreeSpec;
 
-use super::git::{dirty, git};
+use super::git::{dirty, git, is_checkout};
 use super::Committed;
 
 /// Commit every uncommitted file in `at`, untracked in and ignored out. `None`
@@ -56,13 +56,17 @@ impl NotSaved {
 }
 
 /// Commit what is uncommitted in the Job's worktree to its branch, before the
-/// worktree is removed. `None` where the worktree is absent, clean or locked:
+/// worktree is removed. `None` where the worktree is absent, not a checkout of its own, clean or
+/// locked:
 /// a lock is a person saying not yet, and the reclaim reports it without a
 /// commit having been made first.
 pub fn save_worktree(spec: &WorktreeSpec, job: &str) -> Result<Option<Committed>, NotSaved> {
     let path = spec.worktree_path();
     let at = Path::new(&path);
-    if !at.exists() {
+    // A plain directory inside the repository answers git with the
+    // repository's own checkout, and committing there would take whatever the
+    // base checkout holds.
+    if !at.exists() || !is_checkout(at) {
         return Ok(None);
     }
     if let Ok(repo) = Repository::open(spec.repo_root()) {

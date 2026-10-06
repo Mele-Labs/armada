@@ -309,7 +309,8 @@ pub use read_in::{
 };
 pub use reading::{ManifestFault, ManifestMoved, ManifestReading, ManifestRefused};
 pub use reclaimed::{
-    BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedWorktree, WorktreeReclaimed,
+    BranchDeleted, DeleteBranch, ReclaimedBranch, ReclaimedSaved, ReclaimedWorktree,
+    WorktreeReclaimed,
 };
 pub use rehearsal::{
     CheckoutRunDiff, CheckoutRunList, CheckoutRunMessage, CheckoutRunOpened, CheckoutRunRecord,
