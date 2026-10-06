@@ -55,6 +55,7 @@ pub mod briefing;
 mod budget;
 /// A redispatch, drawn on the Studios that dispatched the Job it replaced.
 mod carrying_on;
+mod check_history;
 mod check_output;
 mod checking;
 mod checkouts;
