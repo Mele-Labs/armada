@@ -23,12 +23,12 @@ import type {
   RepositorySummary,
   WorkflowSummary,
 } from "@armada/protocol";
-import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "@armada/screens/src/helm-thread";
-import type { BridgeState } from "../../shared/bridge";
+import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "./helm-thread";
+import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 
 export type HelmDockProps = {
-  helm: BridgeState["helm"];
+  helm: HelmState["helm"];
   repositories: readonly RepositorySummary[];
   /** Resolved into a card's Job facts — never anything the model itself said. #1041. */
   jobs: readonly JobSummary[];
@@ -184,7 +184,7 @@ export function HelmDock({
  * carries it (`App.tsx`), and the thread below still reads the same fact, so
  * the two must not be able to disagree about it.
  */
-export function helmReplying(helm: BridgeState["helm"]): boolean {
+export function helmReplying(helm: HelmState["helm"]): boolean {
   return helm.state === "open" && helm.replying;
 }
 

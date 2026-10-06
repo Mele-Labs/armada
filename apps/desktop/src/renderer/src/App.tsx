@@ -21,9 +21,8 @@ import { dockCardsOf, jobNumber, ofPicked, whyNotOpenedLink } from "@armada/scre
 import type { Outstanding } from "@armada/screens";
 import type { HelmContext, JobSummary, LandCheckAt } from "@armada/protocol";
 import { useDockAnswering } from "./dock-answering";
-import { HelmDock, helmReplying } from "./HelmDock";
-import { chippedJobId, contextOf, cursorRowFor, dismissed, NO_CHIP, opened, screenOf } from "./helm-context";
-import type { ChipState } from "./helm-context";
+import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
+import type { ChipState } from "@armada/helm";
 import { Button, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";

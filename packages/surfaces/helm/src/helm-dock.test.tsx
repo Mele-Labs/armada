@@ -15,11 +15,13 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { MANIFEST_ID, repository, workflow } from "@armada/screens/src/fixtures/build/base";
-import { connected } from "./moment";
-import type { Scenario } from "./moment";
-import { mount, openHelm, unmountAfterEach } from "./testing";
+import { connected, mount, openHelm, unmountAfterEach } from "@armada/desktop/mock";
+import type { Scenario } from "@armada/desktop/mock";
 
 unmountAfterEach();
+
+// Core and Helm only: what the dock reads is its own slice's.
+const SLICES = { slices: ["core", "helm"] } as const;
 
 /**
  * Helm pointed at a repository, with a reply either out or finished — the one
@@ -51,7 +53,7 @@ function threadSaysNothing(): void {
 
 test("repositories set up and Helm pointed at none: the thread says nothing, and the switch that points it is there", async () => {
   // Two of this scenario's repositories are set up, and nothing has pointed Helm at either.
-  mount("every-state");
+  mount("every-state", SLICES);
   await openHelm();
 
   const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
@@ -68,7 +70,7 @@ test("one repository set up and Helm pointed at none: the thread says nothing, a
   // `empty-store` is one repository set up, no Job yet, and nothing pointing Helm at it —
   // the moment the composer once counted the repositories and offered no switch, because
   // one is nothing to switch between.
-  mount("empty-store");
+  mount("empty-store", SLICES);
   await openHelm();
 
   const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
@@ -81,7 +83,7 @@ test("one repository set up and Helm pointed at none: the thread says nothing, a
 
 test("nothing set up: the thread says nothing, and there is no switch to offer", async () => {
   // `nothing-set-up` is two repositories served and neither of them set up.
-  mount("nothing-set-up");
+  mount("nothing-set-up", SLICES);
   await openHelm();
 
   // The composer's own line is the one thing said: there is nothing to point Helm at.
@@ -97,7 +99,7 @@ test("nothing set up: the thread says nothing, and there is no switch to offer",
 // box, where it was one of three controls that wrapped onto a second line.
 
 test("Start fresh sits in the dock's head, beside Close and above the conversation", async () => {
-  mount(talking(false));
+  mount(talking(false), SLICES);
   await openHelm();
 
   const fresh = page.getByRole("button", { name: "Start fresh" });
@@ -119,7 +121,7 @@ test("Start fresh sits in the dock's head, beside Close and above the conversati
 });
 
 test("a reply is being written: Start fresh is refused, in the head where it now lives", async () => {
-  mount(talking(true));
+  mount(talking(true), SLICES);
   await openHelm();
 
   const fresh = page.getByRole("button", { name: "Start fresh" });

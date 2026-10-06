@@ -9,8 +9,8 @@
 
 import type { HelmThreadItem } from "@armada/protocol";
 import type { HelmThreadRow } from "@armada/components";
-import { clock } from "./duration";
-import { money } from "./facts";
+import { clock } from "@armada/screens/src/duration";
+import { money } from "@armada/screens/src/facts";
 
 /** `ask_person_to_approve`'s name on the wire — the inventory's key. `#1041`. */
 export const APPROVAL_ASK_TOOL = "ask_person_to_approve";
