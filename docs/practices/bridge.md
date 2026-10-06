@@ -140,8 +140,8 @@ tiny helpers a surface and the app share, with no React: today the generic
 `Scenario`, `FleetHandle`, `unanswered`, `connected` and `onBoard` that
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
-moves each surface's slice and fleet into its own package, step by step. Studios
-and Cleanup have moved both.
+moves each surface's slice and fleet into its own package, step by step. Studios,
+Cleanup and Overview have moved both.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -192,8 +192,10 @@ What it settled for the next surface:
 - **`depends_on` is what the tests read, not the renderer whole**: `bridge-api`,
   screens, shell, components, tokens, brand, protocol, the App files and
   renderer folders, `mock/{fake,fake-context,harness,moment,mount,scenario,slices,testing}`,
-  `mock/<x>-fake.ts`, `mock/slices/**` (tests mount every slice) and `shared/**`;
-  never another surface's `*-fleet.ts`. `armada covers` proves it.
+  `mock/<x>-fake.ts`, `mock/slices/**` and `shared/**`; never another surface's
+  `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
+  (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Overview does.
 - **A fake that needs more than state and `publish` takes a handle type of its
   own.** Cleanup's `cleanupApi` names `move`, the held pool, `unread` and
   `proposingRow` in a `CleanupFleet` type that desktop's `Fleet` satisfies, so the
@@ -221,7 +223,9 @@ and the shared helper types beside it, never another slice.** Core's `state` and
 `subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
 typecheck if the composition drifts from them. A slice moves into its surface
-package as `/api`, as above; Studios and Cleanup have.
+package as `/api`, as above; Studios, Cleanup and Overview have. **A type another
+package reads stays where they can reach it**: Overview's `overview-reads` (Settings and
+the wire types read it) and `recent` (`Row` reads it) stayed in screens.
 
 ## State and data flow
 
