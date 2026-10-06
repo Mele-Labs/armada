@@ -343,7 +343,7 @@ async fn a_drones_run_is_shown_apart_from_the_gate_and_stops_at_its_first_failur
     let events = api::Broadcaster::new();
     let mut heard = events.subscribe();
     let (hearing, _landed) = tokio::sync::mpsc::unbounded_channel();
-    let announcing = Announcing::dry_run(
+    let announcing = Announcing::asked_run(
         ipc::JobId::carried(JOB),
         StepId::new(STEP),
         Attempt::FIRST,
@@ -393,7 +393,7 @@ async fn a_drones_run_is_shown_apart_from_the_gate_and_stops_at_its_first_failur
         "a Drone's run read as the gate's"
     );
     let shown = underway
-        .dry_run_on(&job, &step)
+        .asked_run_on(&job, &step)
         .expect("the Drone's run is shown");
     assert_eq!(
         shown.checks[1]
@@ -413,14 +413,14 @@ async fn a_drones_run_is_shown_apart_from_the_gate_and_stops_at_its_first_failur
     drop(events);
     let mut published = Vec::new();
     while let Some(api::Next::Send(delivered)) = heard.next().await {
-        published.push(matches!(delivered.event, ipc::Event::JobDryRun(_)));
+        published.push(matches!(delivered.event, ipc::Event::JobAskedRun(_)));
     }
     assert!(
         !published.is_empty() && published.iter().all(|dry| *dry),
         "a Drone's run was published as the gate's"
     );
     assert!(
-        underway.dry_run_on(&job, &step).is_none(),
+        underway.asked_run_on(&job, &step).is_none(),
         "dropping the writer left the entry up"
     );
 }

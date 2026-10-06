@@ -37,7 +37,7 @@ fn an_ungated_step_says_so_and_an_unanswerable_one_carries_no_key() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: Vec::new(),
         }],
@@ -61,7 +61,7 @@ fn an_ungated_step_says_so_and_an_unanswerable_one_carries_no_key() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: Vec::new(),
         }],
@@ -98,7 +98,7 @@ fn a_step_with_no_label_reads_as_its_id() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: Vec::new(),
         }],
@@ -135,7 +135,7 @@ fn a_check_run_crosses_with_which_of_the_five_outcomes_it_was() {
                 expected: Some("`suite` can be run".to_string()),
                 produced: Some("`suite` is not installed".to_string()),
                 output_path: Some(".armada/checks/01JOB/repro.0.log".to_string()),
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
                 requester: crate::Requester::default(),
             }],
             judged: Vec::new(),
@@ -146,7 +146,7 @@ fn a_check_run_crosses_with_which_of_the_five_outcomes_it_was() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: Vec::new(),
         }],
@@ -224,7 +224,7 @@ fn a_judge_refusal_crosses_with_the_three_lines_it_cited() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: Vec::new(),
         }],
@@ -601,7 +601,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
         verdicts: Vec::new(),
         judging: None,
         checking,
-        dry_run: None,
+        asked_run: None,
         returns: 0,
         asked_runs: Vec::new(),
     };
@@ -629,7 +629,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
                     expected: None,
                     produced: None,
                     output_path: None,
-                    reused_from_dry_run: None,
+                    reused_from_asked_run: None,
                     requester: crate::Requester::default(),
                 }),
                 output_path: Some(".armada/checks/j/repro.2.live.0.log".to_string()),
@@ -675,7 +675,7 @@ fn a_gate_running_its_checks_rides_beside_the_state() {
 /// Bridge that knows only `checking` keeps reading the gate as the gate.
 #[test]
 fn a_drones_own_run_rides_apart_from_the_gates() {
-    use crate::{CheckUnderway, ChecksUnderway, Event, Instant, JobDryRun};
+    use crate::{CheckUnderway, ChecksUnderway, Event, Instant, JobAskedRun};
 
     let job = job();
     let underway = ChecksUnderway {
@@ -706,7 +706,7 @@ fn a_drones_own_run_rides_apart_from_the_gates() {
         verdicts: Vec::new(),
         judging: None,
         checking: None,
-        dry_run: Some(underway.clone()),
+        asked_run: Some(underway.clone()),
         returns: 0,
         asked_runs: Vec::new(),
     };
@@ -717,10 +717,10 @@ fn a_drones_own_run_rides_apart_from_the_gates() {
         "a Drone's run read as the gate's: {detail}"
     );
 
-    let told = Event::JobDryRun(JobDryRun {
+    let told = Event::JobAskedRun(JobAskedRun {
         job_id: crate::JobId::carried("01JOB"),
         step_id: crate::StepId::carried("repro"),
-        dry_run: Some(underway),
+        asked_run: Some(underway),
         actor: core_model::Actor::Fleet.into(),
         at: Instant::carried("2026-09-14T09:00:01.000Z"),
     });
@@ -800,7 +800,7 @@ fn a_steps_check_rows_name_the_gate_that_asked_and_asked_runs_ride_beside() {
                 expected: None,
                 produced: None,
                 output_path: None,
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
                 requester: crate::Requester::default(),
             }],
             judged: Vec::new(),
@@ -811,7 +811,7 @@ fn a_steps_check_rows_name_the_gate_that_asked_and_asked_runs_ride_beside() {
             verdicts: Vec::new(),
             judging: None,
             checking: None,
-            dry_run: None,
+            asked_run: None,
             returns: 0,
             asked_runs: vec![asked.clone()],
         }],

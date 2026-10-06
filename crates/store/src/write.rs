@@ -481,7 +481,7 @@ impl Store {
                     check.produced.as_deref(),
                     at.as_str(),
                     check.output_path.as_deref(),
-                    check.reused_from_dry_run.as_ref().map(Timestamp::as_str),
+                    check.reused_from_asked_run.as_ref().map(Timestamp::as_str),
                     grp,
                     group_run,
                 ],

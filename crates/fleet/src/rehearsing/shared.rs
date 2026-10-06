@@ -344,7 +344,7 @@ where
     }
 
     /// The command a narrowed run of `entry` is, **resolved the way a Drone's
-    /// dry run resolves it** — the worktree's own diff through the same call.
+    /// asked run resolves it** — the worktree's own diff through the same call.
     pub(super) fn narrowed(
         &self,
         entry: &Entry,

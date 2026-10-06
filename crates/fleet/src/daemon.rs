@@ -34,10 +34,10 @@ use tokio::sync::Mutex;
 
 use crate::admitting::Polled;
 use crate::allowance::Allowance;
+use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
 use crate::converging::StepNorms;
 use crate::delivery::Delivered;
-use crate::dry_run::DryRuns;
 use crate::evidence::EvidenceInbox;
 use crate::gate::CheckBudget;
 use crate::headroom::{Headroom, Machine, Polling};
@@ -93,7 +93,7 @@ pub struct Fleet<H, V, W> {
     budget: CheckBudget,
     norms: StepNorms,
     liveness: Liveness,
-    dry_runs: DryRuns,
+    asked_runs: AskedRuns,
     fixes: crate::fixing::Fixes,
     judge: Arc<dyn ModelClient + Send + Sync>,
     judge_budget: JudgeBudget,

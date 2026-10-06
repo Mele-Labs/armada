@@ -12,7 +12,7 @@
 //! creates Jobs, so the block cannot be raised against it. They are asserted
 //! against the shipped definition that does.
 //!
-//! `Checking`'s cases are `crate::tests::dry_run`'s and were before this split:
+//! `Checking`'s cases are `crate::tests::asked_run`'s and were before this split:
 //! the block offers a tool, and what it says is only worth asserting beside
 //! what happens when the tool is called.
 //!

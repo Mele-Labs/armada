@@ -1,7 +1,7 @@
 //! An asked run's record: its own row, written when the run starts and closed
 //! when it ends by any route. `docs/concepts/manifest.md`, *A Drone's own run*.
 //!
-//! **Never a Check row**, so nothing that reads the gate's rows can count a dry
+//! **Never a Check row**, so nothing that reads the gate's rows can count an asked
 //! result as a pass; `store::asked_runs` is where they live.
 
 use core_model::{DroneId, JobId, StepId, TaskId, Timestamp};
@@ -76,7 +76,7 @@ pub(crate) fn wired(job: &core_model::Job, run: &store::AskedRun) -> ipc::AskedR
 /// **A run its time-box or a fault cut short is `stopped`**: it measured
 /// nothing to the end, which is not a Check failing. `lost` is only a task that died.
 pub(super) fn state_of(
-    ran: &Result<(CheckReport, crate::reuse::KeptDryRun), String>,
+    ran: &Result<(CheckReport, crate::reuse::KeptAskedRun), String>,
     ending: Ending,
 ) -> store::AskedState {
     match (ending, ran) {

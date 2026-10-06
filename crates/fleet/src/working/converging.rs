@@ -11,7 +11,7 @@
 //! **The wall clock sits here rather than beside the silence clock** because
 //! it is what this vigil trips on, and because the two answer different
 //! questions: how long the step has been going, against how long the Drone has
-//! said nothing. What suspends both of them is [`super::dry_run`]'s.
+//! said nothing. What suspends both of them is [`super::asked_run`]'s.
 
 use std::time::Duration;
 

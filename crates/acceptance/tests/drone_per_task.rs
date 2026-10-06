@@ -669,7 +669,7 @@ async fn a_red_group_goes_round_on_its_own_and_its_tasks_fail_only_when_the_retr
         expected: None,
         produced: None,
         output_path: None,
-        reused_from_dry_run: None,
+        reused_from_asked_run: None,
     };
     let run_served = ipc::CheckRun::of(3, &check).at_group(g1, 3);
     let body = ipc::encode(&run_served).expect("a Check run encodes");

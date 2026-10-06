@@ -10,8 +10,8 @@ use std::sync::Arc;
 use ipc::mcp::ChecksAsk;
 use testkit::{Gate, Sketch};
 
-use crate::dry_run::NotRun;
-use crate::tests::dry_run::{a_fleet_checking, started, Held};
+use crate::asked_run::NotRun;
+use crate::tests::asked_run::{a_fleet_checking, started, Held};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::{asked_by_the_one, checked_by_the_one};
 use config::ResolvedWorkflow;

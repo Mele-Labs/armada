@@ -53,21 +53,21 @@ pub struct Underway(Arc<Mutex<Held>>);
 #[derive(Default)]
 struct Held {
     gates: BTreeMap<ipc::JobId, Running>,
-    dry_runs: BTreeMap<ipc::JobId, Running>,
+    asked_runs: BTreeMap<ipc::JobId, Running>,
 }
 
 impl Held {
     fn whose(&self, whose: Whose) -> &BTreeMap<ipc::JobId, Running> {
         match whose {
             Whose::Gate => &self.gates,
-            Whose::DryRun => &self.dry_runs,
+            Whose::AskedRun => &self.asked_runs,
         }
     }
 
     fn whose_mut(&mut self, whose: Whose) -> &mut BTreeMap<ipc::JobId, Running> {
         match whose {
             Whose::Gate => &mut self.gates,
-            Whose::DryRun => &mut self.dry_runs,
+            Whose::AskedRun => &mut self.asked_runs,
         }
     }
 }
@@ -77,7 +77,7 @@ impl Held {
 enum Whose {
     Gate,
     /// A Drone's own mid-step run, which writes no live log and rules nothing.
-    DryRun,
+    AskedRun,
 }
 
 /// One run's Checks, and the file each is writing its log to.
@@ -135,13 +135,13 @@ impl Underway {
 
     /// The Drone's own run of this step's Checks, from its start until the
     /// step moves on or the Drone asks again. `on`'s terms otherwise. #1062.
-    pub(crate) fn dry_run_on(
+    pub(crate) fn asked_run_on(
         &self,
         job: &ipc::JobId,
         step: &ipc::StepId,
     ) -> Option<ipc::ChecksUnderway> {
         let held = self.0.lock().ok()?;
-        let running = held.dry_runs.get(job)?;
+        let running = held.asked_runs.get(job)?;
         (&running.step == step).then(|| running.checks.clone())
     }
 
@@ -189,7 +189,7 @@ impl Underway {
 
 /// Where one gate says what each of its Checks is doing, and who is told.
 ///
-/// **Detached is a real state**, for `Marking::detached`'s reason: a dry run, a
+/// **Detached is a real state**, for `Marking::detached`'s reason: a asked run, a
 /// commit being proved and every gate driven straight by a test run the same
 /// Checks, and none of them has a step somebody is watching. The alternative
 /// was an `Option` at every call inside `crate::checking`.
@@ -276,7 +276,7 @@ impl Announcing {
     /// live logs, and `hearing` told each result that lands while others go
     /// on. `whole` is whether its durations are kept. #1062.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn dry_run(
+    pub(crate) fn asked_run(
         job: ipc::JobId,
         step: core_model::StepId,
         attempt: Attempt,
@@ -295,7 +295,7 @@ impl Announcing {
             events,
             clock,
             logs: None,
-            whose: Whose::DryRun,
+            whose: Whose::AskedRun,
             requester,
             token: TOKENS.fetch_add(1, Ordering::Relaxed),
             hearing: Some(hearing),
@@ -760,10 +760,10 @@ fn published(bound: &Bound, checking: Option<ipc::ChecksUnderway>) {
             actor,
             at,
         }),
-        Whose::DryRun => ipc::Event::JobDryRun(ipc::JobDryRun {
+        Whose::AskedRun => ipc::Event::JobAskedRun(ipc::JobAskedRun {
             job_id,
             step_id,
-            dry_run: checking,
+            asked_run: checking,
             actor,
             at,
         }),

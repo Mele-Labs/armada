@@ -189,8 +189,8 @@ where
             // that had to remember it is a caller that could forget. Every
             // spawn comes through this function. #1456.
             .allowing(crate::briefing::Allowance::of(
-                self.dry_runs().allowed(),
-                working.as_ref().map_or(0, Working::dry_runs),
+                self.asked_runs().allowed(),
+                working.as_ref().map_or(0, Working::asked_runs),
             ));
         let brief = match opening.turn(job, job.workflow(), step, moved.as_ref()) {
             Ok(brief) => brief,

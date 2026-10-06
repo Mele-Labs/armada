@@ -18,9 +18,9 @@
 //! approval and either was read as a Drone choosing the bar it is measured
 //! against. The owner reversed that on 18 Sep 2026 (`#1456`): an ask settles
 //! nothing, the gate runs every Check whole at submission whatever was asked
-//! mid-step, and `fleet::reuse::KeptDryRun` drops a narrowed Check so no
+//! mid-step, and `fleet::reuse::KeptAskedRun` drops a narrowed Check so no
 //! narrowed pass reaches a gate. Which Checks a part has is still not the
-//! Drone's — a name it does not gate on is refused by `fleet::dry_run`, which
+//! Drone's — a name it does not gate on is refused by `fleet::asked_run`, which
 //! is the half that knows the step. [`ChecksAsk`] carries all three fields.
 //!
 //! **Over 500 lines**, and it is the schemas: every tool's arguments carry
@@ -57,8 +57,8 @@ pub const TOOL: &str = "submit_evidence";
 /// The scope-declaration tool's name, bare.
 pub const SCOPE_TOOL: &str = "declare_scope";
 
-/// The dry-run tool's name, bare. **A question, not a submission** — it moves
-/// no step, and `fleet::dry_run` says why the answer it returns can never be
+/// The asked run tool's name, bare. **A question, not a submission** — it moves
+/// no step, and `fleet::asked_run` says why the answer it returns can never be
 /// one.
 pub const CHECKS_TOOL: &str = "run_checks";
 
@@ -85,7 +85,7 @@ pub const CHECKS_FIELDS: &[&str] = &["only_what_changed", "check", "files"];
 /// file list again by name when it shipped `only_what_changed`. The owner
 /// reversed both on 18 Sep 2026, and the reason the old argument does not hold
 /// is that an ask decides nothing: the gate runs every Check whole when the
-/// Drone submits, whatever was asked mid-step, and `reuse::KeptDryRun` already
+/// Drone submits, whatever was asked mid-step, and `reuse::KeptAskedRun` already
 /// drops a narrowed Check so no narrowed pass can be reused. What was actually
 /// happening under the old shape is in `#1456` — a Drone buying a workspace
 /// build to learn whether one test file passed, and going around the tool.
@@ -664,7 +664,7 @@ pub(crate) fn listed() -> Vec<Value> {
     ]
 }
 
-/// The dry-run tool.
+/// The asked run tool.
 ///
 /// **The description says what it is not**, twice: not a verdict, and not a
 /// substitute for submitting. Spike 6 measured that a description alone does
@@ -691,7 +691,7 @@ pub(crate) fn listed() -> Vec<Value> {
 /// bar, and that a path list could only be a Drone choosing its own scope.**
 /// Reversed by the owner on 18 Sep 2026, `#1456`. Neither is a bar and neither
 /// is a scope, because an ask settles nothing: the gate runs every Check whole
-/// at submission whatever was asked mid-step, and `reuse::KeptDryRun` drops a
+/// at submission whatever was asked mid-step, and `reuse::KeptAskedRun` drops a
 /// narrowed Check so no narrowed pass reaches a gate at all. What the old shape
 /// actually produced is a Drone paying for a workspace build, an acceptance
 /// suite and an Electron build to learn whether one test file passed — and

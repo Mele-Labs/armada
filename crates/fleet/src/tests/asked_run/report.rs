@@ -3,7 +3,7 @@
 //!
 //! The three between them hold the report to the frozen step and to what the
 //! gate would do, which are the two places it could be written from the wrong
-//! one — a Check list `dry_run` knows for itself rather than one the step
+//! one — a Check list `asked_run` knows for itself rather than one the step
 //! declares, and a row for a Check the gate would never have run.
 
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use config::ResolvedWorkflow;
 use testkit::{Gate, Sketch};
 
-use crate::tests::dry_run::{a_fleet_checking, ask, one_step, router, started, Held};
+use crate::tests::asked_run::{a_fleet_checking, ask, one_step, router, started, Held};
 use crate::tests::tmp::TempDir;
 
 /// **The claim of the whole issue, over the wire a Drone actually uses.** A
@@ -74,7 +74,7 @@ async fn a_drone_asking_for_the_checks_is_told_what_each_one_did() {
             .contains("--- stdout ---"),
         "both streams, each behind its marker"
     );
-    // **And not where the gate writes.** A dry run writes no row, so a file at
+    // **And not where the gate writes.** A asked run writes no row, so a file at
     // the gate's own path would be output the record does not point at. Both
     // carry the attempt, so this holds per run rather than once per step —
     // #63 made a step workable twice and the path is the whole key.
@@ -82,7 +82,7 @@ async fn a_drone_asking_for_the_checks_is_told_what_each_one_did() {
         !crate::check_output::checks_dir(&home.path().to_string_lossy(), &handle)
             .join("implement.1.0.log")
             .exists(),
-        "a dry run wrote over the gate's log"
+        "a asked run wrote over the gate's log"
     );
 }
 
@@ -92,7 +92,7 @@ async fn a_drone_asking_for_the_checks_is_told_what_each_one_did() {
 /// what failed cannot fix it, and the allowlist denies it `pnpm` as it denies
 /// it `cargo`.
 ///
-/// Nothing in `dry_run` names a Check. It walks whatever the frozen step
+/// Nothing in `asked_run` names a Check. It walks whatever the frozen step
 /// declares, so a step declaring five is answered with five rows, and the
 /// failing one among them is named whichever position it sits in.
 #[tokio::test]
@@ -232,11 +232,11 @@ fn one_scoped_step() -> ResolvedWorkflow {
 }
 
 /// **The rehearsal has to agree with the gate.** The report's own closing
-/// sentence promises the Drone the same Checks, run by Fleet — so a dry run
+/// sentence promises the Drone the same Checks, run by Fleet — so a asked run
 /// that spent a Check the gate will skip would be telling a Drone its work
 /// failed something no gate is going to ask.
 #[tokio::test]
-async fn a_dry_run_skips_the_same_check_the_gate_would() {
+async fn a_asked_run_skips_the_same_check_the_gate_would() {
     let home = TempDir::new();
     let fleet = Arc::new(a_fleet_checking(
         &home,

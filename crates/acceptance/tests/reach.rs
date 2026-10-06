@@ -764,7 +764,7 @@ fn a_request_naming_a_milestone_is_offered_the_workflow_that_runs_one() {
 /// are operations Fleet serves.**
 ///
 /// Fix corrects one row and runs that Check again, and is not here. What is
-/// here is what the dry-run below is made of, and the write a corrected line
+/// here is what the asked run below is made of, and the write a corrected line
 /// would go through.
 /// `api::SERVED` is the table `api`'s own tests walk against the router.
 #[test]

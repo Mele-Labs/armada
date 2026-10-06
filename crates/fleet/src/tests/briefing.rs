@@ -5,7 +5,7 @@
 //! change. What is asserted is the structure the contract's M1 rendering
 //! requires, and the rule `docs/concepts/drone.md` puts on every Drone-facing
 //! surface: **a Drone is told which Checks gate its step and never what any of
-//! them runs.** The dry-run offer is the one place the first half is asserted
+//! them runs.** The asked run offer is the one place the first half is asserted
 //! against the rendered text rather than against a call, because "the checks
 //! that gate this part" is a sentence that reads as though it named them and
 //! passes any test that only asks whether the block is there.
@@ -39,8 +39,8 @@ use crate::tests::daemon::{a_fleet_holding, a_proposal, manifest, worktree_direc
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::{declared_by_the_one, submitted_by_the_one};
 
-/// **`pub(super)` so `dry_run` can use it**: the briefing block that offers the
-/// dry run is assembled here, and a second Job fixture would be a second answer
+/// **`pub(super)` so `asked_run` can use it**: the briefing block that offers the
+/// asked run is assembled here, and a second Job fixture would be a second answer
 /// to what a Job is.
 pub(super) fn a_job() -> Job {
     Job::create_top_level(

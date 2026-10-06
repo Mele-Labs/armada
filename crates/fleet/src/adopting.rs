@@ -324,7 +324,7 @@ impl LiveSession for Session {
         }
     }
 
-    async fn checks(&self, reported: &crate::dry_run::ChecksReported) -> Result<(), io::Error> {
+    async fn checks(&self, reported: &crate::asked_run::ChecksReported) -> Result<(), io::Error> {
         match self {
             Session::Spawned(session) => session.checks(reported).await,
             Session::Adopted(_) => Err(io::Error::other(NOTHING_TO_SPEAK_INTO)),

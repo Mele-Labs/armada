@@ -9,7 +9,7 @@ use core_model::{DroneId, JobId};
 use ipc::mcp::ChecksAsk;
 
 use crate::gate::CheckBudget;
-use crate::tests::dry_run::{
+use crate::tests::asked_run::{
     a_fleet_budgeted, a_fleet_checking, a_quiet_drone, one_step, started, the_one_drone, Held,
 };
 use crate::tests::tmp::TempDir;
@@ -80,7 +80,7 @@ async fn an_asked_run_is_a_row_from_its_start_and_closed_when_it_ends() {
         loop {
             if let Some(shown) = fleet
                 .underway()
-                .dry_run_on(&ipc::JobId::from(&job), &ipc::StepId::carried("implement"))
+                .asked_run_on(&ipc::JobId::from(&job), &ipc::StepId::carried("implement"))
             {
                 return shown;
             }
@@ -241,7 +241,7 @@ async fn the_job_detail_and_the_run_list_return_the_asked_run() {
 #[test]
 fn a_run_on_a_task_names_the_task_and_the_handle() {
     let job = JobId::carried(core_model::Ulid::carried("01JOB"));
-    let asked = crate::dry_run::asked::requester(
+    let asked = crate::asked_run::asked::requester(
         &job,
         "7-a-job",
         &core_model::StepId::new("implement"),
@@ -418,7 +418,7 @@ async fn the_manifest_wide_read_carries_gate_rows_and_asked_runs_with_openable_l
                 expected: None,
                 produced: None,
                 output_path: Some(".armada/checks/the-job/implement.1.0.log".to_string()),
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
             }],
             &core_model::Timestamp::from_rfc3339("2099-01-01T00:00:00.000Z"),
         )

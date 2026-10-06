@@ -26,9 +26,9 @@ use super::workflows::{
 // suite reaches these four by.
 use super::{Counted, Ticking, NEVER_QUIET, UNTRIPPABLE};
 use crate::allowance::{Allowance, Micros};
+use crate::asked_run::AskedRuns;
 use crate::budget::CommandBudget;
 use crate::daemon::{Fittings, Fleet, Host, StartingIn};
-use crate::dry_run::DryRuns;
 use crate::gate::CheckBudget;
 use crate::headroom::{Bytes, Headroom, Polling, Spare};
 use crate::holding::Reclaiming;
@@ -182,8 +182,8 @@ pub fn fitted_over<V>(
         liveness: NEVER_QUIET,
         // The production allowance, so the cases that spend it spend the number
         // that ships. A fixture with its own would prove a cap and not the cap.
-        dry_runs: DryRuns::of(3),
-        // The production allowance, for `dry_runs`' reason. #999.
+        asked_runs: AskedRuns::of(3),
+        // The production allowance, for `asked_runs`' reason. #999.
         fixes: crate::fixing::Fixes::of(1),
         // A Judge that fails every call, because no step in these fixtures
         // declares a criterion. One that answered would let a cold-by-default
