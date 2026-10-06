@@ -143,6 +143,41 @@ nothing else in it may. `xtask/src/rules_layers.rs` holds the layer rule and
 `package.json`, a `vitest.config.ts` and an `armada.yml` with a Check and a
 `depends_on`.
 
+**Studios is the pilot, and `packages/surfaces/studios` is the copy to take.**
+What it settled for the next surface:
+
+- **The move set is what only the surface reaches.** Walk imports from its entry
+  file, ignore `screens/src/index.ts` (it is rewritten) and tests, and keep a file
+  when anything outside the set imports it. Studios left 10 files and 6 tests.
+  `studio.ts`, `studio-frames.ts` and `studio-reads.ts` stayed: Job detail and
+  desktop's wire types read them, and `studio.test.ts` reads `studio-reads`.
+  `Studio*` compositions stay in `components`.
+- **Package files.** `package.json` (`main: ./src/index.ts`, the same
+  dependencies as `screens`, `@armada/desktop: workspace:*` as a devDependency
+  only), `tsconfig.json`, `vitest.config.ts` (a node project for `*.test.ts`,
+  `browserProject` for `*.test.tsx`), `armada.yml` and a `src/index.ts` that
+  re-exports what the screens barrel did. **`pnpm-workspace.yaml` must list
+  `packages/surfaces/*`**, or pnpm never links the package.
+- **The tsconfig includes desktop's global declarations** (`armada.d.ts`,
+  `annotate/globals.d.ts`), because the tests import the app and `window.armada`
+  is typed there.
+- **Moved files import `@armada/screens/src/<file>`**, as desktop already does,
+  and each other with `./`. Desktop imports the surface by `@armada/<x>` and the
+  barrel line leaves `screens/src/index.ts`.
+- **Whole-app tests move by what they mount**, not by a keyword: `sketch-pen` is
+  the Job composer's, `whiteboard-resize` mounts one component, and
+  `job-detail-from-studio` starts on a Job. They keep `mountApp` and
+  `@armada/desktop/mock`.
+- **The mock fleet stays in `apps/desktop/.../mock`.** `studio-fleet.ts` is built
+  on `moment.ts`, which a surface's source may not import, and `fake.ts` and
+  `scenario.ts` compose it. `harness.ts` re-exports what the surface's tests
+  need from it; add to the harness by name, not by moving the fleet.
+- **A rule that scans `packages/screens` must scan the surfaces.**
+  `no_off_contract_design_value` read only `components` and `screens`, so the move
+  would have unwatched Studios without a red.
+- **Typecheck is the surface's own Check**, declared in its `armada.yml`; the root
+  script does not need to name it.
+
 ## State and data flow
 
 Bridge talks to **one peer**, in the main process, to Armada API. That was
