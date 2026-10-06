@@ -68,7 +68,19 @@ const THIRD: MainRed = {
   merge: { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens", branchUrl: `${TREE}nick/theme-tokens` },
 };
 
-const fixing = (red: MainRed): FixesMain => ({ state: "fixing", check: red.check, test: red.test, merge: red.merge.number });
+/** A CI job that maps to no Manifest Check, and a log with no test Armada can read out of it. */
+const FOURTH: MainRed = {
+  check: "test-all",
+  unmapped: true,
+  merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", branchUrl: `${TREE}studio/zone-proposal`, job: hubJob(ZONE) },
+};
+
+const fixing = (red: MainRed): FixesMain => ({
+  state: "fixing",
+  check: red.check,
+  ...(red.test === undefined ? {} : { test: red.test }),
+  merge: red.merge.number,
+});
 const fixed = (red: MainRed, in_: number): FixesMain => ({ ...fixing(red), state: "fixed", fixed_in: in_ });
 
 const pull = (number: number, branch: string, ci: HubPull["ci"], job?: JobFixture): HubPull => ({
@@ -180,6 +192,34 @@ const MOMENTS: Moment[] = [
       ...BYSTANDING("passed", "failed").jobs,
     ],
   },
+  // 9  The Job behind #1814 merged it and was watching. Its CI job maps to no Check, and no test could be read.
+  {
+    main: { state: "red", red: FOURTH, taken: hubJob(ZONE) },
+    pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
+    recent: [recent(FIX), recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
+    jobs: [
+      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
+      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
+      rowOf(FIX, "completed_success", fixed(THIRD, 1823)),
+      rowOf(ZONE, "running", fixing(FOURTH)),
+      rowOf(NOTIFY, "completed_success"),
+      rowOf(PAUSE, "queued"),
+    ],
+  },
+  // 10  #1824 landed.
+  {
+    main: { state: "green" },
+    pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
+    recent: [recent(ZONE), recent(FIX), recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
+    jobs: [
+      rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
+      rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
+      rowOf(FIX, "completed_success", fixed(THIRD, 1823)),
+      rowOf(ZONE, "completed_success", fixed(FOURTH, 1824)),
+      rowOf(NOTIFY, "completed_success"),
+      rowOf(PAUSE, "queued"),
+    ],
+  },
 ];
 
 /** The line a moment serves for the repository, with the hub on it. */
@@ -225,6 +265,14 @@ const LOGS: Record<string, string[]> = {
     "      Tests  1 failed | 1336 passed (1337)",
   ],
 };
+
+LOGS["test-all"] = [
+  "Run pnpm test:all",
+  "> armada@0.0.0 test:all",
+  "> pnpm -r test",
+  "ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL packages/screens@0.0.0 test: `vitest run`",
+  "Error: Process completed with exit code 1.",
+];
 
 /** `followLandCheck`, answered from the logs above: main's run, whole once it has ended. */
 export function writingMainsLogs(fleet: FleetHandle): Partial<BridgeApi> {

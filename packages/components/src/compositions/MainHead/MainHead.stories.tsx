@@ -153,3 +153,24 @@ export const JobMarks: Story = {
     await expect(canvas.getByRole("img", { name: /^Fixed main/ }).querySelector("svg")).not.toBeNull();
   },
 };
+
+/**
+ * CI that maps to no Manifest Check: the first row is the CI job as the forge names it, and with no
+ * test read out of the log there is no Test row. The dialog's attached facts say the same.
+ */
+export const UnmappedCiJob: Story = {
+  args: { ...args, main: { state: "red", red: { check: "test-all", unmapped: true, merge: RED.merge } } },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByText("CI job")).toBeVisible();
+    await expect(canvas.queryByText("Check")).toBeNull();
+    await expect(canvas.queryByText("Test")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Dispatch a new Job" }));
+    const dialog = within(document.body).getByRole("dialog", { name: "Dispatch a Job to fix main" });
+    const attached = within(dialog).getByRole("list", { name: "Attached" });
+    await expect(within(attached).getAllByRole("listitem")).toHaveLength(3);
+    await expect(within(attached).getByText("CI job")).toBeVisible();
+    await expect(within(dialog).getByRole("textbox", { name: "Brief" })).toHaveValue(
+      "test-all fails on main.\nMerged in #1812 (nick/ports-cleanup).",
+    );
+  },
+};

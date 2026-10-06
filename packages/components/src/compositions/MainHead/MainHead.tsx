@@ -26,11 +26,16 @@ export type RecentJob = HubJob & { branch: string };
 
 /** What turned main red. */
 export type MainRed = {
-  /** The Check that failed on main. */
+  /**
+   * What failed on main, as the forge reports it: a Manifest Check's name where the failing CI job
+   * maps to one, otherwise the CI job's own name, and `unmapped` says which.
+   */
   check: string;
-  test: string;
+  unmapped?: true;
+  /** The failing test, where Armada could read one out of the log. Absent draws no row. */
+  test?: string;
   /** Where the test is, at the merge. */
-  testUrl: string;
+  testUrl?: string;
   merge: {
     number: number;
     url: string;
@@ -128,7 +133,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           )}
         </div>
         <dl className="armada-main-red__rows mono">
-          <dt>Check</dt>
+          <dt>{labelOf(red)}</dt>
           <dd>
             {onOpenCheck === undefined ? (
               red.check
@@ -138,12 +143,16 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
               </button>
             )}
           </dd>
-          <dt>Test</dt>
-          <dd>
-            <a className="armada-main-red__link mono" href={red.testUrl} onClick={link(red.testUrl)}>
-              {red.test}
-            </a>
-          </dd>
+          {red.test === undefined || red.testUrl === undefined ? null : (
+            <>
+              <dt>Test</dt>
+              <dd>
+                <a className="armada-main-red__link mono" href={red.testUrl} onClick={link(red.testUrl)}>
+                  {red.test}
+                </a>
+              </dd>
+            </>
+          )}
           <dt>Broke in</dt>
           <dd className="armada-main-red__merge">
             <a className="armada-main-red__link mono" href={red.merge.url} onClick={link(red.merge.url)}>
@@ -190,16 +199,21 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
   );
 }
 
+/** What the first row is called: Armada adds Check meaning only where the CI job maps to a Manifest Check. */
+const labelOf = (red: MainRed) => (red.unmapped === true ? "CI job" : "Check");
+
 /** What goes with the work wherever it is sent: the Check, its test, its log and the merge. */
 function Attached({ red }: { red: MainRed }) {
   return (
     <div className="armada-main-fix__attached" role="list" aria-label="Attached">
       <span role="listitem">
-        <AttachmentChip from="Check" filename={red.check} />
+        <AttachmentChip from={labelOf(red)} filename={red.check} />
       </span>
-      <span role="listitem">
-        <AttachmentChip from="Test" filename={red.test} />
-      </span>
+      {red.test === undefined ? null : (
+        <span role="listitem">
+          <AttachmentChip from="Test" filename={red.test} />
+        </span>
+      )}
       <span role="listitem">
         <AttachmentChip from="Log" filename={`${red.check}.log`} />
       </span>
@@ -214,7 +228,7 @@ function Attached({ red }: { red: MainRed }) {
 export function briefOf(red: MainRed): string {
   return [
     `${red.check} fails on main.`,
-    `Test: ${red.test}`,
+    ...(red.test === undefined ? [] : [`Test: ${red.test}`]),
     `Merged in #${red.merge.number} (${red.merge.branch}).`,
   ].join("\n");
 }

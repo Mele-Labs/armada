@@ -97,5 +97,19 @@ export const mainGoesRed = walk("main-red-hub", [
   { press: button("Overview", { exact: true }), say: "Back to the Board" },
   { later: inside(RED, button(FIX)), say: "Its fix reaches main" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Green" },
-  { look: role("img", "Fixed main in #1823"), say: "The Job that fixed it says so" },
+  { later: role("img", "Fixed main in #1823"), say: "The Job that fixed it says so" },
+
+  // CI outside Armada: the failing job maps to no Manifest Check. Armada goes on what the forge reports.
+  { look: RED, say: "Main is red again, from CI that Armada has no Check for" },
+  { look: inside(RED, text("CI job")), say: "CI job, not Check: the failing job's name as the forge reports it" },
+  { press: inside(RED, button("test-all")), say: "Its log, from the forge, opens from it" },
+  { look: inside(LOG, text("Process completed with exit code 1")), say: "The forge's log" },
+  { press: inside(LOG, button("Close")), say: "Put it away" },
+  { look: inside(RED, role("link", "#1814")), say: "Broke in: still the pull request that merged. No Test row: no test could be read out of the log" },
+  { look: inside(RED, button("Name the zone a read-in lands in")), say: "Fixing: the Job behind it took it as before, with the CI job and its log attached" },
+  { press: inside(RED, button("Name the zone a read-in lands in")), say: "Open the Job" },
+  { look: role("heading", "Fixing main"), say: "Its lead names the CI job and the pull request" },
+  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { later: inside(RED, button("Name the zone a read-in lands in")), say: "Its fix reaches main" },
+  { look: role("img", "Fixed main in #1824"), say: "The Job that fixed it says so" },
 ]);

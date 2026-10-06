@@ -9,7 +9,8 @@ export type FixesMain = {
   state: "fixing" | "fixed";
   /** The Check that is red on main. */
   check: string;
-  test: string;
+  /** Absent where Armada could not read a failing test out of the log. */
+  test?: string;
   /** The pull request that turned main red. */
   merge: number;
   /** The pull request that fixed it, once `state` is `fixed`. */
