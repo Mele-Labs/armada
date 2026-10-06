@@ -23,6 +23,7 @@ mod parking;
 mod reading;
 mod record;
 mod rescue;
+mod saving;
 mod shape;
 
 use std::fs::{File, OpenOptions, TryLockError};
@@ -39,6 +40,7 @@ use existing::Onto;
 use git::{count, git, git_ok};
 pub use record::Holder;
 use record::Record;
+pub use saving::{save_worktree, NotSaved};
 pub use shape::Unshaped;
 
 /// Kept across every lease: what a build or an index writes and the next
