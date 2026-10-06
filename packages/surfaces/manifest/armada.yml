@@ -10,7 +10,9 @@ id: armada-manifest
 # `mountApp` loads from `apps/desktop` is here: the App and its renderer folders,
 # the mock's composition (not another surface's `*-fleet.ts`: that file reaches
 # the composition only through `slices/`) and the shared types. `main` and
-# `preload` are not, since the mock bridge does not run them.
+# `preload` are not, since the mock bridge does not run them. Its whole-app tests mount
+# `slices: ["core", "manifest"]`, so of `mock/slices/` only those two files are here, and with
+# them `checks-fleet.ts` and `holding.ts`, which the slice's scenario list reaches.
 depends_on:
   - "packages/bridge-api/**"
   - "packages/screens/**"
@@ -25,7 +27,20 @@ depends_on:
   - "apps/desktop/src/renderer/src/capture/**"
   - "apps/desktop/src/renderer/src/capture-window/**"
   - "apps/desktop/src/renderer/src/styles/**"
-  - "apps/desktop/src/renderer/src/mock/**"
+  - "apps/desktop/src/renderer/src/mock/checks-fleet.ts"
+  - "apps/desktop/src/renderer/src/mock/fake.ts"
+  - "apps/desktop/src/renderer/src/mock/fake-context.ts"
+  - "apps/desktop/src/renderer/src/mock/harness.ts"
+  - "apps/desktop/src/renderer/src/mock/holding.ts"
+  - "apps/desktop/src/renderer/src/mock/manifest-fake.ts"
+  - "apps/desktop/src/renderer/src/mock/moment.ts"
+  - "apps/desktop/src/renderer/src/mock/mount.tsx"
+  - "apps/desktop/src/renderer/src/mock/scenario.ts"
+  - "apps/desktop/src/renderer/src/mock/scrolled.ts"
+  - "apps/desktop/src/renderer/src/mock/slices.ts"
+  - "apps/desktop/src/renderer/src/mock/testing.ts"
+  - "apps/desktop/src/renderer/src/mock/slices/core.ts"
+  - "apps/desktop/src/renderer/src/mock/slices/manifest.ts"
   - "apps/desktop/src/shared/**"
   - "apps/desktop/package.json"
   - "apps/desktop/vitest.browser.preset.ts"
