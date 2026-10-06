@@ -160,6 +160,33 @@ destination.
 > disagree, the decision wins; where a board and the built screen disagree, the
 > screen is what he is looking at.
 
+> **He is the user, not the release manager.**
+> `2026-10-06-the-owner-is-the-end-user.md` — he says how he wants to use the
+> system and sessions make it happen: propose, implement, walk it if it is
+> visual, preview and adopt, land. His OK on the walk is the go-ahead, and
+> asking *land it?* afterwards hands him a chore he handed over.
+
+A question belongs where the answer is his: what to build, and how it should
+look. Which step comes next is not.
+
+> **When the machine is the cause, move the work off the machine.**
+> `2026-10-06-ci-and-pull-requests-replace-the-merge-line.md` — Checks failed
+> and turns took fifteen to twenty minutes because his Mac was overloaded. He
+> moved the repository to an organization for the merge queue and let
+> GitHub's runners run each Check in parallel.
+
+Measure the cause before proposing a patch to the symptom.
+
+> **Retire the old line; do not run two.**
+> Same record. The merge line takes nothing new, drains what is queued and goes
+> at the cutover, with the owner as admin bypass until then. What is owed is
+> written down rather than half-built.
+
+> **A broken `main` is for Armada to say so, not for him to notice.**
+> Same record. He wants a prompt to dispatch a new Job or send the work back,
+> and Jobs that watch their own landings and pick up what turned `main` red.
+> Not built.
+
 ## Writing options for him
 
 `asking-a-person` owns the shape. What this file adds is what his answers say

@@ -87,10 +87,10 @@ class Refuses(unittest.TestCase):
             capture_output=True, text=True, check=True,
         )
         reason = json.loads(run.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
-        self.assertIn("scripts/land preflight", reason)
-        self.assertIn("docs/capabilities/merge-line.md", reason)
-        self.assertIn("until it stops exiting 3", reason)
-        self.assertIn("Exit 10 is not the end", reason)
+        self.assertIn("gh pr create --base main", reason)
+        self.assertIn("Create a merge commit", reason)
+        self.assertIn("docs/practices/ci.md", reason)
+        self.assertNotIn("scripts/land", reason)
 
 
 def checkout(root: pathlib.Path, name: str, branch: str) -> str:
@@ -175,7 +175,7 @@ class Allows(unittest.TestCase):
                 self.assertIsNone(decide(command))
 
     def test_the_line_itself_and_reading_a_pull_request(self) -> None:
-        # The runner pushes main from a process this starts, not from here.
+        # Still allowed while the line drains; the refusal no longer teaches them.
         for command in (
             "scripts/land",
             "scripts/land --status",

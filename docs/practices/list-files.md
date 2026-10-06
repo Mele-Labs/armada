@@ -60,6 +60,11 @@ and sorts by that name among them. Nothing the owner saw moved.
 - **Only `git merge` reads them.** `armada land`'s candidate worktree and
   Fleet's `bring_up_to_date` both run plain `git merge`, so they do.
   `merge_by: forge` is GitHub's merge, which ignores `.gitattributes`.
+- **A pull request on GitHub ignores them too.** Measured on a scratch
+  repository, 6 Oct 2026, so append-only list files conflict on a pull request.
+  The cutover to pull requests converts them to one file per entry plus a
+  generated index; that is owed
+  (`.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`).
 
 ## Checked by
 

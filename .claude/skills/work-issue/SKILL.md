@@ -8,8 +8,8 @@ description: How to work one GitHub issue the way a Job works a workflow — wor
 **This is the `bug` workflow, run by hand.** Armada dispatches a Drone into its
 own worktree, gates each step, and holds the work at `awaiting_review` before it
 lands. When Fleet is not the one dispatching, that shape still applies up to the
-hold, and this skill is it. Here green work is previewed and then lands without
-waiting (step 6).
+hold, and this skill is it. Here green work is previewed, adopted and goes up as
+a pull request without waiting (step 6).
 
 `milestone-step` owns how to read an issue, what to check it against, and how to
 close it. **This skill owns where the work happens and how it lands** — the two
@@ -90,7 +90,8 @@ armada need protocol-version.toml "a minor"
 A need is a path and what is needed there, in your words, and the first to
 declare goes first. If something is ahead of you, pick the value after what it
 took. `armada land` then holds your branch until every need ahead of yours has
-landed, so you land in order and nothing is renumbered. Declaring is a no-op the
+landed, so you land in order and nothing is renumbered. Needs are unchanged
+for now: Fleet will publish them as a required check on the pull request later. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
 **`armada land preflight` and Fleet's merge refuse a branch that appends a
@@ -104,10 +105,9 @@ nothing expires. `armada need --status` lists every need by path.
 `milestone-step` step 4, and it is not optional because the change looks small.
 
 **A quick self-check, once: build, typecheck, and the tests of what you
-changed.** The merge line is the full run: `scripts/land` runs the Checks the
-branch hits, and those `main` brought in when it moved, against the real
-`main`, and a red there comes back to you (step 6).
-`docs/practices/running-locally.md`, *Landing a branch*.
+changed.** The full run is `ci` on the pull request: it runs the Checks the
+merged tree hits, and a red there comes back to you (step 6).
+`docs/practices/ci.md`.
 
 **Never every Check the branch touches, and never twice.** Confirmed 13 Sep
 2026: a session ran every row of the old table on every branch and again after
@@ -198,11 +198,12 @@ write.** Stage by name, or read `git status` first and know every entry. That is
 how someone else's uncommitted work ended up inside a commit about something
 else.
 
-### 6. Preview it, adopt it, then land it
+### 6. Preview it, adopt it, then open the pull request
 
 **The owner's order is: propose, implement, walk if it is visual, preview and
-adopt, land.** Once the work is committed and step 4's self-check passes, do
-these in order and ask nothing between them:
+adopt, land.** He uses Armada as its end user, so he runs the change before it
+lands. Once the work is committed and step 4's self-check passes, do these in
+order and ask nothing between them:
 
 1. `scripts/preview` merges the branch into the preview with every other branch
    in flight. Load `preview-app` first.
@@ -211,78 +212,59 @@ these in order and ask nothing between them:
    permission prompt is the confirmation. A change that is only docs or scripts
    needs no restart. A restart already in progress refuses a second: say so and
    go on to the next step.
-3. `scripts/land preflight`, then `scripts/land`, straight away. **Do not wait
-   for him to try the preview, and never ask "land it?"** He files what he finds
-   as separate work or comes back to you, and the line is the guard.
-
-Pushing the branch and opening a PR are optional: open one when there is
-something you want the owner to read before it lands, and the line closes it as
-merged when it lands. The merge line pushes `main` itself. The owner reviews
-afterwards by reading what landed, for example
-`git log --merges --first-parent main --since=yesterday`; each merge carries a
-`Landed-from:` trailer naming its branch.
-
-**The wait for a verdict is a background loop, and it dies with the session.**
-After a restart run `armada land --status <branch>` before assuming anything:
-the line itself keeps running, and the branch is usually still queued.
+3. Push the branch and open the pull request, straight away. **Do not wait for
+   him to try the preview, and never ask "land it?"** He files what he finds as
+   separate work or comes back to you, and `ci` is the guard.
 
 **A visual change walks before it previews.** It ships with a walk, he opens its
 link on a mock served from your worktree, and you iterate on what he says. His
-OK on the walk is the go-ahead: the preview, the adopt and the landing above
+OK on the walk is the go-ahead: the preview, the adopt and the pull request above
 follow from it with no further asking. `annotations`, step 4, has the rule, and
 `docs/practices/running-locally.md` *Walks* has the walk.
 
-**`scripts/land` is how it merges**: never `gh pr merge`, never a push to
-`main`, and a hook refuses both.
-
 ```
-scripts/land preflight   # once step 4's self-check passes, on a clean tree
-scripts/land             # joins the line and returns at once
-scripts/land --status    # poll in short foreground calls
+git push -u origin <branch>
+gh pr create --base main
 ```
 
-**Exit 3 is still going; exit 10 is still going and already failing.** A Check
-of your branch failed that `main` is green for, and the turn is running its
-other Checks. The status names the Check and its log. Read the log and start the
-fix now; do not push the branch, since a push is dropped as stale. The turn
-still ends red, and that is the verdict.
+The description follows `commit-message`: say what the diff cannot, and end with
+"Merge with Create a merge commit". GitHub runs the `checks` workflow on it. The
+`ci` job is the gate, and `main` requires it; `desktop_test` reports beside it.
+The owner merges, or turns on auto-merge so GitHub merges it once `ci` passes.
+The repository allows merge commits only: main's history is one merge per branch.
 
-**A red turn comes back to you.** Read the logs it names, fix on the branch,
-then preflight and land again.
+**An agent never merges.** Never `gh pr merge`, never a push to `main`, never a
+`git merge` in the checkout at `main`. A hook refuses all three.
 
-**Read the gate's verdict before you join the line, and never chain `land`
-after it with `;`.** Confirmed 2 Oct 2026: `verify-foundations …; git push &&
-… scripts/land` queued a branch the gate had just called RED on a vendor
-literal. That took two re-preflights to replace it. Make the gate a guard:
-`if`, or `|| exit`.
+**A red `ci` comes back to you.** Read `gh pr checks <n>` and
+`gh run view --log-failed`, fix on the same branch and push again. The pull
+request updates.
 
-**Watch a branch with `armada land --status <branch>` and its `<branch>:`
-line.** The bare `scripts/land --status`, run outside that branch's worktree,
-lists the line as numbered entries. A watcher grepping `^<branch>` there finds
-nothing. Confirmed 2 Oct 2026: one reported three queued branches as out of the
-line, and two more expired silently while all three were still gating.
+**A visual change is the exception: the pull request waits for the owner's
+look.** It ships with a walk, he opens its link on a mock served from your
+worktree, and you open the pull request only after his OK. `annotations`, step
+4, has the rule, and `docs/practices/running-locally.md` *Walks* has the walk.
 
-**The line exists because a branch's Checks measure a `main` that moves.** The
-gate reads the merged tree, and a branch and `main` can each sit under a limit
-that the two together cross. Confirmed 2026-09-12: #730 passed
-`verify-foundations` at 898 lines in `packages/screens/src/JobDetail.tsx`;
-`main` grew the same file by seven while the branch was open, and the rebase
-landed it at 905 — over the 900-line rule. It merged on its own green
-measurement and left `main` red, with nothing to raise it until somebody ran
-the gate by hand. **`land` is what reruns that**: it merges `main` in, runs the
-Checks the combination hits and merges only on what it measured. Where a file
-is near a threshold, leave headroom rather than sitting on it.
+**The merge line is retiring.** `scripts/land` and `armada land` are not for new
+work. A branch already queued there is left alone: do not withdraw it or open a
+pull request for it. `docs/practices/running-locally.md`, *Landing a branch*,
+says how to read one that is still draining.
+
+**Where a file sits near a threshold, leave headroom.** A branch and `main` can
+each sit under a limit that the two together cross, and `ci` measures the merged
+tree. Confirmed 2026-09-12: #730 passed `verify-foundations` at 898 lines in
+`packages/screens/src/JobDetail.tsx`; `main` grew the same file by seven while
+the branch was open, and the merge landed it at 905, over the 900-line rule.
 
 **Bring a moved `main` in by merging it, never by rebasing.** One pass meets
 every conflict at once, the commits already reviewed keep their ids, and a
-plain commit carries the result — which is the same reason Fleet stopped rebasing
-in #1131. `docs/capabilities/merge-line.md` is the design, and
-`docs/practices/running-locally.md` has what each exit code means.
+plain commit carries the result, which is the same reason Fleet stopped
+rebasing in #1131.
 
-Say in the commit message what you would want looked at closely, because with
-no PR that is where the owner reads it. Then `milestone-step` steps 5, 6 and 7:
-close the issue with what contradicted the plan, give every open item an owner,
-report. **The report names the merge commit the branch landed as.**
+Say in the commit message and the pull request description what you would want
+looked at closely. Then `milestone-step` steps 5, 6 and 7: close the issue with
+what contradicted the plan, give every open item an owner, report. **The report
+names the pull request.**
 
 ## Dispatching several agents at once
 

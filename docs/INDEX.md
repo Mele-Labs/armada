@@ -51,9 +51,10 @@ Each ends with the questions it found and did not answer.
   binds a port, what `armada clean` will not delete, and Bridge on a mock Fleet
   with `pnpm mock`, with a walk to show somebody one thing in it
 - [`practices/ci.md`](practices/ci.md) — the GitHub workflow that runs the
-  Checks: what runs on a pull request, in the merge queue and on `main`, how
-  `armada covers` chooses, the names a ruleset will require, what is not in CI,
-  and what is owed at the cutover
+  Checks and `verify-foundations`: what runs on a pull request, in the merge
+  queue and on `main`, how `armada covers` chooses, how foundations is read
+  against `main`, the names a ruleset will require, what is not in CI, and what
+  is owed at the cutover
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see
@@ -129,8 +130,9 @@ approximations.
   indexed in its own `INDEX.md`. The roadmap itself is GitHub issues; these hold
   the reasoning an issue body buries when it closes.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, `scripts/land`, `armada need` (numbers land in the order they
-    were declared), and where each part goes in Fleet.
+    turns onto `main`, `scripts/land` (being retired for pull requests and CI),
+    `armada need` (numbers land in the order they were declared), and where each
+    part goes in Fleet.
 
 ## Journeys
 
