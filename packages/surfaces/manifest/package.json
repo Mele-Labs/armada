@@ -7,8 +7,7 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./api": "./src/api.ts",
-    "./fake": "./src/fake.ts"
+    "./api": "./src/api.ts"
   },
   "scripts": {
     "test": "vitest run",
