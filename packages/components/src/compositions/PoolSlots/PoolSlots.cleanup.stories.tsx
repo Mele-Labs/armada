@@ -217,6 +217,63 @@ export const ClearConfirmOnABay: Story = {
   },
 };
 
+/**
+ * **A slot an agent session holds is released from its confirm**, which names
+ * the holder with its pid on a tooltip, and the branch, and commits the files
+ * it lists as a WIP commit before releasing. Nothing is sent before it.
+ */
+export const ReleaseConfirm: Story = {
+  name: "Release confirm",
+  args: {
+    rows: [
+      {
+        slot: slot(2, {
+          held: { state: "session", holder: "claude (pid 44698)" },
+          branch: "fleet/by-hand",
+          stranded: { uncommitted: ["src/a.rs", "notes/b.md"], commits: [], unpushed: 0 },
+        }),
+      },
+      { slot: slot(3, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/clean" }) },
+    ],
+    onRelease: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const open = await openTile(canvas, userEvent, "slot-2");
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    await expect(args.onRelease).not.toHaveBeenCalled();
+    const confirm = within(canvas.getByRole("group", { name: "Release slot-2" }));
+    await expect(confirm.getByText("Held by claude, on branch fleet/by-hand")).toBeInTheDocument();
+    await expect(confirm.getByText("pid 44698")).toBeInTheDocument();
+    await expect(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
+    await expect(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("notes/b.md");
+    await expect(confirm.getByText("Releases slot-2")).toBeInTheDocument();
+    await expect(confirm.getByText("Keeps branch fleet/by-hand")).toBeInTheDocument();
+    await userEvent.click(confirm.getByRole("button", { name: "Cancel" }));
+    await expect(args.onRelease).not.toHaveBeenCalled();
+
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    await userEvent.click(within(canvas.getByRole("group", { name: "Release slot-2" })).getByRole("button", { name: "Release" }));
+    await expect(args.onRelease).toHaveBeenCalledWith(2, "claude (pid 44698)");
+  },
+};
+
+/** A session's slot with nothing uncommitted commits nothing. */
+export const ReleaseConfirmClean: Story = {
+  name: "Release confirm, nothing uncommitted",
+  args: {
+    rows: [{ slot: slot(3, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/clean" }) }],
+    onRelease: fn(),
+  },
+  play: async ({ canvas, userEvent }) => {
+    const open = await openTile(canvas, userEvent, "slot-3");
+    await userEvent.click(open.getByRole("button", { name: "Release" }));
+    const confirm = within(canvas.getByRole("group", { name: "Release slot-3" }));
+    await expect(confirm.queryByText(/^Commits the uncommitted files/)).toBeNull();
+    await expect(confirm.queryByRole("list", { name: "Uncommitted files" })).toBeNull();
+    await expect(confirm.getByText("Releases slot-3")).toBeInTheDocument();
+  },
+};
+
 /** A worktree holding nothing uncommitted still confirms, and says what becomes of its branch. */
 export const ClearConfirmDestroysNothing: Story = {
   name: "Clear confirm, nothing destroyed",

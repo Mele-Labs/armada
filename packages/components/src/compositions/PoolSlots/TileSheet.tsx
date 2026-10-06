@@ -154,7 +154,7 @@ export function TileSheet({ row, floor, onOpenJob, onAct, onRescue, onClear, onR
           waiting={waiting}
           onAct={onAct}
           onRescue={onRescue}
-          onConfirm={held === undefined && slot?.held.state !== "session" ? undefined : (which) => setConfirming(which)}
+          onConfirm={held === undefined && !(slot?.held.state === "session" && onRelease !== undefined) ? undefined : (which) => setConfirming(which)}
         />
         {row.refused === undefined ? null : (
           <p className="armada-tile-sheet__refused" role="alert">

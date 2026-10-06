@@ -2,7 +2,8 @@
 // that worktree: what it holds, and the acts that fit it. A finished Job's bay
 // is released after a confirm that says its uncommitted files are committed to
 // the Job's branch as a WIP commit; a worktree outside the pool is committed to
-// the same way and then removed; the Job's own Clear says the same; a running Job's
+// the same way and then removed; the Job's own Clear says the same; a slot an
+// agent session holds is released, with its files committed first or with none; a running Job's
 // holds the tree and offers nothing; two worktrees outside the pool sit after
 // the bays, one with a branch to delete; a stranded bay is rescued and a closed
 // one reopened. The old list below the bays, and its bulk press, are gone.
@@ -57,6 +58,18 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { look: inside(OUTSIDE_PANEL(FAILED), role("status")), say: "Branch deleted at its tip" },
   { hover: inside(OUTSIDE_PANEL(FAILED), role("button", "Forget Job", { exact: true })), say: "With nothing left standing, Forget Job is offered" },
   { press: SHUT_OUTSIDE(FAILED), say: "Back to the grid" },
+  { press: TILE(2), say: "A bay held by an agent session, with files it did not commit" },
+  { press: IN_PANEL(2, "button", "Release"), say: "Release asks first" },
+  { look: role("group", "Release slot-2", { exact: true }), say: "It names the holder and its branch, commits the files to the branch as a WIP commit, releases the slot and keeps the branch" },
+  { press: inside(role("group", "Release slot-2", { exact: true }), role("button", "Release", { exact: true })), say: "Sent" },
+  { look: inside(PANEL(2), role("status")), say: "Committed to the branch, slot released" },
+  { press: SHUT(2), say: "Back to the grid" },
+  { press: TILE(6), say: "A bay held by a session with nothing uncommitted" },
+  { press: IN_PANEL(6, "button", "Release"), say: "Release asks first" },
+  { look: role("group", "Release slot-6", { exact: true }), say: "It releases the slot and keeps the branch, with no files to commit" },
+  { press: inside(role("group", "Release slot-6", { exact: true }), role("button", "Release", { exact: true })), say: "Sent" },
+  { look: inside(PANEL(6), role("status")), say: "Slot released" },
+  { press: SHUT(6), say: "Back to the grid" },
   { press: TILE(4), say: "A stranded bay" },
   { press: IN_PANEL(4, "button", "Rescue"), say: "Rescue sends a Scout to read it" },
   { look: IN_PANEL(4, "heading", "Unfinished"), say: "Its Finding is in the same panel" },

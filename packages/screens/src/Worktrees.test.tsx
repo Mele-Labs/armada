@@ -602,3 +602,74 @@ test("a kept Job's slot offers Rescue, and the press is sent", async () => {
   await userEvent.click(panel.getByRole("button", { name: "Rescue" }));
   expect(sent).toEqual(["start 8"]);
 });
+
+/**
+ * A slot an agent session holds is released from its own confirm, which names
+ * the holder and branch and lists the files it commits. The act is sent for the
+ * holder shown, and the receipt says where the files went.
+ */
+test("Release on a session's slot commits its files, sends the holder shown and says so", async () => {
+  const sentChanges: unknown[] = [];
+  opened(
+    [],
+    {},
+    [
+      slot(2, {
+        held: { state: "session", holder: "claude (pid 44698)" },
+        branch: "fleet/by-hand",
+        stranded: { uncommitted: ["src/half.rs"], commits: [], unpushed: 0 },
+      }),
+    ],
+    {
+      onChangeSlotPool: (_manifest, change) => {
+        sentChanges.push(change);
+        return Promise.resolve({
+          ok: true,
+          slotChanged: {
+            manifest_id: "m",
+            slot: 2,
+            released: { branch: "fleet/by-hand", saved: { commit: "d41f8a6c20be", files: ["src/half.rs"] } },
+          },
+        });
+      },
+    },
+  );
+
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  const confirm = confirmOf("Release", "slot-2");
+  await expect.element(confirm.getByText("Held by claude, on branch fleet/by-hand")).toBeInTheDocument();
+  await expect.element(confirm.getByText("pid 44698")).toBeInTheDocument();
+  await expect.element(confirm.getByText("Commits the uncommitted files to branch fleet/by-hand as a WIP commit")).toBeInTheDocument();
+  await expect.element(confirm.getByRole("list", { name: "Uncommitted files" })).toHaveTextContent("src/half.rs");
+  await expect.element(confirm.getByText("Releases slot-2")).toBeInTheDocument();
+  expect(sentChanges, "nothing is sent before the confirm").toEqual([]);
+
+  await userEvent.click(confirm.getByRole("button", { name: "Release" }));
+  expect(sentChanges).toEqual([{ act: "release", slot: 2, holder: "claude (pid 44698)" }]);
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Committed to fleet/by-hand, slot released");
+});
+
+test("Release on a session's slot with nothing uncommitted commits nothing", async () => {
+  opened([], {}, [slot(2, { held: { state: "session", holder: "zsh (pid 4120)" }, branch: "fleet/by-hand" })], {
+    onChangeSlotPool: () => Promise.resolve({ ok: true, slotChanged: { manifest_id: "m", slot: 2, released: { branch: "fleet/by-hand" } } }),
+  });
+
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  const confirm = confirmOf("Release", "slot-2");
+  expect(confirm.getByText(/^Commits the uncommitted files/).elements()).toHaveLength(0);
+  await expect.element(confirm.getByText("Keeps branch fleet/by-hand")).toBeInTheDocument();
+  await userEvent.click(confirm.getByRole("button", { name: "Release" }));
+  await expect.element(panel.getByRole("status")).toHaveTextContent("Slot released");
+});
+
+test("a refused Release is said as a slot not released", async () => {
+  opened([], {}, [slot(2, { held: { state: "session", holder: "claude (pid 1)" }, branch: "b" })], {
+    onChangeSlotPool: () => Promise.resolve({ ok: false, why: "not_connected" }),
+  });
+  const panel = await open("slot-2");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  await userEvent.click(confirmOf("Release", "slot-2").getByRole("button", { name: "Release" }));
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released");
+});

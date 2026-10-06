@@ -60,7 +60,7 @@ export function TileConfirm({
   return (
     <div className="armada-confirm" role="group" aria-label={`${verb} ${name}`}>
       {which === "clear" && cost.files.length > 0 ? (
-        <ClearSaves branch={held.branch} files={cost.files} path={held.path} {...(pooled ? { slot: name } : {})} />
+        <ClearSaves branch={cost.branch?.name ?? held.branch} files={cost.files} path={held.path} {...(pooled ? { slot: name } : {})} />
       ) : null}
       {which === "clear" && cost.files.length === 0 ? (
         <>

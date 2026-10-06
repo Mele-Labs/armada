@@ -27,6 +27,24 @@ export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
   const base = slotsHeld(jobs.finished, now);
   const slots = (base.slots ?? []).map((one) => {
     if (one.slot === 3) return { ...one, closed: true };
+    // An agent session whose checkout holds files nobody committed, and a clean one.
+    if (one.slot === 2) {
+      return {
+        ...one,
+        held: { state: "session" as const, holder: "claude (pid 44698)" },
+        stranded: { uncommitted: ["packages/screens/src/SlotPools.tsx", "notes/release.md"], commits: [], unpushed: 0 },
+      };
+    }
+    if (one.slot === 6) {
+      return {
+        ...one,
+        held: { state: "session" as const, holder: "zsh (pid 4120)" },
+        branch: "fleet/slot-lease-record",
+        since: ago(42),
+        warm: true,
+        behind: 3,
+      };
+    }
     if (one.slot !== 5) return one;
     return {
       ...one,
