@@ -255,9 +255,10 @@ every `target/` took the disk to 535 GiB free and lost no work. Skip any
 checkout where a build is running. That run also removed slot-9's `target/`
 while an agent was compiling there, and two of its builds failed.
 
-`sed`, `cut` and `sort` have been unavailable in this environment's non-interactive
-shell. Prefer a `python3` heredoc over a pipeline for anything that has to parse
-`git worktree list`.
+`sed`, `cut` and `sort` were unavailable in one environment's non-interactive
+shell, and ran in an interactive session on 6 Oct 2026, so check before relying on
+either. Prefer a `python3` heredoc over a pipeline for anything that has to parse
+`git worktree list`. It parses; it is not for editing files, which is `Edit`.
 
 ## Build size is a separate problem with a separate fix
 

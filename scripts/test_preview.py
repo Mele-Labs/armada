@@ -319,6 +319,15 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("refusing — drone-j1's Drone is working", said)
         self.assertNotIn("unheard", said)
 
+    def test_the_refusal_comes_before_the_build(self):
+        self.fleet({"j1": "running"})
+        built = os.path.join(self.dir, "built")
+        with open(os.path.join(self.bin, "cargo"), "w") as f:
+            f.write(f'#!/bin/sh\ntouch "{built}"\n')
+        code, said = self.restart()
+        self.assertNotEqual(code, 0)
+        self.assertFalse(os.path.exists(built), said)
+
     def test_dry_run_without_adopt_says_it_would_refuse(self):
         self.fleet({"j1": "running"})
         code, said = self.restart("--dry-run")
