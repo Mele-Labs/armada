@@ -11,6 +11,7 @@
 //! | `depends_on` | repository-relative, whatever file it is in |
 //! | `setup.requires` | may also name a Command the root declares |
 //! | `setup.worktrees` | refused: it is read from the root at every lease |
+//! | `setup.seed` | refused, for the same reason |
 //!
 //! The reasoning is in `docs/concepts/manifest.md`, *Workspace gating*.
 

@@ -253,6 +253,7 @@ pub(crate) fn holding_every_place(
     };
     let one = run.is_some();
     Some(ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: name.clone(),
         run: run.unwrap_or_else(|| whole.clone()),
         expect_exit_code: *expect_exit_code,

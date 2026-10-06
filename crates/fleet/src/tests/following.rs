@@ -85,6 +85,7 @@ fn only_a_log_a_running_check_is_writing_can_be_followed() {
         "01JOB",
     );
     let check = ResolvedCheck::ManifestCheck {
+        manifest_dir: String::new(),
         name: "test".to_string(),
         run: "/usr/bin/true".to_string(),
         expect_exit_code: 0,

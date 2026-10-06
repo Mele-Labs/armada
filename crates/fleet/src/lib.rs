@@ -121,6 +121,7 @@ pub mod footprint;
 mod framing;
 mod freezing;
 mod gate;
+mod gating;
 mod group;
 mod grouping;
 pub mod headroom;

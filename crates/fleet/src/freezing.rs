@@ -45,11 +45,23 @@ where
                 ids.push(gate.manifest_id.clone());
             }
         }
-        let served: Vec<_> = ids
-            .iter()
-            .filter_map(|id| self.repositories().serving(id.as_str()))
-            .collect();
-        frozen_among(served.iter().map(|one| one.manifest()))
+        // A workspace's id is not a served repository's, so it is looked for
+        // among the owner's own workspaces.
+        let owner = self
+            .repositories()
+            .serving(job.owner_manifest_id().as_str());
+        let held = ids.iter().filter_map(|id| {
+            self.repositories()
+                .serving(id.as_str())
+                .map(|one| one.manifest().clone())
+                .or_else(|| {
+                    owner
+                        .as_ref()
+                        .and_then(|one| one.workspaces().iter().find(|m| m.id() == id).cloned())
+                })
+        });
+        let held: Vec<Manifest> = held.collect();
+        frozen_among(&held)
     }
 
     /// Whether the Job stands its Drone down at this boundary rather than start
