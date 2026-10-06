@@ -132,6 +132,10 @@ pub struct Outcome {
     pub failed: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub already: Vec<String>,
+    /// While gating: Checks that failed and that the base is green for, said
+    /// as soon as each was asked about rather than when the turn ends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub own_failures: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub new_lines: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -165,6 +169,7 @@ impl Outcome {
             logs: Vec::new(),
             failed: Vec::new(),
             already: Vec::new(),
+            own_failures: Vec::new(),
             new_lines: Vec::new(),
             conflicts: Vec::new(),
             checks: Vec::new(),
@@ -188,6 +193,7 @@ pub struct OutcomePatch {
     pub logs: Option<Vec<String>>,
     pub failed: Option<Vec<String>>,
     pub already: Option<Vec<String>>,
+    pub own_failures: Option<Vec<String>>,
     pub new_lines: Option<Vec<String>>,
     pub conflicts: Option<Vec<String>>,
     pub checks: Option<Vec<CheckRun>>,
@@ -226,6 +232,7 @@ pub fn merge_outcome(
     merged.logs = patch.logs.unwrap_or(merged.logs);
     merged.failed = patch.failed.unwrap_or(merged.failed);
     merged.already = patch.already.unwrap_or(merged.already);
+    merged.own_failures = patch.own_failures.unwrap_or(merged.own_failures);
     merged.new_lines = patch.new_lines.unwrap_or(merged.new_lines);
     merged.conflicts = patch.conflicts.unwrap_or(merged.conflicts);
     merged.checks = patch.checks.unwrap_or(merged.checks);
