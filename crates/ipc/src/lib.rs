@@ -115,6 +115,7 @@ mod manifest_proposal;
 /// Fleet to Bridge — so it is a module rather than a flat re-export and none of
 /// its types are in `operations.toml`.
 pub mod mcp;
+mod merge_hub;
 mod merge_line;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
@@ -301,6 +302,10 @@ pub use manifest_proposal::{
     Band, EditManifestProposal, ManifestProposal, ManifestProposals, PolicyKey, ProposalEdit,
     ProposedCheck, ProposedCommand, ProposedId, ProposedPolicy, ProposedPort, ProposedRunner,
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
+};
+pub use merge_hub::{
+    HubJob, HubPullCi, HubPullRequest, MainCiState, MainFailedJob, MainMerge, MainStanding,
+    MergeLineHub,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,

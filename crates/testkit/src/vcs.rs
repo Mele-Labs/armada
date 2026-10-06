@@ -701,6 +701,10 @@ impl Delivery for FakeVcs {
         self.main_ci.merged(commit)
     }
 
+    fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
+        self.main_ci.open_pulls()
+    }
+
     fn pull_request_diff(
         &self,
         _in_repo: &str,

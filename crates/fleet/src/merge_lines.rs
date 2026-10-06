@@ -17,7 +17,7 @@ use adapters::land_state::outcome::{
 };
 use api::{Broadcaster, Queries};
 use ipc::{
-    Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry,
+    Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineEntry, MergeLineHub,
     MergeLinePullRequest, MergeLines, Settled,
 };
 use tokio::task::JoinHandle;
@@ -53,6 +53,41 @@ pub fn read(roots: &[String], found: &mut Found, now: SystemTime) -> (MergeLines
     (MergeLines { lines }, unread)
 }
 
+/// Each root's line with the hub Fleet read for it, in the order the roots were
+/// added. **A root with a hub and no line is here with an empty one**: nobody
+/// has run `armada land` there, and main's state is still worth drawing.
+pub fn with_hubs(
+    lines: MergeLines,
+    roots: &[String],
+    mut hubs: Vec<(String, MergeLineHub)>,
+) -> MergeLines {
+    let mut lines: HashMap<String, MergeLine> = lines
+        .lines
+        .into_iter()
+        .map(|line| (line.root.clone(), line))
+        .collect();
+    let mut folded = Vec::new();
+    for root in roots {
+        let hub = hubs
+            .iter()
+            .position(|(held, _)| held == root)
+            .map(|at| hubs.swap_remove(at).1);
+        match (lines.remove(root), hub) {
+            (None, None) => {}
+            (Some(line), hub) => folded.push(MergeLine { hub, ..line }),
+            (None, Some(hub)) => folded.push(MergeLine {
+                root: root.clone(),
+                line: Vec::new(),
+                off: Vec::new(),
+                landed: Vec::new(),
+                sent_back: Vec::new(),
+                hub: Some(hub),
+            }),
+        }
+    }
+    MergeLines { lines: folded }
+}
+
 /// The served roots, Manifest or none, in the order they were added.
 pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
@@ -65,11 +100,14 @@ pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
 /// `get_merge_lines`: read now, off the async workers.
 pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     let roots = roots(daemon).await;
+    let hubs = daemon.merge_hubs().await;
     // What would not read is said by the reading loop, once, rather than per request.
     let now = SystemClock::new().instant();
-    tokio::task::spawn_blocking(move || read(&roots, &mut Found::new(), now).0)
+    let held = roots.clone();
+    let lines = tokio::task::spawn_blocking(move || read(&roots, &mut Found::new(), now).0)
         .await
-        .unwrap_or_default()
+        .unwrap_or_default();
+    with_hubs(lines, &held, hubs)
 }
 
 /// `observe_land_check`: one Check's log on a served root's line, or `None`
@@ -158,6 +196,8 @@ where
         loop {
             ticker.tick().await;
             let roots = roots(daemon.as_ref()).await;
+            let hubs = daemon.merge_hubs().await;
+            let held = roots.clone();
             let at = SystemClock::new().instant();
             let Ok(((now, said), kept)) = tokio::task::spawn_blocking(move || {
                 let now = read(&roots, &mut found, at);
@@ -167,6 +207,7 @@ where
             else {
                 return;
             };
+            let now = with_hubs(now, &held, hubs);
             found = kept;
             said.iter()
                 .filter(|one| !failing.contains(one))
@@ -258,6 +299,7 @@ pub fn merge_line(root: &str, at: &Located, read: Line) -> MergeLine {
         off: left(&read.off),
         landed: left(&read.landed),
         sent_back: left(&read.sent_back),
+        hub: None,
     }
 }
 

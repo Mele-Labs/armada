@@ -24,6 +24,71 @@ export type MergeLine = {
   landed: MergeLineRow[];
   /** Red, conflict or stopped and not back in line, in the last three days, newest first. Since 23.2. */
   sent_back: MergeLineRow[];
+  /** Main's CI and the open pull requests, from the forge. Absent where Fleet has read neither. Since 23.41. */
+  hub?: MergeLineHub;
+};
+
+/**
+ * What Fleet read off the forge for one repository, beside the queue: where main's CI stands and
+ * every open pull request. `crates/ipc/src/merge_hub.rs`. Since 23.41.
+ */
+export type MergeLineHub = {
+  /** Absent where Fleet has not read main yet. */
+  main?: MainStanding;
+  /** Newest first, as the forge lists them. Absent is none open. */
+  pull_requests?: HubPullRequest[];
+  /** The Job working on main's red. Fleet sets none yet. */
+  fixing?: HubJob;
+};
+
+/** A Job, by its id and what it is called. */
+export type HubJob = { id: string; title: string };
+
+/**
+ * `main_ci_state` is `green`, `red`, `running` or `nothing_ran`. A red a fix is still running for
+ * stays `red`. `nothing_ran` is not green: nothing was proved.
+ */
+export type MainStanding = {
+  state: string;
+  commit: string;
+  read_at: string;
+  /** When main first read red, kept while it stays red. */
+  red_since?: string;
+  /** Each CI job that failed, in the forge's order. */
+  failed?: MainFailedJob[];
+  /** The pull request that turned main red, where the forge named one. */
+  merge?: MainMerge;
+};
+
+export type MainFailedJob = {
+  /** The job's name as the forge reports it. */
+  name: string;
+  /** The Manifest Check it maps to. Absent is ordinary. */
+  check?: string;
+  log_url?: string;
+  /** The tests its log names, in the order printed. Absent where none could be read. */
+  tests?: string[];
+};
+
+export type MainMerge = {
+  number: number;
+  url?: string;
+  branch?: string;
+  /** The Job whose pull request that is. Absent for a person's. */
+  job?: HubJob;
+};
+
+/** `ci` is `passed`, `running`, `failed` or `waiting_on_main`: failed only on the jobs main is failing. */
+export type HubPullRequest = {
+  number: number;
+  title: string;
+  branch: string;
+  url: string;
+  author?: string;
+  /** Absent where nothing has run on it. */
+  ci?: string;
+  /** The Job that opened it. Absent for a person's. */
+  job?: HubJob;
 };
 
 /** One branch, in line or just off it. */

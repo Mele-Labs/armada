@@ -122,14 +122,16 @@ export type HubPull = {
   number: number;
   url: string;
   branch: string;
-  ci: "passed" | "running" | "failed" | "waiting_on_main";
+  /** Absent where nothing has run on it: no mark. */
+  ci?: "passed" | "running" | "failed" | "waiting_on_main";
   /** The Job it came from. Absent for a person's. */
   job?: HubJob;
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
 export type MergeLineHub = {
-  main: MainState;
+  /** Absent where Fleet has not read main, or main is running or ran nothing: no mark and no band. */
+  main?: MainState;
   pulls: readonly HubPull[];
   recent: readonly RecentJob[];
 };
@@ -204,7 +206,7 @@ export function MergeLine(props: MergeLineProps) {
             )}
           </h2>
           <GuideMark guide={GUIDE_MERGE_LINE} />
-          {hub === undefined ? null : <MainMark main={hub.main} />}
+          {hub?.main === undefined ? null : <MainMark main={hub.main} />}
         </div>
         <button
           type="button"
@@ -220,7 +222,7 @@ export function MergeLine(props: MergeLineProps) {
           )}
         </button>
       </header>
-      {hub === undefined || hub.main.state !== "red" ? null : (
+      {hub?.main?.state !== "red" ? null : (
         <MainRedBand
           main={hub.main}
           recent={hub.recent}
@@ -265,7 +267,7 @@ export function MergeLine(props: MergeLineProps) {
               <h3 className="armada-merge-line__subheading">Open pull requests</h3>
               <ul className="armada-merge-line__list" aria-label="Open pull requests">
                 {hub.pulls.map((pull) => (
-                  <Pull key={pull.number} pull={pull} fixing={hub.main.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                  <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
                 ))}
               </ul>
             </>
@@ -483,7 +485,7 @@ function Entry({
 }
 
 /** The `ci` marks on an open pull request, from the Check outcomes and the queue's own reason for waiting. */
-const CI: Record<HubPull["ci"], { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string }> = {
+const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string }> = {
   passed: { reading: CHECK_OUTCOME.passed, says: "ci passed" },
   running: { reading: LAND_STATE.gating, says: "ci running" },
   failed: { reading: CHECK_OUTCOME.failed, says: "ci failed" },
@@ -503,24 +505,29 @@ function Pull({
   onOpenPullRequest: (url: string) => void;
   onOpenJob?: (jobId: string) => void;
 }) {
-  const { reading, says } = CI[pull.ci];
-  const Icon = reading?.icon ?? null;
-  const said = pull.ci === "waiting_on_main" && fixing !== undefined ? `${says}, waiting on the fix: ${fixing.title}` : says;
+  const mark = pull.ci === undefined ? undefined : CI[pull.ci];
+  const Icon = mark?.reading?.icon ?? null;
+  const said =
+    mark === undefined ? undefined : pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
   return (
-    <li className="armada-merge-line__row" aria-label={`${pull.branch}, ${said}`}>
+    <li className="armada-merge-line__row" aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}>
       <span className="armada-merge-line__place" />
-      <Tooltip label={said} asChild>
-        <span
-          className="armada-merge-line__mark"
-          data-pulsing={pull.ci === "running" || undefined}
-          data-state={pull.ci === "running" ? "gating" : undefined}
-          style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
-          role="img"
-          aria-label={said}
-        >
-          {Icon === null ? null : <Icon size={MARK} strokeWidth={STROKE} aria-hidden />}
-        </span>
-      </Tooltip>
+      {said === undefined ? (
+        <span className="armada-merge-line__mark" />
+      ) : (
+        <Tooltip label={said} asChild>
+          <span
+            className="armada-merge-line__mark"
+            data-pulsing={pull.ci === "running" || undefined}
+            data-state={pull.ci === "running" ? "gating" : undefined}
+            style={mark?.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
+            role="img"
+            aria-label={said}
+          >
+            {Icon === null ? null : <Icon size={MARK} strokeWidth={STROKE} aria-hidden />}
+          </span>
+        </Tooltip>
+      )}
       <span className="armada-merge-line__branch mono">{pull.branch}</span>
       <span className="armada-merge-line__pr">
         <Tooltip label="Pull request">

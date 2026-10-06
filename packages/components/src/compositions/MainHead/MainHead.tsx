@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { GitMerge, Hammer } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
@@ -10,8 +10,8 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * Main's state at the head of the merge line, as the hub draws it. **Drawn ahead of Fleet**: the
- * wire serves none of this yet, and the mock publishes it on a line.
+ * Main's state at the head of the merge line, as the hub draws it. Fleet serves it as the line's
+ * `hub` since protocol 23.41, and `packages/screens/src/merge-line.ts` folds it onto these types.
  *
  * Green is an icon and its tooltip beside the heading. Red is a band under it that stays
  * where the panel is folded: the failing Check, the failing test and the merge that turned it
@@ -34,13 +34,19 @@ export type MainRed = {
   unmapped?: true;
   /** The failing test, where Armada could read one out of the log. Absent draws no row. */
   test?: string;
-  /** Where the test is, at the merge. */
+  /** Where the test is, at the merge. Absent draws the test as text. */
   testUrl?: string;
-  merge: {
+  /** Any other CI job that failed, each as the first is. Absent is the one. */
+  also?: readonly { check: string; unmapped?: true; test?: string }[];
+  /** The pull request that merged. Absent where the forge named none, as a direct push does not. */
+  merge?: {
     number: number;
-    url: string;
-    branch: string;
-    branchUrl: string;
+    /** Absent where only the merge commit's message named the pull request: its number is text. */
+    url?: string;
+    /** Absent where the forge did not say. */
+    branch?: string;
+    /** Absent draws the branch as text. */
+    branchUrl?: string;
     /** The Job whose pull request it was. Absent for a person's. */
     job?: HubJob;
   };
@@ -105,7 +111,10 @@ export type MainRedBandProps = {
   /** Opens the failed Check's log. Absent, the Check is not a press. */
   onOpenCheck?: (check: string) => void;
   onOpenJob?: (jobId: string) => void;
-  /** Told the owner's choice. The band draws the way back to a Job whether or not anything listens. */
+  /**
+   * Told the owner's choice. **The two ways to hand the red to a Job draw only where something
+   * listens**: a Fleet that cannot take one offers none, and a button that does nothing is worse.
+   */
   onFix?: (choice: FixChoice) => void;
 };
 
@@ -121,7 +130,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
       <div className="armada-main-red__frame" role="status" aria-label="Main is red">
         <div className="armada-main-red__head">
           <span className="armada-main-red__title">Main is red</span>
-          {taken !== undefined ? null : (
+          {taken !== undefined || onFix === undefined ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
@@ -133,35 +142,57 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           )}
         </div>
         <dl className="armada-main-red__rows mono">
-          <dt>{labelOf(red)}</dt>
-          <dd>
-            {onOpenCheck === undefined ? (
-              red.check
-            ) : (
-              <button type="button" className="armada-main-red__link mono" onClick={() => onOpenCheck(red.check)}>
-                {red.check}
-              </button>
-            )}
-          </dd>
-          {red.test === undefined || red.testUrl === undefined ? null : (
+          {[{ check: red.check, unmapped: red.unmapped, test: red.test, testUrl: red.testUrl }, ...(red.also ?? [])].map(
+            (job, at) => (
+              <Fragment key={`${job.check}:${at}`}>
+                <dt>{job.unmapped === true ? "CI job" : "Check"}</dt>
+                <dd>
+                  {onOpenCheck === undefined ? (
+                    job.check
+                  ) : (
+                    <button type="button" className="armada-main-red__link mono" onClick={() => onOpenCheck(job.check)}>
+                      {job.check}
+                    </button>
+                  )}
+                </dd>
+                {job.test === undefined ? null : (
+                  <>
+                    <dt>Test</dt>
+                    <dd>
+                      {"testUrl" in job && job.testUrl !== undefined ? (
+                        <a className="armada-main-red__link mono" href={job.testUrl} onClick={link(job.testUrl)}>
+                          {job.test}
+                        </a>
+                      ) : (
+                        job.test
+                      )}
+                    </dd>
+                  </>
+                )}
+              </Fragment>
+            ),
+          )}
+          {red.merge === undefined ? null : (
             <>
-              <dt>Test</dt>
-              <dd>
-                <a className="armada-main-red__link mono" href={red.testUrl} onClick={link(red.testUrl)}>
-                  {red.test}
-                </a>
+              <dt>Broke in</dt>
+              <dd className="armada-main-red__merge">
+                {red.merge.url === undefined ? (
+                  <span>#{red.merge.number}</span>
+                ) : (
+                  <a className="armada-main-red__link mono" href={red.merge.url} onClick={link(red.merge.url)}>
+                    #{red.merge.number}
+                  </a>
+                )}
+                {red.merge.branch === undefined ? null : red.merge.branchUrl === undefined ? (
+                  <span>{red.merge.branch}</span>
+                ) : (
+                  <a className="armada-main-red__link mono" href={red.merge.branchUrl} onClick={link(red.merge.branchUrl)}>
+                    {red.merge.branch}
+                  </a>
+                )}
               </dd>
             </>
           )}
-          <dt>Broke in</dt>
-          <dd className="armada-main-red__merge">
-            <a className="armada-main-red__link mono" href={red.merge.url} onClick={link(red.merge.url)}>
-              #{red.merge.number}
-            </a>
-            <a className="armada-main-red__link mono" href={red.merge.branchUrl} onClick={link(red.merge.branchUrl)}>
-              {red.merge.branch}
-            </a>
-          </dd>
           {taken === undefined ? null : (
             <>
               <dt>Fixing</dt>
@@ -217,9 +248,11 @@ function Attached({ red }: { red: MainRed }) {
       <span role="listitem">
         <AttachmentChip from="Log" filename={`${red.check}.log`} />
       </span>
-      <span role="listitem">
-        <AttachmentChip from="Pull request" filename={`#${red.merge.number} ${red.merge.branch}`} />
-      </span>
+      {red.merge === undefined ? null : (
+        <span role="listitem">
+          <AttachmentChip from="Pull request" filename={[`#${red.merge.number}`, red.merge.branch].filter(Boolean).join(" ")} />
+        </span>
+      )}
     </div>
   );
 }
@@ -229,7 +262,7 @@ export function briefOf(red: MainRed): string {
   return [
     `${red.check} fails on main.`,
     ...(red.test === undefined ? [] : [`Test: ${red.test}`]),
-    `Merged in #${red.merge.number} (${red.merge.branch}).`,
+    ...(red.merge === undefined ? [] : [`Merged in #${red.merge.number}${red.merge.branch === undefined ? "" : ` (${red.merge.branch})`}.`]),
   ].join("\n");
 }
 
@@ -254,7 +287,7 @@ function FixDialog({
 }) {
   const [request, setRequest] = useState(() => briefOf(red));
   const [job, setJob] = useState<string | null>(null);
-  const jobs = culpritFirst(recent, red.merge.job);
+  const jobs = culpritFirst(recent, red.merge?.job);
   if (kind === "new") {
     return (
       <Dialog
@@ -290,7 +323,7 @@ function FixDialog({
             <span className="armada-main-fix__job">
               <span>{one.title}</span>
               <span className="mono armada-main-fix__branch">{one.branch}</span>
-              {one.id === red.merge.job?.id ? (
+              {red.merge?.job !== undefined && one.id === red.merge.job.id ? (
                 <Tooltip label={`Merged #${red.merge.number}, the pull request that turned main red`} asChild>
                   <span className="armada-main-fix__culprit" role="img" aria-label={`Merged #${red.merge.number}`}>
                     <GitMerge size={SMALL} strokeWidth={STROKE} aria-hidden />

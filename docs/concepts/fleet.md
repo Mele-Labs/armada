@@ -363,10 +363,13 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
+| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same interval and rotation |
 
 **A red stays red until a green.** A newer commit still running does not end it, and a commit that fails on top of a red is the same red unless it fails a job the red did not have. A commit nothing ran on is not a green and does not end a red.
 
-**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. Nothing is served over the wire yet, and no Job acts on it.
+**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. No Job acts on it.
+
+**It is served as the merge line's `hub`**, protocol 23.41, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
 ### Restarting Fleet
 

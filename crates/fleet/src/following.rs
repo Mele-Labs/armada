@@ -59,6 +59,12 @@ pub(crate) fn read_from(file: &Path, from: u64, to_the_end: bool) -> api::Follow
     if opened.seek(SeekFrom::Start(from)).is_err() || opened.read_to_end(&mut bytes).is_err() {
         return nothing(true);
     }
+    windowed(&bytes, from, to_the_end)
+}
+
+/// What [`read_from`] makes of the bytes after `from`; a log held in memory is
+/// read the same way.
+pub(crate) fn windowed(bytes: &[u8], from: u64, to_the_end: bool) -> api::Followed {
     let upto = match to_the_end {
         true => bytes.len(),
         false => bytes

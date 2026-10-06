@@ -1,16 +1,19 @@
 //! The merge line `armada land` keeps in each repository Fleet serves —
 //! `get_merge_lines` and `merge_lines.changed` in `crates/ipc/operations.toml`.
 //!
-//! **A reading of files another process writes**, not Fleet's own state: the
-//! runner is `armada land`, and Fleet reads its `armada-land/` directory and
-//! starts nothing. `docs/capabilities/merge-line.md`, *In Bridge*.
+//! **The queue is a reading of files another process writes**: the runner is
+//! `armada land`, and Fleet reads its `armada-land/` directory and starts
+//! nothing. The `hub` beside it is Fleet's own reading of the forge
+//! (`merge_hub.rs`). `docs/capabilities/merge-line.md`, *In Bridge*.
 
 use serde::{Deserialize, Serialize};
 
 /// Every served repository that has a line, the one Fleet was started in first.
 ///
-/// **A repository nobody has run `armada land` in is not here**, rather than
-/// here with nothing in it: there is no line to draw and no rail row to offer.
+/// **A repository with no line and no hub is not here**, rather than here with
+/// nothing in it: there is nothing to draw and no rail row to offer. One nobody
+/// has run `armada land` in is here from 23.41 where Fleet has read its forge,
+/// with an empty line and a `hub`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MergeLines {
     pub lines: Vec<MergeLine>,
@@ -34,6 +37,10 @@ pub struct MergeLine {
     /// three days, newest first. Since 23.2.
     #[serde(default)]
     pub sent_back: Vec<MergeLineEntry>,
+    /// Main's CI and the open pull requests, **from the forge** rather than the
+    /// runner's files. Absent where Fleet has read neither. Since 23.41.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hub: Option<crate::MergeLineHub>,
 }
 
 /// One branch, in line or just off it.

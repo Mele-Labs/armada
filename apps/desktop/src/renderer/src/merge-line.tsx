@@ -105,6 +105,7 @@ function OneLine({
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       open={open}
       {...(holds ? { focus } : {})}
+      {...(view.fixOffered === undefined ? {} : { onFix: () => {} })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}
