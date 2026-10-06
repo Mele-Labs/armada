@@ -32,12 +32,13 @@ export function canResume(job: JobSummary): boolean {
 /**
  * What the mark's tooltip reads: who paused it, when, and where the work is.
  * A resume waiting on the pool says that instead, since the slot is not back.
+ * **Without `now` it says no time**, for a surface memoised across ticks.
  */
-export function pausedSaid(job: JobSummary, now: number): string | undefined {
+export function pausedSaid(job: JobSummary, now?: number): string | undefined {
   const { paused } = job;
   if (paused === undefined) return undefined;
   const by = paused.by === "fleet" ? "Paused by Fleet" : "Paused";
-  const when = sitting(paused.at, now);
+  const when = now === undefined ? null : sitting(paused.at, now);
   const lead = when === null ? by : `${by} ${when} ago`;
   const branch = job.branch === undefined ? "its branch" : `branch ${job.branch}`;
   return paused.resuming ? `${lead}: waiting for a slot to resume ${branch}` : `${lead}: work saved on ${branch}, slot released`;

@@ -91,6 +91,11 @@ export type JobRowStackedProps = {
   /** The verb, from the enum→verb map. Never written at a call site that ships. */
   statusLabel: ReactNode;
   /**
+   * A mark that stands beside the badge and never in place of it: a paused
+   * Job reads its real status and this next to it.
+   */
+  mark?: ReactNode;
+  /**
    * The headline sentence — what happened, in the status grammar's own shape.
    * "Job 12 stalled at step 3", or the Job's own title.
    */
@@ -250,6 +255,7 @@ export function JobRowStacked({
   status,
   statusIcon,
   statusLabel,
+  mark,
   headline,
   jobId,
   handle,
@@ -315,10 +321,11 @@ export function JobRowStacked({
       onClick={onOpen}
       onKeyDown={opens ? handleKeyDown : undefined}
     >
-      <div className="armada-job-row__badge">
+      <div className="armada-job-row__badge" data-marked={mark === undefined ? undefined : ""}>
         <Badge status={status} icon={statusIcon} pulsing={pulsing}>
           {statusLabel}
         </Badge>
+        {mark}
       </div>
 
       <div className="armada-job-row__body">

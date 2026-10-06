@@ -158,6 +158,7 @@ export function waveRunOf(
         title: job.title,
         status: job.status,
         ...(job.handle === undefined ? {} : { handle: job.handle }),
+        ...(job.paused === undefined ? {} : { paused: job.paused }),
         facts: factsOf(job),
         ...(onOpen === undefined ? {} : { onOpen: () => onOpen(job.job) }),
       },
