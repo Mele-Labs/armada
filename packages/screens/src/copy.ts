@@ -330,8 +330,9 @@ export const RAISE_TURN_CAP_LABEL = "Raise the turn cap";
 /**
  * How a job meets a command its drone was not given, in the Job settings
  * panel's words, and the order it offers them. **The three are the whole
- * set** — a new job starts at *Ask me first*, which holds the call and
- * publishes the question rather than deciding without a person. *Stop and
+ * set** — a new job starts at *Run it*, which runs every command
+ * without asking except the two that still stop for a person. *Ask me first*
+ * holds the call and publishes the question instead. *Stop and
  * wait for me* stays offered, for somebody who wants the call refused rather
  * than held.
  *
