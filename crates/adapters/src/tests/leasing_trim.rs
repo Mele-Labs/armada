@@ -60,8 +60,16 @@ fn a_release_drops_what_no_build_has_touched_in_a_fortnight_and_keeps_the_rest()
     let slot = lease(&pool);
     built(&slot.join("target/debug/deps/old-1.rlib"), 10, 30);
     built(&slot.join("target/debug/deps/fresh-1.rlib"), 10, 1);
-    built(&slot.join("target/debug/incremental/old-sess/dep-graph.bin"), 10, 30);
-    built(&slot.join("target/debug/incremental/new-sess/dep-graph.bin"), 10, 1);
+    built(
+        &slot.join("target/debug/incremental/old-sess/dep-graph.bin"),
+        10,
+        30,
+    );
+    built(
+        &slot.join("target/debug/incremental/new-sess/dep-graph.bin"),
+        10,
+        1,
+    );
 
     pool.release(&slot).expect("a clean slot is released");
 
@@ -71,7 +79,9 @@ fn a_release_drops_what_no_build_has_touched_in_a_fortnight_and_keeps_the_rest()
         !slot.join("target/debug/incremental/old-sess").exists(),
         "a stale session directory goes, and not only its files"
     );
-    assert!(slot.join("target/debug/incremental/new-sess/dep-graph.bin").exists());
+    assert!(slot
+        .join("target/debug/incremental/new-sess/dep-graph.bin")
+        .exists());
 }
 
 #[test]
@@ -87,15 +97,49 @@ fn a_release_removes_a_target_that_is_still_over_the_ceiling() {
 }
 
 #[test]
-fn a_release_leaves_a_target_under_the_ceiling_and_a_slot_with_none() {
+fn a_release_leaves_a_target_under_the_ceiling() {
     let repo = a_repository();
     let pool = Pool::at(repo.root(), 1, "main", Vec::new()).trimming(trim());
     let slot = lease(&pool);
     built(&slot.join("target/debug/deps/fresh-1.rlib"), 500_000, 1);
     pool.release(&slot).expect("a clean slot is released");
     assert!(slot.join("target/debug/deps/fresh-1.rlib").exists());
+}
 
-    let bare = lease(&pool);
-    assert!(!bare.join("target").exists());
-    pool.release(&bare).expect("a slot with no build is released");
+#[test]
+fn a_sweep_trims_the_main_checkout_and_a_job_worktree_and_leaves_a_building_one() {
+    use crate::leasing::sweep_repository;
+
+    let repo = a_repository();
+    let root = repo.root();
+    let job = root.join(".armada/worktrees/a-job");
+    let agent = root.join(".claude/worktrees/agent-1");
+    for checkout in [root, job.as_path(), agent.as_path()] {
+        built(&checkout.join("target/debug/deps/old-1.rlib"), 10, 30);
+        built(&checkout.join("target/debug/deps/fresh-1.rlib"), 10, 1);
+    }
+    let over = root.join(".armada/bases/abc");
+    built(&over.join("target/debug/deps/fresh-1.rlib"), 2_000_000, 1);
+
+    // A build in `agent` holds cargo's lock on its profile directory.
+    let lock = agent.join("target/debug/.cargo-lock");
+    std::fs::write(&lock, "").unwrap();
+    let building = std::fs::File::options().write(true).open(&lock).unwrap();
+    building.lock().unwrap();
+
+    sweep_repository(root, trim(), SystemTime::now());
+
+    for checkout in [root, job.as_path()] {
+        assert!(!checkout.join("target/debug/deps/old-1.rlib").exists());
+        assert!(checkout.join("target/debug/deps/fresh-1.rlib").exists());
+    }
+    assert!(!over.join("target").exists(), "over the ceiling goes whole");
+    assert!(
+        agent.join("target/debug/deps/old-1.rlib").exists(),
+        "nothing is deleted under a live build"
+    );
+
+    drop(building);
+    sweep_repository(root, trim(), SystemTime::now());
+    assert!(!agent.join("target/debug/deps/old-1.rlib").exists());
 }
