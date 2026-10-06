@@ -5,6 +5,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use checks_runner::{reached, Reach};
+use fleet::clock::{Clock, SystemClock};
 
 use super::armada_cli::{check, covers};
 use super::batch::{tell, Built};
@@ -151,6 +152,7 @@ pub fn checks(
         .map(|name| CheckRun {
             name: name.clone(),
             state: CheckState::Waiting,
+            started_at: None,
         })
         .collect();
     let mut narrowed = Vec::new();
@@ -207,6 +209,7 @@ pub fn checks(
     }
     for (n, name) in rerun.iter().enumerate() {
         runs[n].state = CheckState::Running;
+        runs[n].started_at = Some(SystemClock::new().now().as_str().to_string());
         tell(
             state,
             group,

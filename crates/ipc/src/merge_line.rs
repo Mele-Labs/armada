@@ -78,6 +78,10 @@ pub struct MergeLineCheck {
     /// The merge line, for the entry's branch. **Never absent.** Since 23.38.
     #[serde(default)]
     pub requester: crate::Requester,
+    /// When the runner began it, off the line's own state. **Absent while it
+    /// waits**, and on a line state written before the field. Since 23.38.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<crate::ids::Instant>,
 }
 
 /// Where one Check stands in a turn: `waiting` until it is run, then

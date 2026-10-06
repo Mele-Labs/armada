@@ -320,6 +320,7 @@ fn check_of(run: &CheckRun, branch: &str) -> MergeLineCheck {
     MergeLineCheck {
         name: run.name.clone(),
         requester: ipc::Requester::merge_line(branch),
+        started_at: run.started_at.as_deref().map(ipc::Instant::carried),
         state: match run.state {
             CheckState::Waiting => LandCheckState::Waiting,
             CheckState::Running => LandCheckState::Running,

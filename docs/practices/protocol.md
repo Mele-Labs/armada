@@ -3077,6 +3077,7 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 | `requester` | `ChecksUnderway`: `gate` on `checking`, the Drone on `dry_run` | who asked | As above |
 | `requester` | `RunUnderway`, `RunRecord`, `CheckoutRunUnderway`, `CheckoutRunRecord`, `CheckoutVerify` | `outside` | A record written before 23.38 reads `outside` |
 | `requester` | `MergeLineCheck` | `merge_line`, with the entry's `branch` | As above |
+| `started_at` | `MergeLineCheck` | When the runner began the Check, an `Instant`, written by `armada land` into the line's state as the Check goes `running` | A Check still waiting, and a line state from before the field |
 | `handle` | `Requester` | What a person calls the Job; a Drone's handle | Where Fleet does not know it |
 | `asked_runs` | `StepDetail`, `RunList` | `AskedRun`: `id`, `requester`, `attempt`, `started_at`, `finished_at`, `state` (`running`, `passed`, `failed`, `stopped`, `lost`), `checks`, `narrowed`, `only_check`, `logs` | No run was asked |
 

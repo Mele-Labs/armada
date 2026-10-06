@@ -1122,6 +1122,8 @@ description = "The merge line `armada land` keeps in each served repository that
 notes = """
 A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
 
+**Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.38).
+
 A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
@@ -2877,7 +2879,7 @@ notes = """
 
 **Newest first, and at most `ManifestChecks::MOST` rows**: `total` is how many there were and `truncated` says the rest were cut. A row is one Check's gate result (`source: gate`) or one whole run a Drone asked for (`source: asked_run`, its Checks joined in `name`), each carrying the `requester` and the Job's id, handle and title. A gate row records when its ruling was written, as `ended_at`, and no start or duration; an asked run has all three.
 
-**A log opens through `get_check_output`**: each row's `logs` name the file, and `get_check_output` on the row's `job_id` and the log's `kept` reads it. An asked run's logs are an allowlist beside the gate's rows, so the one reader serves both. Merge-line Checks are `get_merge_lines`' and checkout runs are `list_checkout_runs`', and neither is here.
+**A log opens through `get_check_output`**: each row's `logs` name the file, and `get_check_output` on the row's `job_id` and the log's `kept` reads it. An asked run's logs are an allowlist beside the gate's rows, so the one reader serves both. Merge-line Checks are `get_merge_lines`' (each says when it began in `started_at`, once it has) and checkout runs are `list_checkout_runs`', and neither is here.
 
 `agent_access` is `No`: it is the Checks page's read, across Jobs, and an agent reads its own Job's through `get_job`.
 """
