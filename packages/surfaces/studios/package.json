@@ -5,6 +5,11 @@
   "description": "The Studios surface: a repository's whiteboards, whole. Props in, callbacks out.",
   "type": "module",
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./fake": "./src/fake.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"

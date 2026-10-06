@@ -10,6 +10,7 @@ id: armada-studios
 # renderer and shared source of `apps/desktop` are here; `main` and `preload`
 # are not, since the mock bridge does not run them.
 depends_on:
+  - "packages/bridge-api/**"
   - "packages/screens/**"
   - "packages/shell/**"
   - "packages/components/**"
