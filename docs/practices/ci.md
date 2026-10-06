@@ -36,12 +36,12 @@ to `main` are keyed by their own commit and never cancelled.
 ```
 changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
                   reads armada.yml     sorts keys    matrix                  ──> workspace key: one `workspace_check` matrix entry
-                  `when:` lists        fails on one                          ──> apps/desktop:desktop_test: the macOS shards
+                  `when:` lists        fails on one                          ──> desktop_test of apps/desktop: the macOS shards
                                        it cannot place
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`). A workspace Check is `<dir>:<name>` (`apps/desktop:bridge_build`, `packages/components:storybook`), as `armada covers` prints it and `armada check <key>` takes it.
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -77,10 +77,10 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `cargo fmt --all --check` | none |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
-| Every workspace key except `apps/desktop:desktop_test` and the excluded: `<dir>:typecheck`, `apps/desktop:bridge_build`, `packages/components:storybook`, `packages/components:components_test`, `packages/screens:screens_test`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
+| Every workspace key except the desktop tests and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `apps/desktop:desktop_test` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
+| `desktop_test` of `apps/desktop` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
@@ -165,7 +165,7 @@ failure, which was a Linux-only test failing on `main`.
 | Check | Why |
 |---|---|
 | `scripts_test` | Dropped. It tested `armada land`, which this workflow replaces, and failed on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
-| `apps/desktop:xtask_test` | In `EXCLUDED` in `plan.py`. A Rust Check CI never ran; the root `test` runs xtask's tests. Named, so the plan does not fail on it |
+| `xtask_test` of `apps/desktop` | In `EXCLUDED` in `plan.py`. A Rust Check CI never ran; the root `test` runs xtask's tests. Named, so the plan does not fail on it |
 | `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 
