@@ -423,3 +423,18 @@ export const MainGreen: Story = {
     await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
   },
 };
+
+/** Main is still running, or nothing ran on it: no mark and no band. A pull request nothing ran on has no mark. */
+export const MainNotKnown: Story = {
+  name: "Main not known, a pull request nothing ran on",
+  args: {
+    line: [],
+    hub: { recent: [], pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: /^Main is/ })).toBeNull();
+    await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
+    const row = canvas.getByRole("listitem", { name: "docs/no-ci-yet" });
+    await expect(within(row).queryByRole("img")).toBeNull();
+  },
+};

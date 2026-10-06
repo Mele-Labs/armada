@@ -30,9 +30,9 @@ export const mainGoesRed = walk("main-red-hub", [
   // The Job's own pull request turned main red. It was watching its landing and has taken the red.
   { look: RED, say: "Main is red: a red band titles the frame, which stays when the panel is folded" },
   { hover: inside(RED, button("screens_test")), say: "Check: the failing one, labelled; a press opens its log" },
-  { look: inside(RED, role("link", /^manifest-read\.test\.ts/)), say: "Test: the failing one, labelled" },
+  { look: inside(RED, text(/^manifest-read\.test\.ts/)), say: "Test: the failing one, labelled" },
   { look: inside(RED, role("link", "#1812")), say: "Broke in: the pull request that merged" },
-  { look: inside(RED, role("link", "armada/60-cache")), say: "And its branch" },
+  { look: inside(RED, text("armada/60-cache")), say: "And its branch" },
   { press: inside(RED, button("screens_test")), say: "The Check's log opens from the head, as a strip's segment does" },
   { look: inside(LOG, text("AssertionError: expected 'cached' to be 'changed'")), say: "Main's run, whole" },
   { press: inside(LOG, button("Close")), say: "Put it away" },
@@ -85,7 +85,7 @@ export const mainGoesRed = walk("main-red-hub", [
 
   // A person's own pull request turned it red: no Job to send it to first, and the owner dispatches one.
   { later: inside(MERGE, role("img", "Main is green")), say: "A person merges their own pull request" },
-  { look: inside(RED, role("link", "nick/theme-tokens")), say: "Main is red from a person's pull request: no Job of its own" },
+  { look: inside(RED, text("nick/theme-tokens")), say: "Main is red from a person's pull request: no Job of its own" },
   { press: inside(RED, button("Dispatch a new Job")), say: "Dispatch a new Job" },
   { look: inside(DISPATCH, role("list", "Attached")), say: "Prefilled: the Check, the test, the log and the pull request" },
   { look: inside(DISPATCH, role("textbox", "Brief")), say: "A brief of bare facts, there to edit" },

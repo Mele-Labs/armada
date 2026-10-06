@@ -21,16 +21,18 @@ const PULL = "https://git.example/armada/pull/";
 
 const JOB = { id: "job-1", title: "Cache the manifest read between dispatches" };
 
+const MERGE = {
+  number: 1812,
+  url: `${PULL}1812`,
+  branch: "nick/ports-cleanup",
+  branchUrl: "https://git.example/armada/tree/nick/ports-cleanup",
+};
+
 const RED: MainRed = {
   check: "screens_test",
   test: "merge-line.test.ts > folds a line's failed Check onto the panel",
   testUrl: "https://git.example/armada/blob/main/packages/screens/src/merge-line.test.ts",
-  merge: {
-    number: 1812,
-    url: `${PULL}1812`,
-    branch: "nick/ports-cleanup",
-    branchUrl: "https://git.example/armada/tree/nick/ports-cleanup",
-  },
+  merge: MERGE,
 };
 
 const RECENT: RecentJob[] = [
@@ -77,7 +79,7 @@ export const RedWithNobodyOnIt: Story = {
 
 /** A Job has it: the two ways are gone, and the Job is a link. Nobody is asked anything. */
 export const RedWithAJobOnIt: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...RED.merge, job: JOB } }, taken: JOB } },
+  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } }, taken: JOB } },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: "Send back to a Job" })).toBeNull();
@@ -110,7 +112,7 @@ export const DispatchANewJob: Story = {
  * recent, and nothing is chosen until the owner chooses.
  */
 export const SendBackToAJob: Story = {
-  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...RED.merge, job: JOB } } } },
+  args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } } } },
   play: async ({ args, canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Send back to a Job" }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back to a Job" });
@@ -172,5 +174,29 @@ export const UnmappedCiJob: Story = {
     await expect(within(dialog).getByRole("textbox", { name: "Brief" })).toHaveValue(
       "test-all fails on main.\nMerged in #1812 (nick/ports-cleanup).",
     );
+  },
+};
+
+/**
+ * What the forge reports and nothing more: two CI jobs, neither a Check, one with a test read out of
+ * its log, and no pull request to blame. Nothing is a link, and without a listener the two ways to
+ * hand the red to a Job are not offered.
+ */
+export const RedFromCiAlone: Story = {
+  args: {
+    main: { state: "red", red: { check: "test-all", unmapped: true, also: [{ check: "lint-all", unmapped: true, test: "tests::one" }] } },
+    recent: RECENT,
+    onOpenLink: fn(),
+    onOpenCheck: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByText("CI job")).toHaveLength(2);
+    await expect(canvas.getByRole("button", { name: "test-all" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "lint-all" })).toBeVisible();
+    await expect(canvas.getByText("tests::one")).toBeVisible();
+    await expect(canvas.queryByRole("link")).toBeNull();
+    await expect(canvas.queryByText("Broke in")).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Send back to a Job" })).toBeNull();
   },
 };
