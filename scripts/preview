@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+#
+# A rolling preview: every in-flight branch merged on top of `main`, in a
+# worktree of its own, with no Checks, so work that has not landed can be used
+# while agents land it. `docs/practices/running-locally.md`, "A preview of
+# unlanded work", is what it does and what it never promises.
+#
+#   scripts/preview                      merge once, print the table
+#   scripts/preview --only a --skip b    a branch list is repeatable or comma-separated
+#   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
+#   scripts/preview --restart [--dry-run]  then `scripts/restart --from .armada/preview`
+#
+# Knobs for tests, the same as the merge line's: `ARMADA_LAND_ARMADA` names the
+# `armada` to ask about slots and the line, and `ARMADA_PREVIEW_RESTART` the
+# restart script `--restart` runs.
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+
+MIGRATIONS = "crates/store/src/migrations.rs"
+# `preview` itself and `main` are never in flight.
+NEVER = ("main", "preview")
+# What `git clean` keeps: the build directories, and the Bridge build stamp
+# `scripts/restart` compares sources against.
+KEEP = ("/target", "node_modules", "/apps/desktop/out")
+
+
+def git(cwd, *args, check=True):
+    done = subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True,
+        env={**os.environ, "GIT_EDITOR": "true", "GIT_TERMINAL_PROMPT": "0"},
+    )
+    if check and done.returncode != 0:
+        sys.exit(f"preview: git {' '.join(args)} failed in {cwd}: "
+                 f"{(done.stderr or done.stdout).strip()}")
+    return done
+
+
+def out(cwd, *args):
+    return git(cwd, *args).stdout.strip()
+
+
+def repo_root():
+    """The main checkout: the parent of the common git directory, so the
+    preview lands in one place whichever slot this is run from."""
+    common = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True, text=True)
+    if common.returncode != 0:
+        sys.exit("preview: not inside a git repository")
+    return os.path.dirname(common.stdout.strip())
+
+
+def armada(root, *args):
+    binary = os.environ.get("ARMADA_LAND_ARMADA") or "armada"
+    try:
+        done = subprocess.run([binary, *args], cwd=root, capture_output=True, text=True)
+    except OSError as why:
+        sys.exit(f"preview: cannot run `{binary}` to ask what is in flight: {why}")
+    if done.returncode not in (0, 3, 10):
+        # Every `--status` exit but a refusal is an answer; an `armada` that
+        # does not know the verb said so instead of answering.
+        sys.exit(f"preview: `{binary} {' '.join(args)}` said: "
+                 f"{(done.stderr or done.stdout).strip()}")
+    return done.stdout
+
+
+def slots(root):
+    """Every slot that holds a branch: (slot, path, branch)."""
+    held = []
+    for line in armada(root, "worktree", "--status").splitlines():
+        fields = re.split(r"\s{2,}", line.strip(), maxsplit=4)
+        if len(fields) >= 4 and fields[1] in ("held", "kept"):
+            held.append((fields[0], fields[2], fields[3].split()[0]))
+    return held
+
+
+def queued(root):
+    return [m.group(1) for line in armada(root, "land", "--status").splitlines()
+            if (m := re.match(r"^\s*\d+\.\s+(\S+)", line))]
+
+
+def base_of(root):
+    for ref in ("refs/heads/main", "refs/remotes/origin/main"):
+        if git(root, "rev-parse", "--verify", "--quiet", ref, check=False).returncode == 0:
+            return ref
+    sys.exit("preview: neither `main` nor `origin/main` exists")
+
+
+def exists(root, branch):
+    return git(root, "rev-parse", "--verify", "--quiet",
+               f"refs/heads/{branch}", check=False).returncode == 0
+
+
+def names(values):
+    return {n.strip() for v in values or [] for n in v.split(",") if n.strip()}
+
+
+def in_flight(root, base, only, skip):
+    """(branches oldest first, why each named one was left out, slots held)."""
+    held = slots(root)
+    candidates = {b for _, _, b in held} | set(queued(root))
+    notes = []
+    chosen = []
+    for branch in sorted(candidates):
+        if branch in NEVER or not exists(root, branch):
+            continue
+        ahead = out(root, "rev-list", "--count", f"{base}..{branch}")
+        if ahead == "0":
+            continue
+        if branch in skip:
+            notes.append(f"{branch}: skipped by --skip")
+        elif only and branch not in only:
+            continue
+        else:
+            oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{branch}").split()[0]
+            chosen.append((int(oldest), branch))
+    for name in sorted(only - {b for _, b in chosen}):
+        if name not in skip:
+            notes.append(f"{name}: named by --only, but it is not ahead of main in a slot or the line")
+    return [b for _, b in sorted(chosen)], notes, held
+
+
+def migrations_in(cwd, rev):
+    """The V numbers `MIGRATIONS` lists at `rev`, in order."""
+    shown = git(cwd, "show", f"{rev}:{MIGRATIONS}", check=False)
+    if shown.returncode != 0:
+        return []
+    found, inside = [], False
+    for line in shown.stdout.splitlines():
+        if "pub const MIGRATIONS" in line:
+            inside = True
+        elif inside and line.strip() == "];":
+            break
+        elif inside and (m := re.match(r"^\s*(?:[\w]+::)*(V\d+),", line)):
+            found.append(m.group(1))
+    return found
+
+
+def prepare(root, wt, base):
+    git(root, "worktree", "prune")
+    if not os.path.isdir(os.path.join(wt, ".git")) and not os.path.isfile(os.path.join(wt, ".git")):
+        if os.path.exists(wt) and os.listdir(wt):
+            sys.exit(f"preview: {wt} exists and is not a worktree; remove it and run again")
+        os.makedirs(os.path.dirname(wt), exist_ok=True)
+        git(root, "worktree", "add", "-q", "-B", "preview", wt, base)
+    git(wt, "merge", "--abort", check=False)
+    git(wt, "checkout", "-q", "-B", "preview", base)
+    git(wt, "reset", "-q", "--hard", base)
+    git(wt, "clean", "-xdffq", *[a for k in KEEP for a in ("-e", k)])
+
+
+def merge_pass(root, only, skip):
+    wt = os.path.join(root, ".armada", "preview")
+    git(root, "fetch", "--quiet", "origin", check=False)
+    base = base_of(root)
+    prepare(root, wt, base)
+    branches, notes, held = in_flight(root, base, only, skip)
+
+    taken = {v: "main" for v in migrations_in(wt, "HEAD")}
+    rows = []
+    for branch in branches:
+        mb = out(wt, "merge-base", "HEAD", branch)
+        before = set(migrations_in(wt, mb))
+        added = [v for v in migrations_in(wt, branch) if v not in before]
+        clash = [(v, taken[v]) for v in added if v in taken]
+        if clash:
+            v, who = clash[0]
+            rows.append((branch, f"skipped (migration {v} is already taken by {who})", ""))
+            continue
+        pre = out(wt, "rev-parse", "HEAD")
+        done = git(wt, "merge", "--no-ff", "--no-edit", "-q", branch, check=False)
+        if done.returncode != 0:
+            files = out(wt, "diff", "--name-only", "--diff-filter=U").splitlines()
+            git(wt, "merge", "--abort", check=False)
+            rows.append((branch, "skipped (conflict: " + ", ".join(files or ["unknown"]) + ")", ""))
+            continue
+        head = out(wt, "rev-parse", "--short", "HEAD")
+        if out(wt, "rev-parse", "HEAD") == pre:
+            rows.append((branch, "nothing new", ""))
+            continue
+        for v in added:
+            taken[v] = branch
+        rows.append((branch, "merged", head))
+
+    head = out(wt, "rev-parse", "--short", "HEAD")
+    warnings = []
+    for slot, path, branch in held:
+        if os.path.isdir(path):
+            dirty = git(path, "status", "--porcelain", check=False).stdout.splitlines()
+            if dirty:
+                warnings.append(f"{slot} ({branch}) has {len(dirty)} uncommitted files, not included")
+    text = render(base, out(root, "rev-parse", "--short", base), head, rows, notes, warnings)
+    with open(os.path.join(wt, "PREVIEW.txt"), "w") as f:
+        f.write(text)
+    sys.stdout.write(text)
+    sys.stdout.flush()
+    return wt
+
+
+def render(base, base_sha, head, rows, notes, warnings):
+    lines = [f"preview {head} = {base.split('/')[-1]} {base_sha} + in-flight branches",
+             "Only committed work is included. No Checks were run.", ""]
+    lines += [f"warning: {w}" for w in warnings] + [f"left out: {n}" for n in notes]
+    if warnings or notes:
+        lines.append("")
+    if rows:
+        width = max(len(r[0]) for r in rows)
+        lines += [f"{b.ljust(width)}  {what}" + (f"  -> {sha}" if sha else "") for b, what, sha in rows]
+    else:
+        lines.append("no branch is ahead of main in a slot or the line")
+    lines += ["", f"preview head: {head}", ""]
+    return "\n".join(lines)
+
+
+def signature(root, only, skip):
+    base = base_of(root)
+    branches, _, _ = in_flight(root, base, only, skip)
+    return (out(root, "rev-parse", base),
+            tuple((b, out(root, "rev-parse", f"refs/heads/{b}")) for b in branches))
+
+
+def restart(root, wt, dry_run):
+    script = os.environ.get("ARMADA_PREVIEW_RESTART") or os.path.join(root, "scripts", "restart")
+    command = [script, "--from", wt] + (["--dry-run"] if dry_run else [])
+    print("running " + " ".join(command), flush=True)
+    code = subprocess.run(command).returncode
+    print(f"scripts/restart {'would have' if dry_run else 'has'} built from {wt} and "
+          f"serves the repository at {root}" if code == 0 else f"preview: restart exited {code}")
+    return code
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="scripts/preview", description=__doc__.strip() if __doc__ else None)
+    ap.add_argument("--only", action="append", metavar="BRANCH", help="include only these")
+    ap.add_argument("--skip", action="append", metavar="BRANCH", help="leave these out")
+    ap.add_argument("--watch", nargs="?", const=60, type=int, metavar="SECONDS",
+                    help="merge again when main or an included branch moves")
+    ap.add_argument("--restart", action="store_true", help="then run scripts/restart --from the preview")
+    ap.add_argument("--dry-run", action="store_true", help="with --restart: print, change nothing")
+    args = ap.parse_args()
+    if args.watch is not None and args.restart:
+        sys.exit("preview: --watch never restarts Fleet. Run --restart on its own.")
+    if args.dry_run and not args.restart:
+        sys.exit("preview: --dry-run is for --restart")
+    only, skip = names(args.only), names(args.skip)
+    root = repo_root()
+
+    wt = merge_pass(root, only, skip)
+    if args.watch is not None:
+        seen = signature(root, only, skip)
+        try:
+            while True:
+                time.sleep(max(args.watch, 1))
+                now = signature(root, only, skip)
+                if now != seen:
+                    print(f"\n{time.strftime('%H:%M:%S')} something moved, merging again", flush=True)
+                    wt = merge_pass(root, only, skip)
+                    seen = signature(root, only, skip)
+        except KeyboardInterrupt:
+            return 0
+    if args.restart:
+        return restart(root, wt, args.dry_run)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
