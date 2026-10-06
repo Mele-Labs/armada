@@ -348,7 +348,14 @@ fn removing_an_entry_takes_the_comment_block_directly_above_it_and_nothing_else(
 fn removing_an_entry_with_a_blank_line_above_it_leaves_the_comments_around_it() {
     let edited = amended(OWN, &[check("hooks_test", CheckEdit::Remove)]);
     let key = line_of(OWN, "  hooks_test:");
-    let last = line_of(OWN, "      - \".claude/hooks/**\"");
+    // The entry ends where the next blank line begins.
+    let last = OWN
+        .lines()
+        .enumerate()
+        .skip(key)
+        .find(|(_, line)| line.is_empty())
+        .map(|(at, _)| at - 1)
+        .expect("a blank line follows the entry");
     assert_eq!(OWN.lines().nth(key - 1), Some(""), "a blank line above it");
     assert_eq!(edited, without(OWN, key - 1, last));
 }
