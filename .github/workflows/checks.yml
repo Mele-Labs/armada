@@ -52,7 +52,9 @@ jobs:
 
       # The merge line's rule (docs/capabilities/merge-line.md, *Choosing what
       # reruns*): a Check runs when it covers what the branch changed or what
-      # landed on main since the branch was cut, either side. HEAD is the merge
+      # landed on main since the branch was cut, either side. Only when the
+      # branch's own change hits a Check: one that hits none merges into main's
+      # code unchanged, and main was checked when that landed. HEAD is the merge
       # GitHub tests, HEAD^1 is current main and HEAD^2 the branch. The event's
       # own base sha is the main of the day the PR opened, so it is not used.
       # `--no-renames` lists both sides of a rename.
@@ -67,7 +69,8 @@ jobs:
           case "$EVENT" in
             pull_request)
               mb=$(git merge-base HEAD^1 HEAD^2)
-              { git diff --name-only --no-renames "$mb" HEAD^2; git diff --name-only --no-renames "$mb" HEAD^1; } | sort -u > plan/changed.txt
+              git diff --name-only --no-renames "$mb" HEAD^2 | sort -u > plan/branch.txt
+              { cat plan/branch.txt; git diff --name-only --no-renames "$mb" HEAD^1; } | sort -u > plan/changed.txt
               whole=false ;;
             merge_group) git diff --name-only --no-renames "$MG_BASE" "$MG_HEAD" > plan/changed.txt; whole=false ;;
             *) : > plan/changed.txt; whole=true ;;
@@ -89,6 +92,9 @@ jobs:
           ci='["build","test","acceptance","typecheck","bridge_build","storybook","screens_test","components_test","format","hooks_test","desktop_test"]'
           if [ "$WHOLE" = true ]; then
             checks=$ci
+          elif [ -f plan/branch.txt ] && ./target/debug/armada covers < plan/branch.txt > plan/branch-covers.txt && [ ! -s plan/branch-covers.txt ]; then
+            # The branch's own change hits no Check, so main's side is not rerun.
+            checks='[]'
           else
             ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
             checks=$(jq -R -s -c --argjson ci "$ci" 'split("\n") | map(select(length > 0)) | map(select(. as $c | $ci | index($c)))' plan/covers.txt)

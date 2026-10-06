@@ -128,7 +128,8 @@ was in Storybook, and he had to ask what was left to walk after all four landed.
 Two of those agents also named their walk file `markdown-from-agents.ts`, and the
 second was refused by the merge line on the clash.
 
-**Any other green change lands with `scripts/land` without asking**; report the
+**Any other green change goes into the preview and then lands with
+`scripts/land`, with no question in between** (`work-issue`, step 6); report the
 merge commit it landed as. Whoever merges gives the worktree back, as
 `work-issue` says.
 
