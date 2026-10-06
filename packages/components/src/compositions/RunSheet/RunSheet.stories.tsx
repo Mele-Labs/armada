@@ -377,7 +377,7 @@ export const PressingRunReportsTheSelection: Story = {
  *
  * The sheet holds no state of its own — narrowing is the caller's — so the
  * story is the caller: `onToggleNarrow` flips a held flag, the same way
- * `HeldWorktree`'s selection story hands a controlled prop back to itself.
+ * a controlled prop is handed back to itself.
  * What earns this a play is exactly what a rendering cannot show: pressing one
  * control changes what a *later* press of a different control reports.
  */

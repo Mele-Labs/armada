@@ -384,6 +384,8 @@ violet, because closing is a person declining to lease it; a held one closed
 keeps its band and holder and takes the closed mark beside its state. The owner asked for it on 4 Oct 2026: icons and a row tint alone did not
 say which slots were available. Like a verdict, it never sums onto a Job.
 
+**The acts in a tile's panel take the hue of what they do, from tokens that exist.** A destructive act (Clear, Delete branch, Forget Job, Remove slot) is `--status-completed-failed`, as the destructive Button is; a rescue is `--slot-stranded`; Close slot, Reopen slot and Stop take `--fg-default`. Each has its label beside a 16px glyph, a tint of `calc(var(--row-tint) * 2)` and `--row-tint-recent` on hover. **The tint stops at 14%**: worked on `--bg-overlay`, error red as text is 4.54:1 there and 3.53:1 at 28%, so the deeper hover step the bays take fails in a panel. No alias was added.
+
 **Step activity answers where the work is.** `retrying` and
 `not_started` take no hue — `--fg-muted` and `--fg-subtle`. A **killed**
 step takes none either, and that exclusion is load-bearing: killing is a
