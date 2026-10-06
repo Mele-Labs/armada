@@ -327,6 +327,9 @@ jobs:
     timeout-minutes: 45
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      # The privacy rule bans the name the gate runs as. On a runner that is
+      # `runner`, which is an ordinary word all over the tree, so it is unset.
+      USER: ""
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
