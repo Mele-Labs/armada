@@ -1,10 +1,9 @@
 //! Workspaces' claim: **a change runs the Checks of the manifests it touches,
 //! and of the manifests that depend on what it touched, and no others.**
 //!
-//! Written first, in the vocabulary the claim needs: `config::gating`,
-//! `config::Gate` and `Manifest::parse_workspace`. None of it exists when this
-//! file is written, so the crate does not compile until A2 of the manifest
-//! workspaces plan builds them. That is the red. It is not merged red.
+//! Written first, in the vocabulary the claim needed — `config::gating`,
+//! `config::Gate` and `Manifest::parse_workspace` — and red until the manifest
+//! workspaces plan built them (A1 and A2).
 //!
 //! The repository is held as text: a root, `lib`, and `a` and `b`, which depend
 //! on `lib`. Nothing is written to disk.
