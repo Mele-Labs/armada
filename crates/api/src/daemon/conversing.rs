@@ -82,6 +82,19 @@ pub trait Conversations: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<RunOrNot, Refusal>> + Send;
 
+    /// `ask_the_person`, for the connection that made it. **A hosted session's
+    /// ask is its own** and never reaches Helm's dock; a daemon with no such
+    /// session answers as [`ask_the_person`](Conversations::ask_the_person)
+    /// does.
+    fn ask_the_person_at(
+        &self,
+        asking: AskingToRun,
+        manifest_id: Option<ManifestId>,
+        _caller: crate::Caller,
+    ) -> impl Future<Output = Result<RunOrNot, Refusal>> + Send {
+        self.ask_the_person(asking, manifest_id)
+    }
+
     /// `list_helm_calls` — every ask waiting on this person right now, across
     /// every repository. Fleet-wide, because the dock is.
     fn list_helm_calls(&self) -> impl Future<Output = Result<HelmCallsWaiting, Refusal>> + Send;

@@ -52,6 +52,8 @@ mod existing_setup;
 mod filing;
 mod git_guard;
 mod harness;
+/// A session Bridge hosts: a live process, resumed by id. Since 23.49.
+mod hosted_session;
 mod inline_comments;
 mod issue_lookup;
 mod judge;
@@ -102,6 +104,7 @@ pub use harness::{
     ask_tool, checks_tool, dispatch_tool, evidence_server, evidence_tool, fix_tool, note_tool,
     permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,
 };
+pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS};
 pub use issue_lookup::IssueLookup;
 pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
@@ -118,4 +121,5 @@ pub use scouting::{
     checkout_as_it_stands, denied_to_a_scout, files_a_search_showed, no_servers, CheckoutRead,
     Looked, ScoutRefused, Scouting, Shown,
 };
+pub use transcript::sent_message;
 pub use worktree::GitVcs;

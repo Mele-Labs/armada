@@ -79,7 +79,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn ledger_roots(&self) -> Vec<(String, String)> {
+    pub(crate) fn ledger_roots(&self) -> Vec<(String, String)> {
         self.repositories()
             .served()
             .iter()
@@ -100,16 +100,26 @@ where
         ))
     }
 
-    fn ledger_fault(&self, why: store::WriteError) -> Refusal {
+    pub(crate) fn ledger_fault(&self, why: store::WriteError) -> Refusal {
         self.refusal(Adrift::Writing(why))
     }
 
     /// The row, with everything its holder holds, as the wire carries it.
-    fn ledger_row(&self, store: &Store, session: &KeptSession) -> Result<SessionRecord, Refusal> {
+    pub(crate) fn ledger_row(
+        &self,
+        store: &Store,
+        session: &KeptSession,
+    ) -> Result<SessionRecord, Refusal> {
         let held = store
             .attachments_of(&Holder::session(&session.id))
             .map_err(|why| self.ledger_fault(why))?;
-        Ok(session_wire(session, &held))
+        let mut record = session_wire(session, &held);
+        if session.origin == "bridge" {
+            record.hosted = self
+                .hosted_facts(store, &session.id)
+                .map_err(|why| self.ledger_fault(why))?;
+        }
+        Ok(record)
     }
 
     /// Take the slot `placed` names for `holder`, or give back the one it was in
@@ -185,7 +195,11 @@ where
         match report.fact {
             SessionFact::Started { cwd, title, origin } => {
                 let place = placed(&cwd, &roots);
-                session.origin = origin_text(origin).into();
+                // **A session Bridge hosts stays Bridge's** when the mod in it
+                // reports its start, so it is one row and not two.
+                if session.origin != "bridge" {
+                    session.origin = origin_text(origin).into();
+                }
                 session.state = store::SessionState::Live;
                 session.ended_at = None;
                 session.end_reason = None;
@@ -255,6 +269,9 @@ where
                 session.last_turn_at = Some(now.clone());
                 changed = true;
             }
+            // Fleet ends a session it hosts, by `close_session`: the harness in
+            // it going away is a process ending, and the next message resumes.
+            SessionFact::Ended { .. } if session.origin == "bridge" => {}
             SessionFact::Ended { reason } => {
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
@@ -431,5 +448,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
             cost_micros: session.figures.cost_micros,
         },
         attachments: held.iter().map(attachment_wire).collect(),
+        hosted: None,
     }
 }

@@ -334,6 +334,7 @@ dependencies = [
  "adapters",
  "api",
  "axum",
+ "base64",
  "checks-runner",
  "config",
  "core-model",

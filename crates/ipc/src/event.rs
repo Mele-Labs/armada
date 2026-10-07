@@ -20,6 +20,7 @@ use crate::detail::{JudgeInFlight, Settled};
 use crate::enums::{Actor, EvidenceType, JobStatus, StepState};
 use crate::helm::HelmChangedCheckout;
 use crate::helm_call::{HelmAskingToRun, HelmCallAnswered};
+use crate::hosted_sessions::SessionRowChanged;
 use crate::ids::ProposalId;
 use crate::ids::{CriterionId, DroneId, Instant, JobId, StepId};
 use crate::job::{JobForgotten, JobList, JobSummary};
@@ -186,6 +187,10 @@ pub enum Event {
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
+    // One row of a hosted session's thread, appended or replaced by its id.
+    // Since 23.49.
+    #[serde(rename = "session.row")]
+    SessionRow(SessionRowChanged),
 }
 
 impl Event {

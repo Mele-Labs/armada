@@ -3689,6 +3689,82 @@ notes = """
 **What the ledger holds is what sessions reported, and what Fleet writes for its Jobs.** Since 23.46 a Job's own branch and slot are rows held by the Job, so a Job holding a slot is an answer here, and `kind=need` answers who holds a need on a path.
 """
 
+[operations.start_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Start a session Fleet hosts for Bridge in one repository, with no slot and no branch until the agent writes"
+notes = """
+`POST /sessions/start`, body `StartSession`: `manifest_id`, and `title`, `model`, `effort` and `mode` where the person chose them. Since 23.49. Answered with the `SessionRecord`, `origin` `bridge`, `hosted` set. **No process starts**: the first message does. `mode` absent is `auto`.
+
+`agent_access` is `No` for all of the hosted-session commands: a session is the person's own conversation, and an agent that could start, tune or close one could drive another's.
+"""
+
+[operations.send_session_message]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A message to a hosted session, with the pictures and files sent beside it and the sessions, Jobs, pull requests and branches it names. It takes a turn"
+notes = """
+`POST /sessions/message`, body `SendSessionMessage`: `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`). **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.49.
+
+**Fleet stores an attachment and passes it on.** A picture reaches the session as a picture; any other file as a path in a directory the session may read. **A mention becomes one line Fleet adds** ahead of the message; the thread keeps only the person's words, with the mentions beside them. A message to a session whose process ended starts one with `--resume`.
+"""
+
+[operations.answer_session_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer the call a hosted session is held on: allow once, allow and remember, or refuse"
+notes = """
+`POST /sessions/ask/answer`, body `AnswerSessionAsk`: `session_id`, the ask's `call`, one of its `offers` and a `note` on a refusal. Since 23.49. Answered with the `SessionRecord`. **A second table from Helm's**: the ask is on the session's thread and never in the dock, and `answer_helm_call` does not find it. A call nothing is waiting under is a 409.
+"""
+
+[operations.tune_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Set the model, effort and permission mode a hosted session's next turn runs on"
+notes = """
+`POST /sessions/tune`, body `TuneSession`. Since 23.49. A model or effort left out is the machine's own. A process that is running is ended once its turn is over, and the next message resumes the session with the new settings.
+"""
+
+[operations.close_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Close a hosted session: end its process, give back the slot it holds and end its row"
+notes = """
+`POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the session's own branch and pushes nothing, so closing loses no work.
+"""
+
+[operations.get_session]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "One hosted session and its thread, oldest row first"
+notes = """
+`GET /sessions/one?session_id=`. Since 23.49. `SessionThread`: the `SessionRecord` and its `rows`. A client reads this once and follows `session.row`.
+"""
+
+[operations.get_session_file]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A picture or file that was sent to a hosted session, as it was sent"
+notes = """
+`GET /sessions/file?session_id=&file=`, `file` a `SentFile.id` from a row. Since 23.49. The bytes, under the media type they were sent as.
+"""
+
+[operations.gate_session_call]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The hook a hosted session runs before a tool: holds a write until the session has leased a slot, and leases one on the first"
+notes = """
+`POST /sessions/gate`, body `SessionGate`: the session's id, its working directory, the tool and its input. Since 23.49. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client.
+"""
+
 [operations.act_on_need]
 kind = "command"
 transport = "HTTP"
@@ -3785,4 +3861,13 @@ agent_access = "Bridge only"
 description = "One session after any fact about it, whole: what it is, where it stands and everything it holds"
 notes = """
 The row travels whole, as `studio.changed` does, so a client replaces what it holds. Published on a fact that changed something and not on one that repeated what the ledger already held. Since 23.43.
+"""
+
+[operations."session.row"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One row of a hosted session's thread, appended or replaced by its id"
+notes = """
+`SessionRowChanged`: `session_id` and the `row`. A client with the row's id replaces it; otherwise appends. An ask is replaced as it is answered. Since 23.49.
 """

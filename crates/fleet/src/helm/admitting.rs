@@ -23,6 +23,9 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     fn helm_at(&self, caller: Caller) -> Option<HelmReach> {
+        if self.session_holding(&caller).is_some() {
+            return Some(HelmReach::of_a_hosted_session());
+        }
         if !self.helm_holds(&caller) {
             return None;
         }

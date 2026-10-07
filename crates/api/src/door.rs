@@ -253,7 +253,15 @@ async fn called<D: Queries + Admitting>(
             (Ok(scope), _) => match within_scope(&call, &scope) {
                 Ok(call) => Answered::Served {
                     id,
-                    answer: doorway.through(&call, helm.is_some(), &scope, caller).await,
+                    answer: doorway
+                        .through(
+                            &call,
+                            helm.as_ref()
+                                .is_some_and(|reach| !reach.is_a_hosted_session()),
+                            &scope,
+                            caller,
+                        )
+                        .await,
                 },
                 Err(why) => Answered::Refused { id, why },
             },
