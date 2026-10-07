@@ -273,6 +273,25 @@ fn a_parked_jobs_work_is_at_its_branch_s_tip_in_whichever_slot_it_comes_back_to(
     );
 }
 
+/// A hosted session holds its slot under its own id as a Job would, so the pool
+/// would call its work a Job's.
+#[test]
+fn a_hosted_sessions_wip_commit_names_a_session_and_not_a_job() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, path) = leased(&repo, &pool, "session-7b1f3c52", "7b1f3c52-9a40");
+    std::fs::write(path.join("wip.txt"), "half a thought\n").expect("a file to keep");
+
+    let parked = GitVcs
+        .park_hosted_slot(&pool, slot, "7b1f3c52-9a40")
+        .expect("it parks");
+    let subject = repo.git(&["log", "-1", "--format=%s", &parked.branch]);
+    assert!(
+        subject.contains("session 7b1f3c52-9a40") && !subject.contains("job"),
+        "{subject}"
+    );
+}
+
 #[test]
 fn a_park_refused_by_the_pool_says_so_and_keeps_the_slot() {
     let repo = a_repository();

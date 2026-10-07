@@ -287,8 +287,8 @@ pub use holding::{
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HostedFacts, SendSessionMessage,
-    SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
+    PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TuneSession,
 };

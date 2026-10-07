@@ -7,7 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused};
-use crate::sent_message;
+use crate::{init_commands, sent_message};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
 
@@ -179,4 +179,17 @@ fn who_a_message_went_to_and_what_it_said_is_read_off_the_detail_beside_the_line
     );
     assert_eq!(sent_message("Bash", "to s-1: hi"), None);
     assert_eq!(sent_message("SendMessage", "no recipient"), None);
+}
+
+#[test]
+fn the_init_line_names_the_commands_the_agent_has_and_no_other_line_does() {
+    let init = r#"{"type":"system","subtype":"init","slash_commands":["compact","review"],"skills":["review","commit"]}"#;
+    assert_eq!(
+        init_commands(init),
+        Some(vec!["compact".into(), "review".into(), "commit".into()])
+    );
+    let other = r#"{"type":"system","subtype":"hook_started","slash_commands":["x"]}"#;
+    assert_eq!(init_commands(other), None);
+    assert_eq!(init_commands(r#"{"type":"result","num_turns":1}"#), None);
+    assert_eq!(init_commands("not json, slash_commands"), None);
 }
