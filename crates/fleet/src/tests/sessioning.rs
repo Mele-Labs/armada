@@ -482,3 +482,52 @@ async fn renaming_to_nothing_or_a_stranger_is_refused() {
         .expect("kept");
     assert_eq!(kept.title.as_deref(), Some("fix the ledger"));
 }
+
+fn artifact(target: &str, form: &str, title: &str) -> SessionFact {
+    SessionFact::Attached {
+        attachment: AttachmentReport {
+            kind: "artifact".into(),
+            target: target.into(),
+            detail: [("form".into(), form.into()), ("title".into(), title.into())].into(),
+        },
+    }
+}
+
+#[tokio::test]
+async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_address() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    fleet
+        .report_session(report("s1", started(&root)))
+        .await
+        .unwrap();
+    for fact in [
+        artifact("https://claude.ai/artifact/p1", "page", "Spike"),
+        artifact("/repo/docs/spike.md", "file", "spike.md"),
+        artifact("https://claude.ai/artifact/d1", "doc", "Write-up"),
+        artifact("https://claude.ai/artifact/d1", "doc", "Write-up"),
+    ] {
+        fleet.report_session(report("s1", fact)).await.unwrap();
+    }
+    let record = fleet
+        .report_session(report("s1", SessionFact::TurnCompleted))
+        .await
+        .unwrap();
+
+    let mut kept: Vec<_> = record
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "artifact")
+        .map(|one| (one.target.as_str(), one.detail.get("form").map(String::as_str)))
+        .collect();
+    kept.sort();
+    assert_eq!(
+        kept,
+        [
+            ("/repo/docs/spike.md", Some("file")),
+            ("https://claude.ai/artifact/d1", Some("doc")),
+            ("https://claude.ai/artifact/p1", Some("page")),
+        ]
+    );
+}
