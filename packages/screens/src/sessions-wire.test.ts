@@ -293,6 +293,7 @@ describe("a session", () => {
       record("01ABCDEFGHJKMNPQRSTVWXYZ01", {
         hosted: {
           turn: { state: "working" },
+          mode: "auto",
           running: true,
           asked: { call: "c", manifest_id: "armada", asked_at: AT, tool: "AskUserQuestion", detail: "Which size?", truncated: false, rule: "AskUserQuestion", offers: ["allow_once", "refuse"], holding_for_seconds: 60, questions },
         },
