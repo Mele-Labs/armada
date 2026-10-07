@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef } from "react";
-import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
+import { ArrowUpToLine, Ban, Box, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
@@ -8,6 +8,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Separator } from "../../primitives/Separator/Separator";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GUIDE_MERGE_LINE } from "../../guides";
+import { OwnerChip, useChipOwner, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
 import {
@@ -70,6 +71,8 @@ export type MergeLineEntry = {
     settled?: { status: string; icon: LucideIcon; label: string };
   };
   state: MergeLineState;
+  /** The Job the branch came from, where one is known. A Session that owns it is found through `ChipOwnership`. */
+  job?: { id: string; title: string };
   /** Waiting only: why it is not in the running turn. Absent draws nothing. */
   why?: MergeLineWaiting;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
@@ -192,6 +195,7 @@ export function MergeLine(props: MergeLineProps) {
   const acts = {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
+    ...(onOpenJob === undefined ? {} : { onOpenJob }),
     ...(focus === undefined ? {} : { focus }),
   };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
@@ -420,11 +424,13 @@ function Entry({
   entry,
   onOpenPullRequest,
   onOpenCheck,
+  onOpenJob,
   focus,
 }: {
   entry: MergeLineEntry;
   onOpenPullRequest: (url: string) => void;
   onOpenCheck?: (branch: string, check: string) => void;
+  onOpenJob?: (jobId: string) => void;
   focus?: string;
 }) {
   const row = useRef<HTMLLIElement>(null);
@@ -481,11 +487,54 @@ function Entry({
             {entry.pr.settled.label}
           </Badge>
         )}
+        <EntryOwner entry={entry} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
       </span>
       <span className="armada-merge-line__detail">
         <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
       </span>
     </li>
+  );
+}
+
+/**
+ * Who the entry came from: the Session that owns its pull request or branch, drawn as the owner
+ * chip draws it everywhere (hover for the card, press to keep it), else the Job whose branch it
+ * is. Nobody known draws nothing.
+ */
+function EntryOwner({ entry, onOpenJob }: { entry: MergeLineEntry; onOpenJob?: (jobId: string) => void }) {
+  const branch: OwnerChipRef = { kind: "branch", name: entry.branch };
+  const pull: OwnerChipRef | undefined = entry.pr === undefined ? undefined : { kind: "pull_request", number: entry.pr.number };
+  const byBranch = useChipOwner(branch);
+  const byPull = useChipOwner(pull ?? branch);
+  const session = pull === undefined ? byBranch : (byPull ?? byBranch);
+  if (session !== undefined) {
+    return (
+      <OwnerChip chip={pull !== undefined && byPull !== undefined ? pull : branch}>
+        <span className="armada-merge-line__owner">
+          <SquareTerminal size={MARK} strokeWidth={STROKE} aria-hidden />
+          <span className="armada-merge-line__owner-name">{session.title ?? session.address ?? session.id}</span>
+        </span>
+      </OwnerChip>
+    );
+  }
+  const job = entry.job;
+  if (job === undefined) return null;
+  const said = (
+    <>
+      <Box size={MARK} strokeWidth={STROKE} aria-hidden />
+      <span className="armada-merge-line__owner-name">{job.title}</span>
+    </>
+  );
+  return (
+    <Tooltip label="Job">
+      {onOpenJob === undefined ? (
+        <span className="armada-merge-line__owner">{said}</span>
+      ) : (
+        <button type="button" className="armada-merge-line__owner armada-merge-line__owner--press" onClick={() => onOpenJob(job.id)}>
+          {said}
+        </button>
+      )}
+    </Tooltip>
   );
 }
 
