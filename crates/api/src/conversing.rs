@@ -204,15 +204,23 @@ pub(crate) async fn ask_helm<D: Conversations>(
 pub(crate) async fn ask_the_person<D: Conversations>(
     State(served): State<Served<D>>,
     Query(scope): Query<InManifest>,
-    body: Bytes,
+    request: axum::extract::Request,
 ) -> Response {
+    // **Placed by the connection**, as the door places a Helm session: a hosted
+    // session's ask goes to its own thread and not to Helm's dock.
+    let (parts, body) = request.into_parts();
+    let caller = crate::mcp::who_called(&parts);
+    let body = match axum::body::to_bytes(body, 1 << 20).await {
+        Ok(body) => body,
+        Err(_) => Bytes::new(),
+    };
     let asking: AskingToRun = match ipc::decode("a permission question", &body) {
         Ok(asking) => asking,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
         .daemon()
-        .ask_the_person(asking, scope.manifest())
+        .ask_the_person_at(asking, scope.manifest(), caller)
         .await
     {
         Ok(decided) => answer(StatusCode::OK, &decided, served.run_id()),

@@ -29,6 +29,7 @@ use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::hosted_sessions::SessionRowChanged;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::underway::ChecksUnderway;
@@ -186,6 +187,10 @@ pub enum Event {
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
+    // One row of a hosted session's thread, appended or replaced by its id.
+    // Since 23.47.
+    #[serde(rename = "session.row")]
+    SessionRow(SessionRowChanged),
 }
 
 impl Event {

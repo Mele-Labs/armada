@@ -140,6 +140,35 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(
+            "/sessions/start",
+            post(crate::hosted_sessions::start_session::<D>),
+        )
+        .route(
+            "/sessions/message",
+            post(crate::hosted_sessions::send_session_message::<D>),
+        )
+        .route(
+            "/sessions/ask/answer",
+            post(crate::hosted_sessions::answer_session_ask::<D>),
+        )
+        .route(
+            "/sessions/tune",
+            post(crate::hosted_sessions::tune_session::<D>),
+        )
+        .route(
+            "/sessions/close",
+            post(crate::hosted_sessions::close_session::<D>),
+        )
+        .route("/sessions/one", get(crate::hosted_sessions::get_session::<D>))
+        .route(
+            "/sessions/file",
+            get(crate::hosted_sessions::get_session_file::<D>),
+        )
+        .route(
+            "/sessions/gate",
+            post(crate::hosted_sessions::gate_session_call::<D>),
+        )
+        .route(
             "/sessions/report",
             post(crate::sessions::report_session::<D>),
         )

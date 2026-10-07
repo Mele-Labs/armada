@@ -189,6 +189,10 @@ pub struct SessionRecord {
     pub end_reason: Option<String>,
     pub usage: SessionUsage,
     pub attachments: Vec<Attachment>,
+    /// What a session Bridge hosts carries beyond a terminal's. Absent on one
+    /// a harness reports. Since 23.47.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted: Option<crate::hosted_sessions::HostedFacts>,
 }
 
 /// `list_sessions`: the most recently seen first.

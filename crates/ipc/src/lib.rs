@@ -164,6 +164,9 @@ mod seeding;
 /// A Command that stays running, held by Fleet. **Lifecycle on `/events`,
 /// output on a socket of its own.**
 mod servers;
+/// A session Bridge hosts: its commands, its thread and the gate its first
+/// write goes through. `docs/concepts/session.md`.
+mod hosted_sessions;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod sessions;
@@ -370,6 +373,12 @@ pub use seeding::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
+};
+pub use hosted_sessions::{
+    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HostedFacts, SendSessionMessage, SentFile,
+    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    TagKind, TaggedJob, TuneSession,
 };
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
