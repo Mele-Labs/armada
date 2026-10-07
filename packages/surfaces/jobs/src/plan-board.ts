@@ -20,7 +20,7 @@ import type {
   PlanBoardTask,
 } from "@armada/components";
 import { GUIDE_GROUP_BOUNDARY } from "@armada/components";
-import type { CheckUnderway, JobDetail as JobWhole, MovePlan, StepDetail } from "@armada/protocol";
+import type { CheckRun, CheckUnderway, JobDetail as JobWhole, MovePlan, StepDetail } from "@armada/protocol";
 
 import type { JobCheckLog } from "./check-log-sheet";
 import type { CaseView } from "./draft/cases";
@@ -63,10 +63,14 @@ function hasRun(state: GroupState): boolean {
  * group in flight's. **Not another's**: a finished row naming a different group
  * (#1652) means this gate is not this one's, and a group that has not begun
  * takes none.
+ *
+ * **A group run again is `retrying` while its gate runs**, so that state holds
+ * the gate too: reading only `running` left the second run's boundary on the
+ * first run's rows (owner, 7 Oct 2026).
  */
 function gateIsHere(group: GroupView, step: StepDetail | undefined): boolean {
   if (group.state === "checking") return true;
-  if (group.state !== "running" && group.state !== "joining") return false;
+  if (group.state !== "running" && group.state !== "joining" && group.state !== "retrying") return false;
   const gate = step?.checking;
   if (gate === undefined) return false;
   return gate.checks.every((one) => one.ran?.group === undefined || one.ran.group === group.id);
@@ -90,34 +94,71 @@ function checkReads(
   name: string,
   failed: readonly string[],
   step: StepDetail | undefined,
-): GroupBoundaryCheck["reads"] {
-  if (failed.includes(name)) return "failed";
+  kept: readonly CheckRun[] | undefined,
+): { reads: GroupBoundaryCheck["reads"]; run?: CheckRun } {
+  // **One run decides every row**: the live gate's while one is going,
+  // otherwise the group's latest finished run. The step's earlier red is
+  // never read beside a later run's rows.
   if (gateIsHere(group, step)) return underwayReads(step?.checking?.checks.find((one) => one.name === name));
-  return hasRun(group.state) ? "passed" : "not run";
+  if (kept !== undefined) {
+    const run = kept.find((one) => one.name === name);
+    return run === undefined ? { reads: "not run" } : { reads: ranReads(run), run };
+  }
+  if (failed.includes(name)) return { reads: "failed" };
+  return { reads: hasRun(group.state) ? "passed" : "not run" };
+}
+
+/**
+ * What a finished Check's outcome reads as. **`skipped` is its own reading**
+ * (owner, 7 Oct 2026): it advances the step and measured nothing, so it is
+ * neither a pass nor a failure. Every other outcome that did not pass is red.
+ */
+function ranReads(run: CheckRun): GroupBoundaryCheck["reads"] {
+  if (run.outcome === "passed") return "passed";
+  return run.outcome === "skipped" ? "skipped" : "failed";
 }
 
 /** One Check the gate holds, read. Absent from it reads as the gate running, as before. */
-function underwayReads(live: CheckUnderway | undefined): GroupBoundaryCheck["reads"] {
-  if (live === undefined) return "running";
-  if (live.ran !== undefined) return live.ran.outcome === "passed" ? "passed" : "failed";
-  return live.started_at === undefined ? "not run" : "running";
+function underwayReads(live: CheckUnderway | undefined): { reads: GroupBoundaryCheck["reads"]; run?: CheckRun } {
+  if (live === undefined) return { reads: "running" };
+  if (live.ran !== undefined) return { reads: ranReads(live.ran), run: live.ran };
+  return { reads: live.started_at === undefined ? "not run" : "running" };
+}
+
+/**
+ * The group's latest finished run of the step's Checks, by the run Fleet
+ * records it under (#1652). **Absent where Fleet names no group's rows** — a
+ * Fleet before 23.4, or a group that has not run — and the group's state then
+ * speaks, as it did.
+ */
+function keptRunOf(step: StepDetail | undefined, group: GroupView): readonly CheckRun[] | undefined {
+  if (!hasRun(group.state)) return undefined;
+  const own = (step?.check_runs ?? []).filter((one) => one.group === group.id);
+  if (own.length === 0) return undefined;
+  const latest = Math.max(...own.map((one) => one.group_attempt ?? 0));
+  return own.filter((one) => (one.group_attempt ?? 0) === latest);
 }
 
 /**
  * What the boundary came to, in words. **Absent until it has run** — a
  * boundary nothing reached says nothing rather than `0 failed`. **`all
  * passed`, with no number**: the bar beside it is already how many
- * (`design-system.md`, hard rule 7).
+ * (`design-system.md`, hard rule 7). **`all passed` only where nothing was
+ * skipped**: a skipped Check did not pass, so a run holding one says `none
+ * failed`, and a run that skipped every Check says nothing of passing.
  */
 export function verdictSaid(
   group: GroupView,
   failed: readonly string[],
   step?: StepDetail,
+  reads: readonly GroupBoundaryCheck["reads"][] = [],
 ): string | undefined {
   if (gateIsHere(group, step)) return "running now";
   if (!hasRun(group.state)) return waitingSaid(group);
   if (failed.length > 0) return `${failed.join(", ")} failed`;
-  return group.checks_selected.length === 0 ? undefined : "all passed";
+  if (group.checks_selected.length === 0) return undefined;
+  if (reads.length > 0 && reads.every((one) => one === "skipped")) return undefined;
+  return reads.includes("skipped") ? "none failed" : "all passed";
 }
 
 /**
@@ -212,16 +253,18 @@ function checkOf(
   name: string,
   failed: readonly string[],
   step: StepDetail | undefined,
+  kept: readonly CheckRun[] | undefined,
   onOpenCheckLog: ((log: JobCheckLog) => void) | undefined,
 ): GroupBoundaryCheck {
-  const reads = checkReads(group, name, failed, step);
+  const { reads, run: given } = checkReads(group, name, failed, step, kept);
   // The step's runs are an earlier group's while this one is still checking.
-  const run = gateIsHere(group, step) ? undefined : runOf(step, name, reads, group);
-  const told = reads === "failed" ? run : undefined;
+  const run = gateIsHere(group, step) ? undefined : (given ?? runOf(step, name, reads, group));
+  const told = reads === "failed" ? (given ?? run) : undefined;
   const log = logOf(group, step, name, run);
   return {
     name,
     reads,
+    ...(reads === "skipped" && given?.produced !== undefined ? { why: given.produced } : {}),
     ...(told?.expected === undefined ? {} : { expected: sentenceCase(told.expected) }),
     ...(told?.produced === undefined ? {} : { result: sentenceCase(told.produced) }),
     ...(log === undefined || onOpenCheckLog === undefined ? {} : { onOpen: () => onOpenCheckLog(log) }),
@@ -296,9 +339,19 @@ export function boundaryOf(
   step: StepDetail | undefined,
   onOpenCheckLog?: (log: JobCheckLog) => void,
 ): GroupBoundaryProps {
-  const failed = failedChecksOf(whole, group);
-  const checks = group.checks_selected.map((name) => checkOf(group, name, failed, step, onOpenCheckLog));
-  const verdict = verdictSaid(group, failed, step);
+  const live = gateIsHere(group, step);
+  const kept = live ? undefined : keptRunOf(step, group);
+  // **The run's own reds where one run is read**, and Fleet's older attribution only
+  // where Fleet names no group's rows.
+  const legacy = live || kept !== undefined ? [] : failedChecksOf(whole, group);
+  const checks = group.checks_selected.map((name) => checkOf(group, name, legacy, step, kept, onOpenCheckLog));
+  const failed = live
+    ? checks.filter((one) => one.reads === "failed").map((one) => one.name)
+    : kept === undefined
+      ? legacy
+      : kept.filter((one) => ranReads(one) === "failed").map((one) => one.name);
+  const readings = checks.map((one) => one.reads);
+  const verdict = verdictSaid(group, failed, step, readings);
   const retry = retrySaid(group.retry_count);
   const atBoundary = cases.filter((one) => one.groups.includes(group.id));
   // **What dropped a case, where one did.** `reads` is the whole of what a row
@@ -317,7 +370,7 @@ export function boundaryOf(
     ...(verdict === undefined ? {} : { verdictSays: verdict }),
     ...(failed.length > 0
       ? { verdictNamed: "failed" as const }
-      : hasRun(group.state)
+      : hasRun(group.state) && !live && !(readings.length > 0 && readings.every((one) => one === "skipped"))
         ? { verdictNamed: "passed" as const }
         : {}),
     ...(retry === undefined ? {} : { retrySays: retry }),

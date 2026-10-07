@@ -25,6 +25,12 @@ and `--admin` are refused by `.claude/hooks/guard_merge.py`, as is a push to
 `main`. GitHub can refuse `--auto` for a pull request whose checks have already
 passed; then run `gh pr merge <n> --merge` itself, after the check below.
 
+**Auto-merge takes the branch as it is when `ci` passes**, so nothing more may be
+pushed to it for that pull request. Before sending an agent back to a branch with
+auto-merge on, turn it off with `gh pr merge <n> --disable-auto`, or have the agent
+open a new pull request. Confirmed 7 Oct 2026: #1867 merged while its agent was
+still pushing the fix the owner was waiting for, and that fix needed #1883.
+
 **Then watch it until `gh pr view <n> --json state` says `MERGED`**, the way
 `work-issue` says to watch `ci`. A red run comes back to you: read
 `gh run view --log-failed`, fix on the same branch and push, and it merges when

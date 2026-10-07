@@ -6,11 +6,12 @@
 //! only where one maps, and a test only where the log names one; unmapped and
 //! unread are ordinary and never guessed at.
 //!
-//! **One repository a turn, on the sweep's interval, rotating.** Its open pull
+//! **One repository a reading, once a minute, rotating, on a loop of its own**
+//! so a Job's Checks never hold it up (`keep_reading_main`). Its open pull
 //! requests are listed on the same visit, `crate::main_hub`. The head is a
 //! ref lookup; the jobs are asked once it has moved and again only while some
 //! are unfinished. **A red stays red until a green**, so a fix still running
-//! does not end it. Nothing here acts: the change rides on the turn.
+//! does not end it. What changed is acted on by `read_main`, `crate::main_fix`.
 
 use std::sync::Arc;
 use std::time::Duration;
