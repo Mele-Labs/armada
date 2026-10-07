@@ -59,6 +59,9 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
   ipc.handle(CHANNELS.watchSession, (_event, sessionId: string) =>
     text(sessionId) ? connection()?.sessions.watch(sessionId) : undefined,
   );
+  ipc.handle(CHANNELS.openSessionFile, (_event, sessionId: string, path: string) =>
+    text(sessionId) && text(path) ? (connection()?.sessions.openFile(sessionId, path) ?? { ok: false, why: "not_addressable", address: path }) : { ok: false, why: "not_addressable", address: "" },
+  );
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
     text(sessionId) && text(file) ? (connection()?.sessions.file(sessionId, file) ?? { ok: false, outcome: unsent.outcome }) : { ok: false, outcome: unsent.outcome },
   );

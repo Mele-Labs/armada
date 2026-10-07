@@ -1,8 +1,8 @@
 /* A Session's ledger: a sunken column of sections, each an eyebrow over rows.
-   A section with nothing in it is dim, its heading at --fg-subtle over an
-   empty dashed well; its first row replaces the well in place. A row that has
-   just arrived steps down from the running tint, as a Job row's recent tint
-   does. Every row is one press, with a pointer and a hover. */
+   A section is drawn only once it holds a row; a ledger with nothing in it
+   draws its small picture alone. A row that has just arrived steps down from
+   the running tint, as a Job row's recent tint does. Every row is one press,
+   with a pointer and a hover. */
 
 .armada-session-ledger {
   display: flex;
@@ -32,10 +32,6 @@
   text-transform: uppercase;
 }
 
-.armada-session-ledger__group[data-empty] .armada-session-ledger__eyebrow {
-  color: var(--fg-subtle);
-}
-
 .armada-session-ledger__rows {
   display: flex;
   flex-direction: column;
@@ -45,11 +41,27 @@
   list-style: none;
 }
 
-/* The well: nothing in it, and a row's height so nothing moves when one lands. */
-.armada-session-ledger__group[data-empty] .armada-session-ledger__rows {
-  min-height: var(--h-row);
-  border: var(--border-width) dashed var(--border-subtle);
-  border-radius: var(--radius-md);
+/* Nothing attached: the picture alone, quiet, in the border tokens. */
+.armada-session-ledger__picture {
+  align-self: center;
+  width: calc(var(--space-12) * 2);
+  height: auto;
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: var(--border-width);
+  stroke-linecap: round;
+}
+
+.armada-session-ledger__picture-place {
+  fill: var(--bg-raised);
+}
+
+.armada-session-ledger__picture-later {
+  stroke: var(--border-subtle);
+}
+
+path.armada-session-ledger__picture-later {
+  stroke-dasharray: var(--space-1) var(--space-1);
 }
 
 .armada-session-ledger__row {
@@ -125,4 +137,32 @@
 .armada-session-ledger__row > .armada-pilot-exits {
   flex-basis: 100%;
   padding: 0 var(--space-3) var(--space-2);
+}
+
+/* The control that minimizes the ledger sits at its trailing edge; minimized, the ledger is a rail
+   just wide enough for the one press that opens it. */
+.armada-session-ledger__fold {
+  display: inline-flex;
+  align-self: flex-end;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-session-ledger__fold:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.armada-session-ledger__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-ledger[data-minimized] {
+  width: auto;
+  padding: var(--space-2);
 }

@@ -1513,3 +1513,27 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 7 Oct 2026 for the walk `sessions`. `terminal` is Pilot's alone and this is Pilot: the same mark the piloted badge wears, so the row and the Board say one thing."
+
+[icons.globe]
+  means = "A globe - a page published to the web"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A page a Session published to claude.ai, on its ledger. Never a network, a server or a link: `link` and `external-link` keep those."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. A published page lives at an address anyone can open, which is what a globe says and a file does not. Refused: `file-*`, evidence's; `external-link`, Chrome's press that leaves the app, which the row does but is not what the row is."
+
+[icons.files]
+  means = "Two sheets, one behind the other - files a Session wrote"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A document, picture or PDF a Session wrote outside the code, on its ledger. Never evidence, which is the `file-*` family's, and never a code change, which is Branches and Pull requests."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. The name is not in the `file-*` family, so evidence's reservation is not crossed, and the stacked sheets read as things made and left on disk. Refused: `file-text` and `file-output`, evidence's; `image`, a kept frame's; `paperclip`, a file attached to a message."
+
+[icons.notebook-text]
+  means = "A bound notebook with ruled lines - a Claude Docs document"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Claude Docs document a Session made or edited, on its ledger. Never a guide, which is `book-open`'s, and never a Studio Note, which is `sticky-note`."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. A Docs document is kept and edited over time, which a bound notebook says and a loose sheet does not. Refused: `book-open`, the Guides surface's; `book-text`, a closed book that is `file` territory at 12px; `scroll-text`, a workflow; `notebook-pen`, banned from meaning edit."

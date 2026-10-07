@@ -70,6 +70,17 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `subagent` | the agent's id | |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
+| `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file` or `doc`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
+
+**An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Three forms:
+
+| Form | What counts | The press opens |
+|---|---|---|
+| `page` | A page published with Claude Code's `Artifact` tool (a publish, not a list, read or asset upload) | the address, in the browser |
+| `file` | A file the `Write` tool **created** with a document extension: `md`, `mdx`, `txt`, `pdf`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `csv`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`. Not under `node_modules`, `.git`, `.claude`, `.armada`, `target`, `dist`, `build` or a temporary directory. `html` is left out, because a page's source appears as the page once published; configuration (`json`, `yaml`, `toml`) is not a document | the file, on this machine |
+| `doc` | A Claude Docs document made or edited (`mcp__claude_ai_Claude_Docs__create`, `batch`, `update`), by the address its answer carries or the document's id | the address, in the browser |
+
+The terminal mod tells all three (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells only files**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The two extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
 
@@ -214,6 +225,9 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
+| The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
+| Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `notebook-text`) and a tooltip naming it. A file opens through main, which opens only a path the session's own ledger names as a file it wrote |
+| The ledger beside the thread | Minimized to a slim rail by the control at its edge, and opened again by the rail; the choice is the window's, kept in its storage. Below the breakpoint the ledger is a sheet and does not minimize |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
 
 ## Not built

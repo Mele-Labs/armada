@@ -400,7 +400,15 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => void, slot: (n: number) => void): LedgerEntry[] {
+const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Claude Docs document" } as const;
+
+function entriesOf(
+  session: Session,
+  goes: LedgerGoes,
+  read: (one: Reading) => void,
+  slot: (n: number) => void,
+  openFile: (path: string) => void,
+): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "slot":
@@ -461,6 +469,15 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
       case "sketch":
         return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read({ kind: "sketch", id: one.id }) };
+      case "artifact":
+        return {
+          key: one.id,
+          kind: "artifact",
+          artifact: one.form,
+          name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
+          text: one.title,
+          onOpen: () => (one.form === "file" ? openFile(one.id) : goes.onOpenLink(one.id)),
+        };
       case "subagent":
         return {
           key: one.id,
@@ -478,6 +495,28 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
+/** Whether the ledger is a slim rail, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
+function useMinimized(): [boolean, (minimized: boolean) => void] {
+  const [minimized, set] = useState(() => {
+    try {
+      return localStorage.getItem("armada.session-ledger.minimized") === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    minimized,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem("armada.session-ledger.minimized", next ? "1" : "0");
+      } catch {
+        // Not kept: the ledger is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
 function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
@@ -488,6 +527,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [minimized, minimize] = useMinimized();
   const { onWant } = held;
   const { id } = session;
   const watch = draft?.watch;
@@ -518,6 +558,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(setReading) : setReading,
     narrow ? fold(setSlotOpen) : setSlotOpen,
+    (path) => draft.openFile?.(id, path),
   );
   return (
     <>
@@ -596,7 +637,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           />
           )}
         </div>
-        {narrow ? null : <SessionLedger entries={entries} />}
+        {narrow ? null : <SessionLedger entries={entries} minimized={minimized} onMinimize={minimize} />}
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

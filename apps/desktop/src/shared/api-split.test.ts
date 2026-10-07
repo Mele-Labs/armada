@@ -406,6 +406,7 @@ type OldBridgeApi = {
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+    openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
@@ -642,6 +643,7 @@ const OLD_CHANNELS = {
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
+    openSessionFile: "bridge:open-session-file",
     pressPullRequest: "bridge:press-pull-request",
 } as const;
 
