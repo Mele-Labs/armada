@@ -496,6 +496,33 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/needs",
     },
+    // A pull request by repository and number, and the acts a Session takes on
+    // one. Beside `merge_pull_request`, which is a Job's and not this.
+    Route {
+        operation: "get_pull_request",
+        method: "GET",
+        path: "/pull_requests/:repository/:number",
+    },
+    Route {
+        operation: "ready_pull_request",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/ready",
+    },
+    Route {
+        operation: "merge_pull_request_by_number",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/merge",
+    },
+    Route {
+        operation: "enable_auto_merge",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/auto_merge",
+    },
+    Route {
+        operation: "review_pull_request",
+        method: "POST",
+        path: "/pull_request_reviews/:repository",
+    },
     Route {
         operation: "report_session",
         method: "POST",

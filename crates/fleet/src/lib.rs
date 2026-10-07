@@ -223,6 +223,9 @@ mod proposing;
 /// Running the repository's Checks against the tree a merge left behind, and
 /// the record that is keyed by the commit rather than by a Job.
 mod proving;
+/// A pull request by repository and number, and the acts a Session takes on one.
+/// Since 23.48.
+mod pull_requesting;
 /// `merge_by: push` over a base that moved: brought up, gated again, pushed.
 mod pushing_onto_base;
 pub mod questioning;

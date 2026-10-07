@@ -77,6 +77,12 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "approve_dispatch",
         "approve_review",
         "merge_pull_request",
+        // A pull request by number is nobody's Job and the same act: the
+        // merge, the draft taken out of draft, and the standing instruction
+        // to merge. All three change what other people read.
+        "merge_pull_request_by_number",
+        "ready_pull_request",
+        "enable_auto_merge",
         "redispatch_job",
         "dispatch_studio_draft",
         "request_changes",

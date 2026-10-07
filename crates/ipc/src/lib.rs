@@ -126,6 +126,9 @@ mod overlap;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
+/// A pull request, by repository and number, and the acts a Session takes on one.
+/// Since 23.48.
+mod pull_requests;
 mod proposing;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
@@ -320,6 +323,9 @@ pub use merge_line::{
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
+pub use pull_requests::{
+    ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest,
+};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,

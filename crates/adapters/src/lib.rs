@@ -70,6 +70,7 @@ pub mod needs;
 /// The step onto a base, shared by `armada land` and `merge_by: push`.
 pub mod onto_base;
 mod pull_request_diff;
+mod pull_request_facts;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
 mod reclaim;

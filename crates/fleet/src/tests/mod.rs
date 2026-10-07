@@ -190,6 +190,7 @@ mod repeated_failures;
 mod replaced;
 mod reporting;
 pub(crate) mod repositories;
+mod pull_requesting;
 mod rerunning;
 mod rescuing;
 mod resources;

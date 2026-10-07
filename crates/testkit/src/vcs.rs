@@ -43,6 +43,7 @@ mod commit;
 mod delivered;
 mod main_ci;
 mod merging;
+mod pull_requests;
 mod slots;
 
 use commit::Willing;
@@ -141,6 +142,8 @@ pub struct FakeVcs {
     /// holding this fake exists, so it is scripted through `&self` and a
     /// consuming builder could not express the case at all.
     merging: Mutex<Merging>,
+    /// What the forge says about one pull request and does when it is readied.
+    pull_requests: Mutex<pull_requests::PullRequests>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
     /// base that moves once and then holds still is two answers.
     pushes_in_turn: Mutex<VecDeque<Merging>>,
@@ -378,6 +381,35 @@ impl FakeVcs {
     /// query the sweep makes once per turn on an open pull request.
     pub fn times_asked_for_inline_remarks(&self) -> usize {
         self.counted(|it| matches!(it, Delivered::AskedForInlineRemarks { .. }))
+    }
+
+    /// Say what the forge shows of a pull request from now on, or that it is
+    /// silent. **Writes taken afterwards show on the next read**, as a real
+    /// forge's would: a merge makes it merged, a ready makes a draft open.
+    pub fn now_pull_request(&self, facts: Option<adapter_traits::PullRequestFacts>) {
+        self.pull_requests.lock().expect("not poisoned").facts = facts;
+    }
+
+    /// Say what the forge answers when auto-merge is asked for: `Err` is its
+    /// own sentence. `&self`, as [`now_pull_request`](FakeVcs::now_pull_request).
+    pub fn now_auto_merge(&self, answer: Result<(), String>) {
+        self.delivery.lock().expect("not poisoned").auto_merge = answer;
+    }
+
+    /// Say that taking a pull request out of draft is refused, in the forge's
+    /// own sentence.
+    pub fn ready_refuses(&self, said: &str) {
+        self.pull_requests.lock().expect("not poisoned").ready = Err(said.to_string());
+    }
+
+    /// How many times a pull request was taken out of draft.
+    pub fn times_asked_to_ready(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::MarkedReady { .. }))
+    }
+
+    /// How many times auto-merge was asked for.
+    pub fn times_asked_for_auto_merge(&self) -> usize {
+        self.counted(|it| matches!(it, Delivered::AutoMerge { .. }))
     }
 
     /// Say what the forge does when it is asked to merge.
@@ -762,7 +794,47 @@ impl Delivery for FakeVcs {
     }
 
     fn enable_auto_merge(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
-        commit::auto_merge(self, pull_request)
+        let answered = commit::auto_merge(self, pull_request);
+        if answered.is_ok() {
+            self.pull_requests
+                .lock()
+                .expect("not poisoned")
+                .took_auto_merge();
+        }
+        answered
+    }
+
+    fn pull_request_facts(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Option<adapter_traits::PullRequestFacts> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::ReadPullRequest {
+                pull_request: pull_request.to_string(),
+            });
+        self.pull_requests
+            .lock()
+            .expect("not poisoned")
+            .facts
+            .clone()
+    }
+
+    fn mark_ready(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::MarkedReady {
+                pull_request: pull_request.to_string(),
+            });
+        let mut forge = self.pull_requests.lock().expect("not poisoned");
+        let answered = forge.ready.clone();
+        if answered.is_ok() {
+            forge.took_ready();
+        }
+        answered
     }
 
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
@@ -776,7 +848,10 @@ impl Delivery for FakeVcs {
                 pull_request: pull_request.to_string(),
             });
         match self.merging.lock().expect("not poisoned").clone() {
-            Merging::Takes => Ok(Merged::Taken),
+            Merging::Takes => {
+                self.pull_requests.lock().expect("not poisoned").took_merge();
+                Ok(Merged::Taken)
+            }
             Merging::AlreadyMerged => Ok(Merged::AlreadyMerged),
             Merging::Refuses(why) => Err(why),
         }

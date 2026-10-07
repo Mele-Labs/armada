@@ -42,6 +42,7 @@ mod judge;
 mod landable;
 mod link_lookup;
 mod main_ci;
+mod pull_request;
 mod secret;
 mod setup;
 mod slots;
@@ -72,6 +73,7 @@ pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
     CiRun, CiRuns, CiState, MergedPull, OpenPull, OpenPulls, RecentlyMerged, RecentlyMergedPulls,
 };
+pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,

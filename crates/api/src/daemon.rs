@@ -29,6 +29,7 @@ mod authoring;
 mod commands;
 mod conversing;
 mod needs;
+mod pull_requests;
 mod queries;
 mod retros;
 mod sessions;
@@ -40,6 +41,7 @@ pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use needs::Needs;
+pub use pull_requests::PullRequests;
 pub use queries::{FramePart, FrameSpan, Queries};
 pub use retros::Retros;
 pub use sessions::Sessions;
@@ -81,7 +83,7 @@ use ipc::WireError;
 /// its module says why the answer is placed rather than asked for. [`Studios`]
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
-/// and [`Needs`] a last one beside it.
+/// and [`Needs`] and [`PullRequests`] two last ones beside it.
 pub trait Daemon:
     Queries
     + Commands
@@ -93,6 +95,7 @@ pub trait Daemon:
     + Authoring
     + Sessions
     + Needs
+    + PullRequests
 {
 }
 
@@ -106,7 +109,8 @@ impl<
             + Retros
             + Authoring
             + Sessions
-            + Needs,
+            + Needs
+            + PullRequests,
     > Daemon for D
 {
 }
