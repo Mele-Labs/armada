@@ -1,4 +1,4 @@
-import { Briefcase, FolderGit2, Check, CircleDot, Package, SquarePlus, Trash2, Webhook, X } from "lucide-react";
+import { Bell, Briefcase, FolderGit2, Check, CircleDot, GitBranch, GitPullRequest, Package, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -22,6 +22,8 @@ import {
   type TriggerWhen,
   type Inserted,
   type InsertedKind,
+  type Repair,
+  useRepairSnapshot,
   type ResolvedTrigger,
 } from "./triggers";
 
@@ -175,41 +177,116 @@ export function TriggerFields({
   );
 }
 
+/** A small mark with its tooltip, in a hue; pulsing where something is at work. */
+function Mark({ icon: Glyph, label, hue, pulsing = false }: { icon: LucideIcon; label: string; hue?: string; pulsing?: boolean }) {
+  return (
+    <Tooltip label={label}>
+      <span className="armada-triggers__mark" {...(hue === undefined ? {} : { "data-hue": hue })} {...(pulsing ? { "data-pulsing": "" } : {})} role="img" aria-label={label}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** What a repair under way makes of the trigger's own row. */
+function stateWith(one: FiredTrigger, repair: Repair | undefined): FiredTrigger["state"] {
+  if (repair === undefined || repair.trigger !== one.name) return one.state;
+  return repair.phase === "done" ? "passed" : repair.phase === "working" || repair.phase === "rerunning" ? "repairing" : "failed";
+}
+
+function FiredRow({ one }: { one: FiredTrigger }) {
+  const state = stateWith(one, useRepairSnapshot(one.job));
+  return (
+    <li className="armada-triggers__row armada-triggers__row--fired">
+      <span className="armada-triggers__fired">
+        {state === "passed" ? (
+          <Mark icon={Check} label="Passed" hue="passed" />
+        ) : (
+          <>
+            <Mark icon={X} label="Failed" hue="failed" />
+            {state === "repairing" ? <Mark icon={CircleDot} label="Repair Drone working" hue="running" pulsing /> : null}
+          </>
+        )}
+      </span>
+      <span className="armada-triggers__name">{one.name}</span>
+      <span className="armada-triggers__when">{one.when}</span>
+      <PlaceMark place={one.place} />
+    </li>
+  );
+}
+
 /** What fired in a Job: the result, or a repair Drone at work, and where each is set. */
 export function FiredTriggers({ triggers }: { triggers: readonly FiredTrigger[] }) {
   return (
     <ul className="armada-triggers" aria-label="Triggers that fired">
       {triggers.map((one) => (
-        <li key={`${one.name}|${one.when}`} className="armada-triggers__row armada-triggers__row--fired">
-          <span className="armada-triggers__fired">
-            {one.state === "passed" ? (
-              <Tooltip label="Passed">
-                <span className="armada-triggers__mark" data-hue="passed" role="img" aria-label="Passed">
-                  <Check size={12} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : (
-              <>
-                <Tooltip label="Failed">
-                  <span className="armada-triggers__mark" data-hue="failed" role="img" aria-label="Failed">
-                    <X size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-                <Tooltip label="Repair Drone working">
-                  <span className="armada-triggers__mark" data-hue="running" data-pulsing="" role="img" aria-label="Repair Drone working">
-                    <CircleDot size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              </>
-            )}
-          </span>
-          <span className="armada-triggers__name">{one.name}</span>
-          <span className="armada-triggers__when">{one.when}</span>
-          <PlaceMark place={one.place} />
-        </li>
+        <FiredRow key={`${one.name}|${one.when}`} one={one} />
       ))}
     </ul>
   );
+}
+
+/**
+ * The branch a failed trigger with Self repair grows off the workflow: the
+ * repair Drone at work, then the fix and the choice of where it goes, then what
+ * came of it. Drawn on the Job's canvases and in its stacked run.
+ */
+export function RepairNode({ repair, onChoose }: { repair: Repair; onChoose: (choice: "branch" | "newpr") => void }) {
+  const { phase } = repair;
+  return (
+    <div className="armada-repair" data-phase={phase}>
+      <div className="armada-repair__head">
+        <Mark icon={GitBranch} label="Repair branch" />
+        <span className="armada-triggers__name">{repair.trigger}</span>
+        <span className="armada-repair__state">
+          {phase === "working" || phase === "rerunning" ? (
+            <Mark icon={CircleDot} label={phase === "working" ? "Repair Drone working" : "Trigger running again"} hue="running" pulsing />
+          ) : phase === "done" ? (
+            <Mark icon={Check} label="Passed" hue="passed" />
+          ) : phase === "failed" ? (
+            <Mark icon={X} label="Failed" hue="failed" />
+          ) : null}
+        </span>
+      </div>
+      {phase === "asking" || phase === "rerunning" || phase === "done" ? (
+        <ul className="armada-repair__fix" aria-label="The fix">
+          {repair.fix.map((file) => (
+            <li key={file.path}>
+              <span className="armada-repair__change" aria-label={file.change}>
+                {file.change === "added" ? "+" : "~"}
+              </span>
+              <span className="armada-triggers__name">{file.path}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {phase === "asking" ? (
+        <div className="armada-repair__choice nodrag nopan" role="group" aria-label="Where the fix goes">
+          <Button variant="primary" onClick={() => onChoose("branch")}>
+            This branch
+          </Button>
+          <Button variant="secondary" onClick={() => onChoose("newpr")}>
+            New PR
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The end of a branch that became a pull request of its own. */
+export function RepairPrMark() {
+  return (
+    <div className="armada-repair armada-repair--pr">
+      <Mark icon={GitPullRequest} label="New PR" />
+      <span className="armada-triggers__name">#1751</span>
+    </div>
+  );
+}
+
+/** The Job's alert: a repair that did not find a fix. */
+export function RepairAlert() {
+  return <Mark icon={Bell} label="Alert" hue="failed" />;
 }
 
 const KIND_SAID: Record<InsertedKind, string> = { script: "Script", skill: "Skill", drone: "Drone step" };

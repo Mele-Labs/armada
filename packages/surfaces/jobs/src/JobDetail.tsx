@@ -10,7 +10,7 @@
 // `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
-import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
+import { JobDetailHeaderActions, RepairAlert, useRepairSnapshot, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
@@ -305,6 +305,8 @@ function OneJob(props: JobDetailProps) {
   // it is made of — the badge, the facts, the acts that end or replace the Job,
   // and the way out to the pull request — which is where the next thing added
   // to this header goes rather than here.
+  // A repair that found no fix is the Job's alert.
+  const alerted = useRepairSnapshot(job.id)?.phase === "failed";
   const heading = headingOf({
     job,
     whole,
@@ -355,7 +357,11 @@ function OneJob(props: JobDetailProps) {
 
   return (
     <div className="armada-screen__detail" ref={screen} {...{ [OPEN_JOB_ATTRIBUTE]: job.id }}>
-      <JobDetailHeaderActions {...heading} onCopied={props.onCopied} />
+      <JobDetailHeaderActions
+        {...heading}
+        {...(alerted ? { mark: <>{heading.mark}<RepairAlert /></> } : {})}
+        onCopied={props.onCopied}
+      />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}

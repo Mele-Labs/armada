@@ -25,3 +25,4 @@ export * from "./scenarios/sessions";
 export * from "./scenarios/main-checks-running";
 export * from "./scenarios/checks-gate-first-run";
 export * from "./scenarios/checks-gate-second-run";
+export * from "./scenarios/real-job-2-trigger-repair-fails";

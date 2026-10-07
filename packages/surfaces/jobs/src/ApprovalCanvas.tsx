@@ -21,6 +21,7 @@ import {
   AUTO,
   BranchPicker,
   Button,
+  useRepair,
   Checkbox,
   Input,
   ProposalDoneWhen,
@@ -59,6 +60,7 @@ import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
 import { withAddedAtGate } from "./approval-added";
 import { AddedSheets, reach, useAddedSteps } from "./added-steps";
+import { REPAIR_NODE, repairNodes } from "./repair-branch";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -202,6 +204,7 @@ export function ApprovalCanvas({
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const added = useAddedSteps(whole.job.id, whole.job.workflow_id);
+  const repair = useRepair(whole.job.id);
   const floor = useAtFloor();
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
@@ -301,7 +304,14 @@ export function ApprovalCanvas({
       : frame.name === "Groups"
         ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
         : undefined;
-  const drawnEdges = flowingOf(nodes, layout.edges, steps);
+  // A failed trigger with Self repair grows a branch off the pull request, which is where it fired.
+  const prNode = nodes.find((node) => node.kind === "pr");
+  const prPlace = prNode === undefined ? undefined : layout.places.get(prNode.id);
+  const branch =
+    repair === undefined || prNode === undefined || prPlace === undefined
+      ? undefined
+      : repairNodes(repair, whole.job.id, { id: prNode.id, x: prPlace.x, y: prPlace.y, width: 260 }, nodes.find((node) => node.kind === "land")?.id);
+  const drawnEdges = [...flowingOf(nodes, layout.edges, steps), ...(branch?.edges ?? [])];
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,
@@ -477,14 +487,14 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed, ...extra]}
+        nodes={[...backdrops, ...placed, ...extra, ...(branch?.nodes ?? [])]}
         edges={drawnEdges}
         label="Run"
         runsDown
         downOnly
         centred
         opensOn={[opensOnOf(nodes, layout.places)]}
-        reveals={added.open}
+        reveals={added.open ?? (repair?.phase === "asking" ? REPAIR_NODE : null)}
       />
     </section>
     {panel}

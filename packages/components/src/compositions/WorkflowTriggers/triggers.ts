@@ -3,7 +3,7 @@
 // Workflow creator and Job detail share, seeded from `MOCK_TRIGGERS`. Delete with
 // the mock.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import type { Source } from "../WorkflowCreator/def";
 
@@ -98,22 +98,26 @@ export function whenSaid(trigger: Pick<Trigger, "when" | "step">): string {
 
 /** A trigger fired in a Job, as Job detail draws it. */
 export type FiredTrigger = {
+  /** The Job it fired in, so a repair under way can change what the row says. */
+  job?: string;
   name: string;
   when: string;
   place: Source;
-  state: "passed" | "repairing";
+  state: "passed" | "repairing" | "failed";
 };
 
 /** The Jobs the mock fired triggers on, by Job id. */
+const FIRED: readonly FiredTrigger[] = [
+  { name: "lint_docs", when: "implement passes", place: "repository", state: "passed" },
+  { name: "deploy_qa", when: "PR opened", place: "kit", state: "repairing" },
+];
 const MOCK_FIRED: Readonly<Record<string, readonly FiredTrigger[]>> = {
-  "01M3WJ4CVF0021ZQB9G8PQMAHM": [
-    { name: "lint_docs", when: "implement passes", place: "repository", state: "passed" },
-    { name: "deploy_qa", when: "PR opened", place: "kit", state: "repairing" },
-  ],
+  "01M3WJ4CVF0021ZQB9G8PQMAHM": FIRED,
+  "01M3WJ4CVF0021ZQB9G8PQMAHN": FIRED,
 };
 
 export function firedTriggersOf(jobId: string): readonly FiredTrigger[] | undefined {
-  return MOCK_FIRED[jobId];
+  return MOCK_FIRED[jobId]?.map((one) => ({ ...one, job: jobId }));
 }
 
 const triggerStore = store<readonly Trigger[]>(MOCK_TRIGGERS);
@@ -210,4 +214,107 @@ export function triggerFromInserted(one: Inserted, workflow: string, after: stri
 
 export function keepTrigger(trigger: Trigger) {
   triggerStore.set((was) => [...was.filter((one) => one.id !== trigger.id), trigger]);
+}
+
+/**
+ * A failed trigger with Self repair on. A repair Drone works on a fix, then the
+ * branch holds and asks where the fix goes: on the Job's open PR, or a PR of its
+ * own. The trigger then runs again. Two tries, and the second failing ends it.
+ */
+export type RepairPhase = "working" | "asking" | "rerunning" | "done" | "failed";
+
+export type Repair = {
+  trigger: string;
+  /** The step the trigger fired at: the one that opens the PR. */
+  at: string;
+  phase: RepairPhase;
+  /** Which of the two tries the Drone is on. */
+  tries: number;
+  choice?: "branch" | "newpr";
+  /** What the fix changes, which is what he is approving. */
+  fix: readonly { path: string; change: "added" | "modified" }[];
+};
+
+/** The Jobs a repair is mocked on, and whether the Drone finds a fix. */
+const REPAIRS: Readonly<Record<string, "works" | "fails">> = {
+  "01M3WJ4CVF0021ZQB9G8PQMAHM": "works",
+  "01M3WJ4CVF0021ZQB9G8PQMAHN": "fails",
+};
+
+const FIX = [
+  { path: "deploy/qa.sh", change: "modified" },
+  { path: ".armada/qa.env", change: "added" },
+] as const;
+
+const repairStore = store<Readonly<Record<string, Repair>>>({});
+const begun = new Set<string>();
+/** Bumped when a repair is let go, so the timers of the old one do nothing. */
+const generation = new Map<string, number>();
+const watching = new Map<string, number>();
+
+const generationOf = (jobId: string) => generation.get(jobId) ?? 0;
+
+/** Run `then` later, unless the repair it belongs to has been let go. */
+function later(jobId: string, ms: number, then: () => void) {
+  const mine = generationOf(jobId);
+  window.setTimeout(() => {
+    if (mine === generationOf(jobId)) then();
+  }, ms);
+}
+
+/** Start the mocked repair once, when a Job that has one is first looked at. */
+function beginRepair(jobId: string) {
+  const plan = REPAIRS[jobId];
+  if (plan === undefined || begun.has(jobId)) return;
+  begun.add(jobId);
+  const set = (next: Partial<Repair>) =>
+    repairStore.set((was) => ({ ...was, [jobId]: { ...was[jobId]!, ...next } }));
+  repairStore.set((was) => ({
+    ...was,
+    [jobId]: { trigger: "deploy_qa", at: "handoff", phase: "working", tries: 1, fix: FIX },
+  }));
+  if (plan === "works") {
+    later(jobId, 3500, () => set({ phase: "asking" }));
+  } else {
+    later(jobId, 2000, () => set({ tries: 2 }));
+    later(jobId, 4000, () => set({ phase: "failed" }));
+  }
+}
+
+/** Let a repair go once nothing is looking at its Job, so the next look starts it again. */
+function releaseRepair(jobId: string) {
+  window.setTimeout(() => {
+    if ((watching.get(jobId) ?? 0) > 0) return;
+    generation.set(jobId, generationOf(jobId) + 1);
+    begun.delete(jobId);
+    repairStore.set((was) => Object.fromEntries(Object.entries(was).filter(([id]) => id !== jobId)));
+  }, 100);
+}
+
+/** The repair on a Job, if it has one. Looking starts it. */
+export function useRepair(jobId: string): Repair | undefined {
+  const all = useSyncExternalStore(repairStore.subscribe, repairStore.get);
+  useEffect(() => {
+    watching.set(jobId, (watching.get(jobId) ?? 0) + 1);
+    beginRepair(jobId);
+    return () => {
+      watching.set(jobId, (watching.get(jobId) ?? 1) - 1);
+      releaseRepair(jobId);
+    };
+  }, [jobId]);
+  return all[jobId];
+}
+
+/** The repair as it stands, without starting it. */
+export function useRepairSnapshot(jobId: string | undefined): Repair | undefined {
+  const all = useSyncExternalStore(repairStore.subscribe, repairStore.get);
+  return jobId === undefined ? undefined : all[jobId];
+}
+
+/** Where the fix goes. The trigger runs again, and passes. */
+export function chooseRepair(jobId: string, choice: "branch" | "newpr") {
+  repairStore.set((was) => (was[jobId] === undefined ? was : { ...was, [jobId]: { ...was[jobId]!, phase: "rerunning", choice } }));
+  later(jobId, 2500, () =>
+    repairStore.set((was) => (was[jobId] === undefined ? was : { ...was, [jobId]: { ...was[jobId]!, phase: "done" } })),
+  );
 }
