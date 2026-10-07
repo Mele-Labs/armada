@@ -568,3 +568,38 @@ async fn a_failed_job_on_mains_log_is_served_by_its_check_or_its_name_while_main
         .await
         .is_err());
 }
+
+/// The reading rides on its own loop: with the roster held, so no turn can
+/// pass its first line, main is still read within the interval.
+#[tokio::test]
+async fn main_is_read_while_a_turn_cannot_run() {
+    let home = TempDir::new();
+    let fleet = std::sync::Arc::new(a_fleet_reading_main(&home));
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+
+    let held = fleet.slots().lock().await;
+    let turn = {
+        let fleet = std::sync::Arc::clone(&fleet);
+        tokio::spawn(async move { fleet.turn().await })
+    };
+    let reading = crate::main_ci::keep_reading_main(
+        std::sync::Arc::clone(&fleet),
+        Duration::from_millis(5),
+        |why| panic!("main was not read: {why}"),
+    );
+    let mut read = None;
+    for _ in 0..200 {
+        read = kept(&fleet).await;
+        if read.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(!turn.is_finished(), "the turn is the one that is stuck");
+    reading.abort();
+    drop(held);
+    turn.await.unwrap().unwrap();
+    assert_eq!(read.expect("read without a turn").state, MainState::Green);
+}
