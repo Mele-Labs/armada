@@ -93,6 +93,8 @@ export type SessionComposerProps = {
   onSend: (sent: SentFromComposer) => void;
   /** The permission mode is shown and not set: a session in a terminal holds it, and nothing outside can switch it. */
   modeLocked?: boolean;
+  /** A terminal's mode is not drawn until its mod has reported one. */
+  modeHidden?: boolean;
 };
 
 type Item = { id: string; name: string; says?: string; tag?: ComposerTag };
@@ -126,6 +128,7 @@ export function SessionComposer({
   onRemoveDrawn,
   onSend,
   modeLocked = false,
+  modeHidden = false,
 }: SessionComposerProps) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
@@ -254,15 +257,17 @@ export function SessionComposer({
         />
       </div>
       <div className="armada-session-composer__bar">
-        <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
-          <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
-            {MODES.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.label}
-              </option>
-            ))}
-          </Select>
-        </Pick>
+        {modeHidden ? null : (
+          <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
+            <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
+              {MODES.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.label}
+                </option>
+              ))}
+            </Select>
+          </Pick>
+        )}
         <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
           <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
             <option value="">{compact ? "Auto" : "Model"}</option>

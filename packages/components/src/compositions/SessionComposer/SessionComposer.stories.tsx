@@ -140,6 +140,14 @@ export const ModeLocked: Story = {
   },
 };
 
+/** Until a terminal has reported its mode there is none to show. */
+export const ModeUnknown: Story = {
+  args: { modeLocked: true, modeHidden: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("combobox", { name: "Permission mode" })).toBeNull();
+  },
+};
+
 /** Model and effort are Dispatch's pair, each with Auto, and the mode is a pick of four. */
 export const Tuned: Story = {
   play: async ({ canvas, args }) => {

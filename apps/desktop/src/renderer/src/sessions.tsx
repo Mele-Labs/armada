@@ -570,6 +570,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           />
           <SessionComposer
             modeLocked={session.terminal === true}
+            modeHidden={session.terminal === true && session.mode === undefined}
             working={session.turn.state === "working"}
             mode={mode}
             onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
