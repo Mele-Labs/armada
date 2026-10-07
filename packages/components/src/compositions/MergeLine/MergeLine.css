@@ -224,6 +224,43 @@
   text-decoration: underline;
 }
 
+/* Who the entry came from: a glyph and a name, muted, the name cut short so a long title never widens the row. */
+.armada-merge-line__owner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 24ch;
+  color: var(--fg-muted);
+}
+
+.armada-merge-line__owner > svg {
+  flex: none;
+}
+
+.armada-merge-line__owner-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-merge-line__owner--press {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-merge-line__owner--press:hover {
+  color: var(--fg-default);
+}
+
+.armada-merge-line__owner--press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-merge-line__detail {
   display: flex;
   flex-wrap: wrap;
@@ -339,25 +376,6 @@
 }
 
 .armada-merge-line__run:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-merge-line__job {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--accent);
-  text-align: left;
-  cursor: pointer;
-}
-
-.armada-merge-line__job:hover {
-  text-decoration: underline;
-}
-
-.armada-merge-line__job:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }

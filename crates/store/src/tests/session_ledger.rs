@@ -24,6 +24,7 @@ fn session(id: &str) -> KeptSession {
         ended_at: None,
         end_reason: None,
         figures: SessionFigures::default(),
+        mod_version: None,
     }
 }
 

@@ -71,8 +71,8 @@ pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, CommitStatus, MergedPull, OpenPull, OpenPulls, RecentlyMerged,
-    RecentlyMergedPulls, StatusState,
+    CiRun, CiRuns, CiState, CommitStatus, MergeQueue, MergedPull, OpenPull, OpenPulls, QueueEntry,
+    QueueState, RecentlyMerged, RecentlyMergedPulls, StatusState,
 };
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use secret::Secret;

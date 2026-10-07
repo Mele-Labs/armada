@@ -19,6 +19,7 @@ import { EFFORTS } from "@armada/jobs/draft/tuning";
 import type { SessionTag as WireTag } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
+import { askToTell, NOT_REACHABLE } from "./tell";
 import { sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
@@ -123,6 +124,12 @@ export class WiredStore {
     this.listeners.forEach((listener) => listener());
   }
 
+  /** A refused act on one Session is a toast, as a failed annotation send is. A terminal that is not listening says what to run. */
+  private tell(outcome: Parameters<typeof refusalWords>[0]): void {
+    const unreachable = !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.terminal_session_unreachable";
+    askToTell(unreachable ? NOT_REACHABLE : refusalWords(outcome));
+  }
+
   private tagged(id: string, tags: readonly SessionTag[]): void {
     this.pending.set(id, tags);
     this.recompute();
@@ -168,7 +175,7 @@ export class WiredStore {
     });
     if (!done.ok) {
       this.tagged(id, tags);
-      return this.say(done.outcome);
+      return this.tell(done.outcome);
     }
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
@@ -181,6 +188,15 @@ export class WiredStore {
   private async piloting(jobId: string, outcome: "take_over" | "restart_step"): Promise<string | undefined> {
     this.say(undefined);
     const done = await this.api.pilotJob(jobId, outcome);
+    if (!done.ok) return void this.say(done.outcome);
+    await this.held(done.value.id);
+    return done.value.id;
+  }
+
+  /** One call: a new Session starts as a copy of a dead one's conversation. Resolves to it once the window holds it. */
+  private async forking(id: string): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.forkSession(id);
     if (!done.ok) return void this.say(done.outcome);
     await this.held(done.value.id);
     return done.value.id;
@@ -216,7 +232,7 @@ export class WiredStore {
   private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<void> {
     this.say(undefined);
     const done = await act;
-    if (!done.ok) this.say(done.outcome);
+    if (!done.ok) this.tell(done.outcome);
   }
 
   private readonly lookup = (id: string): Session | undefined => this.mapped.find((one) => one.id === id);
@@ -231,6 +247,7 @@ export class WiredStore {
     subscribe: this.subscribe,
     start: (tag) => this.starting(tag),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
+    fork: (id) => this.forking(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     close: (id) => void this.plain(this.api.closeSession(id)),

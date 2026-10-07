@@ -1,7 +1,7 @@
 use crate::{
     decode, encode, FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi,
-    HubPullRequest, Instant, JobId, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLine, MergeLineHub,
+    HubPullRequest, HubQueue, HubQueueState, Instant, JobId, MainChecking, MainCiState,
+    MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLine, MergeLineHub,
 };
 
 fn a_red_hub() -> MergeLineHub {
@@ -45,6 +45,10 @@ fn a_red_hub() -> MergeLineHub {
             author: Some("nick".to_string()),
             ci: Some(HubPullCi::WaitingOnMain),
             job: None,
+            queue: Some(HubQueue {
+                state: HubQueueState::Queued,
+                position: Some(2),
+            }),
         }],
         merged: vec![HubMerged {
             number: 1815,

@@ -393,6 +393,7 @@
 @import "./compositions/SessionComposer/SessionComposer.css";
 @import "./compositions/Pilot/Pilot.css";
 @import "./compositions/PullRequestActs/PullRequestActs.css";
+@import "./compositions/ForkedFrom/ForkedFrom.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/SessionList/SessionList.css";
 

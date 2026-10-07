@@ -291,11 +291,11 @@ pub use holding::{
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HeldCommand,
-    HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState,
-    SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag, SessionThread,
-    SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession, TagKind, TaggedJob,
-    TakeHeld, TuneSession,
+    AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
+    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
+    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    TagKind, TaggedJob, TakeHeld, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -329,8 +329,9 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, MainChecking,
-    MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue,
+    HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
+    MainStanding, MergeLineHub,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,

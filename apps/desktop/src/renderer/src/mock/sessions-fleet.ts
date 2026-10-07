@@ -52,7 +52,8 @@ export function hosted(id: string, change: Partial<SessionRecord> = {}): Session
 /** A session from a person's terminal: on the ledger, and with no thread. */
 export function terminal(id: string, change: Partial<SessionRecord> = {}): SessionRecord {
   const { hosted: _hosted, ...rest } = hosted(id, change);
-  return { ...rest, origin: "terminal" };
+  // A terminal whose mod is asking, as one a person is at: it takes a message, and offers no Fork.
+  return { terminal: { listening: true }, ...rest, origin: "terminal" };
 }
 
 /** A call the agent is held on, with the three offers. */
@@ -92,12 +93,13 @@ export type Calls = {
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
+  forked: string[];
   pressed: { sessionId: string; number: number; press: string }[];
   watched: string[];
 };
 
 export class FakeSessionsFleet {
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], pressed: [], watched: [] };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [] };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -105,6 +107,8 @@ export class FakeSessionsFleet {
   private jobs: JobSummary[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
   refuses: { code: string; message: string } | undefined;
+  /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
+  refusesSend: { code: string; message: string } | undefined;
   private minted = 0;
   private rowed = 0;
 
@@ -188,6 +192,7 @@ export class FakeSessionsFleet {
             return { ok: true };
           },
           sendSessionMessage: async (send) => {
+            if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
             this.row(send.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: send.text });
             return this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));
@@ -209,6 +214,19 @@ export class FakeSessionsFleet {
           renameSession: async (rename) => {
             this.calls.renamed.push(rename);
             return this.change(rename.session_id, (one) => ({ ...one, title: rename.title }));
+          },
+          forkSession: async (sessionId) => {
+            this.calls.forked.push(sessionId);
+            const old = this.records.find((one) => one.id === sessionId);
+            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            // Fleet's own refusal: a session that is still running is not forked.
+            if (old.state === "live" && (old.hosted !== undefined || old.terminal?.listening === true)) {
+              return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_fork_live", message: `session ${sessionId} is still running, and only an ended one is forked` } } as never };
+            }
+            const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
+            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
+            this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
+            return { ok: true, value: record };
           },
           closeSession: async (sessionId) => {
             this.calls.closed.push(sessionId);

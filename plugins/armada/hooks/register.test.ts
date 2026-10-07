@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
+import { MOD_VERSION } from './facts'
+
 // Fleet as the mod meets it: a runtime file naming a port, and whatever answers
 // there. The engine's own `$` calls are what the test answers.
 const RUNNING = '{"protocol_version":{"major":23,"minor":43},"pid":1,"port":4242,"started_at":"x"}'
@@ -76,7 +78,7 @@ test('a session starting is told to Fleet with its directory and its branch', as
   expect(posts[0].url).toBe('http://127.0.0.1:4242/sessions/report')
   expect(posts[0].body.harness).toBe('claude_code')
   expect(posts[0].body.session_id).toBe('S1')
-  expect(posts[0].body.fact).toEqual({ kind: 'started', cwd: '/repos/armada', origin: 'terminal' })
+  expect(posts[0].body.fact).toEqual({ kind: 'started', cwd: '/repos/armada', origin: 'terminal', mod_version: MOD_VERSION })
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
     attachment: { kind: 'branch', target: 'fleet/session-ledger' },
@@ -289,6 +291,7 @@ test('what the terminal runs on is told once with the commands it lists', async 
     kind: 'tuned',
     model: 'haiku',
     commands: [{ name: 'review', says: 'Review the pull request' }],
+    mod_version: MOD_VERSION,
   })
 })
 

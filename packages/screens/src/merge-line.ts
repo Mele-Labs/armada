@@ -71,23 +71,38 @@ export function mergeLineViews(
   const served = lines?.lines ?? [];
   const chosen = picked === null ? served : served.filter((one) => one.root === picked);
   const named = chosen.length > 1;
+  const owners = ownersOf(jobs);
+  const owned = (entry: MergeLineEntry): MergeLineEntry => {
+    const job = entry.job ?? owners.get(entry.branch);
+    return job === undefined ? entry : { ...entry, job };
+  };
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
+    line: inOrder(one.line).map((row) => owned(entryOf(row, (one as NoticedLine).notice?.kind === "main"))),
     // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
     // files only from a Fleet before 23.42, or one whose forge said none.
-    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => entryOf(row)),
-    sentBack: one.sent_back.map((row) => entryOf(row)),
+    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map((pull) => owned(mergedEntryOf(pull))) : one.landed.map((row) => owned(entryOf(row))),
+    sentBack: one.sent_back.map((row) => owned(entryOf(row))),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
-    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs)) }),
+    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs), owners) }),
   }));
+}
+
+/** The Job each branch belongs to, from the Board's rows. The newest Job wins where two named one branch. */
+function ownersOf(jobs: readonly JobSummary[]): Map<string, { id: string; title: string }> {
+  const owners = new Map<string, { id: string; title: string }>();
+  for (const job of [...jobs].sort((a, b) => (a.ended_at ?? "\uffff").localeCompare(b.ended_at ?? "\uffff") || a.id.localeCompare(b.id))) {
+    if (job.branch !== undefined) owners.set(job.branch, { id: job.id, title: job.title });
+  }
+  return owners;
 }
 
 /** A pull request the forge lists as merged, as a landed row draws it. */
 function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
     branch: pull.branch,
+    ...(pull.job === undefined ? {} : { job: { id: pull.job.id, title: pull.job.title } }),
     pr: { number: pull.number, url: pull.url },
     state: "landed",
     ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
@@ -117,19 +132,29 @@ function recentOf(jobs: readonly JobSummary[]): readonly RecentJob[] {
  * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for. A red
  * with newer commits running is held, and the panel draws it as such.
  */
-function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
+function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<string, { id: string; title: string }>): MergeLineHub {
   const main = mainOf(hub);
   return {
     ...(main === undefined ? {} : { main }),
-    pulls: (hub.pull_requests ?? []).map((pull) => ({
+    pulls: queueFirst(hub.pull_requests ?? []).map((pull) => ({
       number: pull.number,
       url: pull.url,
       branch: pull.branch,
       ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
-      ...(pull.job === undefined ? {} : { job: pull.job }),
+      ...((pull.job ?? owners.get(pull.branch)) === undefined ? {} : { job: pull.job ?? owners.get(pull.branch)! }),
+      ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
     recent,
   };
+}
+
+/** The queue first, by position, then the pull requests waiting for ci to join it, then the rest as listed. */
+function queueFirst<T extends { queue?: { state: string; position?: number } }>(pulls: readonly T[]): T[] {
+  const rank = (pull: T) => (pull.queue?.position !== undefined ? 0 : pull.queue?.state === "waiting_for_ci" ? 1 : 2);
+  return pulls
+    .map((pull, at) => ({ pull, at }))
+    .sort((a, b) => rank(a.pull) - rank(b.pull) || (a.pull.queue?.position ?? 0) - (b.pull.queue?.position ?? 0) || a.at - b.at)
+    .map(({ pull }) => pull);
 }
 
 function mainOf({ main, fixing }: WireHub): MainState | undefined {

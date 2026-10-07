@@ -52,7 +52,10 @@ export type SessionAttachment =
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.
    */
-  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string };
+  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
+  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
+  | { kind: "forked_to"; id: string }
+  | { kind: "forked_from"; id: string };
 
 export type SessionArtifactForm = "page" | "file" | "doc";
 
@@ -147,8 +150,17 @@ export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
   address?: string;
+  /**
+   * Nothing more can be said to it: it `ended`, or it runs in a terminal whose mod has stopped asking
+   * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
+   */
+  dead?: "ended" | "quiet";
+  /** Ended more than a week ago: left off the list, found by search. */
+  older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
+  /** Its mod is older than the repository's, or reported no version. */
+  modOutOfDate?: true;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
@@ -239,6 +251,11 @@ export type SessionsDraft = {
    * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
    */
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
+  /**
+   * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
+   * Absent where nothing serves it, and Fork is left off rather than drawn dead.
+   */
+  fork?: (id: string) => string | Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**

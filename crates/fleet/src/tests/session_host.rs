@@ -159,6 +159,7 @@ impl Rig {
                 effort: None,
                 mode: None,
                 pilot: None,
+                fork: None,
             })
             .await
             .expect("started")
@@ -255,6 +256,7 @@ async fn a_hosted_session_is_one_row_that_holds_nothing_until_it_writes() {
             cwd: rig.root.clone(),
             title: Some("a title the mod read".into()),
             origin: SessionOrigin::Terminal,
+            mod_version: None,
         }))
         .await
         .unwrap();
@@ -584,6 +586,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             effort: None,
             mode: None,
             pilot: None,
+            fork: None,
         })
         .await
         .unwrap()

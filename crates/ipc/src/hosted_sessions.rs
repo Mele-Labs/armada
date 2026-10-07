@@ -53,6 +53,19 @@ pub struct StartSession {
     /// so `manifest_id` is not read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pilot: Option<PilotFrom>,
+    /// Start as a copy of an ended or dead session's conversation. Since 23.61.
+    ///
+    /// The new session has its own id, ledger and slot, and holds none of the
+    /// old one's. Refused where that session is live or unknown. `manifest_id`
+    /// is read as for any start.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork: Option<ForkFrom>,
+}
+
+/// The session a new one is forked from. Since 23.61.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForkFrom {
+    pub session_id: SessionId,
 }
 
 /// The Job a session starts by taking over. Since 23.51.
