@@ -803,6 +803,9 @@ pub trait Delivery {
     /// open.
     fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
 
+    /// The merge queue of `base`, one forge call. `None` is the forge's silence.
+    fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
+
     /// Put a commit status under `context` on `commit`, replacing the one
     /// there. **A write to the forge, and the one Fleet makes unprompted**: it
     /// says whether a pull request's turn has come, `needs`. `Err` is the

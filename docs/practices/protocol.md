@@ -3308,6 +3308,18 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
+## Protocol 23.65: the merge queue on the hub
+
+Additive only. The repository moved to the forge's merge queue, so `hub.pull_requests` entries say where the queue holds each one, rather than a second list beside them.
+
+| Field | Shape | Notes |
+|---|---|---|
+| `HubPullRequest.queue` | `HubQueue`: `state`, `position?` | Absent from a Fleet before 23.65, and where the pull request is not in the queue and no auto-merge is waiting on its checks |
+| `HubQueue.state` | `waiting_for_ci`, `queued`, `awaiting_checks`, `mergeable`, `unmergeable` | **Strict**: Bridge picks a mark from it. `waiting_for_ci` is a pull request with auto-merge on whose own `ci` is still running, so it has no entry yet |
+| `HubQueue.position` | 1-based, 1 is next to merge | Absent for `waiting_for_ci` |
+
+**One more forge call a visit**, beside the open pull requests' listing. A forge that will not answer keeps the last reading. Bridge's half is `packages/protocol/src/merge-lines.ts`.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

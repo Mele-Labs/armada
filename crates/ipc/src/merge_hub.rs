@@ -186,6 +186,32 @@ pub struct HubPullRequest {
     /// The Job that opened it. Absent for a person's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job: Option<HubJob>,
+    /// Where it stands in the merge queue, since 23.65. Absent where it is not
+    /// in the queue and has no auto-merge waiting on its checks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue: Option<HubQueue>,
+}
+
+/// One pull request's place in the merge queue. Since 23.65.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HubQueue {
+    pub state: HubQueueState,
+    /// 1 is the next to merge. Absent for `waiting_for_ci`, which has no entry yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<u32>,
+}
+
+/// What the queue says of a pull request. **Strict**: Bridge picks a mark from
+/// it. `waiting_for_ci` is a pull request with auto-merge on whose own `ci` is
+/// still running, so it has not joined the queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HubQueueState {
+    WaitingForCi,
+    Queued,
+    AwaitingChecks,
+    Mergeable,
+    Unmergeable,
 }
 
 /// How a pull request's `ci` stands.

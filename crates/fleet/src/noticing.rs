@@ -141,6 +141,8 @@ pub(crate) struct Sweep {
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,
     /// Each repository's open pull requests as last listed, by root. `crate::main_hub`.
     pub(crate) pulls: BTreeMap<String, Vec<crate::main_hub::OpenPulled>>,
+    /// Each repository's merge queue as last read, by root. `crate::main_hub`.
+    pub(crate) queues: BTreeMap<String, Vec<adapter_traits::QueueEntry>>,
     /// What `needs` was last put on each open pull request's commit, and the
     /// ones the forge refused. `crate::needing::status`.
     pub(crate) needs_published: crate::needing::status::Published,

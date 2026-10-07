@@ -65,6 +65,7 @@ mod landing;
 pub mod leasing;
 mod main_ci;
 mod mcp;
+mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
 /// What a branch needs on a path, shared by `armada need` and Fleet's Jobs. `#1059`.

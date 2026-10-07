@@ -75,7 +75,32 @@ pub struct OpenPull {
     /// is put on.
     pub head: Option<String>,
     pub failing: Vec<FromOutside>,
+    /// The forge will merge it by itself once its checks pass.
+    pub auto_merge: bool,
 }
+
+/// Where the forge's merge queue holds a pull request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QueueState {
+    Queued,
+    AwaitingChecks,
+    Mergeable,
+    Unmergeable,
+}
+
+/// One entry in the base branch's merge queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct QueueEntry {
+    pub number: u64,
+    /// 1 is the next to merge.
+    pub position: u32,
+    pub state: QueueState,
+}
+
+/// The merge queue, in order. `None` from the call that returns it is a forge
+/// that would not answer; an empty list is a queue nothing waits in, or a
+/// repository with none.
+pub type MergeQueue = Vec<QueueEntry>;
 
 /// What a status Fleet publishes on a commit says. **Two words, not the
 /// forge's four**: Fleet never fails a pull request on its own say, it makes
