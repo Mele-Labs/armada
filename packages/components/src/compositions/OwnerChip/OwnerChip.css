@@ -21,6 +21,28 @@
   color: var(--fg-default);
 }
 
+/* The Checks end the chip, past a thin divider, in the colour of how they stand. */
+.armada-ref-chip__checks {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  padding-inline-start: var(--space-1);
+  border-inline-start: var(--border-width) solid var(--border-default);
+  color: var(--fg-muted);
+}
+
+.armada-ref-chip__checks[data-checks="passed"] {
+  color: var(--status-completed-success);
+}
+
+.armada-ref-chip__checks[data-checks="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-ref-chip__checks[data-checks="pending"] {
+  color: var(--status-awaiting-review);
+}
+
 .armada-owner-chip {
   position: relative;
   display: inline-flex;
@@ -107,11 +129,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-}
-
-.armada-owner-card__checks {
-  display: inline-flex;
-  color: var(--fg-muted);
 }
 
 .armada-owner-card__last {
