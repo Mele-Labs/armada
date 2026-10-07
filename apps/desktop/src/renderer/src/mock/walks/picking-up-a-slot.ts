@@ -10,7 +10,7 @@ const PANEL = dialog("slot-4");
 const IN_PANEL = (name: string) => inside(PANEL, role("button", name, { exact: true }));
 
 export const pickingUpASlot = walk("cleanup/slots", [
-  { press: role("button", "Cleanup", { exact: true }), say: "Cleanup, from the rail" },
+  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
   { press: TILE(4), say: "The stranded slot's panel opens" },
   { press: IN_PANEL("Rescue"), say: "A Scout starts reading it" },
   { look: inside(PANEL, role("heading", "Unfinished", { exact: true })), say: "Unfinished, with what is left" },

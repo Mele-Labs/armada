@@ -44,7 +44,7 @@ const shell: ComponentProps<typeof TheShell> = {
       label: "Work",
       surfaces: [
         { id: "board", label: "Job Board", icon: ClipboardList, count: 6 },
-        { id: "worktrees", label: "Cleanup", icon: HardDrive },
+        { id: "worktrees", label: "Worktree Slots", icon: HardDrive },
       ],
     },
     { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
@@ -160,7 +160,7 @@ export const FleetIsNotRunning: Story = {
         label: "Work",
         surfaces: [
           { id: "board", label: "Job Board", icon: ClipboardList, count: 0 },
-          { id: "worktrees", label: "Cleanup", icon: HardDrive },
+          { id: "worktrees", label: "Worktree Slots", icon: HardDrive },
         ],
       },
       { id: "machine", label: "Machine", surfaces: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },

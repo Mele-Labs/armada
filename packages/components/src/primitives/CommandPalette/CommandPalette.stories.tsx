@@ -55,9 +55,9 @@ const RAIL: PaletteEntry[] = [
   {
     id: "nav-worktrees",
     section: "navigation",
-    label: "Cleanup",
+    label: "Worktree Slots",
     shortcut: "⌘6",
-    aliases: ["held worktrees", "disk", "held disk"],
+    aliases: ["cleanup", "held worktrees", "disk", "held disk"],
     icon: HardDrive,
   },
 ];
@@ -274,7 +274,7 @@ export const AnAliasFindsTheLexiconTerm: Story = {
  * rows are read together the next time anybody opens the palette.
  *
  * The query is "disk", the word on the control that has reached this screen
- * since it shipped. The row reads `Cleanup`, the screen's own title.
+ * since it shipped. The row reads `Worktree Slots`, the screen's own title.
  */
 export const TheNewestSurfaceTookTheLastDigit: Story = {
   args: { ...board, defaultQuery: "disk" },
@@ -290,7 +290,7 @@ export const TheNewestSurfaceTookTheLastDigit: Story = {
    * which fails on the last.
    */
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("option", { name: /Cleanup/ })).toBeVisible();
+    await expect(canvas.getByRole("option", { name: /Worktree Slots/ })).toBeVisible();
 
     await userEvent.clear(canvas.getByRole("combobox"));
 
@@ -299,8 +299,8 @@ export const TheNewestSurfaceTookTheLastDigit: Story = {
     await expect(canvas.getByRole("option", { name: /^Job Board/ })).toHaveAccessibleName(
       "Job Board ⌘ 2",
     );
-    await expect(canvas.getByRole("option", { name: /^Cleanup/ })).toHaveAccessibleName(
-      "Cleanup ⌘ 6",
+    await expect(canvas.getByRole("option", { name: /^Worktree Slots/ })).toHaveAccessibleName(
+      "Worktree Slots ⌘ 6",
     );
     await expect(canvas.getByRole("option", { name: /^Helm/ })).toHaveAccessibleName(
       "Helm ⌘ J",
