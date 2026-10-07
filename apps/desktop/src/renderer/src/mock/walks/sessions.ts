@@ -19,7 +19,7 @@ function steps(narrow: boolean): Step[] {
   const inLedger = (name: string, say: string): Step => ({ look: inside(ledger, role("listitem", name)), say });
   return [
     { press: inside(sessions, button("New Session")), say: "A new Session starts blank" },
-    ...opened([{ look: ledger, say: "Every section is there, dim, and empty" }]),
+    ...opened([{ look: inside(ledger, role("img", "Nothing attached")), say: "Nothing on it yet: a small picture, and no sections" }]),
     { look: mode, say: narrow ? "The message box is one row: each select a glyph and its value" : "It runs in auto mode" },
     { hover: mode, say: "The mode is on the message box's one row, with what it does on hover" },
     ...(narrow ? [{ look: button("Attachments"), say: "The ledger is a button in the header" } as Step] : []),

@@ -12,8 +12,8 @@ function steps(narrow: boolean): Step[] {
   return [
     { press: inside(sessions, button("Pin the store clock")), say: "A Session that holds a branch and a pull request" },
     ...opened([
-      { look: inside(ledger, region("Branches")), say: "Branches, because it holds one" },
-      { look: inside(ledger, region("Pull requests")), say: "Pull requests, because it holds one" },
+      { look: inside(ledger, role("heading", "Branches")), say: "Branches, because it holds one" },
+      { look: inside(ledger, role("heading", "Pull requests")), say: "Pull requests, because it holds one" },
     ]),
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Store clock spike")), say: "A Session that has not written anything yet" },
@@ -27,7 +27,7 @@ function steps(narrow: boolean): Step[] {
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that made three things" },
     ...opened([
-      { look: inside(ledger, region("Artifacts")), say: "Artifacts" },
+      { look: inside(ledger, role("heading", "Artifacts")), say: "Artifacts" },
       { look: inside(ledger, role("img", "Published page")), say: "A page it published, which opens at its address" },
       { look: inside(ledger, role("img", "File written")), say: "A file it wrote outside the code, which opens on this machine" },
       { look: inside(ledger, role("img", "Claude Docs document")), say: "A Claude Docs document, which opens at its address" },
