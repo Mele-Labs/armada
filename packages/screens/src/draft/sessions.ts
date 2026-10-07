@@ -46,7 +46,15 @@ export type SessionAttachment =
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string };
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
+  /**
+   * Something the Session made that a person would open: a page it published, a file it wrote outside
+   * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
+   * **A code edit is never one**; those are Branches and Pull requests.
+   */
+  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string };
+
+export type SessionArtifactForm = "page" | "file" | "doc";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -221,6 +229,8 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
+  /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
+  openFile?: (id: string, path: string) => void;
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */
