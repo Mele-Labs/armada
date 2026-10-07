@@ -284,6 +284,16 @@ checks:
       - "scripts/test_preview.py"
       - "armada.yml"
 
+  sync_mod_test:
+    # `scripts/sync-mod` against a scratch `HOME`: the mod copy is made,
+    # replaced whole, and a missing source warns without failing.
+    run: python3 scripts/test_sync_mod.py
+    when:
+      - "scripts/sync-mod"
+      - "scripts/test_sync_mod.py"
+      - "plugins/**"
+      - "armada.yml"
+
 # Commands gate nothing — they are what a Drone is given to run.
 commands:
   # `setup.requires` names this; a Drone is never given it. `--frozen-lockfile`

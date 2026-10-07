@@ -530,6 +530,7 @@ if $dry_run; then
   if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
     echo "would touch $src/protocol-version.toml — ipc was last built at protocol $(ipc_built_protocol) and the file says $(tree_protocol)"
   fi
+  echo "would copy $src/plugins to $support/mod (scripts/sync-mod)"
   echo "would write $support/restart-source: $src"
   if $adopt; then
     if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
@@ -561,6 +562,12 @@ if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
 fi
 say "Installing armada from $src"
 (cd "$src" && cargo install --path crates/armada --debug --locked)
+
+# The Claude Code mod rides with the build: Fleet's own copy, which the
+# owner's plugin install points at, is refreshed from the tree just built.
+# A missing source warns and does not stop the restart.
+say "Copying the Claude Code mod from $src"
+"$root/scripts/sync-mod" "$src"
 
 # **A stamp this script writes, not a build output's own mtime.** A first
 # attempt compared source files against `out/main/index.js`, and every build
