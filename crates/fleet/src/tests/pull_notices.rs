@@ -500,9 +500,26 @@ async fn a_job_at_its_review_gate_is_sent_back_with_the_failure_and_a_session_is
     );
 }
 
-#[tokio::test]
-async fn a_job_that_ended_is_redispatched_once_for_a_failing_commit() {
-    let rig = a_rig();
+/// A rig whose repository holds `branch`, as one with the pull request's branch on it does.
+fn a_rig_holding(branch: Option<&str>) -> Rig {
+    let home = TempDir::new();
+    let stand_in = Arc::new(StandIn::default());
+    let mut fittings =
+        crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    fittings.noticing = crate::noticing::Noticing::every(Duration::ZERO);
+    if let Some(branch) = branch {
+        fittings.vcs = FakeVcs::new().with_ref_at(branch, ONE);
+    }
+    let fleet = Fleet::assembled(fittings).hosting_sessions_on(
+        Arc::new(Shared(Arc::clone(&stand_in))),
+        Duration::from_secs(600),
+    );
+    Rig::around(fleet, stand_in, home)
+}
+
+async fn redispatched_for_a_failing_pull_request(
+    rig: &Rig,
+) -> (core_model::Job, Option<core_model::Landing>) {
     let earlier = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
     rig.fleet.vcs().main_ci.watched_are(Some(vec![failing(1)]));
 
@@ -517,8 +534,39 @@ async fn a_job_that_ended_is_redispatched_once_for_a_failing_commit() {
         .jobs
         .iter()
         .find(|job| job.id() != earlier.id())
-        .unwrap();
+        .unwrap()
+        .clone();
     assert_eq!(carried.redispatched_from(), Some(earlier.id()));
+    let landing = rig
+        .fleet
+        .store()
+        .lock()
+        .await
+        .landing(carried.id())
+        .unwrap();
+    (carried, landing)
+}
+
+#[tokio::test]
+async fn a_job_that_ended_is_redispatched_once_onto_its_pull_requests_branch() {
+    let rig = a_rig_holding(Some("armada/1"));
+    let (_, landing) = redispatched_for_a_failing_pull_request(&rig).await;
+    let landing = landing.expect("a landing was kept");
+    assert_eq!(
+        landing.from_ref.as_ref().map(|it| it.as_str()),
+        Some("armada/1")
+    );
+    assert_eq!(
+        landing.target.as_ref().map(|it| it.as_str()),
+        Some("armada/1")
+    );
+}
+
+#[tokio::test]
+async fn a_pull_request_whose_branch_is_gone_is_redispatched_on_a_fresh_branch() {
+    let rig = a_rig_holding(None);
+    let (_, landing) = redispatched_for_a_failing_pull_request(&rig).await;
+    assert!(landing.is_none(), "cut from the base, as a red main is");
 }
 
 #[tokio::test]

@@ -413,6 +413,25 @@ where
         done
     }
 
+    /// Cut the replacement's worktree from the pull request's own branch and aim its pull request
+    /// there, so the fix lands in the same pull request. **Only where the repository still holds
+    /// the branch**: a branch that is gone leaves the Job on a fresh branch from the base.
+    async fn cut_from_the_pull_request(&self, served: &Served, job: &JobId, branch: &str) {
+        let held = self
+            .vcs()
+            .branches(served.root(), served.manifest().base())
+            .is_ok_and(|held| held.iter().any(|one| one.name == branch));
+        let Some(named) = core_model::branch_named(Some(branch)).filter(|_| held) else {
+            return;
+        };
+        let landing = core_model::Landing {
+            from_ref: Some(named.clone()),
+            target: Some(named),
+            ..core_model::Landing::as_ever()
+        };
+        let _ = self.store().lock().await.set_landing(job, &landing);
+    }
+
     /// A Job's part: a merge is a note in its log, and a failure sends the work back the way a
     /// red main does. **A Job still working is left to its Drone** and asked again.
     async fn job_told(
@@ -461,6 +480,8 @@ where
                     .await
                 {
                     Ok(minted) if minted.status() == JobStatus::AwaitingApproval => {
+                        self.cut_from_the_pull_request(served, minted.id(), about.branch)
+                            .await;
                         self.approve(minted.id()).await.is_ok()
                     }
                     Ok(_) => true,

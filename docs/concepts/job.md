@@ -494,7 +494,7 @@ The full transition table — every legal edge, its trigger and its guard — is
 | The Job is | Fleet does |
 |---|---|
 | At its review gate | Sends the notice as a requested change, so the next Drone opens with it |
-| Ended (`completed_success`, `completed_failed`, `killed`) | Redispatches it as a new Job on a fresh branch from the base, `redispatched_from` naming the first, carrying the notice as Facts |
+| Ended (`completed_success`, `completed_failed`, `killed`) | Redispatches it as a new Job cut from the pull request's own branch, its pull request aimed there so the fix lands in the same one, `redispatched_from` naming the first, carrying the notice as Facts. A branch the repository no longer holds leaves it on a fresh branch from the base, as a red main does |
 | Working, or waiting on approval | Nothing yet. It is asked again at the next reading |
 | Rejected | Nothing |
 
