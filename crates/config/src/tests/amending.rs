@@ -60,6 +60,7 @@ fn keeps_every_line(before: &str, after: &str) -> bool {
 }
 
 const WHEN: &[&str] = &[
+    ".github/**",
     "packages/**",
     "crates/core-model/domain/**",
     "protocol-version.toml",
