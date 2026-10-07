@@ -5,6 +5,9 @@ import { useEffect } from "react";
 
 const TELL = "armada:tell";
 
+/** What a send to a terminal Session that is not listening says: the act is the terminal's own. */
+export const NOT_REACHABLE = "Not reachable: run /reload-plugins in that session";
+
 export function askToTell(sentence: string): void {
   window.dispatchEvent(new CustomEvent<string>(TELL, { detail: sentence }));
 }

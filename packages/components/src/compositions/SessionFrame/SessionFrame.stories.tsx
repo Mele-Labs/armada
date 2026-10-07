@@ -53,3 +53,11 @@ export const Renamable: Story = {
     await expect(args.onRename).toHaveBeenCalledWith("Store test, flaky on CI");
   },
 };
+
+/** A terminal Session whose mod is older than the repository's is marked in its header. */
+export const ModOutOfDate: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Release notes script", modOutOfDate: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Mod out of date: run /reload-plugins" })).toBeInTheDocument();
+  },
+};

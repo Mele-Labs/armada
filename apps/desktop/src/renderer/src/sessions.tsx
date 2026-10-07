@@ -251,6 +251,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
+      ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
@@ -570,6 +571,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         {...{
               actions: (
                 <>

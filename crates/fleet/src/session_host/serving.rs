@@ -102,6 +102,7 @@ where
                     ended_at: None,
                     end_reason: None,
                     figures: Default::default(),
+                    mod_version: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             store

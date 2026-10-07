@@ -19,7 +19,7 @@ import { EFFORTS } from "@armada/jobs/draft/tuning";
 import type { SessionTag as WireTag } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
-import { askToTell } from "./tell";
+import { askToTell, NOT_REACHABLE } from "./tell";
 import { sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
@@ -126,7 +126,7 @@ export class WiredStore {
   /** A refused act on one Session is a toast, as a failed annotation send is. A terminal that is not listening says what to run. */
   private tell(outcome: Parameters<typeof refusalWords>[0]): void {
     const unreachable = !outcome.ok && outcome.why === "refused" && outcome.error.code === "fleet.terminal_session_unreachable";
-    askToTell(unreachable ? "Not reachable: run /reload-plugins in that session" : refusalWords(outcome));
+    askToTell(unreachable ? NOT_REACHABLE : refusalWords(outcome));
   }
 
   private tagged(id: string, tags: readonly SessionTag[]): void {
