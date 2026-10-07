@@ -333,19 +333,18 @@ fn a_command_under_two_shells_is_held_for_the_process_above_them() {
         })
     };
     let inner = child_of(outer_pid).expect("the outer shell started an inner one");
-    let table = |pid: u32| {
-        Some((
-            ps_of(pid, "ppid=")?.parse().ok()?,
-            ps_of(pid, "comm=")?,
-        ))
-    };
+    let table = |pid: u32| Some((ps_of(pid, "ppid=")?.parse().ok()?, ps_of(pid, "comm=")?));
 
     let held = Holder::above(inner, table);
     let one_shell_up = ps_of(inner, "ppid=").and_then(|p| p.parse::<u32>().ok());
     let _ = outer.kill();
     let _ = outer.wait();
 
-    assert_eq!(one_shell_up, Some(outer_pid), "the old rule held for this shell");
+    assert_eq!(
+        one_shell_up,
+        Some(outer_pid),
+        "the old rule held for this shell"
+    );
     assert_eq!(held.and_then(|h| h.pid()), Some(std::process::id()));
 }
 
