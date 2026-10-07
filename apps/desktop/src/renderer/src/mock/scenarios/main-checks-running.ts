@@ -85,7 +85,9 @@ function at(root: string, n: number) {
 
 function checksRunning(): Scenario {
   const root = repository().root;
-  const base = holding("main-checks-running", "Main red, held while a newer merge's checks run, then green and red again", []);
+  const base = holding("main-checks-running", "Main red, held while a newer merge's checks run, then green and red again", [], {
+    alsoServed: [repository()],
+  });
   return { ...base, state: { ...base.state, ...at(root, 0) }, later: MOMENTS.slice(1).map((_, n) => at(root, n + 1)), behaves: writingMainsLogs };
 }
 
