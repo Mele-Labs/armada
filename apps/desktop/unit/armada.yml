@@ -18,6 +18,7 @@ id: armada-desktop-unit
 # preset's setup file; the rest of it is `app_smoke`'s. `api.ts` is the one file
 # of each surface that `src/shared/api` re-exports.
 depends_on:
+  - ".github/**"
   - "apps/desktop/src/main/**"
   - "apps/desktop/src/shared/**"
   - "apps/desktop/src/renderer/src/*.ts"
