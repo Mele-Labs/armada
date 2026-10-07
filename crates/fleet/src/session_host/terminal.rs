@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{MessagesHeld, SendSessionMessage, SessionId, SessionRecord, SessionRow, SessionRowChanged};
+use ipc::{HeldCommand, MessagesHeld, SendSessionMessage, TerminalFacts, TuneSession, SessionId, SessionRecord, SessionRow, SessionRowChanged};
 use ipc::{TakeHeld, WireError};
 use store::{KeptSession, SessionState};
 
@@ -24,8 +24,6 @@ use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
 const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
-/// A terminal session is sent words and nothing else. A 422.
-const TERMINAL_TEXT_ONLY: &str = "fleet.terminal_session_text_only";
 
 /// How long after its mod last asked a session still counts as listening. The
 /// mod asks every couple of seconds.
@@ -37,6 +35,7 @@ const LOOKS_EVERY: Duration = Duration::from_secs(1);
 struct Listening {
     asked_at: Instant,
     held: Vec<String>,
+    commands: Vec<HeldCommand>,
 }
 
 /// What Fleet holds for terminal sessions, which lives only as long as Fleet.
@@ -44,18 +43,59 @@ struct Listening {
 pub struct Terminals {
     listening: Mutex<HashMap<String, Listening>>,
     watched: Mutex<HashSet<String>>,
+    tuned: Mutex<HashMap<String, TerminalFacts>>,
 }
 
 impl Terminals {
     /// The mod asked: it is listening now, and takes what was held.
-    fn asked(&self, session: &str) -> Vec<String> {
+    fn asked(&self, session: &str) -> MessagesHeld {
         let mut table = self.listening.lock().expect("held across no panic");
         let one = table.entry(session.to_string()).or_insert(Listening {
             asked_at: Instant::now(),
             held: Vec::new(),
+            commands: Vec::new(),
         });
         one.asked_at = Instant::now();
-        std::mem::take(&mut one.held)
+        MessagesHeld {
+            messages: std::mem::take(&mut one.held),
+            commands: std::mem::take(&mut one.commands),
+        }
+    }
+
+    /// Keep a command for the mod, or say nobody is listening.
+    fn hold_command(&self, session: &str, command: HeldCommand, listening_for: Duration) -> bool {
+        let mut table = self.listening.lock().expect("held across no panic");
+        match table.get_mut(session) {
+            Some(one) if one.asked_at.elapsed() <= listening_for => {
+                one.commands.push(command);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// What the session's mod said it runs on.
+    pub(crate) fn facts_of(&self, session: &str) -> Option<TerminalFacts> {
+        self.tuned
+            .lock()
+            .expect("held across no panic")
+            .get(session)
+            .cloned()
+    }
+
+    /// Fold what the mod said into what is held. **A field left out is
+    /// unchanged.** True where anything changed.
+    pub(crate) fn tuned(&self, session: &str, said: TerminalFacts) -> bool {
+        let mut table = self.tuned.lock().expect("held across no panic");
+        let held = table.entry(session.to_string()).or_default();
+        let before = held.clone();
+        held.model = said.model.or(held.model.take());
+        held.effort = said.effort.or(held.effort.take());
+        held.mode = said.mode.or(held.mode.take());
+        if !said.commands.is_empty() {
+            held.commands = said.commands;
+        }
+        *held != before
     }
 
     /// Keep `text` for the mod, or say nobody is listening.
@@ -163,35 +203,31 @@ where
         session: &KeptSession,
         sent: SendSessionMessage,
         addressed: Vec<(ipc::SessionTag, Option<String>)>,
+        paths: Vec<String>,
     ) -> Result<SessionRecord, Refusal> {
         if session.state == SessionState::Ended {
             return Err(self.closed(&session.id));
         }
-        if !sent.attachments.is_empty() {
+        let text = sent.text.trim();
+        if text.is_empty() && paths.is_empty() {
             return Err(self.hosted_refusal(
-                TERMINAL_TEXT_ONLY,
-                "a session in a terminal takes words; a file or picture is not sent to it",
+                MESSAGE_EMPTY,
+                "a message needs words or something sent with it",
             ));
         }
-        let text = sent.text.trim();
-        if text.is_empty() {
-            return Err(self.hosted_refusal(MESSAGE_EMPTY, "a message needs words"));
-        }
-        let turn = match mention_line(&addressed) {
+        let mut turn = match mention_line(&addressed) {
             Some(line) => format!("{line}\n\n{text}"),
             None => text.to_string(),
         };
+        for path in &paths {
+            turn.push_str(&format!("\n\nAttached file: {path}"));
+        }
         if !self
             .hosts()
             .terminals()
             .hold(&session.id, turn, LISTENING_FOR)
         {
-            return Err(Refusal::IllegalMove(WireError::raised(
-                TERMINAL_UNREACHABLE,
-                "that session is not listening. It has ended, or its terminal is closed, or \
-                 the armada mod is not loaded in it",
-                self.run_id(),
-            )));
+            return Err(self.terminal_unreachable());
         }
         let store = self.store().lock().await;
         self.ledger_row(&store, session)
@@ -207,10 +243,66 @@ where
             .session(&ask.session_id)
             .map_err(|why| self.ledger_fault(why))?;
         Ok(match kept {
-            Some(one) if one.origin == "terminal" => MessagesHeld {
-                messages: self.hosts().terminals().asked(&one.id),
-            },
+            Some(one) if one.origin == "terminal" => self.hosts().terminals().asked(&one.id),
             _ => MessagesHeld::default(),
         })
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// A model or effort chosen in Bridge, run in the terminal as `/model` or
+    /// `/effort`. **The mode is not here**: the mods API cannot switch a live
+    /// session's, so it is shown and not set. A value the terminal already has
+    /// is not sent again.
+    pub(crate) async fn tune_terminal(
+        &self,
+        session: &KeptSession,
+        tuned: TuneSession,
+    ) -> Result<SessionRecord, Refusal> {
+        if session.state == SessionState::Ended {
+            return Err(self.closed(&session.id));
+        }
+        let now = self.hosts().terminals().facts_of(&session.id).unwrap_or_default();
+        let wanted = [
+            ("model", tuned.model, now.model),
+            ("effort", tuned.effort, now.effort),
+        ];
+        for (command, asked, has) in wanted {
+            let Some(args) = asked.filter(|one| !one.trim().is_empty() && Some(one) != has.as_ref())
+            else {
+                continue;
+            };
+            let held = HeldCommand {
+                command: command.to_string(),
+                args,
+            };
+            if !self
+                .hosts()
+                .terminals()
+                .hold_command(&session.id, held, LISTENING_FOR)
+            {
+                return Err(self.terminal_unreachable());
+            }
+        }
+        let store = self.store().lock().await;
+        self.ledger_row(&store, session)
+    }
+
+    pub(crate) fn terminal_unreachable(&self) -> Refusal {
+        Refusal::IllegalMove(WireError::raised(
+            TERMINAL_UNREACHABLE,
+            "that session is not listening. It has ended, or its terminal is closed, or \
+             the armada mod is not loaded in it",
+            self.run_id(),
+        ))
     }
 }

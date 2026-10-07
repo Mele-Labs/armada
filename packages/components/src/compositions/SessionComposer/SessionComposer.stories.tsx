@@ -131,6 +131,15 @@ export const DrawnSketch: Story = {
   },
 };
 
+/** A session in a terminal holds its permission mode: it is shown and cannot be set. */
+export const ModeLocked: Story = {
+  args: { modeLocked: true, mode: "plan" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toBeEnabled();
+  },
+};
+
 /** Model and effort are Dispatch's pair, each with Auto, and the mode is a pick of four. */
 export const Tuned: Story = {
   play: async ({ canvas, args }) => {

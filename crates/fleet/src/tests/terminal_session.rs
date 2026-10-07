@@ -166,27 +166,39 @@ async fn a_message_is_held_for_the_mod_that_is_asking_and_handed_over_once() {
     assert!(rig.mod_asks().await.is_empty(), "handed over once");
 }
 
-/// A terminal session takes words only, and a session that ended takes nothing.
+/// A file is saved by Fleet and the terminal is told its path, in the words a
+/// hosted session is told; a session that ended takes nothing.
 #[tokio::test]
-async fn a_terminal_session_takes_words_and_not_a_file_and_not_after_it_ended() {
+async fn a_file_is_saved_and_sent_as_its_path_and_nothing_goes_to_an_ended_session() {
     let rig = rig();
     rig.started().await;
     rig.mod_asks().await;
 
-    let file = Arc::clone(&rig.fleet)
+    Arc::clone(&rig.fleet)
         .send_session_message(SendSessionMessage {
             session_id: SessionId::carried(ID),
             text: "look".into(),
-            attachments: vec![ipc::SessionUpload {
-                name: "a.txt".into(),
-                media_type: "text/plain".into(),
-                data: "aGk=".into(),
-            }],
+            attachments: vec![
+                ipc::SessionUpload {
+                    name: "a.txt".into(),
+                    media_type: "text/plain".into(),
+                    data: "aGk=".into(),
+                },
+                ipc::SessionUpload {
+                    name: "shot.png".into(),
+                    media_type: "image/png".into(),
+                    data: "aGk=".into(),
+                },
+            ],
             mentions: Vec::new(),
         })
         .await
-        .unwrap_err();
-    assert!(format!("{file:?}").contains("fleet.terminal_session_text_only"));
+        .expect("held");
+    let held = rig.mod_asks().await;
+    assert_eq!(held.len(), 1);
+    assert!(held[0].starts_with("look"));
+    assert_eq!(held[0].matches("Attached file: ").count(), 2, "{}", held[0]);
+    assert!(held[0].contains("a.txt") && held[0].contains("shot.png"));
 
     rig.reports(SessionFact::Ended {
         reason: "prompt_input_exit".into(),
@@ -194,6 +206,58 @@ async fn a_terminal_session_takes_words_and_not_a_file_and_not_after_it_ended() 
     .await;
     let closed = rig.sends("hello").await.unwrap_err();
     assert!(closed.contains("fleet.session_closed"), "{closed}");
+}
+
+/// **The terminal's own settings are what its mod said**, and a model chosen in
+/// Bridge goes to the mod as a command once, and not again when the terminal
+/// already runs on it. The mode is only shown.
+#[tokio::test]
+async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there() {
+    let rig = rig();
+    rig.started().await;
+    rig.mod_asks().await;
+    rig.reports(SessionFact::Tuned {
+        model: Some("haiku".into()),
+        effort: None,
+        mode: Some(ipc::SessionMode::Plan),
+        commands: vec![ipc::TerminalCommand {
+            name: "review".into(),
+            says: "Review the pull request".into(),
+        }],
+    })
+    .await;
+    let record = Arc::clone(&rig.fleet)
+        .get_session(SessionId::carried(ID))
+        .await
+        .unwrap()
+        .session;
+    let facts = record.terminal.expect("terminal facts");
+    assert_eq!(facts.model.as_deref(), Some("haiku"));
+    assert_eq!(facts.mode, Some(ipc::SessionMode::Plan));
+    assert_eq!(facts.commands.len(), 1);
+
+    let tune = |model: &str| ipc::TuneSession {
+        session_id: SessionId::carried(ID),
+        model: Some(model.into()),
+        effort: Some("low".into()),
+        mode: ipc::SessionMode::Auto,
+    };
+    Arc::clone(&rig.fleet).tune_session(tune("haiku")).await.expect("held");
+    let held = rig
+        .fleet
+        .take_held_messages(TakeHeld { session_id: ID.into() })
+        .await
+        .unwrap();
+    let said: Vec<(String, String)> = held.commands.into_iter().map(|one| (one.command, one.args)).collect();
+    assert_eq!(said, vec![("effort".to_string(), "low".to_string())], "the model it already runs on is not sent");
+
+    Arc::clone(&rig.fleet).tune_session(tune("opus")).await.expect("held");
+    let held = rig
+        .fleet
+        .take_held_messages(TakeHeld { session_id: ID.into() })
+        .await
+        .unwrap();
+    assert_eq!(held.commands.len(), 2);
 }
 
 /// The mod of a session Fleet hosts asks too, and is handed nothing.

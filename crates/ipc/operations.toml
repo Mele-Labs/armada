@@ -3842,7 +3842,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The `armada` mod in a terminal session asks what a person sent it from Bridge, and is answered with those messages once"
 notes = """
-`POST /sessions/held`, body `TakeHeld`: the session's id. Since 23.53. Answered with `MessagesHeld`, the messages oldest first, and a message is in one answer only. A **command** because the answer empties what Fleet held.
+`POST /sessions/held`, body `TakeHeld`: the session's id. Since 23.53. Answered with `MessagesHeld`, the messages oldest first and the `commands` (`model` or `effort`, with an argument) a person chose in Bridge, and each is in one answer only. The mod runs a command as typed and a message as the person's own prompt. A **command** because the answer empties what Fleet held.
 
 **The ask is also the session saying it is listening.** A message sent to a terminal session is kept until its mod asks, and Fleet refuses the send as `fleet.terminal_session_unreachable` when no ask has come within a few seconds, so a person is told at once instead of after a message that nothing will read. The mod submits each as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27).
 

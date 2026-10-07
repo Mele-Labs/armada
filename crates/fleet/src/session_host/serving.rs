@@ -127,7 +127,10 @@ where
         let id = sent.session_id.as_str().to_string();
         if let Some(session) = self.terminal_session(&id).await? {
             let addressed = self.addressed(&sent.mentions).await?;
-            return self.send_to_terminal(&session, sent, addressed).await;
+            let kept = self.keep_uploads(&id, &sent.attachments)?;
+            let mut paths = kept.paths;
+            paths.extend(kept.picture_paths);
+            return self.send_to_terminal(&session, sent, addressed, paths).await;
         }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
@@ -229,6 +232,9 @@ where
 
     async fn tune_session(&self, tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         let id = tuned.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            return self.tune_terminal(&session, tuned).await;
+        }
         let (session, mut hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
@@ -379,6 +385,9 @@ pub(crate) struct Kept {
     pub pictures: Vec<(String, String)>,
     /// Where each file that is not a picture is kept.
     pub paths: Vec<String>,
+    /// Where each picture is kept, for a session that is told paths and not
+    /// pictures.
+    pub picture_paths: Vec<String>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -459,11 +468,12 @@ where
     }
 
     /// Store what a message carried, outside every worktree.
-    fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
+    pub(crate) fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
         let mut kept = Kept {
             files: Vec::new(),
             pictures: Vec::new(),
             paths: Vec::new(),
+            picture_paths: Vec::new(),
         };
         if uploads.is_empty() {
             return Ok(kept);
@@ -497,6 +507,7 @@ where
             if upload.media_type.starts_with("image/") {
                 kept.pictures
                     .push((upload.media_type.clone(), upload.data.clone()));
+                kept.picture_paths.push(path.to_string_lossy().into_owned());
             } else {
                 kept.paths.push(path.to_string_lossy().into_owned());
             }

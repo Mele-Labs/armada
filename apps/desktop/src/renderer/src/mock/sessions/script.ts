@@ -43,6 +43,10 @@ function others(): Session[] {
       id: "s4",
       terminal: true,
       title: "CI timeout hunt",
+      model: "sonnet",
+      effort: "medium",
+      mode: "ask",
+      commands: COMMANDS,
       turn: idle,
       lastTurn: "14:02",
       rows: [

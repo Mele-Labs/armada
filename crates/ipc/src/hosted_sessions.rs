@@ -362,6 +362,17 @@ pub struct TakeHeld {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessagesHeld {
     pub messages: Vec<String>,
+    /// Commands to run as if typed, in order with the messages' own turns.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<HeldCommand>,
+}
+
+/// A slash command a person chose in Bridge for a terminal session: `model` or
+/// `effort`, and its argument.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldCommand {
+    pub command: String,
+    pub args: String,
 }
 
 /// What the hook is answered with. **Spelled as the harness reads it**, as

@@ -10,13 +10,14 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[] } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
   const submitted: { text: string; asUser?: boolean }[] = []
   const asked: unknown[] = []
+  const ran: { command: string; args?: string }[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user' })
   on('fs.read', () => {
@@ -31,7 +32,8 @@ function world(
     if (e.url.endsWith('/sessions/held')) {
       asked.push(JSON.parse(e.init?.body ?? '{}'))
       const messages = options.held?.splice(0) ?? []
-      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages }) } }
+      const commands = options.heldCommands?.splice(0) ?? []
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
     }
     posts.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
@@ -43,6 +45,13 @@ function world(
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
+  on('session.model', () => ({ value: options.model?.() ?? 'claude-haiku-4-5-20251001' }))
+  on('command.list', () => ({ value: [{ name: 'review', description: 'Review the pull request', source: 'builtin' }] }))
+  on('command.run', (_$, e) => {
+    ran.push({ command: e.command, args: e.args })
+    options.onCommand?.()
+    return { value: {} }
+  })
   on('session.cwd', () => ({ value: '/repos/armada' }))
   // What the engine answers beneath the mod for the events a test raises.
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
@@ -52,7 +61,7 @@ function world(
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
-  return { posts, attempts, clock, submitted, asked }
+  return { posts, attempts, clock, submitted, asked, ran }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -268,4 +277,34 @@ test('a Fleet that is not running is not asked, and nothing is submitted', async
 
   expect(asked).toEqual([])
   expect(submitted).toEqual([])
+})
+
+test('what the terminal runs on is told once with the commands it lists', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'tuned',
+    model: 'haiku',
+    commands: [{ name: 'review', says: 'Review the pull request' }],
+  })
+})
+
+test('a model chosen in Bridge is run as a command, and the new one is told', async ($, on) => {
+  let model = 'claude-haiku-4-5-20251001'
+  const { posts, clock, ran, submitted } = world(on, {
+    heldCommands: [{ command: 'model', args: 'sonnet' }],
+    model: () => model,
+    onCommand: () => {
+      model = 'claude-sonnet-5-5'
+    },
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(submitted).toEqual([])
+  expect(facts(posts)).toContainEqual({ kind: 'tuned', model: 'sonnet' })
+  expect(ran).toEqual([{ command: 'model', args: 'sonnet' }])
 })

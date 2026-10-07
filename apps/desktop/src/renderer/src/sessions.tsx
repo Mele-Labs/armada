@@ -507,7 +507,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const { state, said } = stateOf(session);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
-  const mode: SessionMode = session.mode ?? "auto";
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
   const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
     setLedgerOpen(false);
@@ -569,7 +569,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onOpenSession={onOpen}
           />
           <SessionComposer
-            words={session.terminal === true}
+            modeLocked={session.terminal === true}
             working={session.turn.state === "working"}
             mode={mode}
             onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
@@ -578,7 +578,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             models={draft.models}
             efforts={draft.efforts}
             onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={session.terminal === true ? [] : draft.commands}
+            commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
             compact={narrow}
             taggable={[
               ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),

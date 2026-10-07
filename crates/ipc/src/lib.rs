@@ -288,7 +288,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
-    MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    HeldCommand, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TakeHeld, TuneSession,
 };
@@ -395,7 +395,7 @@ pub use servers::{
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
     Ownership, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport,
-    SessionState, SessionUsage,
+    SessionState, SessionUsage, TerminalCommand, TerminalFacts,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

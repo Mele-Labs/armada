@@ -3172,7 +3172,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |

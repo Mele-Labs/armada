@@ -29,6 +29,7 @@ impl Sessions for FakeDaemon {
             usage: SessionUsage::default(),
             attachments: Vec::new(),
             hosted: None,
+            terminal: None,
         })
     }
 

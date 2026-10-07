@@ -35,3 +35,16 @@ polling a local stub server. No session of the owner's was touched.
   so the reader skips every `type` it does not draw.
 - A permission dialog open in the terminal holds the submitted turn the way it
   holds typing; the mod cannot answer it.
+
+## Follow-up: what else the mod can set and read in a terminal session
+
+Same probe, same hygiene, measured the same day.
+
+| Want | Result |
+|---|---|
+| Model | `$.command.run({command: "model", args: "sonnet"})` took effect: `$.session.model()` went from haiku to sonnet within 1.5 s. **Submitting the text `/model sonnet` is refused** by the engine ("a text beginning with / would run a command as the user"), so slash commands go through `$.command.run`, not `$.prompt.submit`. |
+| Effort | `$.command.run({command: "effort", args: "low"})` ran without error. **Its effect was not observed**: haiku takes no effort setting, and the hook input's `effort` stayed absent. |
+| Permission mode, set | **Not possible.** `$.config.set({key: "permissionMode", value: "plan"})` answers `{value: "plan"}` but the row reads `default` afterwards and the terminal footer shows no plan mode: that row is the default for the next session. No other call in the mods API switches a live session's mode. |
+| Permission mode, read | `permission_mode` is on the input of `classic.UserPromptSubmit` and `classic.Stop` (`default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`). So the mod can report the mode at each turn and Bridge shows it read-only. It is stale between a change in the terminal and the next turn. |
+| The `/` list | `$.command.list()` answered 126 commands with `name`, `description` and `source`. |
+| Transcript path | `transcript_path` is on the same two hook inputs, exact. Fleet still finds the file by session id. |

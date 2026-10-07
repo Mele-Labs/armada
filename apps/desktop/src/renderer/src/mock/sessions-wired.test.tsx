@@ -111,13 +111,14 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
   await expect.poll(() => fleet.calls.tuned.at(-1)).toEqual({ session_id: ID, effort: "high", mode: "plan" });
 });
 
-test("Sessions wired: a terminal session opens to its ledger and offers nothing to write in", async () => {
+test("Sessions wired: a terminal session opens to its ledger and takes a message, with its mode shown and not set", async () => {
   const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")] })]);
   mount(served(fleet));
   await onSessions();
   await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
   await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Branch release/notes" })).toBeVisible();
-  await expect.element(page.getByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect.element(page.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
 });
 
 test("Sessions wired: search finds a session by the pull request it holds, across every session", async () => {

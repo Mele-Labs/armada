@@ -42,6 +42,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
+| `tuned` | `model?`, `effort?`, `mode?`, `commands?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
 | `ended` | `reason` | Ends it and gives back everything it still holds |
 
@@ -223,7 +224,7 @@ Open a session a person runs in a terminal and Bridge draws its conversation and
 
 What is not drawn: the agent's reasoning, a tool's answer, a subagent's own turns, the CLI's bookkeeping and a message from another session.
 
-**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session asks `take_held_messages` every two seconds and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. It takes words only, a file or picture is refused as `fleet.terminal_session_text_only`, and it has no Close, mode, model or effort in Bridge, which the terminal holds. The sent text shows in the thread when the transcript has it, which is when the turn starts.
+**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session asks `take_held_messages` every two seconds and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. A file or picture is saved by Fleet as for a hosted session and sent as `Attached file: <path>` in the text. The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer. A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27). **The permission mode is shown and not set**: nothing in the mods API switches a live session's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn. There is no Close in Bridge for a terminal session. The sent text shows in the thread when the transcript has it, which is when the turn starts.
 
 ## Not built
 

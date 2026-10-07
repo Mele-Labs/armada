@@ -114,6 +114,9 @@ where
             .attachments_of(&Holder::session(&session.id))
             .map_err(|why| self.ledger_fault(why))?;
         let mut record = session_wire(session, &held);
+        if session.origin == "terminal" {
+            record.terminal = self.hosts().terminals().facts_of(&session.id);
+        }
         if session.origin == "bridge" {
             record.hosted = self
                 .hosted_facts(store, &session.id)
@@ -264,6 +267,22 @@ where
                 };
                 changed |= figures != session.figures;
                 session.figures = figures;
+            }
+            SessionFact::Tuned {
+                model,
+                effort,
+                mode,
+                commands,
+            } => {
+                changed |= self.hosts().terminals().tuned(
+                    &id,
+                    ipc::TerminalFacts {
+                        model,
+                        effort,
+                        mode,
+                        commands,
+                    },
+                );
             }
             SessionFact::TurnCompleted => {
                 session.last_turn_at = Some(now.clone());
@@ -449,5 +468,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         },
         attachments: held.iter().map(attachment_wire).collect(),
         hosted: None,
+        terminal: None,
     }
 }

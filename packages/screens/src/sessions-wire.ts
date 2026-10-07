@@ -257,6 +257,10 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
 /** A session, whole. `rows` are the thread where it was opened and none where it was not. */
 export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside): Session {
   const hosted = record.hosted;
+  const terminal = record.terminal;
+  const model = hosted?.model ?? terminal?.model;
+  const effort = hosted?.effort ?? terminal?.effort;
+  const mode = hosted?.mode ?? terminal?.mode;
   const attachments = attachmentsOfRecord(record, beside);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
   return {
@@ -275,9 +279,10 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, "") }),
     ...(hosted?.asked === undefined ? {} : { asked: askOf(hosted.asked) }),
     pendingTags: beside.pending,
-    ...(hosted?.model === undefined ? {} : { model: hosted.model }),
-    ...(hosted?.effort === undefined ? {} : { effort: hosted.effort }),
-    ...(hosted === undefined ? {} : { mode: hosted.mode }),
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+    ...(mode === undefined ? {} : { mode }),
+    ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
   };
 }
 
