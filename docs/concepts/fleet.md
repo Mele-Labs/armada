@@ -389,6 +389,23 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default. `ThrottleInterval` 2 brings that to 2.6 s.
 
+### Self-healing
+
+**A Job held up by its own worktree or environment is repaired by a Drone before a person is asked.** Two faults held Job 13 on 7 Oct 2026, and in both nothing was wrong with the work: a Drone is not allowed the commands that would put it right, and a person ran them by hand.
+
+| Found | Where | What the repair Drone is granted |
+|---|---|---|
+| The index holds a path as unmerged and its file carries no conflict marker — resolved, never staged, so the diff shows a mode change at most | Before a Drone is put on a worktree, and before the gate reads the diff. A path the catch-up has just reported conflicted is that Drone's work and is left alone | `git add`, `git rm`, `git restore`, and reading |
+| A failed Check printed that an install never finished (`failed to install correctly`) | After the gate's Checks, before the ruling is acted on | The repository's own declared bootstrap command, and reading. It is told to run it again with its forced-reinstall flag |
+
+**One mechanism.** A finding names what is wrong, a repair Drone is started on the worktree with a toolbelt of exactly that repair (`Grant::RepairTheWorktree`), and the Job carries on from where it was: the Drone about to be put on is put on, or the gate runs again. It holds no slot, takes no place under the concurrency cap and spends no retry. It runs inside the turn that found the fault, for at most one Check's budget, and what it last said is a line in the Job's log. No grant commits, resets, checks out or pushes: Fleet commits, and the deny that stops every other Drone staging is lifted only for a launch carrying the index repair.
+
+**Fleet decides whether it worked.** The index is read again. The install is answered by the Check that named it, run again by the gate. What the Drone says is a signal.
+
+**Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
+
+**Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
+
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,

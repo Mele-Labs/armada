@@ -416,6 +416,7 @@ where
             peering: Mutex::new(crate::peers::Peering::default()),
             proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
+            heals: std::sync::Mutex::default(),
             pressing: crate::showing_again::Pressing::default(),
             rechecking: crate::rechecking::Rechecking::default(),
             lines: crate::taking_turns::Lines::default(),
