@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CircleDashed, CircleDot, Eye, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Eye, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -12,17 +12,18 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * A Session open, in the glass panel a Job's detail and Overview's panels are
  * (`Card` on the canvas). **The state is one registry mark in the header with
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
- * working is a Drone running, waiting is a Job at review, and failing is a
+ * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, and failing is a
  * pull request's Checks red. `[conventions.session_state_borrowing]` in
  * `packages/icons/icons/` lends them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
   working: CircleDot,
   waiting: Eye,
   failing: ShieldX,
+  idle: Check,
 };
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */

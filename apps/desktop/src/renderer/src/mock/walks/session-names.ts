@@ -1,6 +1,6 @@
 // The Sessions list with the name over its ledger, and Sessions renamed from their headers, one of them untitled.
 // Over the `session-names` scenario, which holds two terminal Sessions beside the usual ones:
-// one whose first prompt opened with an agent message, and one holding six pull requests.
+// one whose first prompt opened with an agent message, and one holding fourteen pull requests, four of them merged.
 // Told twice: wide, and below the breakpoint.
 
 import { button, inside, region, role, walk } from "../walk";
@@ -12,16 +12,11 @@ function steps(narrow: boolean): Step[] {
   const sessions = region("Sessions");
   const frame = region("Session s5");
   return [
-    { look: inside(sessions, role("listitem", "Retire the sleeps")), say: "The name is its own line. Six pull requests wrap on the line under it, and the time is how long ago the last turn was" },
-    { look: inside(sessions, role("listitem", "Review the ledger change")), say: "This one opened with an agent message, and shows the first line of what was said" },
+    { look: inside(sessions, role("listitem", "Retire the sleeps")), say: "Fourteen pull requests, four of them merged. The row shows only the open ones, the newest that fit on one line, then a … holding the rest. The time is at the top right" },
+    { look: inside(sessions, role("listitem", "Prune the stale branches")), say: "Amber edge: it is asking for a permission. Blue is working, green is idle with nothing asked, dim is not started. The checks icon sits inside the PR chip past a divider, coloured by how they stand, and the chip itself stays neutral" },
+    { look: inside(sessions, role("listitem", "Review the ledger change")), say: "This one opened with an agent message, and shows the first line of what was said. Nothing is open on it, so it has no second line" },
     { press: rail("Sessions"), say: "The Sessions page" },
-    { type: "j", into: sessions, say: "j goes to the next Session down the list and opens it" },
-    { look: region("Session s2"), say: "The first one is open" },
-    { type: "j", into: region("Session s2"), say: "j again" },
-    { type: "j", into: region("Session s3"), say: "And once more" },
-    { type: "k", into: frame, say: "k goes back up" },
-    { look: region("Session s3"), say: "To the one above" },
-    { type: "j", into: region("Session s3"), say: "Down to the Session this walk renames" },
+    { press: inside(sessions, button(/Review the ledger change/)), say: "Open the one from a terminal" },
     { look: frame, say: "The name is in the header" },
     { press: inside(frame, button("Review the ledger change, rename")), say: "A press on the name edits it where it stands" },
     { type: "Ledger review\n", into: inside(frame, role("textbox", "Session name")), say: "Typed, and Enter saves it" },
