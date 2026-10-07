@@ -484,7 +484,7 @@ impl Queries for FakeDaemon {
     /// **Two refusals again, and both are 404s here**: a Job that is not there,
     /// and a call this fake holds no open command for. The second is a 404
     /// rather than the 422 `get_call` answers, because the id is only nameable
-    /// while the command is open — `crates/ipc/operations.toml`. No model is
+    /// while the command is open — `crates/ipc/operations/`. No model is
     /// reached; what the route has to prove is the shape and the two answers.
     async fn explain_command(
         &self,

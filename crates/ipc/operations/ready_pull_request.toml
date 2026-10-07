@@ -1,0 +1,10 @@
+[operations.ready_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person takes a draft pull request out of draft"
+notes = """
+`POST /pull_requests/:repository/:number/ready`. Since 23.48. Answers the pull request as the forge shows it afterwards. **A write to the forge**: it tells everyone watching the repository the work is ready to be read, so Helm asks first (`pushes to shared`), as for `merge_pull_request`.
+
+Refused with a 409 `fleet.pull_request_not_a_draft` where it is open already, a 409 `fleet.merge_not_open` where it is merged or closed, and a 409 `fleet.ready_refused` carrying the forge's own sentence where it would not.
+"""

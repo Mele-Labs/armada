@@ -132,7 +132,7 @@ Each is enforced by `cargo xtask verify-foundations`, not by remembering.
   enter the process. Everywhere else a value arrives typed.
 - No vendor literal outside `adapters`.
 - No design value outside the token set, anywhere under `apps/` or `packages/`.
-- No glyph that is not in `packages/icons/icons.toml`.
+- No glyph that is not in `packages/icons/icons/`.
 - Nothing names a person or a machine, and nothing links to a private workspace.
 - 900 lines refuses a file, 500 asks.
 - Every document is in an index, and every open question is collected.

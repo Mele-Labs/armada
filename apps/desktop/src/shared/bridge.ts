@@ -38,7 +38,7 @@ import type { JobsState } from "./api/jobs";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
 
-export type { Summons } from "./api/core";
+export type { HistoryStep, Summons } from "./api/core";
 
 /**
  * The state with its identity current, which today means Fleet's version.

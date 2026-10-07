@@ -1,0 +1,16 @@
+[operations.act_on_need]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A checkout declares what it needs on a path, says what it took there, or gives the need back, and hears who is ahead"
+notes = """
+`POST /needs`, body `NeedCall`: `act` is `declare`, `took` or `release`, with the `branch` the caller stands on, the repository-relative `path`, and `what` (declare) or `value` (took). `manifest_id` absent is the first repository served. Since 23.46. Answered with `NeedAnswer`. `armada need` is the caller, and it says plainly that Fleet is not running where it is not.
+
+**A need is a row on the session ledger**, `kind` `need`, and it is not exclusive: one holder may wait on a protocol minor and on a second path at once. **Fleet finds who holds it**: the Job whose branch this is, else the session standing on it, else the branch itself, as a holder of `kind` `session` and id `branch:<name>`. `docs/capabilities/needs.md`.
+
+**First to declare goes first.** `declare` answers the standing needs on that path declared before this one, each with its `what` and `took`; declaring again records nothing and says `already`. `took` on a need that was never declared is `fleet.need_not_declared`, a 422. `release` answers `gave_back: false` where the holder had no need there, which is not a refusal.
+
+**A holder that is gone gives its needs back**: a Job spends them where it landed and gives them back where it was dropped, a session ending gives them back, and a need held by a branch alone is given back when that branch no longer exists. Nothing expires by time.
+
+`agent_access` is `No`: a Drone runs `armada need` in its worktree, and its Job's own plan declares through `declare_scope`, so a second door onto the same act would let an agent write a need for a branch that is not its own.
+"""

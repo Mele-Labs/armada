@@ -1,0 +1,10 @@
+[operations.create_studio]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Start a Studio in one repository, named or untitled, and answer with it"
+notes = """
+`?manifest_id=` names the repository. A name is optional, since `docs/concepts/studio.md` has Helm name an untitled Studio; a blank one is no name.
+
+`agent_access` is `Bridge only`: a person opens a Studio, and Helm works on one it is in. #1288 left it there, because `studio.md`'s table of what Helm may do on a Studio names no start of one, asked or not.
+"""

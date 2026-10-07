@@ -120,7 +120,7 @@ export type DeclaredFile = { path: string; touched: boolean };
  *
  * **A declared path may be a directory**, and a file under it counts against
  * it — `declare_scope` takes both, and one real Job declared `crates/ipc`
- * and edited `crates/ipc/operations.toml`. This is `verification::InScope`'s
+ * and edited `crates/ipc/operations/`. This is `verification::InScope`'s
  * rule, read on Bridge's side of the same question.
  *
  * **Neither half is an error.** A declared path nothing touched is often a

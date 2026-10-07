@@ -1,0 +1,12 @@
+[operations."repositories.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The repositories Fleet serves changed, and this is the list now"
+notes = """
+Published when a repository is added by folder, when a clone lands and is added, and when a repository served without a Manifest gains one. It carries `RepositoryList` itself, the answer to `list_repositories`, for `manifest.reread`'s reason: the route and the event are the same fact, and a client replaces its list rather than folding a delta.
+
+Names no Job, no Drone and no step. No actor and no `at`: the add that caused it answered its own caller, and every other Bridge only needs the list.
+
+A resync does not carry it. A client that reconnects asks `list_repositories` again, as it did before this existed.
+"""

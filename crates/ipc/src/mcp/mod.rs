@@ -3,7 +3,7 @@
 //! **A different seam from the rest of this crate.** Everything else here is
 //! the Fleet/Bridge wire, versioned by `protocol-version.toml`. This is the
 //! Fleet/Drone wire, versioned by the MCP revision the client names. So no type
-//! below is in `operations.toml` or in `api`'s `SERVED` table, and none is
+//! below is in `operations/` or in `api`'s `SERVED` table, and none is
 //! subject to the minor/major rules — a Drone is spawned by the Fleet it
 //! reports to and cannot be skewed against it.
 //!

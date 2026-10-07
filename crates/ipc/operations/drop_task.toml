@@ -1,0 +1,16 @@
+[operations.drop_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person drops a task from the Job's plan, with a reason, and answers with the plan it leaves"
+notes = """
+`#897`. `task` and a required `reason` — the same two fields the Drone-facing `update_task` MCP tool takes for a drop. The change is kept under `store::PlanHand::Person`.
+
+**Refused by name.** A 422 where the plan holds no such task (`fleet.no_such_task`) or none was ever recorded (`fleet.no_plan`); a 422 where the reason is blank, `redirect_drone`'s reuse of a value that cannot work; a 409 where the task is already `done` or already `dropped` (`fleet.task_already_settled`) — a person's drop is not repeating a decision already made, where a Drone's own retry of `update_task` may.
+
+**Reopening is not this.** `docs/concepts/job.md`'s decision stands: a dropped task stays dropped for a Drone, and only a person's add brings the work back, as a new task. This route never un-drops one.
+
+Delivery and the event are `add_task`'s.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""

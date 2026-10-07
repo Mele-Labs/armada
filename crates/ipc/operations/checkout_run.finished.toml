@@ -1,0 +1,10 @@
+[operations."checkout_run.finished"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A run in the main checkout ended: its record, with exit code, duration and what it changed"
+notes = """
+`run.finished` for the other owner, and a kind of its own because the record is a different shape. It carries `CheckoutRunRecord`, which names no Job — so a reader folding `run.finished` by its `job_id` is never handed one that has none, which is the whole reason the two are not one kind.
+
+Published after the record is written, `run.finished`'s reason. It is what makes the Manifest surface and the Job's run sheet the same surface to write against: both learn a run ended from this stream carrying the result, rather than one of them re-fetching after a socket closed.
+"""

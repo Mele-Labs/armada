@@ -1,0 +1,7 @@
+[icons.git-branch-minus]
+  means = "A branch with a minus - delete the branch a Job left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Delete branch, the act in a tile's panel on an unmerged branch left behind. Never a branch on a Studio or an issue."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. The branch glyph the set already uses for a branch, with the one stroke that says it goes. Refused: `trash-2`, Remove's."

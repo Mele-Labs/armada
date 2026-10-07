@@ -1,0 +1,10 @@
+[operations."studio.helm_acted"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Helm took one act on a Studio: added a node, proposed an edge or named it"
+notes = """
+**Helm's act, as its own event type** — `docs/concepts/helm.md`, *Audit trail* (#1288). Published after the `studio.changed` the same write publishes, and only where the door placed the call in a Helm session; a person's act on a Studio publishes `studio.changed` alone. So a reader tells the two apart by kind, never by a field on the Studio.
+
+`act` names which, with the id of what was added or the name given. The Studio itself is `studio.changed`'s to carry. **The stream is for a client that is connected**; who acted is also kept on the record, as `added_by` and `named_by` on `get_studio`, so a client that reconnects reads it there. `manifest_id` is at the top level, so a poll's tally names the repository.
+"""

@@ -1,7 +1,7 @@
 //! The agent's door: the HTTP surface, spoken as MCP.
 //!
 //! **A second path on the listener, not a second surface.** Every tool below
-//! is one row of `operations.toml` reached at the route `api` already serves,
+//! is one row of `operations/` reached at the route `api` already serves,
 //! so nothing here answers a question the HTTP surface does not.
 //!
 //! The tool set is [`REACHABLE`], emitted by `build.rs` from the inventory's

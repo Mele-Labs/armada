@@ -120,7 +120,7 @@ is said and not worked around. Which of the door's tools it may
 act through. What it may act through is one predicate, `fleet::helm::may`, and
 the brief states the rule it draws from `may` — every act but `undo_run`, once
 asked — rather than this page restating it. The inventory under both is the
-`agent_access` column in `crates/ipc/operations.toml`, and this page
+`agent_access` column in `crates/ipc/operations/`, and this page
 does not count it: it held a count once, the count was wrong in both halves,
 and a number here is a second copy that drifts. The selected Manifest, named
 rather than quoted. Its resolved authority, a Machine setting between acting

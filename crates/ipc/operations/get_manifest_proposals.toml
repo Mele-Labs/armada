@@ -1,0 +1,16 @@
+[operations.get_manifest_proposals]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Proposal: a possible armada.yml per workspace Scan finds, every line citing the file it came from or reading convention"
+notes = """
+The step after Scan, for a repository with no `armada.yml` — `docs/journeys/set-up-a-project-manifest.md`, *The proposal sheet*. Each proposal carries its lines, where each came from, and `text`: the file Write would put down, built from empty text by `config`'s writer (#721), the one writer of `armada.yml`. Where that file would not load, `refused` carries every fault at its key instead.
+
+**Provenance is a record, not a value.** A port a file declares reads `read`; every script reads `convention`, because nothing proves a script gates code, so which registry it landed in is a guess. Policy rows read `default`: `auto_merge` and `review_gate` are Manifest-only, so there is no Kit or Machine value to show, and a default row is an absent key. The budget caps cross as `caps`, stated and never written.
+
+**`present` says an `armada.yml` is already at the path**, so a surface reads that workspace as set up rather than offering a Write that 409s.
+
+**Held in Fleet's memory for the Fleet's life, never stored.** The first read of a workspace builds its proposal and later reads return it with every edit applied; a restart loses the edits and costs one Scan. Served against the checkout Fleet was started in until Locate (#821).
+
+`agent_access` is `No`, as for every operation derived from the main checkout, Scan included. Helm will need this read and a draft-shaped edit, at *Drafts only*, and never Write.
+"""

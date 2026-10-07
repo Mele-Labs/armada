@@ -9,7 +9,7 @@
 //! long as the app takes to start. [`show_again`](Fleet::show_again) spawns the
 //! run on the `Arc` the listener holds and takes no slot lock; the request
 //! waits for the task, and a client that stops waiting does not stop the run.
-//! The shape this rejected is in `show_again`'s row in `operations.toml`.
+//! The shape this rejected is in `show_again`'s row in `operations/`.
 //!
 //! **A set of its own, beside the step's.** Rows go to `job_shown_again` under
 //! a press number, and `kept` is handed `<step>.again<press>` so the copies

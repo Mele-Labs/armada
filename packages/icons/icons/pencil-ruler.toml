@@ -1,0 +1,7 @@
+[icons.pencil-ruler]
+  means = "A pencil crossed with a ruler - drawing a diagram"
+  group = "Action"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "Drawing a sketch for a Session's message, and a Session's own sketch rows. Never placing a Sketch node on a whiteboard, which is `shapes`, and never freehand, which is `pencil`."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. `shapes` is reserved to placing a Sketch node on a Studio's whiteboard, and `pencil` is freehand; this act opens the same pad Dispatch draws on, in a sheet, so it needed a glyph that says drawing a diagram and neither of those."

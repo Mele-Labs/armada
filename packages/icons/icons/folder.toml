@@ -1,0 +1,5 @@
+[icons.folder]
+  means = "workspace"
+  group = "Git and config"
+  size = "12px"
+  status = "Specified"

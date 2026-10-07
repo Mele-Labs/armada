@@ -259,7 +259,7 @@ const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 /// **Why the rule yields to these, and only these.** A glyph's component name
 /// is its icon library's, not ours: `FolderGit2` is the drawing of a folder with
 /// a branch, and a vendor literal inside it says nothing about whose API the
-/// code talks to. The registry (`packages/icons/icons.toml`) already decides
+/// code talks to. The registry (`packages/icons/icons/`) already decides
 /// which of those names may be imported. The exemption is the imported
 /// identifiers and nothing else, so `git2` written anywhere else in the same
 /// file still fails.

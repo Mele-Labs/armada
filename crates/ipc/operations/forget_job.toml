@@ -1,0 +1,28 @@
+[operations.forget_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Deletes a terminal Job's whole record"
+notes = """
+Real deletion, and the only operation on this seam that is: every other act
+moves a Job to a further status, and this removes the row and everything
+beneath it through `Store::forget_job`. Refused on a Job that is not yet
+terminal — there is no record to erase while a Drone might still write to it,
+only a status to move, and `kill_job` is the act that ends one still in
+flight.
+
+Not on the Intervention Ladder, for `kill_job`'s reason: it is destructive
+rather than an act on a Drone, and `agent_access` on a command is the ladder
+rung.
+
+**It does not reclaim the worktree or the branch.** `armada clean` already
+owns that, on its own retention schedule and driven by disk rather than by a
+person clearing a Board — folding it in here would give one call two
+unrelated things to fail at, and a person deleting a finished Job's record
+should not also have to think about a directory.
+
+**It does give a pool slot the Job still holds back**, by the pool's rules,
+before the record goes: a lease held for a Job nobody can name again would
+never be given back. A completed Job holds its slot until this or
+`reclaim_worktree`.
+"""

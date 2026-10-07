@@ -22,7 +22,7 @@ import type { CaseRunOutcome, CaseState } from "./cases";
  * A draft word, shaped exactly like a generated `Rendering` minus its glyph.
  *
  * **No icon.** `docs/contracts/iconography.md` defaults to none, and only
- * glyphs in `packages/icons/icons.toml` may be drawn — picking one for a value
+ * glyphs in `packages/icons/icons/` may be drawn — picking one for a value
  * that has no registry row would be minting vocabulary in the place this file
  * exists to stop.
  */

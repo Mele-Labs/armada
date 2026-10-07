@@ -64,7 +64,7 @@ const OUT_ACTIONS = join(repo, "packages", "components", "src", "generated", "ac
 //
 // `criterion_verdict_check` is here for one variant. The rail says `not reached`
 // beside a declared Check the gate has not run, and `check_outcome` has no such
-// row — its five are what a Check that *ran* did. `icons.toml` already calls
+// row — its five are what a Check that *ran* did. `icons/` already calls
 // "not reached" a Check state and reserves `shield-minus` to it, so the word and
 // the glyph are the registry's. Reported: the variant belongs under
 // `check_outcome` too.
@@ -129,7 +129,7 @@ const WANTED = [
 // `queued_reason.waiting_on_resources` on a Board row. Its rows carry a
 // verb and a token and no glyph, so all of them land in `GAPS` as missing one —
 // which is accurate: the status bar carries no icons, and `cpu` is reserved to
-// `queued_reason` in `packages/icons/icons.toml`. Nothing renders a glyph for
+// `queued_reason` in `packages/icons/icons/`. Nothing renders a glyph for
 // these today and nothing should invent one. It is the one table whose rows
 // also carry `hint`: the verb alone names which of the four is held and gives
 // no reasoning, and a tooltip on the status bar's held-reason item reads the
@@ -153,7 +153,7 @@ const WANTED = [
 
 // A glyph the registry names and this lucide-react version does not export.
 // Carried as data rather than fixed by a rename, because the rename is the
-// registry's to make: `packages/icons/icons.toml` decides what a glyph means,
+// registry's to make: `packages/icons/icons/` decides what a glyph means,
 // and a generator quietly substituting a different export would be deciding it
 // here instead. The variant renders without a glyph and is counted in `GAPS`.
 const NOT_EXPORTED = new Set(["file-question"]);
@@ -528,7 +528,7 @@ const vocabularyModule = lines.join("\n");
 //
 // **This generator validates and does not decide.** `xtask/src/rules_actions.rs`
 // is the gate on the registry itself — it holds the glyph column to
-// `packages/icons/icons.toml`, the whole map to the contract's key blocks, and
+// `packages/icons/icons/`, the whole map to the contract's key blocks, and
 // the safety rules to the QWERTY layout. What is checked here is narrower and
 // is the emitter's own business: that a row says something this script can turn
 // into TypeScript without guessing. A row it cannot read stops the build rather
@@ -583,7 +583,7 @@ for (const [header, table] of tables(readFileSync(ACTS, "utf8"), "actions.toml")
   // has none, and drawing the row with no glyph would silently contradict a
   // registry that says it has one.
   if (icon !== "" && NOT_EXPORTED.has(icon)) {
-    throw new Error(`${where} — icon "${icon}" is in icons.toml and lucide-react does not export it`);
+    throw new Error(`${where} — icon "${icon}" is in the icon registry and lucide-react does not export it`);
   }
   // `unbuilt` is an issue reference and nothing else — the same rule
   // `rules_actions.rs` applies, restated because what is emitted is a number.
@@ -639,7 +639,7 @@ actLines.push("// completeness and filtered out by anything that draws a list of
 actLines.push("//");
 actLines.push("// **A blank glyph is a fact, not a default.** `iconAbsent` says which kind of");
 actLines.push("// blank it is: `undecided` means no registered silhouette means the act and");
-actLines.push("// assigning one is a decision for `packages/icons/icons.toml`; `by design`");
+actLines.push("// assigning one is a decision for `packages/icons/icons/`; `by design`");
 actLines.push("// means a document decided the act carries none. A surface says which it is");
 actLines.push("// drawing rather than inventing a glyph to fill the column.");
 actLines.push("//");

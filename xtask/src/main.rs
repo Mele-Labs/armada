@@ -143,7 +143,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads,
     rules_stylesheets::claims::no_two_compositions_claim_one_class,
     rules_tests::every_test_file_is_declared,
-    rules_list_files::a_list_file_holds_only_entries,
+    rules_list_files::a_list_is_a_directory_of_entries,
     rules_transcripts::no_bare_transcript_read_in_a_test,
     rules_protocol::the_router_serves_what_the_inventory_names,
     rules_protocol::unserved::every_operation_the_inventory_names_is_served,
@@ -361,6 +361,31 @@ pub fn files_with_ext(root: &Path, dir: &Path, exts: &[&str]) -> BTreeSet<String
         }
     });
     found
+}
+
+/// A list kept as a directory, read as the one text its parsers expect: every
+/// `.toml` directly in each of `dirs`, in name order, each on a line of its own
+/// after a blank one. GitHub merges a pull request without `.gitattributes`, so
+/// an entry is a file and a list is never a line two branches both add to
+/// (`docs/practices/list-files.md`). A parser that splits on `\n[table.` finds
+/// the first table too, which is why the text starts with a newline. An
+/// unreadable directory is an error, so a rule reports the list missing rather
+/// than empty.
+pub fn read_entry_dirs(root: &Path, dirs: &[&str]) -> std::io::Result<String> {
+    let mut text = String::from("\n");
+    for dir in dirs {
+        let mut names: Vec<PathBuf> = fs::read_dir(root.join(dir))?
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+            .collect();
+        names.sort();
+        for path in names {
+            text.push_str(fs::read_to_string(&path)?.trim_end());
+            text.push_str("\n\n");
+        }
+    }
+    Ok(text)
 }
 
 /// Depth-first walk. Skips build output and dot-directories, which are not the

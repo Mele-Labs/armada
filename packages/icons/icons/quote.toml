@@ -1,0 +1,7 @@
+[icons.quote]
+  means = "A pair of opening quotation marks"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "A criterion whose words came from the request a person typed at dispatch, on its origin line only. Never a citation of an issue or a document, never Helm's words, and never a Drone's or a Judge's text."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`text-cursor-input` and `text-quote` refused). Your own words, quoted back to you. Two filled-weight marks with no interior detail, so it is the heaviest small silhouette of the three and holds at 12px; nothing else in the set is drawn as punctuation. It draws in `--fg-muted` on a `--fg-subtle` line (rule 6), and its tooltip names it. A criterion's origin is a different field from its verification source and its actor, which stay words: `docs/contracts/iconography.md`, Where the answer is no icon."

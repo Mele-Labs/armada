@@ -1,0 +1,12 @@
+[operations.get_workflow]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One workflow definition as its file holds it, for an editor, from any of the three places"
+notes = """
+`GET /workflows/definition?workflow_id=&source=&manifest_id=`, protocol 23.33. The answer is a `WorkflowDefinition`: the id, the place (`armada`, `kit` or `repository`), the file as Fleet read it, `definition` and `overridden_by`. **`definition` is the file's text and not a tree**, the shape `save_workflow` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
+
+`source` is optional. Absent is the definition that runs; present reads one a more specific place replaced, which `list_workflows` names on the winner's `overrides`. A definition left out is not here: it is on `list_left_out_workflows` with its reason, and a file that did not parse has no id to ask for. 422 `fleet.no_such_workflow_definition` where Fleet holds none by that id and place. Per repository, by `?manifest_id=`, the one Fleet started in where absent.
+
+`agent_access` is `Yes` on `list_workflows`' terms: Helm helping to edit a workflow reads the file it is editing.
+"""

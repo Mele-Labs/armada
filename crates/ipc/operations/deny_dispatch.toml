@@ -1,0 +1,10 @@
+[operations.deny_dispatch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Rejects a dispatch, feeds pattern learning"
+notes = """
+Moot for now: nothing serves this row (`xtask`'s `NOT_BUILT` names why), so
+`agent_access` moving to `Helm only` with the rest of this ruling changes
+nothing until somebody builds it.
+"""

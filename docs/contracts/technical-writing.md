@@ -68,7 +68,7 @@ loss it is meant to prevent.
 
 **Prose in a data file is governed too.** A `notes` key in
 `crates/core-model/domain/`, `crates/config/settings.toml` or
-`packages/icons/icons.toml` is a document in a field, and the same rules apply
+`packages/icons/icons/` is a document in a field, and the same rules apply
 to it — one mode, no decision history, no date stamps, a table when it grows.
 
 **`docs/instructions/` is not exempt.** A file there is pasted into the desktop

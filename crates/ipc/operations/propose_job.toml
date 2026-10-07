@@ -1,0 +1,10 @@
+[operations.propose_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Drafts only"
+description = "Drafts a Job onto the approval gate"
+notes = """
+The gate is unchanged.
+
+`continue_from` (since 23.30) is optional: a branch the Job's worktree is cut from in place of the base, kept as the proposal's landing `from_ref`. The approval shows it, and refuses it there unless the repository holds the branch. Blank or absent is a proposal as before.
+"""

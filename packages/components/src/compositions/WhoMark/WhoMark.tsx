@@ -10,7 +10,7 @@ export type Who = "drone" | "owner" | "fleet";
  *
  * **A mark rather than a word** (the owner's standing rule, 2 Oct 2026): a
  * bare glyph carries a tooltip naming it and nothing else. Each glyph is a
- * `usage` row in `packages/icons/icons.toml` — `bot` a Drone, `user-check` the
+ * `usage` row in `packages/icons/icons/` — `bot` a Drone, `user-check` the
  * person, `server` Fleet, the last Proposed.
  */
 export function WhoMark({ who }: { who: Who }) {

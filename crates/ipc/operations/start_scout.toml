@@ -1,0 +1,10 @@
+[operations.start_scout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Start a scout on a Proposed Finding already on a Studio, and answer with the Studio"
+notes = """
+**What Helm calls once a person asks it to find something out.** Helm may add a Proposed Finding unasked (`add_studio_node`), and spends nothing by doing so; starting its scout spends, so it is on a person's ask like every other act Helm takes. A person on Bridge starts a proposed one through the same route.
+
+A Finding that is not Proposed is refused as `fleet.scout_not_proposed`, checked again under the lock the start is written under, so two starts of one Finding cannot both run. A node that is not a Finding is `fleet.scout_not_a_finding`. Otherwise as `ask_scout`.
+"""

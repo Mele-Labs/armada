@@ -68,7 +68,7 @@ import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
-import { useTrail } from "./trail";
+import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
 import { jobOf } from "./retro";
 import { OPEN_JOB_ATTRIBUTE } from "./open-job";
@@ -89,7 +89,7 @@ export { DETAIL_TABS, TAB_LABEL } from "./detail-tabs";
  * configuring, not the file the type sits in.
  */
 export type { JobDetailProps, JobOpening } from "./detail-props";
-import type { JobDetailProps } from "./detail-props";
+import type { JobDetailProps, JobOpening } from "./detail-props";
 
 /**
  * The screen, **remounted for every Job it is handed.** Everything below holds
@@ -126,7 +126,7 @@ function OneJob(props: JobDetailProps) {
   // there. Cleared by the strip in the same way.
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
   const [opensDrone, setOpensDrone] = useState<string | undefined>(opened?.task === undefined ? opened?.drone : undefined);
-  const [opensRow, setOpensRow] = useState<string | undefined>(undefined);
+  const [opensRow, setOpensRow] = useState<string | undefined>(opened?.row);
   // The way back across a jump between destinations — `trail.ts`.
   const trail = useTrail((to) => {
     setOpensTask(to.tab === "plan" || to.tab === "overview" ? to.open?.id : undefined);
@@ -137,11 +137,51 @@ function OneJob(props: JobDetailProps) {
     setOpensCheck(undefined);
     setTab(to.tab);
   });
-  // Tells the caller where this is, and moves to the tab a later `opening` names.
-  useEffect(() => props.onTab?.(tab), [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Tells the caller where this is — the tab and what is open in it — and
+  // moves to the place a later `opening` names. Each tab already says what is
+  // open in it for the trail, so this listens on the same call: `here`.
+  // **One report per place**: a tab's own report lands before this effect's,
+  // and the same place twice is dropped, so switching tabs is one visit.
+  const [landed, setLanded] = useState(0);
+  const told = useRef<{ tab: DetailTab; item: string | null } | null>(null);
+  const openIn = useRef<{ tab: DetailTab; item: string | null } | null>(null);
+  const tell = (at: DetailTab, item: string | null) => {
+    if (told.current?.tab === at && told.current.item === item) return;
+    told.current = { tab: at, item };
+    props.onWhere?.(at, item);
+  };
+  const here = (at: DetailTab): TrailProps => {
+    const of = trail.of(at);
+    return {
+      ...of,
+      onHere: (open) => {
+        of.onHere(open);
+        openIn.current = { tab: at, item: open === null ? null : open.id };
+        tell(at, open === null ? null : open.id);
+      },
+    };
+  };
+  useEffect(() => tell(tab, openIn.current?.tab === tab ? openIn.current.item : null), [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const arrived = useRef(opened);
   useEffect(() => {
-    if (opened?.tab !== undefined && opened.tab !== tab) toTab(opened.tab);
+    if (opened === arrived.current) return;
+    arrived.current = opened;
+    if (opened?.tab !== undefined) land(opened.tab, opened);
   }, [opened]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A restored place: its tab with its item open, the tab drawn afresh so a
+  // selection already on show is replaced rather than left.
+  const land = (next: DetailTab, to: JobOpening) => {
+    trail.clear();
+    setOpensTask(next === "plan" || next === "overview" ? to.task : undefined);
+    setOpensGroup(undefined);
+    setOpensDrone(next === "drones" ? to.drone : undefined);
+    setOpensRow(next === "record" ? to.row : undefined);
+    setOpensStep(next === "workflow" ? to.step : undefined);
+    setOpensCheck(undefined);
+    openIn.current = null;
+    setLanded((n) => n + 1);
+    setTab(next);
+  };
   const toTab = (next: DetailTab) => {
     trail.clear();
     setOpensRow(undefined);
@@ -387,7 +427,7 @@ function OneJob(props: JobDetailProps) {
         // with the wave outside the board's own scroller, the graph took the
         // height and the board was squeezed to nothing — nothing under the
         // wave could be reached.
-        <div className="armada-detail-tab armada-overview-scroll">
+        <div key={landed} className="armada-detail-tab armada-overview-scroll">
         {/* The wave this Job dispatched, above the run — what it dispatched is
             the product of an Epic Job, and the run is how it got there. A Job
             that dispatched nothing draws nothing. #1544. A Job pressed opens
@@ -492,12 +532,13 @@ function OneJob(props: JobDetailProps) {
             setOpensDrone(droneId);
             setTab("drones");
           }}
-          trail={trail.of("overview")}
+          trail={here("overview")}
           drones={drones}
         />
         </div>
       ) : tab === "workflow" ? (
         <WorkflowTab
+          key={landed}
           pulse={{ resources: props.resources, examination: props.examination, onNeedPulse: props.onNeedPulse }}
           job={job}
           whole={whole}
@@ -540,10 +581,11 @@ function OneJob(props: JobDetailProps) {
             setTab("drones");
           }}
           {...(opensStep === undefined ? {} : { opensStep })}
-          trail={trail.of("workflow")}
+          trail={here("workflow")}
         />
       ) : tab === "plan" ? (
         <PlanTab
+          key={landed}
           job={job}
           whole={whole}
           reading={unread !== undefined}
@@ -582,7 +624,7 @@ function OneJob(props: JobDetailProps) {
             setTab("drones");
           }}
           onOpenCheckLog={setCheckLog}
-          trail={trail.of("plan")}
+          trail={here("plan")}
         />
       ) : tab === "settings" ? (
         <SettingsTab
@@ -615,7 +657,7 @@ function OneJob(props: JobDetailProps) {
         />
       ) : tab === "record" ? (
         <RecordTab
-          key={recordVisit}
+          key={`${recordVisit}.${landed}`}
           {...recordOf(props, whole)}
           reading={unread !== undefined}
           jobId={job.id}
@@ -635,7 +677,7 @@ function OneJob(props: JobDetailProps) {
           {...(opensCheck === undefined ? {} : { opensCheck })}
           {...(opensRow === undefined ? {} : { opensRow })}
           onOpenRetro={() => setRetroOpen(true)}
-          trail={trail.of("record")}
+          trail={here("record")}
         />
       ) : tab === "checks" ? (
         props.checks === undefined ? null : (
@@ -667,6 +709,7 @@ function OneJob(props: JobDetailProps) {
         )
       ) : tab === "drones" ? (
         <DronesTab
+          key={landed}
           job={job}
           whole={whole}
           reading={unread !== undefined}
@@ -693,7 +736,7 @@ function OneJob(props: JobDetailProps) {
             setTab("plan");
           }}
           {...(opensDrone === undefined ? {} : { opensDrone })}
-          trail={trail.of("drones")}
+          trail={here("drones")}
         />
       ) : (
         <PulseTab

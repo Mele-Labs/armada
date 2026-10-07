@@ -1,0 +1,6 @@
+[icons.waypoints]
+  means = "the graph view toggle"
+  group = "Graph"
+  size = "16px"
+  status = "Specified"
+  notes = "Nodes inside the graph reuse the badge icons at 12px — a graph node and a Job Board row showing the same job must show the same glyph."

@@ -1,0 +1,8 @@
+[operations.propose_studio_edge]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Propose a Same as, Blocks or Answers edge between two nodes on one Studio, and answer with the Studio"
+notes = """
+**Lands `proposed`, whoever sends it**, and only a person accepts it. `produced` does not decode here: the Studio draws that edge itself. An edge to a node on another Studio is refused as `fleet.no_such_studio_node`, and the same relation twice as `fleet.studio_edge_exists`. From Helm it also publishes `studio.helm_acted`.
+"""

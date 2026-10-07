@@ -1,0 +1,10 @@
+[operations.restart_fleet]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Restarts the daemon"
+notes = """
+An API command, not a recovery path. It cannot serve the case it is named for — a dead Fleet cannot restart itself, and that path is Bridge calling `launchctl kickstart -k` directly. It exists for the reachable case: Fleet is alive and answering, and something wants a clean restart.
+
+Moot for now: nothing serves this row (`xtask`'s `NOT_BUILT` names why), so `agent_access` moving to `Helm only` with the rest of this ruling changes nothing until somebody builds it.
+"""

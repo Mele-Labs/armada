@@ -1,0 +1,10 @@
+[operations."server.serving"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A server's `ready` passed, or it started with no `ready` to wait for: its links are live"
+notes = """
+`serving_since` is what uptime counts from; nothing ticks on the wire.
+
+**Published again while it serves, whenever the row changed.** A merge that brings the main checkout forward moves `checkout.behind` on every server held over it, and the whole row goes out under this kind — a reader replaces a row rather than patching it, so there is nothing new to learn. Nothing is restarted: telling somebody what they are looking at is behind is the floor, and pressing is theirs. `#1564`.
+"""
