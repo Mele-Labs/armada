@@ -66,6 +66,7 @@ impl Rig {
             cwd: self.root.clone(),
             title: None,
             origin: SessionOrigin::Terminal,
+            mod_version: None,
         })
         .await;
         self.reports(SessionFact::Titled {
