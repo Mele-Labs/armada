@@ -100,7 +100,7 @@ fn a_row_v87_wrote_reads_decided() {
     let dir = TempDir::new();
     let conn = Connection::open(dir.db()).expect("a file");
     for migration in &MIGRATIONS[..87] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute_batch(&format!(
         "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '87');

@@ -473,6 +473,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // in. Everything above this line refuses without having taken anything.
     std::fs::create_dir_all(&machine)?;
     let mut store = Store::open(&machine.join(STORE_FILE))?;
+    if !store.unknown_migrations().is_empty() {
+        println!(
+            "the database has migrations this build does not know, all additive, so it is opened: {}",
+            store.unknown_migrations().join(", ")
+        );
+    }
 
     // One range for every claim on this machine — a Job's span, the main
     // checkout's, and this one. Its ceiling is detected from the platform's

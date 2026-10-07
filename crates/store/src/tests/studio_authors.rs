@@ -123,7 +123,7 @@ fn a_studio_from_before_the_authors_were_kept_reads_back_unrecorded() {
     let dir = TempDir::new();
     let conn = Connection::open(dir.db()).expect("a file");
     for migration in &MIGRATIONS[..77] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute_batch(&format!(
         "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '77');

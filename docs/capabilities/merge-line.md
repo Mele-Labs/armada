@@ -57,7 +57,7 @@ to run it is `docs/practices/running-locally.md`, *Landing a branch*.
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
-| A branch that appends a migration or changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
+| A branch that changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
 ## One turn
 
@@ -261,8 +261,9 @@ merge main in -> seed (cp -c) -> regenerate -> verify-foundations -> setup, if i
 
 ## Needs: numbers land in the order they were declared
 
-Two branches that each add a migration pick the same number, and whichever lands
-second renumbers. `armada need <path> "<what>"` (#1059,
+Two branches that each took the same protocol minor, and whichever landed
+second renumbered. (A migration no longer takes a number: it has a name,
+`docs/practices/store-migrations.md`.) `armada need <path> "<what>"` (#1059,
 `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
 the number is chosen. Each need is a file under `armada-needs/` in the git common
 directory, with its branch, path, what was said, what the branch took, and when.
@@ -284,11 +285,10 @@ directory, with its branch, path, what was said, what the branch took, and when.
 - **A number taken with no need is refused** (6 Oct 2026: a branch took 23.34 and
   23.35 undeclared and the branch that held them renumbered). `armada land
   preflight`, and Fleet's press to merge, refuse a branch whose diff from the
-  base appends an entry to `MIGRATIONS` or changes `minor` in
-  `protocol-version.toml` while no need stands for that branch on that path. The
+  base changes `minor` in `protocol-version.toml` while no need stands for that
+  branch on that path. The
   answer names `armada need <path> "<what>"` and both paths, and the branch keeps
-  its place: declare, then land again. An appended migration is read from the
-  list's entries, not a name pattern; a minor change is the two parsed values
+  its place: declare, then land again. A minor change is the two parsed values
   differing, and a `major` change passes, being hand-made and outside needs. The
   watched paths are `WATCHED` in `crates/adapters/src/undeclared.rs`, the one
   place another repository would name its own. Fleet answers with

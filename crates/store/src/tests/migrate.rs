@@ -27,7 +27,7 @@ use crate::{Moved, PortClaim, PortClaimant, RowError, Store, KNOWN_SCHEMA_VERSIO
 /// A file at version 1, with `ids` Jobs on it and no title column anywhere.
 fn version_one(dir: &TempDir, ids: &[&str]) {
     let conn = Connection::open(dir.db()).expect("a file to put version 1 in");
-    conn.execute_batch(MIGRATIONS[0])
+    conn.execute_batch(MIGRATIONS[0].sql)
         .expect("the first migration is the whole of version 1");
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '1')",
@@ -246,15 +246,16 @@ fn titles(store: &Store) -> Vec<String> {
     rows.map(|title| title.expect("a title")).collect()
 }
 
+/// How many names the file has applied, as a string so it compares with
+/// [`KNOWN_SCHEMA_VERSION`].
 pub(super) fn recorded_version(store: &Store) -> String {
     store
         .conn
-        .query_row(
-            "SELECT value FROM armada_meta WHERE key = ?1",
-            (SCHEMA_VERSION_KEY,),
-            |row| row.get(0),
-        )
-        .expect("a version")
+        .query_row("SELECT count(*) FROM armada_migrations", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .expect("the applied names")
+        .to_string()
 }
 
 // -------------------------------------------------------------- version three
@@ -263,9 +264,9 @@ pub(super) fn recorded_version(store: &Store) -> String {
 /// row from before there was a second kind of row.
 fn version_two(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 2 in");
-    conn.execute_batch(MIGRATIONS[0])
+    conn.execute_batch(MIGRATIONS[0].sql)
         .expect("the first migration");
-    conn.execute_batch(MIGRATIONS[1])
+    conn.execute_batch(MIGRATIONS[1].sql)
         .expect("the second migration");
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '2')",
@@ -395,7 +396,7 @@ fn row_digest(dir: &TempDir) -> String {
 fn version_four(dir: &TempDir, ran: &str, never_ran: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 4 in");
     for migration in &MIGRATIONS[..4] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '4')",
@@ -466,7 +467,7 @@ fn branch_of(store: &Store, job_id: &str) -> Option<String> {
 fn version_twelve(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 12 in");
     for migration in &MIGRATIONS[..12] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '12')",
@@ -565,7 +566,7 @@ fn an_attempt_of_zero_is_refused_by_the_database_itself() {
 fn version_eighteen(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 18 in");
     for migration in &MIGRATIONS[..18] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '18')",
@@ -696,7 +697,7 @@ fn version_nineteen_puts_the_append_only_trigger_back() {
 fn version_twenty_four(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 24 in");
     for migration in &MIGRATIONS[..24] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '24')",
@@ -788,7 +789,7 @@ fn version_twenty_five_refuses_half_a_count() {
 fn version_forty_four(dir: &TempDir) {
     let conn = Connection::open(dir.db()).expect("a file to put version 44 in");
     for migration in &MIGRATIONS[..44] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '44')",
@@ -833,7 +834,7 @@ fn a_store_at_version_forty_four_migrates_forward_to_port_claims() {
 fn version_forty_five(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 45 in");
     for migration in &MIGRATIONS[..45] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '45')",

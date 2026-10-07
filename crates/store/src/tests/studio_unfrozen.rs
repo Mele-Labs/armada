@@ -15,7 +15,7 @@ const AT: &str = "2026-10-01T09:00:00.000Z";
 fn a_v85_file(dir: &TempDir) {
     let conn = Connection::open(dir.db()).expect("a file");
     for migration in &MIGRATIONS[..85] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute_batch(&format!(
         "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '85');

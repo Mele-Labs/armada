@@ -16,7 +16,8 @@
 //! | `PRAGMA integrity_check` | The pages are damaged. What still parses cannot be trusted either |
 //! | WAL was refused | The mode is part of the durability the rest of the design assumes |
 //! | Tables, but no `armada_meta` | Not an Armada store. Migrating into it would write Jobs into somebody else's file |
-//! | A schema version above this build's | A newer Armada wrote it, and older assumptions would misread it |
+//! | An applied migration this build does not list, and it was breaking | A newer Armada rewrote something this build reads. Additive ones are accepted and logged |
+//! | A numbered version above the 113 the old list held | A file the conversion cannot place |
 //! | `armada_meta` with no readable version | The marker is there and says nothing. Guessing is the failure the version exists to prevent |
 //! | `PRAGMA foreign_key_check` | An event points at a Job that is gone. Part of the authority has already been lost |
 //!
@@ -30,7 +31,9 @@ use std::path::Path;
 use rusqlite::Connection;
 
 use crate::error::{fault, OpenError};
-use crate::migrations::{KNOWN_SCHEMA_VERSION, MIGRATIONS, SCHEMA_VERSION_KEY};
+use crate::migrations::{
+    ensure_applied_table, Migration, LEGACY_COUNT, MIGRATIONS, SCHEMA_VERSION_KEY,
+};
 
 /// The database, open and checked.
 ///
@@ -43,6 +46,7 @@ use crate::migrations::{KNOWN_SCHEMA_VERSION, MIGRATIONS, SCHEMA_VERSION_KEY};
 pub struct Store {
     pub(crate) conn: Connection,
     pub(crate) path: String,
+    unknown_migrations: Vec<String>,
 }
 
 impl Store {
@@ -50,6 +54,12 @@ impl Store {
     /// there, and refusing it if there is something there this build cannot
     /// read.
     pub fn open(path: &Path) -> Result<Store, OpenError> {
+        Self::open_with(path, MIGRATIONS)
+    }
+
+    /// [`open`](Self::open) against a list of its own, which is how the rules
+    /// for names are tried without adding migrations to the real one.
+    pub(crate) fn open_with(path: &Path, list: &[Migration]) -> Result<Store, OpenError> {
         let shown = path.display().to_string();
         let conn = Connection::open(path)
             .map_err(fault("opening the database"))
@@ -61,10 +71,21 @@ impl Store {
             .map_err(fault("turning foreign keys on"))
             .map_err(OpenError::Database)?;
 
-        let mut store = Store { conn, path: shown };
-        store.migrate()?;
+        let mut store = Store {
+            conn,
+            path: shown,
+            unknown_migrations: Vec::new(),
+        };
+        store.migrate(list)?;
         store.no_dangling_references()?;
         Ok(store)
+    }
+
+    /// Migrations the file had applied that this build does not list, all
+    /// additive. Empty unless a newer build opened the file first. The store
+    /// has no log, so the caller says them.
+    pub fn unknown_migrations(&self) -> &[String] {
+        &self.unknown_migrations
     }
 
     /// Where this store is. Carried so that a refusal names the file rather
@@ -73,33 +94,59 @@ impl Store {
         &self.path
     }
 
-    /// Bring the file up to [`KNOWN_SCHEMA_VERSION`], or say why it cannot be.
-    fn migrate(&mut self) -> Result<(), OpenError> {
-        let from = self.schema_version()?;
-        if from > KNOWN_SCHEMA_VERSION {
-            return Err(OpenError::SchemaVersionFromTheFuture {
+    /// Apply, in the list's order, every name this file has not had, or say
+    /// why it cannot be opened. `docs/practices/store-migrations.md`.
+    fn migrate(&mut self, list: &[Migration]) -> Result<(), OpenError> {
+        self.carry_over_a_numbered_file(list)?;
+        let applied = self.applied()?;
+
+        // A name this build does not list was applied by a newer one. Going
+        // back is safe only when every such name was additive.
+        let unknown: Vec<(String, bool)> = applied
+            .iter()
+            .filter(|(name, _)| !list.iter().any(|m| m.name == name.as_str()))
+            .map(|(name, additive)| (name.clone(), *additive))
+            .collect();
+        let breaking: Vec<String> = unknown
+            .iter()
+            .filter(|(_, additive)| !additive)
+            .map(|(name, _)| name.clone())
+            .collect();
+        if !breaking.is_empty() {
+            return Err(OpenError::BreakingMigrationsFromTheFuture {
                 path: self.path.clone(),
-                found: from,
-                known: KNOWN_SCHEMA_VERSION,
+                names: breaking,
             });
         }
-        for (index, script) in MIGRATIONS.iter().enumerate().skip(from as usize) {
-            let applied = index as u32 + 1;
+        self.unknown_migrations = unknown.into_iter().map(|(name, _)| name).collect();
+
+        for (index, migration) in list.iter().enumerate() {
+            if applied.iter().any(|(name, _)| name == migration.name) {
+                continue;
+            }
             let tx = self
                 .conn
                 .transaction()
                 .map_err(fault("starting a migration"))
                 .map_err(OpenError::Database)?;
-            tx.execute_batch(script)
+            tx.execute_batch(migration.sql)
                 .map_err(fault("applying a migration"))
                 .map_err(OpenError::Database)?;
             tx.execute(
-                "INSERT INTO armada_meta (key, value) VALUES (?1, ?2)
-                 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-                (SCHEMA_VERSION_KEY, applied.to_string()),
+                "INSERT INTO armada_migrations (name, additive) VALUES (?1, ?2)",
+                (migration.name, !migration.breaking),
             )
-            .map_err(fault("recording the schema version"))
+            .map_err(fault("recording a migration"))
             .map_err(OpenError::Database)?;
+            if index < LEGACY_COUNT {
+                tx.execute(
+                    "INSERT INTO armada_meta (key, value) VALUES (?1, ?2)
+                     ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                    (SCHEMA_VERSION_KEY, (index + 1).to_string()),
+                )
+                .map_err(fault("recording the legacy schema version"))
+                .map_err(OpenError::Database)?;
+            }
             tx.commit()
                 .map_err(fault("committing a migration"))
                 .map_err(OpenError::Database)?;
@@ -107,13 +154,53 @@ impl Store {
         Ok(())
     }
 
-    /// How many migrations this file has had applied.
-    ///
-    /// Zero means nothing is there yet — and *only* an empty file may say zero.
-    /// A file with tables and no `armada_meta` is refused here rather than
-    /// treated as fresh, which is the check that keeps "empty" and "not ours"
-    /// apart.
-    fn schema_version(&self) -> Result<u32, OpenError> {
+    /// Every name this file has had applied, with whether it was additive.
+    fn applied(&self) -> Result<Vec<(String, bool)>, OpenError> {
+        self.conn
+            .prepare("SELECT name, additive FROM armada_migrations")
+            .and_then(|mut rows| {
+                rows.query_map([], |row| Ok((row.get(0)?, row.get::<_, i64>(1)? == 1)))?
+                    .collect()
+            })
+            .map_err(fault("reading the applied migrations"))
+            .map_err(OpenError::Database)
+    }
+
+    /// Make the table of applied names, and where the file predates it, fill it
+    /// from the count the numbered list recorded: a file at `n` has the first
+    /// `n` entries of the list as it stood. One transaction, so a file is
+    /// either converted or untouched.
+    fn carry_over_a_numbered_file(&mut self, list: &[Migration]) -> Result<(), OpenError> {
+        if self.table_exists("armada_migrations")? {
+            return Ok(());
+        }
+        let numbered = self.legacy_count()?;
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(fault("starting the conversion"))
+            .map_err(OpenError::Database)?;
+        ensure_applied_table(&tx)
+            .map_err(fault("creating the applied-migrations table"))
+            .map_err(OpenError::Database)?;
+        for migration in &list[..numbered] {
+            tx.execute(
+                "INSERT INTO armada_migrations (name, additive) VALUES (?1, ?2)",
+                (migration.name, !migration.breaking),
+            )
+            .map_err(fault("recording a converted migration"))
+            .map_err(OpenError::Database)?;
+        }
+        tx.commit()
+            .map_err(fault("committing the conversion"))
+            .map_err(OpenError::Database)
+    }
+
+    /// How many entries of the numbered list this file recorded: zero for an
+    /// empty file, and *only* an empty file may say zero. A file with tables
+    /// and no `armada_meta` is refused rather than treated as fresh, which is
+    /// the check that keeps "empty" and "not ours" apart.
+    fn legacy_count(&self) -> Result<usize, OpenError> {
         let has_meta = self.table_exists("armada_meta")?;
         if !has_meta {
             let tables = self.user_tables()?;
@@ -138,18 +225,30 @@ impl Store {
             })
             .map_err(fault("reading the schema version"))
             .map_err(OpenError::Database)?;
-        match recorded {
-            None => Err(OpenError::SchemaVersionUnreadable {
-                path: self.path.clone(),
-                found: None,
-            }),
-            Some(value) => value
-                .parse::<u32>()
-                .map_err(|_| OpenError::SchemaVersionUnreadable {
+        let count = match recorded {
+            None => {
+                return Err(OpenError::SchemaVersionUnreadable {
                     path: self.path.clone(),
-                    found: Some(value),
-                }),
+                    found: None,
+                })
+            }
+            Some(value) => {
+                value
+                    .parse::<usize>()
+                    .map_err(|_| OpenError::SchemaVersionUnreadable {
+                        path: self.path.clone(),
+                        found: Some(value),
+                    })?
+            }
+        };
+        if count > LEGACY_COUNT {
+            return Err(OpenError::SchemaVersionFromTheFuture {
+                path: self.path.clone(),
+                found: count as u32,
+                known: LEGACY_COUNT as u32,
+            });
         }
+        Ok(count)
     }
 
     fn table_exists(&self, name: &str) -> Result<bool, OpenError> {

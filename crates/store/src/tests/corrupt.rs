@@ -12,6 +12,7 @@
 use core_model::{Actor, JobStatus, StepId, StepState, Target};
 use rusqlite::Connection;
 
+use crate::migrations::LEGACY_COUNT;
 use crate::migrations::SCHEMA_VERSION_KEY;
 use crate::tests::{created_at, job_id, open, top_level, TempDir};
 use crate::{OpenError, RowError, Store, KNOWN_SCHEMA_VERSION};
@@ -66,15 +67,16 @@ fn a_database_that_is_not_an_armada_store_is_refused() {
 }
 
 #[test]
-fn a_schema_written_by_a_newer_armada_is_refused() {
+fn a_numbered_file_past_the_old_list_is_refused() {
     let dir = TempDir::new();
     drop(open(&dir));
-    set_version(&dir, &(KNOWN_SCHEMA_VERSION + 7).to_string());
+    as_a_numbered_file(&dir);
+    set_version(&dir, &(LEGACY_COUNT + 7).to_string());
 
     match Store::open(&dir.db()) {
         Err(OpenError::SchemaVersionFromTheFuture { found, known, .. }) => {
-            assert_eq!(found, KNOWN_SCHEMA_VERSION + 7);
-            assert_eq!(known, KNOWN_SCHEMA_VERSION);
+            assert_eq!(found as usize, LEGACY_COUNT + 7);
+            assert_eq!(known as usize, LEGACY_COUNT);
         }
         other => panic!("expected a refusal, found {other:?}"),
     }
@@ -84,6 +86,7 @@ fn a_schema_written_by_a_newer_armada_is_refused() {
 fn a_version_that_is_not_a_number_is_refused() {
     let dir = TempDir::new();
     drop(open(&dir));
+    as_a_numbered_file(&dir);
     set_version(&dir, "whenever");
 
     match Store::open(&dir.db()) {
@@ -98,6 +101,7 @@ fn a_version_that_is_not_a_number_is_refused() {
 fn a_marker_table_with_no_version_is_refused_rather_than_assumed_fresh() {
     let dir = TempDir::new();
     drop(open(&dir));
+    as_a_numbered_file(&dir);
     let conn = Connection::open(dir.db()).expect("open");
     conn.execute("DELETE FROM armada_meta", [])
         .expect("emptied");
@@ -541,12 +545,18 @@ fn append_event(
 
 fn version(dir: &TempDir) -> String {
     let conn = Connection::open(dir.db()).expect("open");
-    conn.query_row(
-        "SELECT value FROM armada_meta WHERE key = ?1",
-        (SCHEMA_VERSION_KEY,),
-        |row| row.get(0),
-    )
-    .expect("a version")
+    conn.query_row("SELECT count(*) FROM armada_migrations", [], |row| {
+        row.get::<_, i64>(0)
+    })
+    .expect("the applied names")
+    .to_string()
+}
+
+/// The file as it was before names: no table of applied names, only the count.
+fn as_a_numbered_file(dir: &TempDir) {
+    let conn = Connection::open(dir.db()).expect("open");
+    conn.execute_batch("DROP TABLE armada_migrations")
+        .expect("dropped");
 }
 
 fn set_version(dir: &TempDir, value: &str) {
