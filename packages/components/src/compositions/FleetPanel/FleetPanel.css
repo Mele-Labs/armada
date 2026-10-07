@@ -27,7 +27,9 @@
 .armada-fleet-starting {
   flex: none;
   color: var(--fg-muted);
-  animation: armada-fleet-starting var(--duration-pulse) ease-in-out infinite;
+  /* Twice the pulse: no token loops slower (`--duration-decay` is a fade of
+     45s), and a second number would be a second clock. */
+  animation: armada-fleet-starting calc(var(--duration-pulse) * 2) ease-in-out infinite;
 }
 
 /* The Board's card: the mark, and the phrase under it. */
