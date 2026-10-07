@@ -45,6 +45,8 @@ export type PanelProps = {
    * specified for it, so it passes none. See design-system.md → Left column.
    */
   dotLabel?: string;
+  /** Drawn in the dot's place at `narrow`, for a state a hue cannot carry. */
+  dotMark?: ReactNode;
   /**
    * **Absent draws no body and no chevron** — the head alone, and nothing to
    * press. A panel whose caller has nothing to put under the head is one where
@@ -66,6 +68,7 @@ export function Panel({
   narrow = false,
   dotTone = "muted",
   dotLabel,
+  dotMark,
   children,
 }: PanelProps) {
   if (narrow) {
@@ -78,7 +81,7 @@ export function Panel({
           className="armada-panel__head"
           {...(dotLabel === undefined ? {} : { role: "img", "aria-label": dotLabel, title: dotLabel })}
         >
-          <span className="armada-panel__dot" data-tone={dotTone} aria-hidden />
+          {dotMark ?? <span className="armada-panel__dot" data-tone={dotTone} aria-hidden />}
         </div>
       </section>
     );
