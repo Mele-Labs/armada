@@ -221,6 +221,7 @@ mod session_host;
 mod session_piloting;
 mod sessioning;
 mod settling;
+mod terminal_session;
 mod showing;
 mod showing_again;
 mod silence;

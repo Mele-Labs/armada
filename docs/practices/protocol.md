@@ -3232,6 +3232,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
 **A row is `message`, `tool`, `lease` or `ask`**, tagged by `kind`. A message's `from` is `you`, `agent` or `session`, with the other session named. An ask carries the whole `HelmCallInFlight` and a `state`, and is replaced by id as it is answered. `session.changed` still carries the row whole, now with `hosted`: the `turn` (`idle`, or `working` with `woken_by` where another session started it), what the agent is `asked`, `model`, `effort`, `mode` and whether a process is `running`.

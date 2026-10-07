@@ -3836,6 +3836,19 @@ notes = """
 `POST /sessions/gate`, body `SessionGate`: the session's id, its working directory, the tool and its input. Since 23.49. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client.
 """
 
+[operations.take_held_messages]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The `armada` mod in a terminal session asks what a person sent it from Bridge, and is answered with those messages once"
+notes = """
+`POST /sessions/held`, body `TakeHeld`: the session's id. Since 23.53. Answered with `MessagesHeld`, the messages oldest first, and a message is in one answer only. A **command** because the answer empties what Fleet held.
+
+**The ask is also the session saying it is listening.** A message sent to a terminal session is kept until its mod asks, and Fleet refuses the send as `fleet.terminal_session_unreachable` when no ask has come within a few seconds, so a person is told at once instead of after a message that nothing will read. The mod submits each as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27).
+
+`agent_access` is `No`: the harness asks, never the agent inside it.
+"""
+
 [operations.act_on_need]
 kind = "command"
 transport = "HTTP"

@@ -350,6 +350,20 @@ pub struct SessionGate {
     pub tool_input: serde_json::Value,
 }
 
+/// What the `armada` mod in a terminal session asks on a timer: has anyone
+/// written to this session from Bridge. Since 23.53.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TakeHeld {
+    pub session_id: String,
+}
+
+/// What a person sent a terminal session, oldest first, handed over once. The
+/// mod submits each as the person's own prompt.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessagesHeld {
+    pub messages: Vec<String>,
+}
+
 /// What the hook is answered with. **Spelled as the harness reads it**, as
 /// [`RunOrNot`](crate::RunOrNot) is: an empty object lets the call go to the
 /// rest of the permission path, and a deny stops it with a reason the model

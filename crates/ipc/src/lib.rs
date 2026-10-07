@@ -288,9 +288,9 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
-    PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TuneSession,
+    TagKind, TaggedJob, TakeHeld, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,

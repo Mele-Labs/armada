@@ -125,6 +125,10 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            let addressed = self.addressed(&sent.mentions).await?;
+            return self.send_to_terminal(&session, sent, addressed).await;
+        }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
@@ -300,7 +304,18 @@ where
         self.published_hosted(&id).await
     }
 
-    async fn get_session(&self, id: SessionId) -> Result<SessionThread, Refusal> {
+    async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
+        if let Some(session) = self.terminal_session(id.as_str()).await? {
+            let rows = self.terminal_thread(&session).await?;
+            let record = {
+                let store = self.store().lock().await;
+                self.ledger_row(&store, &session)?
+            };
+            return Ok(SessionThread {
+                session: record,
+                rows,
+            });
+        }
         let (session, _) = self.session_and_hosting(id.as_str()).await?;
         let record = {
             let store = self.store().lock().await;
@@ -348,6 +363,10 @@ where
         })
     }
 
+    async fn take_held_messages(&self, ask: ipc::TakeHeld) -> Result<ipc::MessagesHeld, Refusal> {
+        self.held_for(ask).await
+    }
+
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
     }
@@ -376,11 +395,11 @@ where
         Refusal::Unacceptable(WireError::raised(code, why, self.run_id()))
     }
 
-    fn hosted_fault(&self, code: &'static str, why: &str) -> Refusal {
+    pub(crate) fn hosted_fault(&self, code: &'static str, why: &str) -> Refusal {
         Refusal::Fault(WireError::raised(code, why, self.run_id()))
     }
 
-    fn closed(&self, id: &str) -> Refusal {
+    pub(crate) fn closed(&self, id: &str) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_CLOSED,
             format!("session {id} was closed, and a closed session takes nothing more"),
@@ -395,6 +414,15 @@ where
              stopped waiting",
             self.run_id(),
         ))
+    }
+
+    /// The ledger's row for `id` where a person runs it in a terminal and Fleet
+    /// hosts nothing of it.
+    async fn terminal_session(&self, id: &str) -> Result<Option<KeptSession>, Refusal> {
+        let store = self.store().lock().await;
+        let found = store.session(id).map_err(|why| self.ledger_fault(why))?;
+        let hosted = store.hosting(id).map_err(|why| self.ledger_fault(why))?;
+        Ok(found.filter(|one| one.origin == "terminal" && hosted.is_none()))
     }
 
     pub(crate) async fn session_and_hosting(
@@ -483,7 +511,7 @@ where
 
     /// Each session a message names, with the address another session writes
     /// to where Fleet hosts it.
-    async fn addressed(
+    pub(crate) async fn addressed(
         &self,
         tags: &[ipc::SessionTag],
     ) -> Result<Vec<(ipc::SessionTag, Option<String>)>, Refusal> {
