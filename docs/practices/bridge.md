@@ -343,6 +343,7 @@ What the UI shows has to name the actual state, not paper over it with a spinner
 |---|---|---|
 | No runtime file | Fleet has never started, or its runtime file was cleaned up | "Fleet is not running" plus a way to start it |
 | Runtime file present, pid dead | Fleet crashed or was killed without cleanup | "Fleet is not running" (not "unreachable" — the pid check already told you which one this is) |
+| Runtime file present, pid alive, process under five minutes old, socket open and unanswered | Fleet binds its port and publishes the file before it reconciles and serves, so the kernel accepts a connection nothing answers yet | "Fleet is starting" — the mark, no next step. Past five minutes of the process's age it reads as the row below |
 | Runtime file present, pid alive, socket refuses or times out | Fleet is running but something between Bridge and it is broken | "Fleet is running and unreachable" — distinct copy, distinct next step, because restarting Fleet is the wrong fix here |
 | Connected, protocol versions match | Normal | Full UI |
 | Connected, minor version skew | Fleet is **ahead** by an additive-only bump | Full UI plus a persistent banner. Safe only in this direction: Fleet sends fields Bridge does not read. A Fleet **behind** is refused, because Bridge would read a field it never sends |

@@ -137,7 +137,7 @@ export function Overview({
           repositories={repositories}
           picked={state.repository}
           disconnected={disconnected}
-          starting={state.connection.state === "connecting"}
+          starting={state.connection.state === "starting"}
           selected={selected}
           openSections={openSections}
           onSectionOpenChange={onSectionOpenChange}

@@ -48,7 +48,16 @@ export type Connection =
   | { state: "reading" }
   | { state: "not_running"; absence: Absence }
   | { state: "runtime_file_refused"; fault: RuntimeFault }
+  /** The first attempt on a Fleet whose pid checks out. Milliseconds on a Fleet that has been up. */
   | { state: "connecting"; fleet: FleetIdentity }
+  /**
+   * The pid checks out, the process is young, and the socket has not answered.
+   * Fleet binds its port, publishes the runtime file and only then reconciles,
+   * so for that whole stretch a connection is accepted by the kernel and
+   * never answered. Once the process is older than Bridge allows a boot, this
+   * becomes `unreachable`.
+   */
+  | { state: "starting"; fleet: FleetIdentity }
   /** The pid checks out and the socket does not answer. A different thing to do. */
   | { state: "unreachable"; fleet: FleetIdentity; detail: string; sinceMs: number }
   /**
