@@ -341,6 +341,13 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord({ ...asTerminal, terminal: { listening: true } }, undefined, beside()).dead).toBeUndefined();
   });
 
+  it("stays quiet however long ago it was seen, and is not marked older, which only an ended session is", () => {
+    const old = "2026-01-01T00:00:00Z";
+    const [session] = sessionsOfRecords([{ ...asTerminal, last_seen_at: old }], {}, () => beside(), Date.parse(AT));
+    expect(session).toMatchObject({ dead: "quiet" });
+    expect(session?.older).toBeUndefined();
+  });
+
   it("is never a hosted session that is open, whatever its process is doing", () => {
     expect(sessionOfRecord(record("h"), undefined, beside()).dead).toBeUndefined();
   });

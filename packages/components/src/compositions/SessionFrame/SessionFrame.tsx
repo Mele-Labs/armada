@@ -17,7 +17,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * or its terminal stopped asking. `[conventions.session_state_borrowing]` and
  * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "ended";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
@@ -25,6 +25,7 @@ const MARK: Record<SessionState, LucideIcon> = {
   waiting: Eye,
   failing: ShieldX,
   idle: Check,
+  quiet: Unplug,
   ended: Unplug,
 };
 
@@ -134,8 +135,8 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
-        {modOutOfDate ? <ModMark /> : null}
-        <SessionMark state={state} said={said} />
+        {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+        {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>

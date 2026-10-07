@@ -16,6 +16,7 @@ const AT = "2026-10-07T13:48:02.000Z";
 const records = () => [
   hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store")] }),
   terminal("01TERMINALBBBBBBBBBBBBBBBB", { title: "Why the reader drops lines", terminal: {} }),
+  hosted("01ENDEDCCCCCCCCCCCCCCCCCCC", { title: "Trim the retry loop", state: "ended", last_seen_at: new Date().toISOString() }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({

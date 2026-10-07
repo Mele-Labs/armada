@@ -1,4 +1,4 @@
-// A Session that is dead, forked. One from a terminal whose mod stopped asking has its conversation
+// A Session that is quiet or ended, forked. One from a terminal whose mod stopped asking has its conversation
 // and a Fork in its head, and no message box; a live one has the box and no Fork. Fork starts a new
 // Session with the same title and the old conversation, which opens at once with a row linking back,
 // and the old one now links forward. Told twice, wide and below the breakpoint.
@@ -15,7 +15,8 @@ function steps(narrow: boolean): Step[] {
     { press: inside(sessions, button("Fix the flaky store test")), say: "It opens" },
     { look: message, say: "It takes a message" },
     { press: button("Sessions"), say: "Back to the list" },
-    { look: inside(sessions, text("Ended")), say: "A Session that went quiet is under its own heading" },
+    { look: inside(sessions, text("Quiet")), say: "A terminal Session whose mod is not asking is under Quiet" },
+    { look: inside(sessions, text("Ended")), say: "One that ended is under Ended, apart from it" },
     { press: inside(sessions, button("Why the reader drops lines")), say: "A terminal Session whose mod stopped asking" },
     { look: inside(thread, text("It splits on newlines")), say: "Its conversation is still there" },
     { look: button("Fork"), say: "In place of the message box, a Fork" },

@@ -74,7 +74,8 @@ export function sessionsHidden(served: boolean): readonly string[] {
 }
 
 function stateOf(session: Session): { state: SessionState; said: string } {
-  if (session.dead !== undefined) return { state: "ended", said: session.dead === "ended" ? "Ended" : "Not listening" };
+  if (session.dead === "ended") return { state: "ended", said: "Ended" };
+  if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   if (session.turn.state === "working") {
     const by = session.turn.wokenBy;
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
@@ -226,6 +227,7 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Running", has: (state) => state === "working" },
   { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
+  { label: "Quiet", has: (state) => state === "quiet" },
   { label: "Ended", has: (state) => state === "ended" },
 ];
 
