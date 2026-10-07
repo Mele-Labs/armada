@@ -301,7 +301,7 @@ abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|
-| Resets `preview` | To local `main`, or `origin/main` where there is no local one, after a fetch |
+| Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
