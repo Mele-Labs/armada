@@ -30,6 +30,12 @@ CREATE TABLE preferences (
 /// second copy of the set at the wire would be the thing that drifts from it.
 const WHERE_THINGS_ARE_OPEN: &str = "where_things_are_open";
 
+/// Whether this machine offers a pull request as a draft unless the repository,
+/// the workflow or the Job says otherwise. **Kept in a table of its own**, one
+/// row or none, because widening `preferences`' `CHECK` is a rebuild and a
+/// rebuild is a breaking migration.
+const DRAFT_PULL_REQUESTS: &str = "draft_pull_requests";
+
 /// Every preference Fleet knows, and what a person saved for each. **A row
 /// nobody wrote reads as the shipped default**, not as unset — there is
 /// nothing else it could mean, since a preference with no row has never been
@@ -37,6 +43,7 @@ const WHERE_THINGS_ARE_OPEN: &str = "where_things_are_open";
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Preferences {
     pub where_things_are_open: bool,
+    pub draft_pull_requests: bool,
 }
 
 impl Store {
@@ -63,6 +70,15 @@ impl Store {
                 preferences.where_things_are_open = value != 0;
             }
         }
+        preferences.draft_pull_requests = match self.conn.query_row(
+            "SELECT value FROM draft_pull_requests WHERE id = 1",
+            [],
+            |row| row.get::<_, i64>(0),
+        ) {
+            Ok(value) => value != 0,
+            Err(rusqlite::Error::QueryReturnedNoRows) => false,
+            Err(other) => return Err(fault("reading the saved preferences")(other)),
+        };
         Ok(preferences)
     }
 
@@ -72,17 +88,24 @@ impl Store {
     /// exactly what was sent rather than reporting whatever SQLite's own
     /// `CHECK` violation says.
     pub fn save_preference(&mut self, name: &str, value: bool) -> Result<Preferences, WriteError> {
-        if name != WHERE_THINGS_ARE_OPEN {
+        if name != WHERE_THINGS_ARE_OPEN && name != DRAFT_PULL_REQUESTS {
             return Err(WriteError::UnknownPreference {
                 name: name.to_string(),
             });
         }
-        self.conn
-            .execute(
+        let saved = match name == DRAFT_PULL_REQUESTS {
+            true => self.conn.execute(
+                "INSERT INTO draft_pull_requests (id, value) VALUES (1, ?1)
+                 ON CONFLICT (id) DO UPDATE SET value = excluded.value",
+                (i64::from(value),),
+            ),
+            false => self.conn.execute(
                 "INSERT INTO preferences (name, value) VALUES (?1, ?2)
                  ON CONFLICT (name) DO UPDATE SET value = excluded.value",
                 (name, i64::from(value)),
-            )
+            ),
+        };
+        saved
             .map_err(fault("saving a preference"))
             .map_err(WriteError::Database)?;
         self.preferences().map_err(WriteError::Database)

@@ -51,6 +51,7 @@ pub mod reaching;
 pub mod say;
 pub mod serve;
 pub mod setup;
+mod trigger_authoring;
 pub mod watching;
 
 #[cfg(test)]

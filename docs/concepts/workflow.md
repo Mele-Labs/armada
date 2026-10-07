@@ -20,6 +20,8 @@ Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else dec
 
 **The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
 
+**The step with `delivers: true` may also carry `draft_pr`**, which says whether its pull request opens as a draft and is refused on any other step. It sits between the Job's own choice and the repository's `pr_mode`. [Landing](landing.md), *What the landing rule carries*.
+
 **The full field-by-field schema is `crates/core-model/domain/workflowdef-fields.toml`.** It carries every top-level field and every field nested under `steps[]`, with its type, whether it is required and the reasoning behind it. One row per field, nested the way the schema nests: the top-level rows are the `WorkflowDef`'s own fields, and everything under `steps[]` is a field of a step.
 
 ### A step's gate is three settings, not one
@@ -56,7 +58,7 @@ Reaching `completed_success` creates that Job at `awaiting_approval`, wired back
 
 **A successor is not a sub-dispatch.** It carries no `dispatched_by` — the Job that named it is finished and there is no live Drone to attribute it to — so it does not consume the fan-out cap, and [Job](job.md)'s `origin` carries `workflow_triggered` rather than `sub_dispatched`.
 
-**It is a completion edge, not an event hook.** A Job that lands cleanly and breaks main an hour later is not a workflow completing; that trigger is a different mechanism.
+**`on_complete` is a completion edge, not an event hook.** A Job that lands cleanly and breaks main an hour later is not a workflow completing. What runs at a moment inside a Job is a [Trigger](trigger.md).
 
 **Declared File Plan (continuous drift check).** For steps with `scope_diff_check: true`, the Drone can declare `context_paths` at step *start* (`declare_plan_at: step_start`), not only at evidence-submission time. Fleet then compares live edits against the declared plan throughout the step rather than only at the end.
 

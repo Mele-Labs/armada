@@ -646,6 +646,26 @@ pub trait Queries: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<Vec<ipc::LeftOutWorkflow>, Refusal>> + Send;
 
+    /// `list_triggers` — what one repository runs at each moment of a Job, each
+    /// with its level and file, what it replaced, and the files left out with
+    /// why. Absent `manifest_id` is the repository Fleet started in.
+    fn list_triggers(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::TriggerList, Refusal>> + Send;
+
+    /// `get_trigger` — one Trigger as its file holds it, for an editor. `level`
+    /// absent is the copy that runs; present reads one a more specific level
+    /// replaced.
+    fn get_trigger(
+        &self,
+        when: ipc::TriggerMoment,
+        step: Option<ipc::StepId>,
+        name: String,
+        level: Option<ipc::TriggerLevel>,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ipc::TriggerDefinition, Refusal>> + Send;
+
     /// `list_manifests` — the Manifests Fleet holds, and the repository each
     /// was read from. The counterpart to [`Queries::list_workflows`], for the
     /// other id a proposal names.

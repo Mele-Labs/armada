@@ -149,4 +149,20 @@ where
     ) -> Result<WorkflowSaved, Refusal> {
         self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
+
+    async fn save_trigger(
+        &self,
+        asked: ipc::SaveTrigger,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerSaved, Refusal> {
+        self.save_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
+
+    async fn remove_trigger(
+        &self,
+        asked: ipc::RemoveTrigger,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerRemoved, Refusal> {
+        self.remove_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
 }

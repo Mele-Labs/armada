@@ -102,6 +102,15 @@ describe("what locks at approval", () => {
     expect(proposalViewOf(sampleDetail(), 4)).toMatchObject({ from_ref: null, pr_mode: "ready" });
   });
 
+  it("starts the pull request on the default Fleet served before the approval, and the landing wins after", () => {
+    const unapproved = sampleDetail();
+    unapproved.pr_mode_default = "draft";
+    expect(proposalViewOf(unapproved, 4).pr_mode).toBe("draft");
+
+    unapproved.landing = { pr_mode: "ready" };
+    expect(proposalViewOf(unapproved, 4).pr_mode).toBe("ready");
+  });
+
   it("carries no notes for the planner, which was dropped", () => {
     const view = proposalViewOf(sampleDetail(), 4);
 
