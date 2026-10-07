@@ -80,8 +80,17 @@ message and the slot freed, with no push. `armada worktree lease --existing
 <branch>` puts a slot back on that branch at its tip.
 
 **Only where `armada` does not know the verb**, because the installed binary
-predates it, fall back to `isolation: "worktree"` and everything below.
+predates it, cut a tree by hand (`git worktree add .claude/worktrees/<name> -b
+<branch>`), dispatch without `isolation`, and follow everything below.
 `scripts/restart` installs the current binary.
+
+**`.claude/hooks/guard_agent.py` refuses an Agent call with `isolation:
+"worktree"`.** The preview merges only slots and the merge line, so a tree the
+harness cut is invisible to it. Confirmed 7 Oct 2026: a session followed an
+older `annotations` step and the owner's preview lacked three branches. There
+is no escape hatch: a lease waits while the pool is full, and a change to
+`scripts/preview` is built in a slot like any other. `isolation: "remote"` and
+no isolation pass.
 
 **The pool does not reach `.claude/worktrees/`.** Those already cut are left as
 they are; give each back by the rules below.
