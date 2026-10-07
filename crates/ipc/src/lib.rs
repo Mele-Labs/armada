@@ -20,7 +20,7 @@
 //! There is no variant-to-string `match` here — the defect just removed from
 //! `store`, and the one a second vocabulary always becomes.
 //!
-//! **Not the full protocol surface.** `crates/ipc/operations.toml` inventories
+//! **Not the full protocol surface.** `crates/ipc/operations/` inventories
 //! every operation; the types here serve what M1 needs, and a command adds a
 //! type only where a Job is not what it answers with.
 
@@ -61,7 +61,7 @@ mod detail;
 /// `codec`'s reason: bytes nobody in this process typed.
 pub mod document;
 /// The agent's door: the MCP half of the HTTP surface, and the tool set
-/// `build.rs` emits from `operations.toml`'s own `agent_access` column.
+/// `build.rs` emits from `operations/`'s own `agent_access` column.
 pub mod door;
 /// Whether the repository still has what `armada.yml` names. **A read of the
 /// repository**, where `reading` is a read of the file — a `run` line naming a
@@ -116,7 +116,7 @@ mod manifest_checks;
 mod manifest_proposal;
 /// The Evidence tool's transport. **A different seam** — Fleet to Drone, not
 /// Fleet to Bridge — so it is a module rather than a flat re-export and none of
-/// its types are in `operations.toml`.
+/// its types are in `operations/`.
 pub mod mcp;
 mod merge_hub;
 mod merge_line;
@@ -394,8 +394,8 @@ pub use servers::{
 };
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
-    Ownership, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport,
-    SessionState, SessionUsage, TerminalCommand, TerminalFacts,
+    Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
+    SessionReport, SessionState, SessionUsage, TerminalCommand, TerminalFacts,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

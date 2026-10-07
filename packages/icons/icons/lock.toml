@@ -1,0 +1,7 @@
+[icons.lock]
+  means = "Cannot be skipped, even on retry"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "Never a permission, never a security or auth state, never a locked file. Armada has no lock that means access."
+  notes = "Added 2026-08-21 with the hard-prerequisite mark. Sits at the step row's trailing edge in --fg-muted, label only, with no row action behind it — the way past a locked step is Pilot. A hard prerequisite is a property of the workflow definition rather than of this run, so it reads the same on a Job that has not started as on one that stopped."

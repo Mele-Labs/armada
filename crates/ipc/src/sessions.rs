@@ -117,8 +117,13 @@ pub enum SessionFact {
         #[serde(default)]
         origin: SessionOrigin,
     },
+    /// A title. **`named`** says a person chose it, in the terminal's `/rename`:
+    /// it replaces whatever title there is. Otherwise it is the first prompt's
+    /// line, kept only where the session has no title yet. `named` since 23.52.
     Titled {
         title: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        named: bool,
     },
     /// The session's directory changed.
     Moved {
@@ -183,6 +188,13 @@ pub struct SessionReport {
     pub harness: String,
     pub session_id: SessionId,
     pub fact: SessionFact,
+}
+
+/// `rename_session`: a person gave a session a name in Bridge. Since 23.52.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RenameSession {
+    pub session_id: SessionId,
+    pub title: String,
 }
 
 /// One row of the ledger as the wire carries it.

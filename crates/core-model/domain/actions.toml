@@ -8,7 +8,7 @@
 # session to paste, and the gate fails where the two disagree.
 #
 # **The glyph is a reference, never a copy.** `icon` names a key in
-# `packages/icons/icons.toml`, which stays the authority on what a silhouette
+# `packages/icons/icons/`, which stays the authority on what a silhouette
 # may mean and what it may never be reused for; a second roster of glyphs here
 # is the drift this repository has collected before. The same holds against
 # `enum-verbs.toml`, which carries the word a *state* renders as. Nothing there
@@ -26,7 +26,7 @@
 #                 palette and so carries no glyph. Every other row is an act
 #   tier        - Global | Contextual
 #   verb        - what a person reads, in the lexicon's word. Never the id
-#   icon        - a glyph key in packages/icons/icons.toml
+#   icon        - a glyph key in packages/icons/icons/
 #   icon_absent - why the glyph column is empty where it is. `undecided`, or
 #                 `by design` where a document decided this act carries none.
 #                 An Action with neither a glyph nor a reason fails the gate
@@ -217,7 +217,7 @@ shortcut = "r"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "Opens the run sheet — Journey 9's *Running one inside a Job* — nothing selected. Also opened by **Run…** on the worktree row of *Where things are* and by **Run it here** on a refused Check's row, neither of which is this binding: a control that already reads as an act does not need a second one repeated on it. No glyph — the sheet is not a Check and not evidence, so nothing in the `shield-*` or `file-*` families reads for it, and inventing one is a decision for packages/icons/icons.toml."
+notes = "Opens the run sheet — Journey 9's *Running one inside a Job* — nothing selected. Also opened by **Run…** on the worktree row of *Where things are* and by **Run it here** on a refused Check's row, neither of which is this binding: a control that already reads as an act does not need a second one repeated on it. No glyph — the sheet is not a Check and not evidence, so nothing in the `shield-*` or `file-*` families reads for it, and inventing one is a decision for packages/icons/icons/."
 
 [actions.attest]
 kind = "Action"
@@ -299,7 +299,7 @@ shortcut = "b"
 scope = "detail"
 destructive = false
 confirms = true
-notes = "`b` for bug, and never `r` or `t`, which review and attest hold. The act moves nothing — it records what a person concluded about a Job that already stopped, and leaves the Job exactly where it was — so it is not destructive; it confirms because `b` opens the filing dialog rather than filing anything. Bridge has had it since the reports surface landed, and it reached this registry late: `Report.tsx` renders it as a ghost control in the Job header on the stopped render, which is why the scope is detail and not the list. The glyph is undecided: `flag` reads as the stopped step's badge and `triangle-alert` and `octagon-alert` belong to the error treatment, so a silhouette for filing is a decision for packages/icons/icons.toml."
+notes = "`b` for bug, and never `r` or `t`, which review and attest hold. The act moves nothing — it records what a person concluded about a Job that already stopped, and leaves the Job exactly where it was — so it is not destructive; it confirms because `b` opens the filing dialog rather than filing anything. Bridge has had it since the reports surface landed, and it reached this registry late: `Report.tsx` renders it as a ghost control in the Job header on the stopped render, which is why the scope is detail and not the list. The glyph is undecided: `flag` reads as the stopped step's badge and `triangle-alert` and `octagon-alert` belong to the error treatment, so a silhouette for filing is a decision for packages/icons/icons/."
 
 [actions.kill]
 kind = "Action"
@@ -323,7 +323,7 @@ scope = "detail"
 destructive = true
 confirms = true
 unbuilt = "#291"
-notes = "Shifted `x`, because kill is `x` and this is the same act carried further — a spare letter would be one chosen for convenience, which is what the destructive-key rule refuses. **It is not `kill` followed by `redispatch`**: one confirmation, one outcome, and the Drone's learnings are captured in between. The journey record names it — 3.5 retired `Rephrase and redispatch` in favour of it, and Helm carries it as rung 2 — and nothing answers it yet. The glyph is undecided because `power` is kill's and `rotate-cw` is redispatch's, and a compound is a decision for packages/icons/icons.toml."
+notes = "Shifted `x`, because kill is `x` and this is the same act carried further — a spare letter would be one chosen for convenience, which is what the destructive-key rule refuses. **It is not `kill` followed by `redispatch`**: one confirmation, one outcome, and the Drone's learnings are captured in between. The journey record names it — 3.5 retired `Rephrase and redispatch` in favour of it, and Helm carries it as rung 2 — and nothing answers it yet. The glyph is undecided because `power` is kill's and `rotate-cw` is redispatch's, and a compound is a decision for packages/icons/icons/."
 
 [actions.new_job]
 kind = "Action"
@@ -334,7 +334,7 @@ shortcut = "n"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons.toml` for this row."
+notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row."
 
 [actions.observe]
 kind = "Action"
@@ -381,7 +381,7 @@ shortcut = "⌥↑ ⌥↓"
 scope = "detail"
 destructive = false
 confirms = false
-notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus` wherever a list roves, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons.toml rather than this file."
+notes = "A person's own edit to a plan, made directly through Fleet rather than asked of the planning Drone (`.claude/decisions/2026-09-30-plan-edits-go-straight-through-fleet.md`). The keyboard's way to do what dragging does: on a focused group name it moves the group one place, on a focused task row it moves the task one place, and a task at its group's edge crosses into the next group. One row for a pair, on `history`'s precedent. Modified because the row's own `Space` and `Enter` already open it and plain `↑` / `↓` are `move_focus` wherever a list roves, so the modifier is what separates moving the cursor from moving the thing under it. Contextual though modified, because it acts on the focused row and nowhere else. Fleet has no route for it yet (#1685), so a move raises `Not implemented` naming that issue; the key itself is answered. No glyph: the row draws none, and a silhouette for *move* is a decision for packages/icons/icons/ rather than this file."
 
 [actions.open_output]
 kind = "Action"
@@ -416,7 +416,7 @@ shortcut = "B"
 scope = "detail"
 destructive = false
 confirms = true
-notes = "The first of two budget rows in this registry, added 2026-09-09 with the act; `raise_turn_cap` is the other ceiling. A job past its cost cap waits at `queued` reading `over_budget` until somebody raises the cap — the one reason a queued job carries that does not clear on its own — and there was no key, no route and no control for it. Shifted `B`, because the lowercase mnemonic is spent, `b` being `report_job`, and a budget is the one thing on this screen where the mnemonic is worth reaching for. Shifted rather than a spare letter for the reason `kill_and_redispatch` takes `X`: a letter chosen for convenience is what the destructive-key rule refuses, and this one changes what a job may spend. Not destructive — nothing is ended or overruled, and the job stays exactly where it was — and it confirms because `B` opens a dialog that collects the figure, which is the field-collecting exception the safety rules name. No glyph: `arrow-up-to-line` is the escalation reason `loop_cap`, a ceiling that stopped something, which is the opposite reading, and the registry has no coin, wallet or currency silhouette at all. Minting one is a decision for packages/icons/icons.toml."
+notes = "The first of two budget rows in this registry, added 2026-09-09 with the act; `raise_turn_cap` is the other ceiling. A job past its cost cap waits at `queued` reading `over_budget` until somebody raises the cap — the one reason a queued job carries that does not clear on its own — and there was no key, no route and no control for it. Shifted `B`, because the lowercase mnemonic is spent, `b` being `report_job`, and a budget is the one thing on this screen where the mnemonic is worth reaching for. Shifted rather than a spare letter for the reason `kill_and_redispatch` takes `X`: a letter chosen for convenience is what the destructive-key rule refuses, and this one changes what a job may spend. Not destructive — nothing is ended or overruled, and the job stays exactly where it was — and it confirms because `B` opens a dialog that collects the figure, which is the field-collecting exception the safety rules name. No glyph: `arrow-up-to-line` is the escalation reason `loop_cap`, a ceiling that stopped something, which is the opposite reading, and the registry has no coin, wallet or currency silhouette at all. Minting one is a decision for packages/icons/icons/."
 
 [actions.raise_turn_cap]
 kind = "Action"
@@ -453,7 +453,7 @@ shortcut = "N"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "The first of the three kinds a person puts on a Studio by hand (#1364), and the one the owner went looking for and did not find. `N` for a node, as the design drew it, shifted because plain `n` is Dispatch and its scope is `anywhere` — an unshifted `n` on a Studio would open the composer under a person reaching for a note. The shifted set is where a second act on a spoken-for letter goes; `X`, `B` and `T` are the precedent. Scoped `open studio`, which is a place and not a Job: none of these three acts on anything focused, they act on the board. The glyph is the rail's, `packages/icons/icons.toml`'s `sticky-note`, group `Canvas rail`: the owner, 2 Oct 2026, *"Give them the rail's icons"*, so the palette and the rail draw one act one way."
+notes = "The first of the three kinds a person puts on a Studio by hand (#1364), and the one the owner went looking for and did not find. `N` for a node, as the design drew it, shifted because plain `n` is Dispatch and its scope is `anywhere` — an unshifted `n` on a Studio would open the composer under a person reaching for a note. The shifted set is where a second act on a spoken-for letter goes; `X`, `B` and `T` are the precedent. Scoped `open studio`, which is a place and not a Job: none of these three acts on anything focused, they act on the board. The glyph is the rail's, `packages/icons/icons/`'s `sticky-note`, group `Canvas rail`: the owner, 2 Oct 2026, *"Give them the rail's icons"*, so the palette and the rail draw one act one way."
 
 [actions.add_link]
 kind = "Action"
@@ -486,7 +486,7 @@ shortcut = "Z"
 scope = "open studio"
 destructive = false
 confirms = false
-notes = "A Zone rings off part of a Studio so what is in it moves together (#1620). The word is the owner's, 28 Sep 2026: `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. Placing one puts an empty Zone where the board was pressed, with no field: a Zone holds no words, and a node dropped on it goes in. `Z` for zone, shifted because a single letter on an open Studio is a node's and `z` is free only by accident. The glyph is `packages/icons/icons.toml`'s `vector-square`, group `Canvas rail`."
+notes = "A Zone rings off part of a Studio so what is in it moves together (#1620). The word is the owner's, 28 Sep 2026: `.claude/decisions/2026-09-28-the-studio-container-is-a-zone.md`. Placing one puts an empty Zone where the board was pressed, with no field: a Zone holds no words, and a node dropped on it goes in. `Z` for zone, shifted because a single letter on an open Studio is a node's and `z` is free only by accident. The glyph is `packages/icons/icons/`'s `vector-square`, group `Canvas rail`."
 
 [actions.start_studio_run]
 kind = "Action"

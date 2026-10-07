@@ -1,0 +1,12 @@
+[operations.get_limits]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The Drones-at-once bound, the memory share, the disk floor and Checks at once in force, and the values Fleet shipped with"
+notes = """
+What `get_capacity` is measured against. A route of its own because the four change only when a person saves, where capacity moves every time a Drone starts or finishes.
+
+`shipped` rides beside the values in force so a surface can say which of them somebody changed, and offer the way back, without a second read.
+
+`agent_access` is `No`: nothing a Helm session does turns on these numbers that `get_capacity` does not already say, and adding a tool to every session is a decision of its own.
+"""

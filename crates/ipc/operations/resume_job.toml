@@ -1,0 +1,16 @@
+[operations.resume_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Lifts a Job's pause: a gate Job takes a slot now if one is free, and a queued one goes back in the line"
+notes = """
+`POST /jobs/:job_id/resume_job`, no body. Answers the Job's `JobSummary`, without `paused` where the Job is seated again.
+
+**It starts no Drone.** A Job that was working is let into admission's line and a Drone opens when admission starts one. A Job at a gate takes a slot for its branch where one is free and is where it was; where every slot is held it waits and the summary carries `paused.resuming`, and the first slot to free is its.
+
+**Refused with a 409** `fleet.not_paused` on a Job that is not paused, and `fleet.pause_refused` where its branch could not be put in a slot, with the git reason. The Job is still paused after either. Resuming a Job already waiting for a slot answers the same row and changes nothing.
+
+Publishes `job.resumed` and writes one line in the Job's log.
+
+`agent_access` is `Helm only`, for `park_job`'s reason.
+"""

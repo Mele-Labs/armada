@@ -1,0 +1,12 @@
+[operations.edit_studio_sketch]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Replace a Sketch's drawing with what a person left on its pad, and answer with the Studio"
+notes = """
+Decided with the owner, 1 Oct 2026: a Studio's Sketch is the dispatch composer's pad, so it is drawn on after it is placed. **The whole drawing, every time**, as the pad holds it — boxes, joins, lines drawn by hand and pasted pictures — and never a patch, so what is kept is what the person last saw.
+
+**A picture is its staged file or nothing.** One carrying `staged` is a new image, which Fleet keeps as `add_studio_node` keeps a Sketch's; one carrying nothing keeps the image this node already holds under that id, and an id it holds none under is `fleet.studio_sketch_picture_not_kept`. A body naming a kept `frame` does not decode. Once the drawing is written, every frame it no longer names is deleted; a write Fleet refuses deletes the frames it had just kept, and nothing else.
+
+`Bridge only`, for the reason `edit_studio_draft` is: a person's drawing is not Helm's to redraw. Any kind but a Sketch is refused as `fleet.studio_not_a_sketch`, and a drawing with nothing on it as `fleet.studio_node_blank` — taking a Sketch off the board is a delete.
+"""

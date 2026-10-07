@@ -20,7 +20,7 @@ export { TileSheet } from "./TileSheet";
  * grid after the bays. A slot a person closed is shuttered in the closed hue;
  * a held one closed keeps its holder and takes the closed mark.
  * `armada worktree --status` is the same reading. Marks are group `Worktree
- * slot` in `packages/icons/icons.toml`.
+ * slot` in `packages/icons/icons/`.
  *
  * **A tile says its state and nothing else.** A press on it opens its panel in
  * the trailing sheet, where every act is: what it holds, Clear, Delete branch,

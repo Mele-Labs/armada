@@ -14,7 +14,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * through, freezing the step where it stood.
  *
  * The glyphs are borrowings, under `[conventions.step_activity_borrowing]` in
- * `packages/icons/icons.toml` — a step carries the Job glyph that means the
+ * `packages/icons/icons/` — a step carries the Job glyph that means the
  * same thing one level down, because a rail row and the badge above it stating
  * the same claim must show the same mark. Two values are not borrowings:
  * `flag` for `stopped`, reserved to it alone, and `circle-dashed` for
@@ -36,7 +36,7 @@ export type StepActivity =
 
 /**
  * Activity to glyph. The roster is the registry's, not this file's — every
- * entry here names a glyph with a table in `packages/icons/icons.toml`.
+ * entry here names a glyph with a table in `packages/icons/icons/`.
  *
  * `not_started` takes `circle-dashed`, minted for this value alone rather
  * than borrowed. It is a fallback, never a first choice: a step's position is

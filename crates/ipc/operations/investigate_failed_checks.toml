@@ -1,0 +1,10 @@
+[operations.investigate_failed_checks]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Sends the branch back for a Drone to find out why a pull request's CI failed"
+notes = """
+`crate::conflict_resolution`'s road with a note (#905): the Job goes back to the step before the one that delivers, and the Drone there opens with the failed checks and is asked to say which of five kinds each is and fix what is the change's. **It re-runs nothing**; a flaky run is reported, and re-running it is a person's press. Once its step passes, the ordinary forward walk delivers again and the pull request updates.
+
+Refused with a 409 anywhere but `awaiting_review`, where the Job has no open pull request or no failed check when Fleet last read it, and where the workflow has no step before the one that delivers.
+"""

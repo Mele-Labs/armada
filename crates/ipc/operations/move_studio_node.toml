@@ -1,0 +1,10 @@
+[operations.move_studio_node]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Move a node to where a person left it, in the frame it was put down in, and answer with the Studio"
+notes = """
+Where it sits only. A Studio is laid out by hand, so no agent is offered a move; a node Helm adds is placed by the request that adds it.
+
+**`within` names the frame it was put down in, and absent is the board** (since 23.0, #1620); `position` is measured from that frame's corner. A Zone holds any kind but a Zone and a Cluster only the Notes with a `produced` edge into it; anything else is `fleet.studio_frame_cannot_hold`. A Note in a Cluster stays in it, and moving it anywhere else is `fleet.studio_note_stays_in_its_cluster`.
+"""

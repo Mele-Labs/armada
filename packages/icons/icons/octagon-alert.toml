@@ -1,0 +1,7 @@
+[icons.octagon-alert]
+  means = "An octagon with an exclamation mark — the only octagon in the system"
+  group = "Escalation reason"
+  size = "12px"
+  status = "Specified"
+  reserved = "stalled only. Generic warnings use triangle-alert."
+  notes = "Changed from hourglass. The stop-sign polygon is the loudest shape available and the only octagon in the system."

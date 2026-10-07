@@ -37,7 +37,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `fact` | Carries | Fleet does |
 |---|---|---|
 | `started` | `cwd`, `title?`, `origin?` | Creates the row or starts a resumed one again; resolves the directory to a repository and a pool slot |
-| `titled` | `title` | Sets it |
+| `titled` | `title`, `named?` | `named` is a person's `/rename` in the terminal and replaces the title; without it, the first prompt's line, kept only where there is no title |
 | `moved` | `cwd` | Re-resolves; a slot the session left is given back |
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
@@ -48,7 +48,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
-The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of the first, as a title. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
+The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of real text in the first, as a title: the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title. A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript. **A Session's name can also be changed from Bridge**, by pressing its title in the Session view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`. A hosted Session's harness is not told, so its own name for itself stays what it was. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
 
 ## What is kept
 
@@ -151,6 +151,7 @@ one when its turn is over.
 | Operation | Does |
 |---|---|
 | `start_session` | A row for one repository, with optional title, model, effort and mode |
+| `rename_session` | A person's name for a Session, hosted or in a terminal; stands until the next terminal `/rename` |
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on |
 | `tune_session` | Model, effort and mode |

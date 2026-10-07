@@ -1,0 +1,12 @@
+[operations.answer_helm_call]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Allow a held Helm call once, allow it and remember the rule, or refuse it"
+notes = """
+Named by `call`, which is Fleet's id for the ask and not the harness's: an answer from a window left open across two asks names an id nothing is waiting on and is a 409 rather than an answer to the wrong call.
+
+**`allow_and_remember` is the only thing in Armada that writes a person's settings**, and it writes one rule — `HelmCallInFlight.rule`, which a person read before choosing it — into the repository's own `.claude/settings.local.json`. Not `~/.claude/settings.json`, which is theirs across every repository and every tool, and not `.claude/settings.json`, which is committed and is everybody's. A file that will not be written still lets the call run and settles as `allowed_but_not_remembered`: the answer was theirs, and a settings file is not a reason to refuse them.
+
+`agent_access` is `No` for `answer_command`'s reason, one subject over: an agent answering the permission question asked about its own call is the question not being asked.
+"""

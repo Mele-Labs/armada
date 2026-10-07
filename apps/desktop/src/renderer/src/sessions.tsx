@@ -250,6 +250,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
+      ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
@@ -527,6 +528,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         id={session.id}
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
+        {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(narrow || draft.close !== undefined
           ? {
               actions: (
@@ -629,9 +631,32 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
 }
 
 /** The rail surface: the list, or the Session open on it. */
+/** Sessions in the order the list draws them: under each heading in turn. */
+export function listed(sessions: readonly Session[]): string[] {
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state)).map((one) => one.id));
+}
+
+/** Whether a key press belongs to a field, which j and k must leave alone. */
+const typing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+
 export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
+  // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => {
+      if ((event.key !== "j" && event.key !== "k") || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return;
+      const ids = listed(sessions);
+      const at = openId === null ? -1 : ids.indexOf(openId);
+      const next = ids[event.key === "j" ? at + 1 : at - 1];
+      if (next === undefined || (at === -1 && event.key === "k")) return;
+      event.preventDefault();
+      onOpen(next);
+    };
+    window.addEventListener("keydown", press);
+    return () => window.removeEventListener("keydown", press);
+  }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview">
       {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}

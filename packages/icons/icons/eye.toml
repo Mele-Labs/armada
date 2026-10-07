@@ -1,0 +1,7 @@
+[icons.eye]
+  means = "An eye — an almond outline around a circle"
+  group = "Job state"
+  size = "12 and 16px"
+  status = "Specified"
+  reserved = "Review. Nothing else may use it."
+  notes = "One glyph, two places, by design. Badge at 12px, navigation at 16px."

@@ -33,6 +33,18 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: rename.session_id,
+            fact: ipc::SessionFact::Titled {
+                title: rename.title,
+                named: true,
+            },
+        })
+        .await
+    }
+
     async fn list_sessions(
         &self,
         _manifest_id: Option<ManifestId>,

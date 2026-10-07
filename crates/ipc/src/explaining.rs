@@ -1,6 +1,6 @@
 //! A plain-language reading of one command a Drone reached for, for the person
 //! deciding whether to allow it — `explain_command` in
-//! `crates/ipc/operations.toml`.
+//! `crates/ipc/operations/`.
 //!
 //! **It decides nothing.** The offers a command carries are unchanged by it,
 //! and a person who never asks is answered exactly as before. What it removes

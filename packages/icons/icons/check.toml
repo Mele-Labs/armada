@@ -1,0 +1,6 @@
+[icons.check]
+  means = "A bare checkmark"
+  group = "Job state"
+  size = "12 and 16px"
+  status = "Specified"
+  notes = "Bare checkmark, nothing is more legible small. Check means yes in both places, which is the point."

@@ -20,7 +20,7 @@
 //! [`allowance`](mod@crate::allowance)'s, and [`Fleet::overspent`] stays the one
 //! predicate comparing a spend to a ceiling.
 //!
-//! `crates/ipc/operations.toml` keys them `raise_cost_cap` and `raise_turn_cap`
+//! `crates/ipc/operations/` keys them `raise_cost_cap` and `raise_turn_cap`
 //! and carries what each route refuses. [`Ceiling`] carries the bound on Helm
 //! and defends its shape.
 

@@ -15,13 +15,14 @@ export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => 
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
 
 const idle = { state: "idle" } as const;
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** The models Fleet lists, as `list_models` answers them, and the efforts a Drone's settings offer. */
 const MODELS = ["haiku", "sonnet", "opus"];
 const EFFORTS = ["low", "medium", "high"];
 
 /** What `/` offers, as a terminal session lists them: skills first, then the commands. */
-const COMMANDS: readonly SessionCommand[] = [
+export const COMMANDS: readonly SessionCommand[] = [
   { name: "review", says: "Review the pull request" },
   { name: "simplify", says: "Simplify the changed code" },
   { name: "security-review", says: "Review the pending changes for security" },
@@ -40,29 +41,11 @@ const drawing = (boxes: [string, number, number, string][], lines: [string, stri
 function others(): Session[] {
   return [
     {
-      id: "s4",
-      terminal: true,
-      title: "CI timeout hunt",
-      model: "sonnet",
-      effort: "medium",
-      mode: "ask",
-      commands: COMMANDS,
-      turn: idle,
-      lastTurn: "14:02",
-      rows: [
-        ...Array.from({ length: 14 }, (_, at): SessionRow => ({ id: `s4-old${at}`, at: `13:${40 + at}:00`, kind: at % 2 === 0 ? "tool" : "message", ...(at % 2 === 0 ? { text: `Read crates/store/src/part${at}.rs` } : { from: { kind: "agent" as const }, text: `Part ${at} reads the same clock.` }) }) as SessionRow),
-        { id: "s4-1", at: "14:01:12", kind: "message", from: { kind: "you" }, text: "Why does the store test fail only in CI?" },
-        { id: "s4-2", at: "14:01:20", kind: "tool", text: "Grep flaky in crates/store/src/tests" },
-        { id: "s4-3", at: "14:01:31", kind: "tool", text: "Read crates/store/src/tests/ledger.rs" },
-        { id: "s4-4", at: "14:02:03", kind: "message", from: { kind: "agent" }, text: "It sleeps 50 ms and then reads the clock. CI is slower than that." },
-      ],
-      attachments: [],
-    },
-    {
       id: "s2",
       title: "Release notes script",
       turn: idle,
       lastTurn: "13:48",
+      lastTurnAt: minutesAgo(4),
       rows: [{ id: "s2-1", at: "13:48:02", kind: "message", from: { kind: "agent" }, text: "The script reads the merged pull requests since the last tag." }],
       attachments: [
         { kind: "slot", slot: 5 },
@@ -75,6 +58,7 @@ function others(): Session[] {
       title: "Store migration spike",
       turn: idle,
       lastTurn: "12:20",
+      lastTurnAt: minutesAgo(135),
       rows: [{ id: "s3-1", at: "12:20:41", kind: "message", from: { kind: "agent" }, text: "Named migrations apply in order and each is recorded once." }],
       attachments: [
         { kind: "slot", slot: 7 },
@@ -124,8 +108,10 @@ export function sessionsStore(
   board: BoardControl,
   /** The Board rows the dispatching moment adds. */
   dispatchedRows: readonly unknown[] = [],
+  /** Sessions open beside the usual ones. */
+  more: readonly Session[] = [],
 ): SessionsStore {
-  let now: readonly Session[] = others();
+  let now: readonly Session[] = [...others(), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
@@ -160,7 +146,7 @@ export function sessionsStore(
   const addTo = (id: string, rows: SessionRow[], attachments: SessionAttachment[] = []) =>
     edit(id, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
-  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp }));
+  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp, lastTurnAt: new Date().toISOString() }));
   const finish = (stamp: string) => finishOf(MINE, stamp);
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));
@@ -460,6 +446,7 @@ export function sessionsStore(
         }
       }
     },
+    rename: (id, title) => edit(id, (one) => ({ ...one, title })),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;

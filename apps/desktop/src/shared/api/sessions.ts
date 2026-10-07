@@ -7,6 +7,7 @@ import type {
   Outcome,
   PilotOutcome,
   PullRequestState,
+  RenameSession,
   ReviewDispatched,
   SendSessionMessage,
   SessionRecord,
@@ -44,6 +45,8 @@ export type SessionsApi = {
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+  /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
+  renameSession: (rename: RenameSession) => Promise<SessionActed>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /**
@@ -86,6 +89,7 @@ export const SESSIONS_CHANNELS = {
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",
   tuneSession: "bridge:tune-session",
+  renameSession: "bridge:rename-session",
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

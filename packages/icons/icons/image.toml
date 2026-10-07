@@ -1,0 +1,7 @@
+[icons.image]
+  means = "A frame with a horizon and a sun \u2014 a picture that can be opened"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Opening the picture a Studio Note kept, full size. Never an attachment, never a staged file, and never a Sketch node, which is `shapes`."
+  notes = "Minted 2026-09-28 with the node bar's mint. `shapes`'s own row refused `image` on the grounds that it *promises a picture a person can open*, which is exactly what this act does \u2014 so that refusal is the argument for it here, and the same sentence is what keeps the two apart. Refused: `file-image`, since `file-*` is reserved to evidence throughout; `frame`, which reads as a crop; `eye`, reserved to Review; `maximize`, reserved to fitting a canvas to what is on it."

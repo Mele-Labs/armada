@@ -1,0 +1,16 @@
+[operations.report_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A harness tells Fleet one fact about an agent session a person runs: it began, moved, took a branch or a pull request, measured, finished a turn or ended"
+notes = """
+`POST /sessions/report`, body `SessionReport`: the harness's name, the session's own id and one `fact`. Since 23.43. Answered with the whole `SessionRecord`.
+
+**Armada's own shape and no harness's.** A mod in a terminal session, a Bridge-hosted session and a script send the same body, so nothing past the adapter that sends it knows what a session runs in. Fleet stamps each fact on arrival, so no clock of the sender's is compared with its own.
+
+**Fleet resolves what the sender cannot.** `started` and `moved` carry only the directory; Fleet matches it to a served repository and to the pool slot it stands in, and a session moving out of a slot gives it back. A `branch` or `slot` attachment is exclusive per session; every other `kind` is kept as the open word it arrived as.
+
+**A fact is idempotent**: the same attachment reported twice changes nothing and publishes nothing. A session Fleet has never heard of is created by whatever fact arrives first, so a session already running when Fleet started is recorded from its next fact.
+
+`agent_access` is `No`: it is the harness that reports, never the agent inside it, and an agent that could write its own row could write another's.
+"""

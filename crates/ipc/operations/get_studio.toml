@@ -1,0 +1,10 @@
+[operations.get_studio]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One Studio with every node and edge on it, each node where a person left it"
+notes = """
+A node's `kind` is its content's tag, beside its fields. **Who put each thing there is on the record**: a node's and an edge's `added_by`, and the Studio's `named_by`, `person` or `helm`, absent only on what was kept before V78 recorded it (#1288). **A Run or Job node carries a reference and no state**: its state is read off the run or the Job, never copied. A `proposed` edge is drawn dashed until a person accepts it.
+
+A Studio in another repository than a door session's is refused as `fleet.studio_in_another_repository`, the way a Job is.
+"""

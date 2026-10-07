@@ -1,0 +1,14 @@
+[operations."manifest.reread"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Fleet read armada.yml again, and this is what it came to"
+notes = """
+The second kind on this stream that names no Job — `proposal.moved` is the first — and unlike that one it names no Drone and no step either. A Manifest is Fleet's own, so nothing on the Board moves when this arrives and there is nothing for a client to fold into a row.
+
+It carries `ManifestReading` itself rather than a payload wrapping one, which is what `job.forgotten` does with `JobForgotten`: the answer to `get_manifest_reading` and this event's body are the same fact, and declaring it twice would be two shapes to keep in step for one sentence.
+
+No actor and no `at` on the envelope. `at` would be a second copy of the reading's own, and an actor would have to claim either that Fleet decided something — it read a file — or that a person did, when nobody pressed anything in Armada at all.
+
+It publishes at the rate somebody saves a file, behind a settle window, so it costs the shared backlog nothing worth stating. A save that moved nothing Fleet reads live is still published: the reading is what Fleet now holds, and a client asks `worth_saying` whether it is news rather than being told only about the readings somebody else judged interesting.
+"""

@@ -1,0 +1,12 @@
+[operations.attest_complete]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person says the work is complete: the Job goes to `completed_success` recorded as attested, with no gate run, and is never drawn as verified"
+notes = """
+`POST /jobs/:job_id/attest_complete`, body `PilotNote` (`note?`) or none. Answers the Job's `JobSummary`, whose `piloted.exit` reads `attested`.
+
+**Refused `fleet.steps_not_advanced` while any step has not advanced**: `piloted -> completed_success` is guarded `every_step_advanced`, and attesting is a verdict on the work and not a way past a step. A pilot with steps still to run submits for verification. 409 `fleet.not_piloted` on a Job that is not piloted.
+
+`agent_access` is `Helm only`, asked as `pushes to shared`, for `approve_review`'s reason: a person is saying finished work is finished.
+"""

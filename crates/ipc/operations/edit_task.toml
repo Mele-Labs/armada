@@ -1,0 +1,14 @@
+[operations.edit_task]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Edit this task: a person changes one task's title, note, scope, expects or model, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/tasks/:task_id/edit`, spike 022 slice 3 (`#1657`). The body is `EditTask` as Bridge sent it before the route existed: `title?`, `note?`, `scope?`, `expects?`, `model?`, **only the fields a person changed**. A field left out is unchanged; `note` or `expects` sent empty, and `scope` sent as `[]`, clear it. `model` is a person's pick, which beats the Job's tier map for this task (`.claude/decisions/2026-09-30-a-person-can-pick-a-tasks-model.md`); a task carries no tier a person edits. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published naming the task, with `actor` `human`.
+
+**Only an open or a failed task**, so it works before the plan's gate and after a failure alike, and asks no step where the Job is. A 409 `fleet.task_in_flight` on a task working or handed in, its Drone's; a 409 `fleet.task_already_settled` on one done or dropped. A 409 on a model `list_models` does not offer, as `set_model` refuses one. A 422 on a body that changes nothing or blanks the title, and `fleet.no_such_task` on a task the plan does not hold.
+
+**The edit does not rewrite the plan.** It is a change appended after the recording, so the history reads the plan as approved and the task as edited after, and `WorkPlan.recorded_by` stays whoever recorded it. The next Drone put on the task reads the edit in its brief; a running one keeps the brief it started with.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""

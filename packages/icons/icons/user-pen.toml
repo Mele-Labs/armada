@@ -1,0 +1,7 @@
+[icons.user-pen]
+  means = "A head and shoulders, with a pen across the lower right"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "Actor=human, as a person having written a criterion: one a person added or reworded at the gate, on its origin line only. Never a person required, which is `user-check`, never an attestation verdict, and never rename or edit, which are `square-pen`'s."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`signature` and `pen-line` refused). The human-figure family is reserved to `human required, or actor=human`, and **the owner accepted that actor=human covers a person having written this criterion**: a person who wrote the line is its actor. Against `user-check` rule 4 holds: that one is an amber 12px badge, this one a `--fg-muted` origin mark. The pen is detail and may blur at 12px; the figure is the silhouette, and it is what says a person."

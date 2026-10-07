@@ -20,7 +20,7 @@ export type Usage = {
 
 export type Fact =
   | { kind: 'started'; cwd: string; title?: string; origin: 'terminal' }
-  | { kind: 'titled'; title: string }
+  | { kind: 'titled'; title: string; named?: boolean }
   | { kind: 'moved'; cwd: string }
   | {
       kind: 'attached'

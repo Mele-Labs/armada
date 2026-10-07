@@ -1,0 +1,14 @@
+[operations."job.checking"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One of a step's Checks starts or finishes, or the gate's ruling on them is written down"
+notes = """
+The gate said nothing between the Drone exiting and the ruling being recorded. A step whose Checks had been running for minutes read as a step nothing had reached, and every Check flipped at once when the Judge answered — even one that had finished long before. `#628` is that.
+
+Not a step state, for `job.judging`'s reason and in its exact shape: a step whose gate is running Checks is still `running`, and it stops without moving. The set rides beside the state as `StepDetail.checking`.
+
+One message when a Check starts and one when it finishes, and never one per second. Each carries the step's whole set as it stands; a surface counts elapsed time from `started_at`. A Check waiting for one of the gate's four slots reads as waiting because it has no start. The last message carries nothing and is sent after `job_step_checks` is written, so a surface re-reading on it goes from the live result to the recorded one without a gap.
+
+**A view of the run, not a record of it.** Nothing published here is stored, and the ruling and the rows it writes do not read any of it.
+"""

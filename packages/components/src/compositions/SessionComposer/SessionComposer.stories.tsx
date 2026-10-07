@@ -144,7 +144,7 @@ export const ModeLocked: Story = {
 export const NarrowBar: Story = {
   decorators: [
     (Story) => (
-      <div style={{ width: "520px" }}>
+      <div style={{ width: "calc(var(--space-12) * 10.5)" }}>
         <Story />
       </div>
     ),

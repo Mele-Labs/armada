@@ -1,0 +1,10 @@
+[operations.list_studios]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every Studio one repository keeps, each with its name and when it was last touched, the last touched first"
+notes = """
+`?manifest_id=` names the repository, absent being the first Fleet serves, and the door always names the session's own. **Keyed by the Manifest id**, the key Helm's conversation is kept under, so a Studio belongs to a repository and names no Workspace. Kept until a person deletes it; no retention sweep reads these rows.
+
+`agent_access` is `Yes`: a Studio is a record an agent reads as much as a person does.
+"""

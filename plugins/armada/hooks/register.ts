@@ -15,6 +15,7 @@
 import type { Engine, Register } from 'claude-code'
 
 import {
+  customTitleIn,
   ghAct,
   isDispatch,
   jobIdsIn,
@@ -27,6 +28,7 @@ import {
   effortOf,
   modeOf,
   modelName,
+  transcriptPath,
 } from './facts'
 import type { Door, Fact, Report } from './fleet'
 
@@ -371,6 +373,28 @@ async function titled($: Dollar, prompt: string): Promise<void> {
   say($, id, { kind: 'titled', title })
 }
 
+/**
+ * A `/rename` in the terminal. **The name is what was typed**; a bare `/rename` has Claude Code
+ * make one up, which is read from the transcript it writes the entry to. It replaces any title
+ * and is told as `named`, so the first prompt's line never takes it back.
+ */
+async function renamed($: Dollar, typed: string): Promise<void> {
+  const [id, one] = await current($)
+  let title: string | undefined = typed.replace(/\s+/g, ' ').trim() || undefined
+  if (title === undefined) {
+    try {
+      const home = await $.env.get('HOME')
+      const cwd = await $.session.cwd()
+      title = home ? customTitleIn(await $.fs.read(transcriptPath(home, cwd, id))) : undefined
+    } catch {
+      // A transcript too large to read, or not there: the name is not known.
+    }
+  }
+  if (title === undefined) return
+  one.title = title
+  say($, id, { kind: 'titled', title, named: true })
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -392,6 +416,12 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     const out = await next(e)
     void titled($, e.text).catch(() => undefined)
+    return out
+  })
+
+  on('command.run', { command: 'rename' }, async ($, e, next) => {
+    const out = await next(e)
+    void renamed($, e.args).catch(() => undefined)
     return out
   })
 

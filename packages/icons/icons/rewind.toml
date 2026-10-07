@@ -1,0 +1,7 @@
+[icons.rewind]
+  means = "Two left-pointing triangles — playing back"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Retros surface only. Never a restart or a redispatch, which are `rotate-cw`, and never history as a clock, which the set holds one of by decision."
+  notes = "Proposed 5 Oct 2026 for the Retros rail row, for the owner to rule on in the walk. A retro is a Job played back to see what got in the way, and two triangles pointing back is that drawing. Against the Navigation set: `layout-dashboard` a grid of panes, `presentation` a board on legs, `hard-drive` a horizontal vessel, `merge` two strokes into an arrow, `book-open` two leaves on a spine. Refused: `graduation-cap`, which says the person is learning; `history`, a clock face; `undo-2`, which reads as taking an act back; `clipboard-list`, the Job Board's."

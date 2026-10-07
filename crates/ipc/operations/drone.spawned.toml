@@ -1,0 +1,5 @@
+[operations."drone.spawned"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Drone starts against a worktree"

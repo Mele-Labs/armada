@@ -1,0 +1,18 @@
+[operations.start_checkout_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Run one Check or Command in the main checkout's working tree - a rehearsal that records nothing anywhere"
+notes = """
+**`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still runs. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.
+
+**In the working tree as it is on disk.** There is no throwaway copy and no Where control: a copy would be a worktree by another name, and a Job's own run sheet is already that tree — Journey 9, *Running one*.
+
+**The request names an entry, and the workspace whose file declares it.** `StartCheckoutRun.workspace` is `StartCheckoutVerify.workspace`'s shape: a directory relative to the repository root whose own `armada.yml` is read from disk, with the entry run in that directory on that file's ports. Absent, empty or `.` is the root's, and with no root Manifest that is refused as having nothing to run. `StartCheckoutRun` has neither `narrowed` nor `worktree_version`: there is no diff of the checkout's own to narrow against and no frozen second Manifest to choose between, so a caller cannot ask for either because the field is not there to set.
+
+**One run at a time is per owner, not per repository.** A checkout run and a Job's run are in different trees and neither waits for the other; two checkout runs are in one tree and the second is refused.
+
+A destructive Command runs without approval, as the Manifest concept page settles: a person's own invocation is not approved a second time. The confirmation that names it is Bridge's.
+
+It answers at once with the run underway, output arrives on `observe_checkout_run`, and the end is `checkout_run.finished` on `/events` — its own kind, because the record names no Job.
+"""

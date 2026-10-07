@@ -1,0 +1,7 @@
+[icons.eraser]
+  means = "An eraser - give a worktree's checkout back"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Clear, the reclaim of a Job's checkout, the act in a tile's panel. Never deleting a Job's record, which is Forget Job, and never a slot, which is Remove."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. Clear wipes what stands in a directory and leaves the branch, which is what an eraser does to a page. Refused: `trash-2`, which is Remove on a slot; `brush-cleaning`, whose bristles are interior detail at 12px."

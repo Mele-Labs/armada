@@ -309,7 +309,8 @@ abandoned. Use it, and land from the branch.
 | Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
-| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
+| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved, with one exception below |
+| A conflict only in `protocol-version.toml` and its generated mirror | Every branch that moves the wire bumps both, so any two conflict. The preview writes one number of its own, the higher of the two sides' `major.minor` with the minor plus one, so it is no branch's and no release's. It writes both files directly (codegen needs an install a preview lacks), commits the merge, and the table says `protocol: preview's own 23.N`. Fleet and Bridge are built from this one tree, so they agree |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
@@ -457,8 +458,8 @@ no other edit. A builder needs its name added to `BUILDERS` in
 until it is. A moment added to `ARC_MOMENTS` and a Job added to `KIND_FIXTURES`
 are scenarios with no edit at all — both rosters are walked.
 **A row of its own** — one Job, already open, for a walk — is a file in
-`apps/desktop/src/renderer/src/mock/scenarios/` and one line in `mock/scenario-rows.ts`;
-`scenario.ts` is not edited, so two branches adding rows do not conflict.
+`apps/desktop/src/renderer/src/mock/scenarios/` and nothing else;
+`scenario.ts` reads the directory and is not edited, so two branches adding rows do not conflict.
 `docs/practices/list-files.md`.
 
 **A moment can hold no Job, or four.** The two dispatch moments are before any
@@ -675,7 +676,6 @@ answers on its own and no question reaches the Drone.
 | Not behind | Nothing at all, and nothing is announced |
 | Behind, and it replays | The Drone is told what moved, in its next turn |
 | Behind, and it conflicts | The conflict is handed to the Drone as work, every file named |
-| Behind, and the conflict is lines added to a declared list file | There is none: git keeps both (`.gitattributes`, [list files](list-files.md)) |
 
 **Uncommitted work is never destroyed by this.** Fleet commits only at the last
 step, so mid-Job the worktree is full of uncommitted changes; the rebase carries

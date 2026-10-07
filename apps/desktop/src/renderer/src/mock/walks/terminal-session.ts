@@ -35,7 +35,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("sessions", steps(false));
-const narrow = walk("sessions", steps(true), NARROW);
+const wide = walk("terminal-session", steps(false));
+const narrow = walk("terminal-session", steps(true), NARROW);
 
 export { wide as "terminal-session", narrow as "terminal-session-narrow" };
