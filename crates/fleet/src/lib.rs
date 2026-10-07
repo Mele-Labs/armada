@@ -26,6 +26,8 @@
 pub mod admitting;
 pub mod adopting;
 pub mod adrift;
+/// Steps added to one Job, beside its frozen workflow.
+mod added_steps;
 /// What a person changes on a proposal, and the Job it leaves at the press.
 /// Spike 022, slice 4.
 /// Where an approved Job lands, set once after its approval. 23.22.
@@ -209,9 +211,12 @@ pub mod permitting;
 mod piloting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
+/// The owner's choice of where a failed Trigger's held fix goes.
+mod placing_a_fix;
 mod plan_acts;
 pub mod policy;
 pub mod ports;
+mod pr_mode;
 mod precedent;
 /// A person's Bridge preferences, `limits`'s shape one table over.
 mod preferences;
@@ -267,6 +272,10 @@ mod rehearsing;
 /// A parked Job paused by Fleet when work waits for a full pool.
 mod releasing;
 pub mod remarks;
+/// A Fleet that starts takes its Trigger repairs up again.
+mod repair_recovery;
+/// A failed Trigger's repair Drone, on a branch of its own.
+mod repairing;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
@@ -343,7 +352,11 @@ pub mod terms;
 mod tooling;
 pub mod transcript;
 mod trigger_authoring;
+mod trigger_hold;
+mod trigger_hold_acts;
 mod trigger_wire;
+/// What a failed Trigger's repair decides, apart from the doing of it.
+pub mod trigger_repair;
 /// What a Job's Triggers come to at each moment, and where Fleet fires them.
 pub mod triggering;
 /// A step's tuning at the approval press. 23.20.

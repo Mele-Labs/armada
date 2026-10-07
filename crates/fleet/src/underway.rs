@@ -145,6 +145,22 @@ impl Underway {
         (&running.step == step).then(|| running.checks.clone())
     }
 
+    /// Both of this Job's entries, whichever step they are on.
+    pub(crate) fn live(&self, job: &ipc::JobId) -> Live {
+        let Ok(held) = self.0.lock() else {
+            return Live::default();
+        };
+        let of = |whose: Whose| {
+            held.whose(whose)
+                .get(job)
+                .map(|running| (running.step.clone(), running.checks.clone()))
+        };
+        Live {
+            gate: of(Whose::Gate),
+            asked_run: of(Whose::AskedRun),
+        }
+    }
+
     /// The live log this Job's gate is writing under that name. `None` where
     /// no Check of this Job's running gate wrote one — which is the whole of
     /// what keeps a caller's word from reaching any other file.
@@ -185,6 +201,14 @@ impl Underway {
             })
         })
     }
+}
+
+/// What a Job's gate and its Drone's own run are doing now, as `list_manifest_checks`
+/// reads it: the step each runs and its Checks.
+#[derive(Clone, Default)]
+pub(crate) struct Live {
+    pub gate: Option<(ipc::StepId, ipc::ChecksUnderway)>,
+    pub asked_run: Option<(ipc::StepId, ipc::ChecksUnderway)>,
 }
 
 /// Where one gate says what each of its Checks is doing, and who is told.

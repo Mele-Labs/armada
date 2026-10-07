@@ -19,7 +19,9 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import type { FollowedLog, JobDetail as JobWhole } from "@armada/protocol";
+import type { FollowedLog, HoldAct, JobDetail as JobWhole, JobTrigger } from "@armada/protocol";
+import type { HoldVerb } from "@armada/components";
+import type { HoldActCall } from "./repair-branch";
 import { heldForMoney, heldForTurns } from "./Acts";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
@@ -121,6 +123,10 @@ export type OverviewTabProps = JobDetailProps & {
   onOpenCheck: (at: CheckAt) => void;
   /** Open a boundary Check's log in the log panel. **The screen's**, which holds the panel. */
   onOpenCheckLog: (log: JobCheckLog) => void;
+  /** Open the Job's log on the line a Trigger's firing wrote. **The screen's**, which holds the panel. */
+  onOpenTriggerLog: (trigger: JobTrigger) => void;
+  /** Rerun or skip a Trigger that holds the Job, from the Triggers list. */
+  onHoldAct?: HoldActCall;
   /** Open main's failed Check's log, which a Job that took main's red leads with. The shell's, which holds the panel. */
   onOpenMainLog?: (at: { check: string; branch: string }) => void;
   /**
@@ -774,6 +780,10 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
+      {...(whole?.triggers === undefined ? {} : { triggers: whole.triggers })}
+      {...(whole?.additions === undefined ? {} : { additions: whole.additions })}
+      {...(props.onHoldAct === undefined || whole === null ? {} : { onHoldAct: (act: HoldVerb, by: HoldAct) => props.onHoldAct!(whole.job.id, act, by) })}
+      onOpenTriggerLog={props.onOpenTriggerLog}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

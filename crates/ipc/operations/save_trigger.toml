@@ -15,4 +15,6 @@ notes = """
 **A repository's file waits for `main`.** It is written in the checkout and Fleet reads a repository's Triggers from the base branch, so `waits_for_main` is true until the base holds that text, and `runs_from` is what runs meanwhile. A machine's is on the next `list_triggers`.
 
 `agent_access` is `Bridge only`: what is saved decides what runs on a person's machine at every Job's moments, and Helm has no ask for it yet.
+
+**Since 23.68 `kept_from?` keeps a Job's added step for every Job**: `{ job_id, addition_id }`. The definition is the Trigger the editor drew from the addition, and it is checked and written as any other. Fleet then records on the addition where it went (`AddedStep.kept`) and publishes `job.addition_changed`. 422 `fleet.no_such_addition`, and `fleet.unacceptable_addition` for a Drone step, which is not a Trigger. Both are asked before anything is written. A Trigger kept this way applies from the next Job, as every saved one does.
 """

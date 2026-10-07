@@ -63,7 +63,8 @@ async fn a_save_round_trips_and_a_read_agrees_with_it() {
     assert_eq!(
         saved,
         Preferences {
-            where_things_are_open: true
+            where_things_are_open: true,
+            ..Default::default()
         }
     );
     assert_eq!(read(&app).await, saved, "a read agrees with it");

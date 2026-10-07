@@ -67,10 +67,10 @@ use core_model::{
 };
 use fleet::dispatch::stopping;
 use fleet::{
-    apply, rule_on, Asked, AtStep, CheckBudget, Clock, JudgeBudget, Judging, Keeping, Marking,
-    Mint, Policies, Ruling,
+    Asked, AtStep, CheckBudget, Clock, JudgeBudget, Judging, Keeping, Marking, Mint, Policies,
+    Ruling, apply, rule_on,
 };
-use testkit::{resolved, FakeJudge, FakeVcs, FakeWorkProduct, Gaming, Gate, Sketch};
+use testkit::{FakeJudge, FakeVcs, FakeWorkProduct, Gaming, Gate, Sketch, resolved};
 use verification::{Claimed, Lifted, NotClaimed, Request, ShownBy, Submission};
 
 /// Absolute, because `WorktreeSpec` refuses a relative root — a derived path

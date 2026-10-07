@@ -1,0 +1,14 @@
+[operations.skip_trigger]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Let a held Trigger go without its Command passing, and record it skipped by the owner"
+notes = """
+`POST /jobs/:job_id/skip_trigger`, protocol 23.68. The body is `HoldAct`, `rerun_trigger`'s. The answer is a `HoldSettled`, with `state` `skipped`, whose skip reason on the row is `by_owner`, and `released` as `rerun_trigger` says it.
+
+The firing's Command is not run. **A hold before a step starts is not fired again** when the Job goes on to it: the skip would be undone by the Trigger running a second time.
+
+**Refused, each a 409 leaving the firing as it was:** `fleet.no_hold` where nothing by that name holds the Job, and `fleet.hold_repairing` while a repair is under way, which lets the hold go by itself. A `fix_ready` firing can be skipped: the fix stays on its branch, unplaced.
+
+`agent_access` is `Bridge only`, `rerun_trigger`'s reason.
+"""

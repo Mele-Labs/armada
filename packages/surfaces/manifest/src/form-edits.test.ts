@@ -117,6 +117,24 @@ describe("a draft", () => {
     expect(editsOf(frozen, lifted)).toEqual([{ edit: "set_freeze", freeze: false }]);
   });
 
+  it("reads the Draft default off pr_mode and sends it only where the switch moved", () => {
+    const draft = draftOf(DECLARED);
+    expect(draft.draftPr).toBe(false);
+    draft.draftPr = true;
+    expect(editsOf(DECLARED, draft)).toEqual([{ edit: "set_pr_mode", pr_mode: "draft" }]);
+    const drafted = { ...DECLARED, pr_mode: "draft" };
+    const off = draftOf(drafted);
+    expect(off.draftPr).toBe(true);
+    expect(editsOf(drafted, off)).toEqual([]);
+    // Off removes the key, so this machine's default holds.
+    off.draftPr = false;
+    expect(editsOf(drafted, off)).toEqual([{ edit: "set_pr_mode", pr_mode: null }]);
+    // A file that says `ready` is a switch that is off, and left alone it stays.
+    const ready = { ...DECLARED, pr_mode: "ready" };
+    expect(draftOf(ready).draftPr).toBe(false);
+    expect(editsOf(ready, draftOf(ready))).toEqual([]);
+  });
+
   it("sends a port, a policy word and both caps in the file's units", () => {
     const draft = draftOf(DECLARED);
     draft.ports[0]!.container = "";

@@ -246,6 +246,7 @@ async fn a_hosted_session_is_one_row_that_holds_nothing_until_it_writes() {
             cwd: rig.root.clone(),
             title: Some("a title the mod read".into()),
             origin: SessionOrigin::Terminal,
+            mod_version: None,
         }))
         .await
         .unwrap();

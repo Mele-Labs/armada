@@ -372,6 +372,22 @@ fn how_a_repository_lands_moves_under_a_running_fleet() {
     assert!(adopted.at_restart().is_empty());
 }
 
+/// **`pr_mode` moves under a running Fleet too.** It is read at the approval, so
+/// the next Job approved is answered by the file as it now stands.
+#[test]
+fn how_a_repository_offers_a_pull_request_moves_under_a_running_fleet() {
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+    assert_eq!(manifest.pr_mode(), None);
+
+    repository.save(&format!("{PATIENT}pr_mode: draft\n"));
+    let adopted = reloads.reread().expect("it reads");
+
+    assert_eq!(manifest.pr_mode(), Some(core_model::PrMode::Draft));
+    assert_eq!(adopted.moved()[0].to_string(), "pr_mode unset -> draft");
+    assert!(adopted.at_restart().is_empty());
+}
+
 /// **Deleting the key puts the cautious value back**, and says so, rather than
 /// leaving the last word in force. The other direction is the dangerous one: a
 /// repository that removes `auto_merge: always` has stopped asking for it.

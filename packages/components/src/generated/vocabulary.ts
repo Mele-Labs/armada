@@ -107,6 +107,7 @@ export const ESCALATION_REASON: Readonly<Record<string, Rendering | undefined>> 
   "stalled": { verb: "stalled", icon: OctagonAlert, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "thrashing": { verb: "churning", icon: RefreshCw, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "unheard": { verb: "nothing is reading this Drone", icon: null, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
+  "trigger_held": { verb: "a Trigger holds it", icon: null, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "would_not_start": { verb: "the Drone would not start", icon: null, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
 };
 
@@ -373,6 +374,7 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "escalation_reason", variant: "run_ended", missing: ["icon"] },
   { vocabulary: "escalation_reason", variant: "scope_refused", missing: ["icon"] },
   { vocabulary: "escalation_reason", variant: "unheard", missing: ["icon"] },
+  { vocabulary: "escalation_reason", variant: "trigger_held", missing: ["icon"] },
   { vocabulary: "escalation_reason", variant: "would_not_start", missing: ["icon"] },
   { vocabulary: "criterion_verdict_check", variant: "failed", missing: ["icon", "token"] },
   { vocabulary: "criterion_verdict_check", variant: "not_reached", missing: ["token"] },

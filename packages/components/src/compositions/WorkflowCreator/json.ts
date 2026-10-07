@@ -60,6 +60,8 @@ function stepOf(raw: Table): Step {
     retryLimit: typeof raw.retry_limit === "number" ? raw.retry_limit : 0,
     returnsTo: text(table(raw.verdict_routing).request_changes) ?? "",
     iterationCap: typeof raw.iteration_cap === "number" ? raw.iteration_cap : 5,
+    delivers: raw.delivers === true,
+    ...(typeof raw.draft_pr === "boolean" ? { draftPr: raw.draft_pr } : {}),
     carried: raw,
   };
 }
@@ -102,7 +104,7 @@ function stepJson(step: Step): Table {
   const was = stepOf(raw);
   const out: Table = { ...raw, id: step.id };
   if (out.label === undefined) out.label = step.id;
-  if (out.delivers === undefined) out.delivers = false;
+  if (out.delivers === undefined) out.delivers = step.delivers === true;
 
   if (step.evidence !== was.evidence) {
     const evidence = { ...table(raw.evidence) };
@@ -136,6 +138,11 @@ function stepJson(step: Step): Table {
   if (gateChanged || out.advance_gate === undefined) out.advance_gate = gateWord(gate, raw.advance_gate);
 
   if (step.retryLimit !== was.retryLimit) out.retry_limit = step.retryLimit;
+
+  if (step.draftPr !== was.draftPr) {
+    if (step.draftPr === undefined) delete out.draft_pr;
+    else out.draft_pr = step.draftPr;
+  }
 
   if (step.returnsTo !== was.returnsTo || step.iterationCap !== was.iterationCap) {
     if (step.returnsTo === "") {

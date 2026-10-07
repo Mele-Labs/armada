@@ -8,7 +8,8 @@ fn nothing_saved_reads_as_the_shipped_default() {
     assert_eq!(
         Preferences::default(),
         Preferences {
-            where_things_are_open: false
+            where_things_are_open: false,
+            ..Default::default()
         }
     );
 }
@@ -17,6 +18,7 @@ fn nothing_saved_reads_as_the_shipped_default() {
 fn preferences_round_trip_flat() {
     let preferences = Preferences {
         where_things_are_open: true,
+        ..Default::default()
     };
     let json = encode(&preferences).expect("plain data");
     assert_eq!(json, r#"{"where_things_are_open":true}"#);
@@ -46,4 +48,24 @@ fn a_save_names_one_preference_and_a_value() {
 fn an_unrecognised_name_still_decodes() {
     let body = br#"{"name":"where_things_are_purple","value":true}"#;
     decode::<SavePreference>("a preference to save", body).expect("the wire type takes any name");
+}
+
+#[test]
+fn the_draft_default_is_left_out_while_false_and_read_back_when_true() {
+    let drafting = Preferences {
+        draft_pull_requests: true,
+        ..Preferences::default()
+    };
+    let json = encode(&drafting).expect("plain data");
+    assert_eq!(
+        json,
+        r#"{"where_things_are_open":false,"draft_pull_requests":true}"#
+    );
+    assert_eq!(
+        decode::<Preferences>("preferences", json.as_bytes()).expect("round-trips"),
+        drafting
+    );
+    let before_it: Preferences =
+        decode("preferences", br#"{"where_things_are_open":true}"#).expect("an older Fleet's");
+    assert!(!before_it.draft_pull_requests);
 }

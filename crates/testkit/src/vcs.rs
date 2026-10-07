@@ -25,15 +25,13 @@
 //! worktree wants the real one.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::error::Error;
-use std::fmt;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
-    CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable, Landing,
-    Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark,
-    RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
+    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
+    Change, CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
+    Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase,
+    Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
     Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
@@ -42,6 +40,7 @@ use crate::work_product::Holding;
 mod commit;
 mod delivered;
 mod delivering;
+mod failed;
 mod main_ci;
 mod merging;
 mod pull_requests;
@@ -50,53 +49,11 @@ mod slots;
 use commit::Willing;
 pub use commit::{CommitScope, FakeCommit};
 pub use delivered::Delivered;
+pub use failed::FakeVcsError;
 use main_ci::MainCiScript;
 pub use merging::Merging;
 use merging::Trees;
 use slots::FakeSlots;
-
-/// Why the fake refused.
-///
-/// One variant per split the real error draws: a name already taken, the
-/// machine not cooperating, and a commit git would not make. A caller that
-/// handles them handles the real implementation's whole surface as far as its
-/// own logic is concerned.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FakeVcsError {
-    /// A branch of that name is already there and was refused, never reused.
-    BranchExists { branch: String },
-    /// A scripted failure standing in for a disk, a permission or a repository
-    /// that would not answer.
-    Refused { standing_in_for: &'static str },
-    /// A scripted failure of the commit, which is its own case: it happens
-    /// after a Job's Checks have passed, and the caller must not lose the work
-    /// over it.
-    NotCommitted { standing_in_for: &'static str },
-    /// No ref of that name, which is what the real one raises when `base:`
-    /// names a branch the repository does not have.
-    NoSuchRef { r#ref: String },
-}
-
-impl fmt::Display for FakeVcsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FakeVcsError::BranchExists { branch } => {
-                write!(f, "the branch `{branch}` is already there")
-            }
-            FakeVcsError::Refused { standing_in_for } => {
-                write!(f, "refused, standing in for {standing_in_for}")
-            }
-            FakeVcsError::NotCommitted { standing_in_for } => {
-                write!(f, "not committed, standing in for {standing_in_for}")
-            }
-            FakeVcsError::NoSuchRef { r#ref } => {
-                write!(f, "there is no ref `{name}`", name = r#ref)
-            }
-        }
-    }
-}
-
-impl Error for FakeVcsError {}
 
 /// Version control that remembers what it was asked for and creates nothing.
 ///
@@ -231,6 +188,8 @@ pub struct Delivering {
     pub kept_current: KeptCurrent,
     /// What catching the repository up comes to.
     pub repository: RepositoryStanding,
+    /// What merging one local branch into another comes to.
+    pub branch_merge: BranchMerged,
 }
 
 impl FakeVcs {
@@ -523,6 +482,26 @@ impl Delivery for FakeVcs {
             self.trees.lock().expect("not poisoned").merged_into();
         }
         Ok(brought)
+    }
+
+    fn merge_branch(
+        &self,
+        worktree: &Worktree,
+        branch: &str,
+    ) -> Result<BranchMerged, NotDelivered> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::MergedBranch {
+                branch: branch.to_string(),
+                into: worktree.branch().to_string(),
+            });
+        Ok(self
+            .delivery
+            .lock()
+            .expect("not poisoned")
+            .branch_merge
+            .clone())
     }
 
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {

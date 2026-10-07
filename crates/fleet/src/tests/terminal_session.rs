@@ -102,6 +102,7 @@ impl Rig {
             cwd: self.root.clone(),
             title: None,
             origin: SessionOrigin::Terminal,
+            mod_version: None,
         })
         .await;
     }
@@ -224,6 +225,7 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
             name: "review".into(),
             says: "Review the pull request".into(),
         }],
+        mod_version: None,
     })
     .await;
     let record = Arc::clone(&rig.fleet)
@@ -258,6 +260,55 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
         .await
         .unwrap();
     assert_eq!(held.commands.len(), 2);
+}
+
+/// A terminal session whose mod is older than the repository's, or says none, is marked.
+#[tokio::test]
+async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
+    let rig = rig();
+    let manifest = std::path::Path::new(&rig.root).join(adapters::MOD_MANIFEST);
+    let record = || async {
+        Arc::clone(&rig.fleet)
+            .get_session(SessionId::carried(ID))
+            .await
+            .unwrap()
+            .session
+    };
+    let says = |version: Option<&str>| SessionFact::Started {
+        cwd: rig.root.clone(),
+        title: None,
+        origin: SessionOrigin::Terminal,
+        mod_version: version.map(String::from),
+    };
+
+    rig.reports(says(None)).await;
+    assert!(!record().await.mod_out_of_date, "a repository with no mod has none to be older than");
+
+    std::fs::create_dir_all(manifest.parent().unwrap()).unwrap();
+    std::fs::write(&manifest, r#"{"name":"armada","version":"0.10.0"}"#).unwrap();
+    assert!(record().await.mod_out_of_date, "a mod that reported nothing is older");
+
+    rig.reports(says(Some("0.9.0"))).await;
+    assert!(record().await.mod_out_of_date, "0.9 is older than 0.10, read as numbers");
+
+    rig.reports(says(Some("0.10.0"))).await;
+    assert!(!record().await.mod_out_of_date);
+
+    // A fact that carries no version leaves the one kept.
+    rig.reports(SessionFact::TurnCompleted).await;
+    assert!(!record().await.mod_out_of_date);
+}
+
+/// The mod reports a constant, since it cannot read the plugin's manifest while it runs: the two are one number.
+#[test]
+fn the_version_the_mod_reports_is_the_plugins_own() {
+    let reported = include_str!("../../../../plugins/armada/hooks/facts.ts")
+        .lines()
+        .find_map(|line| line.strip_prefix("export const MOD_VERSION = '"))
+        .and_then(|rest| rest.strip_suffix('\''))
+        .expect("the mod's version constant");
+    let manifest = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(adapters::MOD_MANIFEST)).unwrap();
+    assert!(manifest.contains(&format!("\"version\": \"{reported}\"")), "bump both together");
 }
 
 /// The mod of a session Fleet hosts asks too, and is handed nothing.

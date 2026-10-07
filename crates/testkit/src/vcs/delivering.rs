@@ -1,8 +1,8 @@
 //! What a fake repository looks like before a test says otherwise.
 
 use adapter_traits::{
-    Base, KeptCurrent, Landing, Mergeable, Opened, Pushed, RepositoryStanding, Standing,
-    UnderReview,
+    Base, BranchMerged, KeptCurrent, Landing, Mergeable, Opened, Pushed, RepositoryStanding,
+    Standing, UnderReview,
 };
 
 use super::Delivering;
@@ -42,6 +42,7 @@ impl Default for Delivering {
                 onto: String::from("5b4ec82700000000000000000000000000000000"),
                 commits: 1,
             },
+            branch_merge: BranchMerged::Merged,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and

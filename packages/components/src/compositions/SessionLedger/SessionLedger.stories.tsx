@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import { SessionLedger, type LedgerEntry } from "./SessionLedger";
 
@@ -74,5 +74,33 @@ export const Accumulated: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Open Job 52" }));
     await expect(open).toHaveBeenCalled();
+  },
+};
+
+const FINISHED: LedgerEntry[] = [
+  { key: "pm1", kind: "pull_request", name: "Pull request #1801, checks passed", text: "#1801 Merged one", finished: true, onOpen: open },
+  { key: "po", kind: "pull_request", name: "Pull request #1843, checks passed", text: "#1843 Open one", onOpen: open },
+  { key: "ad", kind: "subagent", name: "Subagent Read the logs, done", text: "Read the logs", finished: true, onOpen: open },
+];
+
+/** A section with finished rows opens on Open, All adds them, and each section remembers its own choice. */
+export const OpenAndAll: Story = {
+  args: { entries: FINISHED },
+  play: async ({ canvas }) => {
+    localStorage.clear();
+    await expect(canvas.queryByRole("button", { name: /#1801/ })).toBeNull();
+    await expect(canvas.getByRole("button", { name: /#1843/ })).toBeInTheDocument();
+    const pulls = canvas.getByRole("region", { name: "Pull requests" });
+    await userEvent.click(within(pulls).getByRole("radio", { name: "All" }));
+    await expect(canvas.getByRole("button", { name: /#1801/ })).toBeInTheDocument();
+    // Subagents kept its own choice: its one finished row is still out.
+    await expect(canvas.queryByRole("button", { name: /Read the logs/ })).toBeNull();
+    // The header and toggle stay where the Open view is empty.
+    const agents = canvas.getByRole("region", { name: "Subagents" });
+    await expect(within(agents).getByRole("radio", { name: "Open" })).toBeChecked();
+    await expect(within(agents).queryByRole("listitem")).toBeNull();
+    await userEvent.click(within(agents).getByRole("radio", { name: "All" }));
+    await expect(canvas.getByRole("button", { name: /Read the logs/ })).toBeInTheDocument();
+    localStorage.clear();
   },
 };

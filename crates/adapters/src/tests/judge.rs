@@ -49,10 +49,10 @@ fn a_judge_call_takes_one_turn_and_holds_no_tool() {
     assert!(!args.iter().any(|arg| arg == "--mcp-config"));
 }
 
-/// An unattended call reads no user settings, so no plugin or mod the operator
-/// installed runs inside it. Every render of an ask, with and without a read.
+/// An unattended call reads the operator's user settings and says it is
+/// unattended, so the mod stays out of the Sessions list. Every render of an ask.
 #[test]
-fn no_judge_call_reads_the_operators_user_settings() {
+fn a_judge_call_reads_the_operators_user_settings_and_is_marked_unattended() {
     let agent = HeadlessAgent::on_path();
     for call in [
         agent.render(&ask()),
@@ -60,12 +60,12 @@ fn no_judge_call_reads_the_operators_user_settings() {
         agent.render(&reading()),
         agent.render_watched(&reading()),
     ] {
-        assert_eq!(
-            arg_after(call.args(), "--setting-sources").as_deref(),
-            Some("project,local"),
-            "{:?}",
-            call.args()
-        );
+        assert_eq!(arg_after(call.args(), "--setting-sources"), None);
+        assert!(call
+            .environment()
+            .vars()
+            .iter()
+            .any(|(n, v)| n == "ARMADA_DRONE" && v == "1"));
     }
 }
 
@@ -116,7 +116,7 @@ fn the_question_is_on_stdin_and_not_on_the_argument_list() {
 fn a_judge_call_names_no_directory_and_carries_the_environment_it_was_given() {
     let call = HeadlessAgent::on_path().render(&ask());
     assert_eq!(call.directory(), None);
-    assert_eq!(call.environment().names(), vec!["PATH"]);
+    assert_eq!(call.environment().names(), vec!["PATH", "ARMADA_DRONE"]);
     assert!(
         !call.args().iter().any(|arg| arg.contains("worktree")),
         "{:?}",

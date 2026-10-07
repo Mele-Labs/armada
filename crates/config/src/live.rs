@@ -27,7 +27,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use core_model::{AutoMerge, ReviewGate};
+use core_model::{AutoMerge, PrMode, ReviewGate};
 
 use crate::error::LoadError;
 use crate::manifest::{Manifest, MergeBy};
@@ -80,6 +80,9 @@ pub(crate) struct InForce {
     pub(crate) review_gate: ReviewGate,
     /// `merge_by`, defaulted for the policies' reason: absent means `forge`.
     pub(crate) merge_by: MergeBy,
+    /// `pr_mode`, optional where `merge_by` is defaulted: absent defers to the
+    /// machine's default, which is a different answer from `ready` written.
+    pub(crate) pr_mode: Option<PrMode>,
     /// `freeze`, defaulted for the policies' reason: absent means not frozen.
     pub(crate) freeze: bool,
 }
@@ -142,6 +145,8 @@ pub enum LiveKey {
     ReviewGate,
     /// Live for `AutoMerge`'s reason: it is read at the merge.
     MergeBy,
+    /// Live for `MergeBy`'s reason: it is read at the approval.
+    PrMode,
     /// Live because a freeze only a restart could lift would stop the Fleet it
     /// was meant to leave running for every other repository.
     Freeze,
@@ -163,6 +168,7 @@ impl LiveKey {
             LiveKey::AutoMerge => "auto_merge",
             LiveKey::ReviewGate => "review_gate",
             LiveKey::MergeBy => "merge_by",
+            LiveKey::PrMode => "pr_mode",
             LiveKey::Freeze => "freeze",
         }
     }
@@ -458,6 +464,14 @@ fn moved(before: InForce, after: InForce) -> Vec<Moved> {
             key: LiveKey::MergeBy,
             before: Some(before.merge_by.as_written().to_string()),
             after: Some(after.merge_by.as_written().to_string()),
+        });
+    }
+    if before.pr_mode != after.pr_mode {
+        let said = |mode: Option<PrMode>| mode.map(|mode| mode.as_wire().to_string());
+        changed.push(Moved {
+            key: LiveKey::PrMode,
+            before: said(before.pr_mode),
+            after: said(after.pr_mode),
         });
     }
     if before.freeze != after.freeze {

@@ -307,6 +307,15 @@ const JOB_CHECKS: ManifestCheckRow[] = [
     logs: [{ check: "format", kept: "repro.1.ask.format.log" }],
     asked_run_id: 20,
   }),
+  // A gate Check waiting on another in its gate: no start and no end, as Fleet reports it.
+  onJob({
+    source: "gate",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
+    step: "root_cause",
+    attempt: 2,
+    name: "desktop_test",
+    state: "waiting",
+  }),
   onJob({
     source: "gate",
     requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
@@ -345,7 +354,7 @@ const JOB_CHECK_LOGS: Record<string, string[]> = {
   "root_cause.1.clippy.log": ["$ tsc -b", "packages/screens/src/Row.tsx(88,7): error TS2322: Type 'string' is not assignable to type 'number'."],
 };
 
-/** The merge line's Checks for the Job's branch, one passed and one waiting. **Each names the Job**, which Fleet sends on a gate's and a Drone's requester and not yet on the line's. */
+/** The merge line's Checks for the Job's branch, one passed and one waiting. **Each names the Job**, as Fleet sends it since 23.64. */
 const JOB_LINE: MergeLines = {
   lines: [
     {

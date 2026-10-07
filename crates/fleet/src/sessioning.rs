@@ -116,6 +116,7 @@ where
         let mut record = session_wire(session, &held);
         if session.origin == "terminal" {
             record.terminal = self.hosts().terminals().facts_of(&session.id);
+            record.mod_out_of_date = self.mod_out_of_date(session);
         }
         if session.origin == "bridge" {
             record.hosted = self
@@ -123,6 +124,31 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         Ok(record)
+    }
+
+    /// Keep the version a mod reported. A fact that carries none leaves what is kept.
+    fn mod_said(session: &mut KeptSession, version: Option<String>) -> bool {
+        let Some(version) = version.filter(|one| session.mod_version.as_ref() != Some(one)) else {
+            return false;
+        };
+        session.mod_version = Some(version);
+        true
+    }
+
+    /// Whether the mod this terminal session runs is older than the one its repository holds. Where
+    /// Fleet cannot read the repository's version there is nothing to be older than.
+    fn mod_out_of_date(&self, session: &KeptSession) -> bool {
+        let Some(manifest) = session.manifest_id.as_deref() else {
+            return false;
+        };
+        let roots = self.ledger_roots();
+        let Some((_, root)) = roots.iter().find(|(id, _)| id == manifest) else {
+            return false;
+        };
+        let Some(current) = mod_version_in(root) else {
+            return false;
+        };
+        mod_is_older(session.mod_version.as_deref(), &current)
     }
 
     /// Take the slot `placed` names for `holder`, or give back the one it was in
@@ -192,11 +218,19 @@ where
             ended_at: None,
             end_reason: None,
             figures: Default::default(),
+            mod_version: None,
         });
         let manifest_of = |session: &KeptSession| session.manifest_id.clone().unwrap_or_default();
 
         match report.fact {
-            SessionFact::Started { cwd, title, origin } => {
+            SessionFact::Started {
+                cwd,
+                title,
+                origin,
+                mod_version,
+            } => {
+                // Started is always a change, so whether the version moved is not asked.
+                Self::mod_said(&mut session, mod_version);
                 let place = placed(&cwd, &roots);
                 // **A session Bridge hosts stays Bridge's** when the mod in it
                 // reports its start, so it is one row and not two.
@@ -276,7 +310,9 @@ where
                 effort,
                 mode,
                 commands,
+                mod_version,
             } => {
+                changed |= Self::mod_said(&mut session, mod_version);
                 changed |= self.hosts().terminals().tuned(
                     &id,
                     ipc::TerminalFacts {
@@ -416,6 +452,31 @@ where
     }
 }
 
+/// The `version` the repository's `armada` plugin declares, where it carries one.
+fn mod_version_in(root: &str) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct Manifest {
+        version: Option<String>,
+    }
+    let bytes = std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)).ok()?;
+    ipc::decode::<Manifest>("the armada plugin's manifest", &bytes)
+        .ok()?
+        .version
+}
+
+/// Whether `reported` is behind `current`. No version reported is behind; a version that does not
+/// read as dotted numbers is behind unless it is the same text.
+pub(crate) fn mod_is_older(reported: Option<&str>, current: &str) -> bool {
+    let Some(reported) = reported else {
+        return true;
+    };
+    let parts = |text: &str| -> Option<Vec<u64>> { text.split('.').map(|one| one.parse().ok()).collect() };
+    match (parts(reported), parts(current)) {
+        (Some(had), Some(want)) => had < want,
+        _ => reported != current,
+    }
+}
+
 fn origin_text(origin: ipc::SessionOrigin) -> &'static str {
     match origin {
         ipc::SessionOrigin::Terminal => "terminal",
@@ -501,5 +562,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         attachments: held.iter().map(attachment_wire).collect(),
         hosted: None,
         terminal: None,
+        mod_out_of_date: false,
     }
 }
