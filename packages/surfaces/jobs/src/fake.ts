@@ -12,6 +12,7 @@ export * from "./fake/job-3-retro";
 export * from "./fake/job-detail-fixtures";
 export * from "./fake/job-detail-refusal";
 export * from "./fake/job-detail-undecided";
+export * from "./fake/job-checks-fixture";
 export * from "./fake/job-groups-fixture";
 export * from "./fake/job-tiers-fixture";
 export * from "./fake/jobs-api";

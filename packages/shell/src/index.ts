@@ -17,6 +17,7 @@ export * from "./FailureSurface";
 export * from "./fleet";
 export * from "./floor";
 export * from "./Palette";
+export * from "./history-keys";
 export * from "./refresh-key";
 export * from "./Shell";
 export * from "./repository-label";
