@@ -257,7 +257,7 @@ where
     }
 
     /// Write the run into the Job's own log. **Fields, never an interpolated
-    /// message**, for `crate::dry_run`'s reason. A run with no Job has no log
+    /// message**, for `crate::asked_run`'s reason. A run with no Job has no log
     /// of that kind to go in — `crate::servers::noted_server`'s own case.
     fn noted_rehearsal(
         &self,

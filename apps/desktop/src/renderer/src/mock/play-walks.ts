@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
 
-import { pace } from "./check-logs-fleet";
+import { pace } from "@armada/jobs/fake";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
 import type { Walk } from "./walk";

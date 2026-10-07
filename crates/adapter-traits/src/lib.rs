@@ -41,6 +41,7 @@ mod harness;
 mod judge;
 mod landable;
 mod link_lookup;
+mod main_ci;
 mod secret;
 mod setup;
 mod slots;
@@ -68,6 +69,7 @@ pub use harness::{
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
+pub use main_ci::{CiRun, CiRuns, CiState, MergedPull, OpenPull, OpenPulls};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,

@@ -9,7 +9,7 @@
 
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 import { watchedRead } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -17,7 +17,7 @@ import { originReading } from "@armada/screens/src/origin";
 
 import { onJob } from "./scenario";
 import type { Scenario } from "./scenario";
-import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "./studio-fleet";
+import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind } from "@armada/studios/fake";
 import { mount, openHelm, unmountAfterEach } from "./testing";
 
 unmountAfterEach();

@@ -113,8 +113,8 @@ every time, and the worktree goes back at the merge — a leased slot by
 Then write the next wave into the same file, under the last one, saying what the
 wave that just ran made untrue. That file is the record of the run.
 
-**Children push and stop; the parent opens the pull request, and the owner
-merges.** A child never merges, and the permission system refused `scripts/land`
+**Children push and stop; the parent opens the pull request, and merges it
+once `ci` has passed.** A child never merges, and the permission system refused `scripts/land`
 to an agent three times on 2 Oct 2026 before the parent took it over. Two children at once is
 the owner's cap (2 Oct), and it is what keeps full suites from timing out.
 

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef } from "react";
 import { ArrowUpToLine, Ban, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
-import { CHECK_OUTCOME, LAND_STATE } from "../../generated/vocabulary";
+import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
 import { Alert, type AlertTone } from "../../primitives/Alert/Alert";
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
@@ -10,6 +10,14 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { GUIDE_MERGE_LINE } from "../../guides";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GroupBoundary, type GroupBoundaryCheck, type GroupBoundaryCheckReads } from "../GroupBoundary/GroupBoundary";
+import {
+  MainMark,
+  MainRedBand,
+  type FixChoice,
+  type HubJob,
+  type MainState,
+  type RecentJob,
+} from "../MainHead/MainHead";
 
 /**
  * The merge line: the branches waiting to land on main through `armada land`,
@@ -106,7 +114,34 @@ export type MergeLineNotice = {
   branches?: readonly string[];
 };
 
+/**
+ * An open pull request and how its `ci` stands. `waiting_on_main` is Bridge's own: a `ci` that is red
+ * only because main is, so it is the fix's to wait for and not the branch's failure.
+ */
+export type HubPull = {
+  number: number;
+  url: string;
+  branch: string;
+  /** Absent where nothing has run on it: no mark. */
+  ci?: "passed" | "running" | "failed" | "waiting_on_main";
+  /** The Job it came from. Absent for a person's. */
+  job?: HubJob;
+};
+
+/** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
+export type MergeLineHub = {
+  /** Absent where Fleet has not read main, or main is running or ran nothing: no mark and no band. */
+  main?: MainState;
+  pulls: readonly HubPull[];
+  recent: readonly RecentJob[];
+};
+
 export type MergeLineProps = {
+  /** Main's state and the open pull requests. Absent draws the line alone. */
+  hub?: MergeLineHub;
+  onOpenJob?: (jobId: string) => void;
+  /** Told the owner's choice of a Job for red main. */
+  onFix?: (choice: FixChoice) => void;
   /** The repository, where more than one line draws. Beside the heading. */
   name?: string;
   /** In place order. */
@@ -148,7 +183,7 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, open, onOpenChange, onOpenPullRequest, onOpenCheck, id, focus } = props;
+  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onFix, id, focus } = props;
   const acts = {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
@@ -171,6 +206,7 @@ export function MergeLine(props: MergeLineProps) {
             )}
           </h2>
           <GuideMark guide={GUIDE_MERGE_LINE} />
+          {hub?.main === undefined ? null : <MainMark main={hub.main} />}
         </div>
         <button
           type="button"
@@ -186,7 +222,17 @@ export function MergeLine(props: MergeLineProps) {
           )}
         </button>
       </header>
-      {!open ? null : line.length === 0 && left.length === 0 && notice === undefined ? (
+      {hub?.main?.state !== "red" ? null : (
+        <MainRedBand
+          main={hub.main}
+          recent={hub.recent}
+          onOpenLink={onOpenPullRequest}
+          {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
+          {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onFix === undefined ? {} : { onFix })}
+        />
+      )}
+      {!open ? null : line.length === 0 && left.length === 0 && notice === undefined && (hub?.pulls.length ?? 0) === 0 ? (
         <div className="armada-merge-line__empty">
           <EmptyLine />
         </div>
@@ -215,9 +261,20 @@ export function MergeLine(props: MergeLineProps) {
               )}
             </ol>
           )}
+          {hub === undefined || hub.pulls.length === 0 ? null : (
+            <>
+              {line.length > 0 ? <Separator className="armada-merge-line__rule" /> : null}
+              <h3 className="armada-merge-line__subheading">Open pull requests</h3>
+              <ul className="armada-merge-line__list" aria-label="Open pull requests">
+                {hub.pulls.map((pull) => (
+                  <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                ))}
+              </ul>
+            </>
+          )}
           {left.map((one, n) => (
             <Fragment key={one.heading}>
-              {line.length > 0 || n > 0 ? <Separator className="armada-merge-line__rule" /> : null}
+              {line.length > 0 || (hub?.pulls.length ?? 0) > 0 || n > 0 ? <Separator className="armada-merge-line__rule" /> : null}
               <h3 className="armada-merge-line__subheading">{one.heading}</h3>
               <ul className="armada-merge-line__list" aria-label={one.heading}>
                 {one.entries.map((entry) => (
@@ -422,6 +479,79 @@ function Entry({
       </span>
       <span className="armada-merge-line__detail">
         <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+      </span>
+    </li>
+  );
+}
+
+/** The `ci` marks on an open pull request, from the Check outcomes and the queue's own reason for waiting. */
+const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string }> = {
+  passed: { reading: CHECK_OUTCOME.passed, says: "ci passed" },
+  running: { reading: LAND_STATE.gating, says: "ci running" },
+  failed: { reading: CHECK_OUTCOME.failed, says: "ci failed" },
+  waiting_on_main: { reading: QUEUED_REASON.blocked_by_dependency, says: "ci red because main is" },
+};
+
+/** One open pull request: its `ci` as a mark, the branch, the number, and the Job it came from. */
+function Pull({
+  pull,
+  fixing,
+  onOpenPullRequest,
+  onOpenJob,
+}: {
+  pull: HubPull;
+  /** The Job working on main's red, named on a pull request that waits for it. */
+  fixing: HubJob | undefined;
+  onOpenPullRequest: (url: string) => void;
+  onOpenJob?: (jobId: string) => void;
+}) {
+  const mark = pull.ci === undefined ? undefined : CI[pull.ci];
+  const Icon = mark?.reading?.icon ?? null;
+  const said =
+    mark === undefined ? undefined : pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
+  return (
+    <li className="armada-merge-line__row" aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}>
+      <span className="armada-merge-line__place" />
+      {said === undefined ? (
+        <span className="armada-merge-line__mark" />
+      ) : (
+        <Tooltip label={said} asChild>
+          <span
+            className="armada-merge-line__mark"
+            data-pulsing={pull.ci === "running" || undefined}
+            data-state={pull.ci === "running" ? "gating" : undefined}
+            style={mark?.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
+            role="img"
+            aria-label={said}
+          >
+            {Icon === null ? null : <Icon size={MARK} strokeWidth={STROKE} aria-hidden />}
+          </span>
+        </Tooltip>
+      )}
+      <span className="armada-merge-line__branch mono">{pull.branch}</span>
+      <span className="armada-merge-line__pr">
+        <Tooltip label="Pull request">
+          <a
+            href={pull.url}
+            onClick={(event) => {
+              event.preventDefault();
+              onOpenPullRequest(pull.url);
+            }}
+          >
+            #{pull.number}
+          </a>
+        </Tooltip>
+      </span>
+      <span className="armada-merge-line__detail">
+        {pull.job === undefined ? null : onOpenJob === undefined ? (
+          <span>{pull.job.title}</span>
+        ) : (
+          <Tooltip label="Job">
+            <button type="button" className="armada-merge-line__job" onClick={() => onOpenJob(pull.job!.id)}>
+              {pull.job.title}
+            </button>
+          </Tooltip>
+        )}
       </span>
     </li>
   );

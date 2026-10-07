@@ -1124,7 +1124,9 @@ A reading of files another process writes. `armada land` keeps its queue and eac
 
 **Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.40).
 
-A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
+**Each line carries a `hub` since 23.41**: Fleet's own reading of the forge, which is not a file another process writes. `hub.main` is where main's newest commit stands (`green`, `red`, `running`, `nothing_ran`), and for a red each failed CI job with the Manifest Check it maps to (absent is ordinary), its log address and the tests its log names (absent where none could be read), and the pull request that merged it with the Job of ours that opened it. `hub.pull_requests` is every open pull request with its `ci` (`passed`, `running`, `failed`, or `waiting_on_main` where it failed only on the jobs main is failing, `ci` absent where nothing ran). `hub.fixing` is the Job working on main's red and is never set yet. A red stays `red` while a fix is still running, until a commit passes everything.
+
+A repository nobody has run `armada land` in is left out rather than listed empty **unless Fleet has read its forge**, when it is listed with an empty line and its hub. A Fleet before 23.41 sends no `hub`, and a Bridge before it draws the empty line. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
@@ -1142,6 +1144,8 @@ notes = """
 **The three names are the whole request, and no path is taken.** `root` must be a root this Fleet serves; the branch's outcome names its turn, as the directory its `logs` sit in, and the Checks that turn has started. `check` must be one path component and one of those, not `waiting`. The turn must resolve to exactly `logs/<entry>/<turn>` under this line's own `armada-land/` once links are followed, and a link where the log goes is refused, and read as unreadable if one is planted after. Anything else is one 422, `fleet.unacceptable_proposal`, before the socket opens: Fleet opens nothing it did not find this way.
 
 `get_merge_lines` still keeps the outcome's `logs` off the wire, and so does this: the opening carries the three names and no path.
+
+**The branch `main` names main's own run** (since 23.41), and `check` is a failed job's Check or its own name from `hub.main.failed`. Fleet asks the forge for that job's log now, bounded to its end, and serves it the way a finished Check's is: opened, sent whole, closed `finished`. It is refused with the same 422 unless main is red for that job, so a log is never served for a job that passed.
 
 `agent_access` is `No` for `get_merge_lines`' reason.
 """
@@ -3470,6 +3474,8 @@ notes = """
 Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
 
 **Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
+
+**The hub moves it too**: the same loop folds `hub` onto every line before comparing, so main going red or green, or a pull request opening, publishes within two seconds with no second publisher to disagree with this one. Fleet reads the forge once a sweep interval for one repository at a time, and this loop only reads what that kept.
 
 Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """

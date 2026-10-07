@@ -187,6 +187,30 @@ impl Delivery for GitVcs {
         crate::inline_comments::read(in_repo, pull_request)
     }
 
+    fn base_head_on_the_forge(&self, in_repo: &str, base: &str) -> Option<String> {
+        crate::main_ci::head(in_repo, base)
+    }
+
+    fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::CiRuns> {
+        crate::main_ci::runs(in_repo, commit)
+    }
+
+    fn ci_log(
+        &self,
+        in_repo: &str,
+        run: &adapter_traits::CiRun,
+    ) -> Option<adapter_traits::FromOutside> {
+        crate::main_ci::log(in_repo, run)
+    }
+
+    fn merged_by(&self, in_repo: &str, commit: &str) -> Option<adapter_traits::MergedPull> {
+        crate::main_ci::merged_by(in_repo, commit)
+    }
+
+    fn open_pull_requests(&self, in_repo: &str) -> Option<adapter_traits::OpenPulls> {
+        crate::main_ci::open_pulls(in_repo)
+    }
+
     fn pull_request_diff(
         &self,
         in_repo: &str,

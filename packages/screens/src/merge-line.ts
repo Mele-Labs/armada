@@ -5,8 +5,8 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { MergeLineCheck, MergeLineEntry, MergeLineNotice, MergeLineState, MergeLineWaiting } from "@armada/components";
-import type { MergeLine, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { HubPull, MainRed, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
+import type { MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -25,13 +25,18 @@ export type MergeLineView = {
   sentBack: readonly MergeLineEntry[];
   /** The turn's failed Check, while it runs on. */
   notice?: MergeLineNotice;
+  /** Main's state and the repository's open pull requests, where Fleet serves them. */
+  hub?: MergeLineHub;
+  /** Fleet can take main's red to a Job, so the band offers the two ways. None does yet. */
+  fixOffered?: true;
 };
 
 /**
- * A line as the mock serves it ahead of the wire: `notice` is not a field of protocol 23 yet, so a
- * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
+ * A line as the mock serves it ahead of the wire. `notice` is not a field of protocol 23 yet, so a
+ * Fleet sends none and nothing draws; `fix_offered` is the same for handing main's red to a Job,
+ * which no Fleet can take yet. Folded here so the panel can be walked before it is built.
  */
-type NoticedLine = MergeLine & { notice?: MergeLineNotice };
+type NoticedLine = MergeLine & { notice?: MergeLineNotice; fix_offered?: { recent: readonly RecentJob[] } };
 
 /** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
 type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
@@ -75,7 +80,67 @@ export function mergeLineViews(
     landed: one.landed.map((row) => entryOf(row)),
     sentBack: one.sent_back.map((row) => entryOf(row)),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
+    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, (one as NoticedLine).fix_offered?.recent ?? []) }),
+    ...((one as NoticedLine).fix_offered === undefined ? {} : { fixOffered: true as const }),
   }));
+}
+
+/**
+ * The hub as the panel draws it. **Main is drawn green or red and nothing else**: a commit still
+ * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for.
+ */
+function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
+  const main = mainOf(hub);
+  return {
+    ...(main === undefined ? {} : { main }),
+    pulls: (hub.pull_requests ?? []).map((pull) => ({
+      number: pull.number,
+      url: pull.url,
+      branch: pull.branch,
+      ...(pull.ci === undefined ? {} : { ci: pull.ci as NonNullable<HubPull["ci"]> }),
+      ...(pull.job === undefined ? {} : { job: pull.job }),
+    })),
+    recent,
+  };
+}
+
+function mainOf({ main, fixing }: WireHub): MainState | undefined {
+  if (main === undefined) return undefined;
+  if (main.state === "green") return { state: "green" };
+  const red = main.state === "red" ? redOf(main) : undefined;
+  if (red === undefined) return undefined;
+  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }) };
+}
+
+/** What failed: a Manifest Check where the CI job maps to one, otherwise the job's own name. */
+function redOf(main: MainStanding): MainRed | undefined {
+  const [first, ...rest] = main.failed ?? [];
+  if (first === undefined) return undefined;
+  const merge = main.merge;
+  return {
+    check: first.check ?? first.name,
+    ...(first.check === undefined ? { unmapped: true as const } : {}),
+    ...(first.tests?.[0] === undefined ? {} : { test: first.tests[0] }),
+    ...(rest.length === 0
+      ? {}
+      : {
+          also: rest.map((job) => ({
+            check: job.check ?? job.name,
+            ...(job.check === undefined ? { unmapped: true as const } : {}),
+            ...(job.tests?.[0] === undefined ? {} : { test: job.tests[0] }),
+          })),
+        }),
+    ...(merge === undefined
+      ? {}
+      : {
+          merge: {
+            number: merge.number,
+            ...(merge.url === undefined ? {} : { url: merge.url }),
+            ...(merge.branch === undefined ? {} : { branch: merge.branch }),
+            ...(merge.job === undefined ? {} : { job: merge.job }),
+          },
+        }),
+  };
 }
 
 /** The repository's label, or its root where Fleet's listing has not caught up with its line. */

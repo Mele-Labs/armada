@@ -170,7 +170,7 @@ pub enum Observed {
     /// A Check declared to run before handoff, not run because another Check
     /// on this gate did not pass. A skip, never a pass. #849.
     HeldBack,
-    /// The gate is answering this Check from a Drone's own dry run rather than
+    /// The gate is answering this Check from a Drone's own asked run rather than
     /// running it again. **The row, whole, and not re-derived** — `crate::gate`
     /// decided this Check qualifies before this variant is ever built, and a
     /// second derivation here would be a second place that answer could drift
@@ -187,7 +187,7 @@ impl Observed {
             Observed::Plan { .. } => "a reading of the plan",
             Observed::Skipped { .. } => "a skipped check",
             Observed::HeldBack => "a check held back for handoff",
-            Observed::Reused(_) => "a Drone's own dry run",
+            Observed::Reused(_) => "a Drone's own asked run",
         }
     }
 }
@@ -435,7 +435,7 @@ impl CheckFailed {
                 expected: Some(self.expected()),
                 produced: Some(self.produced()),
                 output_path: None,
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
             }),
             CheckFailed::HeldOffByFix { .. } => Some(StepCheck {
                 name: HELD_OFF.to_string(),
@@ -443,7 +443,7 @@ impl CheckFailed {
                 expected: Some(self.expected()),
                 produced: Some(self.produced()),
                 output_path: None,
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
             }),
             CheckFailed::OutOfScope(_) => Some(StepCheck {
                 name: EVIDENCE_SCOPE.to_string(),
@@ -451,7 +451,7 @@ impl CheckFailed {
                 expected: Some(self.expected()),
                 produced: Some(self.produced()),
                 output_path: None,
-                reused_from_dry_run: None,
+                reused_from_asked_run: None,
             }),
             _ => None,
         }
@@ -538,7 +538,7 @@ enum Answer {
     /// See [`Observed::HeldBack`].
     HeldBack,
     Failed(CheckFailed),
-    /// Answered from a Drone's own dry run rather than run again. The row,
+    /// Answered from a Drone's own asked run rather than run again. The row,
     /// already whole — see [`Observed::Reused`].
     Reused(StepCheck),
 }
@@ -669,7 +669,7 @@ impl Ran {
             .iter()
             .map(|(name, answer)| {
                 // **Whole, and first.** A reused row already went through this
-                // same construction once, at the dry run that produced it —
+                // same construction once, at the asked run that produced it —
                 // rebuilding it from `answer` here would be a second place
                 // that construction could disagree with the first, over the
                 // exact fields `crate::gate` is trusting unread.
@@ -705,7 +705,7 @@ impl Ran {
                     // so where a Check's output was written is filled in by
                     // whoever wrote it — see `fleet::check_output`.
                     output_path: None,
-                    reused_from_dry_run: None,
+                    reused_from_asked_run: None,
                 }
             })
             .collect()

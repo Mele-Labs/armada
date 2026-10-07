@@ -31,21 +31,26 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
-    CommitTime, Committed, Delivery, KeptCurrent, Landable, Landing, Mergeable, Merged, NotCloned,
-    NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark, RepositoryStanding, Review,
-    SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, Standing, UncheckedHead,
-    UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
+    CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable, Landing, Mergeable,
+    Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark,
+    RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
+    Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
 use crate::work_product::Holding;
 
 mod commit;
 mod delivered;
+mod main_ci;
+mod merging;
 mod slots;
 
 use commit::Willing;
 pub use commit::{CommitScope, FakeCommit};
 pub use delivered::Delivered;
+use main_ci::MainCiScript;
+pub use merging::Merging;
+use merging::Trees;
 use slots::FakeSlots;
 
 /// Why the fake refused.
@@ -116,6 +121,8 @@ pub struct FakeVcs {
     /// What delivery answers. Scripted for the same reason: there is no
     /// repository here to be behind anything, and no remote to push to.
     delivery: Mutex<Delivering>,
+    /// What the forge says about the base branch's newest commit.
+    pub main_ci: MainCiScript,
     delivered: Mutex<Vec<Delivered>>,
     /// What the rebase leaves in the worktree, and where. Absent for every case
     /// that does not care — see [`FakeVcs::writing_into`].
@@ -160,43 +167,6 @@ pub struct FakeVcs {
     dropped_bases: Mutex<Vec<String>>,
     /// The branch each lease that took a slot was cut from, in order.
     cut_from: Mutex<Vec<String>>,
-}
-
-/// The branch's tree, and the one before the last merge into it, numbered.
-#[derive(Debug, Default)]
-struct Trees {
-    now: u64,
-    was: u64,
-    made: u64,
-}
-
-impl Trees {
-    fn merged_into(&mut self) {
-        self.made += 1;
-        self.was = self.now;
-        self.now = self.made;
-    }
-
-    fn now(&self) -> String {
-        format!("{:040x}", self.now)
-    }
-}
-
-/// What this fake's forge does when asked to merge.
-///
-/// **A refusal is a value a test writes out**, not a string it matches on: the
-/// kinds are what a caller acts on differently, and a fake that answered them
-/// all with one sentence could not exercise that at all.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum Merging {
-    /// The forge takes it. **The default**, because a test about the press is
-    /// about what follows a merge.
-    #[default]
-    Takes,
-    /// Somebody had already merged it.
-    AlreadyMerged,
-    /// It would not, and which kind of would-not it was.
-    Refuses(NotMerged),
 }
 
 /// What the fake's version control looks like from the delivery side.
@@ -713,6 +683,26 @@ impl Delivery for FakeVcs {
             .expect("not poisoned")
             .inline_remarks
             .clone()
+    }
+
+    fn base_head_on_the_forge(&self, _in_repo: &str, _base: &str) -> Option<String> {
+        self.main_ci.head()
+    }
+
+    fn ci_runs_on(&self, _in_repo: &str, commit: &str) -> Option<adapter_traits::CiRuns> {
+        self.main_ci.runs(commit)
+    }
+
+    fn ci_log(&self, _in_repo: &str, run: &adapter_traits::CiRun) -> Option<FromOutside> {
+        self.main_ci.log(run)
+    }
+
+    fn merged_by(&self, _in_repo: &str, commit: &str) -> Option<adapter_traits::MergedPull> {
+        self.main_ci.merged(commit)
+    }
+
+    fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
+        self.main_ci.open_pulls()
     }
 
     fn pull_request_diff(

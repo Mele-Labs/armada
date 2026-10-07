@@ -119,6 +119,22 @@ class Refuses(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(decide(command, fake_view=view("FAILURE")), "deny")
 
+    def test_a_separator_stuck_to_a_word(self) -> None:
+        # The shell splits `main;` into `main` and `;`; the hook must too, or
+        # the destination reads `main;` and the push walks past it.
+        for command in (
+            "git push origin main;",
+            "git push origin main;echo done",
+            "git push origin main&&echo done",
+            "git push origin main|cat",
+            "git push origin main 2>&1",
+            "git push origin main >/dev/null",
+            "git status\ngit push origin main",
+            "echo ok;git push origin main",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(decide(command), "deny")
+
     def test_a_command_claiming_to_be_the_runner(self) -> None:
         # The runner's own push never reaches this hook, so nothing typed
         # here can be it, however it is dressed.
@@ -222,6 +238,18 @@ class Allows(unittest.TestCase):
             "gh -R Mele-Labs/armada pr merge 1327 --merge",
             "GH_TOKEN=x gh pr merge 1327 --merge",
             'bash -c "gh pr merge 1327 --merge"',
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, fake_view=green))
+
+    def test_a_merge_with_a_redirect_or_a_glued_separator(self) -> None:
+        green = view("SUCCESS")
+        for command in (
+            "gh pr merge 1327 --merge 2>&1 | tail -3",
+            "gh pr merge 1327 --merge;",
+            "gh pr merge 1327 --merge;echo done",
+            "gh pr merge 1327 --merge >/dev/null",
+            "gh pr merge 1327 --merge &>/dev/null",
         ):
             with self.subTest(command=command):
                 self.assertIsNone(decide(command, fake_view=green))

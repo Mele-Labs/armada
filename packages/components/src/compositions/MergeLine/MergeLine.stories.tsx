@@ -360,3 +360,81 @@ export const WaitingWhy: Story = {
     await expect(within(kept).getByRole("img", { name: /Kept its place/ })).toBeVisible();
   },
 };
+
+/**
+ * Main is red, a Job has it, and the open pull requests show which `ci` is red for their own reasons
+ * and which only because main is: those wait on the fix, and say so in their tooltip.
+ */
+export const MainRed: Story = {
+  name: "Main red, pull requests waiting on the fix",
+  args: {
+    line: [],
+    onOpenJob: fn(),
+    onOpenCheck: fn(),
+    hub: {
+      main: {
+        state: "red",
+        red: {
+          check: "screens_test",
+          test: "merge-line.test.ts > folds a line's failed Check onto the panel",
+          testUrl: `${PULL}1812/files`,
+          merge: { number: 1812, url: `${PULL}1812`, branch: "fleet/gate-policy-every-run", branchUrl: "https://git.example/armada/tree/fleet/gate-policy-every-run" },
+        },
+        taken: { id: "job-1", title: "Cache the manifest read between dispatches" },
+      },
+      recent: [],
+      pulls: [
+        { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", ci: "waiting_on_main", job: { id: "job-4", title: "Name the zone a read-in lands in" } },
+        { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens", ci: "waiting_on_main" },
+        { number: 1816, url: `${PULL}1816`, branch: "fleet/pause-markers", ci: "failed", job: { id: "job-5", title: "Store a pause marker on the Job" } },
+        { number: 1817, url: `${PULL}1817`, branch: "docs/merge-line-hub", ci: "running" },
+      ],
+    },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("img", { name: "Main is red" })).toBeVisible();
+    const waiting = canvas.getByRole("listitem", { name: /^studio\/zone-proposal, ci red because main is/ });
+    // The fix is named on the mark, and the failure is not charged to the branch.
+    await expect(within(waiting).getByRole("img", { name: /waiting on the fix: Cache the manifest read between dispatches/ })).toBeVisible();
+    await expect(canvas.getByRole("listitem", { name: "fleet/pause-markers, ci failed" })).toBeVisible();
+    await userEvent.click(within(waiting).getByRole("button", { name: "Name the zone a read-in lands in" }));
+    await expect(args.onOpenJob).toHaveBeenCalledWith("job-4");
+    await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
+    await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");
+  },
+};
+
+/** Main is green: the mark beside the heading, and no band. */
+export const MainGreen: Story = {
+  name: "Main green, open pull requests",
+  args: {
+    line: [],
+    hub: {
+      main: { state: "green" },
+      recent: [],
+      pulls: [
+        { number: 1817, url: `${PULL}1817`, branch: "docs/merge-line-hub", ci: "passed" },
+        { number: 1818, url: `${PULL}1818`, branch: "fleet/pause-markers", ci: "running", job: { id: "job-5", title: "Store a pause marker on the Job" } },
+      ],
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Main is green" })).toBeVisible();
+    await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
+  },
+};
+
+/** Main is still running, or nothing ran on it: no mark and no band. A pull request nothing ran on has no mark. */
+export const MainNotKnown: Story = {
+  name: "Main not known, a pull request nothing ran on",
+  args: {
+    line: [],
+    hub: { recent: [], pulls: [{ number: 1819, url: `${PULL}1819`, branch: "docs/no-ci-yet" }] },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: /^Main is/ })).toBeNull();
+    await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
+    const row = canvas.getByRole("listitem", { name: "docs/no-ci-yet" });
+    await expect(within(row).queryByRole("img")).toBeNull();
+  },
+};

@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import type { RepositorySummary } from "@armada/protocol";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/screens";
+import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -150,7 +150,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} />
       </div>
     </Boundary>
   );

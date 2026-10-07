@@ -390,7 +390,7 @@ return to a scenario without editing the address.
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
 | `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
 | `kind/<workflow>` | One of those Jobs, already open |
-| `job/<builder>` | One Job, already open, for each builder `packages/screens/src/fixtures/build/index.ts` exports |
+| `job/<builder>` | One Job, already open, for each builder `packages/surfaces/jobs/src/fixtures/build/index.ts` exports |
 | `recorded/<slug>` | One recorded Job, already open, for each recording under `packages/screens/src/fixtures/recorded/` |
 
 **Every Job is a Storybook fixture, never data made up for the mock.** A
@@ -795,9 +795,13 @@ to `main`, the forge's merge API and a `git merge` in the checkout at `main`. It
 names the pull request instead. `armada check hooks_test` proves the hook, and
 needs nothing built.
 
-**A red `ci` comes back to you.** Read `gh pr checks <n>`, then
-`gh run view --log-failed`, fix on the same branch and push again. The pull
-request updates.
+**An agent that opens a pull request watches `ci` on it**, so the owner does not
+have to: `gh pr checks <n> --watch`, in the background. A red `ci` comes back to
+the agent. It reads `gh pr checks <n>`, then `gh run view --log-failed`, fixes on
+the same branch and pushes again; the pull request updates and it watches the new
+run. It stops and tells him only where the failure is not its to fix: the same
+failure on `main`, a decision that is his, or one that survives two fixes.
+`desktop_test` reports beside `ci` without gating it.
 
 **A moved `main` is brought in by merging it**, never by rebasing.
 

@@ -4,6 +4,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "packages/surfaces/*"
 
 # Which packages may run install scripts. pnpm blocks them all by default and
 # that default is right: an install script is arbitrary code from the registry,

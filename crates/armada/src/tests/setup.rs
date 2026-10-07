@@ -117,35 +117,41 @@ fn this_repositorys_own_setup_loads_and_resolves() {
 fn each_named_check_resolved_to_the_command_the_manifest_holds() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    let resolved: Vec<(&str, &str)> = bug(&setup)
+    let resolved: Vec<(&str, &str, &str)> = bug(&setup)
         .steps()
         .iter()
         .flat_map(|step| step.checks())
         .filter_map(|check| match check {
-            ResolvedCheck::ManifestCheck { name, run, .. } => Some((name.as_str(), run.as_str())),
+            ResolvedCheck::ManifestCheck {
+                name,
+                run,
+                manifest_dir,
+                ..
+            } => Some((manifest_dir.as_str(), name.as_str(), run.as_str())),
             ResolvedCheck::DiffNonempty
             | ResolvedCheck::ArtifactExists { .. }
             | ResolvedCheck::PlanRecorded { .. } => None,
         })
         .collect();
-    let named: Vec<(&str, &str)> = resolved
+    let root: Vec<(&str, &str)> = resolved
         .iter()
-        .filter(|(name, _)| *name != "hooks_test")
-        .copied()
+        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test")
+        .map(|(_, name, run)| (*name, *run))
         .collect();
 
-    // **Declaration order, and it is the order they run in.** `WorkflowDef` has
-    // no field for sequencing — see `config`'s own test saying so.
+    // **The root's own Checks, literally, in declaration order, and it is the
+    // order they run in.** `WorkflowDef` has no field for sequencing — see
+    // `config`'s own test saying so. The root's list is stable: a new surface
+    // adds a manifest, never a root Check. `format` is last where `armada.yml`
+    // put it, not for any claim about scheduling; `#387` once gave it
+    // `requires: [fmt]` and unformatted Rust merged unnoticed.
     //
-    // **The file declaring that sequence has moved, and this list moved with
-    // it.** It used to be `bug.json`'s `implement` step read top to bottom;
-    // that step says `every_manifest_check` now, so the order is
-    // `armada.yml`'s `checks_as_written` and `format` is last where the
-    // definition put it third. The property the move had to keep is that the
-    // order is a repository's to state — which is why this stayed an ordered
-    // comparison rather than becoming a set.
+    // `hooks_test` is checked below instead: its command names the agent
+    // harness, and this file is under the gate rule that keeps a vendor's name
+    // out of everything but the adapters. A `run` gets no shell, so a chain
+    // lives in a `package.json` script and the Check names one command.
     assert_eq!(
-        named,
+        root,
         vec![
             ("build", "cargo build --workspace --locked"),
             (
@@ -156,46 +162,47 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 "acceptance",
                 "cargo nextest run -p acceptance --test-threads ${width}"
             ),
-            // **One name, not a chain.** A `run` gets no shell, so the `&&`
-            // this used to hold was passed to `tsc` as an argument and the
-            // Check could never pass. The chain lives in a `package.json`
-            // script, where a shell exists and the packages stay named.
             ("typecheck", "pnpm typecheck"),
-            // `hooks_test` is checked below instead of here: its command names
-            // the agent harness, and this file is under the gate rule that
-            // keeps a vendor's name out of everything but the adapters.
-            // **Last, where `armada.yml` put it, not for any claim this test
-            // makes about scheduling.** `#387` once gave this `requires:
-            // [fmt]`, so a gate evaluation reformatted the tree before
-            // reading it and `format` could never fail — unformatted Rust
-            // merged unnoticed until that line was found and removed.
             ("format", "cargo fmt --all --check"),
-            // Then each workspace's, in directory order, each in the order its
-            // own `armada.yml` writes them. The name is bare here; the key
-            // carries the directory.
-            ("typecheck", "pnpm typecheck"),
-            ("bridge_build", "pnpm build"),
-            ("desktop_test", "pnpm exec vitest run --maxWorkers=${width}"),
-            (
-                "xtask_test",
-                "cargo nextest run -p xtask --test-threads ${width}"
-            ),
-            ("typecheck", "pnpm typecheck"),
-            ("typecheck", "pnpm typecheck"),
-            ("storybook", "pnpm build-storybook"),
-            (
-                "components_test",
-                "pnpm exec vitest run --maxWorkers=${width}"
-            ),
-            ("typecheck", "pnpm typecheck"),
-            ("screens_test", "pnpm exec vitest run --maxWorkers=${width}"),
         ]
     );
+
+    // **Every workspace's Checks come from the workspace's own manifest, not
+    // from a list here**, so a new surface cannot break this. After the root's,
+    // each manifest's Checks appear once each, in manifest-directory order and
+    // in the order its own `armada.yml` writes them, each carrying the command
+    // that manifest holds for it and its own directory.
+    assert!(
+        setup.workspaces_refused().is_empty(),
+        "every workspace manifest loads: {:?}",
+        setup.workspaces_refused()
+    );
+    let dirs: Vec<&str> = setup.workspaces().iter().map(|one| one.dir()).collect();
+    assert!(
+        dirs.windows(2).all(|pair| pair[0] < pair[1]),
+        "workspaces in directory order: {dirs:?}"
+    );
+    let expected: Vec<(&str, &str, &str)> = setup
+        .workspaces()
+        .iter()
+        .flat_map(|manifest| {
+            manifest.checks_as_written().iter().map(|name| {
+                let declared = manifest.check(name).expect("a written Check is declared");
+                (manifest.dir(), name.as_str(), declared.run())
+            })
+        })
+        .collect();
+    let workspace: Vec<(&str, &str, &str)> = resolved
+        .iter()
+        .filter(|(dir, ..)| !dir.is_empty())
+        .copied()
+        .collect();
+    assert_eq!(workspace, expected);
     let hooks = resolved
         .iter()
-        .find(|(name, _)| *name == "hooks_test")
+        .find(|(_, name, _)| *name == "hooks_test")
         .expect("the hook suite is declared");
-    assert!(hooks.1.ends_with("hooks/test_guard_merge.py"), "{hooks:?}");
+    assert!(hooks.2.ends_with("hooks/test_guard_merge.py"), "{hooks:?}");
 }
 
 /// **`every_manifest_check` expands in the order `armada.yml` writes, and that

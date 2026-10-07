@@ -7,9 +7,9 @@
 // tests hold is that the walk happened and that no name went missing.
 
 import { expect, test } from "vitest";
-import { FIXTURES } from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS } from "@armada/screens/src/fixtures/build/arc";
-import { KIND_FIXTURES } from "@armada/screens/src/fixtures/build/kinds";
+import { FIXTURES } from "@armada/jobs/fixtures/build/index";
+import { ARC_MOMENTS } from "@armada/jobs/fixtures/build/arc";
+import { KIND_FIXTURES } from "@armada/jobs/fixtures/build/kinds";
 
 import { BUILDERS, SCENARIOS, scenarioNamed } from "./scenario";
 import * as listed from "./scenario-rows";
@@ -36,6 +36,13 @@ test("every Studio a scenario keeps belongs to a Manifest that scenario serves",
         studio.manifest_id,
       );
     }
+  }
+});
+
+// Studios' scenarios are built in `@armada/studios/fake` and listed through its slice.
+test("the Studios scenarios resolve by name", () => {
+  for (const name of ["studios", "studio-zone", "studio-zone-proposal", "studio-read-nothing"]) {
+    expect(scenarioNamed(name)?.name, name).toBe(name);
   }
 });
 

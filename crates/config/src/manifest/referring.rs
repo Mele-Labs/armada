@@ -262,6 +262,7 @@ pub(super) fn required_by(
                 places: draft.places,
                 width: draft.width,
                 runner: draft.runner,
+                ci_jobs: draft.ci_jobs,
             },
         );
     }

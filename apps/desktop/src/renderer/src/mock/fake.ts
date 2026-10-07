@@ -5,7 +5,7 @@
 // What each kind of call answers, and why no more: `docs/practices/running-locally.md`,
 // *Bridge on a mock Fleet*.
 
-import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
+import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";

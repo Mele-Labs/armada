@@ -151,7 +151,7 @@ fn step_rail(
         verdicts: Vec::new(),
         judging: None,
         checking: None,
-        dry_run: None,
+        asked_run: None,
         asked_runs: Vec::new(),
         entered_at: Instant::carried("2026-08-26T09:00:00.000Z"),
         updated_at: Instant::carried("2026-08-26T09:00:00.000Z"),

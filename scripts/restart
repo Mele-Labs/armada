@@ -346,6 +346,8 @@ if $dry_run; then
   exit 0
 fi
 
+refuse_if_drone_working
+
 # Rebuild.
 say "Installing armada from $src"
 (cd "$src" && cargo install --path crates/armada --debug --locked)

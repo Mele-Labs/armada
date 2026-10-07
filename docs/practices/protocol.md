@@ -1824,7 +1824,7 @@ still stands for the text itself, which is why nothing beside the count carries
 one.
 
 **Bridge draws each field where the Job already draws it**, through one fold
-(`filled`, in `packages/screens/src/proposal.ts`): the settled workflow is the
+(`filled`, in `packages/surfaces/jobs/src/proposal.ts`): the settled workflow is the
 row's Workflow column, the settled title is the row's title, the done-when lines
 are the Job's criteria and the settings are its urgency. The wait inside
 Overview's lead says which of the four the call has got to, because that is the
@@ -3146,6 +3146,16 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 **An asked run is never a `CheckRun`**, so a dry result cannot be read as a gate's pass. It is its own row in `asked_runs`; a `running` row begun by a Fleet that is gone reads `lost`.
 
 **One migration, V113**, `asked_runs`, pointing at `jobs`. **Bridge's half**, mirrored by hand in `packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.40 still type.
+
+## Protocol 23.41: the hub on the merge line
+
+`ipc::MergeLineHub`, additive on `MergeLine` as `hub`: main's CI as Fleet reads it off the forge and every open pull request with its `ci`. A line from a Fleet before 23.41 has none and a Bridge before it ignores one. `hub.main.state` and `hub.pull_requests[].ci` are strict sets Bridge picks a mark from, so a new value is a major.
+
+**A repository with a hub and no queue is now in `get_merge_lines`**, with an empty line. That is the one thing an older Bridge sees: an empty panel where it drew none, which is a rendering and not a parse.
+
+**Main's failed job log is not a new route.** `observe_land_check` takes the branch `main` and reads the job's log off the forge, so the lifeboat and the route table are untouched and Bridge still never reaches the forge.
+
+**Event stream: neither better nor worse.** It adds no queue and no event kind. The two-second loop already published `merge_lines.changed` whole on a change; the hub makes that message larger (a hundred pull requests at most) and changes it when main or a pull request does, which is rarer than a queue turn.
 
 
 ## Open questions

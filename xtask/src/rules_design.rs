@@ -43,7 +43,7 @@ pub fn no_off_contract_design_value(root: &Path) -> Report {
     // `apps/` would have stopped watching the files it exists for — silently,
     // and while still reporting green. The screens moved again, into a package
     // of their own, and that one went unwatched until job detail's own
-    // arrangement moved into it.
+    // arrangement moved into it. The surfaces moved out of that package in turn.
     let mut files = files_with_ext(root, &root.join("apps"), &EXT);
     files.extend(files_with_ext(
         root,
@@ -53,6 +53,11 @@ pub fn no_off_contract_design_value(root: &Path) -> Report {
     files.extend(files_with_ext(
         root,
         &root.join("packages").join("screens"),
+        &EXT,
+    ));
+    files.extend(files_with_ext(
+        root,
+        &root.join("packages").join("surfaces"),
         &EXT,
     ));
     files.extend(files_with_ext(

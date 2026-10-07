@@ -776,6 +776,33 @@ pub trait Delivery {
     /// [`landed`](Delivery::landed)'s reason.
     fn inline_remarks(&self, in_repo: &str, pull_request: &str) -> Option<Vec<Remark>>;
 
+    /// The commit the base branch stands at on the forge now. **One cheap
+    /// ref lookup**, asked to learn whether main moved before anything dearer
+    /// is. `None` is the forge's silence, for [`landed`](Delivery::landed)'s
+    /// reason.
+    fn base_head_on_the_forge(&self, in_repo: &str, base: &str) -> Option<String>;
+
+    /// The CI jobs the forge ran on one commit. **`None` is silence; an empty
+    /// list is a commit nothing ran on**, which a caller must not read as a
+    /// pass.
+    fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<crate::CiRuns>;
+
+    /// The text of one CI job's log, **its tail and bounded**: a failure is
+    /// printed last, and a log runs to megabytes. Timestamps the forge puts on
+    /// every line are taken off. `None` where it would not give one.
+    fn ci_log(&self, in_repo: &str, run: &crate::CiRun) -> Option<crate::FromOutside>;
+
+    /// The pull request that put `commit` on the base, as the forge maps a
+    /// commit to its pull request, falling back to what a merge commit's own
+    /// message says. `None` where neither names one, as a direct push does not.
+    fn merged_by(&self, in_repo: &str, commit: &str) -> Option<crate::MergedPull>;
+
+    /// The repository's open pull requests, each with its `ci`. **One forge
+    /// call for all of them**, so the cost does not grow with the number open.
+    /// `None` is the forge's silence; an empty list is a repository with none
+    /// open.
+    fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
+
     /// The diff of a pull request somebody else opened, for a Code Review Job whose review is
     /// checked against it. #903. **`None` is the forge's silence**, for
     /// [`landed`](Delivery::landed)'s reason.

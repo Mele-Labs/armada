@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ManifestChecks, type JobOpening } from "@armada/screens";
+import { ManifestChecks, type JobOpening } from "@armada/jobs";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";

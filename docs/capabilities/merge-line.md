@@ -366,14 +366,14 @@ holding a branch behind it. Nothing is added to the store or to a plan's task.
 
 ## In Bridge
 
-**Planned: this panel becomes the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Nothing below changes until that is built.
+**This panel is becoming the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Main's state and the open pull requests are built and served (*The hub*, below). A Job picking up the red, and the two ways to hand it to one, are not.
 
 **Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. Bridge's labels are its own and the words on disk and in `--status` do not change: `gating` reads *Preparing to land* (`git-merge`) until the turn's first Check starts and *Running Checks before landing* from then, which Bridge tells apart by whether Fleet serves any `checks` (`packages/screens/src/merge-line.ts`); `merging` reads *Pushing onto main* and `red` *Checks failed*. A conflict's mark is `unplug` and the rail row's is `merge`. The strip carries no `?`: `GroupBoundary`'s guide is the caller's, and guide 5 is a plan group's. The mock's lines are `?walk=theMergeLine`.
 
 | What Fleet serves for the pick | What draws |
 |---|---|
-| No line, or Fleet has not answered | No panel, no rail row, no palette entry |
-| A line with something in line, landed or sent back | The panel, with whichever of the three lists have rows |
+| No line and no hub, or Fleet has not answered | No panel, no rail row, no palette entry |
+| A line with something in line, landed or sent back, or a hub with open pull requests | The panel, with whichever of the lists have rows |
 | A line with nothing in any of the three | The panel, with a picture under its heading and no words: the owner's one exception to the empty-state rule, 2 Oct 2026 |
 | All, with lines in more than one repository | One panel per repository, its label beside *Merge line* |
 
@@ -408,8 +408,30 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - `off` is still served, the three newest of either, for a Bridge before 23.2. This one does not read it.
 - A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
 - **A picked repository draws its own line. All draws every repository Fleet serves a line for**, each named by its repository once there is more than one.
-- A repository nobody has run `armada land` in is not in the answer, and gains no `armada-land/` from being read.
+- A repository nobody has run `armada land` in is in the answer only for its hub, with an empty line, and gains no `armada-land/` from being read.
 - **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.7. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
+
+### The hub
+
+**The panel's head carries main's state, and under the line it lists every open pull request.** Green is a mark with its tooltip. Red is a frame naming the failing CI job, the failing test and the merge that turned it red; a press on the job opens its log. Each open pull request shows how its `ci` stands, and a `ci` red only because main is reads as waiting on the fix. Where the pull request came from a Job that was watching its landing, that Job takes the red itself and the head links to it, with no question asked. Where it did not, the head offers two ways: dispatch a new Job, its brief filled in from the Check, test, log and pull request, or send the work back to a recent Job, the culprit's own first. A Job that took main's red wears a hammer beside its badge and leads with it, and once main is green it wears a shield. `?walk=mainGoesRed` plays it on the mock.
+
+**Fleet serves the hub since protocol 23.41**, as `hub` on each repository's line, over the same `get_merge_lines` and `merge_lines.changed`. The line's two-second loop folds it on before it compares, so main going red or green and a pull request opening publish through the one loop. Fleet reads the forge for one repository a sweep interval, rotating, and each visit is two cheap asks: main's head (`concepts/fleet.md`, *What Fleet knows about main's CI*) and one listing of the open pull requests, whatever their number, the newest 100.
+
+| On the forge | On the wire | In the panel |
+|---|---|---|
+| Main's newest commit and its CI jobs | `hub.main.state`: `green`, `red`, `running` or `nothing_ran` | A mark for green, the band for red, nothing for the other two |
+| Each failed job, the Check it maps to, its tests | `hub.main.failed` `{name, check?, log_url?, tests?}` | *Check* where one maps, *CI job* where none does, and *Test* only where the log named one |
+| The pull request that merged the red commit, and our Job that opened it | `hub.main.merge` `{number, url?, branch?, job?}` | *Broke in*; absent for a direct push |
+| An open pull request and its `ci` check, or every check where none is named `ci` | `hub.pull_requests` `{number, title, branch, url, author?, ci?, job?}` | A row: the ci mark, the branch, the number, the Job |
+| A pull request whose failing checks all fail on main too | `ci: waiting_on_main` | The mark and tooltip for a red the fix is to clear |
+| Nothing | `hub.fixing` | The Job working on the red. **Never set yet** |
+
+- **A red stays red while a fix runs**, so `running` is only a commit nothing has failed on yet. The head draws neither `running` nor `nothing_ran`.
+- **A pull request waits on main only when every check that failed on it also fails on main.** A failure on any other check is its own, and a pull request with no failed check is never waiting.
+- **Main's log opens through `observe_land_check` under the branch `main`**, with the job's Check or name as the check. Fleet asks the forge for that job's log when it is pressed, bounded to its last 256 KiB, and serves it as a finished Check's. Bridge never calls the forge.
+- **The two ways to a Job, and a Job's own mark, are not served**: a real Bridge draws neither button, and the mock offers them through `fix_offered` on its line and `fixes_main` on its rows.
+- **The open pull requests are held in memory.** A Fleet restarted shows main at once and the list from its next visit to that repository.
+- **The draining queue draws where it did**, beneath the hub, so nothing in flight disappears.
 
 ## What it depends on
 

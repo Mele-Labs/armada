@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 import { GUIDES, GUIDE_WORKFLOW } from "@armada/components";
 
 import { onJob } from "./scenario";

@@ -56,7 +56,7 @@ export type Event =
   | ({ kind: "job.judging" } & JobJudging)
   | ({ kind: "job.checking" } & JobChecking)
   /** A Drone's own mid-step run of the Checks, never the gate's. Since 13.45. */
-  | ({ kind: "job.dry_run" } & JobDryRun)
+  | ({ kind: "job.dry_run" } & JobAskedRun)
   /** A Drone handed in its report, before the gate starts. Since 13.3. */
   | ({ kind: "evidence.submitted" } & EvidenceSubmitted)
   | ({ kind: "job.asking" } & JobAsking)
@@ -315,7 +315,7 @@ export type JobChecking = {
  * **`job.checking`'s shape, as a kind of its own**, so a Drone's run is never
  * drawn as the gate's.
  */
-export type JobDryRun = {
+export type JobAskedRun = {
   job_id: string;
   step_id: string;
   /** The run's Checks as they stand, or absent once it is no longer shown. */

@@ -63,7 +63,7 @@ a branch that does not exist.
 
 **Both still take a name typed by hand**, because the list is a floor rather
 than the repository's own. The shape is draft —
-`packages/screens/src/draft/branches.ts` — and nothing on the wire lists a
+`packages/surfaces/jobs/src/draft/branches.ts` — and nothing on the wire lists a
 repository's refs, so against a real Fleet the list is absent and the two draw
 as plain fields. A branch Armada has never met is not a branch that is not
 there, and the field says which of the two it is looking at.
@@ -79,7 +79,7 @@ Four, each of them a decision somebody else takes when it is left alone:
 | Drones at once | The machine's own cap holds. The two figures are drawn apart: how many this Job may run, and how many run here across every Job |
 | How it lands | The workflow's delivering step decides. Set it to land without asking, or to stop for you at review |
 
-The four are **draft** — `packages/screens/src/draft/dispatch.ts`, which names
+The four are **draft** — `packages/surfaces/jobs/src/draft/dispatch.ts`, which names
 the `crates/ipc` module it is meant for. Nothing on the wire carries them yet,
 so a Job created today is classified as it always was and the schema lock is
 where they reach Fleet.
@@ -96,7 +96,7 @@ where they reach Fleet.
 
 **The cost was taken knowingly**: the warning is gone from the one moment a
 person could still change what they are asking for. A Job's own overlap is a
-different question and still has its draft — `packages/screens/src/draft/peers.ts`
+different question and still has its draft — `packages/surfaces/jobs/src/draft/peers.ts`
 — which now derives from `JobDetail` alone.
 
 ### The sketch, and what of it reaches Fleet
@@ -166,7 +166,7 @@ is meant for. An attachment on the wire carries a staged path, a filename and a
 type and no provenance, so where a sketch was made is a draft field.
 
 **Bridge can write the pad as a PNG, and nothing sends it yet.**
-`packages/screens/src/draft/sketch-png.ts` paints boxes, joins, strokes and
+`packages/surfaces/jobs/src/draft/sketch-png.ts` paints boxes, joins, strokes and
 pasted pictures at their own place and size, in the pad's own tokens. The
 owner had it built ahead of the wire on 1 October 2026, knowing it waits.
 Pressing Dispatch still sends the words; staging the PNG and putting it on

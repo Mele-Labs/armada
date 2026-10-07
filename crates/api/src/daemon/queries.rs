@@ -856,6 +856,13 @@ pub trait Queries: Send + Sync + 'static {
     /// a line that will not read is left out, `get_capacity`'s reasoning.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
 
+    /// What Fleet read off the forge for each served repository, by root: main's
+    /// CI and the open pull requests, which `get_merge_lines` carries as `hub`.
+    /// **Empty by default**, for a daemon that reads no forge.
+    fn merge_hubs(&self) -> impl Future<Output = Vec<(String, ipc::MergeLineHub)>> + Send {
+        async { Vec::new() }
+    }
+
     /// `observe_land_check` — one Check's log on a served repository's merge
     /// line, by the root, the branch and the Check.
     ///

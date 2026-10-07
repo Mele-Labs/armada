@@ -113,7 +113,7 @@ import type {
 } from "@armada/screens/src/plan-edits";
 import type {
   RescueOutcome,
-} from "@armada/screens/src/slot-rescue";
+} from "@armada/cleanup/api";
 import type {
   ManifestEditAnswer,
   ManifestFileRead,

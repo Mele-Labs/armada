@@ -57,7 +57,7 @@ pub(crate) fn rows_of(
         }
     }
     for run in asked {
-        let wired = crate::dry_run::asked::wired(job, run);
+        let wired = crate::asked_run::asked::wired(job, run);
         let took_ms = run
             .finished_at
             .as_ref()

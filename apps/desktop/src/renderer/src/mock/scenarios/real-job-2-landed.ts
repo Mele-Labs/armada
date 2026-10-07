@@ -3,6 +3,6 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { job2Landed } from "../job-2-landed";
+import { job2Landed } from "@armada/jobs/fake";
 
 export const s010JobTwoLanded: Scenario = holding("real/job-2-landed", job2Landed().name, [job2Landed()], { opens: job2Landed().job.id });

@@ -12,14 +12,7 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useState } from "react";
-import {
-  lessonsTabNamed,
-  planViewNamed,
-  workflowViewNamed,
-  type LessonsTab,
-  type PlanView,
-  type WorkflowView,
-} from "@armada/screens";
+import { lessonsTabNamed, planViewNamed, workflowViewNamed, type LessonsTab, type PlanView, type WorkflowView } from "@armada/jobs";
 
 const WORKFLOW_KEY = "armada.bridge.workflow-view";
 const PLAN_KEY = "armada.bridge.plan-view";

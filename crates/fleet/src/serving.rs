@@ -911,6 +911,10 @@ where
         Ok(crate::merge_lines::answer(self).await)
     }
 
+    async fn merge_hubs(&self) -> Vec<(String, ipc::MergeLineHub)> {
+        Fleet::merge_hubs(self).await
+    }
+
     /// One Check's log on a served line — [`crate::merge_lines::land_log`].
     async fn observe_land_check(
         &self,
@@ -919,16 +923,18 @@ where
         check: String,
     ) -> Result<api::LandOutput, Refusal> {
         let asked = (root.clone(), branch.clone(), check.clone());
-        crate::merge_lines::land_log(self, root, branch, check)
-            .await
-            .ok_or_else(|| {
-                let (root, branch, check) = asked;
-                self.refusal(Adrift::NoSuchLandLog {
-                    root,
-                    branch,
-                    check,
-                })
+        let found = match branch == crate::main_hub::MAIN {
+            true => self.main_log(root, check).await,
+            false => crate::merge_lines::land_log(self, root, branch, check).await,
+        };
+        found.ok_or_else(|| {
+            let (root, branch, check) = asked;
+            self.refusal(Adrift::NoSuchLandLog {
+                root,
+                branch,
+                check,
             })
+        })
     }
 
     /// What a Job may be spawned as, resolved once by the composition root.

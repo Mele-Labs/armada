@@ -2,8 +2,8 @@
 // things more than one surface reads or writes. Built once per window by `fake.ts`.
 
 import type { JobDetail, JobSummary, KitAllowedCommand, WorkPlan, WorktreesHeld } from "@armada/protocol";
-import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
-import type { GroupView } from "@armada/screens/src/draft/group";
+import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
+import type { GroupView } from "@armada/jobs/draft/group";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 
 import type { BridgeState } from "../../../shared/bridge";

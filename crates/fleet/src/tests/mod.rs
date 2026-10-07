@@ -12,7 +12,7 @@
 //! - `process`, `runtime` and `detach` are one. A Fleet that outlives the app
 //!   must be findable, and its runtime file must let a reader tell a live Fleet
 //!   from a pid that used to be one.
-//! - `dry_run` is `gate` asked from the other side, before a step is spent.
+//! - `asked_run` is `gate` asked from the other side, before a step is spent.
 //! - `peer` is the primitive `concurrency` rests on: a call attributed by the
 //!   connection it arrived on rather than by which Job was admitted first.
 
@@ -25,6 +25,7 @@ mod always_allow;
 mod amending;
 mod approving;
 mod asked;
+mod asked_run;
 mod asking;
 mod at_once;
 mod attachments;
@@ -70,7 +71,6 @@ mod drifting;
 mod drone;
 mod drone_per_task;
 mod drones_had;
-mod dry_run;
 mod editing;
 mod epic;
 mod evidence;
@@ -119,6 +119,7 @@ mod linking;
 mod listener;
 mod log_rows;
 mod looping;
+mod main_ci;
 mod manifest_proposals;
 mod mending;
 mod merge_lines;

@@ -446,7 +446,7 @@ rows that carry the group, and `cases_at_boundary` waits on #1274 with `cases`.
 | `BranchView`, `BranchesAnswer` | A new branch-list read | New route | Minor | git, through the Vcs adapter | 4 |
 
 **Which `CompleteWhen` values Fleet honours** follows `COMPLETE_WHEN_SERVED` in
-`packages/screens/src/draft/landing.ts`. `delivered` is honoured from slice 4,
+`packages/surfaces/jobs/src/draft/landing.ts`. `delivered` is honoured from slice 4,
 and `all_members_landed` from slice 6. `pr_merged` stays unserved by #1532's
 decision, `pr_opened` has no writer that tells it from `delivered`, and the
 approval body refuses both.
@@ -534,10 +534,10 @@ type to the wire.
 
 | Draft | Says | True under the lock | Slice |
 |---|---|---|---|
-| `packages/screens/src/draft/task.ts`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
-| `packages/screens/src/draft/task.ts`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
-| `packages/screens/src/draft/task.ts`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
-| `packages/screens/src/draft/proposal.ts`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
+| `packages/surfaces/jobs/src/draft/task.ts`, `TaskState` | `failed` is a task whose own agent stopped without finishing | A task whose group's Checks were still red when the workflow's retries ran out; an agent that stops without handing in stops the step | 1a |
+| `packages/surfaces/jobs/src/draft/task.ts`, `tier` | The planner picks the tier and the model follows | A person may pick the task's model directly, over the map (30 Sep) | 3 |
+| `packages/surfaces/jobs/src/draft/task.ts`, `model` | The model the Job's tier map resolved | A person's pick; the model a Drone ran is on its `JobDrone` row | 3 |
+| `packages/surfaces/jobs/src/draft/proposal.ts`, `TierModels` | `null` is Auto, the harness chooses | A tier left out means Armada picks, and the Drone's row says which model it ran | 3 |
 
 ## The issues filed since
 
@@ -686,7 +686,7 @@ close.
 
 - `TaskState` gains `handed_in` and `failed`. The `task_state` vocabulary lands
   in `crates/core-model/domain/enum-verbs.toml` with every row, from
-  `packages/screens/src/draft/words.ts`, and the draft's `classifying` word goes.
+  `packages/surfaces/jobs/src/draft/words.ts`, and the draft's `classifying` word goes.
 - `Actor` gains `judge` and `check`. The rows a Judge's verdict and a Check's
   outcome write are signed by them, in `crates/fleet/src/gate.rs`,
   `crates/fleet/src/settling.rs` and `crates/fleet/src/judging/`.
@@ -699,8 +699,8 @@ Write scope: `crates/core-model/src/job/work_plan.rs`, `crates/core-model/src/en
 `crates/core-model/domain/enum-verbs.toml`, `xtask/src/rules_enums.rs`,
 `crates/ipc/src/work_plan.rs`, `crates/ipc/src/enums.rs`, `crates/fleet/src/gate.rs`,
 `crates/fleet/src/settling.rs`, `crates/fleet/src/judging/`, `crates/store/src/migrations.rs`,
-`crates/store/src/fold.rs`, `packages/screens/src/draft/words.ts`,
-`packages/screens/src/draft/task.ts`, and the wire set above.
+`crates/store/src/fold.rs`, `packages/surfaces/jobs/src/draft/words.ts`,
+`packages/surfaces/jobs/src/draft/task.ts`, and the wire set above.
 
 ### 1b — Task by task, each by its own Drone
 
@@ -736,7 +736,7 @@ Write scope: `crates/fleet/src/spawning.rs`, `crates/fleet/src/briefing.rs`,
 
 **Waiting on it in Bridge:** Plan's task sheet already draws what a task's own
 Drone is doing now and the last file it wrote, mock-fed from the draft and drawn
-for no task on today's Fleet (`packages/screens/src/task-live.ts`). This slice
+for no task on today's Fleet (`packages/surfaces/jobs/src/task-live.ts`). This slice
 is what turns them on.
 
 ### 2 — Groups, and a task that failed
@@ -812,8 +812,8 @@ and the wire set above.
 Write scope: `crates/fleet/src/job_settings.rs`, `crates/fleet/src/spawning.rs`,
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs`,
 `crates/ipc/src/work_plan.rs`, `crates/ipc/src/drones.rs`, `crates/ipc/src/detail.rs`,
-`packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts`,
-`packages/screens/src/draft/proposal.ts`, and the wire set above.
+`packages/protocol/src/pending.ts`, `packages/surfaces/jobs/src/draft/task.ts`,
+`packages/surfaces/jobs/src/draft/proposal.ts`, and the wire set above.
 
 ### 4 — Deciding what a Job will be, and how it lands
 

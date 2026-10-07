@@ -315,7 +315,7 @@ export type CheckRun = {
    */
   output_path?: string;
   /**
-   * When a Drone's own dry run answered this Check, rather than the gate
+   * When a Drone's own asked run answered this Check, rather than the gate
    * running it again. Absent on every Check the gate ran itself. Since
    * protocol 13.39.
    */

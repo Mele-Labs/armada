@@ -43,7 +43,7 @@ Groups exist because a parallel schedule cannot be derived. Intersecting the tas
 **`scope` is a list because the step after the planning one reads it.** It
 was prose inside `note` until `#1421`, and a step handed prose went looking
 for the same files again — the Job the owner killed on 17 Sep had recorded
-`packages/screens/src/overview.ts` against the task that changes it, an hour
+`packages/surfaces/overview/src/overview.ts` against the task that changes it, an hour
 before its next Drone grepped for the same file.
 
 **`expects` and `shown` are two fields and are never reconciled into one.**

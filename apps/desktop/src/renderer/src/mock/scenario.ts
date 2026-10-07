@@ -42,14 +42,14 @@ import {
   runningAtGate,
   gateChecksStreaming,
   proposing,
-} from "@armada/screens/src/fixtures/build/index";
-import { ARC_MOMENTS, dispatchTyping, everyTaskState, executingHeld } from "@armada/screens/src/fixtures/build/arc";
-import type { ArcMoment } from "@armada/screens/src/fixtures/build/arc";
-import { groupChecking } from "@armada/screens/src/fixtures/build/arc-checking";
-import { KIND_FIXTURES, prototypeKind } from "@armada/screens/src/fixtures/build/kinds";
-import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/screens/src/fixtures/build/waves";
-import { waveOffTheWire } from "@armada/screens/src/fixtures/build/wave-off-the-wire";
-import { agentText } from "@armada/screens/src/fixtures/build/markdown";
+} from "@armada/jobs/fixtures/build/index";
+import { ARC_MOMENTS, dispatchTyping, everyTaskState, executingHeld } from "@armada/jobs/fixtures/build/arc";
+import type { ArcMoment } from "@armada/jobs/fixtures/build/arc";
+import { groupChecking } from "@armada/jobs/fixtures/build/arc-checking";
+import { KIND_FIXTURES, prototypeKind } from "@armada/jobs/fixtures/build/kinds";
+import { epicPlanReview, epicWave, membersMerged, membersStacked } from "@armada/jobs/fixtures/build/waves";
+import { waveOffTheWire } from "@armada/jobs/fixtures/build/wave-off-the-wire";
+import { agentText } from "@armada/jobs/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
@@ -57,19 +57,21 @@ import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
 import { connected } from "./moment";
-import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
-import { SCRATCH } from "./setup-fleet";
-import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "./studio-fleet";
-import { retroFixtures } from "./job-3-retro";
-import { fillingIn } from "./proposer-fleet";
-import { evidenceRead, walkedPrototype } from "./prototype-fleet";
-import { originsAndPanel } from "./origins-and-panel";
-import { writingLogs } from "./check-logs-fleet";
-import { answeringTheHeldCommand } from "./held-fleet";
-import { gridHeld } from "./cleanup-fleet";
+import { SCRATCH } from "./setup-fake";
+import {
+  answeringTheHeldCommand,
+  evidenceRead,
+  fillingIn,
+  originsAndPanel,
+  proposalFromAnIssue,
+  retroFixtures,
+  walkedPrototype,
+  writingLogs,
+} from "@armada/jobs/fake";
+import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "@armada/studios/fake";
+import { gridHeld, slotsHeld } from "@armada/cleanup/fake";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
-import { slotsHeld } from "./slots-fleet";
 import { asRow, holding, servedFrom } from "./holding";
 import { scenariosOf } from "./slices";
 import * as rows from "./scenario-rows";

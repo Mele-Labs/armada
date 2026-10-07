@@ -1,6 +1,6 @@
 // What a mock scenario is made of, generic over the app's whole state `S` and API `A` so a surface
 // can build scenarios without naming desktop's types. Desktop supplies the concrete ones
-// (`mock/moment.ts`).
+// (`mock/moment.ts`). `D` is the draft a scenario carries, which only the app that draws it names.
 
 import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
 import type {
@@ -16,7 +16,6 @@ import type {
   WorkflowSummary,
   WorktreesHeld,
 } from "@armada/protocol";
-import type { ArcDraft } from "@armada/screens/src/fixtures/build/arc";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { HARNESS } from "@armada/screens/src/fixtures/harness";
@@ -33,7 +32,7 @@ export type PublishedCore = {
 };
 
 /** One moment: what is published before anything is opened, and the reads behind each Job. */
-export type Scenario<S, A> = {
+export type Scenario<S, A, D = never> = {
   name: string;
   /** What it shows, as a sentence. The picker lists it. */
   says: string;
@@ -50,7 +49,7 @@ export type Scenario<S, A> = {
    * milestone takes them as props; when a shape is promoted (#1545) it moves
    * onto the fixture's own reads and this field loses a key.
    */
-  draft?: ArcDraft;
+  draft?: D;
   /**
    * The Studios this scenario's Fleet keeps. **Every scenario answers the Studio reads and
    * writes** (#1341), so one that names none keeps an empty list and the surface draws its empty

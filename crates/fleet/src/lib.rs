@@ -39,6 +39,7 @@ mod amending;
 mod approved;
 pub mod approving;
 pub mod asked;
+pub mod asked_run;
 pub mod asking;
 /// A red Check in a merge line turn, asked of the base before the branch is blamed.
 mod asking_the_base;
@@ -98,7 +99,6 @@ mod drifting;
 pub mod drone;
 mod drone_moves;
 mod drones_had;
-pub mod dry_run;
 /// Which task wrote which file, off its Drone's edit calls. Slice 5.
 pub mod edit_calls;
 /// The Manifest file itself, read and written — the half of Journey 9's
@@ -159,6 +159,15 @@ mod leasing;
 /// how a save reaches admission without a restart.
 pub mod limits;
 pub mod listener;
+/// Noticing what became of a Job's pull request. **Fleet may merge, and the
+/// decision is what stays a person's** — a press from Bridge is
+/// `crate::merging` and reaches the same four things this module does about a
+/// merge it noticed. What this module is for is the other way one settles:
+/// somebody merged it on the forge, and that is only ever knowable by asking.
+/// An open one is asked a second question on the same rotation —
+/// `crate::under_review`.
+pub mod main_ci;
+pub(crate) mod main_hub;
 /// The merge line `armada land` keeps in each served repository, read and published.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
@@ -175,13 +184,6 @@ pub mod mint;
 mod naming;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
-/// Noticing what became of a Job's pull request. **Fleet may merge, and the
-/// decision is what stays a person's** — a press from Bridge is
-/// `crate::merging` and reaches the same four things this module does about a
-/// merge it noticed. What this module is for is the other way one settles:
-/// somebody merged it on the forge, and that is only ever knowable by asking.
-/// An open one is asked a second question on the same rotation —
-/// `crate::under_review`.
 pub mod noticing;
 /// Where two Jobs claim the same paths, worked out at read time. **A
 /// warning and nothing else** — no dispatch path reaches it.
@@ -354,6 +356,7 @@ pub use adopting::{reattaching, Adopted, Gap, Reattachment, Session};
 pub use adrift::Adrift;
 pub use allowance::{Allowance, Micros, Overspent};
 pub use asked::Asked;
+pub use asked_run::{AskedRuns, ChecksReported, NotRun};
 pub use at_step::AtStep;
 pub use budget::CommandBudget;
 pub use clock::{Clock, SystemClock};
@@ -366,7 +369,6 @@ pub use detach::Detached;
 pub use drone::{
     aftermath, environment, Aftermath, DroneNotStarted, Ending, HostPaths, Left, Started,
 };
-pub use dry_run::{ChecksReported, DryRuns, NotRun};
 pub use evidence::{
     Call, Decline, EvidenceInbox, EvidenceTool, Landed, NotSubmitted, Recorded, Standing,
 };
@@ -396,7 +398,7 @@ pub use rehearsing::verify_steps;
 pub use releasing::{release_order, Parked};
 pub use reporting::{Counted, Filed, NotFiled};
 pub use resume::Roused;
-pub use reuse::KeptDryRun;
+pub use reuse::KeptAskedRun;
 pub use runtime::{
     listener_address, machine_path, Presence, PublishError, Published, ReadError, RuntimeFile,
     Staleness, Vacancy, FILE_NAME,

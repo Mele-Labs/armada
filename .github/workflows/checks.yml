@@ -37,6 +37,8 @@ jobs:
     timeout-minutes: 45
     outputs:
       checks: ${{ steps.covers.outputs.checks }}
+      matrix: ${{ steps.covers.outputs.matrix }}
+      has_matrix: ${{ steps.covers.outputs.has_matrix }}
       whole: ${{ steps.paths.outputs.whole }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -81,27 +83,41 @@ jobs:
           cat plan/changed.txt
 
       # A failure here fails the job, so a plan that cannot be made never
-      # reads as a plan that runs nothing. Checks that are not in CI are
-      # dropped from the answer: docs/practices/ci.md, *Not in CI*.
+      # reads as a plan that runs nothing. `plan.py` sorts the keys `armada
+      # covers` prints into the jobs below and fails on one that CI neither runs
+      # nor excludes: docs/practices/ci.md, *How a Check is chosen*. A whole run
+      # asks about every tracked path, so it names every Check there is.
       - name: Which Checks
         id: covers
         env:
           WHOLE: ${{ steps.paths.outputs.whole }}
         run: |
           set -euo pipefail
-          ci='["build","test","acceptance","typecheck","bridge_build","storybook","screens_test","components_test","format","hooks_test","desktop_test"]'
           if [ "$WHOLE" = true ]; then
-            checks=$ci
+            git ls-files | ./target/debug/armada covers > plan/covers.txt
           elif [ -f plan/branch.txt ] && ./target/debug/armada covers < plan/branch.txt > plan/branch-covers.txt && [ ! -s plan/branch-covers.txt ]; then
             # The branch's own change hits no Check, so main's side is not rerun.
-            checks='[]'
+            : > plan/covers.txt
           else
             ./target/debug/armada covers < plan/changed.txt > plan/covers.txt
-            checks=$(jq -R -s -c --argjson ci "$ci" 'split("\n") | map(select(length > 0)) | map(select(. as $c | $ci | index($c)))' plan/covers.txt)
           fi
+          python3 .github/ci/plan.py < plan/covers.txt > plan/plan.json
+          checks=$(jq -c .checks plan/plan.json)
+          matrix=$(jq -c .matrix plan/plan.json)
           echo "checks=$checks" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "has_matrix=$(jq '.matrix.include | length > 0' plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "CHECKS $checks"
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
+
+      # The matrix job runs `armada check <key>` and needs a binary; the plan
+      # has just built one, and the runners are the same image.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: armada-bin
+          path: target/debug/armada
+          retention-days: 1
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -156,6 +172,26 @@ jobs:
             export PATH="$PWD/target/debug:$PATH"
             if [ "${{ needs.plan.outputs.whole }}" = true ]; then armada check test; else armada check test --changed < plan/changed.txt; fi
 
+  # The xtask tests read `apps/` and `packages/` (vocabulary, error codes,
+  # design rules). Nextest directly, as `apps/desktop/armada.yml` runs it: the
+  # plan's `armada` is a Node-job artifact, and this job builds only xtask.
+  xtask_test:
+    name: apps/desktop:xtask_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:xtask_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: xtask_test
+          nextest: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: apps/desktop:xtask_test
+          cmd: cargo nextest run -p xtask --test-threads "$WIDTH"
+
   # Whole, with no `--changed`: the Check has no narrowing, and it is the one
   # run of a milestone's claim.
   acceptance:
@@ -209,67 +245,35 @@ jobs:
           name: typecheck
           cmd: pnpm typecheck
 
-  bridge_build:
-    name: bridge_build
+  # Every workspace Check on Linux: one job per key `armada covers` named, run
+  # as `armada check <key>` in that workspace's directory. The key is the
+  # display name.
+  workspace_check:
+    name: ${{ matrix.key || 'workspace_check' }}
     needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'bridge_build')
+    if: needs.plan.outputs.has_matrix == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/node-setup
-      - uses: ./.github/actions/run-check
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: bridge_build
-          cmd: pnpm -C apps/desktop build
-
-  storybook:
-    name: storybook
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'storybook')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+          name: armada-bin
+          path: bin
       - uses: ./.github/actions/node-setup
         with:
-          browsers: "true"
+          browsers: ${{ matrix.browsers }}
       - uses: ./.github/actions/run-check
+        env:
+          KEY: ${{ matrix.key }}
         with:
-          name: storybook
-          cmd: pnpm -C packages/components build-storybook
-
-  screens_test:
-    name: screens_test
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'screens_test')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/node-setup
-        with:
-          browsers: "true"
-      - uses: ./.github/actions/run-check
-        with:
-          name: screens_test
-          cmd: pnpm --dir packages/screens exec vitest run --maxWorkers=$WIDTH
-
-  components_test:
-    name: components_test
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'components_test')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/node-setup
-        with:
-          browsers: "true"
-      - uses: ./.github/actions/run-check
-        with:
-          name: components_test
-          cmd: pnpm --dir packages/components exec vitest run --maxWorkers=$WIDTH
+          name: ${{ matrix.key }}
+          cmd: |
+            chmod +x bin/armada
+            PATH="$PWD/bin:$PATH" armada check "$KEY"
 
   hooks_test:
     name: hooks_test
@@ -290,7 +294,7 @@ jobs:
   desktop_test_shard:
     name: desktop_test_shard
     needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'desktop_test')
+    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:desktop_test')
     runs-on: macos-latest
     timeout-minutes: 45
     strategy:
@@ -457,11 +461,9 @@ jobs:
       - acceptance
       - format
       - typecheck
-      - bridge_build
-      - storybook
-      - screens_test
-      - components_test
+      - workspace_check
       - hooks_test
+      - xtask_test
       - foundations
     runs-on: ubuntu-latest
     timeout-minutes: 45

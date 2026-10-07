@@ -13,7 +13,7 @@ import {
 } from "react";
 import { Button, KbdChord, Textarea } from "@armada/components";
 
-import { openJobIn } from "@armada/screens/src/open-job";
+import { openJobIn } from "@armada/jobs";
 
 import { byCreation, type Annotation, type Box } from "../../../shared/annotations";
 import { capture, locate } from "./capture";

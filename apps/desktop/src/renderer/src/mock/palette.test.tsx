@@ -4,7 +4,7 @@
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { running } from "@armada/screens/src/fixtures/build/index";
+import { running } from "@armada/jobs/fixtures/build/index";
 import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/board";
 
 import { onBoard, onJob } from "./scenario";

@@ -19,3 +19,4 @@ export * from "./scenarios/repair-checks-again";
 export * from "./scenarios/real-tiers-and-models";
 export * from "./scenarios/pausing-a-job";
 export * from "./scenarios/fleet-starting";
+export * from "./scenarios/main-goes-red";

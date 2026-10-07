@@ -4,7 +4,7 @@
 // real `armada-land/` directory and holds equal to this file, so this is the other half of one
 // reading of the wire.
 
-import type { MergeLines } from "@armada/protocol";
+import type { MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
@@ -178,5 +178,81 @@ describe("the merge line Fleet serves", () => {
       ["/other", "other"],
     ]);
     expect(views(two, "/other").map((one) => [one.root, one.name])).toEqual([["/other", undefined]]);
+  });
+});
+
+describe("the hub Fleet serves beside the line", () => {
+  const JOB = { id: "job-1", title: "Cache the manifest read" };
+  const COMMIT = "a".repeat(40);
+  const hubbed = (hub: MergeLineHub): MergeLines => ({
+    lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [], hub }],
+  });
+  const hubOf = (hub: MergeLineHub) => views(hubbed(hub), null)[0]?.hub;
+
+  test("a green main is a mark, and each open pull request keeps its ci, its Job and nothing it was not told", () => {
+    const hub = hubOf({
+      main: { state: "green", commit: COMMIT, read_at: "2026-10-06T10:00:00Z" },
+      pull_requests: [
+        { number: 7, title: "t", branch: "armada/cache", url: `${PULL}7`, ci: "passed", job: JOB },
+        { number: 8, title: "t", branch: "nick/docs", url: `${PULL}8`, ci: "waiting_on_main" },
+        { number: 9, title: "t", branch: "nick/new", url: `${PULL}9` },
+      ],
+    });
+    expect(hub).toEqual({
+      main: { state: "green" },
+      pulls: [
+        { number: 7, url: `${PULL}7`, branch: "armada/cache", ci: "passed", job: JOB },
+        { number: 8, url: `${PULL}8`, branch: "nick/docs", ci: "waiting_on_main" },
+        { number: 9, url: `${PULL}9`, branch: "nick/new" },
+      ],
+      recent: [],
+    });
+  });
+
+  test("a red names the Check where the job maps to one and the job itself where it does not", () => {
+    const hub = hubOf({
+      main: {
+        state: "red",
+        commit: COMMIT,
+        read_at: "2026-10-06T10:00:00Z",
+        failed: [
+          { name: "ci", check: "screens_test", tests: ["merge-line.test.ts > folds", "second"] },
+          { name: "test-all", tests: [] },
+          { name: "lint-all", tests: ["tests::one"] },
+        ],
+        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", job: JOB },
+      },
+      fixing: JOB,
+    });
+    expect(hub?.main).toEqual({
+      state: "red",
+      red: {
+        check: "screens_test",
+        test: "merge-line.test.ts > folds",
+        also: [{ check: "test-all", unmapped: true }, { check: "lint-all", unmapped: true, test: "tests::one" }],
+        merge: { number: 1812, url: `${PULL}1812`, branch: "armada/cache", job: JOB },
+      },
+      taken: JOB,
+    });
+  });
+
+  test("a red nothing named a merge for draws no Broke in, and a bare job draws no Test", () => {
+    const hub = hubOf({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "test-all" }] } });
+    expect(hub?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
+  });
+
+  test("a main still running, one nothing ran on, and one not read draw no mark", () => {
+    for (const state of ["running", "nothing_ran"]) {
+      expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [], recent: [] });
+    }
+    expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [], recent: [] });
+  });
+
+  test("a line from a Fleet before the hub draws none, and the two ways to a Job are offered only when asked for", () => {
+    const [none] = views({ lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [] }] }, null);
+    expect(none && "hub" in none).toBe(false);
+    expect(none && "fixOffered" in none).toBe(false);
+    const offered = { lines: [{ ...hubbed({}).lines[0]!, fix_offered: { recent: [] } }] } as unknown as MergeLines;
+    expect(views(offered, null)[0]?.fixOffered).toBe(true);
   });
 });

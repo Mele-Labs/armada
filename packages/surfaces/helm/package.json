@@ -1,0 +1,38 @@
+{
+  "name": "@armada/helm",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The Helm surface: the dock's conversation, its composer and the record behind an answer. Props in, callbacks out.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./fake": "./src/fake.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@armada/bridge-api": "workspace:*",
+    "@armada/components": "workspace:*",
+    "@armada/protocol": "workspace:*",
+    "@armada/screens": "workspace:*",
+    "@armada/shell": "workspace:*",
+    "@armada/tokens": "workspace:*",
+    "lucide-react": "^0.550.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@armada/desktop": "workspace:*",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitest/browser": "4.1.11",
+    "@vitest/browser-playwright": "4.1.11",
+    "playwright": "1.62.1",
+    "typescript": "^5.9.0",
+    "vitest": "4.1.11"
+  }
+}

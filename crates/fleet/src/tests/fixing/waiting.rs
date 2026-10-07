@@ -12,8 +12,8 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Gate, OneTest, Sketch};
 use verification::{Claimed, NotClaimed, ShownBy};
 
 use super::{fix_for, started, Fixture, COMMIT, TEST};
+use crate::asked_run::AskedRuns;
 use crate::daemon::Fleet;
-use crate::dry_run::DryRuns;
 use crate::evidence::Call;
 use crate::fixing::{FixAnswer, FixStands, Fixes};
 use crate::peers::{News, PeersChanged};
@@ -63,7 +63,7 @@ fn a_fleet_checking(home: &TempDir, run: &'static str) -> Arc<Fixture> {
     );
     fittings.starting().workflows = one(printing(run));
     fittings.fixes = Fixes::of(1);
-    fittings.dry_runs = DryRuns::of(3);
+    fittings.asked_runs = AskedRuns::of(3);
     Arc::new(Fleet::assembled(fittings))
 }
 
@@ -99,7 +99,7 @@ async fn claimed(fleet: &Fixture, working: &JobId) -> JobId {
     fix
 }
 
-async fn dry_run(fleet: &Arc<Fixture>, job: &JobId) {
+async fn asked_run(fleet: &Arc<Fixture>, job: &JobId) {
     let _ = fleet
         .run_checks(job, ipc::mcp::ChecksAsk::everything(false))
         .await
@@ -132,16 +132,16 @@ fn peers_in(said: &str) -> String {
         .join("\n")
 }
 
-/// **The claim of the issue.** A dry run fails printing a claimed test, so the
+/// **The claim of the issue.** A asked run fails printing a claimed test, so the
 /// Job is pointed at the fix, both Jobs' detail say so, and the Drone is told.
 #[tokio::test]
-async fn a_dry_run_failing_on_a_claimed_test_points_the_job_at_its_fix() {
+async fn a_asked_run_failing_on_a_claimed_test_points_the_job_at_its_fix() {
     let home = TempDir::new();
     let fleet = a_fleet_checking(&home, NAMES_IT);
     let working = started(&fleet, &home).await;
     let fix = claimed(&fleet, &working).await;
 
-    dry_run(&fleet, &working).await;
+    asked_run(&fleet, &working).await;
 
     let waiting = fleet.load(&working).await.expect("the Job");
     let seen = fleet.breakages_of(&waiting).await.expect("read");
@@ -173,13 +173,13 @@ async fn a_failure_printing_another_test_points_nothing() {
     let working = started(&fleet, &home).await;
     claimed(&fleet, &working).await;
 
-    dry_run(&fleet, &working).await;
+    asked_run(&fleet, &working).await;
 
     let job = fleet.load(&working).await.expect("the Job");
     assert!(fleet.breakages_of(&job).await.expect("read").is_empty());
 }
 
-/// The gate points a Job exactly as a dry run does.
+/// The gate points a Job exactly as a asked run does.
 #[tokio::test]
 async fn the_gate_failing_on_a_claimed_test_points_the_job_too() {
     let home = TempDir::new();

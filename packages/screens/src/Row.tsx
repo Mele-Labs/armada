@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar } from "@armada/components";
+import { Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { ScrollText } from "lucide-react";
 
@@ -89,6 +89,7 @@ import { activityFor } from "./frozen";
 import { rowFreezeOf } from "./freeze";
 import { ROW_VERBS, verbOf } from "./keys";
 import { originReading } from "./origin";
+import { fixesMainOf, fixesMainSaid } from "./main-red";
 import { canPause, canResume, pausedSaid } from "./pausing";
 import type { PauseAct } from "./pausing";
 import { leading, readingOf } from "./reading";
@@ -201,6 +202,7 @@ export function Row({
     workflow === undefined ? job.workflow_id : `${workflow.name}, ${steps.length} steps`;
   const freeze = rowFreezeOf(job);
   const paused = pausedSaid(job, now);
+  const fixes = fixesMainOf(job);
   const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
@@ -349,7 +351,16 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
-      {...(paused === undefined ? {} : { mark: <PausedMark said={paused} /> })}
+      {...(paused === undefined && fixes === undefined
+        ? {}
+        : {
+            mark: (
+              <>
+                {fixes === undefined ? null : <FixingMainMark state={fixes.state} said={fixesMainSaid(fixes)} />}
+                {paused === undefined ? null : <PausedMark said={paused} />}
+              </>
+            ),
+          })}
       headline={headline}
       jobId={job.id}
       handle={job.handle}

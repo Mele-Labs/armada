@@ -2,7 +2,7 @@
 // Jobs, read on open and on focus (`docs/concepts/retro.md`). Apart from
 // `App.tsx`, which is at its length.
 
-import { Lessons } from "@armada/screens";
+import { Lessons } from "@armada/jobs";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";

@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 
 import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
-import { LandCheckLogSheet, mergeLineViews, type MergeLineView } from "@armada/screens";
+import { mergeLineViews, type MergeLineView } from "@armada/screens";
+import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -33,7 +34,18 @@ export function hiddenSurfaces(state: Lined): readonly string[] {
  * A panel for each line there is, and the log panel a Check on any of them opens in: **one, held
  * here**, so a second press replaces the first rather than stacking a panel per line.
  */
-export function MergeLinePanel({ state, onOpenLink, focus }: { state: Lined; onOpenLink: (address: string) => void; focus?: string }) {
+export function MergeLinePanel({
+  state,
+  onOpenLink,
+  onOpenJob,
+  focus,
+}: {
+  state: Lined;
+  onOpenLink: (address: string) => void;
+  /** A Job the head or a pull request names. Absent, it is not a press. */
+  onOpenJob?: (jobId: string) => void;
+  focus?: string;
+}) {
   const [reading, setReading] = useState<LandCheckAt | null>(null);
   const floor = useAtFloor();
   return (
@@ -43,6 +55,7 @@ export function MergeLinePanel({ state, onOpenLink, focus }: { state: Lined; onO
           key={view.root}
           view={view}
           {...(focus === undefined ? {} : { focus })}
+          {...(onOpenJob === undefined ? {} : { onOpenJob })}
           onOpenLink={onOpenLink}
           onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
         />
@@ -65,12 +78,14 @@ function OneLine({
   view,
   focus,
   onOpenLink,
+  onOpenJob,
   onOpenCheck,
 }: {
   view: MergeLineView;
   /** A branch another surface asked for. The panel opens if it holds it. */
   focus?: string;
   onOpenLink: (address: string) => void;
+  onOpenJob?: (jobId: string) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
@@ -87,8 +102,11 @@ function OneLine({
       landed={view.landed}
       sentBack={view.sentBack}
       notice={view.notice}
+      {...(view.hub === undefined ? {} : { hub: view.hub })}
+      {...(onOpenJob === undefined ? {} : { onOpenJob })}
       open={open}
       {...(holds ? { focus } : {})}
+      {...(view.fixOffered === undefined ? {} : { onFix: () => {} })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}
@@ -102,18 +120,25 @@ export function MergeLineSurface({
   bridge,
   onCopied,
   onOpenLink,
+  onOpenJob,
   focus,
 }: {
   state: Lined;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
+  onOpenJob?: (jobId: string) => void;
   focus?: string;
 }) {
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview">
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} {...(focus === undefined ? {} : { focus })} />
+        <MergeLinePanel
+          state={state}
+          onOpenLink={onOpenLink}
+          {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(focus === undefined ? {} : { focus })}
+        />
       </div>
     </Boundary>
   );
