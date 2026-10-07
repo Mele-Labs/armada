@@ -6,6 +6,8 @@
 import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
 
+import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 
@@ -18,12 +20,21 @@ const ROWS = [
   { at: 66, slug: "now-issue", title: "Shorten the reconnect wait" },
 ] as const;
 
-const fixtures = ROWS.map((row) => asRow(featureRunning(), row.at, row.slug, row.title));
-const [, drone, checks, plan, judge, issue] = fixtures.map((one) => one.job.id) as [string, string, string, string, string, string];
+/** The recording's Job was cleared after it ran; these are on the Board's Running section instead. */
+function uncleared(fixture: JobFixture): JobFixture {
+  const { reclaimed_at: _cleared, ...job } = fixture.job;
+  if (fixture.watched.state !== "read") return { ...fixture, job };
+  const { reclaimed_at: _also, ...detailJob } = fixture.watched.detail.job;
+  return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
+}
+
+const fixtures = ROWS.map((row) => uncleared(asRow(featureRunning(), row.at, row.slug, row.title)));
+const [idle, drone, checks, plan, judge, issue] = fixtures.map((one) => one.job.id) as [string, string, string, string, string, string];
 
 const DRONE = { key: "d", of: "drone", name: "Drone on Implement", line: "Edit crates/store/src/clock.rs", state: "running" } as const;
 
 const now: Record<string, NowView> = {
+  [idle]: {},
   [drone]: { running: [DRONE] },
   [checks]: {
     running: [

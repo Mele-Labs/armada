@@ -119,7 +119,7 @@ export function NowPanel({ asks = [], issues = [], running = [], onHide }: NowPa
           {running.map((one) => {
             const state = STATE[one.state];
             return (
-              <Row key={one.key} name={`${one.name}, ${state.said.toLowerCase()}`} onOpen={one.onOpen}>
+              <Row key={one.key} name={`${one.name}${one.line === undefined ? "" : `, ${one.line}`}, ${state.said.toLowerCase()}`} onOpen={one.onOpen}>
                 <Kind of={one.of} />
                 <span className="armada-now__text">
                   {one.name}
