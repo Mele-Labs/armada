@@ -102,7 +102,7 @@ test('a rename is read off the last custom-title entry of a transcript', () => {
   ].join('\n')
   expect(customTitleIn(lines)).toBe('second name')
   expect(customTitleIn('{"type":"user"}')).toBeUndefined()
-  expect(transcriptPath('/home/u', '/repos/armada/.armada', 'S1')).toBe(
-    '/home/u/.claude/projects/-repos-armada--armada/S1.jsonl',
+  expect(transcriptPath('/home/user', '/repos/armada/.armada', 'S1')).toBe(
+    '/home/user/.claude/projects/-repos-armada--armada/S1.jsonl',
   )
 })
