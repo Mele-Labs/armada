@@ -1,0 +1,8 @@
+[operations.get_session_file]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A picture or file that was sent to a hosted session, as it was sent"
+notes = """
+`GET /sessions/file?session_id=&file=`, `file` a `SentFile.id` from a row. Since 23.49. The bytes, under the media type they were sent as.
+"""

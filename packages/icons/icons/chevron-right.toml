@@ -1,0 +1,32 @@
+[icons.chevron-right]
+  means = "expand and collapse"
+  group = "Chrome"
+  size = "16px"
+  status = "Specified"
+  paired_with = "chevron-down"
+  reserved = "Two uses, told apart by position. Leading a tree row, it expands in place and pairs with chevron-down or chevron-up. Trailing a label, it goes to another view and pairs with nothing. Never a disclosure caret on a closed record or a split button, which is chevron-down's, and never a sort or direction indicator."
+
+  [[icons.chevron-right.usage]]
+    means = "goes to"
+    group = "Chrome"
+    size = "12px"
+    status = "Specified"
+    reserved = "Trailing the label of a control that opens another view or a sheet, and between a trail's segments. Never leading, never alone without a label except in a log panel's head (the usage below), and never a control that expands in place."
+    notes = "Carries no pair, because nothing closes a destination from the mark that reached it. 12px because it sits after text at the text's own size, as Job detail's Details act draws it."
+
+  [[icons.chevron-right.usage]]
+    means = "forward — the forward half of the history act"
+    group = "Chrome"
+    size = "12px"
+    status = "Specified"
+    paired_with = "chevron-left"
+    reserved = "Trailing the label of the control that retraces a step the way back undid — the forward half of actions.toml's `history` act, ⌘]. Never leading, never alone without a label."
+    notes = "Registered 2026-09-30 by the owner, with chevron-left for the back half, once the Back trail in Job detail had drawn Back as words alone. It is the goes-to usage above read along a trail: forward goes to a place, so it trails its label as goes-to does, and the two cannot be told apart because they mean the same thing. Nothing draws Forward yet; the row is here so the pair is decided together."
+
+  [[icons.chevron-right.usage]]
+    means = "goes to, alone — a log's way on to the record it belongs to"
+    group = "Chrome"
+    size = "16px"
+    status = "Specified"
+    reserved = "An icon-only ghost button in a log panel's head, going to the Record row the log belongs to: a Check's log to that Check's own row. Named by its tooltip, `Open in the Record`. Never in a list row, never beside a label, and never drawn off where there is no row to go to."
+    notes = "Added 2026-10-02, the owner's call on walking the Check log panel: the log leads on to the Check's Record row, as an icon with a tooltip and no word. It is the goes-to usage above with its label moved into the tooltip, which is the one exception to that row's never-alone: a sheet's head carries Close as a word beside it, so a second word there would read as a second way out. Refused: `shield`, the Check's own Record mark, under a rule-4 waiver nothing else inherits; `external-link`, which hands something to the OS rather than going somewhere in Bridge; `list-ordered`, an Outline's."

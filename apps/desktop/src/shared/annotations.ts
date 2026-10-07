@@ -43,8 +43,11 @@ export type AnnotationStatus = "open" | "done";
 
 export type Box = { x: number; y: number; width: number; height: number };
 
-/** The Job a note was sent to Fleet as, #1250. */
-export type Sent = { jobId: string; handle: string; at: string };
+/** Where a note was sent, #1250: the Job it became, or the Session it went to as a message. */
+export type Sent = { at: string } & ({ jobId: string; handle: string } | { sessionId: string; title: string });
+
+/** What a sent note is called where it went: a Job's handle, a Session's title. */
+export const sentAs = (sent: Sent): string => ("jobId" in sent ? sent.handle : sent.title);
 
 /** Where an element's JSX is: a path from the repository root, and a line. #1584. */
 export type Source = { file: string; line: number };
@@ -138,7 +141,8 @@ function isSource(v: unknown): v is Source {
 }
 
 function isSent(v: unknown): v is Sent {
-  return isRecord(v) && isString(v["jobId"]) && isString(v["handle"]) && isString(v["at"]);
+  if (!isRecord(v) || !isString(v["at"])) return false;
+  return (isString(v["jobId"]) && isString(v["handle"])) || (isString(v["sessionId"]) && isString(v["title"]));
 }
 
 function isBox(v: unknown): v is Box {

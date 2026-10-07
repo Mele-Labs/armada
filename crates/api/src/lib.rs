@@ -18,7 +18,7 @@
 //! is the whole rule.
 //!
 //! **A subset of the inventory, and a stream.** [`SERVED`] is the operations M1
-//! needs, named with `crates/ipc/operations.toml`'s own keys. The rest of the
+//! needs, named with `crates/ipc/operations/`'s own keys. The rest of the
 //! inventory, the `/v0` lifeboat and version-skew handling belong to Ship and
 //! are neither built nor stubbed here. [`MCP_PATH`] is on the listener and on
 //! neither seam above: a Drone's Evidence tool, deliberately absent from
@@ -107,7 +107,7 @@ pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     HelmReach, HostedSessions, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
-    Redirector, Refusal, Retros, Sessions, StoredFile, Studios, Tools,
+    Redirector, Refusal, Rehearsing, Retros, Sessions, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

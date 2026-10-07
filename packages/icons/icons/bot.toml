@@ -1,0 +1,14 @@
+[icons.bot]
+  means = "A robot's head \u2014 a rounded box with an antenna and a stub either side"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about a Drone arriving at a step or leaving it. Never a Drone's state, never a model or the proposer, and never Helm, which is `message-square`."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A Drone is an agent process, and this is the literal drawing lucide has of one. The antenna and the side stubs break the outline, which is what separates it at 12px from `file` and `archive`, the rectangles already in the grey set. The contract's *Where the answer is no icon* keeps the Who column in words, and this does not reach it: the Who cell still says Drone, and this mark names the row's family under All alone. Refused: `cpu`, a queued reason's; `terminal`, Pilot's alone; `user-check`, the human figure."
+
+  [[icons.bot.usage]]
+    means = "A retro item that got in a Drone's way"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). The same drawing of a Drone the Record's kind column uses, for the same reason: it is the literal agent. It names whose way an item got in, never a Drone's state, so the reservation above holds. --fg-muted; tooltip: Drone."

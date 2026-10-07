@@ -1,0 +1,7 @@
+[conventions.session_composer_marks]
+  glyphs = ["shield", "cpu", "zap"]
+  means = "What a Session's message box sets, as a glyph before its value where the window is narrow"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. `shield` is the permission mode, `cpu` the model and `zap` the effort. They are drawn only below the breakpoint, where the select's label is given up, and each is named by its tooltip and its accessible name. Borrowed and not minted: none of the three is reserved to a state, and the owner may rule otherwise."

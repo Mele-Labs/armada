@@ -91,11 +91,20 @@ async fn ruled(
     changed: &[&str],
     gated: Option<&Gated>,
 ) -> Ruling {
+    ruled_over(workflow.frozen(), home, changed, gated).await
+}
+
+async fn ruled_over(
+    workflow: &core_model::FrozenWorkflow,
+    home: &TempDir,
+    changed: &[&str],
+    gated: Option<&Gated>,
+) -> Ruling {
     let worktree = adapter_traits::Worktree::at(
         home.path().to_string_lossy().to_string(),
         "armada/01J0000000000000000000JOB0",
     );
-    let at_step = AtStep::first(workflow.frozen(), &worktree)
+    let at_step = AtStep::first(workflow, &worktree)
         .expect("a first step")
         .over(gated);
     rule_on(
@@ -471,4 +480,67 @@ async fn the_gate_replaces_the_jobs_gating_manifests_with_what_each_came_to() {
         fleet.load(job.id()).await.expect("loads").gate_manifests(),
         read.gate_manifests()
     );
+}
+
+/// The Job froze its workflow before `a` had a manifest. `a` gates the change
+/// at the gate, its Checks are taken from the manifests Fleet serves, and they
+/// run. **Without the widening the same change runs nothing.**
+#[tokio::test]
+async fn a_manifest_the_job_froze_no_checks_for_gets_its_checks_run_at_the_gate() {
+    let (served, home) = (repository(""), checkout());
+    let def = WorkflowDef::parse(Path::new("fixture.yml"), STEP, &Roster::offering_nothing())
+        .expect("the workflow parses");
+    let without_a: Vec<&Manifest> = vec![&served.root, &served.below[0], &served.below[2]];
+    let frozen = ResolvedWorkflow::resolve_gated(&def, &served.root, &without_a)
+        .expect("resolves")
+        .frozen()
+        .clone();
+    let changed = ["a/src/x.ts"];
+    let gated = served.gated(&changed);
+
+    let before = ruled_over(&frozen, &home, &changed, Some(&gated)).await;
+    assert!(
+        left(&home).is_empty(),
+        "frozen, nothing of a's runs: {before:?}"
+    );
+
+    let unmet = gated.unmet_by(&frozen, &served.root, &served.below);
+    assert_eq!(
+        unmet
+            .iter()
+            .map(|manifest| manifest.dir())
+            .collect::<Vec<_>>(),
+        ["a"]
+    );
+    let widened = config::with_manifests_added(&frozen, &unmet);
+    let ruling = ruled_over(&widened, &home, &changed, Some(&gated)).await;
+
+    assert!(ruling.advanced(), "{ruling:?}");
+    assert_eq!(left(&home), ["a/a-ran"], "a's Check ran in a's directory");
+    assert!(outcomes(&ruling).contains(&("a:test".to_string(), CheckOutcome::Passed)));
+    assert_eq!(
+        frozen.steps()[0].checks().len(),
+        3,
+        "the Job's own is unchanged"
+    );
+}
+
+/// A manifest the Job did freeze Checks for is not read again from main: a
+/// Check added to `a` there since waits for a new Job.
+#[tokio::test]
+async fn a_manifest_the_job_froze_checks_for_is_not_read_again_from_main() {
+    let frozen = repository("").workflow().frozen().clone();
+    let on_main = repository("  extra:\n    run: \"/usr/bin/touch a-extra\"\n");
+    let home = checkout();
+    let changed = ["a/src/x.ts"];
+    let gated = on_main.gated(&changed);
+
+    assert!(gated
+        .unmet_by(&frozen, &on_main.root, &on_main.below)
+        .is_empty());
+    let ruling = ruled_over(&frozen, &home, &changed, Some(&gated)).await;
+
+    assert!(ruling.advanced(), "{ruling:?}");
+    assert_eq!(left(&home), ["a/a-ran"], "only what the Job froze ran");
+    assert!(!home.path().join("a/a-extra").exists());
 }

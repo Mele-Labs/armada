@@ -128,6 +128,7 @@ mod gating;
 mod group;
 mod grouping;
 pub mod headroom;
+mod healing;
 pub mod helm;
 /// What Fleet is holding disk for, and the five tests that decide whether it
 /// may give one back without asking anybody.
@@ -186,6 +187,7 @@ pub mod mint;
 mod naming;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
+pub mod notice_loop;
 pub mod noticing;
 /// Where two Jobs claim the same paths, worked out at read time. **A
 /// warning and nothing else** — no dispatch path reaches it.

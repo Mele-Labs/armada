@@ -1,0 +1,7 @@
+[icons.undo-2]
+  means = "An arrow bending back on itself over a straight tail, pointing against the reading direction"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Taking back the last thing a person made by hand, on a canvas. Never a refresh or a poll, which is `rotate-cw`, and never a retry."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). The rule it has to clear is rule 4 against the two circular arrows already in the set — `refresh-cw`, reserved to churning, and `rotate-cw`, every refresh and poll control — and it clears it on outline rather than on hue: both of those are closed loops, and this is an open arrow with a straight tail, which is why `rotate-ccw` was refused outright as a mirror image of `rotate-cw` at 16px. `undo-2` rather than `undo`, whose tail curls and reads as a third loop. What it takes back is one freehand line and nothing else — a box comes off under Remove, which draws its word — so the reservation says *by hand* and does not reach a retry, which is a Job's act and `rotate-cw`'s."

@@ -1,0 +1,14 @@
+[operations."job.plan_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's plan was recorded, or one of its tasks was added or changed state"
+notes = """
+`#893`. Published when a Drone's `record_plan`, `add_task` or `update_task` is kept, and by a person's `add_task` or `drop_task` (#897) — `actor` is `drone` for the first three and `human` for the last two, which is the whole of what tells them apart here. **And by Fleet, `actor` `fleet`, on a step that works a Drone per task**: a task's Drone spawned (`working`), handing in (`handed_in`), and its step's Checks passing (`done`).
+
+**`task` and `state` name the task a change moved and where it now stands**, since 23.1, so a timeline moves without a read. Both are absent on a whole recording, which moves every task at once.
+
+**The counts ride along and the plan does not.** A Board redraws a row's task figure from them without a read per row, and an open Job reads `get_job`, whose `work_plan` is the plan whole. A plan's approach and titles are free text, and this stream is one bounded drop-oldest channel every Job shares.
+
+It adds nothing measurable to the unbounded-sink risk `docs/practices/protocol.md` names: one message per kept change, and a Drone makes a handful per task. A Drone per task adds three per task, beside a `drone.spawned` and `drone.exited` pair; `[broadcast-capacity]` is where the measured rate goes.
+"""

@@ -1,0 +1,14 @@
+[operations.set_model]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose the model one Job's later steps run on, or clear the choice"
+notes = """
+A live setting on one Job, like `set_when_blocked`, and the answer is the Job's summary. **The next step's spawn reads it; the step running now keeps its model.** Nothing is respawned for it, so a Drone mid-step is never cut off to pick up a model.
+
+The body is `model`: a name `list_models` offers, or `null` to clear the choice so each later step runs on the model its workflow gives it. `null` is sent rather than implied — a body with no `model` key is refused, because a Bridge that dropped the field would otherwise throw a person's choice away and answer 200. `JobDetail.model_override` reads the choice back, and is absent where there is none.
+
+Refused with a 409 on a model `list_models` does not offer. The picker and the route answer from the same list, so a name only a stale window still shows is told rather than spawned.
+
+`agent_access` is `Helm only`: which model spends a Job's budget is still the owner's to decide, and Helm moving it now happens only where the owner asked it to move it — the ask is the same pricing decision, said in conversation instead of pressed on a picker.
+"""

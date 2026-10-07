@@ -1,0 +1,7 @@
+[icons.text-cursor]
+  means = "An I-beam text cursor, blinking"
+  group = "Proposing"
+  size = "12px"
+  status = "Specified"
+  reserved = "A field on a proposing Job's row or page that the proposer has not written yet, blinking. Never a text field, a rename or an edit, never a Job status, which is `scan-line`, and never a loading or busy mark anywhere else."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`ellipsis` and `loader` refused). The proposer is writing the answer, and a blinking caret is what writing looks like. The I-beam is the only outline in the set that is a cursor, so it collides with nothing. It blinks at `--duration-pulse` and holds still under reduced motion, where the cell holding it still reads as unsettled. Its tooltip names the field it stands in for."

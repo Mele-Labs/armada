@@ -25,7 +25,7 @@ const MARK_STROKE = 2;
  * Judge, a Drone, a task and a case run. A Check takes the bare `shield`, under
  * a rule-4 exception the owner gave for this column alone —
  * `docs/contracts/iconography.md`, *The Record's kind marks*.
- * `[conventions.record_kind_mark]` in `packages/icons/icons.toml` holds the
+ * `[conventions.record_kind_mark]` in `packages/icons/icons/` holds the
  * reasoning for each.
  */
 export function markFor(kind: string): JobLedgerMark | undefined {

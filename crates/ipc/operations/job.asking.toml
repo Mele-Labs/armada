@@ -1,0 +1,16 @@
+[operations."job.asking"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Drone asks a person a question, or the one that was out is answered"
+notes = """
+A Drone that does not know had two moves and neither worked. **Escalate** stops the Job — the step freezes and the worktree and port span are held until a person transitions it back — and a step whose work is deciding what other Jobs should exist is decision-dense, so it would escalate on the first ambiguity and every one after. **Guess** is unprevented, and where the output is Jobs the cost of a guess is Drones spending on work nobody asked for.
+
+Not a step state and not a Job status, for `job.judging`'s reason and in its exact shape. `step-states.toml` declares six and `job-statuses.toml` eleven; a variant either side matches on is a major bump by this seam's own table, and it would be the wrong fact anyway — a step whose Drone is waiting on an answer is still `running`, and it stops waiting without moving. So the question rides beside the state and both registries are untouched.
+
+Two messages per question and never a third. The one going out carries the question, its options and the instant it was asked; the one coming back carries nothing. A surface subtracts for itself, so a question that waits four hours costs this channel two messages.
+
+**The actor differs between the two, which no other kind here does.** Going out it is `drone` and coming back it is `human`, because those are the two ends of the act. Fleet caused neither.
+
+It produces at the rate a person answers, which is the slowest rate on this channel, and it holds no queue of its own — the outstanding question lives on the working slot. So it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names.
+"""

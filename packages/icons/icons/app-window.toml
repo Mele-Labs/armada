@@ -1,0 +1,7 @@
+[icons.app-window]
+  means = "A window with its title bar — an application"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "A retro item whose fix lands in Armada itself, Fleet or Bridge, and nowhere else. Never a window, a sheet or a surface of Bridge's, and never Fleet as whose way an item got in, which is `server`."
+  notes = "Minted 3 Oct 2026 with where a retro item's fix lands (`lands_in = armada`), the owner's three places. Armada is the product, and an application window is the plainest drawing of one. **The objection to expect is that Fleet has no window**: the place is Fleet or Bridge, and a mark for the product had to cover both. Refused: `armada-mark`, whose reservation is absolute and keeps it out of rows; `server`, already whose way for Fleet, which would draw one glyph twice on a row saying two things; `wrench`, reserved to awaiting_repair; `settings`, configuration. Tooltip: Lands in Armada."

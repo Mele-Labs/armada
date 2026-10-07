@@ -310,7 +310,20 @@ fn every_act_the_door_offers_is_decided_for_helm_or_the_person() {
 /// reserving a name nobody offers would decide nothing.
 #[test]
 fn every_reserved_act_is_an_operation_the_door_offers() {
-    let inventory = include_str!("../../../ipc/operations.toml");
+    let inventory = {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ipc/operations");
+        let mut files: Vec<_> = std::fs::read_dir(dir)
+            .expect("the inventory")
+            .map(|entry| entry.expect("an entry").path())
+            .collect();
+        files.sort();
+        let mut text = String::from("\n");
+        for file in files {
+            text.push_str(&std::fs::read_to_string(file).expect("an operation"));
+            text.push('\n');
+        }
+        text
+    };
     for act in THE_PERSONS {
         let (_, row) = inventory
             .split_once(&format!("\n[operations.{act}]\n"))

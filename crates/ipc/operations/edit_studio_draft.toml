@@ -1,0 +1,10 @@
+[operations.edit_studio_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Replace an Issue draft's title and body with what a person left, and answer with the Studio"
+notes = """
+**The one act that rewrites content a person wrote**, and it reaches one kind: a Note is fixed at capture and every other kind is added whole. `docs/concepts/studio.md` calls a draft's title and body editable, and what is dispatched has to be what the person read and changed rather than what was first written up.
+
+`Bridge only`, and deliberately not Helm's even on an ask: Helm rewriting a draft a person edited is the act `studio.md` guards against under "an agent reorganising a person's work". Helm asked to change a draft says what it would write. Any kind but an Issue draft is refused as `fleet.studio_not_a_draft`, and a blank title or body as `fleet.studio_node_blank`.
+"""

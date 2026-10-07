@@ -1,0 +1,8 @@
+[operations."studio.deleted"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Studio a person deleted, by id and repository"
+notes = """
+Published after the rows are gone, so a list re-read on it no longer names the Studio.
+"""

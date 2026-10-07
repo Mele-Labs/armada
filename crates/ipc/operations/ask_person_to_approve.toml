@@ -1,0 +1,12 @@
+[operations.ask_person_to_approve]
+kind = "command"
+transport = "HTTP"
+agent_access = "Drafts only"
+description = "Names one Job a Helm session was asked to approve, or has drafted and sees at the gate, so `HelmThread` can draw an approval card for it"
+notes = """
+**`#1041`. This is not `approve_dispatch` reached a second way — it is the ask, not the press.** `approve_dispatch` is now `Helm only` too, so Helm may call it, but only where a person has just asked it to, in conversation; this route is for the other direction, where nobody has asked yet and a Job is waiting on somebody to. What this answers is which Job to put a card in front of the person for, so a person who has not yet said "approve it" still gets the ordinary card rather than a silent approval.
+
+**It writes nothing, on purpose.** `Resolved` has already refused a Job id that names nothing, the ordinary 404 every job-scoped route gets; past that, the route answers the id and handle back and touches no record, no log line, no event. Whether the Job is still `awaiting_approval` by the time the card is drawn, or ever was, is `HelmThread`'s own read of the Board at that moment — not a fact this call is in a position to freeze, since a person can act on the Job by any other road while the reply is still being written.
+
+`agent_access` is `Drafts only`, `propose_job`'s reason: the door offers this to a Helm session and nobody else, since asking for the person's own approval is Helm's alone to reach for.
+"""

@@ -1,0 +1,11 @@
+[operations."job.forgotten"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's whole record is gone"
+notes = """
+It carries only the id. `job.created` carries the row whole because a client
+has nothing to insert without it; a forgotten Job is the opposite problem —
+there is no row left to carry, so the id is the whole of what a client needs
+to drop it from whatever it is holding.
+"""

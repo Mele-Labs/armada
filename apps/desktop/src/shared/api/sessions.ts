@@ -7,6 +7,7 @@ import type {
   Outcome,
   PilotOutcome,
   PullRequestState,
+  RenameSession,
   ReviewDispatched,
   SendSessionMessage,
   SessionRecord,
@@ -27,9 +28,10 @@ export type SessionsApi = {
   /**
    * A blank session on the repository this window picked. **Main reads the pick**, so the renderer
    * never names a repository: the one repository Fleet serves where the window is on All, and a
-   * refusal in words where there are several.
+   * refusal in words where there are several. **`root` names the repository instead** of the pick: the
+   * annotation layer starts on the notes' own, whatever the window has picked.
    */
-  startSession: (title?: string) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string) => Promise<SessionActed>;
   /**
    * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
    * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
@@ -44,6 +46,8 @@ export type SessionsApi = {
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+  /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
+  renameSession: (rename: RenameSession) => Promise<SessionActed>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /**
@@ -86,6 +90,7 @@ export const SESSIONS_CHANNELS = {
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",
   tuneSession: "bridge:tune-session",
+  renameSession: "bridge:rename-session",
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

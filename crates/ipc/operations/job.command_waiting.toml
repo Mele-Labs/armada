@@ -1,0 +1,16 @@
+[operations."job.command_waiting"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Drone is held on a command waiting for a person, or the one it was held on is answered"
+notes = """
+`job.asking`'s shape and reasoning, one tool over. Not a step state and not a Job status: the step is `running` while the Drone waits and stops waiting without moving, so the command rides beside the state as `JobDetail.command_waiting`.
+
+Two messages per command and never a third. The one going out carries `waiting` — the command, one line of it, and the answers on offer — and the one coming back carries nothing. A surface ages the wait from `asked_at`. The actor is `drone` going out and whoever answered coming back.
+
+Only a Job at `ask_me` produces it. Under `refuse_and_hold` the call is refused on arrival, the Job stops at `blocked_by_policy`, and the refused command reaches Bridge on `Stuck.refused` through that state change instead.
+
+`waiting.drone_id` names the Drone that asked, since 23.32, because a drone-per-task step runs several at once and `step_id` alone cannot say whose transcript to open. It is the same id `drone.spawned` and `get_job_drones` carry. Absent where Fleet could not identify the asker, and from a Fleet older than the field; a surface then offers the answer without a panel to open, and never guesses one. `JobDetail.command_waiting` carries it the same way.
+
+It produces at the rate a person answers and holds no queue of its own, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names.
+"""

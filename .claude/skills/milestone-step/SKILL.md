@@ -54,7 +54,7 @@ concrete options and a recommendation.
 ### 2.5 Read the registry before minting anything
 
 **The decision is usually already written down.** `crates/core-model/domain/`,
-`crates/ipc/operations.toml` and `packages/icons/icons.toml` are older than any
+`crates/ipc/operations/` and `packages/icons/icons/` are older than any
 session, and they carry reasoning as well as values.
 
 In one night, three agents each drafted something new and then found it

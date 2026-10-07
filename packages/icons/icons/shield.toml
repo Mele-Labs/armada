@@ -1,0 +1,7 @@
+[icons.shield]
+  means = "A pointed-base pentagon, empty \u2014 the Check family's outline with no result inside it"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Check's row in the Record's kind column, under All, and nowhere else. Never a Check result \u2014 shield-check, shield-x, shield-minus and shield-off say those \u2014 never security or permissions, and never a gate drawn anywhere a result shield could draw."
+  notes = "Added 2026-09-29, the owner's answer to [record-kind-marks]: the Check's row takes the bare shield, with a written exception. At 12px in --fg-muted this outline is shield-minus and shield-off with their one stroke gone, and both of those draw grey, so rule 4 would refuse it; the owner waived rule 4 for this one mark because it draws only in the Record's kind column, beside the word Check in Who and Passed or Failed in Outcome, and never where a result shield draws. The waiver is this mark's alone and is written in docs/contracts/iconography.md, *The Record's kind marks*. Refused before the owner answered: a glyph from outside the shield family, which would give one source two silhouettes."

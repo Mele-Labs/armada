@@ -23,8 +23,19 @@
 
 .armada-session-frame__title {
   flex: 1;
+  min-width: 0;
   color: var(--fg-default);
   font-weight: var(--weight-medium);
+}
+
+/* A title that can be renamed is a button that looks like the text it holds. */
+button.armada-session-frame__title {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: text;
 }
 
 .armada-session-frame__body {

@@ -1,6 +1,6 @@
 //! `api::Tools`, implemented over a real Fleet: the tools a Drone calls.
 //!
-//! **These are not operations.** `crates/ipc/operations.toml` is the authority
+//! **These are not operations.** `crates/ipc/operations/` is the authority
 //! on the operation set and holds no row for any of them — they come off the
 //! tool roster instead, and the difference is who is calling. Every one takes
 //! an [`api::Caller`] rather than a [`ipc::JobId`], because the Drone does not

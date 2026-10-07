@@ -1,0 +1,8 @@
+[operations."run.finished"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A person's run ended: its record, with exit code, duration and what it changed"
+notes = """
+Carries the whole `RunRecord` — the row `list_runs` answers — so the sheet draws the result and the changed files without a read. Published after the record is written, so a reader that re-reads on it finds the run in the history.
+"""

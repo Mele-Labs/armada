@@ -1,0 +1,7 @@
+[icons.snowflake]
+  means = "A snowflake - a slot without its build"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A cold worktree slot only."
+  paired_with = "flame"

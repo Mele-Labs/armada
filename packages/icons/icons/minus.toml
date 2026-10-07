@@ -1,0 +1,14 @@
+[icons.minus]
+  means = "A plain horizontal dash"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "Two uses, told apart by which record it marks. A verdict-sheet row where no Judge and no Check beyond artifact_exists ruled; a Plan region's dropped task, below. Never a Check outcome (shield-*) or a Judge outcome (circle-*)."
+
+  [[icons.minus.usage]]
+    means = "A dropped plan task"
+    group = "Step and Verdict"
+    size = "12px"
+    status = "Specified"
+    reserved = "TaskMark's (packages/components) dropped state only, docs/concepts/plan.md. Never a verdict-sheet row, which is the table above."
+    notes = "Added 2026-09-13 for #896/#898. A dropped task stays on the list struck through rather than being removed, and minus's own claim — nothing checked this — reads the same one level below a Job: nobody's ruled on whether it still stands, which is why a person's add is what brings the work back rather than a Drone's own retry."

@@ -74,17 +74,23 @@ import { gridHeld, slotsHeld } from "@armada/cleanup/fake";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { asRow, holding, servedFrom } from "./holding";
 import { scenariosOf } from "./slices";
-import * as rows from "./scenario-rows";
 
 export { connected, onBoard, unanswered } from "./moment";
 export type { FleetHandle, Scenario } from "./moment";
 
 /**
- * The rows `scenario-rows.ts` lists, in the order of their export names. **Sorted
- * here because a union merge orders the list by merge**, and nothing else says
- * where a row sits; the names carry a rank for the rows that were here first.
+ * Every file in `scenarios/` is a row, one export a file. **Sorted here by export name**, because
+ * a glob lists files in whatever order the filesystem gives and nothing else says where a row sits;
+ * the names carry a rank for the rows that were here first. A name two files both export would
+ * overwrite one with the other, which `scenario.test.ts` refuses.
  */
-const LISTED: Scenario[] = Object.entries(rows)
+const ROW_FILES = (
+  import.meta as ImportMeta & {
+    glob(pattern: string, options: { eager: true }): Record<string, Record<string, Scenario>>;
+  }
+).glob("./scenarios/*.ts", { eager: true });
+
+const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, Scenario>)
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 
@@ -463,8 +469,8 @@ export const SCENARIOS: readonly Scenario[] = [
   ...RECORDED.map(([slug, fixture]) =>
     holding(`recorded/${slug}`, fixture.name, [fixture], { opens: fixture.job.id }),
   ),
-  // Every row in `scenarios/`, by export name. **A walk's row is added there and in
-  // `scenario-rows.ts`, never here** — `docs/practices/list-files.md`.
+  // Every row in `scenarios/`, by export name. **A walk's row is added there,
+  // never here** — `docs/practices/list-files.md`.
   ...LISTED,
   // Job 3's retro and Job 2's, and the Lessons page over both (23.12): on Overview, and on Job 3.
   retros("retro/lessons", "Two Jobs' retros written, on Overview"),

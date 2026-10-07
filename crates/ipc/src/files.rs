@@ -1,6 +1,6 @@
 //! Searching the checkout a request dispatches into, for the `@` mention popup
 //! a person opens while typing a request or a brief — `search_files` in
-//! `crates/ipc/operations.toml`.
+//! `crates/ipc/operations/`.
 //!
 //! **Named by `?manifest_id=`, not in the body.** A Fleet serves several
 //! repositories; an absent one reads the checkout Fleet was started in.

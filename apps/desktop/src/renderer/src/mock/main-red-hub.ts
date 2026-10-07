@@ -256,7 +256,7 @@ export function mainRed(root: string): { first: Partial<BridgeState>; later: Par
 /** A failed Check's log on main, as the run on the forge printed it. */
 const LOGS: Record<string, string[]> = {
   screens_test: [
-    " RUN  v3.2.4 /home/runner/work/armada/packages/screens",
+    " RUN  v3.2.4 /home/user/work/armada/packages/screens",
     "",
     " FAIL  src/manifest-read.test.ts > reads the file again once it changes",
     "AssertionError: expected 'cached' to be 'changed'",
@@ -265,7 +265,7 @@ const LOGS: Record<string, string[]> = {
     "      Tests  1 failed | 702 passed (703)",
   ],
   desktop_test: [
-    " RUN  v3.2.4 /home/runner/work/armada/apps/desktop",
+    " RUN  v3.2.4 /home/user/work/armada/apps/desktop",
     "",
     " FAIL  src/main/resources-poll.test.ts > a reading that stops polls nothing",
     "AssertionError: expected 2 to be 1",
@@ -274,7 +274,7 @@ const LOGS: Record<string, string[]> = {
     "      Tests  1 failed | 1180 passed (1181)",
   ],
   components_test: [
-    " RUN  v4.1.11 /home/runner/work/armada/packages/components",
+    " RUN  v4.1.11 /home/user/work/armada/packages/components",
     "",
     " FAIL  src/tokens.test.ts > Theme tokens > the dark ground keeps its contrast",
     "AssertionError: expected 3.9 to be greater than 4.5",

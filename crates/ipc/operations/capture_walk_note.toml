@@ -1,0 +1,14 @@
+[operations.capture_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep what a person pointed at while walking a Job's served work as a walk note on the Job, keeping its frame under the machine directory, and answer with every note on the Job"
+notes = """
+**A person's act and nobody else's**, so `agent_access` is `No`: pointing at something wrong is done with a pointer, and no agent has one. Since 23.18. `POST /jobs/:job_id/walk_notes`, body `CaptureWalkNote` — `capture_studio_note`'s body without `position` or `produced_by`, neither of which a Job has.
+
+**On the Job, never in the worktree.** A Prototype stops at Build with its mock served and the worktree is throwaway, so the note is a row beside the Job's record and its frame is copied from `frame.staged_path` into `<machine>/walks/<job_id>/<note_id>.png`. Reclaiming the worktree takes neither. The note names the kept file by its absolute path as `frame`, and the element it was pointed at as one line a person reads, `button “Save”`. `get_job` carries every note under `walk_notes`, sent ones included, oldest first.
+
+**Fixed at capture.** Nothing edits a walk note; `remove_walk_note` takes one back while unsent, and `sent` flips once, when `request_changes` with `with_walk_notes` hands it to a Drone. It moves nothing: the Job stays where it stands.
+
+A blank `said` is refused as `fleet.walk_note_blank`, a 422. A frame over 4 MiB is `fleet.walk_frame_too_large` and one Fleet cannot read `fleet.walk_frame_unreadable`, both 422 — refused rather than dropped, for `capture_studio_note`'s reason. A Job that has ended is refused as `fleet.walk_notes_job_ended`, a 409.
+"""

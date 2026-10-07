@@ -1,0 +1,5 @@
+[icons.git-pull-request]
+  means = "pull request"
+  group = "Git and config"
+  size = "12px"
+  status = "Specified"

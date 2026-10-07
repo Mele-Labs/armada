@@ -1,0 +1,10 @@
+[operations.write_manifest_proposal]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Create armada.yml for one workspace from its proposal as it stands"
+notes = """
+Writes the proposal's `text`, and creates rather than replaces: a file already at the path is a 409, `fleet.manifest_appeared`, carrying `on_disk`. A proposal whose file would not load is a 422, `fleet.proposal_refused`, carrying `faults` as `[key, fault]` pairs; bytes that would not go down are a 500, `fleet.proposal_unwritable`. Nothing is staged or committed. Afterwards the proposal carries `written` and takes no edits.
+
+`agent_access` is `Helm only`: it puts the file every Job here is gated on into the owner's checkout, and Helm reaches Write now too, on request — a person asking Helm to write it is the same act as pressing Save themselves, not a second, unwitnessed one.
+"""

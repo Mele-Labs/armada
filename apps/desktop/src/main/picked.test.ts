@@ -14,7 +14,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReader } from "./checkout-runs";
 import { JobCommands, type Board } from "./command";
 import { ManifestFileCommands } from "./editing";
-import { Picked } from "./picked";
+import { Picked, repositoryToStart } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { composingOf, holdingsOf, manifestReadingOf } from "./request";
 import { ServerCommands } from "./servers";
@@ -384,5 +384,30 @@ describe("every per-repository call", () => {
       )
       .map(({ at }) => at);
     expect(unnamed).toEqual([]);
+  });
+});
+
+describe("the repository a Session starts on", () => {
+  const one = { root: "/r/armada", manifest: { id: "armada" } } as RepositorySummary;
+  const two = { root: "/r/other", manifest: { id: "other" } } as RepositorySummary;
+
+  it("is the named root on All repositories, where the pick names none", () => {
+    const picked = new Picked();
+    picked.hold([one, two]);
+    expect(picked.picked).toBeNull();
+    expect(repositoryToStart([one, two], picked, "/r/armada")).toBe(one);
+  });
+
+  it("is the named root over a different pick, and none for a root nothing serves", () => {
+    const picked = new Picked();
+    picked.hold([one, two]);
+    picked.pick("/r/other");
+    expect(repositoryToStart([one, two], picked, "/r/armada")).toBe(one);
+    expect(repositoryToStart([one, two], picked, "/r/elsewhere")).toBeUndefined();
+  });
+
+  it("is the pick, or the only repository, where no root is named", () => {
+    expect(repositoryToStart([one, two], new Picked())).toBeUndefined();
+    expect(repositoryToStart([one], new Picked())).toBe(one);
   });
 });

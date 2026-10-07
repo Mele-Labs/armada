@@ -1,0 +1,6 @@
+[icons.message-square]
+  means = "Helm"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  notes = "No nautical iconography. A wheel or compass for Helm is decoration, and metaphor is confined to proper nouns."

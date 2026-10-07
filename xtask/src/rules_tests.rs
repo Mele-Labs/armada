@@ -87,6 +87,12 @@ pub fn every_test_file_is_declared(root: &Path) -> Report {
         let Ok(mod_text) = fs::read_to_string(path) else {
             return;
         };
+        // `crates/fleet/build.rs` declares every sibling in `mods.inc`, so a file
+        // here cannot be left out. The list is not in a checkout until a build
+        // writes it, which is why the gate does not read it.
+        if mod_text.contains("include!(\"mods.inc\");") {
+            return;
+        }
         let Ok(entries) = fs::read_dir(dir) else {
             return;
         };

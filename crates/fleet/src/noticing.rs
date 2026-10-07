@@ -15,6 +15,8 @@
 //! minute apiece is each asked every ten minutes, and a merge leaves for good.
 //! The cost is one blocking call on the interval — `caught_up_onto`'s shape —
 //! and a second on the turns that find one open, in `crate::under_review`.
+//! A turn waits behind each Job's Checks, so `crate::notice_loop` asks beside it
+//! as well, on the same gate.
 //!
 //! # What a merge moves, and what it does not
 //!

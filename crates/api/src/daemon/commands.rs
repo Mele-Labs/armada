@@ -19,12 +19,11 @@ use std::future::Future;
 
 use crate::daemon::{Redirector, Refusal};
 use ipc::{
-    AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, CheckoutRunRecord,
-    CheckoutRunUnderway, ChosenAnswer, DropTask, FileReport, FindingDismissed, FindingQueued,
-    IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, JudgeAnswered, ManifestSaved,
-    NamedRun, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote, Report,
-    RestartRequested, RunRecord, RunUnderway, SaveManifestFile, SetWhenBlocked, SetWhenRefused,
-    StartCheckoutRun, StartRun, TurnRaise, WalkNotes, WorktreeReclaimed,
+    AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, ChosenAnswer, DropTask,
+    FileReport, FindingDismissed, FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId,
+    JobSummary, JudgeAnswered, ManifestSaved, ProposeJob, Redirection, Redispatched,
+    RemarksTakenUp, RemoveWalkNote, Report, RestartRequested, SaveManifestFile, SetWhenBlocked,
+    SetWhenRefused, TurnRaise, WalkNotes, WorktreeReclaimed,
 };
 
 /// Everything a client asks Fleet to do.
@@ -884,107 +883,6 @@ pub trait Commands: Send + Sync + 'static {
         removing: ipc::RemoveAllowedCommand,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
-    /// `start_run` — run one Check or Command in this Job's worktree, as a
-    /// rehearsal: no Evidence, no Check row, nothing on the Job moves.
-    ///
-    /// **By `Arc`, for [`Commands::show_again`]'s reason**: the run is a task of
-    /// its own and outlives the request. It answers once the run is underway;
-    /// the output and the end arrive as events.
-    ///
-    /// [`Refusal::IllegalMove`] where the worktree is gone or a run is already
-    /// out on this Job; [`Refusal::Unacceptable`] where nothing declares the
-    /// name, or a narrowed run has nothing to narrow to.
-    fn start_run(
-        self: std::sync::Arc<Self>,
-        job_id: JobId,
-        run: StartRun,
-    ) -> impl Future<Output = Result<RunUnderway, Refusal>> + Send;
-
-    /// `stop_run` — end the run's process group, and answer with its record
-    /// once it is written. [`Refusal::IllegalMove`] on a run not in flight.
-    fn stop_run(
-        &self,
-        job_id: JobId,
-        run: NamedRun,
-    ) -> impl Future<Output = Result<RunRecord, Refusal>> + Send;
-
-    /// `undo_run` — put back what one run changed, from the snapshot taken
-    /// before it. **Never a discard**: a Drone's work is uncommitted until
-    /// delivery. [`Refusal::IllegalMove`] while a Drone works in the tree, while
-    /// a run is in flight, or where a path the run changed has moved since.
-    fn undo_run(
-        &self,
-        job_id: JobId,
-        run: NamedRun,
-    ) -> impl Future<Output = Result<RunRecord, Refusal>> + Send;
-
-    /// `start_checkout_run` — run one Check or Command in the main checkout,
-    /// as a rehearsal: no Evidence, no Check row, and no Job to move.
-    ///
-    /// **By `Arc`, for [`Commands::start_run`]'s reason.** It runs in the
-    /// working tree as it is on disk — there is no throwaway copy and no Where
-    /// control, Journey 9, *Running one*.
-    ///
-    /// **A checkout run and a Job's run do not lock each other out.** One run
-    /// at a time is per owner: two runs in one tree fight over one build
-    /// directory, and these are two trees.
-    ///
-    /// [`Refusal::IllegalMove`] where a run is already out in the checkout;
-    /// [`Refusal::Unacceptable`] where nothing declares the name.
-    fn start_checkout_run(
-        self: std::sync::Arc<Self>,
-        run: StartCheckoutRun,
-        manifest_id: Option<ipc::ManifestId>,
-        repository: Option<String>,
-    ) -> impl Future<Output = Result<CheckoutRunUnderway, Refusal>> + Send;
-
-    /// `stop_checkout_run` — end the run's process group, and answer with its
-    /// record once it is written. [`Refusal::IllegalMove`] on a run not in
-    /// flight.
-    fn stop_checkout_run(
-        &self,
-        run: NamedRun,
-        manifest_id: Option<ipc::ManifestId>,
-        repository: Option<String>,
-    ) -> impl Future<Output = Result<CheckoutRunRecord, Refusal>> + Send;
-
-    /// `undo_checkout_run` — put back what one run changed, from the snapshot
-    /// taken before it.
-    ///
-    /// **Never offered where no snapshot was taken.** This tree holds a
-    /// person's own uncommitted work, which no Job's worktree does, so a run
-    /// with nothing kept behind it is refused rather than discarded from.
-    ///
-    /// [`Refusal::IllegalMove`] while a run is in flight, on a run already
-    /// undone or with no snapshot, and where a path the run changed has moved
-    /// since.
-    fn undo_checkout_run(
-        &self,
-        run: NamedRun,
-        manifest_id: Option<ipc::ManifestId>,
-        repository: Option<String>,
-    ) -> impl Future<Output = Result<CheckoutRunRecord, Refusal>> + Send;
-
-    /// `start_checkout_verify` — run setup and every Check once in the main
-    /// checkout, one after another, each an ordinary checkout run: Journey 9,
-    /// *Verify*. Answers once the first step is out.
-    ///
-    /// **By `Arc`, for [`Commands::start_run`]'s reason**: the steps outlive
-    /// the call.
-    ///
-    /// `asked.workspace` names a directory below the root whose own
-    /// `armada.yml` runs, in that directory, instead of the root's.
-    ///
-    /// [`Refusal::IllegalMove`] where a run or a Verify is already out in the
-    /// checkout; [`Refusal::Unacceptable`] where there is nothing to run, or
-    /// the workspace leaves the repository or its file will not load.
-    fn start_checkout_verify(
-        self: std::sync::Arc<Self>,
-        asked: ipc::StartCheckoutVerify,
-        manifest_id: Option<ipc::ManifestId>,
-        repository: Option<String>,
-    ) -> impl Future<Output = Result<ipc::CheckoutVerify, Refusal>> + Send;
-
     /// `save_manifest_file` — write a corrected `armada.yml` to disk, and stop
     /// there.
     ///
@@ -1102,7 +1000,7 @@ pub trait Commands: Send + Sync + 'static {
     /// `clone_repository` — clone from a URL into a new folder under `parent`,
     /// then serve it as [`add_repository`](Commands::add_repository) does.
     /// Answers when git finishes; its refusals are `add_repository`'s and three
-    /// more, in `crates/ipc/operations.toml`.
+    /// more, in `crates/ipc/operations/`.
     fn clone_repository(
         self: std::sync::Arc<Self>,
         asked: ipc::CloneRepository,
@@ -1158,7 +1056,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `add_task` — a person adds a task to the Job's plan, and the plan it
     /// leaves comes back. `#897`. Refused where the Job has no plan, or
-    /// `after` names no task the plan holds — `crates/ipc/operations.toml`.
+    /// `after` names no task the plan holds — `crates/ipc/operations/`.
     /// **A working Drone is told**, mid-step; at a step boundary the next
     /// brief's THE PLAN carries it, and nothing respawns to deliver it.
     fn add_task(
@@ -1169,7 +1067,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `drop_task` — a person drops a task with a reason, and the plan it
     /// leaves comes back. Refused where the task is already `done` or
-    /// already `dropped`, on `crates/ipc/operations.toml`'s terms. Delivery
+    /// already `dropped`, on `crates/ipc/operations/`'s terms. Delivery
     /// is [`Commands::add_task`]'s.
     fn drop_task(
         self: std::sync::Arc<Self>,
@@ -1179,7 +1077,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `restart_task` — a fresh Drone on one failed task, with an optional
     /// note it reads first, and the Job it leaves running. `#1656`. Refused
-    /// on a task that has not failed — `crates/ipc/operations.toml`.
+    /// on a task that has not failed — `crates/ipc/operations/`.
     fn restart_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,

@@ -1,0 +1,14 @@
+[operations.list_servers]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every server Fleet holds — each Job's and the main checkout's — and the last instance of each that ended"
+notes = """
+**In Fleet's memory and nowhere else.** A server is true only while the process holding it lives, so there is no table: a Fleet that restarts holds none, having stopped every one it held on the way out — or, after a crash, ended what it left behind when it next starts. The last instance of each that ended is kept beside the live ones, so a server that fell over is still there to read — with its exit code and its log — until it is started again or its Job ends.
+
+**Every repository's, each naming its own.** A row's `manifest_id` is the repository it runs in — a Job's own, or the main checkout's — so two repositories' main-checkout servers are told apart on the row.
+
+**Every row says which checkout answers it.** `checkout` carries the path the server runs in, the branch for a Job's worktree, the commit it came up on, and how many commits have landed in that checkout since. A name and a port are not enough: another checkout of the same repository declares the same number and the address answers whichever bound first — `#1577`. `behind` absent is Fleet never having been told, which is not the same fact as zero.
+
+`agent_access` is `Yes` since `#697`. `start_server` and `stop_server` have read `Yes` since `#695`; a caller that may start one and may not ask which are up starts a second on the same port, which is the mistake the server tool exists to replace. It is a handful of rows and carries no output — that is `observe_server`'s, and stays Bridge's.
+"""

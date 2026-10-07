@@ -1,74 +1,73 @@
 # List files
 
 A list file is one where every line stands alone and a change is a line added:
-component exports, an operation table, an icon registry, a module list. Two
-branches that each add a line to one conflict on the last line, however
-unrelated the lines are. On 14 Sep to 3 Oct that was `packages/components/src/index.ts`
-35 times, `crates/ipc/operations.toml` 21 and `crates/fleet/src/tests/mod.rs` 11
-(#1059). **Decided 2 Oct 2026: a list file keeps both sides of a merge, with no
-lease.** `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`.
+an operation table, an icon registry, a module list. Two branches that each add
+a line to one conflict on the last line, however unrelated the lines are. On
+14 Sep to 3 Oct that was `packages/components/src/index.ts` 35 times,
+the operation table 21 and `crates/fleet/src/tests/mod.rs` 11 (#1059).
 
-## Declaring one
+**A list is a directory with one file an entry.** Two branches adding two
+entries touch two files, and nothing merges. This replaces the `merge=union`
+lines of 2 Oct 2026, which kept both sides of a merge in git and which a pull
+request ignores: measured on a scratch repository, 6 Oct 2026, GitHub reports a
+conflict where git's union merge would not have.
+`.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
 
-`.gitattributes` is the one place, a line a file: `<path> merge=union`. Nothing
-else lists them. Git does the merge, so a branch needs nothing but the file.
+## The lists
 
-| Declared here | Why it is safe |
-|---|---|
-| `packages/components/src/index.ts` | `export * from` lines only |
-| `crates/ipc/operations.toml` | A header, then one `[operations.<name>]` table an entry |
-| `crates/fleet/src/tests/mod.rs` | `mod` lines and their comments only |
-| `packages/icons/icons.toml` | A header, then one table an entry |
-| `apps/desktop/src/renderer/src/mock/scenario-rows.ts` | `export * from "./scenarios/<row>";` lines only, one a scenario. Each row, with its own imports, is a file in `scenarios/` |
-
-`cargo xtask verify-foundations` (*every declared list file holds only entries*)
-names any line of a declared file that is not an entry for its kind: an export,
-an `@import`, a `mod`, a comment, a table. **Keeping both sides of code that is
-not a list interleaves two edits unseen**, which is why the gate refuses it
-rather than a reviewer.
-
-## Adding a mock scenario's row
-
-A file in `apps/desktop/src/renderer/src/mock/scenarios/` exporting one `Scenario`, built with `holding` from
-`../holding`, and one line for it in `scenario-rows.ts`. **`scenario.ts` is not edited.** The export name
-must be unique, or `export *` drops it without saying, and `scenario.test.ts` fails where a file or a
-name is missing from the list. **Order:** `scenario.ts` sorts the rows by export name, because a union
-merge orders lines by merge. The seventeen rows that were in `scenario.ts` carry `s010`–`s170` ahead of
-their names so they list exactly as before, and the test pins them; a new row is named for what it is
-and sorts by that name among them. Nothing the owner saw moved.
-
-## Not declared, and what would make each safe
-
-| File | Why not | Smallest split |
+| List | An entry is | Read by |
 |---|---|---|
+| `crates/ipc/operations/` | `<operation>.toml` holding `[operations.<operation>]`; a dotted event name is the file name, `job.created.toml`. `_header.toml` says what the fields are | `crates/ipc/build.rs`, the protocol rules in `xtask`, and `fleet`'s Helm test |
+| `packages/icons/icons/` | `<glyph>.toml` holding `[icons.<glyph>]` and every `[[icons.<glyph>.usage]]` of it. `_header.toml` says what the fields are | the icon and action rules in `xtask` |
+| `packages/icons/conventions/` | `<rule>.toml` holding `[conventions.<rule>]` | the same |
+| `apps/desktop/src/renderer/src/mock/scenarios/` | A file exporting one `Scenario`; `scenario.ts` reads the directory with `import.meta.glob` | `scenario.ts` |
+| `crates/fleet/src/tests/` | A `<module>.rs`; `crates/fleet/build.rs` writes `mods.inc`, which git ignores, and `mod.rs` includes it | `crates/fleet/build.rs` |
+
+**The key is the file's name.** `cargo xtask verify-foundations` (*every list
+entry is one file named for its key*) fails a file that holds two tables or a
+table its name does not give: that is the old shared file again under a new
+path. It fails a `merge=union` line too, for what it no longer does.
+
+A reader that wants the whole list reads the directory in name order and splits
+on the table header, so a parser written for the one file works on the
+directory. A line number a rule cites for a registry is a line of that
+concatenation, not of a file: open the entry by its key.
+
+## Adding an entry
+
+Add the file. Nothing else lists it.
+
+- **An operation, an icon, a convention:** a file named for the key, with the
+  table in it.
+- **A mock scenario's row:** a file in `mock/scenarios/` exporting one `Scenario`,
+  built with `holding` from `../holding`. The export name must be unique, or the
+  glob keeps one and drops the other, and `scenario.test.ts` fails where a name
+  repeats. `scenario.ts` sorts the rows by export name. The seventeen rows that
+  were in `scenario.ts` carry `s010`–`s170` ahead of their names so they list
+  exactly as before, and the test pins them; a new row is named for what it is
+  and sorts by that name among them.
+- **A fleet test module:** a `.rs` file in `crates/fleet/src/tests/`. A module
+  `mod.rs` declares itself, for the few that are `pub(crate)`, is left to it.
+
+## Not a directory, and why
+
+| File | Why not | What would make it one |
+|---|---|---|
+| `packages/components/src/index.ts` | A barrel. TypeScript has no glob export, so each component is a line someone writes, and a branch adding one conflicts with another doing the same. 35 conflicts in three weeks | Importing a component by its own path, `@armada/components/<Name>`, which gives up the one curated entry |
 | `packages/components/src/index.css` | Ends with a `.armada-helm-dock` rule, and a later `@import` after it | Move the rule to its own stylesheet and import it, leaving imports only. A visual change, so it waits for a walk |
-| `crates/ipc/src/lib.rs` | `pub use` re-exports are rustfmt-wrapped multi-line statements, not lines, and `#[cfg(test)] mod tests;` sits between the two lists | One `pub use m::*;` a module, which gives up the curated export surface, or `pub use` lines each kept to one line |
-| `packages/protocol/src/pending.ts` | Deletions, below | None; it is edited by removing |
+| `crates/ipc/src/lib.rs` | `pub use` re-exports are rustfmt-wrapped multi-line statements, not lines, and `#[cfg(test)] mod tests;` sits between the two lists | One `pub use m::*;` a module, which gives up the curated export surface |
+| `packages/protocol/src/pending.ts` | Deletions: two branches deleting different entries conflict, and a directory does not change that | None; it is edited by removing |
 
 ## Limits
 
-- **Union keeps both sides of a deletion too.** Two branches deleting different
-  entries put both back, so a list file is only for appends.
-  `packages/protocol/src/pending.ts` conflicts when two branches each delete an
-  entry, and is not declared for that reason.
-- **Two edits to the same existing line keep both versions.** A repeated
-  export, `mod` or TOML key fails to compile or parse. A repeated line inside a
-  `notes = """` string does not, so read a conflict in a table body.
-- **A branch cut before `.gitattributes` landed conflicts once.** Git reads the
-  attributes from the branch being merged into, so the first merge of `main`
-  into an old branch is the branch's own conflict. Measured 5 Oct 2026.
-- **Only `git merge` reads them.** `armada land`'s candidate worktree and
-  Fleet's `bring_up_to_date` both run plain `git merge`, so they do.
-  `merge_by: forge` is GitHub's merge, which ignores `.gitattributes`.
-- **A pull request on GitHub ignores them too.** Measured on a scratch
-  repository, 6 Oct 2026, so append-only list files conflict on a pull request.
-  The cutover to pull requests converts them to one file per entry plus a
-  generated index; that is owed
-  (`.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`).
+- **A directory removes the conflict on adding, not on editing.** Two branches
+  editing the same entry still conflict, as they should.
+- **`mods.inc` is written by a build.** A checkout has none until `crates/fleet`
+  has been built once, and a rule that reads `mod.rs` for a declaration of
+  every test file (`every test file under tests/ is declared`) trusts the
+  include instead.
 
 ## Checked by
 
-`crates/armada/src/tests/list_files.rs`: two branches each append a line to the
-declared file and merge one after another with no conflict, with an undeclared
-control that conflicts. It runs real git, which the acceptance package may not
-(*hermetic*, `docs/practices/acceptance-tests.md`).
+`cargo xtask verify-foundations`, the rule above, and the suites that read each
+list: `crates/ipc`'s build, `xtask`'s protocol and icon rules, `scenario.test.ts`.

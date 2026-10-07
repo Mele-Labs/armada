@@ -1,0 +1,6 @@
+[icons.key-round]
+  means = "A key with a round bow - a slot leased out"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot someone holds, a Job or a session. Never a secret, a credential or a permission."

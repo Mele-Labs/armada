@@ -28,7 +28,7 @@ were true sentences that nothing made true.
 
 ## The pattern that looks identical and is correct
 
-**`crates/ipc/operations.toml` declares forty operations and ten are served.**
+**`crates/ipc/operations/` declares forty operations and ten are served.**
 That is deliberate, and `xtask/src/rules_protocol.rs` checks it one way on
 purpose: *an operation with no route is not yet built rather than wrong.*
 
@@ -54,7 +54,7 @@ finished. Ask where it is *read*, not where it is written — and if the answer 
 **Read the registry before minting vocabulary.** Three separate agents drafted a
 new trigger, a new state, or a new glyph rule and then found the decision already
 written down — in `escalation-triggers.toml`, in `judge.md` line 71, in
-`icons.toml`'s own reservation. The registries are older than any session and
+`icons/`'s own reservation. The registries are older than any session and
 they usually already answer the question. Minting a second answer is how a
 vocabulary splits.
 

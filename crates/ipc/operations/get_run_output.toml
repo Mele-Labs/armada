@@ -1,0 +1,10 @@
+[operations.get_run_output]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One run's log, read back as a window that says it is one"
+notes = """
+`get_check_output`'s shape and its reasons: the tail, because a test runner prints its failures last, bounded by lines and bytes, numbered as the file numbers it. `:run_id` names a run this Job recorded or the one in flight, resolved against the Job's own run directories before anything is opened.
+
+`agent_access` is `Yes`, `get_check_output`'s reason: an agent that started a run and cannot read what it printed has verified nothing about it.
+"""

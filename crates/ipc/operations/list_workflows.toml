@@ -1,0 +1,18 @@
+[operations.list_workflows]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The workflows Fleet holds, with each step's declared Checks and the Manifest they resolved against"
+notes = """
+Added because nothing joined a Job's `workflow_id` to a workflow. `ResolvedWorkflow` carried a name and a version and no id, a proposal named one anyway, and the id was written onto the record unverified — so a Job could sit on the board claiming a workflow that does not exist. The refusal at creation is the fix; this is what lets a composer name a workflow that will not be refused.
+
+It also makes the row readable. Bridge showed a ULID where it should have said `bug`, and resolving the id here is why the Job row does not have to carry a denormalised name.
+
+One workflow at M1 — `Fittings` holds exactly one — and the row is still a list, because the reason there is one is that nothing could look a second one up, and that reason has now gone.
+
+A step was a bare id until `mechanical_checks` was added to it. Bridge printed "No operation serves this step's checks" under every step because nothing on the wire could say otherwise, and for the `bug` workflow the truth is that none of its four steps declares one. `get_job` answers from these same values rather than a second copy.
+
+**A step now carries its advance gate and what it asks the Judge, which is the whole of what this answers that `get_job` does not answer sooner.** This is where a person decides whether to approve a dispatch: afterwards the rail says what happened, and here they are agreeing to it. A workflow that will stop and wait for them at `handoff`, and spend Judge calls at `implement`, previewed as neither. Both are the shapes the rail already uses, and the criteria themselves stay off the wire — counts and states, never a question.
+
+**Since 23.33 a row says where it was read from and what it replaced.** `file` is the definition's path as Fleet read it, and `overrides` lists, by `source` and `file`, each definition of the same id a more specific place replaced, so a list draws the dashed row for it. The replaced rows are not rows of their own here: a picker offers one workflow per id, and `get_workflow` reads a replaced one by `source`.
+"""

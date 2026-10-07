@@ -1,0 +1,6 @@
+[icons.archive]
+  means = "A box with a lid"
+  group = "Job state"
+  size = "12px"
+  status = "Specified"
+  notes = "The work landed outside the Job and the record no longer describes it. A lidded box is a unique outline in the badge set with no interior detail, and it states filed-away rather than succeeded or failed — which is the distinction superseded carries against the other terminals."

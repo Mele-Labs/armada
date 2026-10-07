@@ -1,0 +1,14 @@
+[icons.anchor]
+  means = "An anchor - a Job that ended and still holds its slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot a Job holds after it ended, because its release was refused and its work is still in it. Never a Job's state on the Board, and never a stuck process."
+  notes = "Proposed 4 Oct 2026 with the kept Job bay (#1791), on the walk `rescuingAKeptJobsSlot`. The Job is over and the slot did not let it go; an anchor is the drawing of something held in place after the way is clear. Hue is `--slot-stranded`, because a person decides it, on a solid card where the stranded bay is hatched. Refused: `key-round`, the live hold; `ghost`, a holder that is gone; `lock`, reserved to a step that cannot be skipped. Tooltip `Kept: <why>`."
+
+  [[icons.anchor.usage]]
+    means = "A Job's worktree outside the pool that ended and still holds work, and a locked checkout's row in a tile's panel"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 5 Oct 2026 with Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. A worktree outside the pool is held for what it still carries, as a kept bay is, so it takes the kept bay's mark. A lock is a person saying not yet, which holds the checkout in place: the same drawing, since `lock` is banned for a locked file. Tooltips `Kept: ...` and `Locked`."

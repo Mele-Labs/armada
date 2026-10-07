@@ -1,0 +1,12 @@
+[icons.git-commit-horizontal]
+  means = "commit"
+  group = "Git and config"
+  size = "12px"
+  status = "Specified"
+
+  [[icons.git-commit-horizontal.usage]]
+    means = "The commit a rescue Scout read a stranded slot at, on its Finding"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 4 Oct 2026 with the rescue of a stranded slot. The one existing glyph for a commit, before its short hash in mono. Tooltip `Commit it read`."

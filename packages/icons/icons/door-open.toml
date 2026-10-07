@@ -1,0 +1,14 @@
+[icons.door-open]
+  means = "An open door - a slot nothing holds"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A free worktree slot only."
+  paired_with = "door-closed-locked"
+
+  [[icons.door-open.usage]]
+    means = "Reopening a closed worktree slot, the act on its bay"
+    group = "Worktree slot"
+    size = "12px"
+    status = "Specified"
+    notes = "Proposed 4 Oct 2026 with the pool's controls. The act lands the bay on the state the glyph already marks: reopened, the slot is open again. Tooltip `Reopen`."

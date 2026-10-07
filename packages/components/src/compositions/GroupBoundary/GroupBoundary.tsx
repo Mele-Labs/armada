@@ -90,7 +90,7 @@ const SEGMENT: Record<GroupBoundaryCheckReads, TaskBarSegment> = {
 };
 
 /**
- * A Check's result mark — the `shield-*` family, `icons.toml`. `not run` is
+ * A Check's result mark — the `shield-*` family, `icons/`. `not run` is
  * `shield-minus`, Check's own not-reached. **Running takes none**: the registry
  * has no shield for it, and the bar's segment already says so.
  */

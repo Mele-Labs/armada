@@ -1,0 +1,7 @@
+[icons.move-right]
+  means = "A long arrow pointing right"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "From whose way to where the fix lands on a retro item, and nowhere else. Never a step order or a Job moving between statuses, and never a disclosure, which are the chevrons."
+  notes = "Proposed 5 Oct 2026. The owner asked for one arrow from who to where, in place of two separate tags, so an item reads as `Fleet to Armada`. A long thin arrow rather than `chevron-right`, which is the disclosure caret and would read as a fold. --fg-muted, a mark between two words."

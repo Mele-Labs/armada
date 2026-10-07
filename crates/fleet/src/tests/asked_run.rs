@@ -38,6 +38,7 @@ mod refusing;
 mod report;
 mod streaming;
 mod waiting;
+mod widening;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;

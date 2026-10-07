@@ -69,7 +69,7 @@ An address a scout is handed:
 
 > **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as a Drone's MCP servers and plugins.
 
-Reading Helm threads needs no operation, and gets none: `observe_helm` in `crates/ipc/operations.toml` refuses every agent, and Fleet reads the thread file itself rather than opening that door.
+Reading Helm threads needs no operation, and gets none: `observe_helm` in `crates/ipc/operations/` refuses every agent, and Fleet reads the thread file itself rather than opening that door.
 
 ## What bounds it
 

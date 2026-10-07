@@ -72,6 +72,9 @@ export type SessionRecord = {
 /** `list_sessions`, the most recently seen first. */
 export type SessionList = { sessions: SessionRecord[] };
 
+/** `rename_session`: a person's name for a session, hosted or in a terminal. `POST /sessions/rename`. Since 23.52. */
+export type RenameSession = { session_id: string; title: string };
+
 /** One holder of what `who_owns` was asked about, with its row. */
 export type Ownership = {
   holder: Holder;
@@ -86,7 +89,7 @@ export type Owners = { holders: Ownership[] };
 /** One fact a harness reports. `POST /sessions/report`. */
 export type SessionFact =
   | { kind: "started"; cwd: string; title?: string; origin?: SessionOrigin }
-  | { kind: "titled"; title: string }
+  | { kind: "titled"; title: string; named?: boolean }
   | { kind: "moved"; cwd: string }
   | {
       kind: "attached";
