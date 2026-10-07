@@ -311,6 +311,8 @@ describe("the hub Fleet serves beside the line", () => {
       red: { check: "test" },
       checking: [{ commit, number: 1852, url: `${PULL}1852` }, { commit: "e".repeat(40) }],
     });
+    const green = hubOf({ main: { state: "green", commit, read_at: "x", checking: [{ commit, pull_request: { number: 1852 } }] } });
+    expect(green?.main).toEqual({ state: "green", checking: [{ commit, number: 1852 }] });
     const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
     expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
   });

@@ -119,6 +119,12 @@ pub struct MainCi {
     /// of it**, so a held red still names the commit its failed jobs belong to.
     /// `None` outside a red, and for a red kept before this was.
     pub red_commit: Option<String>,
+    /// The newest commit whose run had finished, red or green: **what main's state
+    /// was decided from**. `None` where none had.
+    pub decided_commit: Option<String>,
+    /// Commits newer than that one whose run is still going. **Above zero on a
+    /// red is a held red**; on a green it is only checks running.
+    pub newer_running: u32,
     /// CI jobs on the commit with no conclusion yet. Fleet reads it again while
     /// this is above zero.
     pub unfinished: u32,
@@ -130,7 +136,12 @@ impl MainCi {
     /// A red that a newer commit's CI is still running on top of. **Held**: that
     /// run may already have fixed it, so nothing hands it to a Job until it ends.
     pub fn held(&self) -> bool {
-        self.red_at.is_some() && self.state == MainState::Running
+        self.red_at.is_some() && self.state == MainState::Red && self.newer_running > 0
+    }
+
+    /// The commit main's state was decided from: the head where none finished.
+    pub fn decided(&self) -> &str {
+        self.decided_commit.as_deref().unwrap_or(&self.commit)
     }
 
     /// The commit the failed jobs were read at: the red's own while a newer
@@ -154,11 +165,11 @@ impl Store {
         let merge = main.merge.as_ref();
         tx.execute(
             "INSERT INTO main_ci (repository, base, commit_sha, state, read_at, red_at, \
-             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
+             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) \
              ON CONFLICT (repository) DO UPDATE SET base = ?2, commit_sha = ?3, state = ?4, \
              read_at = ?5, red_at = ?6, merge_number = ?7, merge_url = ?8, merge_branch = ?9, \
-             merge_job = ?10, unfinished = ?11, red_commit = ?12",
+             merge_job = ?10, unfinished = ?11, red_commit = ?12, decided_commit = ?13, newer_running = ?14",
             (
                 &main.repository,
                 &main.base,
@@ -174,6 +185,8 @@ impl Store {
                     .map(|job| job.as_str().to_string()),
                 main.unfinished,
                 &main.red_commit,
+                &main.decided_commit,
+                main.newer_running,
             ),
         )
         .map_err(keeping)?;
@@ -204,7 +217,7 @@ impl Store {
             .conn
             .query_row(
                 "SELECT base, commit_sha, state, read_at, red_at, merge_number, merge_url, \
-                 merge_branch, merge_job, unfinished, red_commit FROM main_ci WHERE repository = ?1",
+                 merge_branch, merge_job, unfinished, red_commit, decided_commit, newer_running FROM main_ci WHERE repository = ?1",
                 (repository,),
                 |row| {
                     Ok((
@@ -219,6 +232,8 @@ impl Store {
                         row.get::<_, Option<String>>(8)?,
                         row.get::<_, u32>(9)?,
                         row.get::<_, Option<String>>(10)?,
+                        row.get::<_, Option<String>>(11)?,
+                        row.get::<_, u32>(12)?,
                     ))
                 },
             )
@@ -237,6 +252,8 @@ impl Store {
             job,
             unfinished,
             red_commit,
+            decided_commit,
+            newer_running,
         )) = head
         else {
             return Ok(None);
@@ -283,6 +300,8 @@ impl Store {
             read_at: Timestamp::from_rfc3339(read_at),
             red_at: red_at.map(Timestamp::from_rfc3339),
             red_commit,
+            decided_commit,
+            newer_running,
             unfinished,
             failed,
             merge: number.map(|number| MainMerge {

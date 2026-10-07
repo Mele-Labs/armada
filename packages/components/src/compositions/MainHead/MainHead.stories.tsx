@@ -242,3 +242,12 @@ export const HeldMark: Story = {
     await expect(canvas.getByRole("img", { name: "Main is red, new checks are running" })).toBeVisible();
   },
 };
+
+/** Main is green and newer commits are running: the mark says so, and no band is drawn. */
+export const GreenWhileChecksRun: Story = {
+  args,
+  render: () => <MainMark main={{ state: "green", checking: [{ commit: "d".repeat(40), number: 1852 }] }} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Main is green, new checks are running" })).toBeVisible();
+  },
+};

@@ -56,7 +56,8 @@ export type MainRed = {
 export type MainChecking = { commit: string; number?: number; url?: string };
 
 export type MainState =
-  | { state: "green" }
+  /** `checking` non-empty is only checks running on main: the mark says so, and no band is drawn. */
+  | { state: "green"; checking?: readonly MainChecking[] }
   /**
    * `taken` is the Job working on it: absent until one is. **`checking` non-empty is a held red**: a
    * newer run may already have fixed it, so the band is caution, says so, and offers no way to hand
@@ -75,13 +76,22 @@ const STROKE = 2;
 export function MainMark({ main }: { main: MainState }) {
   const reading = CHECK_OUTCOME[main.state === "green" ? "passed" : "failed"];
   const Icon = reading?.icon ?? null;
-  const held = main.state === "red" && (main.checking?.length ?? 0) > 0;
-  const said = main.state === "green" ? "Main is green" : held ? "Main is red, new checks are running" : "Main is red";
+  const checking = (main.checking?.length ?? 0) > 0;
+  const held = main.state === "red" && checking;
+  const said =
+    main.state === "green"
+      ? checking
+        ? "Main is green, new checks are running"
+        : "Main is green"
+      : held
+        ? "Main is red, new checks are running"
+        : "Main is red";
   if (Icon === null) return null;
   return (
     <Tooltip label={said} asChild>
       <span
         className="armada-main-mark"
+        data-checking={(main.state === "green" && checking) || undefined}
         role="img"
         aria-label={said}
         style={held ? { color: "var(--notice-caution)" } : reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}

@@ -134,13 +134,13 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
 
 function mainOf({ main, fixing }: WireHub): MainState | undefined {
   if (main === undefined) return undefined;
-  if (main.state === "green") return { state: "green" };
-  const red = main.state === "red" ? redOf(main) : undefined;
-  if (red === undefined) return undefined;
   const checking = (main.checking ?? []).map((one) => ({
     commit: one.commit,
     ...(one.pull_request === undefined ? {} : { number: one.pull_request.number, ...(one.pull_request.url === undefined ? {} : { url: one.pull_request.url }) }),
   }));
+  if (main.state === "green") return { state: "green", ...(checking.length === 0 ? {} : { checking }) };
+  const red = main.state === "red" ? redOf(main) : undefined;
+  if (red === undefined) return undefined;
   return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }), ...(checking.length === 0 ? {} : { checking }) };
 }
 

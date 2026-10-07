@@ -66,17 +66,43 @@ pub(crate) struct MergedPulled {
 /// How many merged pull requests the hub carries.
 const MERGED_SHOWN: usize = 5;
 
+/// How many merged pull requests are listed to decide main's state from: **the
+/// newest finished commit decides**, and the newest few may all still be running.
+/// Their runs are read past [`MERGED_SHOWN`] only until one has finished.
+const DECIDING_WINDOW: usize = 30;
+
 /// How long a merge commit with no run on it is asked about again: the forge
 /// starts its workflows a moment after a merge.
 const RUN_MAY_START: Duration = Duration::from_secs(600);
 
-/// The CI run on one merge commit, as last read.
+/// What a commit's jobs add up to, for deciding main's state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Reduced {
+    Green,
+    Running,
+    Red,
+}
+
+/// The CI run on one commit of main, as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct MergedRun {
     /// Absent where nothing ran.
     pub(crate) run: Option<MainRun>,
     /// Nothing is still going, so it is not asked again.
     pub(crate) settled: bool,
+    /// The jobs themselves, for the commit that decides main.
+    pub(crate) runs: Vec<adapter_traits::CiRun>,
+}
+
+impl MergedRun {
+    /// `None` where nothing ran: a commit that proves nothing either way.
+    pub(crate) fn class(&self) -> Option<Reduced> {
+        Some(match self.run.as_ref()?.state {
+            MainRunState::Failed => Reduced::Red,
+            MainRunState::Passed => Reduced::Green,
+            MainRunState::Running => Reduced::Running,
+        })
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -123,7 +149,7 @@ where
         };
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
-                vcs.recently_merged_pull_requests(root, &base, MERGED_SHOWN)
+                vcs.recently_merged_pull_requests(root, &base, DECIDING_WINDOW)
             })
             .await;
         let Some(listed) = listed else { return };
@@ -144,12 +170,19 @@ where
             .insert(served.root().to_string(), read);
     }
 
-    /// The CI run on each merged pull request's commit. **One `ci_runs_on` a
-    /// commit, then again only while a job is unfinished** (or nothing ran yet
-    /// and the merge is minutes old), and a settled reading is kept. A forge that
-    /// will not answer keeps what was read. At most [`MERGED_SHOWN`] asks the
-    /// first visit, usually none after.
-    pub(crate) async fn notice_merged_runs(&self, served: &Served) {
+    /// The CI run on main's head and on each merged pull request's commit, newest
+    /// first: **the commits main's state is decided from**, returned with what
+    /// was read. **One `ci_runs_on` a commit, then again only while a job is
+    /// unfinished** (or nothing ran yet and the merge is minutes old), and a
+    /// settled reading is kept. A forge that will not answer keeps what was read.
+    /// The head and the newest [`MERGED_SHOWN`] are always read; older merges
+    /// only while none of the newer has finished, up to [`DECIDING_WINDOW`]. Usually
+    /// none after the first visit.
+    pub(crate) async fn notice_merged_runs(
+        &self,
+        served: &Served,
+        head: &str,
+    ) -> Vec<(String, Option<MergedRun>)> {
         let root = served.root().to_string();
         let (listed, kept) = {
             let sweep = self.sweeping().lock().await;
@@ -159,8 +192,8 @@ where
             )
         };
         let now = self.now();
-        let mut read = BTreeMap::new();
-        for one in listed {
+        let mut asked: Vec<(String, Option<String>)> = vec![(head.to_string(), None)];
+        for one in &listed {
             let Some(commit) = one
                 .pull
                 .commit
@@ -169,23 +202,40 @@ where
             else {
                 continue;
             };
-            if read.contains_key(&commit) {
-                continue;
+            let merged_at = Some(one.pull.merged_at.as_written().to_string());
+            match asked.iter_mut().find(|(seen, _)| *seen == commit) {
+                Some(seen) => seen.1 = merged_at,
+                None => asked.push((commit, merged_at)),
+            }
+        }
+        let mut read = BTreeMap::new();
+        let mut candidates: Vec<(String, Option<MergedRun>)> = Vec::new();
+        for (at, (commit, merged_at)) in asked.into_iter().enumerate() {
+            let decided = candidates.iter().any(|(_, run)| {
+                run.as_ref()
+                    .and_then(MergedRun::class)
+                    .is_some_and(|it| it != Reduced::Running)
+            });
+            if at > MERGED_SHOWN && decided {
+                break;
             }
             if let Some(settled) = kept.get(&commit).filter(|it| it.settled) {
-                read.insert(commit, settled.clone());
+                read.insert(commit.clone(), settled.clone());
+                candidates.push((commit, Some(settled.clone())));
                 continue;
             }
-            let asked = commit.clone();
+            let asking = commit.clone();
             let answer = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
-                    vcs.ci_runs_on(root, &asked)
+                    vcs.ci_runs_on(root, &asking)
                 })
                 .await;
             let Some(runs) = answer else {
-                if let Some(old) = kept.get(&commit) {
-                    read.insert(commit, old.clone());
+                let old = kept.get(&commit).cloned();
+                if let Some(old) = &old {
+                    read.insert(commit.clone(), old.clone());
                 }
+                candidates.push((commit, old));
                 continue;
             };
             let unfinished = runs.iter().any(|run| run.state == CiState::Pending);
@@ -194,9 +244,10 @@ where
                 .filter(|run| run.state == CiState::Failed)
                 .map(|run| run.name.as_written().to_string())
                 .collect();
-            let merged_at = Timestamp::from_rfc3339(one.pull.merged_at.as_written());
-            let may_start =
-                runs.is_empty() && crate::converging::elapsed(&merged_at, &now) < RUN_MAY_START;
+            let may_start = runs.is_empty()
+                && merged_at.is_some_and(|at| {
+                    crate::converging::elapsed(&Timestamp::from_rfc3339(at), &now) < RUN_MAY_START
+                });
             let run = match (failed.is_empty(), unfinished, runs.is_empty()) {
                 (_, _, true) => None,
                 (false, _, _) => Some(MainRun {
@@ -212,15 +263,16 @@ where
                     failed: Vec::new(),
                 }),
             };
-            read.insert(
-                commit,
-                MergedRun {
-                    run,
-                    settled: !unfinished && !may_start,
-                },
-            );
+            let reading = MergedRun {
+                run,
+                settled: !unfinished && !may_start,
+                runs,
+            };
+            read.insert(commit.clone(), reading.clone());
+            candidates.push((commit, Some(reading)));
         }
         self.sweeping().lock().await.main_runs.insert(root, read);
+        candidates
     }
 
     /// The log of one job that failed on a merged commit's run on main, for
@@ -391,6 +443,7 @@ pub(crate) fn hub_of(
         merged: merged
             .map(|read| {
                 read.iter()
+                    .take(MERGED_SHOWN)
                     .map(|one| merged_of(one, runs, titled))
                     .collect()
             })
@@ -441,15 +494,16 @@ fn standing(
             .red_commit
             .clone()
             .or_else(|| (red && main.state == MainState::Red).then(|| main.commit.clone())),
-        checking: match red && main.held() {
+        checking: match main.newer_running > 0 && (red || main.state == MainState::Green) {
             true => checking(main, merged, runs, titled),
             false => Vec::new(),
         },
     }
 }
 
-/// The commits newer than the red one whose run is going: main's head, then
-/// any newest merge still running, each with the pull request that merged it.
+/// The commits newer than the one that decided main whose run is going, newest
+/// first: main's head, then any newest merge still running, each with the pull
+/// request that merged it.
 fn checking(
     main: &MainCi,
     merged: &[MergedPulled],
@@ -459,35 +513,35 @@ fn checking(
     fn commit_of(one: &MergedPulled) -> Option<&str> {
         one.pull.commit.as_ref().map(|it| it.as_written())
     }
-    let red = main.red_commit();
+    let decided = main.decided();
+    let running = |commit: &str| {
+        runs.get(commit)
+            .and_then(|it| it.run.as_ref())
+            .is_some_and(|run| run.state == MainRunState::Running)
+    };
     let pull_of = |one: &MergedPulled| MainMerge {
         number: one.pull.number,
         url: Some(one.pull.url.as_written().to_string()),
         branch: Some(one.pull.branch.as_written().to_string()),
         job: one.job.as_ref().and_then(titled),
     };
-    let head = MainChecking {
+    let head = (main.commit != decided && running(&main.commit)).then(|| MainChecking {
         commit: main.commit.clone(),
         pull_request: merged
             .iter()
             .find(|one| commit_of(one) == Some(main.commit.as_str()))
             .map(pull_of),
-    };
+    });
     let newer = merged
         .iter()
-        .take_while(|one| commit_of(one) != Some(red))
+        .take_while(|one| commit_of(one) != Some(decided))
         .filter_map(|one| Some((one, commit_of(one)?)))
-        .filter(|(_, commit)| *commit != main.commit)
-        .filter(|(_, commit)| {
-            runs.get(*commit)
-                .and_then(|it| it.run.as_ref())
-                .is_some_and(|run| run.state == MainRunState::Running)
-        })
+        .filter(|(_, commit)| *commit != main.commit && running(commit))
         .map(|(one, commit)| MainChecking {
             commit: commit.to_string(),
             pull_request: Some(pull_of(one)),
         });
-    std::iter::once(head).chain(newer).collect()
+    head.into_iter().chain(newer).collect()
 }
 
 fn request(

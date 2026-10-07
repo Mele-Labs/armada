@@ -4,10 +4,12 @@
 //   0  Main is red at #1812, nobody has it: the band offers its two ways. Recently landed shows #1812
 //      with its run on main failed, which opens that run's log.
 //   1  #1852 merged and its run is going. The red is held: a caution band naming #1852, no buttons.
-//   2  The run finished green. The band clears and #1852's mark is passed.
-//   3  #1853 merged and broke it on another job: a new red, with its buttons.
-//   4  #1854 merged and its run is going: held again, now naming #1854.
-//   5  The run finished red on the same job as #1853's. The red band is back, with its buttons.
+//   2  #1852's run passed, which clears the red, and #1853's run is going behind it: main is green
+//      with checks running, no band.
+//   3  #1853 passed too: plain green.
+//   4  #1855 merged and broke a job: a new red, with its buttons.
+//   5  #1856 merged and its run is going: held again, now naming #1856.
+//   6  The run finished red on the same job as #1855's. The red band is back, with its buttons.
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import type { HubMerged, MainStanding, MergeLine, MergeLineHub } from "@armada/protocol";
@@ -54,28 +56,41 @@ const OLDER = [
   merged(1840, "docs/connection-states", "3", 10, PASSED),
 ];
 
+const M1812 = merged(1812, "nick/ports-cleanup", "1", 40, failed("desktop_test"));
+const M1852 = (run: Run) => merged(1852, "fleet/flaky-asked-run-test", "2", 50, run);
+const M1853 = (run: Run) => merged(1853, "docs/reflect-bridge-micro-apps", "3", 52, run);
+const M1855 = (run: Run) => merged(1855, "studio/zone-proposal", "5", 58, run);
+const M1856 = (run: Run) => merged(1856, "fleet/pause-markers", "6", 59, run);
+const green = (digit: string): MainStanding => ({ state: "green", commit: sha(digit), read_at: READ_AT });
+const greenChecking = (digit: string, ...running: [number, string, string][]): MainStanding => ({
+  ...green(digit),
+  checking: running.flatMap(([number, d, branch]) => checking(number, d, branch)),
+});
+
 /** The hub at each moment. */
 const MOMENTS: MergeLineHub[] = [
-  { main: red("1", "desktop_test", 1812, "nick/ports-cleanup"), merged: [merged(1812, "nick/ports-cleanup", "1", 40, failed("desktop_test")), ...OLDER] },
+  { main: red("1", "desktop_test", 1812, "nick/ports-cleanup"), merged: [M1812, ...OLDER] },
   {
     main: red("1", "desktop_test", 1812, "nick/ports-cleanup", checking(1852, "2", "fleet/flaky-asked-run-test")),
-    merged: [merged(1852, "fleet/flaky-asked-run-test", "2", 50, RUNNING), merged(1812, "nick/ports-cleanup", "1", 40, failed("desktop_test")), ...OLDER],
+    merged: [M1852(RUNNING), M1812, ...OLDER],
+  },
+  // #1852 passed, which clears the red, and #1853 is running behind it.
+  {
+    main: greenChecking("2", [1853, "3", "docs/reflect-bridge-micro-apps"]),
+    merged: [M1853(RUNNING), M1852(PASSED), M1812, ...OLDER],
+  },
+  { main: green("3"), merged: [M1853(PASSED), M1852(PASSED), M1812, ...OLDER] },
+  {
+    main: red("5", "screens_test", 1855, "studio/zone-proposal"),
+    merged: [M1855(failed("screens_test")), M1853(PASSED), M1852(PASSED), M1812],
   },
   {
-    main: { state: "green", commit: sha("2"), read_at: READ_AT },
-    merged: [merged(1852, "fleet/flaky-asked-run-test", "2", 50, PASSED), merged(1812, "nick/ports-cleanup", "1", 40, failed("desktop_test")), ...OLDER],
+    main: red("5", "screens_test", 1855, "studio/zone-proposal", checking(1856, "6", "fleet/pause-markers")),
+    merged: [M1856(RUNNING), M1855(failed("screens_test")), M1853(PASSED), M1852(PASSED)],
   },
   {
-    main: red("5", "screens_test", 1853, "studio/zone-proposal"),
-    merged: [merged(1853, "studio/zone-proposal", "5", 58, failed("screens_test")), merged(1852, "fleet/flaky-asked-run-test", "2", 50, PASSED), merged(1812, "nick/ports-cleanup", "1", 40, failed("desktop_test"))],
-  },
-  {
-    main: red("5", "screens_test", 1853, "studio/zone-proposal", checking(1854, "6", "fleet/pause-markers")),
-    merged: [merged(1854, "fleet/pause-markers", "6", 59, RUNNING), merged(1853, "studio/zone-proposal", "5", 58, failed("screens_test")), merged(1852, "fleet/flaky-asked-run-test", "2", 50, PASSED)],
-  },
-  {
-    main: red("6", "screens_test", 1853, "studio/zone-proposal"),
-    merged: [merged(1854, "fleet/pause-markers", "6", 59, failed("screens_test")), merged(1853, "studio/zone-proposal", "5", 58, failed("screens_test")), merged(1852, "fleet/flaky-asked-run-test", "2", 50, PASSED)],
+    main: red("6", "screens_test", 1855, "studio/zone-proposal"),
+    merged: [M1856(failed("screens_test")), M1855(failed("screens_test")), M1853(PASSED), M1852(PASSED)],
   },
 ];
 

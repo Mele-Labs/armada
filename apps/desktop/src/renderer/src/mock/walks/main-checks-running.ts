@@ -2,7 +2,7 @@
 // ends: the band turns caution, says new checks are running on main and names the pull request, and
 // offers no way to hand the red to a Job, because the run may already have fixed it. Recently landed
 // shows each merge's own run on main, apart from the pull request's checks it passed before it merged.
-// A run that ends green clears the band; one that ends red on the same job brings the red back with
+// A run that ends green clears the band, even while newer checks run behind it; one that ends red on the same job brings the red back with
 // its buttons. Each `later` is time passing: the scenario publishes its next moment.
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
@@ -34,24 +34,27 @@ export const mainChecksRunning = walk("main-checks-running", [
   { press: inside(HELD, button("desktop_test")), say: "The red's log still opens: it is the failed commit's run" },
   { press: inside(LOG, button("Close")), say: "Put it away" },
 
-  // The run ends green.
-  { later: HELD, say: "The run finishes green" },
-  { look: inside(MERGE, role("img", "Main is green")), say: "The band clears: main is green, and nothing was handed to a Job" },
+  // #1852's run ends green while #1853's is going.
+  { later: HELD, say: "#1852's run finishes green, and #1853 has merged behind it" },
+  { hover: inside(MERGE, role("img", "Main is green, new checks are running")), say: "The newest finished run is green, so the red is gone, and the mark says checks are still running" },
+  { look: inside(LANDED, role("img", "ci running on main")), say: "#1853's run is going, pulsing in Recently landed" },
   { look: inside(LANDED, role("img", "ci passed on main")), say: "#1852's run on main passed" },
+  { later: inside(MERGE, role("img", "Main is green, new checks are running")), say: "#1853's run finishes green" },
+  { look: inside(MERGE, role("img", "Main is green")), say: "Plain green: nothing was handed to a Job" },
 
-  // #1853 breaks main again, and #1854 merges on top of it.
-  { later: inside(MERGE, role("img", "Main is green")), say: "#1853 merges and breaks a different job" },
-  { look: RED, say: "A new red naming the newer merge, and its buttons" },
-  { look: inside(RED, role("link", "#1853")), say: "Broke in: #1853, not #1812" },
-  { later: RED, say: "#1854 merges and its run starts" },
-  { look: inside(HELD, role("link", "#1854")), say: "Held again, now naming #1854" },
-  { look: inside(HELD, role("link", "#1853")), say: "Under it the red is still #1853's" },
+  // #1855 breaks main again, and #1856 merges on top of it.
+  { later: inside(MERGE, role("img", "Main is green")), say: "#1855 merges and breaks a job" },
+  { look: RED, say: "A red naming the merge that started it, and its buttons" },
+  { look: inside(RED, role("link", "#1855")), say: "Broke in: #1855, not #1812" },
+  { later: RED, say: "#1856 merges and its run starts" },
+  { look: inside(HELD, role("link", "#1856")), say: "Held again, now naming #1856" },
+  { look: inside(HELD, role("link", "#1855")), say: "Under it the red is still #1855's" },
   { look: inside(LANDED, role("img", "ci running on main")), say: "And its run on main is going" },
 
   // The run ends red on the same job.
   { later: HELD, say: "The run finishes red, on the job that was already failing" },
   { look: RED, say: "The red band is back" },
   { look: inside(RED, button("Dispatch a new Job")), say: "With its buttons" },
-  { look: inside(RED, role("link", "#1853")), say: "Still #1853's red" },
-  { look: inside(LANDED, role("img", "ci failed on main")), say: "#1854's run on main failed, with its log a press away" },
+  { look: inside(RED, role("link", "#1855")), say: "Still #1855's red" },
+  { look: inside(LANDED, role("img", "ci failed on main")), say: "#1856's run on main failed, with its log a press away" },
 ]);
