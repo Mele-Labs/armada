@@ -263,7 +263,7 @@ fn a_merge_line_checks_requester_names_the_job_that_owns_the_branch() {
         ipc::JobId::carried("01JOB"),
         "7-mine".to_string(),
     )];
-    let named = crate::merge_lines::naming_jobs(lines, &jobs);
+    let named = crate::merge_lines::naming_jobs(lines, &jobs, &[]);
     let [mine, theirs] = &named.lines[0].line[..] else {
         panic!("two branches");
     };
@@ -278,4 +278,77 @@ fn a_merge_line_checks_requester_names_the_job_that_owns_the_branch() {
         theirs.checks[0].requester,
         ipc::Requester::merge_line("fleet/theirs")
     );
+}
+
+/// **A branch queued behind another lists the Manifest's Checks as waiting, naming
+/// its Job**, until the line gates it and writes its own rows.
+#[test]
+fn a_branch_queued_behind_another_lists_the_declared_checks_as_waiting_with_its_job() {
+    let entry = |branch: &str, state: ipc::LandState| ipc::MergeLineEntry {
+        branch: branch.to_string(),
+        place: Some(1),
+        pull_request: None,
+        state,
+        doing: None,
+        batch: None,
+        merge_commit: None,
+        failed: Vec::new(),
+        conflicts: Vec::new(),
+        checks: Vec::new(),
+    };
+    let lines = ipc::MergeLines {
+        lines: vec![ipc::MergeLine {
+            root: "/repo".to_string(),
+            line: vec![
+                entry("fleet/ahead", ipc::LandState::Gating),
+                entry("fleet/mine", ipc::LandState::Waiting),
+            ],
+            off: Vec::new(),
+            landed: Vec::new(),
+            sent_back: Vec::new(),
+            hub: None,
+        }],
+    };
+    let jobs = [
+        (
+            "fleet/ahead".to_string(),
+            ipc::JobId::carried("01AHEAD"),
+            "6-ahead".to_string(),
+        ),
+        (
+            "fleet/mine".to_string(),
+            ipc::JobId::carried("01JOB"),
+            "7-mine".to_string(),
+        ),
+    ];
+    let declared = [(
+        "/repo".to_string(),
+        vec!["ipc_test".to_string(), "fleet_test".to_string()],
+    )];
+    let named = crate::merge_lines::naming_jobs(lines, &jobs, &declared);
+    let [ahead, mine] = &named.lines[0].line[..] else {
+        panic!("two branches");
+    };
+    assert!(
+        ahead.checks.is_empty(),
+        "the line writes a gating branch's own"
+    );
+    let listed: Vec<(&str, ipc::LandCheckState)> = mine
+        .checks
+        .iter()
+        .map(|check| (check.name.as_str(), check.state))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("ipc_test", ipc::LandCheckState::Waiting),
+            ("fleet_test", ipc::LandCheckState::Waiting)
+        ]
+    );
+    assert_eq!(mine.checks[0].requester.kind, "merge_line");
+    assert_eq!(
+        mine.checks[0].requester.job_id,
+        Some(ipc::JobId::carried("01JOB"))
+    );
+    assert_eq!(mine.checks[0].requester.handle.as_deref(), Some("7-mine"));
 }

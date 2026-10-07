@@ -915,6 +915,10 @@ where
         Fleet::merge_hubs(self).await
     }
 
+    async fn land_checks(&self) -> Vec<(String, Vec<String>)> {
+        Fleet::land_checks(self)
+    }
+
     /// One Check's log on a served line — [`crate::merge_lines::land_log`].
     async fn observe_land_check(
         &self,
