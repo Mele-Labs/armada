@@ -85,7 +85,7 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `app_smoke` of `apps/desktop` | `macos-latest`, four shards, job `app_smoke_shard` | `vitest run --shard=N/4 --maxWorkers=2 --project 'smoke*'`, direct, since `armada check` takes no shard. `vitest.shard.ts` weighs the walks so the shards are even | node_modules, Playwright |
 | `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
 
-`$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. Every
+`$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*). Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 451s, tests 282s; width 4 two runs, job 375s and 368s, tests 197s and 193s, 4768 passed, no failure or retry. Contention at width 4 beyond those two runs is not measured. Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
 The root's Node Check and the desktop shards run their command directly. The matrix
 runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
