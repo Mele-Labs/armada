@@ -70,3 +70,26 @@ export const Found: Story = {
     await expect(canvas.getByRole("img", { name: "Matched Pull request #1843" })).toBeInTheDocument();
   },
 };
+
+/** Many pull requests wrap on the ledger's own line; the title keeps the line above it. */
+export const Crowded: Story = {
+  args: {
+    groups: [
+      {
+        label: "Running",
+        rows: [
+          {
+            ...FLAKY,
+            pullRequests: [1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850].map((number) => ({ number, checks: "passed" as const, said: "Checks passed" })),
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("listitem", { name: "Flaky store test" });
+    const title = row.querySelector(".armada-session-list__title")!.getBoundingClientRect();
+    const ledger = row.querySelector(".armada-session-list__chips")!.getBoundingClientRect();
+    await expect(ledger.top).toBeGreaterThanOrEqual(title.bottom);
+  },
+};
