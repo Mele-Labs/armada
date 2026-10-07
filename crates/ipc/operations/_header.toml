@@ -1,8 +1,9 @@
 # Every operation the Fleet/Bridge seam carries, with who may reach it.
 #
-# Authored here. This file is the authority on the operation set: which calls
-# exist, which of them an agent may reach, and which travel the socket rather
-# than HTTP. A page in the design workspace that disagrees with this file is
+# Authored here, one file an operation named for its key, and this header says
+# what the fields are. The directory is the authority on the operation set: which
+# calls exist, which of them an agent may reach, and which travel the socket
+# rather than HTTP. A page in the design workspace that disagrees with it is
 # stale, not right.
 #
 # It sits beside `ipc` because that is the crate the wire vocabulary lives in,

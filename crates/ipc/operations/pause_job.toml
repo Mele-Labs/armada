@@ -11,7 +11,7 @@ six documents that counted it as an act, `docs/concepts/drone.md` first, and
 that page carries the dated note. Redirect and Kill are what a person does to a
 working Drone: say something to it, or stop it.
 
-The name is kept here rather than deleted for `packages/icons/icons.toml`'s
+The name is kept here rather than deleted for `packages/icons/icons/`'s
 reason — a reader who finds no row cannot tell a call that was refused from one
 nobody thought of, and `docs/contracts/system-architecture.md` sends them here.
 

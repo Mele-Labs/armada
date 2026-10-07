@@ -16,6 +16,7 @@ import type {
   SendSessionMessage,
   SessionRecord,
   SessionRow,
+  RenameSession,
   TuneSession,
 } from "@armada/protocol";
 
@@ -89,13 +90,14 @@ export type Calls = {
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
   tuned: TuneSession[];
+  renamed: RenameSession[];
   closed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
   watched: string[];
 };
 
 export class FakeSessionsFleet {
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], closed: [], pressed: [], watched: [] };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], pressed: [], watched: [] };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -203,6 +205,10 @@ export class FakeSessionsFleet {
               ...one,
               hosted: { ...one.hosted!, mode: tune.mode, ...(tune.model === undefined ? {} : { model: tune.model }), ...(tune.effort === undefined ? {} : { effort: tune.effort }) },
             }));
+          },
+          renameSession: async (rename) => {
+            this.calls.renamed.push(rename);
+            return this.change(rename.session_id, (one) => ({ ...one, title: rename.title }));
           },
           closeSession: async (sessionId) => {
             this.calls.closed.push(sessionId);

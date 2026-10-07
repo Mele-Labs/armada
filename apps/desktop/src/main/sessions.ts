@@ -15,6 +15,7 @@ import type {
   FrameRead,
   Outcome,
   PullRequestState,
+  RenameSession,
   ReviewDispatched,
   SendSessionMessage,
   SessionList,
@@ -145,6 +146,10 @@ export class SessionsHost {
 
   async tune(tune: TuneSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/tune", tune);
+  }
+
+  async rename(rename: RenameSession): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/rename", rename);
   }
 
   async end(sessionId: string): Promise<SessionActed> {

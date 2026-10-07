@@ -8,7 +8,9 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, Owners, SessionList, SessionRecord, SessionReport, SessionState};
+use ipc::{
+    ManifestId, Owners, RenameSession, SessionList, SessionRecord, SessionReport, SessionState,
+};
 
 use crate::daemon::Refusal;
 
@@ -20,6 +22,14 @@ pub trait Sessions: Send + Sync + 'static {
     fn report_session(
         &self,
         report: SessionReport,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `rename_session` — a person's name for a session, hosted or terminal.
+    /// It stands until the next one. [`Refusal::Unacceptable`] for a blank
+    /// title or a session Fleet does not know.
+    fn rename_session(
+        &self,
+        rename: RenameSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is

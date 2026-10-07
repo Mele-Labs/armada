@@ -394,7 +394,8 @@ pub use servers::{
 };
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
-    Ownership, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport,
+    Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
+    SessionReport,
     SessionState, SessionUsage,
 };
 pub use setup::{

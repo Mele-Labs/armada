@@ -160,6 +160,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(
+            "/sessions/rename",
+            post(crate::sessions::rename_session::<D>),
+        )
+        .route(
             "/sessions/start",
             post(crate::hosted_sessions::start_session::<D>),
         )

@@ -3268,6 +3268,17 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **A bundle that is the agent's first context is not a row.** Fleet renders it as prose and puts it ahead of the person's first message. A session closed or released from a pilot clears its own lease, so its next write leases a slot as any session's does. Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
+## Protocol 23.52: a session's name
+
+`docs/concepts/session.md`. **Additive only**: one operation and one optional field. 23.51 is a session started on a Job.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `rename_session` (`POST /sessions/rename`) | `RenameSession`: `session_id`, `title` | Answers the `SessionRecord` and publishes `session.changed` when the title changed. Refused with 422, nothing written, for a blank title or a session Fleet has no row for. Not offered to agents |
+| `report_session` | `SessionFact` `titled.named?` | `true` is a person's name from the terminal's `/rename`: it replaces the title. Absent, it is the first prompt's line, kept only where the session has no title |
+
+**A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

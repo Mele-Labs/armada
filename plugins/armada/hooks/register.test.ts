@@ -8,15 +8,16 @@ const URL = 'https://github.com/Mele-Labs/armada/pull/1853'
 
 type Posted = { url: string; body: any }
 
-function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {}) {
+function world(on: On, options: { running?: () => boolean; hangs?: boolean; transcript?: string } = {}) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user' })
-  on('fs.read', () => {
+  on('fs.read', (_$, e) => {
     attempts.reads += 1
     if (!running()) throw new Error('no such file')
+    if (e.path.endsWith('.jsonl')) return { value: options.transcript ?? '' }
     return { value: RUNNING }
   })
   on('http.fetch', (_$, e) => {
@@ -37,6 +38,7 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('prompt.submit', (_$, e) => ({ text: e.text }))
+  on('command.run', () => ({}))
   on('turn.complete', () => ({ text: '' }))
   return { posts, attempts, clock }
 }
@@ -228,4 +230,26 @@ test('a need declared while Fleet is down costs nothing and is told again when i
   expect(needs(posts)).toEqual([
     { kind: 'attached', attachment: { kind: 'need', target: 'a.toml', detail: { what: 'a minor' } } },
   ])
+})
+
+test('a rename in the terminal is told as the name, and the first prompt does not take it back', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.command.run({ command: 'rename', args: '  ledger   intake ' })
+  await $.prompt.submit({ text: 'fix the ledger', origin: { kind: 'user' } } as never)
+  await clock.settle()
+
+  expect(facts(posts).filter(fact => fact.kind === 'titled')).toEqual([
+    { kind: 'titled', title: 'ledger intake', named: true },
+  ])
+})
+
+test('a bare rename is read from the transcript Claude Code wrote the name to', async ($, on) => {
+  const transcript = '{"type":"custom-title","customTitle":"made up name","sessionId":"S1"}\n'
+  const { posts, clock } = world(on, { transcript })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.command.run({ command: 'rename', args: '' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'titled', title: 'made up name', named: true })
 })
