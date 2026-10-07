@@ -266,7 +266,7 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
 #[tokio::test]
 async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
     let rig = rig();
-    let manifest = std::path::Path::new(&rig.root).join("plugins/armada/.claude-plugin/plugin.json");
+    let manifest = std::path::Path::new(&rig.root).join(adapters::MOD_MANIFEST);
     let record = || async {
         Arc::clone(&rig.fleet)
             .get_session(SessionId::carried(ID))
@@ -307,7 +307,7 @@ fn the_version_the_mod_reports_is_the_plugins_own() {
         .find_map(|line| line.strip_prefix("export const MOD_VERSION = '"))
         .and_then(|rest| rest.strip_suffix('\''))
         .expect("the mod's version constant");
-    let manifest = include_str!("../../../../plugins/armada/.claude-plugin/plugin.json");
+    let manifest = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").join(adapters::MOD_MANIFEST)).unwrap();
     assert!(manifest.contains(&format!("\"version\": \"{reported}\"")), "bump both together");
 }
 

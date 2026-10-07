@@ -452,16 +452,13 @@ where
     }
 }
 
-/// Where a repository keeps the `armada` plugin's manifest.
-const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
-
 /// The `version` the repository's `armada` plugin declares, where it carries one.
 fn mod_version_in(root: &str) -> Option<String> {
     #[derive(serde::Deserialize)]
     struct Manifest {
         version: Option<String>,
     }
-    let bytes = std::fs::read(std::path::Path::new(root).join(MOD_MANIFEST)).ok()?;
+    let bytes = std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)).ok()?;
     ipc::decode::<Manifest>("the armada plugin's manifest", &bytes)
         .ok()?
         .version
