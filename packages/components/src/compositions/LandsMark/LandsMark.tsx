@@ -9,7 +9,7 @@ export type Lands = "armada" | "kit" | "manifest";
  * Where one retro item's fix lands, as a 12px mark named by its tooltip — the
  * owner, 3 Oct 2026. Drawn beside `WhoMark`, the two read as whose way and
  * where the fix goes. Each glyph is a row or a usage in
- * `packages/icons/icons.toml`: `app-window` Armada, `briefcase` the Kit,
+ * `packages/icons/icons/`: `app-window` Armada, `briefcase` the Kit,
  * `file-cog` the Manifest, all three Proposed here.
  */
 export function LandsMark({ lands }: { lands: Lands }) {

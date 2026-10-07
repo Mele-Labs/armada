@@ -1,0 +1,19 @@
+[icons.external-link]
+  status = "Specified"
+
+  [[icons.external-link.usage]]
+    means = "open a PR externally"
+    group = "Chrome"
+    size = "16px"
+
+  [[icons.external-link.usage]]
+    means = "hand a path to the OS — a job's worktree, log or transcript"
+    group = "Chrome"
+    size = "16px"
+    notes = "The log-reference row's trailing control. The same reading as the PR use one step down: the thing opens outside Bridge, in whatever the machine opens it with. Deliberately not the copy glyph — the value beside it already copies on click, and a value that copies does not also get a button that copies it."
+
+  [[icons.external-link.usage]]
+    means = "Open a Studio node's own address — a Link, an Issue, a Pull request, an Epic"
+    group = "Canvas rail"
+    size = "16px"
+    notes = "Added 2026-09-28 when the owner asked for the hovering node bar to be a row of icon buttons rather than a menu. The third context on a row carrying no reservation, and the same reading as the other two: the address is handed to whatever browses the web on this machine, so the press leaves Bridge. That is exactly the claim the Canvas rail's `link` row refused `external-link` for — placing a Link node stays inside the app, and opening one does not — so the two sit in one group without colliding. Refused here: `eye`, reserved to Review; `book-open`, reserved to the Guides surface; `maximize`, reserved to fitting a canvas."

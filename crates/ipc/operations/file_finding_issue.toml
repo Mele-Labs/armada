@@ -1,0 +1,14 @@
+[operations.file_finding_issue]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person confirms an issue drafted from a For context finding, and the forge files it"
+notes = """
+**Written as the person, so only from their confirm.** Bridge drafts the title and body from the finding and the person edits them; Fleet files exactly what was confirmed, in the repository the Job serves. Nothing is posted on the pull request. #906.
+
+A blank title is refused, a 422. A finding the Job's latest review did not raise for context is refused, a 409, and so is an issue the forge would not file, carrying what it said.
+
+The finding shows the issue's address under `confidence.followed`. What comes back is this Job as it stands.
+
+`agent_access` is `Helm only` now. Nothing was written on the forge except from a person's press, and this still files exactly what was confirmed — but a confirm said to Helm in conversation is not the same act as a person editing the drafted text themselves, and that gap is named here rather than resolved.
+"""

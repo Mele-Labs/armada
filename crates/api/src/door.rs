@@ -1,7 +1,7 @@
 //! The agent's door: a second MCP path on the listener already bound.
 //!
 //! **It calls the HTTP surface rather than the daemon.** Every tool is one row
-//! of `crates/ipc/operations.toml` reached at the route [`SERVED`] already
+//! of `crates/ipc/operations/` reached at the route [`SERVED`] already
 //! names, so there is no second implementation to drift and a route that moves
 //! moves for both callers at once.
 //!

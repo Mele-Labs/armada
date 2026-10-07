@@ -1,0 +1,20 @@
+[operations.dispatch_studio_draft]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Send what a node dispatches as — an Issue draft's text, or the address of an Issue, a Pull request or an Epic — through the Job proposer to the dispatch gate, and answer with the Studio carrying a Job node for each Job"
+notes = """
+**The same call `propose_from_request` makes, with what the node dispatches as the request.** The gate is unchanged: every Job stands at `awaiting_approval` and is approved where any other proposal is. Nothing summarises, trims or re-fetches it on the way — a write-up is made from the nodes feeding it, and a lossy hop would hand a Drone something other than what the person saw.
+
+**Four kinds reach it.** An Issue draft sends its title and body, which is Armada's own unfiled text; an Issue, a Pull request and an Epic send their address alone, because what it names is already filed and the proposer has taken such a link as a request since it shipped (`#1379`, `#1394`). A Link is an address no adapter recognised and dispatches nothing.
+
+**Nothing on this route names a workflow.** The three are three asks — a change to make, work already written that wants a judgement, a wave to split — and which workflow each runs under is the proposer's answer off the request and each definition's `for_requests` line. `code-review.json` gained one for `#1379`: `adapters::IssueLookup` resolves an issue link and no other shape, so a pull request reaches the call as a bare URL, which is the position `epic` was in when `#424` measured a milestone being declined with `epic` on the list. An Epic also *reads in*, and the two are different asks rather than rivals: reading one in puts its issues on the board, dispatching one asks for the wave.
+
+Each Job the proposal became is added as a Job node with a `produced` edge from the draft, the first at `position` and the rest below it, so the whiteboard shows where the work went without a person moving anything. A Job node holds the Job's id and no status: the Board's row is where its status is read.
+
+**No issue is filed anywhere.** Filing on a forge is optional and a person's own act, so the draft's text reaches the proposer with nothing to point at.
+
+`origin` is **where from and who pressed it** — `studio_dispatched` for a person's, `studio_helm_drafted` for Helm's — where a request typed into the composer takes `manual` or `helm_drafted` the same way, and neither takes `auto_detected`. That value renders as *Found by Fleet*, which is what a row says about work Armada noticed by itself; a dispatch is somebody sending work they picked. **Two values and not one, since `#1362`**: the row has to say it came off a Studio and still say who pressed, so both clauses are in the verb rather than composed in Bridge. *Which* Studio stays off the Job — the `produced` edge above is the record, read back by `store::studio::tracing` for Job detail's way back. A node that dispatches nothing is refused as `fleet.studio_not_a_draft`, and a Link is refused with the same code naming its address; where no workflow resolves, the proposer's own refusal is returned and no node is added.
+
+`agent_access` is `Helm only`, the second of the two acts Helm takes on a person's ask, and only where the ask names sending the work as well as writing it up. From Helm it also publishes `studio.helm_acted`.
+"""

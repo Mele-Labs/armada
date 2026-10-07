@@ -1,0 +1,8 @@
+[operations."server.exited"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A server ended: stopped by a person, its Job or Fleet — or on its own, which is a failure whatever its code"
+notes = """
+`stopped: false` is a server that fell over, with its exit code and a sentence; its log stays readable on `observe_server`. Where something else is already answering on the port it let go, `ended` says so — the address a person is holding goes on opening, which is why nobody looks. `#1577`. A Job's servers publish this before the Job's own terminal `job.state_changed`, because they are torn down before its span is released.
+"""

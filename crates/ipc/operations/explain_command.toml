@@ -1,0 +1,14 @@
+[operations.explain_command]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A cheap model's plain-language reading of one command a Drone was not given"
+notes = """
+**Asked before answering, and it decides nothing.** A person looking at `npm publish --tag beta` or a shell line three pipes long has to know what it does before `allow_for_job` and `reject` mean anything, and the alternative to asking here is leaving the window to find out — which is how a command gets allowed unread. The offers are unchanged by it, and a Job whose person never asks behaves exactly as it did.
+
+It is a query: nothing is recorded, nothing moves, and asking twice costs two model calls and changes nothing. The call id in the path is `CommandInFlight.call` or `Refusal.call`, the same id `answer_command` takes, so a 409 there is a 404 here for the same reason — an id naming nothing waiting or refused on the Job.
+
+**The cheap end of the roster answers**, the dial `judge_model` already derives rather than a fourth spelling of a vendor's name. The answer carries the model that gave it, because a reading is a claim and a person weighing one is entitled to know what read it.
+
+A model that will not answer is answered in words and never blocks the decision: the command is still waiting, and the three offers are still the whole set. `agent_access` is `No` for `answer_command`'s reason — this exists for the person the command is being held for.
+"""

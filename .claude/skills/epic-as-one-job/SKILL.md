@@ -129,7 +129,7 @@ reads a landed branch as "not merged". Grep `git log origin/main --merges
 --first-parent` for the branch name instead. And expect the shared append points
 — the protocol minor — to conflict on nearly every landing until #1059 is
 built. Store migrations no longer do: each is its own file in `crates/store/migrations/`. The mock's scenario rows no longer do: each is a
-file in `mock/scenarios/` and a line in `mock/scenario-rows.ts`, which merges by union.
+file in `mock/scenarios/`, read as a glob.
 
 ## Asking, when you do not know
 

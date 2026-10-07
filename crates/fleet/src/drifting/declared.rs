@@ -15,7 +15,7 @@
 //! door `crate::rehearsing::records` uses for a run record. There is no second
 //! parser to disagree with the real one about a nested `"scripts"` key or an
 //! escaped quote. The two TOML files are still read line by line, the way
-//! `xtask` reads `operations.toml`, and like the decode, each reader's failure is
+//! `xtask` reads `operations/`, and like the decode, each reader's failure is
 //! [`None`]. A `None` makes the row *not followed*, never `gone`.
 //!
 //! **An absent file and an unreadable one are different answers.** No

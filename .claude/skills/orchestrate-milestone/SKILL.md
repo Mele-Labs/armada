@@ -111,7 +111,7 @@ usually right — it has just read the code and you were working from memory.
 | **The quick self-check** | what `work-issue` step 4 names, once per branch and one heavy run at a time |
 | The acceptance tests pass | where the change reaches what they read, by test name. **No failing test is merged**, a milestone's own included |
 | `verify-foundations` is no worse | against a baseline off `main`, not against zero — a `missing:` the branch added blocks |
-| `verify-docs` is green | where `docs/` or `operations.toml` changed |
+| `verify-docs` is green | where `docs/` or `operations/` changed |
 | You have read the diff | not the report |
 
 **After bringing `main` in, rerun nothing before landing.** The land turn reruns

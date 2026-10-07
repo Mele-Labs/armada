@@ -186,12 +186,10 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 
 | Owed | Where |
 |---|---|
-| Convert the append-only list files; GitHub ignores `merge=union` | `.gitattributes`, `docs/practices/list-files.md` |
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
 | Retire `armada land` | `crates/armada/src/land/` |
-| Bridge's merge line becomes a thin view of open pull requests, and Armada prompts when `main` goes red | Bridge, Fleet. Not built |
 | `.github/**` matches no `when:` in armada.yml, so a workflow change is exercised only by the plan job | `armada.yml` |
 
 ## What `foundations` measured and what it did not

@@ -1,0 +1,7 @@
+[icons.paperclip]
+  means = "A paper clip - a file attached to a message"
+  group = "Action"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Attaching a file or a picture to a Session's message, and nothing else. Never a staged attachment's own mark, which is a name and a removal, and never evidence, which is the file-* family."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. The message box is one slim row, so the act is a glyph with a tooltip and not a word."

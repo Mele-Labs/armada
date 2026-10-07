@@ -1,0 +1,85 @@
+[operations.override_verdict]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person overrules the machine that stopped a step and the step advances, keeping what was ruled on the record"
+notes = """
+The fifth act that reaches an escalated Job — and, since 2026-10-06, a Job held at `awaiting_repair` — and the only one that lets the work
+already done stand. `docs/concepts/job.md` has the other four and none of them is
+this: `approve_review` refuses anywhere but `awaiting_review` and a Job a gate
+refused is `escalated`; `restart_step` re-runs the step, which throws away
+everything the refused Drone did and may draw the same refusal again;
+`redirect_drone` tells a Drone something new, and the Drone did nothing wrong;
+`redispatch_job` starts a replacement from the top. So a verdict that was wrong
+had no answer but discarding correct work or repeating it, and **a verdict that
+cannot be appealed is worse than no Judge** — a verifier a person cannot overrule
+is one they route around, by weakening criteria or by not dispatching.
+
+**It lifts `gate_failure`, `evidence_suspect` and `gate_undecided`, and nothing
+else.** The first two are a machine's decision, which is the owner's rule for what
+a person may overrule. The
+first is the Judge refusing a criterion, a judgement about the work. The second is
+the gaming check saying the evidence is not to be trusted — a claim about how the
+step was satisfied rather than about whether it was, and a machine reading a diff
+to infer intent, which is the call a person is most likely to be right about.
+`last_verdict.trigger` is what tells an overruled flag from an overruled refusal
+afterwards, and Bridge chooses its words off the same field. `gate_undecided` is
+the gate never having weighed the work at all — the Judge call failed, so no
+verdict exists — and the owner decided on 2026-10-05 that a person must be able to
+move a step the machine could not read: an engineer who deems the step did what it
+needs can advance it, and the record keeps `failed(gate_undecided)` beside
+`advanced`. That one takes no reason, as a gaming flag takes none, because there is
+no Judge opinion to learn from. **A failed Check is overruled too, once its retries are spent** (owner, 2026-10-06:
+"I should be able to override things like this, not just judge checks. If I know
+the job has the work completed and it should move on I should be able to move it
+forward."). Any Check, `build` and `test` included. This reverses the position
+this row held since #208, that a failed Check is not a matter of opinion. The Job
+holds at `awaiting_repair` with a step stopped on `gate_failure`, the trigger a
+Judge refusal writes too, and the act lands there as it does beneath `escalated`:
+the step `stopped -> advanced`, the Job `awaiting_repair -> queued`, or finished
+where the step was the last. Nothing reads the Check runs and none is rewritten;
+`last_verdict` stays `failed(gate_failure)` and the Check's own failed run stays
+on the step. The body is still `{reason}` and the reason is still required,
+since the trigger is `gate_failure`. The closed `claim` set belongs to
+`file_report` and this act carries none.
+
+**Recorded as an override and never as a pass.** The step move is `stopped ->
+advanced` carrying the trigger it overruled, with the person as the actor, so
+`job_steps.last_verdict` still says `failed` beside a state that says
+`advanced`, carrying whichever of the two triggers was overruled — what the
+machine said, and the fact that it did not stand, in one row of the log that is
+already append-only. `StepDetail.overridden` is that pair
+read once at this boundary rather than by every surface that draws a rail. A rate
+is countable off `job_events` alone: step moves from `stopped` to `advanced`,
+against refusals. #154 is what does the counting and is not this.
+
+**The reason is required on `gate_failure`, optional on `evidence_suspect`, and
+never reaches the Drone.** A person who overrules a Judge is the best evidence
+there is that a criterion is mis-stated, and a count with no reasons beside it
+gives the rate and never the cause. A gaming flag's own record already names the
+pattern, the question and the brief a person disagreed with, so carrying on past
+one takes no typing (#1079). The Drone is told
+only that the step was accepted, because it did nothing wrong.
+
+It needs no Drone and refuses on neither presence nor absence, which is what
+separates it from `redirect_drone` and `restart_step`. A worktree that has been
+reclaimed is refused with the same sentence `restart_step` uses. Where the
+overruled step was the workflow's last, the work is committed, delivered and the
+Job recorded `completed_success`, exactly as `approve_review` ends one.
+
+**It asks for the next step's Drone rather than starting one.** The Job takes
+`escalated -> queued` (`awaiting_repair -> queued` over a failed Check) and admission spawns when `settings.concurrency-cap` has
+room — the same edge `restart_step` takes and for the same reason: the cap
+bounds Drones, and an act that spawned for itself would let a person push Fleet
+past it. **It is never refused because the cap is spent.** The person's verdict
+is written the moment they give it, on the step, beneath `escalated`; only the
+process waits, and the Job reads `waiting_on_resources` while it does. The
+completion path above spawns nothing and therefore does not wait at all.
+
+`agent_access` is `Helm only` now. Overruling a verifier is the act a verifier
+exists to make somebody take deliberately, and it is not on the Intervention
+Ladder — Nick's ruling grants it to Helm anyway, on request, which is this
+file's argument for why a verdict has to be appealable turned around against
+its own claim that the appeal wants deliberateness a conversational ask may not
+carry. Named here rather than resolved.
+"""

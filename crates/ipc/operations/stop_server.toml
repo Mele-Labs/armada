@@ -1,0 +1,10 @@
+[operations.stop_server]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "End a server's process group; its log keeps what printed"
+notes = """
+Answers with the instance once it has ended. A Job's servers are also stopped when the Job ends, before its span is released, and every server is stopped when Fleet stops. Refused on an id that names no running server.
+
+`agent_access` is `Yes`, `start_server`'s reason: ending a server moves nothing on the Job, so the agent that started one may also end it.
+"""

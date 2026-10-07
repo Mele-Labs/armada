@@ -11,7 +11,7 @@ use crate::setup::ManifestSummary;
 
 /// What an `armada.yml` declares, resolved.
 ///
-/// **What it does not carry: the resolution chain.** `operations.toml` records
+/// **What it does not carry: the resolution chain.** `operations/` records
 /// that the Kit/Machine/Manifest chain is not yet stated anywhere, so every
 /// value below is the Manifest's own reading and none of it claims a tier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

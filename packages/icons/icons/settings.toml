@@ -1,0 +1,7 @@
+[icons.settings]
+  means = "The Settings surface — this machine's own settings, Fleet's four limits and Helm's action authority"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Settings surface only. Never Kit, which is `briefcase`, and never a Manifest, which is `file-cog`."
+  notes = "This row said `means = \"Kit\"` from the day it was written until 2026-09-18, and `file-cog` and `wrench` each cited it — three rows calling the cog Kit's while Bridge's Settings surface wore it, which nobody noticed until Kit took a rail row of its own (#1275). The owner settled it the other way on 18 Sep: Settings keeps the cog, and Kit is `briefcase`. Promoted from 12px to 16px with the correction, because the rail draws at 16 and the cog's teeth are interior detail rule 3 will not have at 12."

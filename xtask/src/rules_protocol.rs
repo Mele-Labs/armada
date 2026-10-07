@@ -1,6 +1,6 @@
 //! The route table and the operation inventory say the same thing.
 //!
-//! `crates/ipc/operations.toml` is the authority on which operations exist and
+//! `crates/ipc/operations/` is the authority on which operations exist and
 //! what each one is; `crates/api/src/routes.rs` is Fleet's hand-written half of
 //! the seam. **The route table being hand-written is an accepted cost, and this
 //! is the check it was accepted against** — a typo in a path is a runtime 404
@@ -41,7 +41,8 @@ use std::path::Path;
 
 use crate::Report;
 
-const INVENTORY: &str = "crates/ipc/operations.toml";
+/// One file an operation, named for its key; `_header.toml` says what the fields are.
+const INVENTORY: &str = "crates/ipc/operations";
 /// The router: every `.route(` call.
 const TABLE: &str = "crates/api/src/routes.rs";
 /// The inventory half of the same subject: every `SERVED` row.
@@ -58,7 +59,7 @@ const EVENT_ENUM: &str = "crates/ipc/src/event.rs";
 pub fn the_router_serves_what_the_inventory_names(root: &Path) -> Report {
     let mut report = Report::new("every route served is an operation the inventory names");
 
-    let Ok(inventory) = fs::read_to_string(root.join(INVENTORY)) else {
+    let Ok(inventory) = crate::read_entry_dirs(root, &[INVENTORY]) else {
         report.fail(format!("{INVENTORY} — the operation inventory itself"));
         return report;
     };

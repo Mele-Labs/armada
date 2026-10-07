@@ -1,0 +1,10 @@
+[operations.get_handoff]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What a person, or a Session on their behalf, is handed when they take a Job over: the Job and its steps, every move and attempt, the Judge's refusals, the evidence, the declared plan against the worktree's changed files, the worktree and branch, and what the Drone said it was stuck on"
+notes = """
+`GET /jobs/:job_id/handoff`. Answers `HandoffBundle`. 409 `fleet.not_piloted` on a Job nobody took over. **The pilot's own record and not a reading of the Job as it is now**: it is still served after the pilot ended, so a retro can say what the person was handed.
+
+`narrative` (`trying_to`, `blocked_by`, `tried`) is the one field the Drone supplies, and is not Evidence. It is absent where the Drone never pulled the hatch, which is every take over today. `worktree.path` is a path on this machine, the one place Fleet puts one on the wire, because a Session has to be started in it.
+"""

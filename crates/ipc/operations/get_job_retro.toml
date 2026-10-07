@@ -1,0 +1,16 @@
+[operations.get_job_retro]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What got in the way while one Job ran, whose way, and the record rows that show it"
+notes = """
+Since 23.12. `docs/concepts/retro.md` is the concept.
+
+**Two halves, read differently.** `record` is assembled from the Job's own record on every read — refusals, failed Checks, a Judge's `not_met`, what a step said it had not done, each Drone's last words, restarts, questions put to a person and how long each waited, time at `awaiting_*`, every move a person or an agent made and the door it came through, and what a Drone said got in its way. `items` is what a model wrote from that record once the Job ended, each citing record rows by `cite`. Since 23.26 each has an `id`, a `title`, `what` and `fix` beside `statement`, which `agree_lesson` and `disagree_lesson` act on, and a gate failure in `record` that names a file carries `paths`, each with whether a tool call of the Drone's names it. **Since 23.27 each item carries `state` and `job_proposed`**, read from the rows `list_lessons` reads, so a sheet that offers Agree and Disagree can see an item already answered: `state` is `open`, `agreed`, `accepted` or `discarded`, and `job_proposed` is the Job agreeing proposed. Both are absent only on an item whose row has no answer record.
+
+`state` is `pending` until a Job has ended and its retro is written, then `written`, `failed` or `skipped`. A failed retro is not tried again, and a Job that ended before Fleet wrote retros is `skipped`.
+
+`annotations` are notes the owner left in Bridge while this Job's detail was open, linked by the `openJobId` a note carries. A note without one is linked to nothing.
+
+Its own route rather than a field on `get_job`, for `get_job_events`' reason: the record reads every transcript the Job has, and `get_job` is read on every open.
+"""

@@ -1,0 +1,22 @@
+[icons.scale]
+  means = "A balance \u2014 a beam on a post, a pan hanging from each end"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row the Judge produced: a criterion answered, a pattern flagged. Never a verdict, which is circle-check, circle-x and circle-minus; never a comparison or a diff; never a person deciding."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A Judge weighs work against criteria, and a balance is that act. It carries no verdict: circle-* says what the Judge concluded and stays the only family that does, so the mark says who produced the row and the Outcome column says what it came to. Refused: a bare `circle`, a ring that at 12px is circle-dot and circle-dashed with their one distinguishing element gone; `gavel`, which `signpost`'s row already refused as reading judgement, and which says a ruling was struck rather than weighed."
+
+  [[icons.scale.usage]]
+    means = "The Judge reading a running step's work — a call out now"
+    group = "Step phase"
+    size = "12px"
+    status = "Specified"
+    reserved = "The Judge part of a running step's phase track (`StepPhaseTrack`), on the Workflow step card and the step panel's header: lit while `judging` is present and named `Judge reading`, filled once done, hollow while to come. Never a verdict, which circle-check, circle-x and circle-minus say."
+    notes = "Approved by the owner 2026-10-03, on the walk of `bridge/step-card-phase`, which widens the Record-kind reservation above to this one use; proposed the same day for his annotation `ouqa`. The row above already says a balance is the act of a Judge weighing work against criteria; this is that act while it is under way rather than the Record row it leaves. Refused: `circle-ellipsis`, since `circle-*` is the verdict family and an ellipsis in a ring is `circle-dot` at 12px; `eye`, reserved to Review; `scan-line`, the proposer reading a request."
+
+  [[icons.scale.usage]]
+    means = "The Judge, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. A step the Judge reads, drawn on the definition rather than on a run. It is the Step phase use above before any run exists."

@@ -1,0 +1,8 @@
+[operations."studio.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Studio after a write to it, whole, with every node and edge"
+notes = """
+Carries `Studio` itself, the answer to `get_studio`, for `repositories.changed`' reason: a whiteboard replaces what it holds rather than folding a change. Published after the write. `manifest_id` is at the top level, so a poll's tally names the repository.
+"""

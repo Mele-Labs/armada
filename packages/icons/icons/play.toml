@@ -1,0 +1,7 @@
+[icons.play]
+  means = "A right-pointing triangle — put a paused Job back to work"
+  group = "Pause and resume"
+  size = "16px"
+  status = "Specified"
+  reserved = "Resume on a paused Job, in a menu, a header and a confirm. Never a Drone running, which is `circle-dot`, and never starting a run or a server."
+  notes = "Minted 6 Oct 2026 for Pause and Resume, with `circle-pause`, on the owner's decision. The ordinary counterpart of a pause bar, and the only one: Resume lifts the pause and starts nothing itself, since admission starts the Drone."

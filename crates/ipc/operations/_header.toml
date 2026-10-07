@@ -1,0 +1,46 @@
+# Every operation the Fleet/Bridge seam carries, with who may reach it.
+#
+# Authored here, one file an operation named for its key, and this header says
+# what the fields are. The directory is the authority on the operation set: which
+# calls exist, which of them an agent may reach, and which travel the socket
+# rather than HTTP. A page in the design workspace that disagrees with it is
+# stale, not right.
+#
+# It sits beside `ipc` because that is the crate the wire vocabulary lives in,
+# and both readers of the seam read it. Fleet's hand-written route table is the
+# HTTP half; the codegen step that emits Bridge's TypeScript is the other. The
+# route table being hand-written is the accepted cost this file is the check
+# against — a route that exists here and nowhere in the router is a runtime 500,
+# and only a rule reading both catches it.
+#
+# The table key is the operation name as it appears on the wire, so a rule can
+# compare this set against the routes and the event kinds without a mapping in
+# between. An event's key carries the dotted form it is published under.
+#
+# `kind` decides `transport` and the source states both: who initiates is the
+# whole rule, so a query and a command are alike request-response over HTTP and
+# only an unsolicited push needs the socket. Both are carried, and a rule reads
+# both and fails where they disagree.
+#
+# Fields:
+#   kind        - query | command | event
+#   transport   - HTTP | WebSocket
+#   agent_access - Yes | No | Bridge only | Drafts only | Helm only. What an
+#                 agent may reach directly — Helm inside Bridge, or any agent
+#                 working on the machine, on one shared set. `Helm only` is a
+#                 command Helm may call when a person asks it to in
+#                 conversation; the person's ask is the gate, not a further
+#                 tier. On a query it is a read offered to a Helm session
+#                 alone — the checkout's runs, which only Helm can start.
+#                 `Drafts only` is the narrower set offered a Helm
+#                 session alone for drafting a Job. What stays `No` for Helm
+#                 too is named, not implied — `fleet::helm::reach::RESERVED`
+#   description - what the operation returns or does, in one line
+#   unbuilt     - an event declared here and not yet sent, naming the issue
+#                 that will send it. Absent means the event is sent. The
+#                 precedent is `crates/core-model/domain/actions.toml`'s
+#                 `unbuilt`: a value that is not an issue reference refuses,
+#                 and the gate refuses the row silently outliving either
+#                 direction of that claim — a mark on an event that is sent,
+#                 or a sent-or-mark-less event with no variant behind it
+#   notes       - the reasoning the row carried, where it carried any

@@ -1,0 +1,10 @@
+[operations.set_kit_server_reach]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Kit's own default for one server, across every Manifest that has not said otherwise"
+notes = """
+The body is `name` and `drones`, which is `yes` or `no`. The first tier of `kit.md`'s two: Kit holds the defaults, and a Manifest extends or restricts them.
+
+Refused with a 409 where Kit holds no server of that name. Read by the next spawn, `forget_kit_server`'s reason.
+"""

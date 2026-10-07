@@ -254,7 +254,7 @@ What it settled for the next surface:
   `answeringTheHeldCommand` and `originsAndPanel` each take `S` and `A` bounded by the fields and
   members they touch (`FillingInState`, `WalkedPrototypeApi`, ...) and cast the handle to that,
   so `walkedPrototype`'s `openCaptureWindow` (Studios') is spelled in its bound and Studios is
-  never imported. There is no `mock/jobs-fake.ts`: `scenario.ts` calls them on its own scenarios and the generics are inferred. **A scenario row stays in desktop**: `scenario-rows.ts` is a declared list file
+  never imported. There is no `mock/jobs-fake.ts`: `scenario.ts` calls them on its own scenarios and the generics are inferred. **A scenario row stays in desktop**: `scenarios/` is read as a glob
   (`list-files.md`) and each row is built with `holding`, so the rows import their fixtures from
   `@armada/jobs/fake` and Jobs' `depends_on` names the list, `scenarios/**` and `holding.ts`.
   **A fleet that answers another slice stays**: `workflows-fleet` answers `WorkflowsApi`, which is

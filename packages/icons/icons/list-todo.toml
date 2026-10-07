@@ -1,0 +1,7 @@
+[icons.list-todo]
+  means = "Three lines, the top one led by an empty box and the bottom one by a tick"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about the plan's work: the plan recorded or revised, a task working, done, failed or dropped. Never a task's state, which TaskMark draws; never a step list; never the Board, which is `clipboard-list`."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A plan is a list of tasks, some open and some done, and this is that list. **The objection to expect is the tick**, since bare `check` is `advanced` in the Job state group: it is one stroke inside a larger outline rather than the outline, drawn --fg-muted and never hued, and the row's Outcome column is what says the task came to anything. Against `list-ordered` in the Node bar, numerals lead those lines and it draws at 16px in another group, so rule 4 does not reach it. Refused: TaskMark's check, x, minus and circle-dashed, each one task state and hued; `list-checks`, a column of ticks that reads as several things passed; `list`, whose bullets are 1px dots at 12px and leave three bare lines."

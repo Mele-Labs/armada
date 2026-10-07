@@ -1,0 +1,7 @@
+[icons.package-x]
+  means = "A box with a cross - forget a Job's record"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Forget Job, the act in a tile's panel once nothing of the Job stands. Never a Job's state on the Board."
+  notes = "Proposed 5 Oct 2026 for Cleanup's one grid, on the walk `cleaningUpFromTheGrid`. `box` is the Record's drawing of a Job, so a box with a cross is the Job no longer kept. Refused: `archive`, superseded's, and `archive-x` with it."

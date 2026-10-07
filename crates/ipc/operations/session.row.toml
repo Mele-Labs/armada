@@ -1,0 +1,8 @@
+[operations."session.row"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One row of a hosted session's thread, appended or replaced by its id"
+notes = """
+`SessionRowChanged`: `session_id` and the `row`. A client with the row's id replaces it; otherwise appends. An ask is replaced as it is answered. Since 23.49.
+"""

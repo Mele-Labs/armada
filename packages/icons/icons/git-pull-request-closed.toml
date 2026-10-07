@@ -1,0 +1,7 @@
+[icons.git-pull-request-closed]
+  means = "A pull request whose strand stops short, with a cross where it would have joined — a pull request closed without merging"
+  group = "Pull request state"
+  size = "12px"
+  status = "Specified"
+  reserved = "A pull request closed without merging, on its badge only. Never a refusal, a failure or a kill: nothing on the wire says why a pull request closed, so the mark claims only that it did. `x`, `ban` and `power` hold those."
+  notes = "Minted 1 Oct 2026 with `git-merge`, for the other settled state. It renders `--status-not-started`, the neutral hue, because a hue that said refused or failed would claim a reason nobody recorded. The cross at its end is detail rather than silhouette: the stopped strand beside a lone node is what survives at 12px, and that already differs from `git-merge`'s joined fork and from `git-pull-request`'s two strands."

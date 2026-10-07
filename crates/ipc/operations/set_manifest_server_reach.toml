@@ -1,0 +1,12 @@
+[operations.set_manifest_server_reach]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "This Manifest's word over one Kit server: extended, restricted, or taken back"
+notes = """
+The second tier. `reach` is `extended`, `restricted`, or `null` — and **`null` is sent rather than implied**, `set_model`'s reason: a Bridge that dropped the key would throw away a person's word about who may reach a server and answer 200. A taken-back word leaves no row, which is what leaves Kit's own default answering again.
+
+**Extend and restrict both**, in either direction, per `docs/concepts/kit.md`: nothing above the Manifest constrains it, so a Manifest may turn on a server Kit leaves off as well as off one Kit leaves on.
+
+Refused with a 409 where Kit holds no server of that name.
+"""

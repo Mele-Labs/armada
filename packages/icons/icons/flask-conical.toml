@@ -1,0 +1,7 @@
+[icons.flask-conical]
+  means = "A conical flask \u2014 a narrow neck over a triangular body, a line of liquid across it"
+  group = "Record kind"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row about a case: run, run again, shown again, its frames kept. Never a Check, never a test count or coverage figure, and never a hazard."
+  notes = "Minted 2026-09-29 for [record-kind-marks]. A case is run to see what the app does, and a flask is the drawing test runners use for exactly that. **The objection to expect is triangle-alert**, whose outline is also a triangle: it passes rule 4 because triangle-alert is Doctor's and a toast's, drawn amber, and this draws --fg-muted, and the neck breaking the apex is outline rather than interior. Refused: `test-tube`, a thin capsule that reads as a bar at 12px; `camera` and `film`, which name the frames a run keeps rather than the run; `play`, a triangle `rocket`'s row already refused."

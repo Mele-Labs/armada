@@ -4,7 +4,7 @@
 //! **The fifth act on an escalated Job**, and the only one that keeps the work.
 //! `docs/concepts/job.md` has the table and the argument — including which
 //! triggers this lifts, which it will not, and why an unappealable verdict is
-//! worse than no verdict at all. `crates/ipc/operations.toml` keys it
+//! worse than no verdict at all. `crates/ipc/operations/` keys it
 //! `override_verdict`.
 //!
 //! Which triggers this lifts is [`StepLevelTrigger::overrulable`], which sits

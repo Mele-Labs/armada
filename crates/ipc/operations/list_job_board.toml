@@ -1,0 +1,5 @@
+[operations.list_job_board]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The open queue — not-yet-started Jobs"

@@ -1,0 +1,12 @@
+[operations.close_as_superseded]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person's own work landed outside the Job: the Job goes to `superseded`, a terminal state that is neither failed nor killed, and a Job waiting on it is released with a warning"
+notes = """
+`POST /jobs/:job_id/close_as_superseded`, body `PilotNote` (`note?`) or none. Answers the Job's `JobSummary`, whose `piloted.exit` reads `superseded`.
+
+A Job depending on it unblocks at the next admission with the dependency released and not met, and its own log says so. 409 `fleet.not_piloted` on a Job that is not piloted.
+
+`agent_access` is `Helm only`, asked as `destructive`: the Job ends.
+"""

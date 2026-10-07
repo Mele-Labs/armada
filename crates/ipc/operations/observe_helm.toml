@@ -1,0 +1,14 @@
+[operations.observe_helm]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One repository's Helm conversation — the thread so far, then every message after it — on a socket of its own"
+notes = """
+**`observe_job`'s shape with a conversation for its subject**: `opened`, the thread, then what follows, with `missed` where a viewer fell behind. The session's own output arrives as `row`s in the transcript's vocabulary; `asked`, `fresh` and `unanswered` are what a Drone's socket has no word for. `docs/practices/protocol.md`, *The Helm socket*, is the design.
+
+**No end to close on.** A conversation outlives every process that answers in it, so `closed` is sent only when a person starts fresh.
+
+`?manifest_id=` names the repository, absent being the one Fleet started in, and a Manifest Fleet does not serve is refused before the upgrade. Not `/events`, for `observe_job`'s reason.
+
+`agent_access` is `No`: a session must not read another session.
+"""

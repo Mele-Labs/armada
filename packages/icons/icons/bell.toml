@@ -1,0 +1,6 @@
+[icons.bell]
+  means = "Alerts"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  notes = "Escalations interrupt, and the bell is the interrupt metaphor. Deliberately not octagon-alert, which belongs to stalled."

@@ -1,0 +1,16 @@
+[operations.kill_process]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Ends one process a Job holds, and everything under it. A child of the Drone is not the Drone: killing one leaves the Drone, its step and the Job running. The Drone's own pid is `kill_drone`, and is answered as that. A pid outside the Job's process tree is refused with `fleet.not_the_jobs_process`"
+notes = """
+`POST /jobs/:job_id/processes/:pid/kill`, from a row of Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
+
+**The pid names a process and never grants one.** Fleet reads the Job's process tree again at the act — the recorded Drone, proved to be the process recorded at the spawn, and everything descended from it — and refuses a pid outside it with `fleet.not_the_jobs_process`, a 409 carrying the pid. That one reading also catches a pid that exited after the screen was drawn and came back as another process. A Drone that is gone, replaced or unreadable has no tree, so every pid is refused against it.
+
+**A child of the Drone is not the Drone dying.** Killing a runaway `cargo` ends it, leaves the Drone, its step and the Job as they were, and writes nothing to the record: the Drone sees a tool call fail and carries on. What the process started goes with it, leaves first, because a build killed at its root leaves its compilers reparented out of the Job's tree, past every later reading and every later kill.
+
+**The Drone's own pid is `kill_drone`**, so its step stops under `drone_killed` exactly as there, and its descendants go as `kill_processes` says.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**: Helm can kill one process of a Job, or all of them, with the same reach it has over `kill_drone`. It was `No` when the route landed. Fleet's guard is unchanged by who calls it — a pid outside the Job's tree is refused with `fleet.not_the_jobs_process` for Helm exactly as for Bridge — and the act is Destructive in `fleet::helm::deciding`, so Helm's call is put to a person as `kill_drone`'s is.
+"""

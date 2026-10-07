@@ -45,9 +45,9 @@ Each ends with the questions it found and did not answer.
   reconciling one costs, and what M1's proves.
 - [`practices/store-migrations.md`](practices/store-migrations.md) — a migration
   has a name, not a number; additive ones are safe to go back from
-- [`practices/list-files.md`](practices/list-files.md) — the files whose merges
-  keep both sides, how one is declared in `.gitattributes`, which are not, and
-  what union cannot do
+- [`practices/list-files.md`](practices/list-files.md) — a list is a directory,
+  one file an entry, so two branches adding entries touch two files; which
+  lists are, which are not, and why
 - [`practices/running-locally.md`](practices/running-locally.md) — starting,
   checking and stopping a local Fleet: what it prints, what it refuses before it
   binds a port, what `armada clean` will not delete, and Bridge on a mock Fleet
@@ -71,7 +71,7 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
   *reference.* Topology, trust boundaries and the component taxonomy. The map
   with the why attached; `ARCHITECTURE.md` is the map with the where. The
   operation inventory behind its protocol surface is
-  `crates/ipc/operations.toml`.
+  `crates/ipc/operations/`.
 - [`contracts/technical-writing.md`](contracts/technical-writing.md) —
   *contract.* The shape of every document here: one mode per page, how a rule
   is phrased, when prose becomes a table. Read before writing in `docs/`.
@@ -96,7 +96,7 @@ not override, **spec** is a designed artifact, **reference** is lookup material.
   boundaries, what each may expose, and where adapter configuration lives.
 - [`contracts/iconography.md`](contracts/iconography.md) — *spec.* Which glyph
   means what, and what each may never be reused for. The roster is
-  `packages/icons/icons.toml`.
+  `packages/icons/icons/`.
 - [`contracts/voice-engineering.md`](contracts/voice-engineering.md) — *spec.*
   The engineering behind the Voice contract — the enum-to-verb map, the lint,
   the rename sweeps.

@@ -111,7 +111,6 @@ runner (holds the turn lock) ----------------------+
 - **A new gate line that names a file goes to the member that touched it.** Where every path each new line names was changed by exactly one member, in its own diff from its merge-base, those members go back red with their own lines and the rest are gated again in the same turn, keeping their place. A line naming no path, or a path several members or none touched, splits the batch as a red does. Measured 1 Oct 2026: one `no_file_too_long` line named the only member that touched the file, and the blind split behind it cost two more turns of about eight minutes each.
 - **A red on more than one member splits the batch in half**, first half first, down to a single branch, where a red is reported to that branch's own agent exactly as it was before batching. Three greens and one red cost three gates, not four, and not one each.
 - **Two members that do not merge with each other split the batch too.** That costs merges, never a gate. Alone, the second meets the first on `main` and goes back with the conflict as any branch would.
-- **A conflict confined to a declared list file is not one.** `.gitattributes` gives those files `merge=union`, and the candidate worktree's merge is plain `git merge`, so both sides' lines are kept and nothing goes back to a Drone. `docs/practices/list-files.md`, with what it cannot do: two deletions, and a branch cut before the declaration landed.
 - **A member that does not merge with `main` itself goes back with the conflict, and the rest go on without it.** Whether a clash is with `main` or with a member before it is one extra merge of that branch with `main` alone.
 - **A Check red on `main` itself stops the whole batch as `main`'s**, without splitting: no half of it would pass.
 - **`--status` says who gates together.** Each member's line ends `together with` the others while the batch is in its turn.
@@ -440,7 +439,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 ### When main goes red
 
-**Three ways a Job comes to have a red, one record of each.** The record is a row a Job per red (`main_ci_fixes`), keyed by when main first read red, and it is what `hub.fixing` and a Job's `fixes_main` are read from. `fix_main` is the act (`crates/ipc/operations.toml`).
+**Three ways a Job comes to have a red, one record of each.** The record is a row a Job per red (`main_ci_fixes`), keyed by when main first read red, and it is what `hub.fixing` and a Job's `fixes_main` are read from. `fix_main` is the act (`crates/ipc/operations/`).
 
 | Who | What Fleet does | Reuses |
 |---|---|---|

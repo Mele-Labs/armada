@@ -8,7 +8,7 @@ export type { AddTask, DropTask };
 /**
  * `POST .../add_task` or `.../drop_task`, read into the app.
  *
- * **The plan it leaves rides on success.** `crates/ipc/operations.toml`'s
+ * **The plan it leaves rides on success.** `crates/ipc/operations/`'s
  * `add_task` and `drop_task` both answer with the whole `WorkPlan` the change
  * leaves, so the Plan region redraws from the answer at once rather than
  * waiting on `job.plan_changed`'s own re-read — which still lands behind it,

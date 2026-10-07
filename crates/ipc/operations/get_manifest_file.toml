@@ -1,0 +1,18 @@
+[operations.get_manifest_file]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "armada.yml as it is on disk, for the file view that edits it"
+notes = """
+The half a person acts with, where `get_manifest_reading` is the half that reports. That one says which keys Fleet was refused for and there is nothing else on this seam that puts one right, so correcting a Check meant leaving Bridge for an editor and then watching the daemon's console — Journey 9, *Editing*.
+
+**No path in, and none accepted.** A Fleet serves one repository and already holds the file it was started against, `config::Manifest::path`, which is the same file `crates/armada/src/watching.rs` watches. A caller names the act and Fleet names the file. The path comes back spelled as `ManifestReading.path` spells it, so a surface holding both can see they are about one file.
+
+**The bytes, not a document.** Nothing is parsed here. A file that does not parse reads back as well as one that does, which is the case a person opening this is most likely to be in, and the parse's own answer is the reading beside it.
+
+**Whole, and not windowed.** `get_check_output` serves a tail and says so because half a log is still a log; a partial Manifest handed to an editor would be saved back over the rest. A Manifest is a few kilobytes.
+
+**`declared` is what the text loads as**, in the drafts `edit_manifest` takes, so the forms draw from the same reading an edit is compared against. Absent where the text does not load, and the file still reads.
+
+`agent_access` is `No`, on the seven checkout-run operations' terms: the main checkout is the tree a Drone is confined out of, and the reader this exists for is a person who opened the file view. What an agent needs about this repository's configuration is `get_manifest`, which is resolved, `Yes`, and carries no comments to rewrite.
+"""

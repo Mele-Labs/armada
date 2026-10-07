@@ -1,0 +1,5 @@
+[operations.list_drones]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Live Drones with worktree and Job"

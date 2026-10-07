@@ -20,7 +20,6 @@ mod cli;
 mod declared;
 mod kit;
 mod leasing;
-mod list_files;
 mod locating;
 mod loopback;
 mod mcp;

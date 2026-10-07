@@ -13,7 +13,7 @@ three weeks.
 report is a claim about the code, and a wrong one is worse than none — it sends
 an agent to fix something that is not broken, and it survives in the issue
 tracker as a fact. **This has already happened.** Three "gaps" filed in one
-session turned out to be operations already declared in `crates/ipc/operations.toml`
+session turned out to be operations already declared in `crates/ipc/operations/`
 and simply not routed, and a claim that a workflow's four steps were all ungated
 was a generalisation from reading one of them.
 
@@ -42,7 +42,7 @@ Four things wear the same clothes, and only one of them is a bug.
 | What it is | How you can tell | Where it goes |
 |---|---|---|
 | **A bug** | The code does something other than what it says it does | An issue, `bug` |
-| **Unbuilt** | It was specified and never built. `operations.toml` declares forty operations and serves a subset — one with no route is *not yet built* rather than wrong | An issue naming the existing declaration, `step` |
+| **Unbuilt** | It was specified and never built. `operations/` declares forty operations and serves a subset — one with no route is *not yet built* rather than wrong | An issue naming the existing declaration, `step` |
 | **A stale document** | The code is right and the prose is behind it | Fix the prose. Do not file it |
 | **My error** | The claim is wrong | Say so plainly, correct it, file nothing |
 

@@ -1,0 +1,12 @@
+[operations.edit_manifest_proposal]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Apply one edit to one workspace's proposal, and answer with the proposal after it"
+notes = """
+Put a port, a Check or a Command by name (replacing or adding), set `setup.requires`, set or clear a policy, move a line between Checks and Commands, or remove one. **No edit names a provenance**: a changed line Scan found reads `edited_during_setup`, a line a person wrote reads `added_during_setup`, and an edit that changes nothing moves nothing.
+
+**A value `config` would refuse is not refused here**, because a proposal is iterated through wrong states; Write is what refuses it. Refused, as a 422, is an edit that cannot apply: a workspace Scan does not find (`fleet.no_such_workspace`), a line that is not there, or a move that would drop `requires` or `destructive`, which the other registry has no key for (`fleet.proposal_not_amended`). After Write it is a 409, `fleet.proposal_written`.
+
+`agent_access` is `Helm only`. This row was written before Helm existed, expecting a narrower *Drafts only* reach here and never Write — Nick's later ruling grants both this edit and `write_manifest_proposal` itself, on request: the person's ask is the gate, not a separate tier.
+"""

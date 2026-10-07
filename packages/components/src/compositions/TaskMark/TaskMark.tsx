@@ -12,7 +12,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * `enum-verbs.toml` holds the same glyphs and the words the mark is named by.
  *
  * `circle-dashed`, `file-check`, `minus` and `x` each carry a usage row in
- * `packages/icons/icons.toml` for the mark they take here. **`failed` is not
+ * `packages/icons/icons/` for the mark they take here. **`failed` is not
  * `dropped`**: an agent that stopped without finishing is a system failure,
  * bare `x`'s own reservation, where a drop is a person's decision. `#1535`.
  */
