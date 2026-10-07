@@ -264,7 +264,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
   return session.rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }

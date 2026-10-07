@@ -41,13 +41,6 @@
   min-width: 0;
 }
 
-/* Your own words sit to the trailing edge, Helm's to the leading — the one hue
-   difference a two-voice thread needs, without a third colour. */
-.armada-helm-thread__row[data-actor="you"] {
-  align-items: flex-end;
-  text-align: right;
-}
-
 .armada-helm-thread__head {
   display: flex;
   align-items: baseline;
@@ -74,9 +67,6 @@
   gap: var(--space-2);
   margin: 0;
   max-width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   color: var(--fg-default);
@@ -84,8 +74,10 @@
   overflow-wrap: anywhere;
 }
 
-/* Several `said` turns fold into one reply — one bubble, its paragraphs
-   stacked by `__message`'s own gap rather than a browser's `<p>` margin. */
+/* **Words sit on the panel's own ground, left aligned, in every voice.** The
+   label above them is what tells the voices apart. Several `said` turns fold
+   into one reply, its paragraphs stacked by `__message`'s own gap rather than
+   a browser's `<p>` margin. */
 .armada-helm-thread__message p {
   margin: 0;
 }
@@ -98,7 +90,7 @@
 }
 
 /* `#1041`. One `ask_person_to_approve` call, drawn within the reply that made
-   it — its own well, one step sunker than the message bubble it sits beside. */
+   it — its own well, a well of its own beside the message it answers. */
 .armada-helm-approval-card {
   display: flex;
   flex-direction: column;

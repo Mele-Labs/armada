@@ -224,6 +224,12 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "tool":
         out.push({ id: row.id, at, kind: "tool", text: row.text });
         break;
+      case "command":
+        out.push({ id: row.id, at, kind: "command", text: row.text });
+        break;
+      case "compaction":
+        out.push({ id: row.id, at, kind: "compaction", text: row.text });
+        break;
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;

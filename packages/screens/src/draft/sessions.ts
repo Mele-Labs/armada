@@ -108,6 +108,10 @@ export type SessionRow =
     }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
+  /** A command the person ran in the terminal, as typed. */
+  | { id: string; at: string; kind: "command"; text: string }
+  /** The summary the CLI wrote where it compacted the conversation: not the person's words. */
+  | { id: string; at: string; kind: "compaction"; text: string }
   /**
    * What a piloted Session starts with: the Job's own worktree, handed over,
    * and what Fleet knew when its Drone stopped. Structured, never prose.
