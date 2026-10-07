@@ -402,7 +402,7 @@ function OneJob(props: JobDetailProps) {
       <JobDetailHeaderActions
         {...heading}
         // A fix held for him, or a repair that found none, is the Job's alert.
-        {...(whole === null || !triggerAlert(whole.triggers ?? []) ? {} : { mark: <>{heading.mark}<TriggerAlertMark /></> })}
+        {...(whole === null || !(whole.job.alert !== undefined || triggerAlert(whole.triggers ?? [], whole.additions ?? [])) ? {} : { mark: <>{heading.mark}<TriggerAlertMark /></> })}
         onCopied={props.onCopied}
       />
       {/* Under the header and above the strip, because a job that was replaced
@@ -488,6 +488,7 @@ function OneJob(props: JobDetailProps) {
                     machineCap={props.machineCap ?? null}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                     {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+          {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
                   />
                 ),
               }
@@ -503,6 +504,7 @@ function OneJob(props: JobDetailProps) {
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+                      {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
                       onOpenJob={openJob}
                       {...(props.onSetLandingTarget === undefined
                         ? {}
@@ -579,6 +581,7 @@ function OneJob(props: JobDetailProps) {
           onRerun={props.onRerun}
           onRerunChecks={props.onRerunChecks}
           {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+          {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).

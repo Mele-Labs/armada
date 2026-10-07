@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { JobTrigger, TriggerSummary } from "@armada/protocol";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { FiredTriggers, RepairNode, RepairPrMark, TriggerAlertMark, TriggerRows } from "./WorkflowTriggers";
+import { FiredTriggers, HoldNode, holdsOf, JobAlertMark, RepairNode, RepairPrMark, TriggerAlertMark, TriggerRows } from "./WorkflowTriggers";
 
 /** What `list_triggers` answers: the machine's copy of `gate` over the repository's, and one the repository cannot run. */
 const LISTED: TriggerSummary[] = [
@@ -125,5 +125,24 @@ export const RepairEnds: Story = {
       await expect(ends.getAllByRole("img", { name })[0]).toBeVisible();
     }
     await expect(ends.getByText("#1751")).toBeVisible();
+  },
+};
+
+const HELD: JobTrigger = { name: "deploy_qa", when: "pr_opened", step: "handoff", level: "machine", state: "held", exit_code: 1, blocks: true };
+
+/** A blocking Trigger that failed holds the Job: the barrier, the name, Rerun and Skip, and the bell the Board row carries. */
+export const TriggerHolds: Story = {
+  render: () => (
+    <>
+      <HoldNode held={holdsOf([HELD])[0]!} onAct={fn().mockResolvedValue({ ok: true })} />
+      <JobAlertMark alert={{ kind: "held", trigger: "deploy_qa", when: "pr_opened", step: "handoff" }} />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const hold = within(canvasElement);
+    await expect(hold.getByRole("group", { name: "deploy_qa, PR opened, handoff" })).toBeVisible();
+    await expect(hold.getByRole("button", { name: "Rerun" })).toBeEnabled();
+    await expect(hold.getByRole("button", { name: "Skip" })).toBeEnabled();
+    await expect(hold.getAllByRole("img", { name: "Held, deploy_qa, PR opened, handoff" })).toHaveLength(2);
   },
 };

@@ -265,3 +265,38 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* A Trigger that holds its Job: one frame in the waiting hue, the barrier on a filled band, the
+   name in mono, and Rerun and Skip. Drawn on the connector it holds, so it takes presses. */
+.armada-hold {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  border: var(--border-width) solid var(--step-waiting);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-hold__band {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  background: var(--step-waiting);
+  color: var(--fg-inverse);
+}
+
+.armada-hold > .armada-triggers__name {
+  align-self: center;
+  padding: 0 var(--space-2);
+}
+
+.armada-hold__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}

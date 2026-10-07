@@ -1,7 +1,7 @@
 // Triggers.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { ChooseTriggerFix, Outcome } from "@armada/protocol";
+import type { ChooseTriggerFix, HoldAct, Outcome } from "@armada/protocol";
 
 import type {
   ReadingTrigger,
@@ -30,6 +30,12 @@ export type TriggersApi = {
    * own words, and leaves the firing as it was.
    */
   chooseTriggerFix: (jobId: string, body: ChooseTriggerFix) => Promise<Outcome>;
+  /**
+   * Run a held Trigger's Command again, or let it go. `body` names the Trigger or the added step,
+   * one of the two. A refusal comes back as the outcome, in Fleet's own words.
+   */
+  rerunTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
+  skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
 };
 
 export type TriggersState = Record<never, never>;
@@ -42,4 +48,6 @@ export const TRIGGERS_CHANNELS = {
   saveTrigger: "bridge:save-trigger",
   removeTrigger: "bridge:remove-trigger",
   chooseTriggerFix: "bridge:choose-trigger-fix",
+  rerunTrigger: "bridge:rerun-trigger",
+  skipTrigger: "bridge:skip-trigger",
 } as const;

@@ -28,8 +28,8 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
-import type { FromStudio, JobTrigger } from "@armada/protocol";
+import type { Figure, HoldVerb, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { AddedStep, FromStudio, HoldAct, JobTrigger } from "@armada/protocol";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
@@ -100,6 +100,8 @@ export type OverviewBoardProps = {
   workflow?: OverviewWorkflow;
   /** The Triggers frozen onto this Job and what each did. Absent or empty draws no card. */
   triggers?: readonly JobTrigger[];
+  additions?: readonly AddedStep[];
+  onHoldAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
   /** Go to a firing's line in the Job's log. */
   onOpenTriggerLog?: (trigger: JobTrigger) => void;
   /** Why there is no run to draw, where there is none. */
@@ -136,6 +138,8 @@ export function OverviewBoard({
   run,
   workflow,
   triggers,
+  additions,
+  onHoldAct,
   onOpenTriggerLog,
   workflowAbsent,
   plan,
@@ -157,7 +161,7 @@ export function OverviewBoard({
       {approving === undefined ? run : null}
       {triggers === undefined || triggers.length === 0 ? null : (
         <DestinationCard label="Triggers">
-          <FiredTriggers triggers={triggers} {...(onOpenTriggerLog === undefined ? {} : { onOpenLog: onOpenTriggerLog })} />
+          <FiredTriggers triggers={triggers} {...(additions === undefined ? {} : { additions })} {...(onHoldAct === undefined ? {} : { onHoldAct })} {...(onOpenTriggerLog === undefined ? {} : { onOpenLog: onOpenTriggerLog })} />
         </DestinationCard>
       )}
 

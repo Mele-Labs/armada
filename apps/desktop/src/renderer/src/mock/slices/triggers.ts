@@ -6,6 +6,7 @@ import type { AddedStepsApi } from "../../../../shared/api/added-steps";
 import type { TriggersApi, TriggersState } from "../../../../shared/api/triggers";
 import { TRIGGERS_NOTHING_YET } from "../../../../shared/api/triggers";
 import type { Slice } from "../fake-context";
+import { holdServed } from "../hold-fleet";
 import { repairServed } from "../repair-fleet";
 import { triggersServed } from "../triggers-fleet";
 
@@ -17,6 +18,7 @@ export const triggers: Slice<TriggersApi & AddedStepsApi, TriggersState> = {
   api: (_scenario, fleet) => ({
     ...triggersServed(),
     ...repairServed(fleet),
+    ...holdServed(fleet),
     addJobStep: async () => none,
     removeJobStep: async () => none,
   }),

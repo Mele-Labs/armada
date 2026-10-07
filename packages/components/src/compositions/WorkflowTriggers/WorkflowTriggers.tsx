@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Bell, Briefcase, Check, CircleDashed, CircleDot, Eye, FolderGit2, GitBranch, GitPullRequest, Minus, Package, Trash2, X } from "lucide-react";
+import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Minus, Package, RotateCw, SkipForward, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { JobTrigger, TriggerFiringState, TriggerFixChoice, TriggerLevel, TriggerSaved, TriggerScope, TriggerSkip, TriggerSummary } from "@armada/protocol";
+import type { AddedStep, HoldAct, JobAlert, JobTrigger, TriggerFiringState, TriggerFixChoice, TriggerLevel, TriggerMoment, TriggerSaved, TriggerScope, TriggerSkip, TriggerSummary } from "@armada/protocol";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -354,6 +354,7 @@ const STATE: Record<TriggerFiringState, { Glyph: LucideIcon; said: string; hue?:
   repairing: { Glyph: CircleDot, said: "Repair Drone working", hue: "running" },
   rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running" },
   fix_ready: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
+  held: { Glyph: Construction, said: "Held", hue: "waiting" },
 };
 
 /** The states a mark pulses in: what is still working. */
@@ -369,7 +370,18 @@ export function FiringMark({ trigger }: { trigger: JobTrigger }) {
  * What a Job holds of its Triggers, a row each: the state as a mark, the name, the moment, and
  * the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
  */
-export function FiredTriggers({ triggers, onOpenLog }: { triggers: readonly JobTrigger[]; onOpenLog?: (trigger: JobTrigger) => void }) {
+export function FiredTriggers({
+  triggers,
+  additions = [],
+  onOpenLog,
+  onHoldAct,
+}: {
+  triggers: readonly JobTrigger[];
+  additions?: readonly AddedStep[];
+  onOpenLog?: (trigger: JobTrigger) => void;
+  onHoldAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
+}) {
+  const holds = holdsOf(triggers, additions);
   return (
     <ul className="armada-triggers" aria-label="Triggers">
       {triggers.map((one) => (
@@ -386,8 +398,21 @@ export function FiredTriggers({ triggers, onOpenLog }: { triggers: readonly JobT
           )}
           <span className="armada-triggers__when">{whenSaid(one.when, one.step)}</span>
           <LevelMark level={one.level} />
+          {holds.some((held) => held.key === `${one.when}|${one.step}|${one.name}`) ? (
+            <HoldActs held={holds.find((held) => held.key === `${one.when}|${one.step}|${one.name}`)!} {...(onHoldAct === undefined ? {} : { onAct: onHoldAct })} />
+          ) : null}
         </li>
       ))}
+      {holds
+        .filter((held) => held.by.addition !== undefined)
+        .map((held) => (
+          <li key={held.key} className="armada-triggers__row armada-triggers__row--fired">
+            <Mark icon={Construction} label="Held" hue="waiting" />
+            <span className="armada-triggers__name">{held.name}</span>
+            <span className="armada-triggers__when">{momentOf(held.when, held.step)}</span>
+            <HoldActs held={held} {...(onHoldAct === undefined ? {} : { onAct: onHoldAct })} />
+          </li>
+        ))}
     </ul>
   );
 }
@@ -411,6 +436,7 @@ export function repairPhase(trigger: JobTrigger): RepairPhase {
     case "passed":
       return "done";
     case "failed":
+    case "held":
       return "failed";
     default:
       return "none";
@@ -426,13 +452,15 @@ export function repairsOf(triggers: readonly JobTrigger[]): JobTrigger[] {
  * Whether a Job has an alert from its Triggers: a fix held with no choice made, and a repair that
  * found no fix. Fleet's own rule for `list_alerts`, kept to the latest firing of each Trigger.
  */
-export function triggerAlert(triggers: readonly JobTrigger[]): boolean {
+export function triggerAlert(triggers: readonly JobTrigger[], additions: readonly AddedStep[] = []): boolean {
   const latest = new Map<string, JobTrigger>();
   for (const one of triggers) latest.set(one.name, one);
-  return [...latest.values()].some((one) => {
-    const phase = repairPhase(one);
-    return phase === "asking" || phase === "failed";
-  });
+  return (
+    [...latest.values()].some((one) => {
+      const phase = repairPhase(one);
+      return phase === "asking" || phase === "failed";
+    }) || holdsOf(triggers, additions).length > 0
+  );
 }
 
 /** What a repair makes of the Trigger's own mark where it is on the branch. */
@@ -512,4 +540,97 @@ export const endsInPr = (trigger: JobTrigger): boolean => repairPhase(trigger) =
 /** The Job's alert: a fix held for him, or a repair that found none. */
 export function TriggerAlertMark() {
   return <Mark icon={Bell} label="Alert" hue="failed" />;
+}
+
+/** What each kind of a Board row's alert is called in its tooltip. */
+const ALERT: Record<JobAlert["kind"], { said: string; hue: string }> = {
+  held: { said: "Held", hue: "waiting" },
+  fix_ready: { said: "Fix ready", hue: "waiting" },
+  failed: { said: "Failed", hue: "failed" },
+};
+
+/** A Trigger's moment with the step it fired at, for a PR that is the step that delivers. */
+const momentOf = (when: TriggerMoment, step: string): string => (when === "pr_opened" ? (step === "" ? "PR opened" : `PR opened, ${step}`) : whenSaid(when, step));
+
+/** A Board row's bell: one mark, and a tooltip of the Trigger and where it fired. No count. */
+export function JobAlertMark({ alert }: { alert: JobAlert }) {
+  const { said, hue } = ALERT[alert.kind];
+  return <Mark icon={Bell} label={`${said}, ${alert.trigger}, ${momentOf(alert.when, alert.step)}`} hue={hue} />;
+}
+
+/** What a Trigger or an added step that holds its Job is, and the body that names it to Fleet. */
+export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState };
+
+/** `rerun` runs the Command again; `skip` lets it go. */
+export type HoldVerb = "rerun" | "skip";
+
+/** The states in which a blocking firing still holds the Job: held, and the repair that works on it. */
+const HOLDING: readonly TriggerFiringState[] = ["held", "repairing", "rerunning", "fix_ready"];
+
+const additionName = (one: AddedStep): string =>
+  one.runs.kind === "script" ? one.runs.command : one.runs.kind === "skill" ? one.runs.skill : one.runs.brief;
+
+/** What holds the Job now, from the latest firing of each Trigger and each added step. */
+export function holdsOf(triggers: readonly JobTrigger[], additions: readonly AddedStep[] = []): Held[] {
+  const latest = new Map<string, JobTrigger>();
+  for (const one of triggers) latest.set(`${one.when}|${one.step}|${one.name}`, one);
+  const held: Held[] = [];
+  for (const [key, one] of latest) {
+    if (one.state === "held" || (one.blocks === true && HOLDING.includes(one.state))) {
+      held.push({ key, name: one.name, when: one.when, step: one.step, by: { trigger: one.name }, state: one.state });
+    }
+  }
+  for (const one of additions) {
+    if (one.state === "held" || (one.block && HOLDING.includes(one.state))) {
+      held.push({ key: `addition|${one.id}`, name: additionName(one), when: one.when, step: one.step, by: { addition: one.id }, state: one.state });
+    }
+  }
+  return held;
+}
+
+/** Rerun and Skip on a hold. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
+function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
+  const [sent, setSent] = useState(false);
+  const act = async (verb: HoldVerb) => {
+    if (onAct === undefined) return;
+    setSent(true);
+    const answer = await onAct(verb, held.by);
+    if (answer !== undefined && !answer.ok) setSent(false);
+  };
+  // A fix waiting on its choice is skipped like a hold, and rerun only through that choice.
+  const live = onAct !== undefined && !sent;
+  return (
+    <span className="armada-hold__acts nodrag nopan">
+      <Tooltip label="Rerun" asChild>
+        <Button variant="ghost" iconOnly aria-label="Rerun" disabled={!live || held.state !== "held"} onClick={() => void act("rerun")}>
+          <RotateCw size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+      <Tooltip label="Skip" asChild>
+        <Button variant="ghost" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready")} onClick={() => void act("skip")}>
+          <SkipForward size={12} strokeWidth={2} aria-hidden />
+        </Button>
+      </Tooltip>
+    </span>
+  );
+}
+
+/**
+ * A Trigger that holds the Job, as one frame: a filled band with the barrier, the Trigger's name,
+ * and the two things the owner does about it. Drawn on the line it holds, beside a node, and under
+ * a step in the stacked run.
+ */
+export function HoldNode({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
+  const moment = momentOf(held.when, held.step);
+  return (
+    <div className="armada-hold" role="group" aria-label={`${held.name}, ${moment}`}>
+      <Tooltip label={`${held.name}, ${moment}`}>
+        <span className="armada-hold__band" role="img" aria-label={`Held, ${held.name}, ${moment}`}>
+          <Construction size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="armada-triggers__name">{held.name}</span>
+      <HoldActs held={held} {...(onAct === undefined ? {} : { onAct })} />
+    </div>
+  );
 }

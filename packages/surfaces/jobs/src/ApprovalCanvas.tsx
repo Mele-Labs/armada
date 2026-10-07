@@ -57,7 +57,8 @@ import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { CARD, layoutOf, narrowOf } from "./approval-layout";
-import { nextAfter, repairBranches, type ChooseTriggerFixCall } from "./repair-branch";
+import { holdsOf } from "@armada/components";
+import { nextAfter, repairBranches, withHolds, type ChooseTriggerFixCall, type HoldActCall } from "./repair-branch";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -180,6 +181,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenStudio?: OpenStudioFrom;
   /** Past the gate, where a failed Trigger's held fix goes: the branch the repair grows asks. */
   onChooseTriggerFix?: ChooseTriggerFixCall;
+  /** Rerun or skip a Trigger that holds the Job. */
+  onHoldAct?: HoldActCall;
 };
 
 export function ApprovalCanvas({
@@ -193,6 +196,7 @@ export function ApprovalCanvas({
   onOpenTask,
   onOpenStudio,
   onChooseTriggerFix,
+  onHoldAct,
   whole,
   edits,
   onEdits,
@@ -312,8 +316,9 @@ export function ApprovalCanvas({
     },
     (anchor) => nextAfter(layout.edges, anchor),
     onChooseTriggerFix,
+    { holds: holdsOf(whole.triggers ?? [], whole.additions ?? []), spine: layout.edges, act: onHoldAct },
   );
-  const drawnEdges = [...flowingOf(nodes, layout.edges, steps), ...branch.edges];
+  const drawnEdges = [...withHolds(flowingOf(nodes, layout.edges, steps), branch.onLine), ...branch.edges];
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,

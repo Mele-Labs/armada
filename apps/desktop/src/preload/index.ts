@@ -6,7 +6,7 @@ import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened, ChooseTriggerFix, FixMain } from "@armada/protocol";
+import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -495,6 +495,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
   chooseTriggerFix: (jobId: string, body: ChooseTriggerFix): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.chooseTriggerFix, jobId, body),
+  rerunTrigger: (jobId: string, body: HoldAct): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunTrigger, jobId, body),
+  skipTrigger: (jobId: string, body: HoldAct): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.skipTrigger, jobId, body),
 
   addJobStep: (adding: AddingStep): Promise<AddStepAnswer> => ipcRenderer.invoke(CHANNELS.addJobStep, adding),
   removeJobStep: (removing: RemovingStep): Promise<RemoveStepAnswer> =>

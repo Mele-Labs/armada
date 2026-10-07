@@ -200,8 +200,8 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
-export { endsInPr, FiredTriggers, FiringMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export type { RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export { endsInPr, FiredTriggers, FiringMark, HoldNode, holdsOf, JobAlertMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export type { Held, HoldVerb, RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
 export type {
   TriggerDraft,

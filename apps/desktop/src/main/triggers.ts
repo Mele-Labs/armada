@@ -3,7 +3,7 @@
 // `workflows.ts`'s shape. A save names the Manifest it is checked against, which is not always the
 // pick's: a machine Trigger is checked against whichever repository the person is looking at.
 
-import type { ChooseTriggerFix, Outcome, TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
+import type { ChooseTriggerFix, HoldAct, Outcome, TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
 
 import type {
   ReadingTrigger,
@@ -17,7 +17,7 @@ import type {
 import type { Picked } from "./picked";
 import { ask, NOT_SET_UP, NO_WAIT, route } from "./request";
 
-/** `list_triggers`, `get_trigger`, `save_trigger`, `remove_trigger` and `choose_trigger_fix`. */
+/** `list_triggers`, `get_trigger`, `save_trigger`, `remove_trigger`, `choose_trigger_fix`, `rerun_trigger` and `skip_trigger`. */
 export class TriggerCommands {
   private readonly port: () => number | null;
   private readonly picked: Picked;
@@ -87,6 +87,28 @@ export class TriggerCommands {
     const port = this.port();
     if (port === null) return { ok: false, why: "not_connected" };
     const answer = await ask(port, "POST", route(jobId, "choose_trigger_fix"), body, NO_WAIT);
+    if (answer.ok !== true) return answer.outcome;
+    return { ok: true };
+  }
+
+  /**
+   * Run a held Trigger's Command again. **`NO_WAIT`**: it takes as long as the Command does. A pass
+   * releases the hold and a failure leaves it held, and either way the firing's own
+   * `job.trigger_changed` re-reads the Job, so only a refusal is worth telling the caller.
+   */
+  async rerun(jobId: string, body: HoldAct): Promise<Outcome> {
+    return this.act(jobId, "rerun_trigger", body, NO_WAIT);
+  }
+
+  /** Let a held Trigger go. Fleet records the firing skipped, by the owner. */
+  async skip(jobId: string, body: HoldAct): Promise<Outcome> {
+    return this.act(jobId, "skip_trigger", body);
+  }
+
+  private async act(jobId: string, verb: string, body: HoldAct, wait?: number): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    const answer = await ask(port, "POST", route(jobId, verb), body, wait);
     if (answer.ok !== true) return answer.outcome;
     return { ok: true };
   }

@@ -11,3 +11,10 @@
   size = "12px"
   status = "Specified"
   notes = "Added 7 Oct 2026 with Self repair, beside the status badge in the Job's header. Tooltip `Alert`. It is the mark `list_alerts` carries for the same Job, drawn from the Job's own Triggers, since the Job's status does not move."
+
+[[icons.bell.usage]]
+  means = "A Board row's alert: a Trigger holds the Job, a repair's fix waits on the owner, or a Trigger failed after its repair tries"
+  group = "Trigger"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`. The same mark as the open Job's alert, drawn from `JobSummary.alert`, so the row and the header say the same fact. Tooltip names the Trigger, its moment and the step. One mark, no count."

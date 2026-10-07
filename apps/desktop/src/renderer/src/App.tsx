@@ -865,6 +865,7 @@ export function App({ draft }: AppProps = {}) {
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob} onSetLandingTarget={commands.setLandingTarget} onToProposer={commands.toProposer}
                   onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix}
+                  onHoldAct={(jobId, act, by) => (act === "rerun" ? commands.rerunTrigger(jobId, by) : commands.skipTrigger(jobId, by))}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
