@@ -182,6 +182,18 @@ describe("the thread", () => {
     expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
   });
 
+  it("keeps a command and a compaction as the rows they are, never a message", () => {
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "command", id: "c", at: AT, text: "/reload-plugins" },
+        { kind: "compaction", id: "k", at: AT, text: "This session is being continued" },
+      ],
+      () => undefined,
+    );
+    expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
+  });
+
   it("names another session's message by sender, and keeps the first write as a row", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });

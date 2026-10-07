@@ -134,6 +134,10 @@ export type SessionRow =
     }
   /** A tool call, one line. */
   | { kind: "tool"; id: string; at: string; text: string }
+  /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
+  | { kind: "command"; id: string; at: string; text: string }
+  /** The summary the CLI wrote where it compacted the conversation. Not the person's words. Since 23.56. */
+  | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
   /**
