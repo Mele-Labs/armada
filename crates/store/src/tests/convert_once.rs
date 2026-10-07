@@ -59,8 +59,10 @@ fn convert(dir: &TempDir) -> (bool, String) {
     )
 }
 
+/// The frozen entries and the one file, and no other file: a migration added
+/// since would count as applied here and move the total the case asserts.
 fn with_the_file() -> Vec<Migration> {
-    MIGRATIONS
+    MIGRATIONS[..LEGACY_COUNT]
         .iter()
         .copied()
         .chain([Migration::additive(NAME, V115)])
