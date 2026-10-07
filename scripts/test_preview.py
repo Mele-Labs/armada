@@ -145,6 +145,28 @@ class Preview(unittest.TestCase):
             cwd=self.wt, capture_output=True, text=True, check=True).stdout.splitlines()
         return [s.split("'")[1] for s in subjects]
 
+    def land_on_origin_main(self, name):
+        """A commit only `origin/main` has, as a pull request landing after the checkout last pulled."""
+        self.git("checkout", "-q", "-b", f"landed-{name}", "main")
+        self.write(f"{name}.txt", f"{name}\n")
+        self.commit(f"landed: {name}")
+        self.git("update-ref", "refs/remotes/origin/main", f"refs/heads/landed-{name}")
+        self.git("checkout", "-q", "main")
+
+    def test_a_checkout_behind_origin_main_previews_what_has_landed(self):
+        self.land_on_origin_main("landed")
+        self.hold()
+        self.run_preview()
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "landed.txt")))
+
+    def test_a_local_main_ahead_of_origin_main_is_the_base(self):
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write("ahead.txt", "ahead\n")
+        self.commit("main: ahead of the remote")
+        self.hold()
+        self.run_preview()
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "ahead.txt")))
+
     def test_merges_oldest_commit_first_not_by_name(self):
         self.branch("feat/z-oldest", {"z.txt": "z\n"})
         self.branch("feat/a-newest", {"n.txt": "n\n"})
