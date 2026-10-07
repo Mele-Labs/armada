@@ -13,7 +13,7 @@ function steps(narrow: boolean): Step[] {
   const frame = region("Session s5");
   return [
     { look: inside(sessions, role("listitem", "Retire the sleeps")), say: "Fourteen pull requests, four of them merged. The row shows only the open ones, the newest that fit on one line, then a … holding the rest. The time is at the top right" },
-    { look: inside(sessions, role("listitem", "Prune the stale branches")), say: "Amber edge: it is asking for a permission. Blue is working, green is idle with nothing asked, dim is not started. The PR chips stay neutral and only the checks icon is coloured" },
+    { look: inside(sessions, role("listitem", "Prune the stale branches")), say: "Amber edge: it is asking for a permission. Blue is working, green is idle with nothing asked, dim is not started. The checks icon sits inside the PR chip past a divider, coloured by how they stand, and the chip itself stays neutral" },
     { look: inside(sessions, role("listitem", "Review the ledger change")), say: "This one opened with an agent message, and shows the first line of what was said. Nothing is open on it, so it has no second line" },
     { press: rail("Sessions"), say: "The Sessions page" },
     { press: inside(sessions, button(/Review the ledger change/)), say: "Open the one from a terminal" },

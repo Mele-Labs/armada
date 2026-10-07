@@ -62,7 +62,7 @@ export const AtRest: Story = {
 export const Found: Story = {
   args: { groups: [{ label: "Needs you", rows: [{ ...FLAKY, matched: { kind: "pull_request", number: 1843 } }] }], query: "#1843" },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Matched Pull request #1843" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: /^Matched Pull request #1843/ })).toBeInTheDocument();
   },
 };
 
@@ -88,7 +88,7 @@ export const Crowded: Story = {
     const more = canvas.getByRole("img", { name: /^Also open:/ });
     await expect(more).toHaveTextContent("…");
     // The newest is kept and the oldest is in the tooltip.
-    await expect(canvas.getByRole("img", { name: "Pull request #1854" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: /^Pull request #1854/ })).toBeInTheDocument();
     await expect(more.getAttribute("aria-label")).toContain("#1843");
     await expect(more.getAttribute("aria-label")).not.toContain("#1854");
   },
@@ -108,9 +108,12 @@ export const NothingOpen: Story = {
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("img", { name: "Pull request #1801" })).toBeNull();
-    await expect(canvas.queryByRole("img", { name: "Pull request #1803" })).toBeNull();
-    await expect(canvas.getByRole("img", { name: "Pull request #1802" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("img", { name: /^Pull request #1801/ })).toBeNull();
+    await expect(canvas.queryByRole("img", { name: /^Pull request #1803/ })).toBeNull();
+    const open = canvas.getByRole("img", { name: /^Pull request #1802/ });
+    await expect(open).toBeInTheDocument();
+    // The Checks are inside the chip, past its divider.
+    await expect(open.querySelector(".armada-ref-chip__checks")).not.toBeNull();
     const row = canvas.getByRole("listitem", { name: "All landed" });
     await expect(row.querySelector(".armada-session-list__chips")).toBeNull();
     await expect(canvas.queryByRole("img", { name: /^Also open:/ })).toBeNull();

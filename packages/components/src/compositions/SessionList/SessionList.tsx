@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Search, ShieldCheck, ShieldEllipsis, ShieldX } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -51,8 +50,6 @@ export type SessionListProps = {
   /** The moment times are counted from; the clock, unless a story fixes it. */
   now?: number;
 };
-
-const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
 
 const same = (a: OwnerChipRef | undefined, b: OwnerChipRef): boolean => a !== undefined && JSON.stringify(a) === JSON.stringify(b);
 
@@ -151,19 +148,13 @@ function itemsOf(row: SessionRowView): Item[] {
     node: <Chip chip={{ kind: "slot", slot }} matched={same(row.matched, { kind: "slot", slot })} />,
   }));
   for (const pr of row.pullRequests.filter((one) => one.state !== "merged")) {
-    const Glyph = CHECKS[pr.checks];
     items.push({
       key: `pr${pr.number}`,
       fixed: false,
       label: `#${pr.number}`,
       node: (
         <span className="armada-session-list__pr" data-checks={pr.checks}>
-          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} />
-          <Tooltip label={pr.said}>
-            <span className="armada-session-list__checks" role="img" aria-label={pr.said}>
-              <Glyph size={12} strokeWidth={2} aria-hidden />
-            </span>
-          </Tooltip>
+          <Chip chip={{ kind: "pull_request", number: pr.number }} matched={same(row.matched, { kind: "pull_request", number: pr.number })} checks={{ state: pr.checks, said: pr.said }} />
         </span>
       ),
     });
