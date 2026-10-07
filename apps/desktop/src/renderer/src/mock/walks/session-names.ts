@@ -12,9 +12,16 @@ function steps(narrow: boolean): Step[] {
   const sessions = region("Sessions");
   const frame = region("Session s5");
   return [
-    { look: inside(sessions, role("listitem", "Retire the sleeps")), say: "The name is its own line. Six pull requests wrap on the line under it" },
+    { look: inside(sessions, role("listitem", "Retire the sleeps")), say: "The name is its own line. Six pull requests wrap on the line under it, and the time is how long ago the last turn was" },
     { look: inside(sessions, role("listitem", "Review the ledger change")), say: "This one opened with an agent message, and shows the first line of what was said" },
-    { press: inside(sessions, button("Review the ledger change")), say: "Opened" },
+    { press: rail("Sessions"), say: "The Sessions page" },
+    { type: "j", into: sessions, say: "j goes to the next Session down the list and opens it" },
+    { look: region("Session s2"), say: "The first one is open" },
+    { type: "j", into: region("Session s2"), say: "j again" },
+    { type: "j", into: region("Session s3"), say: "And once more" },
+    { type: "k", into: frame, say: "k goes back up" },
+    { look: region("Session s3"), say: "To the one above" },
+    { type: "j", into: region("Session s3"), say: "Down to the Session this walk renames" },
     { look: frame, say: "The name is in the header" },
     { press: inside(frame, button("Review the ledger change, rename")), say: "A press on the name edits it where it stands" },
     { type: "Ledger review\n", into: inside(frame, role("textbox", "Session name")), say: "Typed, and Enter saves it" },

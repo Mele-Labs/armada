@@ -146,6 +146,8 @@ export type Session = {
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */
   lastTurn?: string;
+  /** The same instant, for the list's "4m" and "2h". Absent where only the clock is known. */
+  lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
   /** Tags chosen and not yet sent: they wait in the message box as chips. */

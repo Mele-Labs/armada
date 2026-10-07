@@ -29,7 +29,10 @@ export type SessionRowView = {
   jobs: readonly { id: string; number: number }[];
   /** What the search matched in this Session, where it matched an attachment. */
   matched?: OwnerChipRef;
+  /** The clock time of the last turn, which the tooltip keeps. */
   lastTurn?: string;
+  /** When it was, so the row can say how long ago. */
+  lastTurnAt?: string;
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -40,13 +43,25 @@ export type SessionListProps = {
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
   onStart: () => void;
+  /** The moment times are counted from; the clock, unless a story fixes it. */
+  now?: number;
 };
 
 const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
 
 const same = (a: OwnerChipRef | undefined, b: OwnerChipRef): boolean => a !== undefined && JSON.stringify(a) === JSON.stringify(b);
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart }: SessionListProps) {
+/** Time since `at`, as "4m", "2h" or "3d"; nothing for a stamp that will not parse. */
+export function since(at: string, now: number): string | undefined {
+  const then = Date.parse(at);
+  if (Number.isNaN(then)) return undefined;
+  const minutes = Math.max(0, Math.floor((now - then) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+export function SessionList({ groups, query, onQuery, onOpen, onStart, now = Date.now() }: SessionListProps) {
   return (
     <section className="armada-session-list" aria-label="Sessions">
       <div className="armada-session-list__head">
@@ -97,9 +112,9 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart }: Session
                   ))}
                   {row.matched?.kind === "branch" ? <Chip chip={row.matched} matched /> : null}
                   {row.lastTurn === undefined ? null : (
-                    <Tooltip label="Last turn">
+                    <Tooltip label={`Last turn ${row.lastTurn}`}>
                       <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
-                        {row.lastTurn}
+                        {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
                       </span>
                     </Tooltip>
                   )}
