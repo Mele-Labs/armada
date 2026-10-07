@@ -38,6 +38,7 @@ import { RehearsalConnection } from "./rehearsal";
 import { ManifestFileCommands } from "./editing";
 import { PlanEdits } from "./plan-edits";
 import { KitCommands } from "./kit";
+import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { RepositoryReads } from "./repositories";
@@ -105,6 +106,7 @@ export class FleetConnection {
       repositoryAllows: RepositoryAllowsCommands;
       kit: KitCommands;
       workflows: WorkflowCommands;
+      triggers: TriggerCommands;
       overview: OverviewReads;
     }
   >();
@@ -331,6 +333,11 @@ export class FleetConnection {
     return this.facadesFor(windowId).workflows;
   }
 
+  /** This window's own Trigger reads and saves — see `windowFacades`. */
+  triggersFor(windowId: number): TriggerCommands {
+    return this.facadesFor(windowId).triggers;
+  }
+
   /** This window's own Overview reads — see `windowFacades`. */
   overviewFor(windowId: number): OverviewReads {
     return this.facadesFor(windowId).overview;
@@ -343,6 +350,7 @@ export class FleetConnection {
     repositoryAllows: RepositoryAllowsCommands;
     kit: KitCommands;
     workflows: WorkflowCommands;
+    triggers: TriggerCommands;
     overview: OverviewReads;
   } {
     let found = this.windowFacades.get(windowId);
@@ -354,6 +362,7 @@ export class FleetConnection {
         repositoryAllows: new RepositoryAllowsCommands(port, picked),
         kit: new KitCommands(port, picked),
         workflows: new WorkflowCommands(port, picked),
+        triggers: new TriggerCommands(port, picked),
         overview: new OverviewReads({
           publish: (change) => this.wiring.publishToWindow(windowId, change),
           picked,

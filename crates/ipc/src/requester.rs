@@ -11,7 +11,7 @@
 //! | `gate` | A Job's step gate | `job_id`, `step` |
 //! | `drone_task` | A Drone asking for the Checks on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
 //! | `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
-//! | `merge_line` | The merge line, for one branch | `branch`, and `job_id` with `handle` where a Job owns the branch. Since 23.54 |
+//! | `merge_line` | The merge line, for one branch | `branch`, and `job_id` with `handle` where a Job owns the branch. Since 23.64 |
 //! | `outside` | Nothing in Armada: a person's press, a bare `armada check` | none |
 //!
 //! **`outside` is a value and never an absence.** A record written before this

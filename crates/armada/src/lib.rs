@@ -33,11 +33,7 @@
 //! worktrees agents lease.
 //!
 //! [`need`](mod@need) is `armada need`: what a branch needs on a path, and who
-//! is ahead of it there; [`land`](mod@land) holds a branch behind them.
-//!
-//! [`land`](mod@land) is `armada land`, the merge line: the queue on disk,
-//! the gate, the turn lock and the detached runner. `scripts/land` is a
-//! shim over it.
+//! is ahead of it there.
 
 pub mod agent;
 pub mod authoring;
@@ -45,7 +41,6 @@ mod booting;
 pub mod clean;
 pub mod cli;
 pub mod declared;
-pub mod land;
 pub mod leasing;
 pub mod locating;
 pub mod loopback;
@@ -56,6 +51,7 @@ pub mod reaching;
 pub mod say;
 pub mod serve;
 pub mod setup;
+mod trigger_authoring;
 pub mod watching;
 
 #[cfg(test)]

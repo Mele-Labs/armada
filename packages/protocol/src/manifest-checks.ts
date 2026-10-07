@@ -42,7 +42,7 @@ export type ManifestCheckRow = {
   /**
    * A gate row's outcome (`passed`, `failed`, `signalled`, `timed_out`,
    * `never_ran`, `skipped`) or an asked run's state (`running`, `passed`,
-   * `failed`, `stopped`, `lost`). **Since 23.54 also `waiting`** on a gate row and an asked run,
+   * `failed`, `stopped`, `lost`). **Since 23.64 also `waiting`** on a gate row and an asked run,
    * and `running` on a gate row, which has `started_at` and no `ended_at`. Opaque strings.
    */
   state: string;

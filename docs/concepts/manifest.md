@@ -170,7 +170,7 @@ Separate registries, not the same thing tagged two ways:
 | Registry | Purpose | Invoked by |
 | --- | --- | --- |
 | Checks | Mandatory — must pass to land or advance code | Fleet, as part of mechanical verification |
-| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, and you directly via Bridge |
+| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, Fleet for a [Trigger](trigger.md), and you directly via Bridge |
 | Evidence | Declares the harness — how this repo shows what a change did | Fleet, on a step whose evidence type is `visual` |
 | Ports | Names a port a workspace needs, so Armada can place it | Nothing invokes it — Fleet reads it at claim time |
 
@@ -434,7 +434,6 @@ Decided 2 Oct 2026, with the machine at load 20 to 32 on 18 cores and most of it
 Rules that follow:
 
 - **`ARMADA_CHECK_PRIORITY=normal` turns it off.** Any other value, or none, lowers. Set it in the environment of `armada check`, or of Fleet for its Checks.
-- **The merge line sets it on every Check it runs**, explicitly rather than by inheritance, so `scripts/land` is never lowered by whoever called it.
 - **A Command run on its own is never lowered.** `armada run <name>` keeps normal priority; the same Command run as a Check's prerequisite takes that Check's.
 - **`ps -o pri,ni,pid,command` shows it** as priority 20 where normal work is 31. `ni` stays 0, because it is not `nice`.
 - **Utility, not `nice` and not background**, measured on the owner's M5 Pro with 24 busy loops saturating it, a four-worker job at normal priority timed beside each:

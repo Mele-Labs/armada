@@ -118,3 +118,86 @@ pub(crate) async fn list_left_out_workflows<D: Queries>(
         Err(refusal) => refused(refusal),
     }
 }
+
+/// What one repository runs at each moment of a Job, and the files it left out.
+pub(crate) async fn list_triggers<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    match served.daemon().list_triggers(scope.manifest()).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?when=`, `?step=`, `?name=` and `?source=` on `get_trigger`, beside
+/// `?manifest_id=`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OneTrigger {
+    when: ipc::TriggerMoment,
+    #[serde(default)]
+    step: Option<String>,
+    name: String,
+    #[serde(default)]
+    source: Option<ipc::TriggerLevel>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// One Trigger as its file holds it. A 422 where this repository holds none.
+pub(crate) async fn get_trigger<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<OneTrigger>,
+) -> Response {
+    match served
+        .daemon()
+        .get_trigger(
+            asked.when,
+            asked.step.map(ipc::StepId::carried),
+            asked.name,
+            asked.source,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Check one Trigger and write it in the scope named. **200 and not 201**, for
+/// `save_workflow`'s reason.
+pub(crate) async fn save_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SaveTrigger = match ipc::decode("a Trigger to save", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_trigger(asked, scope.manifest()).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Delete the file that holds one Trigger in a scope.
+pub(crate) async fn remove_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::RemoveTrigger = match ipc::decode("a Trigger to remove", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .remove_trigger(asked, scope.manifest())
+        .await
+    {
+        Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

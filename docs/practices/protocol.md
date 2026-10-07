@@ -3172,7 +3172,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3232,6 +3232,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
 **A row is `message`, `tool`, `lease` or `ask`**, tagged by `kind`. A message's `from` is `you`, `agent` or `session`, with the other session named. An ask carries the whole `HelmCallInFlight` and a `state`, and is replaced by id as it is answered. `session.changed` still carries the row whole, now with `hosted`: the `turn` (`idle`, or `working` with `woken_by` where another session started it), what the agent is `asked`, `model`, `effort`, `mode` and whether a process is `running`.
@@ -3279,7 +3280,35 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
-## Protocol 23.54: Checks reported while they wait
+## Protocol 23.56: a command and a compaction in a terminal session's thread
+
+`docs/concepts/session.md`, *A terminal session's thread*. **Additive only**: two row kinds and nothing else. 23.53 is the terminal session.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `session.row`, `get_session` | `SessionRow` kind `command`: `text` | A slash command or `!` shell line as the person typed it, `/reload-plugins` or `/model opus`. **No markup and no output**: the command's own output is not drawn |
+| `session.row`, `get_session` | `SessionRow` kind `compaction`: `text` | The summary the CLI wrote in place of a conversation it compacted. It is neither the person's nor the agent's words |
+
+Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
+## Protocol 23.58: Triggers on the wire
+
+`docs/concepts/trigger.md`. **Additive only**: four operations, one event, the DTOs of `ipc::triggers` and one optional field on `JobDetail`. 23.52 is a session's name.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_triggers` (`GET /triggers`) | nothing, or `?manifest_id=` | `TriggerList`: `triggers` (`name`, `when`, `workflow?`, `step?`, `runs`, `block`, `repair`, `level`, `file`, `skipped?`, `overrides`) and `left_out` (`level`, `file`, `said`). One object, because it starts as one. `Yes` |
+| `get_trigger` (`GET /triggers/definition`) | `?when=&step=&name=&source=` | `TriggerDefinition`: the YAML text beside the identity, `level` and `overridden_by?`. 422 `fleet.no_such_trigger`. `Yes` |
+| `save_trigger` (`POST /triggers/save`) | `SaveTrigger`: `scope` (`repository` or `machine`), `definition`, `overwrite?` | `TriggerSaved`, with `runs_from?`, `waits_for_main` and `skipped?`. 422 `fleet.trigger_unfit`, `fleet.trigger_name_not_a_name`, `fleet.trigger_exists`; 500 `fleet.trigger_unwritable`. `Bridge only` |
+| `remove_trigger` (`POST /triggers/remove`) | `RemoveTrigger`: `scope`, `when`, `step?`, `name` | `TriggerRemoved`. 422 `fleet.no_such_trigger`. `Bridge only` |
+| `job.trigger_changed` (event) | `JobTriggerChanged`: `job_id`, `trigger`, `at` | The row whole, on each state a firing reaches. Bridge re-reads the open Job |
+| `JobDetail.triggers` | `JobTrigger`: `name`, `when`, `step`, `level`, `state`, `skipped?`, `exit_code?`, `started_at?`, `ended_at?`, `log_at?` | `pending` is a frozen Trigger no moment has reached. Absent from a Fleet before 23.58 and where empty |
+
+**The event stream: slightly worse, and bounded.** At most two messages a firing, to open and to end, on the one drop-oldest channel. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
+
+**`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+
+## Protocol 23.64: Checks reported while they wait
 
 `docs/concepts/manifest.md`, *How many Checks run at once*. **Additive only**: no field and no operation, two new values and one id that was absent.
 
@@ -3287,10 +3316,10 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | --- | --- | --- |
 | `list_manifest_checks` | A `gate` row with `state` `waiting` or `running` | One per Check of a running gate that has not finished, with no `ended_at` and, while waiting, no `started_at`. **Waiting covers every wait**: an earlier Check at the one-at-a-time gate, a prerequisite, a place, a machine slot. A finished Check is the stored ruling's row, as before |
 | `list_manifest_checks` | An `asked_run` row with `state` `waiting` | A Drone's run that has started none of its Checks. Reads `running` once one starts |
-| `get_merge_lines` | `MergeLineCheck.requester.job_id` and `handle` | On a branch some Job owns. Absent on one none does. A Bridge from before 23.54 ignores them |
+| `get_merge_lines` | `MergeLineCheck.requester.job_id` and `handle` | On a branch some Job owns. Absent on one none does. A Bridge from before 23.64 ignores them |
 | `get_merge_lines` | `MergeLineEntry.checks` on a queued branch | A branch in `line` with state `waiting` that a Job owns lists the Manifest's declared Checks, each `waiting` and naming the Job, until the line gates it and writes its own. Absent on a branch no Job owns |
 
-**A known cost of calling this minor.** A Bridge from before 23.54 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/surfaces/jobs/src/manifest-checks.ts`.
+**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/surfaces/jobs/src/manifest-checks.ts`.
 
 ## Open questions
 

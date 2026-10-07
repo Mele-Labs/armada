@@ -258,13 +258,11 @@ checks:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
-  # The Python suite for the hook that keeps agents landing through the merge
-  # line. `scripts/test_land.py`, the suite for the line's own script, is no
-  # longer a Check: it was the slowest one in every turn and the line it tests
-  # is being replaced by CI and pull requests.
+  # The Python suite for the hook that keeps agents landing through pull
+  # requests and `ci`.
   hooks_test:
     # What `.claude/hooks/guard_merge.py` refuses and what it lets through. A
-    # failure means either a merge to `main` can walk past the line, or — the
+    # failure means either a merge to `main` can walk past `ci`, or — the
     # half that costs more — an ordinary branch push is being refused and every
     # agent in the repository is stuck. It runs no git and no `gh`: a payload in,
     # a decision out, in under a second.

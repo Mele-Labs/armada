@@ -4,7 +4,7 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
-import type { HostedFacts } from "./hosted-sessions";
+import type { HostedFacts, SessionMode } from "./hosted-sessions";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -67,6 +67,22 @@ export type SessionRecord = {
   attachments: Attachment[];
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
+  /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
+  terminal?: TerminalFacts;
+};
+
+/** A command a terminal session lists, for `/` to offer. Since 23.53. */
+export type TerminalCommand = { name: string; says: string };
+
+/**
+ * What a session run in a terminal runs on, as its mod last said. **The mode is read-only**: the mods API
+ * cannot switch a live session's. Since 23.53.
+ */
+export type TerminalFacts = {
+  model?: string;
+  effort?: string;
+  mode?: SessionMode;
+  commands?: TerminalCommand[];
 };
 
 /** `list_sessions`, the most recently seen first. */

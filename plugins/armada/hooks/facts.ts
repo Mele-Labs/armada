@@ -122,3 +122,94 @@ export function senderOf(origin: { kind: string; teammate?: string }): string {
 export function micros(usd: number | undefined): number | undefined {
   return usd === undefined ? undefined : Math.round(usd * 1_000_000)
 }
+
+export type Artifact = {
+  /** A published page, a file written outside the code, or a Claude Docs document. */
+  form: 'page' | 'file' | 'doc'
+  /** The address a page or doc opens at, or the file's path. */
+  target: string
+  title?: string
+}
+
+// Written, and not code: documents, pictures and prose, never configuration. A page's own source (`.html`) is left
+// out because the page appears once it is published, as a page.
+const DOCUMENT = /\.(md|mdx|txt|pdf|png|jpe?g|gif|webp|svg|csv|docx?|xlsx?|pptx?)$/i
+// Where a session keeps what it only needs on the way: its own settings and scratch space.
+const SCRATCH = /(^|\/)(node_modules|\.git|\.claude|\.armada|target|dist|build)\/|^\/(private\/)?(tmp|var\/folders)\//
+
+/** Whether a file a session wrote is something a person would want to open, and not code. */
+export function isDocument(path: string): boolean {
+  return DOCUMENT.test(path) && !SCRATCH.test(path)
+}
+
+const CLAUDE_ADDRESS = /https:\/\/claude\.ai\/[^\s)"'<>\]]*artifact[^\s)"'<>\]]*/
+const DOCS = /^mcp__claude_ai_Claude_Docs__(create|batch|update)$/
+
+const nameOf = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '')
+
+/**
+ * What a tool call made that a person would open. **A code edit is never one**: only a page
+ * published, a new document written, and a Claude Docs document created or edited.
+ * `created` is whether a Write made a file that was not there.
+ */
+export function artifactOf(
+  tool: string,
+  input: Record<string, unknown>,
+  text: string,
+  created: boolean,
+): Artifact | undefined {
+  if (tool === 'Artifact') {
+    if (input.asset === true || (input.action !== undefined && input.action !== 'publish')) return undefined
+    const target = typeof input.url === 'string' ? input.url : CLAUDE_ADDRESS.exec(text)?.[0]
+    if (target === undefined) return undefined
+    const title =
+      typeof input.title === 'string' ? input.title : typeof input.file_path === 'string' ? nameOf(input.file_path) : undefined
+    return { form: 'page', target, title }
+  }
+  if (tool === 'Write') {
+    const path = input.file_path
+    if (!created || typeof path !== 'string' || !isDocument(path)) return undefined
+    return { form: 'file', target: path, title: path.slice(path.lastIndexOf('/') + 1) }
+  }
+  if (DOCS.test(tool)) {
+    const container = input.container as { id?: unknown; create?: { name?: unknown } } | undefined
+    const id = typeof container?.id === 'string' ? container.id : undefined
+    const target = CLAUDE_ADDRESS.exec(text)?.[0] ?? (id === undefined ? undefined : `https://claude.ai/artifact/${id}`)
+    if (target === undefined) return undefined
+    const name = container?.create?.name
+    return { form: 'doc', target, title: typeof name === 'string' ? name : undefined }
+  }
+  return undefined
+}
+
+const MODELS = ['haiku', 'sonnet', 'opus']
+
+/** A model by the short name the person picks it by, and by its own id where it has no short one. */
+export function modelName(id: string): string {
+  return MODELS.find(one => id.includes(one)) ?? id
+}
+
+export type Mode = 'ask' | 'auto' | 'accept_edits' | 'plan'
+
+/** The terminal's permission mode in Armada's words, or nothing for one Armada has no word for. */
+export function modeOf(mode: string | undefined): Mode | undefined {
+  switch (mode) {
+    case 'default':
+      return 'ask'
+    case 'auto':
+      return 'auto'
+    case 'acceptEdits':
+      return 'accept_edits'
+    case 'plan':
+      return 'plan'
+    default:
+      return undefined
+  }
+}
+
+/** An effort level, whether the hook input carries the word or an object around it. */
+export function effortOf(effort: unknown): string | undefined {
+  if (typeof effort === 'string') return effort
+  const level = (effort as { level?: unknown } | null | undefined)?.level
+  return typeof level === 'string' ? level : undefined
+}

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CircleDashed, CircleDot, Eye, ShieldX, SquareTerminal } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Eye, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -11,17 +12,18 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * A Session open, in the glass panel a Job's detail and Overview's panels are
  * (`Card` on the canvas). **The state is one registry mark in the header with
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
- * working is a Drone running, waiting is a Job at review, and failing is a
+ * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, and failing is a
  * pull request's Checks red. `[conventions.session_state_borrowing]` in
  * `packages/icons/icons/` lends them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
   working: CircleDot,
   waiting: Eye,
   failing: ShieldX,
+  idle: Check,
 };
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
@@ -52,6 +54,8 @@ export type SessionFrameProps = {
   onRename?: (title: string) => void;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
+  /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
+  aside?: ReactNode;
   children: ReactNode;
 };
 
@@ -59,6 +63,17 @@ export type SessionFrameProps = {
 function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: string) => void }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   if (onRename === undefined) return <span className="armada-session-frame__title">{title}</span>;
+  if (draft === undefined && title === undefined) {
+    return (
+      <span className="armada-session-frame__title">
+        <Tooltip label="Rename">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Rename" onClick={() => setDraft("")}>
+            <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      </span>
+    );
+  }
   if (draft === undefined) {
     return (
       <Tooltip label="Rename">
@@ -93,8 +108,9 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, actions, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, actions, aside, children }: SessionFrameProps) {
   return (
+    <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
       <header className="armada-session-frame__head">
         <SquareTerminal size={16} strokeWidth={2} aria-hidden />
@@ -105,5 +121,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, action
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>
+    {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
+    </div>
   );
 }

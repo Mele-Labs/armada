@@ -625,6 +625,47 @@ pub fn sent_message<'a>(tool: &str, detail: &'a str) -> Option<(&'a str, &'a str
     Some((to, message))
 }
 
+/// The file a `Write` call wrote, when it is a document, picture or prose a
+/// person would open and not code: the same rule `plugins/armada/hooks/facts.ts`
+/// applies to a terminal session's own `Write`. Read here, beside the line that
+/// composes `{path} +{lines}`, with the elided home put back as `home`.
+/// **A stream does not say whether the file was new**, so a rewrite counts.
+pub fn written_document(tool: &str, detail: &str, home: &str) -> Option<String> {
+    if tool != "Write" {
+        return None;
+    }
+    let (shown, lines) = detail.rsplit_once(" +")?;
+    if lines.is_empty() || !lines.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let path = match shown.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
+        None => shown.to_string(),
+    };
+    let lower = path.to_lowercase();
+    let document = [
+        ".md", ".mdx", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".csv",
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ]
+    .iter()
+    .any(|extension| lower.ends_with(extension));
+    let scratch = [
+        "/node_modules/",
+        "/.git/",
+        "/.claude/",
+        "/.armada/",
+        "/target/",
+        "/dist/",
+        "/build/",
+    ]
+    .iter()
+    .any(|part| path.contains(part))
+        || ["/tmp/", "/private/tmp/", "/var/folders/"]
+            .iter()
+            .any(|root| path.starts_with(root));
+    (document && !scratch).then_some(path)
+}
+
 #[derive(Deserialize)]
 struct InitLine {
     #[serde(rename = "type", default)]

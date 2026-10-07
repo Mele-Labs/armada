@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # `scripts/preview` against a throwaway repository and a stub `armada` that
-# answers `worktree --status` and `land --status` from two files. Git only:
+# answers `worktree --status` from a file. Git only:
 # nothing here builds, runs a Check or touches Fleet.
 #
 #   python3 scripts/test_preview.py
@@ -23,8 +23,7 @@ PREVIEW = os.path.join(HERE, "scripts", "preview")
 
 STUB_ARMADA = """#!/bin/sh
 case "$1 $2" in
-  "worktree --status") cat "$STUB_DIR/slots" ;;
-  "land --status") cat "$STUB_DIR/line"; exit 8 ;;
+  "worktree --status") [ -f "$STUB_DIR/refuse" ] && { cat "$STUB_DIR/refuse" >&2; exit 2; }; cat "$STUB_DIR/slots" ;;
   *) echo "stub: not a form" >&2; exit 2 ;;
 esac
 """
@@ -45,7 +44,7 @@ class Preview(unittest.TestCase):
         self.repo = os.path.join(self.dir, "repo")
         self.stub = os.path.join(self.dir, "stub")
         os.makedirs(self.stub)
-        for name in ("slots", "line"):
+        for name in ("slots",):
             open(os.path.join(self.stub, name), "w").close()
         armada = os.path.join(self.stub, "armada")
         with open(armada, "w") as f:
@@ -98,16 +97,13 @@ class Preview(unittest.TestCase):
         self.commit(f"{name}: work")
         self.git("checkout", "-q", "main")
 
-    def hold(self, *branches, line=()):
+    def hold(self, *branches):
         self.slot_lines = [
             f"slot-{i + 1}  held     {self.repo}/slots/s{i}  {b}  by claude (pid 1) for 1m"
             for i, b in enumerate(branches)
         ]
         with open(os.path.join(self.stub, "slots"), "w") as f:
             f.write("\n".join(self.slot_lines) + "\n")
-        with open(os.path.join(self.stub, "line"), "w") as f:
-            f.write("merge line: in line\n" + "".join(
-                f"  {n + 1}. {b}  waiting: behind others\n" for n, b in enumerate(line)))
 
     def hold_rows(self, *rows):
         """Slot lines as `armada worktree --status` prints them: (state, branch, holder)."""
@@ -115,8 +111,6 @@ class Preview(unittest.TestCase):
                  for i, (state, b, holder) in enumerate(rows)]
         with open(os.path.join(self.stub, "slots"), "w") as f:
             f.write("\n".join(lines) + "\n")
-        with open(os.path.join(self.stub, "line"), "w") as f:
-            f.write("merge line: in line\n")
 
     def fleet(self, jobs, drones):
         """A Fleet answering `{job_id: status}`, with Drones for `drones`; HOME points at it."""
@@ -272,14 +266,13 @@ class Preview(unittest.TestCase):
         self.assertEqual(self.merged_in_order(), ["feat/a"])
         self.assertIn("feat/b: skipped by --skip", said)
 
-    def test_only_the_held_and_queued_and_ahead_are_in_flight(self):
+    def test_only_the_held_and_ahead_are_in_flight(self):
         self.branch("feat/held", {"h.txt": "h\n"})
-        self.branch("feat/queued", {"q.txt": "q\n"})
         self.branch("feat/idle", {"i.txt": "i\n"})
         self.git("branch", "feat/no-commits")
-        self.hold("feat/held", "feat/no-commits", "main", line=("feat/queued",))
+        self.hold("feat/held", "feat/no-commits", "main")
         self.run_preview()
-        self.assertEqual(self.merged_in_order(), ["feat/held", "feat/queued"])
+        self.assertEqual(self.merged_in_order(), ["feat/held"])
 
     def test_a_branch_already_inside_another_is_nothing_new(self):
         self.branch("feat/base", {"b.txt": "b\n"})
@@ -373,17 +366,13 @@ class Preview(unittest.TestCase):
         for name in ("kept", "dead", "orphan"):
             self.assertIn(f"left out: feat/{name}: held by a stopped Job", said)
 
-    def test_a_stranded_branch_stays_when_the_line_has_it_or_a_live_slot_holds_it(self):
-        self.branch("feat/queued", {"q.txt": "q\n"})
+    def test_a_stranded_branch_stays_when_a_live_slot_holds_it(self):
         self.branch("feat/both", {"b.txt": "b\n"})
         self.hold_rows(
-            ("kept", "feat/queued", "by job J1 for 2h, which ended and could not give it back: x"),
             ("kept", "feat/both", "by job J2 for 2h, which ended and could not give it back: x"),
             ("held", "feat/both", "by /usr/bin/claude (pid 1) for 1m"))
-        with open(os.path.join(self.stub, "line"), "w") as f:
-            f.write("merge line: in line\n  1. feat/queued  waiting: behind others\n")
         said = self.run_preview()
-        self.assertEqual(self.merged_in_order(), ["feat/queued", "feat/both"])
+        self.assertEqual(self.merged_in_order(), ["feat/both"])
         self.assertNotIn("stopped Job", said)
 
     def test_a_job_slot_is_kept_when_fleet_does_not_answer(self):
@@ -394,7 +383,7 @@ class Preview(unittest.TestCase):
 
     def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
         self.branch("feat/a", {"a.txt": "a\n"})
-        with open(os.path.join(self.stub, "line"), "w") as f:
+        with open(os.path.join(self.stub, "refuse"), "w") as f:
             f.write("`--status` is not a flag this verb takes\n")
         env = {**os.environ,
                "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),

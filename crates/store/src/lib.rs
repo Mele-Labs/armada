@@ -183,6 +183,8 @@ mod write;
 
 #[cfg(test)]
 mod tests;
+/// The Triggers frozen onto a Job at approval, and every firing of one.
+mod triggers;
 
 pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;

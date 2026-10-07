@@ -14,6 +14,7 @@ mod piloting;
 mod process;
 mod rows;
 mod serving;
+mod terminal;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -25,6 +26,7 @@ use ipc::{HelmCallInFlight, SessionTurn};
 use crate::helm::{Asks, HelmAskHold};
 
 pub use process::{Heard, Process, ProcessHost, Processes, Sink, Start};
+pub use terminal::Terminals;
 
 /// How long a session's process may sit with no turn before Fleet ends it, and
 /// the next message resumes it. **`settings.session-quiet-timeout`**.
@@ -42,6 +44,8 @@ pub struct Hosts {
     /// The commands the last process to start said it had, for a session whose
     /// own has not started. Since 23.51.
     commands: Mutex<Vec<String>>,
+    /// What Fleet holds for sessions run in a terminal. Since 23.53.
+    terminals: Terminals,
 }
 
 impl Hosts {
@@ -54,7 +58,12 @@ impl Hosts {
             minted: AtomicU64::new(0),
             sweeping: AtomicBool::new(false),
             commands: Mutex::new(Vec::new()),
+            terminals: Terminals::default(),
         }
+    }
+
+    pub(crate) fn terminals(&self) -> &Terminals {
+        &self.terminals
     }
 
     /// Remember what a process said it has.

@@ -169,7 +169,7 @@ impl Rig {
     }
 
     async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
-        self.fleet.get_session(id.clone()).await.expect("read").rows
+        Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
     async fn gate(&self, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
@@ -183,7 +183,7 @@ impl Rig {
     }
 
     async fn turn(&self, id: &SessionId) -> SessionTurn {
-        let record = self.fleet.get_session(id.clone()).await.unwrap().session;
+        let record = Arc::clone(&self.fleet).get_session(id.clone()).await.unwrap().session;
         record.hosted.expect("hosted").turn
     }
 }
@@ -290,7 +290,7 @@ async fn a_message_starts_the_process_and_the_thread_follows_the_turn() {
     rig.stand_in.finishes(0, "done");
     eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
 
-    let thread = rig.fleet.get_session(id.clone()).await.unwrap();
+    let thread = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert_eq!(thread.session.title.as_deref(), Some("fix the login"));
     assert!(thread.session.last_turn_at.is_some());
     assert!(matches!(
@@ -332,7 +332,7 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
         .await;
     assert!(denied(&first), "the write is held");
     assert!(reason(&first).contains("Slot 1"));
-    let record = rig.fleet.get_session(id.clone()).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     let held: Vec<_> = record
         .session
         .attachments
@@ -441,6 +441,41 @@ async fn another_sessions_message_wakes_the_target_and_names_who() {
     ));
     rig.stand_in.finishes(1, "reviewed");
     eventually(|| async { rig.turn(&b).await == SessionTurn::Idle }).await;
+}
+
+#[tokio::test]
+async fn a_document_a_hosted_session_writes_is_on_its_ledger_and_code_is_not() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "write it up").await;
+    rig.stand_in.init(0);
+    let call = |tool: &str, detail: &str| DroneEvent::Called {
+        tool: tool.into(),
+        call: "toolu_3".into(),
+        detail: CallDetail::of(detail),
+    };
+    rig.stand_in.says(
+        0,
+        vec![
+            call("Write", "/repo/docs/spikes/clock.md +30"),
+            call("Write", "/repo/src/clock.rs +10"),
+            call("Edit", "/repo/docs/index.md +2 -1"),
+        ],
+    );
+    eventually(|| async {
+        let listed = rig.fleet.list_sessions(None, None, None).await.unwrap();
+        listed.sessions[0].attachments.iter().any(|one| one.kind == "artifact")
+    })
+    .await;
+
+    let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
+    let kept: Vec<_> = listed[0]
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "artifact")
+        .map(|one| (one.target.as_str(), one.detail.get("form").map(String::as_str)))
+        .collect();
+    assert_eq!(kept, [("/repo/docs/spikes/clock.md", Some("file"))]);
 }
 
 #[tokio::test]
@@ -621,8 +656,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
     });
     let call = Mutex::new(String::new());
     eventually(|| async {
-        let asked = rig
-            .fleet
+        let asked = Arc::clone(&rig.fleet)
             .get_session(id.clone())
             .await
             .unwrap()

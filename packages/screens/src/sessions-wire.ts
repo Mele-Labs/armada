@@ -113,7 +113,8 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  * opens the slot's panel. A row Fleet or this build has no screen for is left out rather than guessed at.
  */
 export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "jobs" | "sketches">): SessionAttachment[] {
-  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent");
+  // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
+  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact");
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
   const out: SessionAttachment[] = [];
   for (const one of held) {
@@ -163,6 +164,12 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
         });
         break;
+      case "artifact": {
+        const form = detail["form"];
+        if (form !== "page" && form !== "file" && form !== "doc") break;
+        out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
+        break;
+      }
       default:
         break;
     }
@@ -224,6 +231,12 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "tool":
         out.push({ id: row.id, at, kind: "tool", text: row.text });
         break;
+      case "command":
+        out.push({ id: row.id, at, kind: "command", text: row.text });
+        break;
+      case "compaction":
+        out.push({ id: row.id, at, kind: "compaction", text: row.text });
+        break;
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
@@ -254,18 +267,35 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
   return out;
 }
 
+// The mod's `titleOf` rule (plugins/armada/hooks/facts.ts), applied on read so a title stored before
+// the mod stripped markup shows clean. A title that cleans to nothing is no title.
+const MACHINE_BLOCK = /<((?:local-)?command(?:-\w+)+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
+const WRAPPER_TAG = /<\/?[a-z]+(?:-\w+)+(?:\s[^>]*)?>/gi;
+
+/** A stored title without the harness's markup, flattened to one line; nothing where nothing is left. */
+export function cleanTitle(title: string | undefined): string | undefined {
+  if (title === undefined) return undefined;
+  const flat = title.replace(MACHINE_BLOCK, "").replace(WRAPPER_TAG, "").replace(/\s+/g, " ").trim();
+  return flat === "" ? undefined : flat;
+}
+
 /** A session, whole. `rows` are the thread where it was opened and none where it was not. */
 export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside): Session {
   const hosted = record.hosted;
+  const terminal = record.terminal;
+  const model = hosted?.model ?? terminal?.model;
+  const effort = hosted?.effort ?? terminal?.effort;
+  const mode = hosted?.mode ?? terminal?.mode;
+  const title = cleanTitle(record.title);
   const attachments = attachmentsOfRecord(record, beside);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
   return {
     id: record.id,
     address: addressOf(record.id),
-    ...(record.title === undefined ? {} : { title: record.title }),
+    ...(title === undefined ? {} : { title }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
-    blank: attachments.length === 0 && record.title === undefined && record.last_turn_at === undefined && thread.length === 0,
+    blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
     rows: thread,
     turn:
@@ -275,9 +305,10 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
     ...(hosted?.asked === undefined ? {} : { asked: askOf(hosted.asked) }),
     pendingTags: beside.pending,
-    ...(hosted?.model === undefined ? {} : { model: hosted.model }),
-    ...(hosted?.effort === undefined ? {} : { effort: hosted.effort }),
-    ...(hosted === undefined ? {} : { mode: hosted.mode }),
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+    ...(mode === undefined ? {} : { mode }),
+    ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
   };
 }
 

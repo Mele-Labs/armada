@@ -7,7 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused};
-use crate::{init_commands, sent_message};
+use crate::{init_commands, sent_message, written_document};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
 
@@ -192,4 +192,26 @@ fn the_init_line_names_the_commands_the_agent_has_and_no_other_line_does() {
     assert_eq!(init_commands(other), None);
     assert_eq!(init_commands(r#"{"type":"result","num_turns":1}"#), None);
     assert_eq!(init_commands("not json, slash_commands"), None);
+}
+
+#[test]
+fn a_written_document_is_read_off_the_write_detail_and_code_and_scratch_are_not() {
+    let write = |detail| written_document("Write", detail, "/Users/user");
+    assert_eq!(
+        write("~/repo/docs/spike.md +40"),
+        Some("/Users/user/repo/docs/spike.md".into())
+    );
+    assert_eq!(
+        write("/repo/shots/ledger.PNG +1"),
+        Some("/repo/shots/ledger.PNG".into())
+    );
+    assert_eq!(write("/repo/src/clock.rs +9"), None);
+    assert_eq!(write("/repo/package.json +3"), None);
+    assert_eq!(write("/tmp/notes.md +3"), None);
+    assert_eq!(write("/repo/node_modules/x/README.md +3"), None);
+    assert_eq!(write("/repo/docs/spike.md +4 -2"), None);
+    assert_eq!(
+        written_document("Edit", "/repo/docs/spike.md +4", "/Users/user"),
+        None
+    );
 }

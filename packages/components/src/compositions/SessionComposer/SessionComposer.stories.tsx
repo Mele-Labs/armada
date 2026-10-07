@@ -131,6 +131,42 @@ export const DrawnSketch: Story = {
   },
 };
 
+/** A session in a terminal holds its permission mode: it is shown and cannot be set. */
+export const ModeLocked: Story = {
+  args: { modeLocked: true, mode: "plan" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("combobox", { name: "Permission mode" })).toBeDisabled();
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toBeEnabled();
+  },
+};
+
+/** In a narrow box the menus shrink and Send stays on their row. */
+export const NarrowBar: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: "calc(var(--space-12) * 10.5)" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  args: { models: ["haiku", "sonnet", "opus"], efforts: ["low", "medium", "high"], model: "sonnet", effort: "medium" },
+  play: async ({ canvas }) => {
+    const send = canvas.getByRole("button", { name: "Send" }).getBoundingClientRect();
+    for (const name of ["Permission mode", "Model", "Effort"]) {
+      const menu = canvas.getByRole("combobox", { name }).getBoundingClientRect();
+      await expect(Math.abs(send.top + send.height / 2 - (menu.top + menu.height / 2))).toBeLessThan(send.height);
+    }
+  },
+};
+
+/** Until a terminal has reported its mode there is none to show. */
+export const ModeUnknown: Story = {
+  args: { modeLocked: true, modeHidden: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("combobox", { name: "Permission mode" })).toBeNull();
+  },
+};
+
 /** Model and effort are Dispatch's pair, each with Auto, and the mode is a pick of four. */
 export const Tuned: Story = {
   play: async ({ canvas, args }) => {

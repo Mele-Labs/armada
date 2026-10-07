@@ -379,6 +379,9 @@ where
         }
         // One Job of an Epic's wave is released with the wave, by its plan.
         self.not_alone(&job)?;
+        // Frozen with the workflow, so a Trigger saved after this applies from
+        // the next Job.
+        Box::pin(self.freeze_triggers(&job)).await;
         self.move_job(&job, Target::Queued, Actor::Human).await
     }
 

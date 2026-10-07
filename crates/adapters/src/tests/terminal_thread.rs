@@ -1,0 +1,247 @@
+//! A terminal session's thread, drawn from the transcript lines the CLI wrote.
+//! **No process starts**: the lines are the ones spike 27 recorded.
+
+use std::io::Write as _;
+
+use ipc::{SessionRow, SessionVoice};
+
+use crate::terminal_thread::{find, read_from};
+
+fn line(kind: &str, uuid: &str, extra: &str, content: &str) -> String {
+    format!(
+        r#"{{"type":"{kind}","uuid":"{uuid}","timestamp":"2026-10-07T08:48:10.000Z",{extra}"message":{{"role":"x","content":{content}}}}}"#
+    )
+}
+
+fn written(lines: &[String]) -> (crate::tests::repo::TempRepo, std::path::PathBuf) {
+    let home = crate::tests::repo::TempRepo::empty();
+    let dir = home.root().join(".claude/projects/-tmp-here");
+    std::fs::create_dir_all(&dir).expect("a project directory");
+    let file = dir.join("abc-123.jsonl");
+    std::fs::write(&file, lines.join("\n") + "\n").expect("a transcript");
+    (home, file)
+}
+
+/// **What the person sees is what was said**, whichever way it arrived: typed
+/// in the terminal, or submitted by a mod as the person's own, which is how a
+/// message from Bridge comes in.
+#[test]
+fn what_the_person_typed_and_what_a_mod_submitted_for_them_are_both_theirs() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "u1",
+            r#""origin":{"kind":"human"},"#,
+            r#""Fix the build""#,
+        ),
+        line(
+            "user",
+            "u2",
+            r#""origin":{"kind":"plugin","name":"armada","asUser":true},"#,
+            r#"[{"type":"text","text":"And the lint"}]"#,
+        ),
+        line(
+            "assistant",
+            "a1",
+            "",
+            r#"[{"type":"text","text":"On it."}]"#,
+        ),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    let said: Vec<(String, bool, String)> = thread
+        .rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Message {
+                id, from, text, ..
+            } => (id.clone(), matches!(from, SessionVoice::You), text.clone()),
+            other => panic!("not a message: {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        said,
+        vec![
+            ("u1".into(), true, "Fix the build".into()),
+            ("u2".into(), true, "And the lint".into()),
+            ("a1".into(), false, "On it.".into()),
+        ]
+    );
+}
+
+/// A tool call is one line, as a hosted thread draws it, and the reasoning, the
+/// bookkeeping, a tool's answer and a subagent's own turns are not drawn.
+#[test]
+fn a_call_is_one_row_and_everything_that_is_not_the_conversation_is_left_out() {
+    let (_home, file) = written(&[
+        line(
+            "assistant",
+            "a1",
+            "",
+            r#"[{"type":"thinking","thinking":"","signature":"x"}]"#,
+        ),
+        line(
+            "assistant",
+            "a2",
+            "",
+            r#"[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]"#,
+        ),
+        line(
+            "user",
+            "u1",
+            "",
+            r#"[{"type":"tool_result","tool_use_id":"t1","content":"x"}]"#,
+        ),
+        line(
+            "assistant",
+            "a3",
+            r#""isSidechain":true,"#,
+            r#"[{"type":"text","text":"a subagent"}]"#,
+        ),
+        line(
+            "user",
+            "u2",
+            r#""isMeta":true,"#,
+            r#""caveat the CLI wrote""#,
+        ),
+        line(
+            "user",
+            "u3",
+            r#""origin":{"kind":"peer"},"#,
+            r#""from another session""#,
+        ),
+        r#"{"type":"queue-operation","operation":"enqueue"}"#.to_string(),
+        "not json".to_string(),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    assert_eq!(thread.rows.len(), 1, "{:?}", thread.rows);
+    assert!(matches!(&thread.rows[0], SessionRow::Tool { id, text, .. } if id == "a2" && text == "Bash ls"));
+}
+
+/// **A tail starts where the last read stopped**, and a line still being written
+/// is not read half.
+#[test]
+fn a_read_resumes_at_the_last_whole_line() {
+    let (_home, file) = written(&[line(
+        "user",
+        "u1",
+        r#""origin":{"kind":"human"},"#,
+        r#""one""#,
+    )]);
+    let first = read_from(&file, 0).expect("readable");
+    assert_eq!(first.rows.len(), 1);
+    let mut open = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&file)
+        .expect("open");
+    let whole = line("user", "u2", r#""origin":{"kind":"human"},"#, r#""two""#);
+    let (front, back) = whole.split_at(whole.len() - 4);
+    write!(open, "{front}").expect("a half line");
+    let half = read_from(&file, first.next).expect("readable");
+    assert!(half.rows.is_empty());
+    assert_eq!(half.next, first.next, "the half line is not consumed");
+    writeln!(open, "{back}").expect("the rest");
+    let rest = read_from(&file, first.next).expect("readable");
+    assert!(matches!(&rest.rows[..], [SessionRow::Message { text, .. }] if text == "two"));
+}
+
+/// A session is found by its id wherever its project directory is, and an id
+/// is never a path.
+#[test]
+fn a_transcript_is_found_by_id_under_any_project_directory() {
+    let (home, _file) = written(&[]);
+    let home = home.root_str();
+    assert!(find(&home, "abc-123").is_some());
+    assert!(find(&home, "nope").is_none());
+    assert!(find(&home, "../abc-123").is_none());
+}
+
+/// **No markup reaches the thread.** A slash command is a row of its own, as
+/// typed, and its output, the caveat before it, a reminder and another
+/// session's hand-back are the CLI's and are not drawn.
+#[test]
+fn a_command_is_a_row_and_the_cli_s_own_markup_is_not_drawn() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "c1",
+            "",
+            r#""<command-name>/reload-plugins</command-name>\n<command-message>reload-plugins</command-message>\n<command-args></command-args>""#,
+        ),
+        line(
+            "user",
+            "c2",
+            r#""origin":{"kind":"human"},"#,
+            r#""<command-message>model</command-message>\n<command-name>/model</command-name>\n<command-args>opus</command-args>""#,
+        ),
+        line("user", "o1", "", r#""<local-command-stdout>Reloaded: 3 plugins</local-command-stdout>""#),
+        line("user", "o2", "", r#""<local-command-caveat>Caveat: run directly</local-command-caveat>""#),
+        line("user", "o3", r#""origin":{"kind":"human"},"#, r#""<system-reminder>named</system-reminder>""#),
+        line(
+            "user",
+            "o4",
+            "",
+            r#""Another Claude session sent a message:\n<agent-message from=\"x\">done</agent-message>""#,
+        ),
+        line("user", "o5", "", r#""<task-notification><task-id>1</task-id></task-notification>""#),
+        line("user", "b1", "", r#""<bash-input>git status</bash-input>""#),
+        line("user", "b2", "", r#""<bash-stdout>clean</bash-stdout><bash-stderr></bash-stderr>""#),
+        line("user", "p1", r#""origin":{"kind":"human"},"#, r#""<system-reminder>x</system-reminder>Hello""#),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    let drawn: Vec<(String, String)> = thread
+        .rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Command { id, text, .. } => (id.clone(), format!("command {text}")),
+            SessionRow::Message { id, text, .. } => (id.clone(), format!("message {text}")),
+            other => panic!("not drawn so: {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        drawn,
+        vec![
+            ("c1".into(), "command /reload-plugins".into()),
+            ("c2".into(), "command /model opus".into()),
+            ("b1".into(), "command ! git status".into()),
+            ("p1".into(), "message Hello".into()),
+        ]
+    );
+}
+
+/// The summary the CLI writes where it compacted is a user line that is not the
+/// person's, so it is a row of its own and never "You".
+#[test]
+fn a_compaction_summary_is_not_the_person() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "k1",
+            r#""isCompactSummary":true,"#,
+            r#""This session is being continued from a previous conversation.""#,
+        ),
+        line("user", "k2", r#""origin":{"kind":"human"},"#, r#""Carry on""#),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    assert!(matches!(
+        &thread.rows[0],
+        SessionRow::Compaction { id, text, .. } if id == "k1" && text.starts_with("This session")
+    ));
+    assert!(matches!(&thread.rows[1], SessionRow::Message { from: SessionVoice::You, .. }));
+    assert_eq!(thread.rows.len(), 2);
+}
+
+/// A hand-back between agents is flagged `isMeta` and arrives with a peer's
+/// origin; it is nobody's message in this thread.
+#[test]
+fn an_agent_to_agent_hand_back_is_not_drawn() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "h1",
+            r#""isMeta":true,"origin":{"kind":"peer","name":"x"},"#,
+            r#""Another Claude session sent a message:\n<agent-message from=\"x\">report</agent-message>""#,
+        ),
+        line("user", "h2", r#""origin":{"kind":"peer","name":"x"},"#, r#""<agent-message from=\"x\">report</agent-message>""#),
+    ]);
+    assert!(read_from(&file, 0).expect("readable").rows.is_empty());
+}

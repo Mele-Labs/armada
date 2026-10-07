@@ -136,6 +136,15 @@ import type {
   WorkflowsRead,
 } from "./workflows";
 import type {
+  ReadingTrigger,
+  RemovingTrigger,
+  SavingTrigger,
+  TriggerDefinitionRead,
+  TriggerRemoveAnswer,
+  TriggerSaveAnswer,
+  TriggersRead,
+} from "./triggers";
+import type {
   LocateAnswer,
 } from "@armada/screens/src/locate-reads";
 import type {
@@ -321,6 +330,10 @@ type OldBridgeApi = {
     readWorkflows: () => Promise<WorkflowsRead>;
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
+    readTriggers: () => Promise<TriggersRead>;
+    readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
+    saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
+    removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -407,6 +420,7 @@ type OldBridgeApi = {
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+    openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
@@ -562,6 +576,10 @@ const OLD_CHANNELS = {
     readWorkflows: "bridge:read-workflows",
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
+    readTriggers: "bridge:read-triggers",
+    readTrigger: "bridge:read-trigger",
+    saveTrigger: "bridge:save-trigger",
+    removeTrigger: "bridge:remove-trigger",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",
@@ -644,6 +662,7 @@ const OLD_CHANNELS = {
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
+    openSessionFile: "bridge:open-session-file",
     pressPullRequest: "bridge:press-pull-request",
 } as const;
 

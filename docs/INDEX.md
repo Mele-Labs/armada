@@ -132,7 +132,7 @@ approximations.
   indexed in its own `INDEX.md`. The roadmap itself is GitHub issues; these hold
   the reasoning an issue body buries when it closes.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, `scripts/land` (being retired for pull requests and CI),
+    turns onto `main`, 
     `armada need` (numbers land in the order they were declared), and where each
     part goes in Fleet.
   - [`capabilities/needs.md`](capabilities/needs.md) — a Job or a Session says what
@@ -234,6 +234,9 @@ approximations.
 - [`spikes/026-does-a-message-from-another-session-wake-a-live-process.md`](spikes/026-does-a-message-from-another-session-wake-a-live-process.md)
   — `SendMessage` starts a turn in a live headless process that is idle, and what
   Fleet reads to draw it.
+- [`spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md`](spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md)
+  — the mod in a terminal session submits held text as the person's own prompt;
+  Fleet holds it until the mod polls.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

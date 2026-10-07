@@ -47,6 +47,15 @@ import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type {
+  ReadingTrigger,
+  RemovingTrigger,
+  SavingTrigger,
+  TriggerDefinitionRead,
+  TriggerRemoveAnswer,
+  TriggerSaveAnswer,
+  TriggersRead,
+} from "../shared/triggers";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -476,6 +485,14 @@ const api: BridgeApi = {
   saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
 
+  readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
+  readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
+    ipcRenderer.invoke(CHANNELS.readTrigger, reading),
+  saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
+  removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
+
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why
   // `jobId` was optional here before that surface existed.
@@ -584,6 +601,8 @@ const api: BridgeApi = {
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
+  openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   pressPullRequest: (
     sessionId: string,
     number: number,

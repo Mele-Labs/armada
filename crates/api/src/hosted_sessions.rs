@@ -93,7 +93,7 @@ pub(crate) async fn get_session<D: HostedSessions>(
     Query(which): Query<Which>,
 ) -> Response {
     match served
-        .daemon()
+        .shared()
         .get_session(ipc::SessionId::carried(which.session_id))
         .await
     {
@@ -125,6 +125,22 @@ pub(crate) async fn get_session_file<D: HostedSessions>(
             stored.bytes,
         )
             .into_response(),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The terminal session's mod, asking what a person sent it.
+pub(crate) async fn take_held_messages<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let ask: ipc::TakeHeld = match ipc::decode("a terminal session's ask for held messages", &body)
+    {
+        Ok(ask) => ask,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().take_held_messages(ask).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
