@@ -678,6 +678,10 @@ impl Delivery for FakeVcs {
         self.main_ci.open_pulls()
     }
 
+    fn pull_watch(&self, _in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
+        self.main_ci.watched()
+    }
+
     fn publish_status(&self, _: &str, status: &CommitStatus) -> Result<(), String> {
         self.main_ci.publish(status)
     }

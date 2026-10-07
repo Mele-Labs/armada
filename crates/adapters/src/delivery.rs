@@ -211,6 +211,10 @@ impl Delivery for GitVcs {
         crate::main_ci::open_pulls(in_repo)
     }
 
+    fn pull_watch(&self, in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
+        crate::pull_watch::read(in_repo)
+    }
+
     fn publish_status(
         &self,
         in_repo: &str,
