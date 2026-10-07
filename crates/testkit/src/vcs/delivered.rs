@@ -13,6 +13,8 @@ pub enum Delivered {
     ReadPullRequest { pull_request: String },
     /// A pull request was taken out of draft.
     MarkedReady { pull_request: String },
+    /// `branch` was merged into the one `into` has checked out.
+    MergedBranch { branch: String, into: String },
     /// The branch was pushed.
     Pushed { branch: String },
     /// The branch was pushed `--force-with-lease`, over history this fake was

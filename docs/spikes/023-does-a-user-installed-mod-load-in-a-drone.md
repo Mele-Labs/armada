@@ -1,5 +1,7 @@
 # Spike 23 — Does a mod installed in the operator's config load in a Drone?
 
+> **7 Oct 2026, reversed by the owner.** Drones lost his user settings (permissions, env, model, plugins, hooks) under `--setting-sources project,local`, and he chose "everything, mod included". A Drone, a Judge call and a scout no longer carry the flag. Fleet sets `ARMADA_DRONE=1` in their environment and the `armada` mod reports nothing when it is set, so none of them reaches the Sessions list. The measurements below still hold; the decision they led to does not.
+
 **Yes, and so did every plugin, skill and subagent the operator had.** A Drone
 is started with the operator's real `HOME` and no flag that leaves their user
 settings unread, so a Claude Code mod installed with `claude plugin install` ran

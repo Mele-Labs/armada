@@ -105,6 +105,16 @@ pub enum BroughtUpToDate {
     PutBack { base: String, files: Vec<String> },
 }
 
+/// What merging one local branch into the worktree's own came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BranchMerged {
+    /// The worktree's branch holds the other, by fast-forward or a merge commit.
+    Merged,
+    /// It would conflict in these files, so the worktree is **put back exactly
+    /// as it was** and nothing is left half-merged.
+    PutBack { files: Vec<String> },
+}
+
 /// What became of the push.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pushed {
@@ -694,6 +704,13 @@ pub trait Delivery {
         worktree: &Worktree,
         base: &Base,
     ) -> Result<BroughtUpToDate, NotDelivered>;
+
+    /// Merge the local branch `branch` into the one this worktree has checked
+    /// out. **A conflict is put back and never left in the files**, because
+    /// the caller is Fleet bringing a repair's fix onto a Job's branch and no
+    /// Drone follows to clear markers.
+    fn merge_branch(&self, worktree: &Worktree, branch: &str)
+        -> Result<BranchMerged, NotDelivered>;
 
     /// Put the branch on the remote, under its own name.
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered>;

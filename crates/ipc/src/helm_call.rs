@@ -63,7 +63,7 @@ impl AskingToRun {
 }
 
 /// The tool whose call is a question for the person rather than a thing to
-/// run. Since 23.66.
+/// run. Since 23.71.
 pub const ASKS_A_QUESTION: &str = "AskUserQuestion";
 
 /// One question the agent put to the person, as its tool sent it.
@@ -88,7 +88,7 @@ pub struct AskedChoice {
 }
 
 /// What a person chose for one question: the labels of the options, and where
-/// they typed their own words (*Other*), those words as an entry. Since 23.66.
+/// they typed their own words (*Other*), those words as an entry. Since 23.71.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct QuestionAnswer {
     pub question: String,
@@ -214,7 +214,7 @@ pub struct HelmCallInFlight {
     /// surface says it rather than deriving it: the bound is Fleet's.
     pub holding_for_seconds: u64,
     /// The questions, where the call is the agent asking the person
-    /// ([`ASKS_A_QUESTION`]). **Empty for every other call.** Since 23.66.
+    /// ([`ASKS_A_QUESTION`]). **Empty for every other call.** Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub questions: Vec<AskedQuestion>,
 }
@@ -231,7 +231,7 @@ pub struct AnswerHelmCall {
     /// its reason: the reason is in mind at the moment of refusing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
-    /// One entry per question, for a call that asked some. Since 23.66.
+    /// One entry per question, for a call that asked some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
 }

@@ -368,6 +368,35 @@ fn which_step_sends_the_work_out_survives_the_column() {
         .delivers());
 }
 
+/// The delivering step's `draft_pr` survives the column, and a row frozen without
+/// one defers rather than reading as ready.
+#[test]
+fn a_steps_pull_request_mode_and_its_absence_both_survive_the_column() {
+    let drafting = crate::tests::workflow().regated(|step| match step.delivers() {
+        true => step.drafting(Some(core_model::PrMode::Draft)),
+        false => step,
+    });
+    let read = crate::columns::read_workflow(&crate::columns::write_workflow(&drafting))
+        .expect("a workflow that was just written");
+    assert_eq!(
+        read.delivering_step().and_then(|step| step.draft_pr()),
+        Some(core_model::PrMode::Draft)
+    );
+    assert!(read
+        .steps()
+        .iter()
+        .filter(|step| !step.delivers())
+        .all(|step| step.draft_pr().is_none()));
+
+    let before_it =
+        crate::columns::read_workflow(&crate::columns::write_workflow(&crate::tests::workflow()))
+            .expect("a workflow that was just written");
+    assert_eq!(
+        before_it.delivering_step().and_then(|step| step.draft_pr()),
+        None
+    );
+}
+
 /// **A row frozen before a workflow could say reads back as the last step
 /// delivering**, which is what every such Job was created under: the last
 /// step's advance is what landed the work.

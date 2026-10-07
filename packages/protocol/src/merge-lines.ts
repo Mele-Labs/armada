@@ -154,11 +154,11 @@ export type HubPullRequest = {
   ci?: string;
   /** The Job that opened it. Absent for a person's. */
   job?: HubJob;
-  /** Where the merge queue holds it, and `waiting_for_ci` where auto-merge waits on its checks. Absent otherwise. Since 23.65. */
+  /** Where the merge queue holds it, and `waiting_for_ci` where auto-merge waits on its checks. Absent otherwise. Since 23.70. */
   queue?: HubQueue;
 };
 
-/** `state` is `waiting_for_ci`, `in_queue` (a state this build does not know), `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.65. */
+/** `state` is `waiting_for_ci`, `in_queue` (a state this build does not know), `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.70. */
 export type HubQueue = {
   state: string;
   /** 1 is next to merge. Absent for `waiting_for_ci`. */

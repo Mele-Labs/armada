@@ -69,7 +69,7 @@ mode, offers *Answer* and *Skip* and no remembered rule, refuses an answer that 
 without anything chosen, and returns the input with `answers` filled in. *Skip* is a deny the agent is
 told about. Free text (*Other*) is one more entry in `chosen`; Fleet does not tell it from a label.
 
-Protocol **23.66**, additive: `HelmCallInFlight.questions?`, `AnswerSessionAsk.answers?`,
+Protocol **23.71**, additive: `HelmCallInFlight.questions?`, `AnswerSessionAsk.answers?`,
 `AnswerHelmCall.answers?`. `docs/practices/protocol.md`.
 
 ## 3. The write gate and a slot the agent leased

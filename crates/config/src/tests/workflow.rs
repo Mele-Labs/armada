@@ -120,6 +120,36 @@ fn a_second_step_that_sends_the_work_out_is_refused() {
     );
 }
 
+/// **`draft_pr` is the delivering step's to carry.** A step that sends nothing
+/// out has no pull request for it to be about, so it is refused where written.
+#[test]
+fn draft_pr_is_carried_by_the_delivering_step_and_refused_on_any_other() {
+    let drafted = BUG.replace(
+        "    evidence: {submitted: {type: facts_note}}\n    delivers: true\n",
+        "    evidence: {submitted: {type: facts_note}}\n    delivers: true\n    draft_pr: true\n",
+    );
+    let def = parse(&drafted).expect("the delivering step may say it");
+    let says: Vec<Option<core_model::PrMode>> = def.steps().iter().map(Step::draft_pr).collect();
+    assert_eq!(says, [None, None, Some(core_model::PrMode::Draft)]);
+
+    let elsewhere = BUG.replacen(
+        "    delivers: false\n",
+        "    delivers: false\n    draft_pr: false\n",
+        1,
+    );
+    let refused = refusals(parse(&elsewhere));
+    assert_eq!(
+        fault_at(&refused, "steps[0].draft_pr"),
+        &Fault::DraftsNothing
+    );
+
+    let not_a_flag = BUG.replace(
+        "    evidence: {submitted: {type: facts_note}}\n    delivers: true\n",
+        "    evidence: {submitted: {type: facts_note}}\n    delivers: true\n    draft_pr: sometimes\n",
+    );
+    assert!(parse(&not_a_flag).is_err());
+}
+
 /// And a workflow where no step declares it is legal, which is the whole point
 /// of the key: four of the eight shipped definitions produce something that is
 /// read rather than merged, and until this they had no way to say so.

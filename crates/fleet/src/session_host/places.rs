@@ -1,5 +1,5 @@
 //! Where a path lands, as far as a hosted session's gate can tell: the main
-//! checkout, one slot of the pool, or somewhere else. Since 23.66.
+//! checkout, one slot of the pool, or somewhere else. Since 23.71.
 //!
 //! **A slot lives under the main checkout's path** (`<root>/.armada/slots/`),
 //! so "inside the repository" is not "the main checkout". `docs/concepts/

@@ -1,6 +1,6 @@
 //! What a hosted session's `auto` runs and what it asks about. The owner's
 //! three classes and nothing else: a call that is none of them must not reach
-//! a person. Since 23.66, `docs/spikes/029-*`.
+//! a person. Since 23.71, `docs/spikes/029-*`.
 
 use ipc::AskingToRun;
 

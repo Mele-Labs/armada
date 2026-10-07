@@ -1,5 +1,5 @@
 //! The write gate's reading of a slot the session's own agent leased, and of a
-//! shell line that names the main checkout. Since 23.66.
+//! shell line that names the main checkout. Since 23.71.
 //!
 //! A slot lives under the main checkout's path, so a path in it was once
 //! refused as if it were the checkout. What decides now is who holds the lease

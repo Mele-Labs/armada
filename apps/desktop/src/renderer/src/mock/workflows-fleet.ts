@@ -12,6 +12,7 @@ import type { Outcome, RepositorySummary, WorkflowSummary } from "@armada/protoc
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { BridgeApi } from "../../../shared/api";
+import { manifesting } from "./manifest-fake";
 import { connected, type Scenario } from "./moment";
 
 type Served = Pick<BridgeApi, "readWorkflows" | "readWorkflowDefinition" | "saveWorkflow">;
@@ -93,5 +94,7 @@ export function workflowing(): Scenario {
       health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "acting", workflows_left_out: true } },
     },
     reads: {},
+    // The Commands a Trigger names are the ones this repository's Manifest declares.
+    behaves: (fleet) => ({ readManifestFile: manifesting().behaves?.(fleet).readManifestFile! }),
   };
 }

@@ -102,6 +102,7 @@ where
         let mut working = slot.lock().await;
         let job = self.load(job_id).await?;
         let step = self.at_the_gate(&job)?;
+        self.refused_while_held(job_id).await?;
         let passed = self.declared_step(&job, &step)?.clone();
         let next = job.workflow().after(&step).cloned();
         // **Before anything moves, and this is the one refusal this act

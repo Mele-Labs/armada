@@ -1,5 +1,5 @@
 //! A question the agent puts to the person through its question tool, held at
-//! the permission door and answered from the session's thread. Since 23.66.
+//! the permission door and answered from the session's thread. Since 23.71.
 //!
 //! The door gets the call because the CLI asks it about every call it has no
 //! rule for, `AskUserQuestion` among them (spike 29). What the door returns on
