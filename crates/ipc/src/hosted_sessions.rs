@@ -173,7 +173,10 @@ pub enum SessionVoice {
     Agent,
     /// **Another session that wrote to this one is named**, never folded into
     /// the agent.
-    Session { id: String, title: String },
+    Session {
+        id: String,
+        title: String,
+    },
 }
 
 /// A file or picture a message carried, kept by Fleet.
@@ -216,7 +219,11 @@ pub enum SessionRow {
         tags: Vec<SessionTag>,
     },
     /// A tool call, one line.
-    Tool { id: String, at: Instant, text: String },
+    Tool {
+        id: String,
+        at: Instant,
+        text: String,
+    },
     /// The first write: the slot leased and the branch cut.
     Lease {
         id: String,

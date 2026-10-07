@@ -12,14 +12,14 @@ use api::{HostedSessions, Refusal, StoredFile};
 use base64::Engine as _;
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
-    SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord,
-    SessionRow, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
+    SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
+    SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession, Store};
 
+use super::address_of;
 use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, safe_name, UserLine};
-use super::address_of;
 use crate::daemon::Fleet;
 use crate::repositories::Served;
 
@@ -87,7 +87,7 @@ where
             store
                 .keep_session(&KeptSession {
                     id: id.clone(),
-                    harness: String::from("claude_code"),
+                    harness: String::from(adapters::HOSTED_HARNESS),
                     origin: String::from("bridge"),
                     manifest_id: Some(manifest.clone()),
                     cwd: served.root().to_string(),
@@ -148,7 +148,8 @@ where
             },
         )
         .await;
-        self.noted_on_the_ledger(&session, &sent.mentions, &text).await?;
+        self.noted_on_the_ledger(&session, &sent.mentions, &text)
+            .await?;
 
         let mut turn = String::new();
         if let Some(line) = mention_line(&addressed) {
@@ -177,7 +178,8 @@ where
         }
         if self.hosts().start_sweeping() {
             let fleet = Arc::clone(&self);
-            let every = (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
+            let every =
+                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
             tokio::spawn(async move {
                 loop {
                     tokio::time::sleep(every).await;
@@ -275,7 +277,9 @@ where
             row.ended_at = Some(now.clone());
             row.end_reason = Some(String::from("closed"));
             row.last_seen_at = now.clone();
-            store.keep_session(&row).map_err(|why| self.ledger_fault(why))?;
+            store
+                .keep_session(&row)
+                .map_err(|why| self.ledger_fault(why))?;
             store
                 .give_back(&Holder::session(&id), None, &now)
                 .map_err(|why| self.ledger_fault(why))?;
@@ -307,15 +311,22 @@ where
                 }
                 _ => None,
             })
-            .ok_or_else(|| self.hosted_refusal(ATTACHMENT_REFUSED, "nothing was sent under that id"))?;
+            .ok_or_else(|| {
+                self.hosted_refusal(ATTACHMENT_REFUSED, "nothing was sent under that id")
+            })?;
         let at = std::fs::read_dir(self.uploads_of(id.as_str()))
             .ok()
             .and_then(|entries| {
-                entries
-                    .flatten()
-                    .find(|entry| entry.file_name().to_string_lossy().starts_with(&format!("{file}-")))
+                entries.flatten().find(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with(&format!("{file}-"))
+                })
             })
-            .ok_or_else(|| self.hosted_refusal(ATTACHMENT_REFUSED, "that file is no longer kept"))?;
+            .ok_or_else(|| {
+                self.hosted_refusal(ATTACHMENT_REFUSED, "that file is no longer kept")
+            })?;
         let bytes = std::fs::read(at.path())
             .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
         Ok(StoredFile {
@@ -431,7 +442,11 @@ where
             if bytes.len() > MOST_AN_ATTACHMENT {
                 return Err(self.hosted_refusal(
                     ATTACHMENT_REFUSED,
-                    &format!("`{}` is larger than {} MB", upload.name, MOST_AN_ATTACHMENT >> 20),
+                    &format!(
+                        "`{}` is larger than {} MB",
+                        upload.name,
+                        MOST_AN_ATTACHMENT >> 20
+                    ),
                 ));
             }
             let file = format!("f{}", self.row_id(id).replace('-', ""));
@@ -508,7 +523,9 @@ where
             if let Some(title) = title_of(text) {
                 let mut row = session.clone();
                 row.title = Some(title);
-                store.keep_session(&row).map_err(|why| self.ledger_fault(why))?;
+                store
+                    .keep_session(&row)
+                    .map_err(|why| self.ledger_fault(why))?;
                 changed = true;
             }
         }
@@ -604,7 +621,12 @@ where
             kept.ran = true;
             let _ = self.store().lock().await.keep_hosting(&kept);
         }
-        tokio::spawn(Self::listening(Arc::clone(self), id.to_string(), generation, heard));
+        tokio::spawn(Self::listening(
+            Arc::clone(self),
+            id.to_string(),
+            generation,
+            heard,
+        ));
         Ok(())
     }
 

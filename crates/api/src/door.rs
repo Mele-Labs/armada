@@ -256,7 +256,8 @@ async fn called<D: Queries + Admitting>(
                     answer: doorway
                         .through(
                             &call,
-                            helm.as_ref().is_some_and(|reach| !reach.is_a_hosted_session()),
+                            helm.as_ref()
+                                .is_some_and(|reach| !reach.is_a_hosted_session()),
                             &scope,
                             caller,
                         )

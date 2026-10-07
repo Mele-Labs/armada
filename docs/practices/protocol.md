@@ -3202,6 +3202,28 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them. `kind=need` is not exclusive. Bridge's half is `packages/protocol/src/needs.ts`, written by hand like the rest.
 
+## Protocol 23.47: a session Fleet hosts
+
+`docs/concepts/session.md`, *A session Fleet hosts*. **Additive only**: eight operations, one event kind, one optional field on `SessionRecord`, and the DTOs of `ipc::hosted_sessions`. Nothing an older Bridge reads changes, and Helm's operations are untouched.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `start_session` (`POST /sessions/start`) | `StartSession`: `manifest_id`, and `title`, `model`, `effort`, `mode` | Answers the `SessionRecord`, `origin` `bridge`, `hosted` set, holding nothing |
+| `send_session_message` (`POST /sessions/message`) | `SendSessionMessage`: `text`, `attachments` (`name`, `media_type`, base64 `data`), `mentions` (`SessionTag`) | **202**. Answers the `SessionRecord`; the reply is the thread's |
+| `answer_session_ask` (`POST /sessions/ask/answer`) | `AnswerSessionAsk`: `session_id`, the ask's `call`, an `answer` it offered, a `note` | 409 where nothing is waiting under that call |
+| `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
+| `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
+| `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
+| `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
+| `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
+
+**A row is `message`, `tool`, `lease` or `ask`**, tagged by `kind`. A message's `from` is `you`, `agent` or `session`, with the other session named. An ask carries the whole `HelmCallInFlight` and a `state`, and is replaced by id as it is answered. `session.changed` still carries the row whole, now with `hosted`: the `turn` (`idle`, or `working` with `woken_by` where another session started it), what the agent is `asked`, `model`, `effort`, `mode` and whether a process is `running`.
+
+**`SessionRecord.hosted` is optional**, so a record a terminal reports reads as before. **One migration**, `session_host.tables`: `hosted_sessions` and `session_rows`. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
+**Two changes that are not wire.** The agent door offers a hosted session what any agent of the person's is offered, and `ask_the_person`, so its permission tool is answerable; its acts are not recorded as Helm's. And `report_session` keeps `origin: bridge` when the mod in a hosted session reports `started`, and ignores its `ended`.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

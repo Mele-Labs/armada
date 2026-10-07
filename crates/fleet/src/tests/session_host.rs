@@ -15,8 +15,8 @@ use adapter_traits::{CallDetail, DroneEvent, Speaker};
 use api::{HostedSessions, Sessions};
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, HelmCallAnswer, ManifestId, SendSessionMessage,
-    SessionAskState, SessionFact, SessionGate, SessionId, SessionMode, SessionOrigin, SessionReport,
-    SessionRow, SessionState, SessionTurn, SessionVoice, StartSession, TuneSession,
+    SessionAskState, SessionFact, SessionGate, SessionId, SessionMode, SessionOrigin,
+    SessionReport, SessionRow, SessionState, SessionTurn, SessionVoice, StartSession, TuneSession,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -67,13 +67,20 @@ impl Processes for Shared {
 
 impl StandIn {
     fn starts(&self) -> Vec<Start> {
-        self.started.lock().unwrap().iter().map(|one| one.0.clone()).collect()
+        self.started
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|one| one.0.clone())
+            .collect()
     }
     fn process(&self, index: usize) -> Arc<Standing> {
         Arc::clone(&self.started.lock().unwrap()[index].2)
     }
     fn says(&self, index: usize, events: Vec<DroneEvent>) {
-        let _ = self.started.lock().unwrap()[index].1.send(Heard::Events(events));
+        let _ = self.started.lock().unwrap()[index]
+            .1
+            .send(Heard::Events(events));
     }
     fn init(&self, index: usize) {
         self.says(
@@ -114,8 +121,10 @@ struct Rig {
 fn rig() -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]))
-        .hosting_sessions_on(Arc::new(Shared(Arc::clone(&stand_in))), Duration::from_secs(600));
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[])).hosting_sessions_on(
+        Arc::new(Shared(Arc::clone(&stand_in))),
+        Duration::from_secs(600),
+    );
     let one = fleet.repositories().first().expect("a served repository");
     let manifest = ManifestId::carried(one.manifest().id().as_str());
     let root = one.root().to_string();
@@ -209,15 +218,22 @@ async fn a_hosted_session_is_one_row_that_holds_nothing_until_it_writes() {
         .sessions;
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].origin, SessionOrigin::Bridge);
-    assert!(listed[0].attachments.is_empty(), "no slot and no branch at birth");
+    assert!(
+        listed[0].attachments.is_empty(),
+        "no slot and no branch at birth"
+    );
     let hosted = listed[0].hosted.clone().expect("hosted facts");
-    assert_eq!(hosted.mode, SessionMode::Auto, "auto unless the person says");
+    assert_eq!(
+        hosted.mode,
+        SessionMode::Auto,
+        "auto unless the person says"
+    );
     assert!(!hosted.running, "no process until the first message");
     assert!(rig.stand_in.starts().is_empty());
 
     // The mod in a hosted session reports it as a terminal one, and its end.
     let mod_says = |fact| SessionReport {
-        harness: "claude_code".into(),
+        harness: adapters::HOSTED_HARNESS.into(),
         session_id: id.clone(),
         fact,
     };
@@ -235,10 +251,19 @@ async fn a_hosted_session_is_one_row_that_holds_nothing_until_it_writes() {
         }))
         .await
         .unwrap();
-    let after = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
+    let after = rig
+        .fleet
+        .list_sessions(None, None, None)
+        .await
+        .unwrap()
+        .sessions;
     assert_eq!(after.len(), 1, "one row, not two");
     assert_eq!(after[0].origin, SessionOrigin::Bridge);
-    assert_eq!(after[0].state, SessionState::Live, "Fleet ends a session it hosts");
+    assert_eq!(
+        after[0].state,
+        SessionState::Live,
+        "Fleet ends a session it hosts"
+    );
 }
 
 #[tokio::test]
@@ -255,10 +280,7 @@ async fn a_message_starts_the_process_and_the_thread_follows_the_turn() {
     assert_eq!(starts[0].name, address_of(id.as_str()));
     let line = rig.stand_in.process(0).sent.lock().unwrap()[0].clone();
     assert!(line.contains("fix the login"));
-    assert_eq!(
-        rig.turn(&id).await,
-        SessionTurn::Working { woken_by: None }
-    );
+    assert_eq!(rig.turn(&id).await, SessionTurn::Working { woken_by: None });
 
     rig.stand_in.init(0);
     rig.stand_in.finishes(0, "done");
@@ -286,15 +308,24 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
     // Reads and a write outside the repository never lease.
     let read = rig.gate(&id, "Bash", r#"{"command":"git status"}"#).await;
     assert!(!denied(&read));
-    let scratch = rig.gate(&id, "Write", r#"{"file_path":"/tmp/notes.txt"}"#).await;
+    let scratch = rig
+        .gate(&id, "Write", r#"{"file_path":"/tmp/notes.txt"}"#)
+        .await;
     assert!(!denied(&scratch));
-    assert!(rig.fleet.list_sessions(None, None, None).await.unwrap().sessions[0]
+    assert!(rig
+        .fleet
+        .list_sessions(None, None, None)
+        .await
+        .unwrap()
+        .sessions[0]
         .attachments
         .is_empty());
 
     // The first write into the checkout is held, and leases.
     let path = format!("{}/src/lib.rs", rig.root);
-    let first = rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await;
+    let first = rig
+        .gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#))
+        .await;
     assert!(denied(&first), "the write is held");
     assert!(reason(&first).contains("Slot 1"));
     let record = rig.fleet.get_session(id.clone()).await.unwrap();
@@ -305,14 +336,25 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
         .map(|one| (one.kind.as_str(), one.target.as_str()))
         .collect();
     assert!(held.contains(&("slot", "1")), "{held:?}");
-    assert!(held.iter().any(|(kind, target)| *kind == "branch" && target.contains("session-")));
-    assert!(record.rows.iter().any(|row| matches!(row, SessionRow::Lease { slot: 1, .. })));
+    assert!(held
+        .iter()
+        .any(|(kind, target)| *kind == "branch" && target.contains("session-")));
+    assert!(record
+        .rows
+        .iter()
+        .any(|row| matches!(row, SessionRow::Lease { slot: 1, .. })));
 
     // A second write in the same turn leases nothing more and is held too.
-    let again = rig.gate(&id, "Write", &format!(r#"{{"file_path":"{path}"}}"#)).await;
+    let again = rig
+        .gate(&id, "Write", &format!(r#"{{"file_path":"{path}"}}"#))
+        .await;
     assert!(denied(&again));
     assert_eq!(
-        rig.fleet.list_sessions(None, None, None).await.unwrap().sessions[0]
+        rig.fleet
+            .list_sessions(None, None, None)
+            .await
+            .unwrap()
+            .sessions[0]
             .attachments
             .iter()
             .filter(|one| one.kind == "slot")
@@ -331,15 +373,22 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
     assert!(told.contains("You are now in"));
     let thread = rig.rows(&id).await;
     assert!(
-        !thread.iter().any(|row| matches!(row, SessionRow::Message { text, .. } if text == "I will stop here")),
+        !thread.iter().any(
+            |row| matches!(row, SessionRow::Message { text, .. } if text == "I will stop here")
+        ),
         "what the agent said standing down is not shown"
     );
 
     // In the slot a write goes through; the main checkout is still refused.
     rig.stand_in.init(1);
     let inside = format!("{}/src/lib.rs", adapter_traits::slot_path(&rig.root, 1));
-    assert!(!denied(&rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{inside}"}}"#)).await));
-    let outside = rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await;
+    assert!(!denied(
+        &rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{inside}"}}"#))
+            .await
+    ));
+    let outside = rig
+        .gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#))
+        .await;
     assert!(denied(&outside));
     assert!(reason(&outside).contains("main checkout"));
 }
@@ -369,7 +418,13 @@ async fn another_sessions_message_wakes_the_target_and_names_who() {
     eventually(|| async { rig.rows(&b).await.len() == 3 }).await;
     // B's turn starts with no message of the person's outstanding.
     rig.stand_in.init(1);
-    eventually(|| async { matches!(rig.turn(&b).await, SessionTurn::Working { woken_by: Some(_) }) }).await;
+    eventually(|| async {
+        matches!(
+            rig.turn(&b).await,
+            SessionTurn::Working { woken_by: Some(_) }
+        )
+    })
+    .await;
     match rig.turn(&b).await {
         SessionTurn::Working { woken_by: Some(by) } => assert_eq!(by.id, a.as_str()),
         other => panic!("{other:?}"),
@@ -444,7 +499,12 @@ async fn tuning_ends_an_idle_process_and_the_next_message_resumes_on_the_new_set
         .unwrap();
     let hosted = tuned.hosted.unwrap();
     assert_eq!(
-        (hosted.model.as_deref(), hosted.effort.as_deref(), hosted.mode, hosted.running),
+        (
+            hosted.model.as_deref(),
+            hosted.effort.as_deref(),
+            hosted.mode,
+            hosted.running
+        ),
         (Some("sonnet"), Some("high"), SessionMode::Plan, false)
     );
     assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
@@ -508,7 +568,12 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
         .unwrap();
     assert!(stand_in.starts()[1].resuming);
 
-    let closed = quick.close_session(CloseSession { session_id: id.clone() }).await.unwrap();
+    let closed = quick
+        .close_session(CloseSession {
+            session_id: id.clone(),
+        })
+        .await
+        .unwrap();
     assert_eq!(closed.state, SessionState::Ended);
     assert_eq!(closed.end_reason.as_deref(), Some("closed"));
     assert!(stand_in.process(1).ended.load(Ordering::SeqCst));
@@ -534,18 +599,32 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
     };
 
     // Auto runs what is none of the three classes, unasked.
-    let ran = rig.fleet.session_permission(id.as_str(), asking("ls -la")).await.unwrap();
+    let ran = rig
+        .fleet
+        .session_permission(id.as_str(), asking("ls -la"))
+        .await
+        .unwrap();
     assert!(matches!(ran, ipc::RunOrNot::Allow { .. }));
 
     // A destructive one waits on the person.
     let fleet = Arc::clone(&rig.fleet);
     let session = id.as_str().to_string();
     let waiting = tokio::spawn(async move {
-        fleet.session_permission(&session, asking("rm -rf build")).await
+        fleet
+            .session_permission(&session, asking("rm -rf build"))
+            .await
     });
     let call = Mutex::new(String::new());
     eventually(|| async {
-        let asked = rig.fleet.get_session(id.clone()).await.unwrap().session.hosted.unwrap().asked;
+        let asked = rig
+            .fleet
+            .get_session(id.clone())
+            .await
+            .unwrap()
+            .session
+            .hosted
+            .unwrap()
+            .asked;
         match asked {
             Some(asked) => {
                 *call.lock().unwrap() = asked.call;
@@ -557,7 +636,10 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
     .await;
     assert!(matches!(
         &rig.rows(&id).await[..],
-        [SessionRow::Ask { state: SessionAskState::Waiting, .. }]
+        [SessionRow::Ask {
+            state: SessionAskState::Waiting,
+            ..
+        }]
     ));
     assert!(
         rig.fleet.helm().asks().waiting().is_empty(),
@@ -576,29 +658,45 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
     assert!(matches!(decided, ipc::RunOrNot::Deny { message } if message.contains("not that")));
     assert!(matches!(
         &rig.rows(&id).await[..],
-        [SessionRow::Ask { state: SessionAskState::Refused, .. }]
+        [SessionRow::Ask {
+            state: SessionAskState::Refused,
+            ..
+        }]
     ));
 }
 
 #[tokio::test]
-async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offers_the_permission_tool() {
+async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offers_the_permission_tool(
+) {
     use api::{Admitting, Conversations};
 
     let rig = rig();
     let id = rig.start().await;
     let peer: std::net::SocketAddr = "127.0.0.1:50999".parse().unwrap();
     let caller = api::Caller::at(peer);
-    assert!(rig.fleet.helm_at(caller).is_none(), "no process, no session");
+    assert!(
+        rig.fleet.helm_at(caller).is_none(),
+        "no process, no session"
+    );
 
     rig.send(&id, "hello").await;
-    let reach = rig.fleet.helm_at(caller).expect("a hosted session's connection");
+    let reach = rig
+        .fleet
+        .helm_at(caller)
+        .expect("a hosted session's connection");
     assert!(reach.is_a_hosted_session());
     assert!(reach.may("ask_the_person"));
     assert!(reach.may("list_sessions") && reach.may("who_owns"));
-    assert!(!reach.may("change_slot_pool"), "Helm's acts are not offered to it");
+    assert!(
+        !reach.may("change_slot_pool"),
+        "Helm's acts are not offered to it"
+    );
 
-    let asking: ipc::AskingToRun =
-        ipc::decode("an ask", br#"{"tool_name":"Bash","input":{"command":"ls"}}"#).unwrap();
+    let asking: ipc::AskingToRun = ipc::decode(
+        "an ask",
+        br#"{"tool_name":"Bash","input":{"command":"ls"}}"#,
+    )
+    .unwrap();
     let decided = rig
         .fleet
         .ask_the_person_at(asking, None, caller)

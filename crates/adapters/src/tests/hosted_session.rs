@@ -82,9 +82,18 @@ fn the_next_process_resumes_by_the_same_id() {
 fn another_sessions_message_is_accepted_and_the_first_write_is_held_by_a_hook() {
     let args = rendered(&launching(false, SessionMode::Auto));
     let settings = value_after(&args, "--settings").expect("settings");
-    assert!(settings.contains(r#""crossSessionInbound":"accept""#), "{settings}");
-    assert!(settings.contains(r#""matcher":"Write|Edit|NotebookEdit|Bash""#), "{settings}");
-    assert!(settings.contains("http://127.0.0.1:4100/sessions/gate"), "{settings}");
+    assert!(
+        settings.contains(r#""crossSessionInbound":"accept""#),
+        "{settings}"
+    );
+    assert!(
+        settings.contains(r#""matcher":"Write|Edit|NotebookEdit|Bash""#),
+        "{settings}"
+    );
+    assert!(
+        settings.contains("http://127.0.0.1:4100/sessions/gate"),
+        "{settings}"
+    );
 }
 
 #[test]
@@ -96,7 +105,10 @@ fn auto_and_ask_are_the_default_mode_because_auto_is_not_reachable_for_a_spawned
         (SessionMode::Plan, "plan"),
     ] {
         let args = rendered(&launching(false, mode));
-        assert_eq!(value_after(&args, "--permission-mode").as_deref(), Some(spelled));
+        assert_eq!(
+            value_after(&args, "--permission-mode").as_deref(),
+            Some(spelled)
+        );
     }
 }
 

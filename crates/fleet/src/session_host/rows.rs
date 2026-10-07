@@ -26,7 +26,8 @@ where
     }
 
     pub(crate) fn row_id(&self, session: &str) -> String {
-        self.hosts().next_row(session, &self.now().as_str().replace([':', '-', '.'], ""))
+        self.hosts()
+            .next_row(session, &self.now().as_str().replace([':', '-', '.'], ""))
     }
 
     /// Keep a row and publish it. **Best effort**: a thread that will not write

@@ -50,6 +50,7 @@ mod fleetwide;
 /// One Job's own log, followed off the file Fleet already writes.
 /// **The third voice in the activity log.**
 mod following;
+mod hosted_sessions;
 mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
@@ -86,7 +87,6 @@ mod scoped;
 /// the gate rule reads.
 mod served;
 mod servers;
-mod hosted_sessions;
 mod sessions;
 mod sockets;
 mod stream;
@@ -105,8 +105,7 @@ pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     HelmReach, HostedSessions, Needs, PermissionAnswer, Queries, Redirector, Refusal, Retros,
-    Sessions, Studios, StoredFile,
-    Tools,
+    Sessions, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

@@ -95,6 +95,9 @@ mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
+/// A session Bridge hosts: its commands, its thread and the gate its first
+/// write goes through. `docs/concepts/session.md`.
+mod hosted_sessions;
 mod ids;
 mod job;
 /// What Fleet did to a Job, out of the Job's own log. **The third voice the
@@ -164,9 +167,6 @@ mod seeding;
 /// A Command that stays running, held by Fleet. **Lifecycle on `/events`,
 /// output on a socket of its own.**
 mod servers;
-/// A session Bridge hosts: its commands, its thread and the gate its first
-/// write goes through. `docs/concepts/session.md`.
-mod hosted_sessions;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
 mod sessions;
@@ -281,6 +281,12 @@ pub use holding::{
     SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotReleased, SlotRescued,
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
+pub use hosted_sessions::{
+    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HostedFacts, SendSessionMessage,
+    SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    TagKind, TaggedJob, TuneSession,
+};
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
@@ -373,12 +379,6 @@ pub use seeding::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
-};
-pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HostedFacts, SendSessionMessage, SentFile,
-    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TuneSession,
 };
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,

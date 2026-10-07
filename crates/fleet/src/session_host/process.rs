@@ -167,7 +167,9 @@ impl Processes for ProcessHost {
         let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
             (child.stdin.take(), child.stdout.take(), child.stderr.take())
         else {
-            return Err(String::from("the session's pipes were lost before they were held"));
+            return Err(String::from(
+                "the session's pipes were lost before they were held",
+            ));
         };
         let (input, mut lines) = mpsc::unbounded_channel::<String>();
         let (end, ended) = oneshot::channel::<()>();

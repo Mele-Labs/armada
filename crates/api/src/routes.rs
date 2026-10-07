@@ -159,7 +159,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/close",
             post(crate::hosted_sessions::close_session::<D>),
         )
-        .route("/sessions/one", get(crate::hosted_sessions::get_session::<D>))
+        .route(
+            "/sessions/one",
+            get(crate::hosted_sessions::get_session::<D>),
+        )
         .route(
             "/sessions/file",
             get(crate::hosted_sessions::get_session_file::<D>),

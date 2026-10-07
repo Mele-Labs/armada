@@ -2,15 +2,13 @@
 //! first one, and until then nothing can write the main checkout**. Since 23.47.
 //!
 //! The process's directory is fixed when it starts, so the lease cannot move it
-//! in place (spike 25 measured the built-in worktree tool refusing a permission
+//! in place (spike 24 measured the built-in worktree tool refusing a permission
 //! door). The hook leases the slot, denies the write, and the turn ends;
 //! `hearing::moved_into` then resumes the session with the slot as its
 //! directory. **A line the hook cannot read as a read is a write**, so a shell
 //! line it does not know leases a slot rather than touching the checkout.
 
-use adapter_traits::{
-    AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec,
-};
+use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, WorktreeSpec};
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -66,8 +64,7 @@ where
         {
             return GateAnswer::pass();
         }
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
-        else {
+        let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) else {
             return GateAnswer::pass();
         };
         let root = served.root().trim_end_matches('/').to_string();
@@ -115,22 +112,23 @@ where
             Err(why) => return GateAnswer::deny(format!("no slot could be named: {why:?}")),
         };
         let pool = crate::leasing::pool_of(served);
-        let (slot, directory, branch) = match self.vcs().lease_slot(&pool, &spec, id) {
-            Ok(SlotLeased::Took { slot, worktree, .. }) => (
-                slot,
-                worktree.path().to_string(),
-                worktree.branch().to_string(),
-            ),
-            Ok(SlotLeased::Full) => {
-                return GateAnswer::deny(
+        let (slot, directory, branch) =
+            match self.vcs().lease_slot(&pool, &spec, id) {
+                Ok(SlotLeased::Took { slot, worktree, .. }) => (
+                    slot,
+                    worktree.path().to_string(),
+                    worktree.branch().to_string(),
+                ),
+                Ok(SlotLeased::Full) => return GateAnswer::deny(
                     "Every worktree slot is in use, so this session cannot write yet. Tell the \
                      person, and try again once one is free.",
-                )
-            }
-            Err(why) => {
-                return GateAnswer::deny(format!("A slot could not be leased for this write: {why}"))
-            }
-        };
+                ),
+                Err(why) => {
+                    return GateAnswer::deny(format!(
+                        "A slot could not be leased for this write: {why}"
+                    ))
+                }
+            };
         hosting.lease_slot = Some(slot);
         hosting.lease_branch = Some(branch.clone());
         let now = self.now().as_str().to_string();

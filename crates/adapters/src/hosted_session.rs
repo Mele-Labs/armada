@@ -25,6 +25,10 @@ use serde::Serialize;
 
 use crate::harness::HeadlessAgent;
 
+/// What the ledger calls the harness a hosted session runs in: the name the
+/// mod in a terminal session reports under, so the two are one harness.
+pub const HOSTED_HARNESS: &str = "claude_code";
+
 /// The tools a hosted session's first write is held on. **`Bash` is among
 /// them** and a line is told read from write by [`reads_only`].
 const GATED_TOOLS: &str = "Write|Edit|NotebookEdit|Bash";
@@ -212,7 +216,10 @@ impl HeadlessAgent {
         args.push(hosted.session.clone());
         let borrowed = DroneSpawnConfig::spawn_in(
             &Worktree::at(hosted.directory.clone(), ""),
-            hosted.model.clone().unwrap_or(Model::named("default").map_err(HostedRefused::Unassembled)?),
+            hosted
+                .model
+                .clone()
+                .unwrap_or(Model::named("default").map_err(HostedRefused::Unassembled)?),
             Prompt::assembled("carried on stdin").map_err(HostedRefused::Unassembled)?,
             hosted.door.clone(),
             Toolbelt::evidence_only(),
@@ -263,11 +270,49 @@ fn reads(segment: &str) -> bool {
 }
 
 const READS: &[&str] = &[
-    "ls", "cat", "head", "tail", "wc", "pwd", "echo", "grep", "rg", "find", "which", "file",
-    "stat", "tree", "diff", "sort", "uniq", "cut", "date", "whoami", "printenv", "ps", "true",
-    "false", "test", "[", "git status", "git log", "git diff", "git show", "git rev-parse",
-    "git ls-files", "git blame", "git describe", "git fetch", "gh pr view", "gh pr list",
-    "gh pr diff", "gh pr checks", "gh issue view", "gh issue list", "gh run view", "gh run list",
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "wc",
+    "pwd",
+    "echo",
+    "grep",
+    "rg",
+    "find",
+    "which",
+    "file",
+    "stat",
+    "tree",
+    "diff",
+    "sort",
+    "uniq",
+    "cut",
+    "date",
+    "whoami",
+    "printenv",
+    "ps",
+    "true",
+    "false",
+    "test",
+    "[",
+    "git status",
+    "git log",
+    "git diff",
+    "git show",
+    "git rev-parse",
+    "git ls-files",
+    "git blame",
+    "git describe",
+    "git fetch",
+    "gh pr view",
+    "gh pr list",
+    "gh pr diff",
+    "gh pr checks",
+    "gh issue view",
+    "gh issue list",
+    "gh run view",
+    "gh run list",
     "armada",
 ];
 
@@ -290,7 +335,10 @@ impl fmt::Display for HostedRefused {
                  Fleet happened to be"
             ),
             HostedRefused::SessionNotPortable { given } => {
-                write!(out, "the session id `{given}` is not one the agent CLI takes")
+                write!(
+                    out,
+                    "the session id `{given}` is not one the agent CLI takes"
+                )
             }
             HostedRefused::EffortNotPortable { given } => {
                 write!(out, "the effort `{given}` is not one the agent CLI takes")

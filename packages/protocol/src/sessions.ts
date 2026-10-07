@@ -4,6 +4,8 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
+import type { HostedFacts } from "./hosted-sessions";
+
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
 
@@ -63,6 +65,8 @@ export type SessionRecord = {
   end_reason?: string;
   usage: SessionUsage;
   attachments: Attachment[];
+  /** What a session Fleet hosts carries beyond a terminal's. Since 23.47. */
+  hosted?: HostedFacts;
 };
 
 /** `list_sessions`, the most recently seen first. */

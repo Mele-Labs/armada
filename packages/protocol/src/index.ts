@@ -59,6 +59,7 @@ export * from "./rehearsal";
 export * from "./scan";
 export * from "./needs";
 export * from "./servers";
+export * from "./hosted-sessions";
 export * from "./sessions";
 export * from "./remarks";
 export * from "./report";

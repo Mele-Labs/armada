@@ -61,6 +61,8 @@ mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
+/// What a session Fleet hosts keeps beside its ledger row, and its thread.
+mod hosted_sessions;
 /// Where a verdict's own question was kept, and the column that points at it.
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
@@ -147,8 +149,6 @@ mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
-/// What a session Fleet hosts keeps beside its ledger row, and its thread.
-mod hosted_sessions;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
@@ -195,6 +195,7 @@ pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
+pub use hosted_sessions::KeptHosting;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -215,7 +216,6 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
-pub use hosted_sessions::KeptHosting;
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,

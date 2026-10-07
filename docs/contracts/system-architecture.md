@@ -211,6 +211,8 @@ it.
 | `alerts` | Condition, Alert Level, read state, acted state | `fleet` |
 | `helm_sessions` | One per Manifest. Transcript, cursor, token spend against the Machine budget | `fleet` |
 | `sessions` | One per agent session a person runs, terminal or Bridge: repository, directory, title, state, last turn, last reported figures | `fleet` |
+| `hosted_sessions` | What only a session Bridge hosts has: its model, effort and mode, whether its process has run, and the slot and branch it leased | `fleet` |
+| `session_rows` | A hosted session's thread, one row each in order, kept whole | `fleet` |
 | `ledger_attachments` | What a holder took or did, keyed by holder (`session` or `job`, no foreign key), kind (open text), repository and target; its state is `standing`, `spent` or `given_back` for every kind | `fleet` |
 
 **Captured Check output lives on disk, with a pointer in the Evidence row.**
