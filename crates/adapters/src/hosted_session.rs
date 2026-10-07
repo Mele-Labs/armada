@@ -29,6 +29,10 @@ use crate::harness::HeadlessAgent;
 /// mod in a terminal session reports under, so the two are one harness.
 pub const HOSTED_HARNESS: &str = "claude_code";
 
+/// Where a repository keeps the manifest of the `armada` mod its sessions load, which says the
+/// version the mod should be at.
+pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
+
 /// The tools a hosted session's first write is held on. **`Bash` is among
 /// them** and a line is told read from write by [`reads_only`].
 const GATED_TOOLS: &str = "Write|Edit|NotebookEdit|Bash";

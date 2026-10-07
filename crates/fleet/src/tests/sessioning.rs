@@ -67,6 +67,7 @@ fn started(cwd: &str) -> SessionFact {
         cwd: cwd.into(),
         title: Some("fix the ledger".into()),
         origin: ipc::SessionOrigin::Terminal,
+        mod_version: None,
     }
 }
 

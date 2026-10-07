@@ -82,7 +82,8 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  return { state: "idle", said: "Idle" };
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
@@ -223,6 +224,7 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
   { label: "Running", has: (state) => state === "working" },
+  { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
   { label: "Ended", has: (state) => state === "ended" },
 ];
@@ -249,11 +251,11 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: pullRequestsOf(session),
-      jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), state: one.state })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
+      ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
@@ -586,6 +588,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         {...{
               actions: (
                 <>
@@ -638,7 +641,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             })}
       >
         <div className="armada-session-frame__centre">
-          <Refused />
           {origin === undefined ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
               <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />

@@ -53,3 +53,22 @@ export const Renamable: Story = {
     await expect(args.onRename).toHaveBeenCalledWith("Store test, flaky on CI");
   },
 };
+
+/** A terminal Session whose mod is older than the repository's is marked in its header. */
+export const ModOutOfDate: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Release notes script", modOutOfDate: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Mod out of date: run /reload-plugins" })).toBeInTheDocument();
+  },
+};
+
+/** No title yet: the header offers Rename as an icon, since there is no name to press. */
+export const Untitled: Story = {
+  args: { state: "waiting", said: "Waiting on you", onRename: fn() },
+  play: async ({ canvas, userEvent, args }) => {
+    await expect(canvas.getByRole("button", { name: "Rename" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Rename" }));
+    await userEvent.type(canvas.getByRole("textbox", { name: "Session name" }), "Fresh name{Enter}");
+    await expect(args.onRename).toHaveBeenCalledWith("Fresh name");
+  },
+};

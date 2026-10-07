@@ -159,6 +159,8 @@ export type Session = {
   older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
+  /** Its mod is older than the repository's, or reported no version. */
+  modOutOfDate?: true;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */

@@ -3301,6 +3301,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `SessionRecord.terminal` | `listening?`: `true` while the session's mod has asked within ten seconds | Absent is not listening. A live terminal session that is not listening is dead for Fork. Published as `session.changed` when it flips, while a window has the thread open |
 | `SessionRecord.attachments` | kinds `forked_to` and `forked_from`, `target` the other session's id, `spent` | Open text as every kind is. **One migration**, `session_fork.hosted_fork_of`: `hosted_sessions.fork_of` |
 
+## Protocol 23.62: a mod that is out of date
+
+`docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `report_session` | `SessionFact` `started.mod_version?`, `tuned.mod_version?` | The version of the `armada` mod reporting. Kept on the session's row, and a fact without one leaves it |
+| `session.changed`, `list_sessions`, `get_session` | `SessionRecord.mod_out_of_date?` | `true` for a terminal session whose mod is older than its repository's `plugins/armada/.claude-plugin/plugin.json`, or reported none. Absent otherwise |
+
+**An older Bridge ignores the field, and an older mod sends none**, so a session running one is marked as soon as Fleet and the repository carry a version.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

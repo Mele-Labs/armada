@@ -69,6 +69,8 @@ export type SessionRecord = {
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
   terminal?: TerminalFacts;
+  /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
+  mod_out_of_date?: true;
 };
 
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
@@ -106,7 +108,7 @@ export type Owners = { holders: Ownership[] };
 
 /** One fact a harness reports. `POST /sessions/report`. */
 export type SessionFact =
-  | { kind: "started"; cwd: string; title?: string; origin?: SessionOrigin }
+  | { kind: "started"; cwd: string; title?: string; origin?: SessionOrigin; mod_version?: string }
   | { kind: "titled"; title: string; named?: boolean }
   | { kind: "moved"; cwd: string }
   | {
