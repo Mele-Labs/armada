@@ -127,10 +127,7 @@ fn a_file_with_extra_additive_names_is_opened_by_an_older_build() {
     drop(Store::open_with(&dir.db(), &newer).expect("the newer build"));
 
     let store = Store::open(&dir.db()).expect("an older build accepts additive names it lacks");
-    assert_eq!(
-        store.unknown_migrations(),
-        ["unlanded_branch.things"]
-    );
+    assert_eq!(store.unknown_migrations(), ["unlanded_branch.things"]);
     drop(store);
 
     // And the newer build still opens it afterwards, applying nothing twice.
