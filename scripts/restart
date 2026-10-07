@@ -458,6 +458,25 @@ if [[ -n "$from" ]]; then
   esac
 fi
 
+# The protocol the tree's file names, and the one the last `ipc` build compiled
+# in. They differ when cargo called the build script fresh although the file
+# changed (an older mtime, or a target directory carried from another tree), and
+# Fleet then reports the previous minor. Compared here so the install below can
+# be made to rebuild `ipc`; compared again against what Fleet reports.
+tree_protocol() {
+  python3 - "$src/protocol-version.toml" <<'PY'
+import re, sys
+t = open(sys.argv[1]).read()
+print(".".join(re.search(rf"^{k}\s*=\s*(\d+)", t, re.M).group(1) for k in ("major", "minor")))
+PY
+}
+ipc_built_protocol() {
+  local out
+  out=$(ls -t "${CARGO_TARGET_DIR:-$src/target}"/debug/build/ipc-*/out/protocol_version.rs 2>/dev/null | head -n 1 || true)
+  [[ -n "$out" ]] || return 0
+  sed -n 's/^const PROTOCOL_M[A-Z]*: u32 = \([0-9]*\);$/\1/p' "$out" | paste -sd. -
+}
+
 if $dry_run; then
   say "Dry run — nothing below happens"
   echo "would install armada from $src (cargo install --path crates/armada --debug --locked) to $armada_bin"
@@ -478,7 +497,13 @@ if $dry_run; then
     echo "would take no snapshot — there is no database yet"
   fi
   echo "would write $plist: [$armada_bin, serve, $root]"
-  echo "would write $bridge_plist with WorkingDirectory $src"
+  echo "would write $bridge_plist: [$src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop"
+  echo "Bridge would run $src/apps/desktop/out — the tree it builds, $src"
+  [[ -x "$src/apps/desktop/node_modules/.bin/electron-vite" ]] \
+    || echo "WARNING: $src/apps/desktop/node_modules/.bin/electron-vite is missing, so the restart would refuse"
+  if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
+    echo "would touch $src/protocol-version.toml — ipc was last built at protocol $(ipc_built_protocol) and the file says $(tree_protocol)"
+  fi
   echo "would write $support/restart-source: $src"
   if $adopt; then
     if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
@@ -503,6 +528,11 @@ fi
 refuse_if_drone_working
 
 # Rebuild.
+built_protocol=$(ipc_built_protocol)
+if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
+  say "ipc was last built at protocol $built_protocol and $src/protocol-version.toml says $(tree_protocol) — touching it so cargo rebuilds ipc"
+  touch "$src/protocol-version.toml"
+fi
 say "Installing armada from $src"
 (cd "$src" && cargo install --path crates/armada --debug --locked)
 
@@ -679,6 +709,16 @@ done
 new_port=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$runtime")
 protocol=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))["protocol_version"]; print(str(v["major"]) + "." + str(v["minor"]))' "$runtime")
 
+# The binary just installed must speak the protocol this tree's file names. A
+# Fleet reporting an older minor is a build that kept a stale `ipc`, and Bridge
+# reads that as skew against its own build.
+want_protocol=$(tree_protocol)
+if [[ "$protocol" != "$want_protocol" ]]; then
+  echo "restart: !!! PROTOCOL MISMATCH: the new Fleet reports $protocol and $src/protocol-version.toml says $want_protocol." >&2
+  echo "restart: !!! ipc was built from an older file. Run \`cargo clean -p ipc\` in $src and restart again." >&2
+  fail "Fleet is up on protocol $protocol, not $want_protocol; Bridge was not reopened"
+fi
+
 # Reopen Bridge, only if it was rebuilt. Otherwise it reconnects on its own
 # — apps/desktop/src/main/socket.ts.
 bridge_reopened=false
@@ -719,15 +759,19 @@ if $bridge_rebuilt; then
   fi
 
   if $reopen_ok; then
-    pnpm_bin=$(command -v pnpm) || fail "pnpm is not on PATH — cannot reopen Bridge"
-    python3 - "$bridge_plist" "$bridge_label" "$pnpm_bin" "$src" "$home" "$PATH" <<'PY'
+    # **The package's own binary in the package's own directory, not pnpm.**
+    # Nothing names another tree, so the tree built above is the tree run.
+    bridge_dir="$src/apps/desktop"
+    bridge_bin="$bridge_dir/node_modules/.bin/electron-vite"
+    [[ -x "$bridge_bin" ]] || fail "$bridge_bin is missing — run pnpm install in $src"
+    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" <<'PY'
 import plistlib, sys
 
-path, label, pnpm_bin, root, home, path_env = sys.argv[1:7]
+path, label, bridge_bin, root, home, path_env = sys.argv[1:7]
 plistlib.dump(
     {
         "Label": label,
-        "ProgramArguments": [pnpm_bin, "--filter", "@armada/desktop", "start"],
+        "ProgramArguments": [bridge_bin, "preview"],
         "WorkingDirectory": root,
         "RunAtLoad": True,
         "ProcessType": "Interactive",
@@ -739,13 +783,25 @@ plistlib.dump(
 )
 PY
     chmod 644 "$bridge_plist"
+    # **Boot the job out and back in; never kickstart it.** `kickstart -k`
+    # restarts the definition launchd already holds and ignores the plist just
+    # written, so a Bridge loaded from the main checkout kept running there
+    # while the file on disk named the preview. Confirmed 6 Oct: the loaded job
+    # said WorkingDirectory main, the plist said .armada/preview.
+    say "Reopening Bridge from $bridge_dir"
     if launchctl print "$bridge_service" >/dev/null 2>&1; then
-      say "Reopening Bridge"
-      launchctl kickstart -k "$bridge_service"
-    else
-      say "Reopening Bridge"
-      launchctl bootstrap "$domain" "$bridge_plist"
+      launchctl bootout "$bridge_service" 2>/dev/null || true
+      for _ in $(seq 40); do
+        launchctl print "$bridge_service" >/dev/null 2>&1 || break
+        sleep 0.25
+      done
     fi
+    launchctl bootstrap "$domain" "$bridge_plist"
+    loaded_dir=$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p')
+    if [[ "$loaded_dir" != "$bridge_dir" ]]; then
+      fail "launchd loaded Bridge from ${loaded_dir:-nowhere}, not $bridge_dir — it would show the wrong tree"
+    fi
+    echo "Bridge runs $bridge_dir/out (built from $src)" >&2
     bridge_reopened=true
   fi
 fi
