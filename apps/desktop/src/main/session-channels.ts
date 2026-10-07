@@ -35,7 +35,7 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
     text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
-    text(jobId) && EXITS.includes(exit) ? (connection()?.commands.exitPilot(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unsent.outcome,
+    text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unsent.outcome,
   );
   ipc.handle(CHANNELS.sendSessionMessage, (_event, send: SendSessionMessage) => {
     if (!text(send?.session_id) || typeof send.text !== "string") return unsent;

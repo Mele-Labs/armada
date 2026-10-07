@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { PilotAct, PilotButton, PilotConfirm, PilotExits, PilotedBy, type PilotValue } from "./Pilot";
+import { AttestedMark, PilotAct, PilotButton, PilotConfirm, PilotExits, PilotedBy, type PilotValue } from "./Pilot";
 
 /**
  * Piloting a Job: the act, the confirmation, who has the Job, and the three
@@ -85,5 +85,40 @@ export const PilotedByASession: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Cap the retry backoff")).toBeInTheDocument();
+  },
+};
+
+/** An exit Fleet refused: said under the exits, which stay so the person can choose another way out. */
+export const AnExitRefused: Story = {
+  render: () => (
+    <PilotAct.Provider value={value({ said: "A step has not advanced. Submit it for verification, or close the Job as superseded." })}>
+      <PilotExits jobId="j55" />
+    </PilotAct.Provider>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/A step has not advanced/)).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Submit for verification" })).toBeInTheDocument();
+  },
+};
+
+/** A take over Fleet refused, said in the confirmation, which stays up. */
+export const ATakeOverRefused: Story = {
+  render: () => <PilotConfirm open title="Cap the retry backoff" said="A person has already taken this Job over." onConfirm={fn()} onCancel={fn()} />,
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement.ownerDocument.body).getByText("A person has already taken this Job over.")).toBeInTheDocument();
+  },
+};
+
+/** A Job a person closed on their word: its own mark, and the person's words on its tooltip. Never the passed mark. */
+export const Attested: Story = {
+  render: () => (
+    <>
+      <AttestedMark />
+      <AttestedMark compact note="landed by hand" />
+    </>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("img", { name: "Attested, not verified" })).toHaveLength(2);
+    await expect(canvas.getByText("Attested")).toBeInTheDocument();
   },
 };

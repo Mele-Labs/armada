@@ -96,6 +96,34 @@ describe("the ledger", () => {
     expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55", looking: true }]);
   });
 
+  it("says which Job a slot and a branch came with, where a take over handed them to the session", () => {
+    const board = [job("piloted", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
+    const attachments = attachmentsOfRecord(
+      record("a", { attachments: [held("slot", "3", { handed: "job J1" }), held("branch", "fix/55", { handed: "job J1" }), held("slot", "4", { handed: "job GONE" })] }),
+      beside(board),
+    );
+    expect(attachments).toContainEqual({ kind: "slot", slot: 3, handed: { job: 55 } });
+    expect(attachments).toContainEqual({ kind: "branch", name: "fix/55", slot: 3, handed: { job: 55 } });
+    expect(attachments).toContainEqual({ kind: "slot", slot: 4 });
+  });
+
+  it("marks a Job a person attested, and a Job piloted from another session", () => {
+    const piloted = { reason: "take_over", since: AT };
+    const board = [
+      job("completed_success", { id: "J1", handle: "55-a", piloted: { ...piloted, session_id: "a", exit: "attested", ended_at: AT } }),
+      job("completed_success", { id: "J2", handle: "56-b", piloted: { ...piloted, session_id: "a", exit: "submitted", ended_at: AT } }),
+      job("piloted", { id: "J3", handle: "57-c", piloted: { ...piloted, session_id: "a" } }),
+      job("piloted", { id: "J4", handle: "58-d", piloted: { ...piloted, session_id: "other" } }),
+    ];
+    const attachments = attachmentsOfRecord(record("a", { attachments: ["J1", "J2", "J3", "J4"].map((id) => held("job", id)) }), beside(board));
+    expect(attachments.map((one) => (one.kind === "job" ? [one.number, one.attested === true, one.pilotedElsewhere === true] : []))).toEqual([
+      [55, true, false],
+      [56, false, false],
+      [57, false, false],
+      [58, false, true],
+    ]);
+  });
+
   it("takes a Job's number from its handle and its state from its status", () => {
     expect(numberOf({ handle: "52-the-retry-loop" })).toBe(52);
     expect(numberOf({ handle: "no-number" })).toBe(0);
@@ -158,6 +186,46 @@ describe("the thread", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });
     expect(drawn[3]).toMatchObject({ from: { kind: "session", id: "s-1", title: "Other" } });
+  });
+
+  it("draws the handoff first in a piloted thread, with what Fleet compared and the Drone's list taken apart", () => {
+    const handoff: SessionRow = {
+      kind: "handoff",
+      id: "h",
+      at: AT,
+      job_id: "J1",
+      number: 55,
+      title: "Cap the backoff",
+      reason: "take_over",
+      slot: 3,
+      branch: "fix/55",
+      step: { id: "verify", label: "Verify the fix" },
+      attempts: 3,
+      refusals: ["No test covers the cap"],
+      plan: { declared: true, outside: ["a/loop.rs"], unwritten: ["a/tests.rs"] },
+      narrative: { trying_to: "Cap it", blocked_by: "The lint", tried: "- added a loop\n2. added a sleep\n\n  ran the Check" },
+    };
+    const [drawn] = rowsOfThread("a", [handoff], () => undefined);
+    expect(drawn).toEqual({
+      id: "h",
+      at: expect.any(String),
+      kind: "handoff",
+      job: { number: 55, title: "Cap the backoff" },
+      slot: 3,
+      branch: "fix/55",
+      step: { id: "verify", label: "Verify the fix" },
+      attempts: 3,
+      refusals: ["No test covers the cap"],
+      plan: { outside: ["a/loop.rs"], unwritten: ["a/tests.rs"] },
+      narrative: { trying_to: "Cap it", blocked_by: "The lint", tried: ["added a loop", "added a sleep", "ran the Check"] },
+    });
+  });
+
+  it("leaves out of a handoff what Fleet had none of: no step, no refusals, no plan, no narrative", () => {
+    const [drawn] = rowsOfThread("a", [{ kind: "handoff", id: "h", at: AT, job_id: "J1", number: 55, title: "T", reason: "take_over", slot: 3, branch: "b", attempts: 0, plan: { declared: false } }], () => undefined);
+    expect(drawn).toMatchObject({ kind: "handoff", refusals: [], plan: { outside: [], unwritten: [] } });
+    expect(drawn).not.toHaveProperty("step");
+    expect(drawn).not.toHaveProperty("narrative");
   });
 
   it("says what an answered ask was decided and leaves a waiting one to the card under the thread", () => {

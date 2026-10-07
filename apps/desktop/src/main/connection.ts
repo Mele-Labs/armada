@@ -23,6 +23,7 @@ import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
+import { PilotExits } from "./pilot-exits";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
@@ -177,6 +178,8 @@ export class FleetConnection {
    * nine of them would be nine places for the reasoning to go missing.
    */
   readonly commands: JobCommands;
+  /** The three ways out of a pilot — `pilot-exits.ts`. */
+  readonly pilotExits: PilotExits;
   /** One Job's work, reviewed, and the two collection-wide reads — see `job-reads.ts`. */
   private readonly jobReads: JobReads;
   /** `arrivals.ts`'s switch, and the exact slice of this object it may reach. */
@@ -259,6 +262,12 @@ export class FleetConnection {
       proposalOut: () => this.current.proposing,
       proposalJob: () => this.proposalJobId,
       rereadCapacity: (port) => readCapacity(port, (change) => this.publish(change)),
+    });
+    this.pilotExits = new PilotExits({
+      port,
+      fold: (job) => this.fold(job),
+      reread: (port) => reread(port, (change) => this.publish(change), this.wiring.now),
+      refresh: (port, jobId) => this.jobFocus.refresh(port, jobId),
     });
     this.jobReads = new JobReads({
       port,

@@ -46,7 +46,6 @@ import type {
   WhenRefused,
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
-import type { PilotExit } from "../shared/api/sessions";
 import type { Lesson, LessonAnswer } from "@armada/protocol";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
@@ -131,7 +130,6 @@ type Busy =
   | "already_redirecting"
   | "already_restarting"
   | "already_pausing"
-  | "already_piloting"
   | "already_overruling"
   | "already_rereading"
   | "already_rerunning_checks"
@@ -171,8 +169,6 @@ export class JobCommands {
   private readonly restarting = new Set<string>();
   /** One set for both: a pause and a resume of one Job cannot both be in flight. */
   private readonly pausing = new Set<string>();
-  /** A pilot's exit in flight, by Job: submitting, attesting and superseding are one at a time. */
-  private readonly exitingPilot = new Set<string>();
   /** Retro items with an answer in flight, by item id. Not a Job's act, so not a Job's set. */
   private readonly answeringLesson = new Set<string>();
   /** Jobs with an override in flight. Its own set: it is its own act. */
@@ -485,18 +481,6 @@ export class JobCommands {
    */
   async killJob(jobId: string): Promise<Outcome> {
     return this.kill(jobId, "kill_job");
-  }
-
-  /**
-   * One of the three ways out of a pilot. **Submitting waits for the Checks**, as `rerunChecks` does,
-   * so it has their bound; attesting and superseding carry the person's note where they gave one.
-   */
-  async exitPilot(jobId: string, exit: PilotExit, note?: string): Promise<Outcome> {
-    return this.act(jobId, this.exitingPilot, "already_piloting", (port) =>
-      exit === "submit"
-        ? ask(port, "POST", route(jobId, "submit_for_verification"), undefined, CHECKS_MS)
-        : ask(port, "POST", route(jobId, exit === "attest" ? "attest_complete" : "close_as_superseded"), note === undefined ? {} : { note }),
-    );
   }
 
   /** Pause the Job, keeping it. Not `killJob`: nothing here is terminal. */
