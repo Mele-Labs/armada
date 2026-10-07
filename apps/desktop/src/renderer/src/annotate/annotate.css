@@ -147,8 +147,10 @@
 .armada-annotate__bar {
   position: fixed;
   bottom: var(--space-3);
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centred without a transform: a transformed ancestor becomes the containing block of the split
+     button's fixed menu, which then never sees the window's edge and cannot flip up off the bottom. */
+  inset-inline: 0;
+  margin-inline: auto;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

@@ -43,3 +43,54 @@ export async function sendToFleet(note: Annotation, box: Box, sink: Sink, fleet:
   if (job === undefined) return { ok: false, saying: "Fleet answered with no Job" };
   return { ok: true, sent: { jobId: job.id, handle: job.handle, at: at.toISOString() } };
 }
+
+/** The calls a Session send makes on Fleet's seam. */
+export type SessionSender = Pick<BridgeApi, "startSession" | "sendSessionMessage">;
+
+/** A Session the notes go to, by the title the person knows it by. */
+export type SessionTarget = { id: string; title: string };
+
+const base64 = (bytes: ArrayBuffer): string => {
+  const view = new Uint8Array(bytes);
+  let binary = "";
+  for (let at = 0; at < view.length; at += 0x8000) binary += String.fromCharCode(...view.subarray(at, at + 0x8000));
+  return btoa(binary);
+};
+
+/** A new Session's name: the first note's first line, cut short. */
+export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
+
+/**
+ * The notes as one message to a Session, each with its screenshot attached: to `target`, or to a
+ * Session started for them where `target` is null. **Nothing is saved here**, as `sendToFleet`.
+ * A Session Fleet refuses, a terminal one among them, comes back as its words.
+ */
+export async function sendToSession(
+  notes: readonly { note: Annotation; box: Box }[],
+  target: SessionTarget | null,
+  sink: Sink,
+  fleet: SessionSender,
+  at: Date,
+): Promise<SendAnswer> {
+  const attachments: { name: string; media_type: string; data: string }[] = [];
+  for (const { note, box } of notes) {
+    const png = await sink.capture(box).catch(() => null);
+    if (png !== null) attachments.push({ name: `annotation-${note.id}.png`, media_type: "image/png", data: base64(png) });
+  }
+
+  let into = target;
+  if (into === null) {
+    // On the notes' repository, which the window's pick may not be: on All repositories it is none.
+    const root = await sink.root();
+    if (root === null) return { ok: false, saying: "No repository was found above Bridge, so there is nothing to start a Session on" };
+    const title = titleOf(notes.map((one) => one.note));
+    const started = await fleet.startSession(title, root);
+    if (!started.ok) return { ok: false, saying: said(started.outcome) };
+    into = { id: started.value.id, title: started.value.title ?? title };
+  }
+
+  const text = notes.map((one) => requestOf(one.note)).join("\n\n---\n\n");
+  const sent = await fleet.sendSessionMessage({ session_id: into.id, text, ...(attachments.length === 0 ? {} : { attachments }) });
+  if (!sent.ok) return { ok: false, saying: said(sent.outcome) };
+  return { ok: true, sent: { sessionId: into.id, title: into.title, at: at.toISOString() } };
+}

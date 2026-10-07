@@ -10,6 +10,16 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 
+/**
+ * The repository a new Session starts on. **A named root wins over the pick**, which the annotation
+ * layer needs on All repositories; a root nothing serves is none rather than a guess. Unnamed, it is
+ * the pick, or the only one Fleet serves.
+ */
+export function repositoryToStart(served: readonly RepositorySummary[], picked: Picked, root?: string): RepositorySummary | undefined {
+  if (root !== undefined) return served.find((one) => one.root === root);
+  return picked.repository ?? (served.length === 1 ? served[0] : undefined);
+}
+
 export class Picked {
   /** The picked root, or `null` for All repositories. */
   private root: string | null = null;
