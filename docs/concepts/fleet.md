@@ -367,15 +367,15 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 | What Fleet asks | When |
 |---|---|
-| Where main stands on the forge | One ref lookup per repository per sweep interval, one repository a turn, rotating |
+| Where main stands on the forge | One ref lookup per repository per minute, one repository a reading, rotating. The reading has a loop of its own, so a Job's Checks never hold it up |
 | The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
-| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same interval and rotation |
-| The newest five pull requests merged into the base | One listing a visit, beside the open ones |
-| The CI run on each of those five merge commits | One ask a commit, then again only while a job is unfinished, or while nothing has run on a merge under ten minutes old; a settled run is kept in memory and not asked again. Five asks the first visit after a start, usually none after |
+| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same loop and rotation |
+| The pull requests merged into the base | One listing a visit, beside the open ones, the newest 30. Recently landed shows five |
+| The CI run on the head and the newest five merge commits, and on older ones only until one has finished | One ask a commit, then again only while a job is unfinished, or while nothing has run on a merge under ten minutes old; a settled run is kept in memory and not asked again. Five asks the first visit after a start, usually none after |
 
-**Main's state is the newest commit whose run has finished.** Fleet reads the run on the head and on each of the newest merged pull requests' commits, in first-parent order, and the first one that is red or green decides. Newer commits still running do not: a green on an intermediate commit clears a red even while later ones run, and says so as `checking` on a green. A red's failed jobs are the deciding commit's, and "Broke in" names the oldest red commit before the last green that failed what the deciding one fails. A commit nothing ran on proves nothing either way, and where nothing in the window has finished a known red is kept, held.
+**Main's state is the newest commit whose run has finished.** Fleet reads the run on the head and on each of the newest merged pull requests' commits, in first-parent order and back as far as the first one that has finished, and the first one that is red or green decides. Newer commits still running do not: a green on an intermediate commit clears a red even while later ones run, and says so as `checking` on a green. A red's failed jobs are the deciding commit's, and "Broke in" names the oldest red commit before the last green that failed what the deciding one fails. A commit nothing ran on proves nothing either way, and where nothing in the window has finished a known red is kept, held.
 
 **A red is held while a newer commit's CI is running.** A fix may already be in that run, so Fleet keeps the red's facts and the commit they were read at (`red_commit`), names the running commits and their pull requests (`checking`), refuses `fix_main` with `fleet.main_checks_running`, and does not pick the red up. When the run ends green everything clears. When it ends red on the jobs the red already had, the red is back and the pickup runs; on a job it did not have, it is a new red naming the newer merge.
 
