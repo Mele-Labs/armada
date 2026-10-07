@@ -6,6 +6,17 @@
   flex: none;
 }
 
+/* Green with newer checks running: the mark breathes, as a Job working does. */
+.armada-main-mark[data-checking] > svg {
+  animation: armada-fixing-breathe var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-main-mark[data-checking] > svg {
+    animation: none;
+  }
+}
+
 .armada-main-red {
   padding: 0 var(--space-4) var(--space-3);
 }

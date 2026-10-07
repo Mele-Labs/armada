@@ -110,9 +110,10 @@ export type MainStanding = {
   /** The commit the red was read at, whole. `red` only. Since 23.44. */
   red_commit?: string;
   /**
-   * Newer commits whose CI is still running, newest first. `red` only. **Non-empty is a held red**:
-   * a newer run may already have fixed it, so Fleet refuses `fix_main` (`fleet.main_checks_running`)
-   * and the band is caution with no buttons. Absent from a Fleet before 23.44. Since 23.44.
+   * Newer commits whose CI is still running, newest first. Main's state is the newest commit whose
+   * run has finished. On `red`, non-empty is a held red: a newer run may already have fixed it, so
+   * Fleet refuses `fix_main` (`fleet.main_checks_running`) and the band is caution with no buttons.
+   * On `green` it is only checks running. Absent from a Fleet before 23.44. Since 23.44.
    */
   checking?: MainChecking[];
 };

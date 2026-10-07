@@ -118,11 +118,12 @@ pub struct MainStanding {
     /// `commit` until a newer one lands, and then the red's own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub red_commit: Option<String>,
-    /// The newer commits whose CI is still running, newest first. `red` only,
-    /// since 23.44. **Non-empty is a held red**: a newer run may already have
-    /// fixed it, so Fleet refuses to hand it to a Job and Bridge draws the
-    /// band as caution with no buttons. Empty is a red to act on, and what an
-    /// older Fleet always sends.
+    /// The newer commits whose CI is still running, newest first, since 23.44.
+    /// **Main's state is the newest commit whose run has finished.** On a `red`,
+    /// non-empty is a held red: a newer run may already have fixed it, so Fleet
+    /// refuses to hand it to a Job and Bridge draws the band as caution with no
+    /// buttons. On a `green` it is only checks running. Empty is main as `state`
+    /// says, and what an older Fleet always sends.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checking: Vec<MainChecking>,
 }

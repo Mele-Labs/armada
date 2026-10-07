@@ -450,7 +450,7 @@ where
     /// Main is green: every take ends, and the Job whose pull request put it
     /// there says it fixed main.
     async fn fixed(&self, main: &MainCi) {
-        let commit = main.commit.clone();
+        let commit = main.decided().to_string();
         let merged = self
             .forge_asked(&main.repository, move |vcs: &V, root: &str| {
                 vcs.merged_by(root, &commit)

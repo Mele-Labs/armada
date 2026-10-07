@@ -244,3 +244,107 @@ async fn a_merge_nothing_has_run_on_yet_is_asked_again_while_it_is_new_and_none_
         .iter()
         .all(|one| one.main_run.is_none()));
 }
+
+fn sha(digit: char) -> String {
+    digit.to_string().repeat(40)
+}
+
+fn forge_lists(fleet: &Fixture, merges: &[(u64, char, CiState)]) {
+    let forge = &fleet.vcs().main_ci;
+    forge.recently_merged_are(Some(
+        merges
+            .iter()
+            .enumerate()
+            .map(|(at, (number, digit, _))| {
+                listed(*number, &sha(*digit), &format!("2020-01-01T00:0{at}:00Z"))
+            })
+            .collect(),
+    ));
+    for (number, digit, state) in merges {
+        forge.runs_on(&sha(*digit), vec![run("ci", &format!("{number}"), *state)]);
+        forge.merged_by(&sha(*digit), merged(*number));
+    }
+}
+
+#[tokio::test]
+async fn a_green_run_in_between_clears_a_red_while_newer_checks_are_still_running() {
+    let home = TempDir::new();
+    let fleet = a_fleet_holding_bug(&home, false);
+    goes_red(&fleet, 1845);
+    fleet.turn().await.unwrap();
+    assert_eq!(kept(&fleet).await.unwrap().state, store::MainState::Red);
+
+    // #1870 passed on main; #1872 to #1875 are running, the head among them.
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(&sha('f')));
+    forge_lists(
+        &fleet,
+        &[
+            (1875, 'f', CiState::Pending),
+            (1874, 'e', CiState::Pending),
+            (1873, 'd', CiState::Pending),
+            (1872, 'c', CiState::Pending),
+            (1870, 'b', CiState::Passed),
+        ],
+    );
+    let turned = fleet.turn().await.unwrap();
+    assert_eq!(turned.main_changed[0].change, MainChange::WentGreen);
+    let main = the_hub(&fleet).await.main.unwrap();
+    assert_eq!(main.state, MainCiState::Green);
+    assert!(main.failed.is_empty() && main.merge.is_none() && main.red_since.is_none());
+    assert!(main.red_commit.is_none());
+    let running: Vec<u64> = main
+        .checking
+        .iter()
+        .map(|one| one.pull_request.as_ref().unwrap().number)
+        .collect();
+    assert_eq!(running, [1875, 1874, 1873, 1872], "neutral checks running");
+
+    let refused = fleet
+        .fixed_main(ipc::FixMain {
+            root: root(&fleet).await,
+            job: None,
+            brief: None,
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(refused.error().code, "fleet.main_not_red", "nothing to fix");
+}
+
+#[tokio::test]
+async fn a_red_after_a_green_names_the_first_red_after_it_and_red_red_red_names_the_first() {
+    let home = TempDir::new();
+    let fleet = a_fleet_holding_bug(&home, false);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(&sha('c')));
+    forge_lists(
+        &fleet,
+        &[
+            (1881, 'c', CiState::Failed),
+            (1880, 'b', CiState::Passed),
+            (1879, 'a', CiState::Failed),
+        ],
+    );
+    forge.log_of("1881", "boom");
+    fleet.turn().await.unwrap();
+    let main = the_hub(&fleet).await.main.unwrap();
+    assert_eq!(main.state, MainCiState::Red);
+    assert_eq!(main.merge.unwrap().number, 1881, "the red after the green");
+
+    let again = a_fleet_holding_bug(&TempDir::new(), false);
+    let forge = &again.vcs().main_ci;
+    forge.head_is(Some(&sha('c')));
+    forge_lists(
+        &again,
+        &[
+            (1873, 'c', CiState::Failed),
+            (1872, 'b', CiState::Failed),
+            (1871, 'a', CiState::Failed),
+        ],
+    );
+    forge.log_of("1873", "boom");
+    again.turn().await.unwrap();
+    let main = the_hub(&again).await.main.unwrap();
+    assert_eq!(main.merge.unwrap().number, 1871, "the first of the reds");
+    assert_eq!(main.red_commit.as_deref(), Some(sha('c').as_str()));
+}

@@ -302,7 +302,11 @@ async fn a_red_survives_a_restart_and_the_green_after_it_is_a_red_turned_green()
     forge.head_is(Some(ONE));
     let turned = fleet.turn().await.unwrap();
     assert!(turned.main_changed.is_empty(), "nothing new, nothing told");
-    assert_eq!(forge.times_asked_for_runs(), 0, "kept, so not asked again");
+    assert_eq!(
+        forge.times_asked_for_runs(),
+        1,
+        "the head's run is read once for the hub after a restart, and the reading is kept"
+    );
     let main = kept(&fleet).await.unwrap();
     assert_eq!(main.state, MainState::Red);
     assert_eq!(main.merge.unwrap().number, 1812);
