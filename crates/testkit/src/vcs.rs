@@ -705,6 +705,15 @@ impl Delivery for FakeVcs {
         self.main_ci.open_pulls()
     }
 
+    fn recently_merged_pull_requests(
+        &self,
+        _in_repo: &str,
+        _base: &str,
+        limit: usize,
+    ) -> Option<adapter_traits::RecentlyMergedPulls> {
+        self.main_ci.recently_merged(limit)
+    }
+
     fn pull_request_diff(
         &self,
         _in_repo: &str,

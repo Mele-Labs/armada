@@ -915,7 +915,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : sessioning ? (<SessionsSurface openId={sessionOpen} onOpen={openSession} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink }} held={{ held: state.held, onWant: readHeld }} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onFix={(fix) => void commands.fixMain(fix)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : sessioning ? (<SessionsSurface openId={sessionOpen} onOpen={openSession} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink }} held={{ held: state.held, onWant: readHeld }} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -1118,7 +1118,7 @@ export function App({ draft }: AppProps = {}) {
                   onCursor={setCursor}
                   land={landing}
                   onLanded={() => setLanding(null)}
-                  onOpenLink={openProseLink}
+                  onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                 />
 

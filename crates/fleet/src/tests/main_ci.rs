@@ -21,10 +21,10 @@ use crate::tests::daemon::{
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
-const ONE: &str = "1111111111111111111111111111111111111111";
-const TWO: &str = "2222222222222222222222222222222222222222";
+pub(super) const ONE: &str = "1111111111111111111111111111111111111111";
+pub(super) const TWO: &str = "2222222222222222222222222222222222222222";
 
 /// A runner's own summary, as a job's log ends.
 const NEXTEST_TWO_FAILURES: &str = "\
@@ -35,7 +35,7 @@ error: test run failed
 ";
 
 /// The Manifest names a base, a Check, and the CI job that answers for it.
-const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\n    ci_jobs: [ci]\n  lint:\n    run: cargo fmt --check\n";
+pub(super) const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\n    ci_jobs: [ci]\n  lint:\n    run: cargo fmt --check\n";
 
 fn a_fleet_reading_main(home: &TempDir) -> Fixture {
     a_fleet_over(home, MANIFEST)
@@ -49,7 +49,7 @@ fn a_fleet_over(home: &TempDir, manifest: &str) -> Fixture {
     Fleet::assembled(fittings)
 }
 
-fn run(name: &str, handle: &str, state: CiState) -> CiRun {
+pub(super) fn run(name: &str, handle: &str, state: CiState) -> CiRun {
     CiRun {
         name: FromOutside::verbatim(name),
         state,
@@ -60,7 +60,7 @@ fn run(name: &str, handle: &str, state: CiState) -> CiRun {
     }
 }
 
-fn merged(number: u64) -> MergedPull {
+pub(super) fn merged(number: u64) -> MergedPull {
     MergedPull {
         number,
         url: None,
@@ -68,7 +68,7 @@ fn merged(number: u64) -> MergedPull {
     }
 }
 
-async fn kept(fleet: &Fixture) -> Option<store::MainCi> {
+pub(super) async fn kept(fleet: &Fixture) -> Option<store::MainCi> {
     let root = fleet.repositories().served()[0].root().to_string();
     fleet.store().lock().await.main_ci(&root).unwrap()
 }
@@ -302,7 +302,11 @@ async fn a_red_survives_a_restart_and_the_green_after_it_is_a_red_turned_green()
     forge.head_is(Some(ONE));
     let turned = fleet.turn().await.unwrap();
     assert!(turned.main_changed.is_empty(), "nothing new, nothing told");
-    assert_eq!(forge.times_asked_for_runs(), 0, "kept, so not asked again");
+    assert_eq!(
+        forge.times_asked_for_runs(),
+        1,
+        "the head's run is read once for the hub after a restart, and the reading is kept"
+    );
     let main = kept(&fleet).await.unwrap();
     assert_eq!(main.state, MainState::Red);
     assert_eq!(main.merge.unwrap().number, 1812);
@@ -367,7 +371,7 @@ fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
     }
 }
 
-async fn the_hub(fleet: &Fixture) -> ipc::MergeLineHub {
+pub(super) async fn the_hub(fleet: &Fixture) -> ipc::MergeLineHub {
     let root = fleet.repositories().served()[0].root().to_string();
     let hubs = fleet.merge_hubs().await;
     hubs.into_iter()
@@ -563,4 +567,39 @@ async fn a_failed_job_on_mains_log_is_served_by_its_check_or_its_name_while_main
         .observe_land_check(root, "main".into(), "ci".into())
         .await
         .is_err());
+}
+
+/// The reading rides on its own loop: with the roster held, so no turn can
+/// pass its first line, main is still read within the interval.
+#[tokio::test]
+async fn main_is_read_while_a_turn_cannot_run() {
+    let home = TempDir::new();
+    let fleet = std::sync::Arc::new(a_fleet_reading_main(&home));
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+
+    let held = fleet.slots().lock().await;
+    let turn = {
+        let fleet = std::sync::Arc::clone(&fleet);
+        tokio::spawn(async move { fleet.turn().await })
+    };
+    let reading = crate::main_ci::keep_reading_main(
+        std::sync::Arc::clone(&fleet),
+        Duration::from_millis(5),
+        |why| panic!("main was not read: {why}"),
+    );
+    let mut read = None;
+    for _ in 0..200 {
+        read = kept(&fleet).await;
+        if read.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(!turn.is_finished(), "the turn is the one that is stuck");
+    reading.abort();
+    drop(held);
+    turn.await.unwrap().unwrap();
+    assert_eq!(read.expect("read without a turn").state, MainState::Green);
 }

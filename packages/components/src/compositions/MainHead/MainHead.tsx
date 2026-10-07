@@ -52,10 +52,18 @@ export type MainRed = {
   };
 };
 
+/** A newer commit on main whose CI is still running: its pull request where the forge named one, else the commit. */
+export type MainChecking = { commit: string; number?: number; url?: string };
+
 export type MainState =
-  | { state: "green" }
-  /** `taken` is the Job working on it: absent until one is. */
-  | { state: "red"; red: MainRed; taken?: HubJob };
+  /** `checking` non-empty is only checks running on main: the mark says so, and no band is drawn. */
+  | { state: "green"; checking?: readonly MainChecking[] }
+  /**
+   * `taken` is the Job working on it: absent until one is. **`checking` non-empty is a held red**: a
+   * newer run may already have fixed it, so the band is caution, says so, and offers no way to hand
+   * it to a Job. Absent or empty is a red to act on.
+   */
+  | { state: "red"; red: MainRed; taken?: HubJob; checking?: readonly MainChecking[] };
 
 /** What the owner chose: a new Job with this brief, or an earlier Job to send the work back to. */
 export type FixChoice = { kind: "new"; request: string } | { kind: "back"; job: string };
@@ -68,15 +76,25 @@ const STROKE = 2;
 export function MainMark({ main }: { main: MainState }) {
   const reading = CHECK_OUTCOME[main.state === "green" ? "passed" : "failed"];
   const Icon = reading?.icon ?? null;
-  const said = main.state === "green" ? "Main is green" : "Main is red";
+  const checking = (main.checking?.length ?? 0) > 0;
+  const held = main.state === "red" && checking;
+  const said =
+    main.state === "green"
+      ? checking
+        ? "Main is green, new checks are running"
+        : "Main is green"
+      : held
+        ? "Main is red, new checks are running"
+        : "Main is red";
   if (Icon === null) return null;
   return (
     <Tooltip label={said} asChild>
       <span
         className="armada-main-mark"
+        data-checking={(main.state === "green" && checking) || undefined}
         role="img"
         aria-label={said}
-        style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
+        style={held ? { color: "var(--notice-caution)" } : reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined}
       >
         <Icon size={MARK} strokeWidth={STROKE} aria-hidden />
       </span>
@@ -120,17 +138,39 @@ export type MainRedBandProps = {
 
 export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, onFix }: MainRedBandProps) {
   const { red, taken } = main;
+  const checking = main.checking ?? [];
+  const held = checking.length > 0;
   const [asking, setAsking] = useState<"new" | "back" | null>(null);
   const link = (url: string) => (event: { preventDefault: () => void }) => {
     event.preventDefault();
     onOpenLink(url);
   };
   return (
-    <div className="armada-main-red">
-      <div className="armada-main-red__frame" role="status" aria-label="Main is red">
+    <div className="armada-main-red" data-held={held || undefined}>
+      <div className="armada-main-red__frame" role="status" aria-label={held ? "New checks are running on main" : "Main is red"}>
         <div className="armada-main-red__head">
-          <span className="armada-main-red__title">Main is red</span>
-          {taken !== undefined || onFix === undefined ? null : (
+          {held ? (
+            <span className="armada-main-red__title">
+              New checks are running on main:{" "}
+              {checking.map((one, at) => (
+                <Fragment key={one.commit}>
+                  {at === 0 ? null : " "}
+                  {one.number === undefined ? (
+                    <span className="mono">{one.commit.slice(0, 10)}</span>
+                  ) : one.url === undefined ? (
+                    <span>#{one.number}</span>
+                  ) : (
+                    <a className="armada-main-red__link mono" href={one.url} onClick={link(one.url)}>
+                      #{one.number}
+                    </a>
+                  )}
+                </Fragment>
+              ))}
+            </span>
+          ) : (
+            <span className="armada-main-red__title">Main is red</span>
+          )}
+          {held || taken !== undefined || onFix === undefined ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job

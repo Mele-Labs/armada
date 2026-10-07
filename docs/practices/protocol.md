@@ -3158,6 +3158,50 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 **Event stream: neither better nor worse.** It adds no queue and no event kind. The two-second loop already published `merge_lines.changed` whole on a change; the hub makes that message larger (a hundred pull requests at most) and changes it when main or a pull request does, which is rarer than a queue turn.
 
 
+## Protocol 23.42: acting on main's red, and what merged
+
+Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?}`) dispatches a Job for a red main or sends the work back to one, and answers with that Job's `JobSummary`. `JobSummary.fixes_main` (`FixesMain {state, check, test?, merge?, fixed_in?}`) is a Job's part in a red; `hub.fixing`, which 23.41 declared and never set, now names the Job on it; `hub.merged` lists the newest five pull requests merged into the base, read from the forge on the visit that already lists the open ones.
+
+**Older peers:** a Bridge before 23.42 ignores every field and draws no buttons, so nothing breaks; it draws the line's own `landed` list. A Bridge at 23.42 against an older Fleet is refused as any minor ahead is, so the buttons never reach a Fleet without the route. `FixesMain.state` is read as working for a value it does not know, so a new one is not a major.
+
+**One store table, additive** (`main_fix.main_ci_fixes`): which Job took each red. No other record changed.
+
+## Protocol 23.43: the session ledger
+
+`docs/concepts/session.md`. **Additive only**: three operations, one event kind and the DTOs of `ipc::sessions`, and nothing an older Bridge reads changes.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
+| `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
+| `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
+
+**`kind` on an attachment is open text, and `state` is not.** A kind Fleet has not met is kept as it arrived; every kind's state is `standing`, `spent` or `given_back`, so a released slot and a spent need are read the same way. A holder is `{ kind: session | job, id }` and no foreign key to either.
+
+**One migration**, `session_ledger.tables`: `sessions` and `ledger_attachments`. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+
+## Protocol 23.44: a held red, and each merge's run on main
+
+Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest first) names the newer commits whose CI is still running while main is red, and `hub.main.red_commit` the commit the red was read at. Main's state is the newest commit whose run has finished, so a green on an intermediate commit clears a red; `checking` on a `green` is only checks running. On a `red`, non-empty `checking` is a held red: `fix_main` refuses with `fleet.main_checks_running` and Fleet's own pickup waits. `hub.merged[].main_run` (`MainRun {state, failed?}`, `state` passed, running or failed) is the CI run on that merge commit on main itself. A failed job's log opens on `observe_land_check` under the branch `main@<commit>`, a new spelling of an existing free-text field.
+
+**Older peers:** a Bridge before 23.44 ignores the three fields and draws the red band with its buttons, which Fleet then refuses while held. `state` stays `red` rather than gaining a variant, because Bridge branches on it and a new variant would be a major. A Bridge at 23.44 against an older Fleet is refused as any minor ahead is.
+
+**Store columns, additive** (`main_ci.red_commit`, `main_ci.decided_commit`, `main_ci.newer_running`). Forge cost is in `docs/concepts/fleet.md`, *What Fleet knows about main's CI*.
+
+## Protocol 23.46: needs on the session ledger
+
+`docs/capabilities/needs.md`. **Additive only**: two operations and the DTOs of `ipc::needs`. A need is a row in `ledger_attachments`, which 23.43 made, so there is no migration, and nothing an older Bridge reads changes.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `act_on_need` (`POST /needs`) | `NeedCall`: `act` (`declare`, `took` or `release`), `branch`, `path`, and `what` or `value` | Answers `NeedAnswer`: the holder's need, whether it was `already` declared, who is `ahead`, and whether a `release` `gave_back`. `agent_access` `No`: a Drone runs `armada need` |
+| `list_needs` (`GET /needs?manifest_id=`) | `NeedList`: every standing need, by path and in order | Each line names its holder as a person would: the branch, else the session's title |
+
+**Fleet finds the holder.** `armada need` names a branch and Fleet resolves it to the Job whose branch it is, else the session standing on it, else the branch alone (a `session` holder with id `branch:<name>`). A `took` for a need nobody declared is `fleet.need_not_declared`, and a call that names nothing is `fleet.need_unnamed`, both 422.
+
+**The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them. `kind=need` is not exclusive. Bridge's half is `packages/protocol/src/needs.ts`, written by hand like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -469,19 +469,6 @@ pub enum Adrift {
     /// An override was asked for on a step one of whose mechanical Checks did
     /// not pass.
     ///
-    /// **`build` failing is not a matter of opinion**, and this is the guard
-    /// that says so out of the record rather than out of the tier ordering. A
-    /// refusal implies the mechanical tier held, so ordinarily this cannot
-    /// fire; a gate that could not decide *after* running the Checks records
-    /// what they did and stops the step, and that path can leave a stopped step
-    /// with a failing Check on it. The check runs are read again before
-    /// anything moves so that no arrangement of triggers turns this route into
-    /// an approve-anything.
-    CheckDidNotPass {
-        job: JobId,
-        step: StepId,
-        check: String,
-    },
     /// The gate was asked again on a step it had already ruled on.
     ///
     /// **[`NotTheJudges`](Adrift::NotTheJudges) from the other side**, though
@@ -563,6 +550,11 @@ pub enum Adrift {
     /// A pause on a status that cannot hold one: only a Job with a worktree to
     /// give back and a place to come back to can pause.
     NotPausable { job: JobId, status: JobStatus },
+    /// Main's red could not be handed to a Job. `crate::main_fix`.
+    MainNotFixable {
+        root: String,
+        why: crate::main_fix::MainNotFixable,
+    },
     /// A pause on a Job that already is.
     AlreadyPaused { job: JobId },
     /// A resume on a Job that is not paused.

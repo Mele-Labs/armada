@@ -384,6 +384,7 @@ Rules that follow:
 - **A command with no `${width}` is left alone**, which is every Check that sizes itself — `cargo fmt --all --check` has no width to be told.
 - **Do not widen a timeout to compensate.** A bounded suite that no longer fits its budget is a budget to raise deliberately and say so.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` keeps it for `places`' reason: the machine is no wider for the merge having happened.
+- **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where Jobs and sessions share the CPU.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check a Drone is measured by. It reads the shipped Jobs bound rather than a saved one, and where those differ the gate is the authority.
 
 ### How many Checks run at once

@@ -155,6 +155,7 @@ pub mod kit_allowlist;
 mod landing;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
+mod ledgering;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;
@@ -167,6 +168,7 @@ pub mod listener;
 /// An open one is asked a second question on the same rotation —
 /// `crate::under_review`.
 pub mod main_ci;
+mod main_fix;
 pub(crate) mod main_hub;
 /// The merge line `armada land` keeps in each served repository, read and published.
 mod manifest_checks;
@@ -287,6 +289,8 @@ pub mod seeding;
 mod servers;
 pub mod serving;
 pub mod session;
+/// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
+mod sessioning;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
 pub mod showing;

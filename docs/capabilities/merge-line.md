@@ -133,7 +133,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 - **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, `CHECK_LIMIT` in `crates/armada/src/land/env.rs`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
 - **A turn's Checks run one at a time, and each asks ahead of every other ask for a Check slot.** Decided 2 Oct 2026, when running them at once was dropped: the machine was already at a load of 20 to 32 on 18 cores, so a parallel turn would raise the peak for little. Asking ahead stops a turn queueing behind agents' own `armada check` runs instead. [Manifest](../concepts/manifest.md), *How many Checks run at once*.
 - **State lives under the common git directory**, in `armada-land/`, so every worktree of one clone shares one line.
-- **Each gate's logs get a directory of their own**, `armada-land/logs/<entry>/<turn>/`, where `<entry>` is the branch's key (or the batch's) and `<turn>` is when the gate started, in UTC. `main`'s reruns of a Check log into the same directory as the turn that asked. The outcome names the files of its own turn. Until 1 Oct 2026 the directory was the entry's alone and each turn emptied it first, so a rerun that landed erased the red before it: about fifteen `desktop_test` files timed out on `main` that morning and the logs that would have said why were gone.
+- **Each gate's logs get a directory of their own**, `armada-land/logs/<entry>/<turn>/`, where `<entry>` is the branch's key (or the batch's) and `<turn>` is when the gate started, in UTC. `main`'s reruns of a Check log into the same directory as the turn that asked. The outcome names the files of its own turn. **A Check's log is written as it runs**: the `$ <command>` line first, each chunk of stdout and stderr as it arrives (in arrival order, so the two interleave), and `[exit N]` last. Until 1 Oct 2026 the directory was the entry's alone and each turn emptied it first, so a rerun that landed erased the red before it: about fifteen `desktop_test` files timed out on `main` that morning and the logs that would have said why were gone.
 - **A turn's logs are kept for two weeks**, `KEPT_FOR` in `crates/armada/src/land/logs.rs`, and pruned when the runner takes a turn. Age rather than a count per entry, because each batch is an entry of its own and is seldom gated twice, so a per-entry count bounds nothing. Measured 1 Oct 2026: 79 MB over 247 entries, about 0.3 MB a turn.
 - **Two worktrees, under `.armada/land/`, kept and reused.** `candidate/` is where a branch is gated, `base/` where `main`'s own runs happen. Inside the repository, because a checkout outside it is not somewhere this project's tooling runs: Vite refuses to serve a `node_modules` outside its allow list and `tsc` cannot name a type through one, and three Bridge Checks failed there for reasons that had nothing to do with the branch. `land/` is neither `worktrees/` nor `bases/`, so nothing here is taken for a Job's checkout, and `.armada/*` is already ignored.
 - **Each turn resets its worktree and cleans it, keeping the build directories.** `git reset --hard`, then `git clean -xdff` with `target/` and `node_modules/` excepted — so nothing of the turn before survives but what makes the next one fast. **The lock is what makes reuse safe**: one turn at a time means there is never a second reader of either worktree.
@@ -147,7 +147,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
-**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
+**Every Check in this repository declares `when:`, including `build` and `test`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 
@@ -194,7 +194,7 @@ the turn's paths (every member's, + what landed on main)
 ```
 
 - **`checks-runner` holds the one Cargo fact, and the Manifest the rest.** `crates/checks-runner/src/reach.rs` asks `cargo tree` what depends on what; `armada check --changed` spells the result through the Check's own `narrow`, read by `checks_runner::narrowed_over`.
-- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` (`format`'s) never narrows at all, since a file list leaves out what the command reads beside it, such as `rustfmt.toml`.
+- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` never narrows at all, since a file list leaves out what the command reads beside it, such as a config file.
 - **A file that is not Rust source runs it whole**, because the dependency graph says nothing about who reads it: `ipc`'s tests read `testkit`'s fixtures without depending on `testkit`.
 - **`xtask` is in every narrowed `test`**, written into the Manifest's `narrow.run`: its tests read the whole tree, so no change under `crates/` is outside their reach.
 - **`apps/` and `packages/` run `test` as xtask alone.** The Manifest declares them `outside`: paths `narrow.run` already reads, since xtask's tests are the only ones reading either tree. A change touching only them runs `narrow.run` with nothing appended; beside a crate, they add nothing to its `-p` values. Any other covered path `under` cannot name still runs it whole. Decided by the owner 4 Oct 2026, after Job 3's Bridge-only change ran every Rust test.
@@ -265,8 +265,13 @@ Two branches that each took the same protocol minor, and whichever landed
 second renumbered. (A migration no longer takes a number: it has a name,
 `docs/practices/store-migrations.md`.) `armada need <path> "<what>"` (#1059,
 `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
-the number is chosen. Each need is a file under `armada-needs/` in the git common
-directory, with its branch, path, what was said, what the branch took, and when.
+the number is chosen. **A need is a row on Fleet's session ledger** now
+(`docs/capabilities/needs.md`), with its holder, path, what was said, what was
+taken, and when; `armada need` asks Fleet and says so where Fleet is not running.
+**`armada land` still reads the old files** under `armada-needs/` in the git
+common directory, so a need declared through Fleet is not one its line holds a
+branch behind. That is left as it is: `armada land` is being retired for pull
+requests, and the pull request's status is Fleet's order (*Not built*, above).
 
 - **First to declare goes first.** The declarer is told which needs are ahead and
   what each took, and picks the value after. A branch that already changes the
@@ -275,9 +280,9 @@ directory, with its branch, path, what was said, what the branch took, and when.
   unspent need ahead of them; a held one stays queued with `waiting behind ...` in
   its outcome. A runner left with only held entries ends, and the next `land`,
   `--status` or `need --release` starts one that looks again.
-- **Spent on landing, given back when the branch is gone.** A landed branch's needs
-  are removed as it is reported landed; a need whose branch no longer exists
-  locally is removed the next time anything reads the needs.
+- **Spent on landing, given back when the branch is gone.** A Job landing spends
+  its needs and a Job dropped gives them back; a need held by a branch alone is
+  given back the next time anything reads the needs after the branch is deleted.
 - **Nothing expires by time.** Whether a stalled need should is open, so a person
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
@@ -294,14 +299,14 @@ directory, with its branch, path, what was said, what the branch took, and when.
   place another repository would name its own. Fleet answers with
   `fleet.merge_waiting_behind`; the sentence says which.
 
-This is the half for agents outside Fleet, and Fleet's half is the same files.
-A Job's branch is its identity, so a Drone declares through `declare_scope` or a
-plan's task and Fleet writes the need `armada need` would have written, through
-`adapters::needs`; Fleet's own press to merge reads the same line and refuses
-with `fleet.merge_waiting_behind` while a need ahead stands, under `forge` and
-`push` alike (`docs/concepts/fleet.md`, *Declared needs*). A Job reaching a
-terminal status spends or gives back what it held, so `armada land` stops
-holding a branch behind it. Nothing is added to the store or to a plan's task.
+This is the half for agents outside Fleet, and Fleet's half is the same table.
+A Drone declares through `declare_scope` or a plan's task and Fleet writes the
+row, holder the Job; a terminal's `armada need` is the same row held by the Job
+or session standing on its branch. Fleet's own press to merge reads the same
+order and refuses with `fleet.merge_waiting_behind` while a need ahead stands,
+under `forge` and `push` alike (`docs/concepts/fleet.md`, *Declared needs*). A
+Job reaching a terminal status spends or gives back what it held. Nothing is
+added to a plan's task.
 
 ## Where each part goes in Fleet
 
@@ -366,7 +371,7 @@ holding a branch behind it. Nothing is added to the store or to a plan's task.
 
 ## In Bridge
 
-**This panel is becoming the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Main's state and the open pull requests are built and served (*The hub*, below). A Job picking up the red, and the two ways to hand it to one, are not.
+**This panel is becoming the thin pull request view**, every open pull request with how Fleet knows them to connect, and Armada prompts when `main` goes red (`../../.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`). Main's state and the open pull requests are built and served (*The hub*, below). A Job picking up the red, and the two ways to hand it to one, are built too (*When main goes red*, below), and the Recently landed list reads the forge.
 
 **Overview draws each line as a panel below its lists, and the rail's Merge line row draws the same panels on their own**, `apps/desktop/src/renderer/src/merge-line.tsx` over `packages/components/src/compositions/MergeLine/`. The two share one fold. A panel shows place, a state mark, the branch, its pull request and what the runner is doing, with a turn's batch drawn as one bracketed group rather than `together with` on every member. **A turn in its Checks draws them as the plan's boundary strip**, one segment a Check as it stands, rather than the runner's `running <name> (...)`; the runner's words are drawn only for what is not a Check, reading `verify-foundations` or merging main in. Every cell of a row sits on its first line, so a detail that wraps leaves the mark beside the branch. Under it are two lists, each headed and each drawn only with something in it: **Recently landed**, with its merge commit, and **Sent back**, with its Checks strip or conflicted files. The marks are `land_state` in `crates/core-model/domain/enum-verbs.toml`, keyed by `OutcomeState::word`. Bridge's labels are its own and the words on disk and in `--status` do not change: `gating` reads *Preparing to land* (`git-merge`) until the turn's first Check starts and *Running Checks before landing* from then, which Bridge tells apart by whether Fleet serves any `checks` (`packages/screens/src/merge-line.ts`); `merging` reads *Pushing onto main* and `red` *Checks failed*. A conflict's mark is `unplug` and the rail row's is `merge`. The strip carries no `?`: `GroupBoundary`'s guide is the caller's, and guide 5 is a plan group's. The mock's lines are `?walk=theMergeLine`.
 
@@ -415,7 +420,9 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 **The panel's head carries main's state, and under the line it lists every open pull request.** Green is a mark with its tooltip. Red is a frame naming the failing CI job, the failing test and the merge that turned it red; a press on the job opens its log. Each open pull request shows how its `ci` stands, and a `ci` red only because main is reads as waiting on the fix. Where the pull request came from a Job that was watching its landing, that Job takes the red itself and the head links to it, with no question asked. Where it did not, the head offers two ways: dispatch a new Job, its brief filled in from the Check, test, log and pull request, or send the work back to a recent Job, the culprit's own first. A Job that took main's red wears a hammer beside its badge and leads with it, and once main is green it wears a shield. `?walk=mainGoesRed` plays it on the mock.
 
-**Fleet serves the hub since protocol 23.41**, as `hub` on each repository's line, over the same `get_merge_lines` and `merge_lines.changed`. The line's two-second loop folds it on before it compares, so main going red or green and a pull request opening publish through the one loop. Fleet reads the forge for one repository a sweep interval, rotating, and each visit is two cheap asks: main's head (`concepts/fleet.md`, *What Fleet knows about main's CI*) and one listing of the open pull requests, whatever their number, the newest 100.
+**A red is held while newer checks run on main.** When a newer commit's CI is still going the band is caution, not failure: one line, "New checks are running on main", names the running pull request, the red's labelled rows stay under it, and Dispatch and Send back are gone, because that run may already have fixed it. Main's state is the newest commit whose run has finished, so a green run on an intermediate commit clears the red even while later ones run: the mark beside the heading says checks are running and no band is drawn. A held run ending red on the same job brings the red band and its buttons back. **Recently landed shows each merge's own run on main**, apart from the checks the pull request passed before it merged: a running one pulses, and a failed one opens that run's failing job's log. `?walk=mainChecksRunning` plays it on the mock.
+
+**Fleet serves the hub since protocol 23.41**, as `hub` on each repository's line, over the same `get_merge_lines` and `merge_lines.changed`. The line's two-second loop folds it on before it compares, so main going red or green and a pull request opening publish through the one loop. Fleet reads the forge for one repository a sweep interval, rotating, and each visit is three cheap asks: main's head (`concepts/fleet.md`, *What Fleet knows about main's CI*), one listing of the open pull requests, whatever their number, the newest 100, and one of the newest five merged into the base.
 
 | On the forge | On the wire | In the panel |
 |---|---|---|
@@ -424,12 +431,30 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 | The pull request that merged the red commit, and our Job that opened it | `hub.main.merge` `{number, url?, branch?, job?}` | *Broke in*; absent for a direct push |
 | An open pull request and its `ci` check, or every check where none is named `ci` | `hub.pull_requests` `{number, title, branch, url, author?, ci?, job?}` | A row: the ci mark, the branch, the number, the Job |
 | A pull request whose failing checks all fail on main too | `ci: waiting_on_main` | The mark and tooltip for a red the fix is to clear |
-| Nothing | `hub.fixing` | The Job working on the red. **Never set yet** |
+| A pull request merged into the base, newest five | `hub.merged` `{number, title, branch, url, author?, merged_at, commit?, job?}`, since 23.42 | **Recently landed**: the number opens the pull request, the short merge commit beside it |
+| A Job that took the red | `hub.fixing` `{id, title}`, since 23.42 | *Fixing*: the hammer and the Job's title, which opens it |
 
 - **A red stays red while a fix runs**, so `running` is only a commit nothing has failed on yet. The head draws neither `running` nor `nothing_ran`.
 - **A pull request waits on main only when every check that failed on it also fails on main.** A failure on any other check is its own, and a pull request with no failed check is never waiting.
 - **Main's log opens through `observe_land_check` under the branch `main`**, with the job's Check or name as the check. Fleet asks the forge for that job's log when it is pressed, bounded to its last 256 KiB, and serves it as a finished Check's. Bridge never calls the forge.
-- **The two ways to a Job, and a Job's own mark, are not served**: a real Bridge draws neither button, and the mock offers them through `fix_offered` on its line and `fixes_main` on its rows.
+- **Recently landed reads the forge when Fleet serves `hub.merged`**, newest first, and the queue's own outcome files only from a Fleet before 23.42 or where the forge said none. The retired queue's `landed` list is otherwise not drawn.
+
+### When main goes red
+
+**Three ways a Job comes to have a red, one record of each.** The record is a row a Job per red (`main_ci_fixes`), keyed by when main first read red, and it is what `hub.fixing` and a Job's `fixes_main` are read from. `fix_main` is the act (`crates/ipc/operations.toml`).
+
+| Who | What Fleet does | Reuses |
+|---|---|---|
+| Nobody asked: the red's pull request is a Job of ours that has ended | On the turn that reads the red, sends the work back to that Job, once per red per Job, and asks nobody | The send-back below |
+| The owner presses **Dispatch a new Job** | Proposes a Job under the `bug` workflow, titled for what failed, the brief as edited, and releases it | `propose_job`'s creation and `approve`; a Check and a test known means the test is claimed, as `draft_fix` claims one |
+| The owner presses **Send back to a Job** | A Job at its review takes the brief as `request_changes` takes a note. A Job that ended is continued: a new Job, same workflow and title, a fresh branch from main, `redispatched_from` naming it, the brief as its facts | `request_changes`; `redispatch`'s minting |
+
+- **A Job is not reopened under its own id**, since the registry never does that and a finished Job's branch is evidence. The new Job's title is the old one's, so the band's *Fixing* names the work the owner recognises.
+- **The brief is the facts Fleet read**, one line each (the Check or CI job, each test, the pull request and its branch), and the failing job's log address and last 60 lines follow it. The owner's edit replaces the lines, not the log.
+- **A Job still working is refused**, and so the automatic pickup leaves a culprit that is still working to the two buttons. Nothing redirects a live Drone.
+- **The claim names no files.** A log gives a test's leaf name and not its path, so a claim holds no Job off a file; it points a Drone that hits the same test at this Job. Where only a CI job is known there is no claim.
+- **A take ends when its Job is stopped** (`killed`, `completed_failed`, `rejected`), and the band offers the two buttons again. It also ends when main goes green: the Job whose pull request put main there says **Fixed main in #N**, and every other take simply ends.
+- **A person's pull request** (#1839 was one) has no Job, so nothing is sent and the band offers the two buttons.
 - **The open pull requests are held in memory.** A Fleet restarted shows main at once and the list from its next visit to that repository.
 - **The draining queue draws where it did**, beneath the hub, so nothing in flight disappears.
 

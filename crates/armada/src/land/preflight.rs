@@ -72,7 +72,15 @@ pub fn preflight(cwd: &Path, env: &Env) -> Result<Preflighted, Refused> {
     // The cheapest refusal that needs the base: nothing below is worth running
     // for a branch that took a number it never declared. `#1059`.
     let needs = Needs::of(cwd).map_err(Refused)?;
-    if let Some(said) = undeclared(cwd, &upstream, &branch, &needs).map_err(Refused)? {
+    // **Still the files**: `armada land` is being retired for pull requests and
+    // is not moved onto the ledger. A need declared through Fleet is not seen here.
+    let declared: Vec<String> = needs
+        .standing()
+        .into_iter()
+        .filter(|need| need.branch == branch)
+        .map(|need| need.path)
+        .collect();
+    if let Some(said) = undeclared(cwd, &upstream, &branch, &declared).map_err(Refused)? {
         return Err(Refused(said));
     }
     let number = open_pull_request(cwd, env, &branch);

@@ -422,13 +422,6 @@ impl fmt::Display for Adrift {
                 step.as_str(),
                 trigger.as_wire()
             ),
-            Adrift::CheckDidNotPass { job, step, check } => write!(
-                out,
-                "{}'s step `{}` has a Check that did not pass — `{check}`. A mechanical Check is \
-                 not a matter of opinion and no override lifts one",
-                job.as_str(),
-                step.as_str()
-            ),
             Adrift::NotUndecided { job, step, trigger } => write!(
                 out,
                 "{}'s step `{}` stopped on {}, which is a decision. Running the gate again would \
@@ -510,6 +503,7 @@ impl fmt::Display for Adrift {
                 job.as_str(),
                 status.as_wire()
             ),
+            Adrift::MainNotFixable { why, .. } => write!(out, "{why}"),
             Adrift::AlreadyPaused { job } => write!(out, "{} is already paused", job.as_str()),
             Adrift::NotPaused { job } => write!(out, "{} is not paused", job.as_str()),
             Adrift::NothingToPark { job } => write!(
@@ -859,7 +853,6 @@ impl Adrift {
             | Adrift::NoteAlreadyWaiting { job, .. }
             | Adrift::WorkUnreadable { job, .. }
             | Adrift::NotTheJudges { job, .. }
-            | Adrift::CheckDidNotPass { job, .. }
             | Adrift::NotUndecided { job, .. }
             | Adrift::NotStandingThere { job }
             | Adrift::CannotRerunChecks { job, .. }
@@ -921,6 +914,7 @@ impl Adrift {
             | Adrift::NoWorkflowFits { .. }
             | Adrift::ModelNotHeld { .. }
             | Adrift::ProposalAbandoned
+            | Adrift::MainNotFixable { .. }
             | Adrift::NotProposed { .. } => None,
         }
     }
@@ -1014,10 +1008,9 @@ impl Error for Adrift {
             | Adrift::NotUnderReview { .. }
             | Adrift::NoDroneToTell { .. }
             | Adrift::NoteAlreadyWaiting { .. }
-            // And the two an override makes, which say what the record holds
+            // And the one an override makes, which say what the record holds
             // rather than wrapping something that failed.
             | Adrift::NotTheJudges { .. }
-            | Adrift::CheckDidNotPass { .. }
             // And the three a gate re-run makes, which say the same: what the
             // record holds, not what failed underneath.
             | Adrift::NotUndecided { .. }
@@ -1040,6 +1033,7 @@ impl Error for Adrift {
             | Adrift::SlotLost { .. }
             // A pause says what the Job's record holds or what the pool said,
             // as a sentence; none wraps an `Error`.
+            | Adrift::MainNotFixable { .. }
             | Adrift::Paused { .. }
             | Adrift::NotPausable { .. }
             | Adrift::AlreadyPaused { .. }

@@ -40,7 +40,7 @@
 
 use adapter_traits::{Ask, Heard, JudgeCall, ModelClient, Reading};
 
-use crate::harness::HeadlessAgent;
+use crate::harness::{HeadlessAgent, PROJECT_SETTINGS_ONLY};
 use crate::scouting::{NOT_A_READ, READ_TOOLS};
 
 /// What a reading Judge may not open, however it asks: Fleet's own directory in
@@ -179,6 +179,7 @@ fn asking(ask: &Ask, watched: Watched) -> Vec<String> {
         // No `--mcp-config` beside it, which is what makes the set empty.
         "--strict-mcp-config".into(),
     ]);
+    args.extend(PROJECT_SETTINGS_ONLY.map(String::from));
     match ask.reads() {
         None => fenced(&mut args),
         Some(reading) => reading_only(&mut args, reading),

@@ -141,6 +141,9 @@ where
             .filter(|job| served.owns(job.owner_manifest_id().as_str()))
             .cloned()
             .collect();
+        // Once, the clone's needs into the ledger, and every live Job's own
+        // branch and slot beside them. `crate::needing`, `crate::ledgering`.
+        self.needs_converted(served, &jobs).await;
         let rekeyed = crate::transcript::rekeyed(served.records_root(), &jobs).await;
         reconciled.rekeyed.logs += rekeyed.logs;
         reconciled.rekeyed.transcripts += rekeyed.transcripts;

@@ -7,13 +7,14 @@
 //! **The argument list is the permission model**, and not as a metaphor. What a
 //! Drone may run unattended, whether it is asked before it is refused, and
 //! whether the operator's servers come along are all granted and withheld here,
-//! at spawn. Four flags do work no runtime check is behind:
+//! at spawn. These flags do work no runtime check is behind:
 //!
 //! | Flag | What its absence does |
 //! | --- | --- |
 //! | `--strict-mcp-config` | The session comes up holding every MCP server the operator has connected. Measured: seven servers, ninety-five tools, personal accounts. **This is the v1 defect this step exists for** |
 //! | `--permission-mode` | The mode falls back to the operator's own configured default, which was measured as `auto` — a Drone that approves itself. **`default`, with `--permission-prompt-tool`, makes a denial Armada's answer rather than the mode's**: every call the allowlist does not cover is put to Armada's permission tool, which refuses at once or holds the question for a person, as the Job says. `dontAsk` would refuse without consulting the tool at all. A tool that errors or cannot be reached leaves the call unrun, measured, so the failure is closed rather than a hang |
 //! | `--allowedTools` | Every built-in tool is callable. It is a permission allowlist and **not** a toolset: it removed none of the thirty built-ins in any of the three spike runs. That is why confinement here is a floor rather than a fence, and it is written down as an open question on Drone rather than papered over — the built-in tools are bounded by what the Drone can reach, a worktree and an empty environment, not by this list |
+//! | `--setting-sources` | The session reads the operator's user settings, and with them every plugin, mod, hook, skill and subagent installed there. Measured: eleven plugins, and a mod's `session.start` ran inside a Drone. A Judge call and a scout carry it too; Helm does not, being the operator ([spike 023](../../../docs/spikes/023-does-a-user-installed-mod-load-in-a-drone.md)) |
 //! | `--disallowedTools` | An operator's own ambient settings can grant `git commit` and `git add` — measured, on a real Job — and without this the allowlist above is not the whole of what a Drone may run. [`git_guard`] carries the deny rules; deny beats an identical allow, measured against the CLI |
 //!
 //! **Nothing readable goes in argv**: no prompt text, no task, nothing brokered.
@@ -36,6 +37,17 @@ use adapter_traits::{
 use crate::git_guard;
 use crate::mcp::EVIDENCE_SERVER;
 use crate::transcript;
+
+/// The two arguments that leave the operator's user settings unread, and with
+/// them every plugin, mod and hook installed there. **Carried by every launch
+/// that runs unattended** (a Drone, a Judge call, a scout), and by no launch
+/// that is the operator at work (`conversing`).
+///
+/// Measured in `docs/spikes/023-does-a-user-installed-mod-load-in-a-drone.md`: a
+/// Drone came up holding eleven of the operator's plugins, and a mod installed
+/// there ran its `session.start`. `--strict-mcp-config` bounds MCP servers and
+/// none of that.
+pub(crate) const PROJECT_SETTINGS_ONLY: [&str; 2] = ["--setting-sources", "project,local"];
 
 /// The tools the Evidence server exposes, as the harness names them: the
 /// server's registered name and each tool's own, joined the way MCP tools are.
@@ -286,6 +298,8 @@ impl AgentHarness for HeadlessAgent {
                 args.push(config.mcp().path().into());
             }
         }
+
+        args.extend(PROJECT_SETTINGS_ONLY.map(String::from));
 
         args.push("--allowedTools".into());
         args.push(allowlist(config)?);

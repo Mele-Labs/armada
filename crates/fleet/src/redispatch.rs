@@ -23,11 +23,19 @@
 //! the approval gate beside a still-escalated one: visible and recoverable.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Facts, Job, JobId, JobStatus, NewJob, StepSeed};
+use core_model::{AcceptanceCriterion, Actor, Facts, Job, JobId, JobStatus, NewJob, StepSeed};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::proposal::{enrich, Enriched};
+
+/// What a Job carried on for something other than its own failure starts from:
+/// the facts it is told and the one criterion it is judged against, in place
+/// of the first Job's. `crate::main_fix` is the caller.
+pub(crate) struct Carrying {
+    pub(crate) facts: Facts,
+    pub(crate) criteria: Vec<AcceptanceCriterion>,
+}
 
 /// What a redispatch left behind: the failed Job, and the one replacing it.
 #[derive(Clone, Debug)]
@@ -86,7 +94,7 @@ where
                 })
             }
         }
-        let dispatched = self.mint_replacement(&failed).await?;
+        let dispatched = self.mint_replacement(&failed, None, Actor::Human).await?;
         let replaced = if failed.status().is_terminal() {
             failed
         } else {
@@ -116,7 +124,18 @@ where
     /// that failed the first time (a network blip, an issue that was private
     /// and is not anymore) is exactly the kind of thing worth retrying rather
     /// than freezing. Everything else is carried across unchanged.
-    async fn mint_replacement(&self, failed: &Job) -> Result<Job, Adrift> {
+    ///
+    /// **`carrying` makes it a continuation instead of a retry** (`main_fix`):
+    /// its facts and criteria replace the first Job's, and nothing that scoped
+    /// the first Job's own work comes along. Its write targets, dependencies,
+    /// attachments and proposal are left behind, since a fix for main is not
+    /// the first Job's part of anything and waits on none of its peers.
+    pub(crate) async fn mint_replacement(
+        &self,
+        failed: &Job,
+        carrying: Option<Carrying>,
+        by: Actor,
+    ) -> Result<Job, Adrift> {
         let at = self.now();
         // The file may have been renamed or deleted since the original Job was
         // created — refused rather than silently falling back to whatever
@@ -132,8 +151,18 @@ where
                     workflow_id: failed.workflow_id().as_str().to_string(),
                 })?;
         let frozen = workflow.frozen();
-        let outcome = enrich(failed.facts().as_str(), self.links().as_ref()).await;
-        let facts = self.re_enriched(failed.facts(), &outcome);
+        let (facts, outcome, criteria) = match carrying {
+            Some(Carrying { facts, criteria }) => (facts, None, criteria),
+            None => {
+                let outcome = enrich(failed.facts().as_str(), self.links().as_ref()).await;
+                (
+                    self.re_enriched(failed.facts(), &outcome),
+                    Some(outcome),
+                    failed.acceptance_criteria().to_vec(),
+                )
+            }
+        };
+        let continuing = outcome.is_none();
         // **A replacement takes a number of its own.** It is a different Job
         // with a different branch and a different worktree, so sharing the
         // failed one's handle would put two Jobs in one directory. The link
@@ -154,7 +183,7 @@ where
             urgency: failed.urgency(),
             atomic: failed.atomic(),
             model: failed.model().clone(),
-            acceptance_criteria: failed.acceptance_criteria().to_vec(),
+            acceptance_criteria: criteria,
             steps: frozen
                 .steps()
                 .iter()
@@ -164,19 +193,45 @@ where
                     ordinal: ordinal as u32,
                 })
                 .collect(),
-            dependencies: failed.dependencies().to_vec(),
-            gate_manifests: failed.gate_manifests().to_vec(),
-            write_targets: failed.write_targets().cloned(),
+            dependencies: if continuing {
+                Vec::new()
+            } else {
+                failed.dependencies().to_vec()
+            },
+            // Undetermined gates every manifest, as a fresh proposal's does.
+            gate_manifests: if continuing {
+                crate::gating::gate_manifests(&served, None)
+            } else {
+                failed.gate_manifests().to_vec()
+            },
+            write_targets: if continuing {
+                None
+            } else {
+                failed.write_targets().cloned()
+            },
             subject: failed.subject().cloned(),
             redispatched_from: Some(failed.id().clone()),
             // **The replacement is still one of the proposal's Jobs.** A
             // redispatch changes which Job does the work and not which request
             // it came out of, so a sibling that lands while the replacement
             // waits is the same fact about the same reading.
-            proposal_id: failed.proposal_id().cloned(),
+            proposal_id: failed.proposal_id().cloned().filter(|_| !continuing),
             facts,
-            scope_revisions: failed.scope_revisions().to_vec(),
-            attachments: failed.attachments().to_vec(),
+            scope_revisions: if continuing {
+                vec![crate::drafting::entry_zero(
+                    None,
+                    failed.atomic(),
+                    crate::drafting::StatedBy::MainsRed { by },
+                    &at,
+                )]
+            } else {
+                failed.scope_revisions().to_vec()
+            },
+            attachments: if continuing {
+                Vec::new()
+            } else {
+                failed.attachments().to_vec()
+            },
         };
         // A replacement enters where its original entered, so the approval gate
         // is neither skipped nor imposed. A sub-dispatched Job has no top-level
@@ -193,10 +248,10 @@ where
         self.manifest_snapshotted(&mut store, &job).await;
         self.publish(ipc::Event::JobCreated(ipc::JobCreated {
             job: ipc::JobSummary::from(&job),
-            actor: core_model::Actor::Human.into(),
+            actor: by.into(),
             at: (&at).into(),
         }));
-        if let Enriched::Failed(cause) = &outcome {
+        if let Some(Enriched::Failed(cause)) = &outcome {
             self.noted_lookup_failed(job.id(), cause);
         }
         Ok(job)

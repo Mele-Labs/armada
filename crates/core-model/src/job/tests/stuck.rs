@@ -400,11 +400,10 @@ fn a_gate_rerun_needs_the_slot_that_holds_the_baseline() {
     );
 }
 
-/// `build` failing is not a matter of opinion. The Checks are read out of the
-/// store rather than inferred from the trigger, so a stopped step carrying a
-/// failed Check is not overrulable however it was stopped.
+/// A failed Check no longer takes the override away: the owner ruled on
+/// 2026-10-06 that a person may move any failed Check on, `build` included.
 #[test]
-fn a_failed_check_takes_the_override_away() {
+fn a_failed_check_leaves_the_override_offered() {
     let stuck = classify(
         &stopped_on(EscalationTrigger::GateFailure),
         Standing {
@@ -413,7 +412,7 @@ fn a_failed_check_takes_the_override_away() {
         },
     );
 
-    assert!(!stuck.admits(Recourse::OverrideVerdict));
+    assert!(stuck.admits(Recourse::OverrideVerdict));
     assert!(stuck.admits(Recourse::Redirect), "the Drone is still there");
 }
 
@@ -451,13 +450,12 @@ fn budget_spent() -> Job {
 /// working slot. So the acts are a restart onto the surviving worktree, which
 /// keeps every step that passed, and a redispatch, which keeps none.
 ///
-/// **The override is absent and no rule here says so.** `checks_passed` is
-/// read out of the store, the Checks did not pass, and that is the same
-/// sentence `a_failed_check_takes_the_override_away` asserts one status over —
-/// which is why widening the classification to this status could not make a
-/// Check overrulable by accident. #208.
+/// **The override is offered first here**, since the owner's ruling of
+/// 2026-10-06: the Checks did not pass and a person may still move the step on
+/// when they know the work is done. It keeps the work, so it leads the acts that
+/// discard or repeat it. #208 had it absent.
 #[test]
-fn a_spent_budget_is_restarted_and_never_overruled() {
+fn a_spent_budget_may_be_overruled_restarted_or_redispatched() {
     let stuck = classify(
         &budget_spent(),
         Standing {
@@ -475,11 +473,12 @@ fn a_spent_budget_is_restarted_and_never_overruled() {
     assert_eq!(
         stuck.recourse(),
         [
+            Recourse::OverrideVerdict,
             Recourse::RerunChecks,
             Recourse::RestartStep,
             Recourse::Redispatch
         ],
-        "running the Checks again takes nothing away, so it comes first"
+        "the override keeps the work and the re-run takes nothing away, so they come first"
     );
 }
 
@@ -564,7 +563,14 @@ fn a_spent_budget_still_answers_to_the_slot_and_not_to_the_status() {
         },
     );
 
-    assert_eq!(stuck.recourse(), [Recourse::Redirect, Recourse::Redispatch]);
+    assert_eq!(
+        stuck.recourse(),
+        [
+            Recourse::OverrideVerdict,
+            Recourse::Redirect,
+            Recourse::Redispatch
+        ]
+    );
 }
 
 /// Every trigger `overrulable` refuses is a trigger the classification refuses,

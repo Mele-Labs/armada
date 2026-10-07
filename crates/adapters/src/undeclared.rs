@@ -6,7 +6,9 @@
 //! **One function, called by `armada land` and by Fleet's merge act**, so a
 //! session and a Fleet Job are held to the same rule. [`undeclared`] reads the
 //! two ends of the branch from git, and says what to run where a watched path
-//! changed with no need on record for that branch and path.
+//! changed and the paths the branch has declared a need on do not include it.
+//! **Where those paths come from is the caller's**: Fleet asks its ledger, and
+//! `armada land`, which is being retired, still asks the files.
 //!
 //! **Which paths, and what counts as a change, is [`WATCHED`] and nothing
 //! else.** Another repository names its own by editing that list; there is no
@@ -22,7 +24,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::needs::{clean_path, Needs};
+use crate::needs::clean_path;
 
 /// What counts as a change on a watched path.
 #[derive(Clone, Copy, Debug)]
@@ -49,6 +51,8 @@ pub const WATCHED: &[Watched] = &[Watched {
 /// `Ok(None)` where the branch is in order, `Ok(Some(answer))` where it took a
 /// number it never declared, `Err` where git could not be read.
 ///
+/// `declared` is every path the branch has a standing need on.
+///
 /// `base` is whatever names the base (`origin/main`, a commit); the branch is
 /// compared from where it left it, so a base that moved on is not the branch's
 /// change.
@@ -56,16 +60,15 @@ pub fn undeclared(
     repo: &Path,
     base: &str,
     branch: &str,
-    needs: &Needs,
+    declared: &[String],
 ) -> Result<Option<String>, String> {
     let fork = git(repo, &["merge-base", base, branch])?.trim().to_string();
-    let standing = needs.standing();
     let mut missing = Vec::new();
     for watched in WATCHED {
-        let declared = standing
+        let has = declared
             .iter()
-            .any(|need| need.branch == branch && need.path == clean_path(watched.path));
-        if !declared && changed(repo, &fork, branch, watched)? {
+            .any(|path| clean_path(path) == clean_path(watched.path));
+        if !has && changed(repo, &fork, branch, watched)? {
             missing.push(watched);
         }
     }

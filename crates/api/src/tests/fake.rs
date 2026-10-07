@@ -19,8 +19,10 @@
 mod authoring;
 mod commands;
 mod conversing;
+mod needs;
 mod queries;
 mod retros;
+mod sessions;
 mod studios;
 mod tools;
 

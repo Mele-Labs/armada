@@ -26,7 +26,7 @@ Every number below was measured on macOS 27.0 / 26A5406e, launchd 7.0.0.
 - **Fleet crashes — signal or non-zero exit.** launchd restarts it automatically. Doctor's row flips fail → pass with no user action. **There is no cap and no backoff curve** — a flat `ThrottleInterval`, forever.
 - **Fleet is wedged — alive, not answering.** `launchctl kickstart -k gui/$UID/com.armada.fleet`. **26 ms** to a new PID. This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
-- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and its step restarted — both in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
+- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and then treated as a gone one, so its step is restarted unless a stop holds — all in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
 - **While it reconciles.** The listener serves first and reconciliation runs in a task of its own, since it can re-run a Job's whole gate from a pending-evidence row and took 6m47s doing so. Health and every read answer at once. A command waits until reconciliation finishes, so none lands between two of its Job moves, and the turn loop starts after it. A stop during it ends the task where it stands, as a crash would, and the next boot repairs what was left.
 - **Uninstall.** Must `launchctl bootout`, not merely delete the plist. A loaded job survives deletion of its own plist — verified.
 
@@ -218,15 +218,16 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Decided by the owner, 2 Oct 2026, built 5 Oct 2026 (#1059).** A need is a path and what is needed there, in the declarer's words: `crates/store/src/migrations.rs`, *a new migration*. No repository declares kinds up front, because the file is the resource. Overlap above stays a warning; a declared need is the part that is ordered. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md` has the reasoning.
 
-**One order, shared with `armada need`.** A need is a JSON file per branch and path under `armada-needs/` in the clone's common git directory, and a Job's branch is its identity. Fleet reads and writes those files through `adapters::needs`, which `armada need` uses too, so a Job and a session on its own branch see the same line and neither can be ahead of the other without having declared first. Nothing is in the store.
+**One order, shared with `armada need` and with sessions.** A need is a row of `ledger_attachments`, the session ledger's table (`docs/capabilities/needs.md`), kind `need`, held by the Job. Fleet writes it, and serves `armada need` from the same table, so a Job, a session that reported the need through the intake and a terminal on its own branch see the same line, and none can be ahead of another without having declared first. A terminal's holder is the Job whose branch it is, else the session standing on it, else the branch alone. The files under `armada-needs/` that this replaced are read once at Fleet's first start and left on disk.
 
 | | |
 |---|---|
-| **Declaring** | A Drone adds `needs` to `declare_scope`, the call that corrects its scope, or to a task of `record_plan` or `add_task`. A plan's task carries its needs by declaring them as the plan is kept; the file is the record, so nothing is added to a plan's task |
+| **Declaring** | A Drone adds `needs` to `declare_scope`, the call that corrects its scope, or to a task of `record_plan` or `add_task`. A plan's task carries its needs by declaring them as the plan is kept; the row is the record, so nothing is added to a plan's task |
 | **First goes first** | Declaring again records nothing. A Drone says what it took by calling again with `took` on the need |
 | **A later declarer is told** | Which branch is ahead and what it took, in the peer turn, **at once** rather than after the spacing, and in the next opening brief where no Drone is on the Job. `docs/contracts/agent-prompt.md`, *The peer turn* |
 | **Landing follows the order** | A press to merge is refused while a need ahead of the Job's on the same file stands, as `fleet.merge_waiting_behind`, naming what it waits behind. The sweep that merges for `auto_merge` asks again each rotation |
-| **Spent or given back** | When the Job reaches a terminal status: spent if it landed, given back if it was dropped, which is one removal. A branch deleted locally is given back by whatever reads next |
+| **Spent or given back** | When the Job reaches a terminal status: spent if it landed, given back if it was dropped, both written in `record`, the one place every terminal status passes. A need held by a branch alone is given back by whatever reads next after the branch is deleted |
+| **Its own slot and branch** | A Job holds them as rows too, written where Fleet leases the slot and records the branch, so `who_owns` names a Job that holds a slot and a Job that moves slots gives the old one back |
 
 **`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the Job is noticed landing. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
 
@@ -294,6 +295,10 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 **The conflict is therefore always the new Drone's opening work.** Refusing the act instead would put a person at a merge conflict inside a Drone's worktree, which is the one job the Drone is already in the right place to do.
 
 **The step's baseline is read after the rebase, never before.** A rebase writes content: a clean one replays the branch onto a base that itself moved, and a conflicted one leaves markers in the files it could not merge. A baseline taken before it credits the step with git's output, and a Drone that resolved nothing then passes `diff_nonempty` on what it was handed.
+
+**The baseline is taken once, when the step first begins, and kept in the store.** A requeue, a retry and a Fleet that restarted all put a Drone back on a worktree that already holds the step's uncommitted work, so a baseline read again would count that work as inherited and the step could never pass. Every later entry loads the stored one instead, and a gate that rules at boot on a submission the last Fleet never ruled on is measured against it too. The row goes when the step advances, so a step a later one sends work back to starts afresh. A step with no stored baseline fails `diff_nonempty` rather than passing it.
+
+**A rebase on a re-entry is carried across.** Fleet reads the worktree just before the catch-up and again after it, and what differs between the two is the rebase's: those paths take their new entry in the stored baseline, so markers and merged files are inherited, and the step's own work in every path the rebase did not touch keeps counting.
 
 ### Network loss mid-Job
 
@@ -365,12 +370,16 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
 | The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same interval and rotation |
+| The newest five pull requests merged into the base | One listing a visit, beside the open ones |
+| The CI run on each of those five merge commits | One ask a commit, then again only while a job is unfinished, or while nothing has run on a merge under ten minutes old; a settled run is kept in memory and not asked again. Five asks the first visit after a start, usually none after |
 
-**A red stays red until a green.** A newer commit still running does not end it, and a commit that fails on top of a red is the same red unless it fails a job the red did not have. A commit nothing ran on is not a green and does not end a red.
+**Main's state is the newest commit whose run has finished.** Fleet reads the run on the head and on each of the newest merged pull requests' commits, in first-parent order, and the first one that is red or green decides. Newer commits still running do not: a green on an intermediate commit clears a red even while later ones run, and says so as `checking` on a green. A red's failed jobs are the deciding commit's, and "Broke in" names the oldest red commit before the last green that failed what the deciding one fails. A commit nothing ran on proves nothing either way, and where nothing in the window has finished a known red is kept, held.
 
-**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. No Job acts on it.
+**A red is held while a newer commit's CI is running.** A fix may already be in that run, so Fleet keeps the red's facts and the commit they were read at (`red_commit`), names the running commits and their pull requests (`checking`), refuses `fix_main` with `fleet.main_checks_running`, and does not pick the red up. When the run ends green everything clears. When it ends red on the jobs the red already had, the red is back and the pickup runs; on a job it did not have, it is a new red naming the newer merge.
 
-**It is served as the merge line's `hub`**, protocol 23.41, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
+**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), and acts on it in the same turn: a red whose merging pull request is a Job of ours that has ended is sent back to that Job, once per red per Job, and a green ends every Job's take of it. `docs/capabilities/merge-line.md`, *When main goes red*, has the three ways a Job comes to have a red.
+
+**It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
 ### Restarting Fleet
 
@@ -410,8 +419,9 @@ worktrees a repository leases* — until a person changes the pool on this machi
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
-release at a time. The holder is the process that ran the shell the command was
-run from — an agent's session, or the terminal a person typed in.
+release at a time. The holder is the first process above the command that is not a shell
+— an agent's session, or the terminal a person typed in — so a subshell or a
+pipeline between the two does not become the holder.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease

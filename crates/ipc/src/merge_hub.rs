@@ -20,10 +20,59 @@ pub struct MergeLineHub {
     /// Every open pull request, newest first as the forge lists them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_requests: Vec<HubPullRequest>,
-    /// The Job working on main's red. **Never set yet**: a Job picking the red
-    /// up is a later change.
+    /// The newest pull requests merged into the base, newest first, read from
+    /// the forge on the same visit as the open ones. Since 23.42. **Absent from
+    /// an older Fleet**, and a Bridge then draws the line's own `landed`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub merged: Vec<HubMerged>,
+    /// The Job working on main's red, since 23.42: the newest Job that took it
+    /// and has not been stopped. Absent while nobody has it, and once main is
+    /// green.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing: Option<HubJob>,
+}
+
+/// One pull request recently merged into the base. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HubMerged {
+    pub number: u64,
+    pub title: String,
+    pub branch: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    pub merged_at: Instant,
+    /// The merge commit, whole. Absent where the forge named none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// The Job that opened it. Absent for a person's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<HubJob>,
+    /// The CI run on the merge commit, on main itself, distinct from the pull
+    /// request's own checks. Since 23.44. Absent where nothing ran on it, where
+    /// it was not asked yet, or from an older Fleet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_run: Option<MainRun>,
+}
+
+/// The CI run on one commit of main, as the forge reports it. Since 23.44.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MainRun {
+    pub state: MainRunState,
+    /// Each job that failed, by the forge's name, in its order. `failed` only.
+    /// A press on one opens its log on the Check log socket under the branch
+    /// `main@<commit>`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failed: Vec<String>,
+}
+
+/// How a commit's run on main stands. **Strict**: Bridge picks a mark from it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MainRunState {
+    Passed,
+    Running,
+    Failed,
 }
 
 /// A Job, by its id and what it is called.
@@ -37,7 +86,9 @@ pub struct HubJob {
 ///
 /// **Strict, because Bridge branches on it**: green draws a mark, red a band.
 /// A red a fix is still running for stays `red`; `running` is a commit nothing
-/// has failed on yet.
+/// has failed on yet. **A red a newer commit's CI is running on is `red` too**,
+/// with `checking` naming those commits since 23.44, so a Bridge before it still
+/// reads the variants it knows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MainCiState {
@@ -63,6 +114,30 @@ pub struct MainStanding {
     /// The pull request that turned main red, where the forge named one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merge: Option<MainMerge>,
+    /// The commit the red was read at, whole. `red` only, since 23.44. It is
+    /// `commit` until a newer one lands, and then the red's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub red_commit: Option<String>,
+    /// The newer commits whose CI is still running, newest first, since 23.44.
+    /// **Main's state is the newest commit whose run has finished.** On a `red`,
+    /// non-empty is a held red: a newer run may already have fixed it, so Fleet
+    /// refuses to hand it to a Job and Bridge draws the band as caution with no
+    /// buttons. On a `green` it is only checks running. Empty is main as `state`
+    /// says, and what an older Fleet always sends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checking: Vec<MainChecking>,
+}
+
+/// A commit on main, newer than the red one, whose CI is still running.
+/// Since 23.44.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MainChecking {
+    /// The commit, whole.
+    pub commit: String,
+    /// The pull request that merged it, where it is among the newest merged
+    /// and the forge named one. Absent for a direct push.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<MainMerge>,
 }
 
 /// One CI job that failed on main.
@@ -125,4 +200,43 @@ pub enum HubPullCi {
     Running,
     Failed,
     WaitingOnMain,
+}
+
+/// A Job's part in main's red, on its summary as `fixes_main`. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FixesMain {
+    pub state: FixesMainState,
+    /// The Manifest Check that was red, or the CI job's own name where none maps.
+    pub check: String,
+    /// The first failing test the log named. Absent where none could be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test: Option<String>,
+    /// The pull request that turned main red. Absent where none was named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merge: Option<u64>,
+    /// The pull request of this Job that put main green. `fixed` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_in: Option<u64>,
+}
+
+/// Where a Job's part in the red stands. **Strict**: Bridge picks a mark from it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FixesMainState {
+    Fixing,
+    Fixed,
+}
+
+/// `fix_main`'s body: hand a repository's red main to a Job. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FixMain {
+    /// The repository, as `get_merge_lines` names it.
+    pub root: String,
+    /// An earlier Job to send the work back to. Absent dispatches a new one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<JobId>,
+    /// What the Job is told. Absent is the facts Fleet read, as the band shows
+    /// them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
 }

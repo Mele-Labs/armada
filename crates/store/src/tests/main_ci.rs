@@ -14,6 +14,9 @@ fn red_main() -> MainCi {
         state: MainState::Red,
         read_at: at("2026-10-06T10:00:00.000Z"),
         red_at: Some(at("2026-10-06T10:00:00.000Z")),
+        red_commit: Some("9".repeat(40)),
+        decided_commit: Some("9".repeat(40)),
+        newer_running: 1,
         unfinished: 2,
         failed: vec![
             MainFailedJob {
@@ -62,6 +65,9 @@ fn a_newer_reading_replaces_the_older_one_and_its_failed_jobs() {
         state: MainState::Green,
         read_at: Timestamp::from_rfc3339("2026-10-06T11:00:00.000Z"),
         red_at: None,
+        red_commit: None,
+        decided_commit: Some("b".repeat(40)),
+        newer_running: 0,
         unfinished: 0,
         failed: Vec::new(),
         merge: None,

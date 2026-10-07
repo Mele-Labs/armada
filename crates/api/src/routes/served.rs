@@ -193,6 +193,12 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines/checks/observe",
     },
+    // Main's red handed to a Job, from the band on that line.
+    Route {
+        operation: "fix_main",
+        method: "POST",
+        path: "/merge_lines/fix",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",
@@ -476,6 +482,34 @@ const ROUTES: &[Route] = &[
         operation: "save_workflow",
         method: "POST",
         path: "/workflows/save",
+    },
+    // The ledger of agent sessions a person runs: the harness's intake, then the
+    // two reads. `docs/concepts/session.md`.
+    // `armada need`'s act and the read beside it, on one path. `docs/capabilities/needs.md`.
+    Route {
+        operation: "act_on_need",
+        method: "POST",
+        path: "/needs",
+    },
+    Route {
+        operation: "list_needs",
+        method: "GET",
+        path: "/needs",
+    },
+    Route {
+        operation: "report_session",
+        method: "POST",
+        path: "/sessions/report",
+    },
+    Route {
+        operation: "list_sessions",
+        method: "GET",
+        path: "/sessions",
+    },
+    Route {
+        operation: "who_owns",
+        method: "GET",
+        path: "/sessions/owner",
     },
     Route {
         operation: "list_manifests",

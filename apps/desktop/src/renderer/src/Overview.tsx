@@ -7,7 +7,7 @@
 // renders its children straight through when nothing has thrown.
 
 import { useEffect, useState } from "react";
-import type { RepositorySummary } from "@armada/protocol";
+import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
@@ -38,6 +38,7 @@ export function Overview({
   onLanded,
   onOpenLink,
   onOpenSession,
+  onFix,
 }: {
   state: BridgeState;
   now: number;
@@ -73,6 +74,8 @@ export function Overview({
   onOpenLink: (address: string) => void;
   /** A Session the list opened. Where no Sessions are served the list draws nothing. */
   onOpenSession: (sessionId: string) => void;
+  /** Hands main's red to a Job, from the merge line's band. */
+  onFix?: (fix: FixMain) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -155,7 +158,7 @@ export function Overview({
           onCursor={onCursor}
         />
         <SessionsListing onOpen={onOpenSession} />
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} {...(onFix === undefined ? {} : { onFix })} />
       </div>
     </Boundary>
   );

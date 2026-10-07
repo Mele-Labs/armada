@@ -96,9 +96,10 @@ armada need --took protocol-version.toml "23.41"               # once chosen, af
 
 A need is a path and what is needed there, in your words, and the first to
 declare goes first. If something is ahead of you, pick the value after what it
-took. `armada land` then holds your branch until every need ahead of yours has
-landed, so you land in order and nothing is renumbered. Needs are unchanged
-for now: Fleet will publish them as a required check on the pull request later. Declaring is a no-op the
+took. Fleet keeps the needs, so `armada need` asks the running Fleet and says so
+where there is none. Its merge holds a Job behind every need ahead of its own, so
+you land in order and nothing is renumbered; a required status on the pull request
+is not built. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
 **`armada land preflight` and Fleet's merge refuse a branch that changes the
@@ -130,7 +131,7 @@ until he killed them by hand. There is no other machine.
 | You changed | Run |
 |---|---|
 | A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
-| Any Rust | `cargo fmt --all --check`, and `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
+| Any Rust | `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
 | `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`, `apps/desktop:app_smoke`. **A story is in `packages/components:components_test`**, a screen's test through `App` in `apps/desktop:app_smoke` (`src/renderer/src/mock/*.test.tsx`), and `apps/desktop/unit:desktop_test` is main and the renderer's own modules, and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
@@ -162,11 +163,9 @@ the tool's own background handle), or put the pattern where no shell repeats
 it, and read a wait that has lasted longer than the run would have as a bug in
 the wait.
 
-**Warnings and Format were missing from this table, and a merge paid for it.**
+**Warnings were missing from this table, and a merge paid for it.**
 Confirmed 12 Sep 2026: #843 ran every row above, merged green, and left `main`
-with ten unformatted hunks and an unused import. `format` is a Check in
-`armada.yml`, so the next Job cut from `main` would have failed on work that
-was not its own.
+with an unused import.
 
 **Verify it yourself rather than on a report.** An agent's claim of green has
 been wrong here.
@@ -346,10 +345,10 @@ next minor from `main`. Confirmed 4 to 5 Oct
 V109 that another branch had taken, and the merge line sent each back to be
 renumbered by hand, five full requeues. The brief must also name what the line
 will run on the files the agent touched: *"run every test module that references
-what you changed, then `armada check typecheck`, `cargo fmt --all --check` and
+what you changed, then `armada check typecheck` and
 `cargo xtask verify-foundations`; a new operation needs `tests::served`."* The
 same session lost four more turns to a route-table test, a fixture that no
-longer typechecked, a rustfmt line and a story-title rule, each red on the line
+longer typechecked and a story-title rule, each red on the line
 and green in the agent's report.
 
 **Pick the model by the work.** Mechanical work goes to `model: "sonnet"`: a

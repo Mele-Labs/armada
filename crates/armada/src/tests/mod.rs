@@ -12,6 +12,7 @@
 
 mod agent;
 mod authoring;
+mod booting;
 mod clean;
 mod clean_slots;
 mod cli;

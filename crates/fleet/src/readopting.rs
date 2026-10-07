@@ -217,7 +217,8 @@ where
             job,
             Level::Warn,
             "this Job's Drone outlived the Fleet that spawned it and could not be adopted, so \
-             it was ended and the step is a person's to restart",
+             it was ended; Fleet then tries to restart the step, and a person restarts it \
+             where that is refused",
             &[
                 ("pid", FieldValue::Int(i64::from(pid))),
                 ("because", FieldValue::Str(because.to_string())),

@@ -89,7 +89,7 @@ import { activityFor } from "./frozen";
 import { rowFreezeOf } from "./freeze";
 import { ROW_VERBS, verbOf } from "./keys";
 import { originReading } from "./origin";
-import { fixesMainOf, fixesMainSaid } from "./main-red";
+import { fixesMainMark, fixesMainOf, fixesMainSaid } from "./main-red";
 import { canPause, canResume, pausedSaid } from "./pausing";
 import type { PauseAct } from "./pausing";
 import { leading, readingOf } from "./reading";
@@ -368,7 +368,7 @@ export function Row({
         : {
             mark: (
               <>
-                {fixes === undefined ? null : <FixingMainMark state={fixes.state} said={fixesMainSaid(fixes)} />}
+                {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
                 {paused === undefined ? null : <PausedMark said={paused} />}
                 {job.status === "piloted" ? <PilotedBy jobId={job.id} compact /> : null}
               </>

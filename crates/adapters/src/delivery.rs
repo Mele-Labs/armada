@@ -211,6 +211,15 @@ impl Delivery for GitVcs {
         crate::main_ci::open_pulls(in_repo)
     }
 
+    fn recently_merged_pull_requests(
+        &self,
+        in_repo: &str,
+        base: &str,
+        limit: usize,
+    ) -> Option<adapter_traits::RecentlyMergedPulls> {
+        crate::main_ci::recently_merged(in_repo, base, limit)
+    }
+
     fn pull_request_diff(
         &self,
         in_repo: &str,

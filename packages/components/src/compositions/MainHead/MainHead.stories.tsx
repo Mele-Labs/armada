@@ -200,3 +200,54 @@ export const RedFromCiAlone: Story = {
     await expect(canvas.queryByRole("button", { name: "Send back to a Job" })).toBeNull();
   },
 };
+
+/**
+ * Main is red and a newer commit's CI is still running, which may already have fixed it. The frame
+ * is caution, one plain line names the pull request that is running, and the red's own rows stay
+ * under it. Neither way to hand it to a Job is offered.
+ */
+export const HeldWhileChecksRun: Story = {
+  args: { ...args, main: { state: "red", red: RED, checking: [{ commit: "d".repeat(40), number: 1852, url: `${PULL}1852` }] } },
+  play: async ({ args, canvas, userEvent }) => {
+    const band = canvas.getByRole("status", { name: "New checks are running on main" });
+    await expect(within(band).getByText(/New checks are running on main:/)).toBeVisible();
+    await userEvent.click(within(band).getByRole("link", { name: "#1852" }));
+    await expect(args.onOpenLink).toHaveBeenCalledWith(`${PULL}1852`);
+    await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "screens_test" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "#1812" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Send back to a Job" })).toBeNull();
+  },
+};
+
+/** Two newer runs, one a direct push: its commit stands in for a pull request nobody named. */
+export const HeldWhileSeveralRun: Story = {
+  args: {
+    ...args,
+    main: { state: "red", red: RED, checking: [{ commit: "d".repeat(40), number: 1853 }, { commit: "e".repeat(40) }] },
+  },
+  play: async ({ canvas }) => {
+    const band = canvas.getByRole("status", { name: "New checks are running on main" });
+    await expect(within(band).getByText("#1853")).toBeVisible();
+    await expect(within(band).getByText("eeeeeeeeee")).toBeVisible();
+  },
+};
+
+/** The mark beside the heading is caution while held, and says why. */
+export const HeldMark: Story = {
+  args,
+  render: () => <MainMark main={{ state: "red", red: RED, checking: [{ commit: "d".repeat(40), number: 1852 }] }} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Main is red, new checks are running" })).toBeVisible();
+  },
+};
+
+/** Main is green and newer commits are running: the mark says so, and no band is drawn. */
+export const GreenWhileChecksRun: Story = {
+  args,
+  render: () => <MainMark main={{ state: "green", checking: [{ commit: "d".repeat(40), number: 1852 }] }} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Main is green, new checks are running" })).toBeVisible();
+  },
+};

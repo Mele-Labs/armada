@@ -15,11 +15,13 @@
 # restart script `--restart` runs.
 
 import argparse
+import json
 import os
 import re
 import subprocess
 import sys
 import time
+import urllib.request
 
 MIGRATIONS = "crates/store/migrations"
 # The numbered list a branch cut before names still carries.
@@ -73,13 +75,51 @@ def armada(root, *args, answered_by=None):
     return done.stdout
 
 
+# A Job in one of these holds work somebody can still use or answer for.
+# Anything else with a branch, `running` without a Drone included, is stranded.
+STRANDED = {"killed", "completed_failed", "rejected", "superseded"}
+
+
+def fleet_get(path):
+    """One read of Fleet's API, or None where Fleet is not running or does not answer."""
+    runtime = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Armada", "fleet.json")
+    try:
+        with open(runtime) as f:
+            port = json.load(f)["port"]
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
+            return json.load(r)
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def job_stopped(job_id, roster):
+    """Whether a Job that holds a slot has stopped. Fleet silent means not known, so no."""
+    answer = fleet_get(f"/jobs/{job_id}")
+    if answer is None:
+        return False
+    status = answer["job"]["status"]
+    return status in STRANDED or (status == "running" and job_id not in roster)
+
+
 def slots(root):
-    """Every slot that holds a branch: (slot, path, branch)."""
+    """Every slot that holds a branch: (slot, path, branch, why it is stranded or None)."""
     held = []
+    roster, asked = None, False
     for line in armada(root, "worktree", "--status").splitlines():
         fields = re.split(r"\s{2,}", line.strip(), maxsplit=4)
-        if len(fields) >= 4 and fields[1] in ("held", "kept"):
-            held.append((fields[0], fields[2], fields[3].split()[0]))
+        if len(fields) < 4 or fields[1] not in ("held", "kept"):
+            continue
+        holder = fields[4] if len(fields) > 4 else ""
+        stranded = None
+        if fields[1] == "kept":
+            stranded = "held by a stopped Job"
+        elif (m := re.match(r"by job (\S+)", holder)):
+            if not asked:
+                drones, asked = fleet_get("/drones"), True
+                roster = {d["job_id"] for d in drones["drones"]} if drones else None
+            if roster is not None and job_stopped(m.group(1), roster):
+                stranded = "held by a stopped Job"
+        held.append((fields[0], fields[2], fields[3].split()[0], stranded))
     return held
 
 
@@ -89,10 +129,18 @@ def queued(root):
 
 
 def base_of(root):
-    for ref in ("refs/heads/main", "refs/remotes/origin/main"):
-        if git(root, "rev-parse", "--verify", "--quiet", ref, check=False).returncode == 0:
-            return ref
-    sys.exit("preview: neither `main` nor `origin/main` exists")
+    """The newer of local `main` and `origin/main`, so a checkout that has not
+    pulled still previews what has landed. Local `main` wins only where it is
+    ahead of the remote; a diverged pair takes the remote, which is what lands."""
+    have = [ref for ref in ("refs/heads/main", "refs/remotes/origin/main")
+            if git(root, "rev-parse", "--verify", "--quiet", ref, check=False).returncode == 0]
+    if not have:
+        sys.exit("preview: neither `main` nor `origin/main` exists")
+    if len(have) == 2:
+        local_is_behind = git(root, "merge-base", "--is-ancestor", have[0], have[1], check=False).returncode == 0
+        local_is_ahead = git(root, "merge-base", "--is-ancestor", have[1], have[0], check=False).returncode == 0
+        return have[0] if local_is_ahead and not local_is_behind else have[1]
+    return have[0]
 
 
 def exists(root, branch):
@@ -107,7 +155,10 @@ def names(values):
 def in_flight(root, base, only, skip):
     """(branches oldest first, why each named one was left out, slots held)."""
     held = slots(root)
-    candidates = {b for _, _, b in held} | set(queued(root))
+    line = set(queued(root))
+    live = {b for _, _, b, why in held if not why}
+    stranded = {b: why for _, _, b, why in held if why and b not in live}
+    candidates = live | set(stranded) | line
     notes = []
     chosen = []
     for branch in sorted(candidates):
@@ -118,6 +169,8 @@ def in_flight(root, base, only, skip):
             continue
         if branch in skip:
             notes.append(f"{branch}: skipped by --skip")
+        elif branch in stranded and branch not in line:
+            notes.append(f"{branch}: {stranded[branch]}")
         elif only and branch not in only:
             continue
         else:
@@ -174,8 +227,8 @@ def merge_pass(root, only, skip):
     taken = {v: "main" for v in migrations_in(wt, "HEAD")}
     rows = []
     for branch in branches:
-        mb = out(wt, "merge-base", "HEAD", branch)
-        before = set(migrations_in(wt, mb))
+        # A branch that merged main can have several merge bases; one alone misses main's migrations.
+        before = {v for mb in out(wt, "merge-base", "--all", "HEAD", branch).split() for v in migrations_in(wt, mb)}
         added = [v for v in migrations_in(wt, branch) if v not in before]
         clash = [(v, taken[v]) for v in added if v in taken]
         if clash:
@@ -199,7 +252,7 @@ def merge_pass(root, only, skip):
 
     head = out(wt, "rev-parse", "--short", "HEAD")
     warnings = []
-    for slot, path, branch in held:
+    for slot, path, branch, _ in held:
         if os.path.isdir(path):
             dirty = git(path, "status", "--porcelain", check=False).stdout.splitlines()
             if dirty:

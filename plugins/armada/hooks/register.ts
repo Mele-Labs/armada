@@ -1,0 +1,339 @@
+// Tells a running Fleet which sessions this machine has open and what each holds.
+// `docs/concepts/session.md`.
+//
+// **A session is reported as it happens and never read back.** No hook changes
+// what a session does or is told: each answers with what `next` returned and
+// lets its report go unawaited, so Fleet being down costs the session nothing
+// (`fleet.ts`). **No message text and no prompt leaves, apart from the first
+// line of the first prompt as a title.** A message is reported as who it went to
+// or came from, and how many.
+//
+// The helpers are top-level because the engine follows `$` only into a function
+// declared at the top of a file, and refuses the module otherwise.
+
+import type { Engine, Register } from 'claude-code'
+
+import {
+  ghAct,
+  isDispatch,
+  jobIdsIn,
+  mayMoveBranch,
+  micros,
+  pullRequestsIn,
+  senderOf,
+  titleOf,
+} from './facts'
+import type { Door, Fact, Report } from './fleet'
+
+const HARNESS = 'claude_code'
+const MEASURE_EVERY_MS = 10_000
+const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
+const WAIT_MS = 1500
+const SILENT_MS = 30_000
+const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
+
+type Dollar = Door & Pick<Engine, 'process' | 'session'>
+
+type Known = {
+  cwd: string
+  title?: string
+  branch?: string
+  prs: Map<string, string>
+  messages: Map<string, number>
+}
+
+const known = new Map<string, Known>()
+let measuredAt = Number.NEGATIVE_INFINITY
+
+function told(id: string, fact: Fact): Report {
+  return { harness: HARNESS, session_id: id, fact }
+}
+
+function everything(): Report[] {
+  return [...known].flatMap(([id, one]) => [
+    told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal' }),
+    ...(one.branch === undefined
+      ? []
+      : [told(id, { kind: 'attached', attachment: { kind: 'branch', target: one.branch } })]),
+    ...[...one.prs].map(([number, url]) =>
+      told(id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail: { url } } }),
+    ),
+  ])
+}
+
+// What was dropped while Fleet was out of reach is not replayed, so what the
+// sessions hold is told again from `everything` when it answers.
+let queue: Promise<void> = Promise.resolve()
+let silentUntil = 0
+let wasOut = false
+
+
+async function post($: Door, report: Report): Promise<boolean> {
+  const home = await $.env.get('HOME')
+  if (!home) return false
+  const file = JSON.parse(await $.fs.read(`${home}/${RUNTIME_FILE}`)) as { port?: unknown }
+  const port = file.port
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return false
+  }
+  const sent = $.http.fetch(`http://127.0.0.1:${port}/sessions/report`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(report),
+  })
+  const answered = await Promise.race([sent, $.clock.sleep(WAIT_MS).then(() => undefined)])
+  // A refusal is Fleet answering; only silence is Fleet being out of reach.
+  return answered !== undefined
+}
+
+async function deliver($: Door, report: Report): Promise<void> {
+  const now = await $.clock.now()
+  if (now < silentUntil) return
+  try {
+    const reports = wasOut ? [...everything(), report] : [report]
+    for (const one of reports) {
+      if (!(await post($, one))) throw new Error('out of reach')
+    }
+    wasOut = false
+  } catch {
+    silentUntil = now + SILENT_MS
+    wasOut = true
+  }
+}
+
+/** Queue a report, in order. Never throws and never waits. */
+function send($: Door, report: Report): void {
+  queue = queue.then(() => deliver($, report)).catch(() => undefined)
+}
+
+/** Wait, within a short bound, for what is queued. */
+async function flush($: Door): Promise<void> {
+  await Promise.race([queue, $.clock.sleep(WAIT_MS * 2)])
+}
+
+// A fact that was still being worked out when its session ended is dropped, so
+// `ended` is the last thing Fleet hears of a session.
+function say($: Door, id: string, fact: Fact): void {
+  if (fact.kind !== 'started' && fact.kind !== 'ended' && !known.has(id)) return
+  send($, told(id, fact))
+}
+
+function settle($: Door, id: string, kind: string, target: string, state: 'spent' | 'given_back') {
+  say($, id, { kind: 'settled', attachment: { kind, target }, state })
+}
+
+async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
+  const ran = await $.process.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], {
+    cwd,
+    timeoutMs: 3000,
+  })
+  const name = ran.stdout.trim()
+  return ran.exitCode === 0 && name !== '' && name !== 'HEAD' ? name : undefined
+}
+
+async function pullRequestOn($: Dollar, id: string, one: Known): Promise<void> {
+  const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state'], {
+    cwd: one.cwd,
+    timeoutMs: 10_000,
+  })
+  if (ran.exitCode !== 0) return
+  const view = JSON.parse(ran.stdout) as { number?: number; url?: string; state?: string }
+  if (typeof view.number !== 'number') return
+  const number = String(view.number)
+  const detail = { url: view.url ?? '', state: (view.state ?? '').toLowerCase() }
+  one.prs.set(number, detail.url)
+  say($, id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } })
+  if (view.state === 'MERGED') settle($, id, 'pr', number, 'spent')
+  if (view.state === 'CLOSED') settle($, id, 'pr', number, 'given_back')
+}
+
+/** Where the branch is now, and the pull request on it. */
+async function look($: Dollar, id: string): Promise<void> {
+  try {
+    const one = known.get(id)
+    if (one === undefined) return
+    const branch = await branchOf($, one.cwd)
+    if (branch === one.branch) return
+    if (one.branch !== undefined && branch === undefined) {
+      settle($, id, 'branch', one.branch, 'given_back')
+    }
+    one.branch = branch
+    if (branch === undefined) return
+    say($, id, { kind: 'attached', attachment: { kind: 'branch', target: branch } })
+    await pullRequestOn($, id, one).catch(() => undefined)
+  } catch {
+    // A directory with no repository, or no `git`: nothing to report.
+  }
+}
+
+async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
+  const where = cwd ?? (await $.session.cwd())
+  known.set(id, { cwd: where, prs: new Map(), messages: new Map() })
+  say($, id, { kind: 'started', cwd: where, origin: 'terminal' })
+  void look($, id)
+}
+
+/** The session's id, starting it first where it began without a `session.start`. */
+async function current($: Dollar): Promise<[string, Known]> {
+  const id = await $.session.id()
+  if (!known.has(id)) await begin($, id)
+  return [id, known.get(id) as Known]
+}
+
+async function afterBash($: Dollar, command: string, text: string): Promise<void> {
+  const [id, one] = await current($)
+  const act = ghAct(command)
+  if (act?.act === 'create') {
+    for (const pr of pullRequestsIn(text)) {
+      one.prs.set(pr.number, pr.url)
+      say($, id, {
+        kind: 'attached',
+        attachment: { kind: 'pr', target: pr.number, detail: { url: pr.url } },
+      })
+    }
+  }
+  if (act?.act === 'merge' || act?.act === 'close') {
+    const target = act.number ?? (one.prs.size === 1 ? [...one.prs.keys()][0] : undefined)
+    if (target !== undefined) {
+      settle($, id, 'pr', target, act.act === 'merge' ? 'spent' : 'given_back')
+    }
+  }
+  if (mayMoveBranch(command) || act?.act === 'create') {
+    const cwd = await $.session.cwd()
+    if (cwd !== one.cwd) {
+      one.cwd = cwd
+      say($, id, { kind: 'moved', cwd })
+    }
+    await look($, id)
+  }
+}
+
+async function dispatched($: Dollar, via: string, text: string): Promise<void> {
+  const [id] = await current($)
+  for (const job of jobIdsIn(text)) {
+    say($, id, { kind: 'attached', attachment: { kind: 'job', target: job, detail: { via } } })
+  }
+}
+
+async function spawned(
+  $: Dollar,
+  target: string,
+  type: string,
+  description: string,
+): Promise<void> {
+  const [id] = await current($)
+  const detail = { type, description: description.slice(0, 80) }
+  say($, id, { kind: 'attached', attachment: { kind: 'subagent', target, detail } })
+}
+
+async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
+  const [id, one] = await current($)
+  const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
+  const count = (one.messages.get(target) ?? 0) + 1
+  one.messages.set(target, count)
+  const detail = { direction, count: String(count) }
+  say($, id, { kind: 'attached', attachment: { kind: 'message', target, detail } })
+}
+
+async function measured($: Dollar, tokens?: number, window?: number, usd?: number): Promise<void> {
+  const at = await $.clock.now()
+  if (at - measuredAt < MEASURE_EVERY_MS) return
+  measuredAt = at
+  const [id] = await current($)
+  const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
+  say($, id, { kind: 'measured', usage })
+}
+
+async function titled($: Dollar, prompt: string): Promise<void> {
+  const [id, one] = await current($)
+  const title = one.title === undefined ? titleOf(prompt) : undefined
+  if (title === undefined) return
+  one.title = title
+  say($, id, { kind: 'titled', title })
+}
+
+async function ended($: Dollar, id: string, reason: string): Promise<void> {
+  if (!known.has(id)) await begin($, id)
+  say($, id, { kind: 'ended', reason })
+  known.delete(id)
+  await flush($)
+}
+
+export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    const started = await next(e)
+    void $.session
+      .id()
+      .then(id => begin($, id, e.cwd))
+      .catch(() => undefined)
+    return started
+  })
+
+  on('prompt.submit', async ($, e, next) => {
+    const out = await next(e)
+    void titled($, e.text).catch(() => undefined)
+    return out
+  })
+
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny === undefined && ran.isError !== true) {
+      void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
+    }
+    return ran
+  })
+
+  for (const name of DISPATCHES) {
+    on('tool.call', { tool: `mcp__armada-fleet__${name}` }, async ($, e, next) => {
+      const ran = await next(e)
+      if (isDispatch(e.tool) && ran.deny === undefined && ran.isError !== true) {
+        void dispatched($, name, ran.text ?? '').catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  on('agent.spawn', async ($, e, next) => {
+    const out = await next(e)
+    if (out.deny === undefined) {
+      const target = out.agentId ?? e.tool_use_id
+      void spawned($, target, e.subagentType, e.description).catch(() => undefined)
+    }
+    return out
+  })
+
+  on('session.send', async ($, e, next) => {
+    const out = await next(e)
+    if (out.isDelivered) void messaged($, 'sent', e.to).catch(() => undefined)
+    return out
+  })
+
+  on('session.receive', async ($, e, next) => {
+    const out = await next(e)
+    const from = senderOf(e.origin as { kind: string; teammate?: string })
+    void messaged($, 'received', from).catch(() => undefined)
+    return out
+  })
+
+  on('session.measure', async ($, e, next) => {
+    const out = await next(e)
+    void measured($, e.context.tokens, e.context.window, e.cost?.usd).catch(() => undefined)
+    return out
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const out = await next(e)
+    if (e.agentId === undefined) {
+      void current($)
+        .then(([id]) => say($, id, { kind: 'turn_completed' }))
+        .catch(() => undefined)
+    }
+    return out
+  })
+
+  on('session.end', async ($, e, next) => {
+    const out = await next(e)
+    await ended($, e.sessionId, e.reason).catch(() => undefined)
+    return out
+  })
+}

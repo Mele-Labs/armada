@@ -1,21 +1,14 @@
-//! What a branch says it needs on a path, kept where every worktree of a clone
-//! reads it. `armada need` (#1059, `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`)
-//! and Fleet's Jobs share these files, so a session and a Job see ONE order.
+//! What a branch says it needs on a path, as `armada land` still reads it: one
+//! file per need under `armada-needs/` in the git common directory, beside
+//! `armada-land/`. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`.
 //!
-//! **A need is a path and what is needed there, in the declarer's words**, and
-//! the repository declares no kinds up front: the file is the resource. First
-//! to declare goes first. A need is keyed by branch and path, and a Job's
-//! branch is its identity, so Fleet declares for a Job exactly as a session
-//! declares for its own branch.
+//! **Fleet no longer writes these.** A need is a row on the session ledger
+//! (`docs/capabilities/needs.md`) and `armada need` asks Fleet. What is left is
+//! the merge line's own hold, which is being retired, and the one read Fleet makes
+//! of the files, at its first start, to carry them into the ledger.
 //!
-//! **State is one file per need under `armada-needs/` in the git common
-//! directory**, beside `armada-land/`. It is spent when its branch lands, and
-//! given back when its branch no longer exists locally or a person releases it.
-//! **Nothing expires by time**: whether a stalled need should is open, so a
-//! person gives a stalled one back.
-//!
-//! Both halves write through here and nothing else does, which is why this is
-//! in `adapters` and not in the binary: the same reason `land_state` is.
+//! A need is a path and what is needed there, in the declarer's words, keyed by
+//! branch and path. First to declare goes first, and nothing expires by time.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -194,6 +187,13 @@ impl Needs {
             .collect()
     }
 
+    /// Every need on disk, in order, read and nothing else. **Unlike
+    /// [`standing`](Needs::standing) it removes nothing**, which is what the
+    /// conversion into Fleet's ledger needs: the files stay where they are.
+    pub fn files(&self) -> Vec<Need> {
+        self.read_all()
+    }
+
     fn read_all(&self) -> Vec<Need> {
         let Ok(listing) = std::fs::read_dir(&self.dir) else {
             return Vec::new();
@@ -231,7 +231,9 @@ pub fn clean_path(path: &str) -> String {
     path.trim_start_matches("./").to_string()
 }
 
-fn branch_exists(repo: &Path, branch: &str) -> bool {
+/// Whether `branch` exists in the repository at `repo`. Git that could not run
+/// says nothing about it, so that reads as yes.
+pub fn branch_exists(repo: &Path, branch: &str) -> bool {
     Command::new("git")
         .arg("-C")
         .arg(repo)

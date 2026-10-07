@@ -328,10 +328,10 @@ pub(crate) async fn reject_job<D: Commands>(
 /// **The Job comes back `running`** at the step that follows, with everything
 /// the stopped Drone did still on the branch.
 ///
-/// 409 anywhere but an `escalated` Job stopped on `gate_failure` or
-/// `evidence_suspect`: a gate that never weighed the work has no opinion to
-/// overrule, and a failed mechanical Check reaches this route as a Job that is
-/// not escalated. 422 on a blank reason, except on `evidence_suspect`, where a
+/// 409 anywhere but an `escalated` or `awaiting_repair` Job stopped on
+/// `gate_failure`, `evidence_suspect` or `gate_undecided`: a failed mechanical
+/// Check is a `gate_failure` at `awaiting_repair` and is overruled like any
+/// other. 422 on a blank reason, except on `evidence_suspect`, where a
 /// person carrying on past a gaming flag need not type one.
 pub(crate) async fn override_verdict<D: Commands>(
     State(served): State<Served<D>>,
@@ -498,6 +498,21 @@ pub(crate) async fn park_job<D: Commands>(
     job: Resolved,
 ) -> Response {
     match served.shared().park_job(job.id()).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Hand main's red to a Job: `Commands::fix_main`. The Job comes back.
+pub(crate) async fn fix_main<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let fix: ipc::FixMain = match ipc::decode("a fix for main", &body) {
+        Ok(fix) => fix,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().fix_main(fix).await {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }

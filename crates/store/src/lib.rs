@@ -73,6 +73,8 @@ mod limits;
 mod lineage;
 /// Main's CI on the forge, per repository, and the failed jobs of a red.
 mod main_ci;
+/// Which Job took each red main, and which one fixed it.
+mod main_fix;
 /// Commands a person always-allowed for a whole Manifest, kept here instead
 /// of a commit on some Job's branch.
 mod manifest_allowed;
@@ -143,6 +145,8 @@ mod review_view;
 mod revision;
 mod row;
 mod schema;
+/// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
+mod session_ledger;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
@@ -153,6 +157,9 @@ mod slot;
 mod slot_rescues;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
+/// What a step's worktree held when it began, kept so a restart measures the
+/// same step against the same start.
+mod step_baseline;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
 /// Which Drone was put on which task, and what it handed in. Spike 022, 1b.
@@ -189,6 +196,7 @@ pub use groups::GroupCoord;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
+pub use main_fix::{MainFix, TakenHow};
 pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, TurnHolder};
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
@@ -205,6 +213,10 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use session_ledger::{
+    AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
+    SessionSearch, SessionState,
+};
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
 pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};

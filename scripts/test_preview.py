@@ -59,6 +59,9 @@ class Preview(unittest.TestCase):
         self.write(f"{DIR}/.gitkeep", "")
         self.commit("main: start")
         self.slot_lines = []
+        self.home = os.path.join(self.dir, "home")
+        self.support = os.path.join(self.home, "Library", "Application Support", "Armada")
+        os.makedirs(self.support)
 
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
@@ -105,8 +108,26 @@ class Preview(unittest.TestCase):
             f.write("merge line: in line\n" + "".join(
                 f"  {n + 1}. {b}  waiting: behind others\n" for n, b in enumerate(line)))
 
+    def hold_rows(self, *rows):
+        """Slot lines as `armada worktree --status` prints them: (state, branch, holder)."""
+        lines = [f"slot-{i + 1}  {state}     {self.repo}/slots/s{i}  {b}  {holder}"
+                 for i, (state, b, holder) in enumerate(rows)]
+        with open(os.path.join(self.stub, "slots"), "w") as f:
+            f.write("\n".join(lines) + "\n")
+        with open(os.path.join(self.stub, "line"), "w") as f:
+            f.write("merge line: in line\n")
+
+    def fleet(self, jobs, drones):
+        """A Fleet answering `{job_id: status}`, with Drones for `drones`; HOME points at it."""
+        server = roster_server(jobs, drones)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        with open(os.path.join(self.support, "fleet.json"), "w") as f:
+            json.dump({"pid": os.getpid(), "port": server.server_address[1]}, f)
+
     def run_preview(self, *args):
         env = {**os.environ,
+               "HOME": self.home,
                "ARMADA_LAND_ARMADA": os.path.join(self.stub, "armada"),
                "STUB_DIR": self.stub}
         done = subprocess.run([sys.executable, PREVIEW, *args], cwd=self.repo,
@@ -123,6 +144,28 @@ class Preview(unittest.TestCase):
             ["git", "log", "--first-parent", "--reverse", "--format=%s", "main..preview"],
             cwd=self.wt, capture_output=True, text=True, check=True).stdout.splitlines()
         return [s.split("'")[1] for s in subjects]
+
+    def land_on_origin_main(self, name):
+        """A commit only `origin/main` has, as a pull request landing after the checkout last pulled."""
+        self.git("checkout", "-q", "-b", f"landed-{name}", "main")
+        self.write(f"{name}.txt", f"{name}\n")
+        self.commit(f"landed: {name}")
+        self.git("update-ref", "refs/remotes/origin/main", f"refs/heads/landed-{name}")
+        self.git("checkout", "-q", "main")
+
+    def test_a_checkout_behind_origin_main_previews_what_has_landed(self):
+        self.land_on_origin_main("landed")
+        self.hold()
+        self.run_preview()
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "landed.txt")))
+
+    def test_a_local_main_ahead_of_origin_main_is_the_base(self):
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.write("ahead.txt", "ahead\n")
+        self.commit("main: ahead of the remote")
+        self.hold()
+        self.run_preview()
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "ahead.txt")))
 
     def test_merges_oldest_commit_first_not_by_name(self):
         self.branch("feat/z-oldest", {"z.txt": "z\n"})
@@ -241,6 +284,41 @@ class Preview(unittest.TestCase):
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
 
+    def test_a_kept_slot_and_a_stopped_jobs_slot_are_left_out_and_named(self):
+        for name in ("feat/live", "feat/kept", "feat/dead", "feat/orphan", "feat/review"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        self.fleet({"JLIVE": "running", "JKEPT": "completed_failed", "JDEAD": "killed",
+                    "JORPHAN": "running", "JREVIEW": "awaiting_review"}, drones=["JLIVE"])
+        self.hold_rows(
+            ("held", "feat/live", "by /usr/bin/claude (pid 1) for 1m"),
+            ("kept", "feat/kept", "by job JKEPT for 2h, which ended and could not give it back: 2 uncommitted"),
+            ("held", "feat/dead", "by job JDEAD for 2h"),
+            ("held", "feat/orphan", "by job JORPHAN for 7h"),
+            ("held", "feat/review", "by job JREVIEW for 1h"))
+        said = self.run_preview()
+        self.assertEqual(self.merged_in_order(), ["feat/live", "feat/review"])
+        for name in ("kept", "dead", "orphan"):
+            self.assertIn(f"left out: feat/{name}: held by a stopped Job", said)
+
+    def test_a_stranded_branch_stays_when_the_line_has_it_or_a_live_slot_holds_it(self):
+        self.branch("feat/queued", {"q.txt": "q\n"})
+        self.branch("feat/both", {"b.txt": "b\n"})
+        self.hold_rows(
+            ("kept", "feat/queued", "by job J1 for 2h, which ended and could not give it back: x"),
+            ("kept", "feat/both", "by job J2 for 2h, which ended and could not give it back: x"),
+            ("held", "feat/both", "by /usr/bin/claude (pid 1) for 1m"))
+        with open(os.path.join(self.stub, "line"), "w") as f:
+            f.write("merge line: in line\n  1. feat/queued  waiting: behind others\n")
+        said = self.run_preview()
+        self.assertEqual(self.merged_in_order(), ["feat/queued", "feat/both"])
+        self.assertNotIn("stopped Job", said)
+
+    def test_a_job_slot_is_kept_when_fleet_does_not_answer(self):
+        self.branch("feat/job", {"j.txt": "j\n"})
+        self.hold_rows(("held", "feat/job", "by job J1 for 7h"))
+        self.run_preview()
+        self.assertEqual(self.merged_in_order(), ["feat/job"])
+
     def test_an_armada_that_does_not_answer_is_refused_whatever_it_exits(self):
         self.branch("feat/a", {"a.txt": "a\n"})
         with open(os.path.join(self.stub, "line"), "w") as f:
@@ -257,12 +335,14 @@ class Preview(unittest.TestCase):
 RESTART = os.path.join(HERE, "scripts", "restart")
 
 
-def roster_server(jobs):
-    """A Fleet's two reads, `/drones` and `/jobs/<id>`, from {job_id: status}."""
+def roster_server(jobs, drones=None):
+    """A Fleet's two reads, `/drones` and `/jobs/<id>`, from {job_id: status}.
+    `drones` names the Jobs that have a Drone; every Job has one by default."""
+    drones = list(jobs) if drones is None else drones
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/drones":
-                body = {"drones": [{"handle": f"drone-{j}", "job_id": j} for j in jobs]}
+                body = {"drones": [{"handle": f"drone-{j}", "job_id": j} for j in drones]}
             elif self.path.startswith("/jobs/") and self.path[6:] in jobs:
                 body = {"job": {"status": jobs[self.path[6:]]}}
             else:
@@ -342,6 +422,42 @@ class RestartAdopt(unittest.TestCase):
         self.script = script
         done = subprocess.run([script, "--from", self.tree, *args], env=env, capture_output=True, text=True)
         return done.returncode, done.stdout + done.stderr
+
+    def plain_restart(self, *args):
+        """`scripts/restart` with no `--from`, with a stub standing in for `scripts/preview`."""
+        script = scratch_root(self.dir, MIGRATIONS) if not hasattr(self, "script") else self.script
+        self.script = script
+        record = os.path.join(self.dir, "preview-args")
+        stub = os.path.join(self.dir, "preview")
+        with open(stub, "w") as f:
+            f.write(f'#!/bin/sh\necho "$@" > "{record}"\n')
+        os.chmod(stub, 0o755)
+        env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"],
+                   ARMADA_RESTART_PREVIEW=stub)
+        done = subprocess.run([script, *args], env=env, capture_output=True, text=True)
+        passed = None
+        if os.path.exists(record):
+            with open(record) as f:
+                passed = f.read().strip()
+        return done.returncode, passed, done.stdout + done.stderr
+
+    def test_a_plain_restart_while_the_preview_runs_refreshes_the_preview(self):
+        with open(os.path.join(self.support, "restart-source"), "w") as f:
+            f.write("/somewhere/.armada/preview\n")
+        code, passed, said = self.plain_restart("--dry-run", "--adopt")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(passed, "--restart --dry-run --adopt")
+
+    def test_main_leaves_the_preview(self):
+        with open(os.path.join(self.support, "restart-source"), "w") as f:
+            f.write("/somewhere/.armada/preview\n")
+        code, passed, said = self.plain_restart("--main", "--dry-run")
+        self.assertIsNone(passed, said)
+        self.assertIn("--dry-run is for --from", said)
+
+    def test_a_plain_restart_with_no_preview_running_does_not_run_the_preview(self):
+        code, passed, said = self.plain_restart("--dry-run")
+        self.assertIsNone(passed, said)
 
     def test_a_working_drone_refuses_without_adopt(self):
         self.fleet({"j1": "running", "j2": "escalated"})

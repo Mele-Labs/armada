@@ -13,6 +13,9 @@
 //! does not end it. Nothing here acts: the change rides on the turn.
 
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::task::JoinHandle;
 
 use adapter_traits::{AgentHarness, CiRun, CiState, Delivery, Vcs, WorkProduct};
 use store::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -20,6 +23,7 @@ use store::{MainCi, MainFailedJob, MainMerge, MainState};
 use crate::adrift::Adrift;
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
+use crate::main_hub::{MergedRun, Reduced};
 use crate::repositories::Served;
 
 /// How many failed jobs have their log read in one reading. A job past it is
@@ -31,6 +35,9 @@ const LOGS_A_READING: usize = 8;
 pub enum MainChange {
     /// It failed, where it was not failing before or fails something new.
     WentRed,
+    /// It was red and a newer commit's CI was running on top of it, and that
+    /// run ended red on the same jobs. **The red is back, and may be acted on.**
+    BackToRed,
     /// It was red and a commit has passed everything.
     WentGreen,
 }
@@ -44,14 +51,6 @@ pub enum MainChange {
 pub struct MainChanged {
     pub change: MainChange,
     pub now: MainCi,
-}
-
-/// What a commit's jobs add up to.
-enum Reduced {
-    Green,
-    Running,
-    Red,
-    NothingRan,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -73,6 +72,7 @@ where
         };
         let root = served.root().to_string();
         self.notice_pulls(&served).await;
+        self.notice_merged(&served).await;
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
@@ -82,82 +82,112 @@ where
         else {
             return Ok(Vec::new());
         };
+        let candidates = self.notice_merged_runs(&served, &head).await;
         let before = self
             .store()
             .lock()
             .await
             .main_ci(&root)
             .map_err(Adrift::Reading)?;
-        if before
-            .as_ref()
-            .is_some_and(|it| it.commit == head && it.base == base && it.unfinished == 0)
-        {
+        if before.as_ref().is_some_and(|it| {
+            // A row without `decided_commit` was written before main was decided from the
+            // newest finished commit, and is read once more.
+            it.commit == head
+                && it.base == base
+                && it.unfinished == 0
+                && it.decided_commit.is_some()
+        }) {
             return Ok(Vec::new());
         }
-        let Some(runs) = self
-            .forge_asked(&root, {
-                let head = head.clone();
-                move |vcs: &V, root: &str| vcs.ci_runs_on(root, &head)
-            })
-            .await
-        else {
+        if candidates.first().is_some_and(|(_, head)| head.is_none()) {
             return Ok(Vec::new());
-        };
-        let unfinished = runs
-            .iter()
-            .filter(|run| run.state == CiState::Pending)
-            .count();
-        let failing: Vec<&CiRun> = runs
-            .iter()
-            .filter(|run| run.state == CiState::Failed)
-            .collect();
-        let reduced = match (failing.is_empty(), unfinished, runs.is_empty()) {
-            (false, _, _) => Reduced::Red,
-            (true, 0, true) => Reduced::NothingRan,
-            (true, 0, false) => Reduced::Green,
-            (true, _, _) => Reduced::Running,
-        };
+        }
         let now = self.now();
         let streak = before.as_ref().and_then(|it| it.red_at.clone());
-        let carried = |state| MainCi {
+        let class = |at: usize| candidates[at].1.as_ref().and_then(MergedRun::class);
+        let newer_running = |until: usize| {
+            (0..until)
+                .filter(|at| class(*at) == Some(Reduced::Running))
+                .count() as u32
+        };
+        let unsettled = |until: usize| {
+            candidates[..until]
+                .iter()
+                .filter(|(_, run)| run.as_ref().is_none_or(|it| !it.settled))
+                .count() as u32
+        };
+        let decisive = (0..candidates.len())
+            .find(|at| matches!(class(*at), Some(Reduced::Red | Reduced::Green)));
+        let base_row = |state, decided: Option<String>| MainCi {
             repository: root.clone(),
             base: base.clone(),
             commit: head.clone(),
             state,
             read_at: now.clone(),
-            red_at: streak.clone(),
-            unfinished: unfinished as u32,
-            failed: before
-                .as_ref()
-                .map(|it| it.failed.clone())
-                .unwrap_or_default(),
-            merge: before.as_ref().and_then(|it| it.merge.clone()),
+            red_at: None,
+            red_commit: None,
+            decided_commit: decided,
+            newer_running: 0,
+            unfinished: 0,
+            failed: Vec::new(),
+            merge: None,
         };
-        let (reading, change) = match reduced {
-            Reduced::Green => (
+        let (reading, change) = match decisive {
+            Some(at) if class(at) == Some(Reduced::Green) => (
                 MainCi {
-                    red_at: None,
-                    failed: Vec::new(),
-                    merge: None,
-                    ..carried(MainState::Green)
+                    newer_running: newer_running(at),
+                    unfinished: unsettled(at + 1),
+                    ..base_row(MainState::Green, Some(candidates[at].0.clone()))
                 },
                 streak.as_ref().map(|_| MainChange::WentGreen),
             ),
-            Reduced::Running => (carried(MainState::Running), None),
-            // Nothing ran: nothing proved, so a red is not ended by it.
-            Reduced::NothingRan => (
-                carried(match streak {
-                    Some(_) => before.as_ref().map_or(MainState::NothingRan, |it| it.state),
-                    None => MainState::NothingRan,
-                }),
-                None,
-            ),
-            Reduced::Red => {
-                let same_commit = before.as_ref().is_some_and(|it| it.commit == head);
+            Some(at) => {
+                let decided = candidates[at].0.clone();
+                let run = candidates[at].1.as_ref().expect("a red was read");
+                let failing: Vec<&CiRun> = run
+                    .runs
+                    .iter()
+                    .filter(|run| run.state == CiState::Failed)
+                    .collect();
                 let failed = self
-                    .failed_jobs(&served, &head, &failing, before.as_ref())
+                    .failed_jobs(&served, &decided, &failing, before.as_ref())
                     .await;
+                // The streak's first commit: the oldest red before a green in first-parent
+                // order, **counting only the reds that failed what this one fails**.
+                let names = |at: usize| -> Vec<&str> {
+                    candidates[at]
+                        .1
+                        .as_ref()
+                        .and_then(|it| it.run.as_ref())
+                        .map(|it| it.failed.iter().map(String::as_str).collect())
+                        .unwrap_or_default()
+                };
+                let mut first = at;
+                let mut ended = false;
+                for older in at + 1..candidates.len() {
+                    match class(older) {
+                        Some(Reduced::Red)
+                            if names(at).iter().all(|name| names(older).contains(name)) =>
+                        {
+                            first = older
+                        }
+                        Some(Reduced::Red | Reduced::Green) => {
+                            ended = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                let in_run = before.as_ref().is_some_and(|it| {
+                    candidates[at..=first]
+                        .iter()
+                        .any(|(commit, _)| commit == it.red_commit())
+                });
+                let same_commit = before
+                    .as_ref()
+                    .is_some_and(|it| it.state == MainState::Red && it.red_commit() == decided);
                 let continues = streak.is_some()
+                    && (in_run || !ended)
                     && (same_commit
                         || failed.iter().all(|job| {
                             before
@@ -165,21 +195,64 @@ where
                                 .is_some_and(|it| it.failed.iter().any(|was| was.name == job.name))
                         }));
                 let kept = before.as_ref().and_then(|it| it.merge.clone());
+                let culprit = candidates[first].0.clone();
                 let merge = match continues || (same_commit && kept.is_some()) {
                     true => kept,
-                    false => self.the_merge(&served, &head).await,
+                    false => self.the_merge(&served, &culprit).await,
                 };
+                let newer = newer_running(at);
+                let held_before = before.as_ref().is_some_and(MainCi::held);
                 (
                     MainCi {
-                        state: MainState::Red,
                         red_at: streak.clone().filter(|_| continues).or(Some(now.clone())),
+                        red_commit: Some(decided.clone()),
+                        newer_running: newer,
+                        unfinished: unsettled(at + 1),
                         failed,
                         merge,
-                        ..carried(MainState::Red)
+                        ..base_row(MainState::Red, Some(decided))
                     },
-                    (!continues).then_some(MainChange::WentRed),
+                    match (continues, held_before && newer == 0) {
+                        (false, _) => Some(MainChange::WentRed),
+                        (true, true) => Some(MainChange::BackToRed),
+                        (true, false) => None,
+                    },
                 )
             }
+            // Nothing has finished among the newest commits. A known red stays what it
+            // was, held; otherwise main is running, or nothing ran.
+            None => match before.as_ref().filter(|_| streak.is_some()) {
+                Some(it) => (
+                    MainCi {
+                        state: MainState::Red,
+                        red_at: it.red_at.clone(),
+                        red_commit: Some(it.red_commit().to_string()),
+                        newer_running: newer_running(candidates.len()),
+                        unfinished: unsettled(candidates.len()),
+                        failed: it.failed.clone(),
+                        merge: it.merge.clone(),
+                        ..base_row(MainState::Red, it.decided_commit.clone())
+                    },
+                    None,
+                ),
+                None => {
+                    let running = newer_running(candidates.len());
+                    (
+                        MainCi {
+                            newer_running: running,
+                            unfinished: unsettled(candidates.len()),
+                            ..base_row(
+                                match running {
+                                    0 => MainState::NothingRan,
+                                    _ => MainState::Running,
+                                },
+                                None,
+                            )
+                        },
+                        None,
+                    )
+                }
+            },
         };
         self.store()
             .lock()
@@ -193,6 +266,13 @@ where
             })
             .into_iter()
             .collect())
+    }
+
+    /// Read main and act on what changed, outside any turn.
+    pub(crate) async fn read_main(&self) -> Result<(), Adrift> {
+        let changed = self.notice_main().await?;
+        self.main_acted_on(&changed).await;
+        Ok(())
     }
 
     /// The repository to read this turn, and the base its Manifest names.
@@ -249,7 +329,7 @@ where
         for run in failing {
             let name = run.name.as_written().to_string();
             let kept = before
-                .filter(|it| it.commit == head)
+                .filter(|it| it.red_commit() == head)
                 .and_then(|it| it.failed.iter().find(|was| was.name == name));
             if let Some(kept) = kept {
                 failed.push(kept.clone());
@@ -305,4 +385,34 @@ where
             job,
         })
     }
+}
+
+/// Read main beside the turn, every `tick`; the reading's own interval still
+/// gates it. **A turn waits behind each Job's Checks**, so a reading that rode
+/// only on the turn could be minutes late. Whoever reaches the interval first
+/// reads, and acts on what it read.
+pub fn keep_reading_main<H, V, W>(
+    fleet: Arc<Fleet<H, V, W>>,
+    tick: Duration,
+    adrift: impl Fn(Adrift) + Send + 'static,
+) -> JoinHandle<()>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(tick);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            if let Err(why) = fleet.read_main().await {
+                adrift(why);
+            }
+        }
+    })
 }

@@ -122,6 +122,8 @@ fn a_drones_launch_is_untouched_by_what_a_conversation_resolves() {
 
     let helm = rendered(&fresh()).args().to_vec();
     assert!(!helm.iter().any(|arg| arg == "--strict-mcp-config"));
+    // Helm is the operator at work, and holds what the operator holds.
+    assert!(!helm.iter().any(|arg| arg == "--setting-sources"));
 }
 
 /// A write is recognised so it can be recorded, and `Bash` is deliberately not

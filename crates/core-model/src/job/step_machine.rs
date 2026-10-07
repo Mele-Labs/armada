@@ -154,7 +154,8 @@ const fn step_edge(from: StepState, to: StepState) -> StepEdge {
 pub const ADVANCING_STATUSES: &[JobStatus] = &[JobStatus::Running, JobStatus::AwaitingReview];
 
 /// The one move a person may make on a step the outer machine has frozen:
-/// `stopped -> advanced` as an override, beneath `escalated`.
+/// `stopped -> advanced` as an override, beneath `escalated` or
+/// `awaiting_repair`.
 ///
 /// **A predicate, not a third entry in [`ADVANCING_STATUSES`].** That list
 /// says a step moves *freely* beneath a status, so `escalated` in it would
@@ -168,8 +169,13 @@ pub const ADVANCING_STATUSES: &[JobStatus] = &[JobStatus::Running, JobStatus::Aw
 /// conditions are load-bearing; drop any one and this admits a resume, an
 /// advance of a step that never stopped, or a pass written over a verdict a
 /// person was disagreeing with.
+///
+/// **`awaiting_repair` since 2026-10-06**, when a person was given the override
+/// over a failed Check: the Job holds there with a step stopped on
+/// `gate_failure`, and the override is the ruling it waits for exactly as it is
+/// beneath `escalated`.
 fn overruled_while_frozen(status: JobStatus, from: StepState, to: &StepTarget) -> bool {
-    status == JobStatus::Escalated
+    matches!(status, JobStatus::Escalated | JobStatus::AwaitingRepair)
         && from == StepState::Stopped
         && matches!(to, StepTarget::Overridden(_))
 }
