@@ -136,8 +136,17 @@ pub fn run_limited(
     if let (Some(input), Some(mut pipe)) = (stdin, child.stdin.take()) {
         let _ = pipe.write_all(input.as_bytes());
     }
-    let stdout = drained(child.stdout.take());
-    let stderr = drained(child.stderr.take());
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log)
+        .ok();
+    if let Some(file) = file.as_mut() {
+        let _ = writeln!(file, "$ {}", argv.join(" "));
+    }
+    let tee = |file: &Option<std::fs::File>| file.as_ref().and_then(|f| f.try_clone().ok());
+    let stdout = drained(child.stdout.take(), tee(&file));
+    let stderr = drained(child.stderr.take(), tee(&file));
     let started = Instant::now();
     let mut timed_out = false;
     let status = loop {
@@ -163,9 +172,9 @@ pub fn run_limited(
             stderr: read(stderr),
         },
     };
-    append_log(log, argv, &ran);
-    if timed_out {
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(log) {
+    if let Some(file) = file.as_mut() {
+        let _ = writeln!(file, "[exit {}]", ran.status_code());
+        if timed_out {
             let _ = writeln!(file, "[killed at its limit of {}]", spoken(limit));
         }
     }
@@ -183,12 +192,26 @@ pub fn spoken(limit: Duration) -> String {
     format!("{count} {unit}{}", if count == 1 { "" } else { "s" })
 }
 
-fn drained(pipe: Option<impl Read + Send + 'static>) -> mpsc::Receiver<Vec<u8>> {
+/// Collects a pipe's bytes, appending each chunk to `log` as it arrives so a
+/// reader tailing the file sees a Check's output while it runs.
+fn drained(
+    pipe: Option<impl Read + Send + 'static>,
+    mut log: Option<std::fs::File>,
+) -> mpsc::Receiver<Vec<u8>> {
     let (sender, receiver) = mpsc::channel();
     if let Some(mut pipe) = pipe {
         std::thread::spawn(move || {
             let mut bytes = Vec::new();
-            let _ = pipe.read_to_end(&mut bytes);
+            let mut chunk = [0u8; 8192];
+            while let Ok(n) = pipe.read(&mut chunk) {
+                if n == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&chunk[..n]);
+                if let Some(file) = log.as_mut() {
+                    let _ = file.write_all(&chunk[..n]);
+                }
+            }
             let _ = sender.send(bytes);
         });
     }
@@ -351,6 +374,39 @@ mod tests {
         assert!(!limited.timed_out);
         assert_eq!(limited.ran.status_code(), 3);
         assert_eq!(limited.ran.combined(), "out\nerr\n");
+    }
+
+    #[test]
+    fn a_runs_output_is_in_its_log_before_it_exits() {
+        let dir = TempDir::new();
+        let log = dir.path().join("slow.log");
+        let watched = log.clone();
+        let watcher = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while Instant::now() < deadline {
+                let text = std::fs::read_to_string(&watched).unwrap_or_default();
+                if text.contains("first line") {
+                    return text;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            String::new()
+        });
+        run_limited(
+            &["sh", "-c", "echo first line; sleep 2"],
+            dir.path(),
+            None,
+            &log,
+            Duration::from_secs(30),
+            &[],
+        )
+        .expect("sh runs");
+        let early = watcher.join().expect("watcher");
+        assert!(early.contains("first line"), "{early}");
+        assert!(!early.contains("[exit"), "{early}");
+        let done = std::fs::read_to_string(&log).expect("the log");
+        assert!(done.starts_with("$ sh -c"), "{done}");
+        assert!(done.ends_with("[exit 0]\n"), "{done}");
     }
 
     #[test]
