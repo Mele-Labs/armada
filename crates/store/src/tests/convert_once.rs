@@ -84,7 +84,8 @@ fn the_recipe_opens_with_its_file_and_applies_nothing_again() {
         .conn
         .query_row("SELECT count(*) FROM armada_migrations", [], |r| r.get(0))
         .expect("count");
-    assert_eq!(applied as usize, LEGACY_COUNT + 1);
+    // Every listed migration, however many files main has gained since.
+    assert_eq!(applied as usize, with_the_file().len());
 }
 
 #[test]
