@@ -584,6 +584,8 @@ const api: BridgeApi = {
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
+  openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   pressPullRequest: (
     sessionId: string,
     number: number,

@@ -31,7 +31,7 @@ fn manifest(script: &str) -> String {
 /// A Check that holds the turn, once `armed` is in the worktree, until
 /// `release` is: bounded, so an aborted turn leaves nothing running for long.
 const HOLDS: &str = "if [ -e armed ]; then touch started; i=0; \
-                     while [ ! -e release ] && [ $i -lt 100 ]; do sleep 0.1; i=$((i+1)); done; fi";
+                     while [ ! -e release ] && [ $i -lt 100 ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.1; i=$((i+1)); done; fi";
 
 /// What `ps` says of a pid nothing holds, so the holder reads as gone.
 fn a_dead_fleet() -> TurnHolder {

@@ -98,10 +98,29 @@ pub(crate) fn end_the_group(group: NonZeroU32) {
     // it naming anything else. The third, `crate::servers::left`, holds none:
     // it signals only after `crate::process::holder_of` finds the process at
     // the pid started when its record says, so a reused pid is never named.
-    // Under test there is a fourth, `crate::tests::tmp::TempDir`, ending what a
-    // test spawned in its directory; it holds no proof, and says why there.
+    // `crate::orphans` signals a group only after reading the mark of a Fleet
+    // that is gone from the process itself. Under test there is another,
+    // `crate::tests::tmp::TempDir`, ending what a test spawned in its
+    // directory; it holds no proof, and says why there.
     unsafe {
         libc::killpg(group, libc::SIGKILL);
+    }
+}
+
+/// `SIGTERM` to a whole process group: the first of the two asks
+/// `crate::orphans` makes of a group whose Fleet is gone, the second being
+/// [`end_the_group`] once a grace has passed.
+///
+/// **The caller proves the group is an orphan's**, by the mark it carries or the
+/// directory its argv names, read immediately before — never by a pid alone.
+#[allow(unsafe_code)]
+pub(crate) fn ask_the_group_to_end(group: NonZeroU32) {
+    let Ok(group) = libc::pid_t::try_from(group.get()) else {
+        return;
+    };
+    // SAFETY: as `end_the_group`: two integers, non-zero, naming one group.
+    unsafe {
+        libc::killpg(group, libc::SIGTERM);
     }
 }
 

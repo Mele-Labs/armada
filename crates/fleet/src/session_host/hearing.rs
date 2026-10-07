@@ -112,6 +112,10 @@ where
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
                     self.delivered(id, to, message).await;
                 }
+                let home = std::env::var("HOME").unwrap_or_default();
+                if let Some(path) = adapters::written_document(&tool, &shown, &home) {
+                    self.artifact_written(id, path).await;
+                }
                 let text = if shown.is_empty() {
                     tool
                 } else {

@@ -3,7 +3,7 @@
 // nothing runs until a person approves it.
 
 import { said } from "@armada/screens/src/copy";
-import type { StagedAttachment } from "@armada/protocol";
+import type { Outcome, StagedAttachment } from "@armada/protocol";
 
 import type { BridgeApi } from "../../../shared/api";
 import { requestOf, type Annotation, type Box, type Sent } from "../../../shared/annotations";
@@ -13,6 +13,13 @@ import type { Sink } from "./sink";
 export type Proposer = Pick<BridgeApi, "stageAttachment" | "proposeFromRequest">;
 
 export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string };
+
+/** What Fleet's refusal says: its coded copy, else the message it sent, else that it refused. */
+function refusal(outcome: Outcome): string {
+  const coded = said(outcome);
+  if (coded !== "") return coded;
+  return !outcome.ok && outcome.why === "refused" && outcome.error.message.trim() !== "" ? outcome.error.message.trim() : "Fleet refused it";
+}
 
 /** Why Send is not offered here, or null where it is. */
 export function unsendable(sink: Sink): string | null {
@@ -27,7 +34,7 @@ export function unsendable(sink: Sink): string | null {
  */
 export async function sendToFleet(note: Annotation, box: Box, sink: Sink, fleet: Proposer, at: Date): Promise<SendAnswer> {
   const root = await sink.root();
-  if (root === null) return { ok: false, saying: "No repository was found above Bridge, so there is nothing to send the note against" };
+  if (root === null) return { ok: false, saying: "Job not sent: no repository found above Bridge" };
 
   const attachments: StagedAttachment[] = [];
   const png = await sink.capture(box).catch(() => null);
@@ -38,9 +45,9 @@ export async function sendToFleet(note: Annotation, box: Box, sink: Sink, fleet:
   }
 
   const answer = await fleet.proposeFromRequest(requestOf(note), attachments, root);
-  if (!answer.ok) return { ok: false, saying: said(answer.outcome) };
+  if (!answer.ok) return { ok: false, saying: `Job not sent: ${refusal(answer.outcome)}` };
   const job = answer.jobs[0];
-  if (job === undefined) return { ok: false, saying: "Fleet answered with no Job" };
+  if (job === undefined) return { ok: false, saying: "Job not sent: Fleet answered with none" };
   return { ok: true, sent: { jobId: job.id, handle: job.handle, at: at.toISOString() } };
 }
 
@@ -82,15 +89,15 @@ export async function sendToSession(
   if (into === null) {
     // On the notes' repository, which the window's pick may not be: on All repositories it is none.
     const root = await sink.root();
-    if (root === null) return { ok: false, saying: "No repository was found above Bridge, so there is nothing to start a Session on" };
+    if (root === null) return { ok: false, saying: "Session not started: no repository found above Bridge" };
     const title = titleOf(notes.map((one) => one.note));
     const started = await fleet.startSession(title, root);
-    if (!started.ok) return { ok: false, saying: said(started.outcome) };
+    if (!started.ok) return { ok: false, saying: `Session not started: ${refusal(started.outcome)}` };
     into = { id: started.value.id, title: started.value.title ?? title };
   }
 
   const text = notes.map((one) => requestOf(one.note)).join("\n\n---\n\n");
   const sent = await fleet.sendSessionMessage({ session_id: into.id, text, ...(attachments.length === 0 ? {} : { attachments }) });
-  if (!sent.ok) return { ok: false, saying: said(sent.outcome) };
+  if (!sent.ok) return { ok: false, saying: `Notes not sent to "${into.title}": ${refusal(sent.outcome)}` };
   return { ok: true, sent: { sessionId: into.id, title: into.title, at: at.toISOString() } };
 }

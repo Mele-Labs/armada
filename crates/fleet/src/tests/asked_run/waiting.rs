@@ -19,7 +19,7 @@ use crate::tests::tmp::TempDir;
 /// A Drone that makes a call, ends its run once `go` exists, and stays.
 fn a_drone_that_ends_when(go: &Path) -> FakeHarness {
     let script = format!(
-        "echo BUSY; while [ ! -e '{}' ]; do sleep 0.05; done; echo ENDED; sleep 30",
+        "echo BUSY; while [ ! -e '{}' ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.05; done; echo ENDED; sleep 30",
         go.display()
     );
     FakeHarness::running("/bin/sh", &["-c", script.as_str()])
