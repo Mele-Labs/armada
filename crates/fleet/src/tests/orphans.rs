@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 
-use crate::orphans::{end, find, mark_in_environment, mark_of, names_a_dead_test};
+use crate::orphans::{end, find, listed_mark, mark_in_environment, mark_of, names_a_dead_test};
 use crate::process::{holder_of, Holder};
 use crate::Detached;
 
@@ -69,6 +69,15 @@ fn found(drone: &Drone) -> bool {
     find(&[]).expect("ps runs").contains(&drone.group())
 }
 
+/// The mark the sweep reads off the Drone's row. Fails where the row is not
+/// listed, so a broken listing cannot pass a case that expects nothing found.
+fn mark_read(drone: &Drone) -> Option<(u32, String)> {
+    listed_mark(drone.group().get())
+        .expect("ps runs")
+        .expect("the Drone is listed")
+        .flatten()
+}
+
 /// A mark naming a process that is not there: a pid a child had and gave back.
 fn a_fleet_that_is_gone() -> String {
     let mut child = Plain::new("/usr/bin/true").spawn().expect("true runs");
@@ -89,7 +98,6 @@ fn a_live_other_fleet() -> (u32, String) {
 async fn a_drone_marked_by_a_fleet_that_is_gone_is_found_and_ended() {
     let gone_mark = a_fleet_that_is_gone();
     let mut drone = spawned(HOLDS_FOR_A_MINUTE, Some(&gone_mark)).await;
-    diagnose(&drone, &gone_mark);
     assert!(found(&drone));
     end(vec![drone.group()], Duration::from_millis(100), || vec![]);
     assert!(drone.is_gone_within(Duration::from_secs(5)).await);
@@ -108,14 +116,19 @@ async fn a_pid_that_came_round_as_another_process_is_a_fleet_that_is_gone() {
 
 #[tokio::test]
 async fn a_drone_of_another_fleet_that_is_running_is_left_alone() {
-    let (_, mark) = a_live_other_fleet();
+    let (pid, mark) = a_live_other_fleet();
     let drone = spawned(HOLDS_FOR_A_MINUTE, Some(&mark)).await;
+    assert_eq!(mark_read(&drone).map(|(by, _)| by), Some(pid));
     assert!(!found(&drone));
 }
 
 #[tokio::test]
 async fn a_drone_of_this_fleet_is_left_alone() {
     let drone = spawned(HOLDS_FOR_A_MINUTE, None).await;
+    assert_eq!(
+        mark_read(&drone).map(|(by, _)| by),
+        Some(std::process::id())
+    );
     assert!(!found(&drone));
 }
 
@@ -128,6 +141,7 @@ async fn a_process_nothing_marked_is_left_alone() {
         .spawn()
         .expect("node spawns");
     let drone = up(child).await;
+    assert_eq!(mark_read(&drone), None);
     assert!(!found(&drone));
 }
 
@@ -135,6 +149,7 @@ async fn a_process_nothing_marked_is_left_alone() {
 async fn a_group_a_recorded_drone_leads_is_left_alone_though_its_fleet_is_gone() {
     let drone = spawned(HOLDS_FOR_A_MINUTE, Some(&a_fleet_that_is_gone())).await;
     let held = [drone.group().get()];
+    assert!(mark_read(&drone).is_some());
     assert!(!find(&held).expect("ps runs").contains(&drone.group()));
 }
 
@@ -168,36 +183,4 @@ fn a_mark_is_read_out_of_a_nul_separated_environment() {
     );
     assert_eq!(mark_in_environment(b"PATH=/bin\0HOME=/x\0"), None);
     assert_eq!(mark_in_environment(b"ARMADA_SPAWNED_BY=junk\0"), Some(None));
-}
-
-fn diagnose(drone: &Drone, mark: &str) {
-    let pid = drone.group().get();
-    let out = |c: &mut Plain| {
-        let o = c.output().expect("runs");
-        format!(
-            "status={:?} stdout={:?} stderr={:?}",
-            o.status,
-            String::from_utf8_lossy(&o.stdout),
-            String::from_utf8_lossy(&o.stderr)
-        )
-    };
-    eprintln!("DIAG mark={mark:?} pid={pid} me={}", std::process::id());
-    eprintln!(
-        "DIAG ps -ww -axo: {}",
-        out(Plain::new("ps").args(["ww", "-axo", "pid=,ppid=,pgid=,command="]))
-    );
-    eprintln!(
-        "DIAG ps -p: {}",
-        out(Plain::new("ps").args(["-o", "pid=,ppid=,pgid=,lstart=", "-p", &pid.to_string()]))
-    );
-    let env = std::fs::read(format!("/proc/{pid}/environ"));
-    eprintln!(
-        "DIAG environ err={:?} parsed={:?}",
-        env.as_ref().err(),
-        env.as_ref().ok().map(|e| mark_in_environment(e))
-    );
-    let by = mark.split(':').next().unwrap().parse::<u32>().unwrap();
-    eprintln!("DIAG holder_of({by})={:?}", holder_of(by));
-    eprintln!("DIAG holder_of(me)={:?}", holder_of(std::process::id()));
-    eprintln!("DIAG find={:?}", find(&[]));
 }

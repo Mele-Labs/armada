@@ -77,7 +77,10 @@ where
             // A record that will not read is not an empty one: skip the round.
             let Some(held) = held().await else { continue };
             let Ok(ended) = tokio::task::spawn_blocking(move || {
-                let found = find(&held).unwrap_or_default();
+                // A listing that will not read is not an empty one: skip the round.
+                let Ok(found) = find(&held) else {
+                    return Vec::new();
+                };
                 end(found, GRACE, || find(&held).unwrap_or_default())
             })
             .await
@@ -95,9 +98,7 @@ where
 
 /// The groups to end: orphans of a Fleet that is gone, minus `held`.
 pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
-    let listing = Command::new("ps")
-        .args([LISTING_STYLE, "-axo", "pid=,ppid=,pgid=,command="])
-        .output()?;
+    let listing = listing()?;
     let temp = temp_prefixes();
     let mut probed: HashMap<u32, Option<String>> = HashMap::new();
     // `started` is what a mark recorded, `None` where only absence counts.
@@ -115,10 +116,7 @@ pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
     };
     let me = std::process::id();
     let mut orphans = Vec::new();
-    for row in String::from_utf8_lossy(&listing.stdout)
-        .lines()
-        .filter_map(Row::parse)
-    {
+    for row in listing.lines().filter_map(Row::parse) {
         let Some(group) = NonZeroU32::new(row.pid) else {
             continue;
         };
@@ -135,6 +133,35 @@ pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
         }
     }
     Ok(orphans)
+}
+
+/// Every process, one row each. A `ps` that exits non-zero is an error, not an
+/// empty machine. `-A` and `-o` are spelt the same by macOS and procps; the BSD
+/// `-x` is not accepted by procps.
+fn listing() -> io::Result<String> {
+    let output = Command::new("ps")
+        .args(LISTING_STYLE)
+        .args(["-A", "-o", "pid=,ppid=,pgid=,command="])
+        .output()?;
+    if !output.status.success() {
+        return Err(io::Error::other(format!(
+            "ps exited {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// The mark the listing reads for `pid`: the outer `None` is a process the
+/// listing does not have, the rest is [`mark_of_process`].
+#[cfg(test)]
+pub(crate) fn listed_mark(pid: u32) -> io::Result<Option<Option<Option<(u32, String)>>>> {
+    Ok(listing()?
+        .lines()
+        .filter_map(Row::parse)
+        .find(|row| row.pid == pid)
+        .map(|row| mark_of_process(&row)))
 }
 
 /// Ask each group to end, and after `grace` end those `still` names.
@@ -183,12 +210,12 @@ impl<'a> Row<'a> {
     }
 }
 
-/// `e` appends the environment to each row; only macOS's `ps` honours it
-/// beside a column list.
+/// `eww` appends the environment to each row, untruncated; only macOS's `ps`
+/// honours it beside a column list.
 #[cfg(target_os = "macos")]
-const LISTING_STYLE: &str = "eww";
+const LISTING_STYLE: [&str; 1] = ["eww"];
 #[cfg(not(target_os = "macos"))]
-const LISTING_STYLE: &str = "ww";
+const LISTING_STYLE: [&str; 1] = ["-ww"];
 
 /// The mark a process carries. `None` is no mark, or an environment that cannot
 /// be read; the inner `None` is something there that is not a mark.
