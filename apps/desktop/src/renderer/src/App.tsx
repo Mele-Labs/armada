@@ -139,6 +139,7 @@ import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session";
+import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -468,7 +469,8 @@ export function App({ draft }: AppProps = {}) {
   const live = state.connection.state === "connected";
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { raised, lower } = useRaised(commands.outcome);
+  const { raised, lower, tell } = useRaised(commands.outcome);
+  useTellAsked(tell); // The annotation layer's send that failed.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,

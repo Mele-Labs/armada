@@ -3,7 +3,9 @@
 // on the wrong one silently. So each is sent against a Fleet that records what arrived.
 
 import { once } from "node:events";
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -14,6 +16,7 @@ import type { RepositorySummary } from "@armada/protocol";
 import { CheckoutRunCommands, CheckoutRunSocket, CheckoutSheetReader, DriftReader } from "./checkout-runs";
 import { JobCommands, type Board } from "./command";
 import { ManifestFileCommands } from "./editing";
+import { servedRoot } from "./annotations";
 import { Picked, repositoryToStart } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { composingOf, holdingsOf, manifestReadingOf } from "./request";
@@ -409,5 +412,25 @@ describe("the repository a Session starts on", () => {
   it("is the pick, or the only repository, where no root is named", () => {
     expect(repositoryToStart([one, two], new Picked())).toBeUndefined();
     expect(repositoryToStart([one], new Picked())).toBe(one);
+  });
+
+  it("starts on the served repository where the layer runs from a worktree of it, the preview among them", () => {
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, "-c", "user.email=a@b", "-c", "user.name=a", ...args], { stdio: "ignore" });
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "armada-served-")));
+    try {
+      const main = join(dir, "armada");
+      git(dir, "init", "-q", main);
+      git(main, "commit", "-q", "--allow-empty", "-m", "x");
+      const preview = join(main, ".armada", "preview");
+      git(main, "worktree", "add", "-q", "-b", "preview", preview);
+      const served: RepositorySummary = { root: main, records_root: "/records/armada", manifest: SET_UP.manifest! };
+      expect(repositoryToStart([served], new Picked(), preview)).toBeUndefined();
+      expect(servedRoot(preview)).toBe(main);
+      expect(repositoryToStart([served], new Picked(), servedRoot(preview))).toBe(served);
+      expect(servedRoot(main)).toBe(main);
+      expect(servedRoot(join(dir, "nowhere"))).toBe(join(dir, "nowhere"));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

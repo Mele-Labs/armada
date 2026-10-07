@@ -178,7 +178,3 @@
   color: var(--accent);
   font-weight: var(--weight-medium);
 }
-
-.armada-annotate__error {
-  color: var(--error);
-}
