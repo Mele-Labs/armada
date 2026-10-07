@@ -14,7 +14,8 @@ use std::path::{Path, PathBuf};
 use checks_runner::Reach;
 use config::Manifest;
 use core_model::{
-    CheckOutcome, GateManifest, GateOutcome, ManifestId, NotRunReason, ResolvedCheck, StepCheck,
+    CheckOutcome, FrozenWorkflow, GateManifest, GateOutcome, ManifestId, NotRunReason,
+    ResolvedCheck, ResolvedStep, StepCheck,
 };
 use verification::Observed;
 
@@ -54,6 +55,41 @@ impl Gated {
                 .collect(),
             owned,
         }
+    }
+
+    /// The gating manifests, out of `root` and `workspaces`, that declare Checks
+    /// and that no step of `workflow` froze a Check for. **Empty where no step
+    /// gates on every Check**, as there is then nothing to add them to.
+    pub(crate) fn unmet_by<'m>(
+        &self,
+        workflow: &FrozenWorkflow,
+        root: &'m Manifest,
+        workspaces: &'m [Manifest],
+    ) -> Vec<&'m Manifest> {
+        if !workflow
+            .steps()
+            .iter()
+            .any(ResolvedStep::gates_on_every_check)
+        {
+            return Vec::new();
+        }
+        let met = |dir: &String| {
+            workflow
+                .steps()
+                .iter()
+                .flat_map(ResolvedStep::checks)
+                .any(|check| matches!(check, ResolvedCheck::ManifestCheck { manifest_dir, .. } if manifest_dir == dir))
+        };
+        self.gating
+            .iter()
+            .filter(|dir| !met(dir))
+            .filter_map(|dir| {
+                std::iter::once(root)
+                    .chain(workspaces)
+                    .find(|manifest| manifest.dir() == dir)
+            })
+            .filter(|manifest| !manifest.checks_as_written().is_empty())
+            .collect()
     }
 
     /// Whether the manifest in `dir` gates the change.

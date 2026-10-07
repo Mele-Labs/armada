@@ -110,6 +110,12 @@ where
         };
         let served = self.served_by(&job)?;
         let gated = self.gated_by_the_change(&served, &worktree);
+        let widened =
+            self.gated_with_new_manifests(&job_id, job.workflow(), &served, gated.as_ref());
+        let at = match &widened {
+            Some(workflow) => at.within(workflow),
+            None => at,
+        };
         let judging = self
             .judging(&job, &served)
             .map_err(|cause| Adrift::NotConfigurable {

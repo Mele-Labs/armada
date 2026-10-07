@@ -9,7 +9,8 @@
 
 use adapter_traits::{AgentHarness, Changed, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
-    Component, Envelope, FieldValue, GateManifest, JobId, Level, ResolvedCheck, ResolvedStep,
+    Component, Envelope, FieldValue, FrozenWorkflow, GateManifest, JobId, Level, ResolvedCheck,
+    ResolvedStep,
 };
 
 use crate::daemon::Fleet;
@@ -47,6 +48,45 @@ where
             &workspaces,
             &Changed::paths(&changed),
         ))
+    }
+
+    /// The Job's frozen workflow with the Checks of every gating manifest it
+    /// froze none for, or `None` where there is nothing to add.
+    ///
+    /// **Read off the manifests Fleet serves, never off the Job's branch**: a
+    /// Drone writing a manifest on its branch adds no Check it is gated on.
+    /// The Job's own workflow is not changed, so a manifest it did freeze is
+    /// not read again. `docs/concepts/manifest.md`, *Workspace gating*.
+    pub(crate) fn gated_with_new_manifests(
+        &self,
+        job: &JobId,
+        workflow: &FrozenWorkflow,
+        served: &Served,
+        gated: Option<&Gated>,
+    ) -> Option<FrozenWorkflow> {
+        let gated = gated?;
+        let held = served.workspaces();
+        let added = gated.unmet_by(workflow, served.manifest(), &held);
+        if added.is_empty() {
+            return None;
+        }
+        for manifest in &added {
+            let envelope = Envelope::new(
+                self.now(),
+                Level::Info,
+                Component::Fleet,
+                self.run().clone(),
+                "a manifest gating the job had no Checks frozen, so its Checks were added from main",
+            )
+            .in_job(job.as_ulid().clone())
+            .with_field("manifest", FieldValue::Str(manifest.id().as_str().to_string()))
+            .with_field(
+                "checks",
+                FieldValue::Str(manifest.checks_as_written().join(" ")),
+            );
+            self.noted_in_the_log(job, &envelope);
+        }
+        Some(config::with_manifests_added(workflow, &added))
     }
 
     /// Replace the Job's gating manifests with what the ruling's Checks came
