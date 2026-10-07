@@ -41,7 +41,7 @@ fn a_drone_holding(transcript: &Path, closed: &Path) -> Child {
         .args([
             "-c",
             "( exec 3>>\"$1\"; printf 'row\\n' >&3; \
-               while [ ! -e \"$2\" ]; do sleep 0.05; done; \
+               while [ ! -e \"$2\" ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.05; done; \
                exec 3>&-; exec sleep 30 ) & wait",
             "sh",
         ])

@@ -300,8 +300,7 @@ every branch in it was green, and the reverse.
 a warning and never touched.
 
 **A preview can hold a branch that never lands.** A branch is in it until it
-leaves its slot and the line, whether it merged, was withdrawn or was
-abandoned. Use it, and land from the branch.
+leaves its slot, whether it merged or was abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|

@@ -2,7 +2,10 @@ import { expect, test } from 'claude-code/testing'
 
 import {
   artifactOf,
+  effortOf,
   ghAct,
+  modeOf,
+  modelName,
   isDispatch,
   jobIdsIn,
   mayMoveBranch,
@@ -81,6 +84,17 @@ test('an armada need is read in its three forms and in no other', () => {
   expect(needAct('armada need a.toml')).toBeUndefined()
   expect(needAct('echo armada need a.toml "x"')).toBeUndefined()
   expect(needAct('armada land')).toBeUndefined()
+})
+
+test('a model is named by its short name, a mode in Armada words and an effort whichever way it came', () => {
+  expect(modelName('claude-sonnet-5-5')).toBe('sonnet')
+  expect(modelName('some-other-model')).toBe('some-other-model')
+  expect(modeOf('acceptEdits')).toBe('accept_edits')
+  expect(modeOf('default')).toBe('ask')
+  expect(modeOf('bypassPermissions')).toBeUndefined()
+  expect(effortOf('low')).toBe('low')
+  expect(effortOf({ level: 'high' })).toBe('high')
+  expect(effortOf(undefined)).toBeUndefined()
 })
 
 test('a title never shows the markup a harness wrapped a prompt in', () => {

@@ -38,7 +38,7 @@ fn the_check(home: &TempDir) -> String {
     let at = home.path().display();
     format!(
         "/bin/sh -c 'echo ran >> {at}/runs; if [ -f {at}/hold ]; then while [ ! -f {at}/go ]; \
-         do sleep 0.05; done; fi; test -f {at}/pass'"
+         do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.05; done; fi; test -f {at}/pass'"
     )
 }
 

@@ -18,6 +18,7 @@ import { openJobIn } from "@armada/jobs";
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, type Annotation, type Box } from "../../../shared/annotations";
 import { askToOpenSession } from "../open-session";
+import { askToTell } from "../tell";
 import { capture, locate } from "./capture";
 import { componentsOf, fiberOf } from "./fiber";
 import {
@@ -82,7 +83,7 @@ export type LayerFleet = Pick<
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
 
-export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void }) {
+export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
   const fleet: LayerFleet | undefined = given ?? window.armada;
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
@@ -96,7 +97,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
   // batch has been fixed and reading only what is still open. Showing the done
   // ones is a look back, so it lasts as long as the look.
   const [showingDone, setShowingDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [frames, setFrames] = useState<Record<string, Box | null>>({});
   // Which send is out: one note's id, or every open note on this screen.
   const [sending, setSending] = useState<string | null>(null);
@@ -109,8 +109,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
   const savingRef = useRef(false);
 
   const fail = useCallback((what: string, cause: unknown) => {
-    setError(`${what} failed through ${sink.via}: ${cause instanceof Error ? cause.message : String(cause)}`);
-  }, [sink.via]);
+    tell(`${what} failed through ${sink.via}: ${cause instanceof Error ? cause.message : String(cause)}`);
+  }, [sink.via, tell]);
 
   useEffect(() => {
     function pressed(event: globalThis.KeyboardEvent): void {
@@ -133,7 +133,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
       setShowingDone(false);
       return;
     }
-    setError(null);
     sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
   }, [on, sink, fail]);
 
@@ -223,7 +222,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
-      setError(null);
     } catch (cause) {
       fail("Saving", cause);
     } finally {
@@ -248,13 +246,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
     try {
       const answer = await sendToFleet(note, box, sink, fleet, new Date());
       if (!answer.ok) {
-        setError(`Not sent: ${answer.saying}`);
+        tell(answer.saying);
         return false;
       }
       const next = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
       await sink.save(next);
       setNotes((was) => was.map((n) => (n.id === note.id ? next : n)));
-      setError(null);
       return true;
     } catch (cause) {
       fail("Sending", cause);
@@ -285,13 +282,12 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
     try {
       const answer = await sendToSession(here.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
       if (!answer.ok) {
-        setError(`Not sent: ${answer.saying}`);
+        tell(answer.saying);
         return;
       }
       const sentNotes = here.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
       for (const next of sentNotes) await sink.save(next);
       setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
-      setError(null);
       if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
     } catch (cause) {
       fail("Sending", cause);
@@ -471,7 +467,6 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
             </SplitButton>
           </>
         )}
-        {error !== null && <span className="armada-annotate__error">{error}</span>}
         <KbdChord keys={["⌥", "⌘", "A"]} aria-label="Option Command A turns annotating off" />
       </div>
     </div>

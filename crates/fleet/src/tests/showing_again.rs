@@ -42,7 +42,7 @@ const WROTE_THE_SPEC: &str = "sh -c 'mkdir -p shots && printf %s \"$0\" > shots/
 /// to lift**, so a press is out for exactly as long as a case needs and no
 /// clock decides whether it passed.
 const HELD_WHILE_ASKED: &str =
-    "sh -c 'while [ -f hold ]; do sleep 0.05; done; mkdir -p shots && cp marker shots/$(cat name)'";
+    "sh -c 'while [ -f hold ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.05; done; mkdir -p shots && cp marker shots/$(cat name)'";
 
 fn a_fleet_showing(home: &TempDir, run: &str) -> Arc<Fixture> {
     let (workflow, armada_yml) = shown_step(run, "shots", None);

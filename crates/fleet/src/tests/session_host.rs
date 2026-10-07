@@ -169,7 +169,7 @@ impl Rig {
     }
 
     async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
-        self.fleet.get_session(id.clone()).await.expect("read").rows
+        Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
     async fn gate(&self, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
@@ -183,7 +183,7 @@ impl Rig {
     }
 
     async fn turn(&self, id: &SessionId) -> SessionTurn {
-        let record = self.fleet.get_session(id.clone()).await.unwrap().session;
+        let record = Arc::clone(&self.fleet).get_session(id.clone()).await.unwrap().session;
         record.hosted.expect("hosted").turn
     }
 }
@@ -290,7 +290,7 @@ async fn a_message_starts_the_process_and_the_thread_follows_the_turn() {
     rig.stand_in.finishes(0, "done");
     eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
 
-    let thread = rig.fleet.get_session(id.clone()).await.unwrap();
+    let thread = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert_eq!(thread.session.title.as_deref(), Some("fix the login"));
     assert!(thread.session.last_turn_at.is_some());
     assert!(matches!(
@@ -332,7 +332,7 @@ async fn a_write_is_held_until_the_first_one_leases_a_slot_and_the_session_moves
         .await;
     assert!(denied(&first), "the write is held");
     assert!(reason(&first).contains("Slot 1"));
-    let record = rig.fleet.get_session(id.clone()).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     let held: Vec<_> = record
         .session
         .attachments
@@ -656,8 +656,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
     });
     let call = Mutex::new(String::new());
     eventually(|| async {
-        let asked = rig
-            .fleet
+        let asked = Arc::clone(&rig.fleet)
             .get_session(id.clone())
             .await
             .unwrap()
