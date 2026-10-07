@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar } from "@armada/components";
+import { Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, useOpenInSession } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { ScrollText } from "lucide-react";
 
@@ -204,6 +204,15 @@ export function Row({
   const paused = pausedSaid(job, now);
   const fixes = fixesMainOf(job);
   const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
+  // A Job that has gone wrong can be talked through in a Session, where the window serves them.
+  const session = useOpenInSession();
+  const talk =
+    session === null || (job.status !== "escalated" && job.status !== "completed_failed")
+      ? []
+      : [
+          { label: "Open in a Session", onSelect: () => session.open(job.id) },
+          ...session.targets.map((one) => ({ label: `Add to ${one.title}`, onSelect: () => session.open(job.id, one.id) })),
+        ];
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
   // workflow at all, so there is no workflow to name, no step machine to place
@@ -397,7 +406,7 @@ export function Row({
             disabled={stale}
             onAction={() => onRedispatch(job.id)}
             menuLabel={`More for ${titleOf(job)}`}
-            items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
+            items={[...talk, { label: "Clear", onSelect: () => onClear(job.id) }]}
           >
             {ACT_LABEL.redispatch}
           </SplitButton>
@@ -427,6 +436,7 @@ export function Row({
             // The binding is displayed here and bound in `keys.ts`, which is
             // the only way a person finds `x` without reading a contract.
             items={[
+              ...talk,
               ...(pausing === null || onPausing === undefined
                 ? []
                 : [{ label: ACT_LABEL[pausing], onSelect: () => onPausing(pausing, job.id) }]),

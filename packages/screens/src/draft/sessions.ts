@@ -26,7 +26,17 @@ export type SessionAttachment =
       auto: boolean;
     }
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
-  | { kind: "job"; id: string; number: number; title: string; state: SessionJobState; branch: string; slot: number }
+  | {
+      kind: "job";
+      id: string;
+      number: number;
+      title: string;
+      state: SessionJobState;
+      branch: string;
+      slot: number;
+      /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
+      looking?: true;
+    }
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
@@ -60,7 +70,7 @@ export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
 
 export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
 
-export type SessionJobState = "running" | "review" | "landed";
+export type SessionJobState = "running" | "review" | "landed" | "escalated";
 
 export type SessionAttachmentKind = SessionAttachment["kind"];
 
@@ -81,7 +91,7 @@ export type SessionRow =
       files?: readonly SentFile[];
       sketches?: readonly { id: string; title: string }[];
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
-      mentions?: readonly { id: string; title: string }[];
+      tags?: readonly SessionTag[];
     }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
@@ -102,11 +112,25 @@ export type Session = {
   lastTurn?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /** Tags chosen and not yet sent: they wait in the message box as chips. */
+  pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
   model?: string;
   effort?: string;
   /** The permission mode. **A Session runs in auto**, so absent is auto. */
   mode?: SessionMode;
+};
+
+/**
+ * Something a message tags with `@`, so the agent knows what is meant: another
+ * Session, a Job, a pull request or a branch. A Job carries what the ledger
+ * needs to hold it as one the Session is looking at.
+ */
+export type SessionTag = {
+  kind: "session" | "job" | "pull_request" | "branch";
+  id: string;
+  title: string;
+  job?: { number: number; branch: string; slot: number; state: SessionJobState };
 };
 
 /** What a message carries: its words, and what was attached to it. */
@@ -115,7 +139,7 @@ export type SentMessage = {
   files: readonly SentFile[];
   /** Sketches drawn for this message. */
   sketches: readonly DrawnSketch[];
-  mentions: readonly string[];
+  tags: readonly SessionTag[];
 };
 
 /** A skill or command `/` offers, as a terminal session lists them. */
@@ -134,7 +158,11 @@ export type SessionsDraft = {
   get: () => readonly Session[];
   subscribe: (onChange: () => void) => () => void;
   /** Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes. */
-  start: () => string;
+  start: (tag?: SessionTag) => string;
+  /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */
+  taggable: () => readonly SessionTag[];
+  /** Puts a Session's waiting tags where the person left them. */
+  setTags: (id: string, tags: readonly SessionTag[]) => void;
   /** A message from the person, with what they sent along. It takes a turn. */
   send: (id: string, sent: SentMessage) => void;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
@@ -174,7 +202,7 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "branch":
       return (
         (attachment.kind === "branch" && attachment.name === ref.name) ||
-        (attachment.kind === "job" && attachment.branch === ref.name) ||
+        (attachment.kind === "job" && attachment.looking !== true && attachment.branch === ref.name) ||
         (attachment.kind === "pull_request" && attachment.branch === ref.name)
       );
     case "pull_request":
@@ -182,10 +210,10 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
     case "slot":
       return (
         (attachment.kind === "slot" && attachment.slot === ref.slot) ||
-        (attachment.kind === "job" && attachment.slot === ref.slot)
+        (attachment.kind === "job" && attachment.looking !== true && attachment.slot === ref.slot)
       );
     case "job":
-      return attachment.kind === "job" && attachment.id === ref.id;
+      return attachment.kind === "job" && attachment.looking !== true && attachment.id === ref.id;
   }
 }
 

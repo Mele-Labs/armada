@@ -8,7 +8,7 @@
 
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { WorktreeSlot, WorktreesHeld } from "@armada/protocol";
-import { review, running } from "@armada/jobs/fixtures/build/index";
+import { escalatedGateFailure, review, running } from "@armada/jobs/fixtures/build/index";
 
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
@@ -30,6 +30,8 @@ function onBranch(fixture: JobFixture, branch: string): JobFixture {
 const plain = onBranch(asRow(review(), 44, "cap-log-reader", "Cap the log reader"), "job/44-cap-log-reader");
 const pin = onBranch(asRow(running(), 52, "pin-store-clock", "Pin the store clock in every test"), "fix/52-pin-store-clock");
 const sleeps = onBranch(asRow(running(), 53, "retire-sleeps", "Retire sleep calls in the store tests"), "fix/53-retire-sleeps");
+// A Job that stopped at its gate, which the owner tags in a Session to find out why.
+const stuck = onBranch(asRow(escalatedGateFailure(), 55, "retry-backoff", "Cap the retry backoff"), "fix/55-retry-backoff");
 // The Job the Review act dispatches on a pull request: Fleet's proposer reads the link and picks Code Review.
 const inspecting = onBranch(asRow(running(), 54, "review-1843", "Code review of #1843"), "review/1843");
 
@@ -57,11 +59,12 @@ const held = (): WorktreesHeld => ({
     bay(6, sleeps.job.branch!, job(sleeps), 4),
     bay(7, "spike/store-migrations", { state: "session", holder: "Session s3" }, 120),
     bay(8, inspecting.job.branch!, job(inspecting), 1),
+    bay(9, stuck.job.branch!, job(stuck), 55),
   ],
   worktrees: [],
 });
 
-const base = holding("sessions", "Sessions beside Helm: a blank one, its first write, and what it accumulates", [plain]);
+const base = holding("sessions", "Sessions beside Helm: a blank one, its first write, and what it accumulates", [plain, stuck]);
 const dispatched = (fixture: JobFixture, number: number, slot: number) => ({
   id: fixture.job.id,
   number,
@@ -72,10 +75,10 @@ const dispatched = (fixture: JobFixture, number: number, slot: number) => ({
 
 export const s200Sessions: Scenario = {
   ...base,
-  reads: { ...base.reads, [pin.job.id]: pin, [sleeps.job.id]: sleeps, [inspecting.job.id]: inspecting },
+  reads: { ...base.reads, [stuck.job.id]: stuck, [pin.job.id]: pin, [sleeps.job.id]: sleeps, [inspecting.job.id]: inspecting },
   held: held(),
   // The first moment the walk lets pass: the Jobs the Session dispatched reach the Board.
-  later: [{ jobs: [plain.job, pin.job, sleeps.job] }],
+  later: [{ jobs: [plain.job, stuck.job, pin.job, sleeps.job] }],
   // A request Bridge sends is a Job on the Board, as it is on a real Fleet; here, the review Job.
   behaves: (fleet) => ({
     proposeFromRequest: () => {
@@ -84,5 +87,5 @@ export const s200Sessions: Scenario = {
       return new Promise(() => {});
     },
   }),
-  draft: { sessions: () => sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8)) },
+  draft: { sessions: () => sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(stuck, 55, 9), state: "escalated" }]) },
 };

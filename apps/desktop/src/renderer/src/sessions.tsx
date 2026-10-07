@@ -5,10 +5,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { GitMerge } from "lucide-react";
+import { GitMerge, PanelRightOpen } from "lucide-react";
 import {
   Button,
   ChipOwnership,
+  OpenInSession,
+  Tooltip,
   Prose,
   PullRequestActs,
   PullRequestCard,
@@ -24,6 +26,7 @@ import {
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
+  OpenInSessionValue,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
@@ -37,7 +40,7 @@ import type {
   SessionThreadRow,
 } from "@armada/components";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAttachment, SessionMode } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -53,7 +56,7 @@ import {
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
 import type { HeldWorktrees } from "@armada/protocol";
-import { SURFACE, useAtFloor } from "@armada/shell";
+import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
@@ -89,14 +92,15 @@ function summaryOf(session: Session): OwnerSummary {
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
     pullRequests: pullRequestsOf(session),
-    jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
+    jobs: attachmentsOf(session, "job").filter((one) => one.looking !== true).map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
 }
 
-/** Who owns each chip, for every chip in the window; opening an owner is the host's. */
+/** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
 export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: string) => void; children: ReactNode }) {
   const sessions = useSessions();
+  const draft = useSessionsDraft();
   const value = useMemo<ChipOwnershipValue>(
     () => ({
       ownerOf: (chip: OwnerChipRef) => {
@@ -107,7 +111,27 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
     }),
     [sessions, onOpen],
   );
-  return <ChipOwnership.Provider value={value}>{children}</ChipOwnership.Provider>;
+  const talk = useMemo<OpenInSessionValue | null>(() => {
+    if (draft === undefined) return null;
+    return {
+      targets: sessions.filter((one) => one.title !== undefined).map((one) => ({ id: one.id, title: one.title! })),
+      open: (jobId, sessionId) => {
+        const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
+        if (tag === undefined) return;
+        if (sessionId === undefined) onOpen(draft.start(tag));
+        else {
+          const had = sessions.find((one) => one.id === sessionId)?.pendingTags ?? [];
+          draft.setTags(sessionId, [...had, tag]);
+          onOpen(sessionId);
+        }
+      },
+    };
+  }, [draft, sessions, onOpen]);
+  return (
+    <ChipOwnership.Provider value={value}>
+      <OpenInSession.Provider value={talk}>{children}</OpenInSession.Provider>
+    </ChipOwnership.Provider>
+  );
 }
 
 function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
@@ -171,7 +195,7 @@ function threadRowsOf(session: Session): SessionThreadRow[] {
       text: row.text,
       ...(row.files === undefined ? {} : { files: row.files }),
       ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
-      ...(row.mentions === undefined ? {} : { mentions: row.mentions }),
+      ...(row.tags === undefined ? {} : { tags: row.tags }),
     };
   });
 }
@@ -320,12 +344,18 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
         return {
           key: one.id,
           kind: "job",
-          name: `Job ${one.number}`,
+          name: `Job ${one.number}${one.state === "escalated" ? ", needs you" : ""}`,
           text: (
             <>
               <code>{one.number}</code> {one.title}
             </>
           ),
+          ...(one.state === "escalated"
+            ? { mark: { glyph: "escalated" as const, said: "Needs you" } }
+            : one.state === "running"
+              ? { mark: { glyph: "running" as const, said: "Running" } }
+              : {}),
+          ...(one.looking === true ? { looking: true } : {}),
           slot: one.slot,
           onOpen: () => goes.onOpenJob(one.id),
         };
@@ -358,6 +388,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
   const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
+  const narrow = useNarrow();
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const { onWant } = held;
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
@@ -368,9 +400,36 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? "auto";
+  // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
+  const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
+    setLedgerOpen(false);
+    open(...args);
+  };
+  const entries = entriesOf(
+    session,
+    narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
+    narrow ? fold(setReading) : setReading,
+    narrow ? fold(setSlotOpen) : setSlotOpen,
+  );
   return (
     <>
-      <SessionFrame state={state} said={said} id={session.id} {...(session.title === undefined ? {} : { title: session.title })}>
+      <SessionFrame
+        state={state}
+        said={said}
+        id={session.id}
+        {...(session.title === undefined ? {} : { title: session.title })}
+        {...(narrow
+          ? {
+              actions: (
+                <Tooltip label="Open what this Session holds">
+                  <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
+                    <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                  </Button>
+                </Tooltip>
+              ),
+            }
+          : {})}
+      >
         <div className="armada-session-frame__centre">
           <SessionThread
             rows={threadRowsOf(session)}
@@ -388,18 +447,29 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             efforts={draft.efforts}
             onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
             commands={draft.commands}
-            sessions={sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one) => ({ id: one.id, title: one.title! }))}
+            compact={narrow}
+            taggable={[
+              ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
+              ...draft.taggable(),
+            ]}
+            tags={session.pendingTags ?? []}
+            onTags={(tags) => draft.setTags(session.id, tags)}
             drawn={drawn.map(({ id, title }) => ({ id, title }))}
             onDraw={() => setPadOpen(true)}
             onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
             onSend={(sent) => {
-              draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, mentions: sent.mentions });
+              draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
               setDrawn([]);
             }}
           />
         </div>
-        <SessionLedger entries={entriesOf(session, goes, setReading, setSlotOpen)} />
+        {narrow ? null : <SessionLedger entries={entries} />}
       </SessionFrame>
+      {narrow ? (
+        <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
+          <SessionLedger entries={entries} folded />
+        </Sheet>
+      ) : null}
       <ReadingSheet
         one={readingOf(session, reading)}
         onClose={() => setReading(undefined)}

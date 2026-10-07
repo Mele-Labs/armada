@@ -41,16 +41,19 @@ export type SessionFrameProps = {
   id: string;
   /** Absent until the first turn has named it. */
   title?: string;
+  /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
+  actions?: ReactNode;
   children: ReactNode;
 };
 
-export function SessionFrame({ state, said, id, title, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, title, actions, children }: SessionFrameProps) {
   return (
     <Card className="armada-session-frame" role="region" aria-label={`Session ${id}`}>
       <header className="armada-session-frame__head">
         <SquareTerminal size={16} strokeWidth={2} aria-hidden />
         <span className="armada-session-frame__id">{id}</span>
         <span className="armada-session-frame__title">{title}</span>
+        {actions}
         <SessionMark state={state} said={said} />
       </header>
       <div className="armada-session-frame__body">{children}</div>

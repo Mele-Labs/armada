@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
-import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent } from "react";
-import { Paperclip, PencilRuler, Send } from "lucide-react";
+import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
+import { Box, Cpu, GitBranch, GitPullRequest, Paperclip, PencilRuler, Send, Shield, SquareTerminal, Zap } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -23,11 +24,31 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type ComposerFile = { id: string; name: string; src?: string };
 
+/** Something `@` tags: another Session, a Job, a pull request or a branch. */
+export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string };
+
 export type SentFromComposer = {
   text: string;
   files: readonly ComposerFile[];
-  mentions: readonly string[];
+  tags: readonly ComposerTag[];
 };
+
+const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
+  session: SquareTerminal,
+  job: Box,
+  pull_request: GitPullRequest,
+  branch: GitBranch,
+};
+
+/** The kinds in the order `@` groups them, each named for the group's label. */
+const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
+  { kind: "job", label: "Jobs" },
+  { kind: "pull_request", label: "Pull requests" },
+  { kind: "branch", label: "Branches" },
+  { kind: "session", label: "Sessions" },
+];
+
+const TAG_NAME: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" };
 
 /** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
 export type ComposerMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -51,8 +72,13 @@ export type SessionComposerProps = {
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
   /** What `/` offers. */
   commands: readonly { name: string; says: string }[];
-  /** What `@` offers: every other Session. */
-  sessions: readonly { id: string; title: string }[];
+  /** What `@` offers, grouped by kind: other Sessions, Jobs, pull requests and branches. */
+  taggable: readonly ComposerTag[];
+  /** What has been tagged and waits to be sent. */
+  tags: readonly ComposerTag[];
+  onTags: (tags: readonly ComposerTag[]) => void;
+  /** Below the layout breakpoint: the selects are a glyph and a value, named on hover. */
+  compact?: boolean;
   /** Sketches drawn for this message and waiting to go. */
   drawn: readonly { id: string; title: string }[];
   /** Opens the pad. */
@@ -61,7 +87,7 @@ export type SessionComposerProps = {
   onSend: (sent: SentFromComposer) => void;
 };
 
-type Item = { id: string; name: string; says?: string };
+type Item = { id: string; name: string; says?: string; tag?: ComposerTag };
 
 /** What the caret is in: a `/` at the start of the message, or an `@` at the start of a word. */
 function tokenAt(text: string, caret: number): { trigger: "/" | "@"; query: string; from: number } | undefined {
@@ -83,7 +109,10 @@ export function SessionComposer({
   efforts,
   onTune,
   commands,
-  sessions,
+  taggable,
+  tags,
+  onTags,
+  compact = false,
   drawn,
   onDraw,
   onRemoveDrawn,
@@ -92,7 +121,6 @@ export function SessionComposer({
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [files, setFiles] = useState<ComposerFile[]>([]);
-  const [mentioned, setMentioned] = useState<string[]>([]);
   const [active, setActive] = useState(0);
   const picker = useRef<HTMLInputElement>(null);
   const counter = useRef(0);
@@ -104,9 +132,11 @@ export function SessionComposer({
       ? []
       : token.trigger === "/"
         ? commands.filter((one) => one.name.toLowerCase().includes(token.query.toLowerCase())).map((one) => ({ id: one.name, name: `/${one.name}`, says: one.says }))
-        : sessions
-            .filter((one) => !mentioned.includes(one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
-            .map((one) => ({ id: one.id, name: one.title }));
+        : TAG_KINDS.flatMap(({ kind }) =>
+            taggable
+              .filter((one) => one.kind === kind && !tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
+              .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
+          );
   const open = items.length > 0;
   const current = Math.min(active, Math.max(items.length - 1, 0));
 
@@ -131,7 +161,7 @@ export function SessionComposer({
     } else {
       setText(`${text.slice(0, token.from)}${after}`);
       setCaret(token.from);
-      setMentioned((was) => [...was, item.id]);
+      if (item.tag !== undefined) onTags([...tags, item.tag]);
     }
     // The press was on a row that took no focus (mousedown is prevented), so the box still has it.
     setActive(0);
@@ -163,39 +193,38 @@ export function SessionComposer({
     add([...event.dataTransfer.files]);
   };
 
-  const held = files.length + drawn.length + mentioned.length > 0;
+  const held = files.length + drawn.length + tags.length > 0;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (working || (text.trim() === "" && !held)) return;
-    onSend({ text: text.trim(), files, mentions: mentioned });
+    onSend({ text: text.trim(), files, tags });
     setText("");
     setCaret(0);
     setFiles([]);
-    setMentioned([]);
   };
 
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
     <form className="armada-session-composer" onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
-        <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Sessions"}>
-          {items.map((item, index) => (
-            <div
-              key={item.id}
-              role="option"
-              aria-selected={index === current}
-              className={index === current ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
-              onMouseEnter={() => setActive(index)}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                choose(item);
-              }}
-            >
-              <span className="armada-session-composer__name">{item.name}</span>
-              {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
-            </div>
-          ))}
+        <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Tag a Session, Job, pull request or branch"}>
+          {token?.trigger === "/"
+            ? items.map((item, index) => <Row key={item.id} item={item} on={index === current} onHover={() => setActive(index)} onChoose={() => choose(item)} />)
+            : TAG_KINDS.map(({ kind, label }) => {
+                const rows = items.filter((one) => one.tag?.kind === kind);
+                if (rows.length === 0) return null;
+                return (
+                  <div key={kind} role="group" aria-label={label}>
+                    <p className="armada-session-composer__group" aria-hidden>
+                      {label}
+                    </p>
+                    {rows.map((item) => (
+                      <Row key={item.id} item={item} on={items.indexOf(item) === current} onHover={() => setActive(items.indexOf(item))} onChoose={() => choose(item)} />
+                    ))}
+                  </div>
+                );
+              })}
         </div>
       )}
       <div className="armada-session-composer__field">
@@ -215,7 +244,7 @@ export function SessionComposer({
         />
       </div>
       <div className="armada-session-composer__bar">
-        <Tooltip label={said}>
+        <Pick Glyph={Shield} compact={compact} label={said}>
           <Select aria-label="Permission mode" value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
             {MODES.map((one) => (
               <option key={one.id} value={one.id}>
@@ -223,27 +252,27 @@ export function SessionComposer({
               </option>
             ))}
           </Select>
-        </Tooltip>
-        <Tooltip label="The model the next turn runs on">
+        </Pick>
+        <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
           <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-            <option value="">Model</option>
+            <option value="">{compact ? "Auto" : "Model"}</option>
             {models.map((one) => (
               <option key={one} value={one}>
                 {one}
               </option>
             ))}
           </Select>
-        </Tooltip>
-        <Tooltip label="The effort the next turn takes">
+        </Pick>
+        <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
           <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-            <option value="">Effort</option>
+            <option value="">{compact ? "Auto" : "Effort"}</option>
             {efforts.map((one) => (
               <option key={one} value={one}>
                 {one}
               </option>
             ))}
           </Select>
-        </Tooltip>
+        </Pick>
         <input
           ref={picker}
           type="file"
@@ -272,8 +301,8 @@ export function SessionComposer({
           {drawn.map((one) => (
             <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
           ))}
-          {mentioned.map((id) => (
-            <AttachmentChip key={id} filename={sessions.find((s) => s.id === id)?.title ?? id} from="Session" onRemove={() => setMentioned((was) => was.filter((s) => s !== id))} />
+          {tags.map((one) => (
+            <AttachmentChip key={`${one.kind}${one.id}`} filename={one.title} from={TAG_NAME[one.kind]} onRemove={() => onTags(tags.filter((had) => had !== one))} />
           ))}
         </div>
         <Button type="submit" variant="primary" size="sm" disabled={working || (text.trim() === "" && !held)}>
@@ -282,5 +311,41 @@ export function SessionComposer({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** One row of a typeahead. A tag's row leads with its kind's glyph. */
+function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover: () => void; onChoose: () => void }) {
+  const Glyph = item.tag === undefined ? undefined : TAG_GLYPH[item.tag.kind];
+  return (
+    <div
+      role="option"
+      aria-selected={on}
+      className={on ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
+      onMouseEnter={onHover}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onChoose();
+      }}
+    >
+      {Glyph === undefined ? null : <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__glyph" />}
+      <span className="armada-session-composer__name">{item.name}</span>
+      {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
+    </div>
+  );
+}
+
+/**
+ * A select with its tooltip, and below the breakpoint a glyph in front of it
+ * naming what it sets, so the row is a glyph and a value and not a label.
+ */
+function Pick({ Glyph, compact, label, children }: { Glyph: LucideIcon; compact: boolean; label: string; children: ReactNode }) {
+  return (
+    <Tooltip label={label}>
+      <span className="armada-session-composer__pick" data-compact={compact || undefined}>
+        {compact ? <Glyph size={12} strokeWidth={2} aria-hidden className="armada-session-composer__pick-glyph" /> : null}
+        {children}
+      </span>
+    </Tooltip>
   );
 }

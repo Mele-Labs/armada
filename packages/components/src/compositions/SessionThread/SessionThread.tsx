@@ -28,7 +28,7 @@ export type SessionThreadRow =
       /** What was sent with it. Pictures are drawn; other files are chips. */
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
-      mentions?: readonly { id: string; title: string }[];
+      tags?: readonly { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string }[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. */
@@ -44,11 +44,13 @@ export type SessionThreadProps = {
   onOpenSession: (sessionId: string) => void;
 };
 
+const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
+
 function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }> }) {
   const files = row.files ?? [];
   const sketches = row.sketches ?? [];
-  const mentions = row.mentions ?? [];
-  if (files.length + sketches.length + mentions.length === 0) return null;
+  const tags = row.tags ?? [];
+  if (files.length + sketches.length + tags.length === 0) return null;
   return (
     <div className="armada-session-sent">
       {files.map((file) =>
@@ -61,8 +63,8 @@ function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" 
       {sketches.map((one) => (
         <AttachmentChip key={one.id} filename={one.title} from="Sketch" />
       ))}
-      {mentions.map((one) => (
-        <AttachmentChip key={one.id} filename={one.title} from="Session" />
+      {tags.map((one) => (
+        <AttachmentChip key={`${one.kind}${one.id}`} filename={one.title} from={TAG_KIND[one.kind]} />
       ))}
     </div>
   );

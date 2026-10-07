@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import type { Session, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
 export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void };
@@ -88,12 +88,18 @@ function others(): Session[] {
 
 export const MINE = "s7";
 
-export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], review: DispatchedJob): SessionsStore {
+/** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
+export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
+
+export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], review: DispatchedJob, taggableJobs: readonly TaggableJob[]): SessionsStore {
   let now: readonly Session[] = others();
   let clock = 0;
   let rowId = 0;
   let moment = 0;
   let started = false;
+  let made = 0;
+  /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
+  const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
 
@@ -118,9 +124,11 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
   const row = (make: (id: string, stamp: string) => SessionRow): SessionRow => make(`r${(rowId += 1)}`, at());
   const tool = (text: string): SessionRow => row((id, stamp) => ({ id, at: stamp, kind: "tool", text }));
   const said = (text: string): SessionRow => row((id, stamp) => ({ id, at: stamp, kind: "message", from: { kind: "agent" }, text }));
-  const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) =>
-    edit(MINE, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
-  const finish = (stamp: string) => edit(MINE, (one) => ({ ...one, turn: idle, lastTurn: stamp }));
+  const addTo = (id: string, rows: SessionRow[], attachments: SessionAttachment[] = []) =>
+    edit(id, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
+  const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
+  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp }));
+  const finish = (stamp: string) => finishOf(MINE, stamp);
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));
 
@@ -215,6 +223,31 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
     });
   };
 
+  /** Looking at a Job somebody tagged: the agent reads it with the tools Fleet gives it, then says what it found. */
+  const investigating = (id: string, job: SessionTag & { job: NonNullable<SessionTag["job"]> }) => {
+    const n = job.job.number;
+    addTo(
+      id,
+      [
+        tool(`examine_job ${n}`),
+        tool(`get_job_log ${n}`),
+        tool(`get_check_output ${n} lint`),
+        tool(`get_diff ${n}`),
+        said(`Job ${n} stopped at its gate: the lint Check failed. The Drone added a retry loop with no cap, and clippy flags the loop at retry.rs:41. Capping it at five attempts would clear the Check.`),
+      ],
+    );
+    finishOf(id, "14:21");
+  };
+  const redirecting = (id: string, job: SessionTag & { job: NonNullable<SessionTag["job"]> }) => {
+    const n = job.job.number;
+    addTo(id, [tool(`redirect_drone ${n}: cap the retry loop at five attempts`), said(`Redirected the Drone on Job ${n}. It is running again.`)]);
+    edit(id, (one) => ({
+      ...one,
+      attachments: one.attachments.map((a) => (a.kind === "job" && a.id === job.id ? { ...a, state: "running" as const } : a)),
+    }));
+    finishOf(id, "14:23");
+  };
+
   const turns = [dispatching, opening, woken];
 
   return {
@@ -223,35 +256,72 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    start() {
-      set([{ id: MINE, attachments: [], rows: [], turn: idle }, ...now]);
-      return MINE;
+    start(tag) {
+      made += 1;
+      const id = made === 1 && tag === undefined ? MINE : `s${7 + made}`;
+      set([{ id, attachments: [], rows: [], turn: idle, ...(tag === undefined ? {} : { pendingTags: [tag] }) }, ...now]);
+      return id;
     },
-    send(id, sent) {
-      if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.mentions.length === 0) return;
-      const tagged = now.filter((one) => sent.mentions.includes(one.id)).map((one) => ({ id: one.id, title: one.title ?? one.id }));
-      edit(id, (one) => ({
-        ...one,
-        rows: [
-          ...one.rows,
-          row((rid, stamp) => ({
-            id: rid,
-            at: stamp,
-            kind: "message",
-            from: { kind: "you" },
-            text: sent.text,
-            ...(sent.files.length === 0 ? {} : { files: sent.files }),
-            ...(sent.sketches.length === 0 ? {} : { sketches: sent.sketches.map((k) => ({ id: k.id, title: k.title })) }),
-            ...(tagged.length === 0 ? {} : { mentions: tagged }),
-          })),
-        ],
-        // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
-        attachments: [...one.attachments, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
-        turn: { state: "working" },
+    taggable() {
+      const fromSessions = now.flatMap((one) => [
+        ...one.attachments.flatMap((a): SessionTag[] =>
+          a.kind === "pull_request"
+            ? [{ kind: "pull_request", id: String(a.number), title: `#${a.number} ${a.title}` }]
+            : a.kind === "branch"
+              ? [{ kind: "branch", id: a.name, title: a.name }]
+              : [],
+        ),
+      ]);
+      const jobsOnBoard = taggableJobs.map((j): SessionTag => ({
+        kind: "job",
+        id: j.id,
+        title: `${j.number} ${j.title}`,
+        job: { number: j.number, branch: j.branch, slot: j.slot, state: j.state === "escalated" ? "escalated" : "review" },
       }));
+      return [...jobsOnBoard, ...fromSessions];
+    },
+    setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
+    send(id, sent) {
+      if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
+      const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
+      edit(id, (one) => {
+        const { pendingTags, ...rest } = one;
+        void pendingTags;
+        const looking = taggedJobs
+          .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
+          .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
+        return {
+          ...rest,
+          rows: [
+            ...one.rows,
+            row((rid, stamp) => ({
+              id: rid,
+              at: stamp,
+              kind: "message",
+              from: { kind: "you" },
+              text: sent.text,
+              ...(sent.files.length === 0 ? {} : { files: sent.files }),
+              ...(sent.sketches.length === 0 ? {} : { sketches: sent.sketches.map((k) => ({ id: k.id, title: k.title })) }),
+              ...(sent.tags.length === 0 ? {} : { tags: sent.tags }),
+            })),
+          ],
+          // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
+          attachments: [...one.attachments, ...looking, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
+          turn: { state: "working" },
+        };
+      });
       if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
+      } else if (id !== MINE) {
+        // A Session handed a Job: the first ask is read with the fleet tools, the next acts on what it found.
+        const had = asked.get(id) ?? 0;
+        const held = now.find((one) => one.id === id)?.attachments.find((a) => a.kind === "job" && a.looking === true);
+        if (held?.kind === "job") {
+          const job = { kind: "job", id: held.id, title: held.title, job: { number: held.number, branch: held.branch, slot: held.slot, state: held.state } } as const;
+          asked.set(id, had + 1);
+          after(900, () => (had === 0 ? investigating(id, job) : redirecting(id, job)));
+        }
       }
     },
     tune: (id, tuning) =>

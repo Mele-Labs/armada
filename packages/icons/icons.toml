@@ -1475,3 +1475,26 @@
   status = "Proposed"
   reserved = "Drawing a sketch for a Session's message, and a Session's own sketch rows. Never placing a Sketch node on a whiteboard, which is `shapes`, and never freehand, which is `pencil`."
   notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. `shapes` is reserved to placing a Sketch node on a Studio's whiteboard, and `pencil` is freehand; this act opens the same pad Dispatch draws on, in a sheet, so it needed a glyph that says drawing a diagram and neither of those."
+
+[icons.panel-right-open]
+  means = "A panel on the trailing edge with an arrow opening out of it - a side column folded into a sheet"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Opening a Session's ledger as a sheet where the window is too narrow to hold it beside the conversation. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. Below `--layout-breakpoint` the ledger leaves the Session's side and this is the press that brings it back, as the Helm dock folds."
+
+[[icons.search.usage]]
+  means = "A Job a Session is looking at, in its ledger: tagged by the person and not dispatched from there"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. The Job's own mark is its state, so this says what the Session is doing with it, in the tooltip and not in a word."
+
+[conventions.session_composer_marks]
+  glyphs = ["shield", "cpu", "zap"]
+  means = "What a Session's message box sets, as a glyph before its value where the window is narrow"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. `shield` is the permission mode, `cpu` the model and `zap` the effort. They are drawn only below the breakpoint, where the select's label is given up, and each is named by its tooltip and its accessible name. Borrowed and not minted: none of the three is reserved to a state, and the owner may rule otherwise."

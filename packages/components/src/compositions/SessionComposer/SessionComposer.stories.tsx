@@ -25,10 +25,15 @@ const meta: Meta<typeof SessionComposer> = {
       { name: "review", says: "Review the pull request" },
       { name: "simplify", says: "Simplify the changed code" },
     ],
-    sessions: [
-      { id: "s2", title: "Release notes script" },
-      { id: "s3", title: "Store migration spike" },
+    taggable: [
+      { kind: "session", id: "s2", title: "Release notes script" },
+      { kind: "session", id: "s3", title: "Store migration spike" },
+      { kind: "job", id: "j55", title: "55 Cap the retry backoff" },
+      { kind: "pull_request", id: "1843", title: "#1843 Pin the store clock" },
+      { kind: "branch", id: "fix/flaky-store", title: "fix/flaky-store" },
     ],
+    tags: [],
+    onTags: fn(),
     drawn: [],
     onDraw: fn(),
     onRemoveDrawn: fn(),
@@ -64,14 +69,41 @@ export const Slash: Story = {
   },
 };
 
-/** `@` opens the other Sessions, and choosing one tags it with a chip. */
+/** `@` opens Jobs, pull requests, branches and the other Sessions, grouped, and choosing one tags it. */
 export const At: Story = {
   play: async ({ canvas, args }) => {
-    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "ask @Rel");
-    await userEvent.click(await canvas.findByRole("option", { name: "Release notes script" }));
-    await expect(within(canvas.getByRole("group", { name: "Attached" })).getByText("Release notes script")).toBeInTheDocument();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "why did @retry");
+    await expect(await canvas.findByRole("group", { name: "Jobs" })).toBeInTheDocument();
+    await userEvent.click(await canvas.findByRole("option", { name: "55 Cap the retry backoff" }));
+    await expect(args.onTags).toHaveBeenCalledWith([{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }]);
+  },
+};
+
+/** A tag that waits is a chip, and Send takes it. */
+export const Tagged: Story = {
+  args: { tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
+  play: async ({ canvas, args }) => {
+    await expect(within(canvas.getByRole("group", { name: "Attached" })).getByText("55 Cap the retry backoff")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Send" }));
-    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ mentions: ["s2"] }));
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ id: "j55" })] }));
+  },
+};
+
+/** Below the breakpoint each select is a glyph and a value, and nothing spills out of the box. */
+export const Narrow: Story = {
+  args: { compact: true },
+  decorators: [
+    (Story) => (
+      <div style={{ width: "calc(var(--space-12) * 7)" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const box = canvas.getByRole("textbox", { name: "Message" }).closest("form")!;
+    for (const one of canvas.getAllByRole("combobox")) {
+      await expect(one.getBoundingClientRect().right).toBeLessThanOrEqual(box.getBoundingClientRect().right);
+    }
   },
 };
 

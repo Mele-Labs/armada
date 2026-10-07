@@ -46,6 +46,24 @@ export type ChipOwnershipValue = {
 /** What the window says about owners. Absent, no chip is owned. */
 export const ChipOwnership = createContext<ChipOwnershipValue | null>(null);
 
+/**
+ * Where a Job that has gone wrong can be talked through: a new Session with the
+ * Job tagged, or one already open. **Absent where the window serves no Sessions**,
+ * so a Board row draws no such act.
+ */
+export type OpenInSessionValue = {
+  /** The Sessions the Job could be added to, by title. */
+  targets: readonly { id: string; title: string }[];
+  /** With no `sessionId`, starts a new Session. */
+  open: (jobId: string, sessionId?: string) => void;
+};
+
+export const OpenInSession = createContext<OpenInSessionValue | null>(null);
+
+export function useOpenInSession(): OpenInSessionValue | null {
+  return useContext(OpenInSession);
+}
+
 /** The owner of a chip, where the window serves Sessions and one owns it. */
 export function useChipOwner(chip: OwnerChipRef): OwnerSummary | undefined {
   return useContext(ChipOwnership)?.ownerOf(chip);

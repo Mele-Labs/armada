@@ -25,7 +25,7 @@ export default meta;
 type Story = StoryObj<typeof SessionThread>;
 
 const ROWS: SessionThreadRow[] = [
-  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], mentions: [{ id: "s2", title: "Release notes script" }] },
+  { id: "1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test.", sketches: [{ id: "k1", title: "Store clock" }], tags: [{ kind: "session", id: "s2", title: "Release notes script" }, { kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
   { id: "2", at: "14:03:14", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
   { id: "3", at: "14:03:21", kind: "lease", slot: 3, branch: "fix/flaky-store" },
   { id: "4", at: "14:03:28", kind: "message", from: "agent", text: "The test reads the wall clock." },

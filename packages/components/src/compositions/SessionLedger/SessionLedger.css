@@ -109,3 +109,10 @@
   gap: var(--space-4);
   padding: var(--space-4);
 }
+
+/* Folded into a sheet below the breakpoint: the sheet gives the width. */
+.armada-session-ledger[data-folded] {
+  width: auto;
+  min-height: 100%;
+  border-radius: 0;
+}

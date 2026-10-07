@@ -40,11 +40,12 @@ export type Step =
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
-export type Walk = { scenario: string; steps: readonly Step[] };
+/** A walk is played at the window the test starts from unless it names its own: a narrow one shows what folds. */
+export type Walk = { scenario: string; steps: readonly Step[]; viewport?: { width: number; height: number } };
 
 /** A walk over `scenario`. Its name is the name it is exported under. */
-export function walk(scenario: string, steps: readonly Step[]): Walk {
-  return { scenario, steps };
+export function walk(scenario: string, steps: readonly Step[], viewport?: Walk["viewport"]): Walk {
+  return viewport === undefined ? { scenario, steps } : { scenario, steps, viewport };
 }
 
 const quoted = (name: Name) => (typeof name === "string" ? `“${name}”` : String(name));

@@ -84,3 +84,53 @@
 .armada-session-composer__chips .armada-attachment-chip {
   max-width: none;
 }
+
+.armada-session-composer__group {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-composer__glyph {
+  flex: none;
+  margin-inline-end: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.armada-session-composer__pick {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  min-width: 0;
+}
+
+/* A glyph and a value: the glyph sits inside the select's own box, and the
+   select gives up the room for the longer label it no longer draws. */
+.armada-session-composer__pick[data-compact] .armada-select {
+  padding-inline-start: calc(var(--space-6) + var(--space-1));
+  padding-inline-end: var(--space-6);
+}
+
+.armada-session-composer__pick-glyph {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--space-2);
+  z-index: 1;
+  margin-block: auto;
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+/* Never spill out of the box: what does not fit goes to a second line. */
+.armada-session-composer__bar {
+  flex-wrap: wrap;
+}
+
+.armada-session-composer__chips {
+  flex-basis: calc(var(--space-12) * 2);
+}

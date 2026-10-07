@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Megaphone, Search, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -25,7 +25,9 @@ export type LedgerEntry = {
   name: string;
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
-  mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done"; said: string };
+  mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated"; said: string };
+  /** A Job the person tagged, which the Session is looking at and did not dispatch. */
+  looking?: boolean;
   /** A Job's own slot, as a chip at the row's end. */
   slot?: number;
   onOpen: () => void;
@@ -47,11 +49,12 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   failed: ShieldX,
   running: CircleDot,
   done: Check,
+  escalated: Megaphone,
 };
 
-export function SessionLedger({ entries }: { entries: readonly LedgerEntry[] }) {
+export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
-    <aside className="armada-session-ledger" role="region" aria-label="Attachments">
+    <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
       {SECTIONS.map(({ kind, label, Glyph }) => {
         const rows = entries.filter((one) => one.kind === kind);
         return (
@@ -65,6 +68,13 @@ export function SessionLedger({ entries }: { entries: readonly LedgerEntry[] }) 
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
                       <Glyph size={12} strokeWidth={2} aria-hidden />
                       <span className="armada-session-ledger__text">{row.text}</span>
+                      {row.looking !== true ? null : (
+                        <Tooltip label="Looking at it, not dispatched from here">
+                          <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
+                            <Search size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
                       {row.slot === undefined ? null : (
                         <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
                           <KeyRound size={12} strokeWidth={2} aria-hidden />
