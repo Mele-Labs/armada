@@ -33,7 +33,7 @@ use adapter_traits::{
 };
 use core_model::{
     Component, DroneId, Envelope, EscalationTrigger, Job, Level, ModelName, PlanTask, ResolvedStep,
-    StepId, TierModels,
+    StepId, TierModels, TriggerWhen,
 };
 
 use crate::adrift::Adrift;
@@ -127,6 +127,7 @@ where
         // then holds while a person reads what went out. Almost every spawn
         // asks this and answers no. `crate::landing` owns the rest, including
         // why a branch that would not go does not stop the step.
+        Box::pin(self.fire_triggers(job, TriggerWhen::StepStarts, step, &worktree)).await;
         self.sent_out_on_entry(job, step, &worktree).await;
         // A step that proposes Jobs, starting again, proposes again: what its
         // last attempt proposed and nobody released goes first. `crate::waving`.

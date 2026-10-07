@@ -1,0 +1,12 @@
+[operations.get_trigger]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One Trigger as its file holds it, for an editor, from any level that holds a copy"
+notes = """
+`GET /triggers/definition?when=&step=&name=&source=&manifest_id=`, protocol 23.58. The answer is a `TriggerDefinition`: the identity, the `level`, the `file`, `definition` and `overridden_by`. **`definition` is the file's YAML text and not a tree**, the shape `save_trigger` takes, so what an editor changes is what it sends back and Fleet checks it with the loader's own rules.
+
+`source` is optional and is a level. Absent is the copy that runs; present reads one a more specific level replaced, which `list_triggers` names on the winner's `overrides`. A file left out is not here: it is on `list_triggers` with its reason. 422 `fleet.no_such_trigger` where Fleet holds none with that identity at that level.
+
+`agent_access` is `Yes`, `get_workflow`'s reason.
+"""

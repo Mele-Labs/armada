@@ -224,11 +224,17 @@ fn a_written_document_is_read_off_the_write_detail_and_code_and_scratch_are_not(
         write("~/repo/docs/spike.md +40"),
         Some("/Users/user/repo/docs/spike.md".into())
     );
-    assert_eq!(write("/repo/shots/ledger.PNG +1"), Some("/repo/shots/ledger.PNG".into()));
+    assert_eq!(
+        write("/repo/shots/ledger.PNG +1"),
+        Some("/repo/shots/ledger.PNG".into())
+    );
     assert_eq!(write("/repo/src/clock.rs +9"), None);
     assert_eq!(write("/repo/package.json +3"), None);
     assert_eq!(write("/tmp/notes.md +3"), None);
     assert_eq!(write("/repo/node_modules/x/README.md +3"), None);
     assert_eq!(write("/repo/docs/spike.md +4 -2"), None);
-    assert_eq!(written_document("Edit", "/repo/docs/spike.md +4", "/Users/user"), None);
+    assert_eq!(
+        written_document("Edit", "/repo/docs/spike.md +4", "/Users/user"),
+        None
+    );
 }

@@ -757,6 +757,24 @@ impl Queries for FakeDaemon {
         Ok(Vec::new())
     }
 
+    async fn list_triggers(
+        &self,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerList, Refusal> {
+        Ok(ipc::TriggerList::default())
+    }
+
+    async fn get_trigger(
+        &self,
+        _when: ipc::TriggerMoment,
+        _step: Option<ipc::StepId>,
+        _name: String,
+        _level: Option<ipc::TriggerLevel>,
+        _manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerDefinition, Refusal> {
+        Err(self.fault("the fake holds no Trigger files"))
+    }
+
     async fn list_manifests(&self) -> Result<Vec<ManifestSummary>, Refusal> {
         if *self.mute.lock().expect("not poisoned") {
             return Err(self.fault("the fake was told not to answer"));

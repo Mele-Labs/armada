@@ -5,8 +5,8 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use api::Sessions;
 use ipc::{
-    AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow, SessionRowChanged, SessionTag,
-    TagKind, WireError,
+    AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow,
+    SessionRowChanged, SessionTag, TagKind, WireError,
 };
 use serde::Serialize;
 

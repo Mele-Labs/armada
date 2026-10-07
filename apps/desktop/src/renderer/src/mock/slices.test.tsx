@@ -27,7 +27,7 @@ test("every slice but Studios answers a call it owns as unanswered", async () =>
   const { api } = mount("every-state", { slices: ["studios"] });
   expect(await api.killJob("none")).toMatchObject({ ok: false, why: "transport" });
   expect(await api.readHeld(true)).toMatchObject({ ok: false });
-  expect(SLICES.map((one) => one.name)).toHaveLength(12);
+  expect(SLICES.map((one) => one.name)).toHaveLength(13);
 });
 
 test("no slice list mounts every slice, as before", async () => {
