@@ -19,17 +19,6 @@ use crate::open::Store;
 const TABLE: &str = "job_step_baselines";
 const FOREIGN_KEY_VIOLATION: i32 = 787;
 
-/// Version 115 — a step's entry baseline. Nothing is backfilled: a step that
-/// began before this reads as one Fleet never saw start, which fails closed.
-pub(crate) const V115: &str = r#"
-CREATE TABLE job_step_baselines (
-    job_id  TEXT NOT NULL REFERENCES jobs(job_id),
-    step_id TEXT NOT NULL,
-    entries TEXT NOT NULL,
-    PRIMARY KEY (job_id, step_id)
-) STRICT;
-"#;
-
 impl Store {
     /// Write the baseline down, replacing one already kept for this step.
     pub fn keep_step_baseline(

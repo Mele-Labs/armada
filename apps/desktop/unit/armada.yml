@@ -1,0 +1,66 @@
+# Bridge's tests that read no surface: main, preload's shared types, the
+# renderer's own modules and the shared packages. Commands run here, in this
+# directory, and reach the parent's vitest with `--dir ..`.
+# `docs/concepts/manifest.md`, *Workspace gating*.
+#
+# **A manifest of its own because `depends_on` is a manifest's.** The parent's
+# lists every package, since its typecheck and build read every surface, and a
+# Check there cannot narrow it. These tests load `src/main`, `src/shared`,
+# the renderer's own modules and the shared packages, and a surface only as
+# types a bundler drops: measured by bundling each test file on 6 Oct 2026. A
+# surface change therefore does not hit this manifest, and `app_smoke` in the
+# parent covers what does read a surface. The directory holds only this file
+# and a `package.json`, which Scan finds a workspace by.
+version: 1
+id: armada-desktop-unit
+
+# Repo-relative. `src/renderer/src/mock/` is only `guides-met.ts`, the browser
+# preset's setup file; the rest of it is `app_smoke`'s. `api.ts` is the one file
+# of each surface that `src/shared/api` re-exports.
+depends_on:
+  - "apps/desktop/src/main/**"
+  - "apps/desktop/src/shared/**"
+  - "apps/desktop/src/renderer/src/*.ts"
+  - "apps/desktop/src/renderer/src/*.tsx"
+  - "apps/desktop/src/renderer/src/annotate/**"
+  - "apps/desktop/src/renderer/src/styles/**"
+  - "apps/desktop/src/renderer/src/mock/guides-met.ts"
+  - "apps/desktop/vitest.config.ts"
+  - "apps/desktop/vitest.browser.preset.ts"
+  - "apps/desktop/vitest.shard.ts"
+  - "apps/desktop/package.json"
+  - "packages/brand/**"
+  - "packages/components/**"
+  - "packages/protocol/**"
+  - "packages/screens/**"
+  - "packages/shell/**"
+  - "packages/tokens/**"
+  - "packages/surfaces/*/package.json"
+  - "packages/surfaces/*/src/api.ts"
+  - "crates/core-model/domain/**"
+  - "protocol-version.toml"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+    - browsers
+
+checks:
+  desktop_test:
+    # Main's own state machines in node, against a `ws` server on a loopback
+    # port — nothing else here runs main (#324) — and the renderer's own
+    # modules, five of them in Chromium.
+    run: pnpm --dir .. exec vitest run --maxWorkers=${width} --project desktop*
+    # No `runner:`. A Drone's narrowed run reads the paths this manifest owns,
+    # which are these two files, so it would never narrow; the files add up to 44
+    # seconds of test time, measured on CI on 6 Oct 2026.
+    #
+    # One test by name, as `app_smoke`'s `one_test` in the parent: #1203, and
+    # one worker for the reason given there.
+    one_test:
+      run: pnpm --dir .. exec vitest run --maxWorkers=1 --project desktop* -t {}
+    # Node processes against a real server: #1102.
+    places: 2

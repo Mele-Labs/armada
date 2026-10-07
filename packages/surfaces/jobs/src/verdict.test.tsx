@@ -1,0 +1,581 @@
+// The verdict sheet's own data, tested as the answer it is.
+//
+// **Three-way logic, so it is tested at three values.** `neverDelivers` and
+// `neverAsksAPerson` each answer `true`, `false` or `undefined`, and a case
+// that only checked the two-value shortcut would have missed the one the
+// wire actually calls "cannot say".
+
+import { describe, expect, it, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+import type {
+  Diff,
+  Evidence,
+  JobDetail as JobWhole,
+  JobSummary,
+  PullRequestDetail,
+  Remarks,
+  StepDetail,
+  Submitted,
+} from "@armada/protocol";
+import type { ActingAct } from "./pending";
+import { verdictSlotAtGate } from "./verdict";
+
+import { mount, rerender, unmount } from "@armada/screens/src/mounted";
+import {
+  cameBackOf,
+  checksLineOf,
+  currencyLineOf,
+  leftAloneOf,
+  neverAsksAPerson,
+  neverDelivers,
+  provesItNoteOf,
+  provesItOf,
+  proofOf,
+  pullRequestBlockOf,
+  risksOf,
+  tookOf,
+} from "./verdict";
+
+function job(over: Partial<JobSummary> = {}): JobSummary {
+  return {
+    id: "01M130Y1380016YK5S0JXBXDQ5",
+    handle: "12-a-job",
+    title: "Coalesce concurrent token refreshes",
+    status: "running",
+    workflow_id: "bug",
+    owner_manifest_id: "01M1CNPKTV0018H2M1CXDNBK06",
+    origin: "dispatched",
+    urgency: "normal",
+    atomic: false,
+    model: "sonnet",
+    created_at: "2026-09-09T09:00:00Z",
+    ...over,
+  };
+}
+
+function step(over: Partial<StepDetail> = {}): StepDetail {
+  return {
+    step_id: "land",
+    label: "Land",
+    ordinal: 3,
+    state: "awaiting_human",
+    check_runs: [],
+    overridden: false,
+    judged: [],
+    flagged: [],
+    attempts: [],
+    verdicts: [],
+    entered_at: "2026-09-09T09:30:00Z",
+    updated_at: "2026-09-09T09:41:00Z",
+    ...over,
+  };
+}
+
+/** A wall clock reading, for the one row that elapses while it runs. */
+const NOW = Date.parse("2026-09-09T09:45:00Z");
+
+describe("whether a workflow ever delivers", () => {
+  it("is true where every step says it does not deliver", () => {
+    expect(neverDelivers([step({ delivers: false }), step({ delivers: false })])).toBe(true);
+  });
+
+  it("is false where any step delivers", () => {
+    expect(neverDelivers([step({ delivers: false }), step({ delivers: true })])).toBe(false);
+  });
+
+  it("is undefined where a step cannot say and none delivers", () => {
+    expect(neverDelivers([step({ delivers: false }), step({ delivers: undefined })])).toBeUndefined();
+  });
+
+  it("is undefined on a Job with no steps", () => {
+    expect(neverDelivers([])).toBeUndefined();
+  });
+});
+
+describe("whether a workflow ever stops for a person", () => {
+  it("is false where any step gates on a person", () => {
+    expect(
+      neverAsksAPerson([step({ advance_gate: "auto" }), step({ advance_gate: "human_always" })]),
+    ).toBe(false);
+  });
+
+  it("is true where every step's gate is known and none is human", () => {
+    expect(
+      neverAsksAPerson([step({ advance_gate: "auto" }), step({ advance_gate: "auto_if_judge_passes" })]),
+    ).toBe(true);
+  });
+
+  it("is undefined where a step's gate cannot be said and none is human", () => {
+    expect(neverAsksAPerson([step({ advance_gate: "auto" }), step({ advance_gate: undefined })])).toBeUndefined();
+  });
+});
+
+describe("what proves it", () => {
+  it("surfaces a mechanical check with no declared counterpart", () => {
+    const rows = provesItOf(
+      step({ check_runs: [{ attempt: 1, name: "artifact_exists", outcome: "passed" }] }),
+      [],
+      NOW,
+    );
+    expect(rows[0]?.identifier).toBe("artifact_exists");
+    expect(rows[0]?.named).toBe("passed");
+  });
+
+  it("carries a declared Check and an undeclared one together", () => {
+    const rows = provesItOf(
+      step({
+        checks: [{ kind: "manifest_check", name: "build" }],
+        check_runs: [
+          { attempt: 1, name: "build", outcome: "passed" },
+          { attempt: 1, name: "artifact_exists", outcome: "passed" },
+        ],
+      }),
+      [],
+      NOW,
+    );
+    expect(rows.map((row) => row.identifier).sort()).toEqual(["artifact_exists", "build"]);
+  });
+
+  it("adds the 'nothing checked' row where the only tier is the deliverable's existence", () => {
+    const rows = provesItOf(
+      step({ check_runs: [{ attempt: 1, name: "artifact_exists", outcome: "passed" }] }),
+      [],
+      NOW,
+    );
+    const nothing = rows.find((row) => row.says === "Nothing checked what it says");
+    expect(nothing?.identifier).toBe("no Judge · no Checks");
+  });
+
+  it("does not add the row where a Judge is declared", () => {
+    const rows = provesItOf(
+      step({
+        check_runs: [{ attempt: 1, name: "artifact_exists", outcome: "passed" }],
+        judge_checks: [{ criteria: 1, gaming_check: false }],
+        judged: [{ attempt: 1, criterion_id: "c1", verdict: "met" }],
+      }),
+      [{ criterion_id: "c1", text: "The draft names a limit.", source: "brief" }],
+      NOW,
+    );
+    expect(rows.some((row) => row.says === "Nothing checked what it says")).toBe(false);
+  });
+
+  it("does not add the row where a real Check is declared beside artifact_exists", () => {
+    const rows = provesItOf(
+      step({
+        checks: [{ kind: "manifest_check", name: "build" }],
+        check_runs: [
+          { attempt: 1, name: "build", outcome: "passed" },
+          { attempt: 1, name: "artifact_exists", outcome: "passed" },
+        ],
+      }),
+      [],
+      NOW,
+    );
+    expect(rows.some((row) => row.says === "Nothing checked what it says")).toBe(false);
+  });
+
+  it("does not add the row where the step has no checks at all", () => {
+    const rows = provesItOf(step(), [], NOW);
+    expect(rows.some((row) => row.says === "Nothing checked what it says")).toBe(false);
+  });
+});
+
+describe("the line under the checklist", () => {
+  // The owner's Job 2, 2 Oct 2026: its delivering step said *Fleet cannot say
+  // what gates this step* over 21 Checks the steps before it had passed.
+  it("says nothing where the step has no Check of its own", () => {
+    expect(provesItNoteOf(step({ checks: undefined, judge_checks: undefined }), "reviewing")).toBeUndefined();
+  });
+
+  it("says the answer is the only verdict, at a gate with no Judge", () => {
+    expect(
+      provesItNoteOf(
+        step({ check_runs: [{ attempt: 1, name: "artifact_exists", outcome: "passed" }] }),
+        "reviewing",
+      ),
+    ).toMatch(/is the review/);
+  });
+
+  it("says nobody was asked, once the Job is over", () => {
+    expect(
+      provesItNoteOf(
+        step({ check_runs: [{ attempt: 1, name: "artifact_exists", outcome: "passed" }] }),
+        "finished",
+      ),
+    ).toMatch(/advanced on its own/);
+  });
+
+  it("says nothing where a Judge is declared", () => {
+    expect(
+      provesItNoteOf(step({ judge_checks: [{ criteria: 1, gaming_check: false }] }), "reviewing"),
+    ).toBeUndefined();
+  });
+});
+
+describe("what came back, and what it left alone", () => {
+  const claim: Submitted = {
+    step_id: "land",
+    evidence_type: "diff",
+    claimed: "The branch is pushed and the pull request is open.",
+    shown_by: "pull request #4711",
+    not_claimed: "Nothing about the after-merge Checks.",
+  };
+
+  it("reads the Drone's own claim", () => {
+    expect(cameBackOf(claim)).toBe(claim.claimed);
+  });
+
+  it("says a step has not submitted yet, where there is no claim", () => {
+    expect(cameBackOf(undefined)).toMatch(/has not submitted/);
+  });
+
+  it("reads not_claimed where the submission drew a boundary", () => {
+    expect(leftAloneOf(claim)).toBe(claim.not_claimed);
+  });
+
+  it("names the absence where the submission drew none", () => {
+    expect(leftAloneOf({ ...claim, not_claimed: undefined })).toMatch(/drew no boundary/);
+  });
+});
+
+/** A `whole` fixture carrying only the served review — the one field these two read. */
+function withReview(review: JobWhole["review"]): JobWhole {
+  return { review } as JobWhole;
+}
+
+describe("the served review — one builder, issue 665", () => {
+  it("reads the risks Fleet composed, without the paragraph it opens every one with", () => {
+    const whole = withReview({
+      why: "",
+      outcome: "",
+      risks:
+        "Every line below is something Fleet ran, not something the agent reported. What no\n" +
+        "Check covered is not covered here either.\n\n" +
+        "These acceptance criteria are not a Check:\n\n- The export works\n\n",
+      evidence: "",
+    });
+    expect(risksOf(whole)).toBe("These acceptance criteria are not a Check:\n\n- The export works");
+  });
+
+  it("is absent where the opening paragraph was all Fleet said", () => {
+    const whole = withReview({ why: "", outcome: "", risks: "Every line below is something Fleet ran.\n\n", evidence: "" });
+    expect(risksOf(whole)).toBeUndefined();
+  });
+
+  it("is absent where the review carries nothing to say", () => {
+    expect(risksOf(withReview(undefined))).toBeUndefined();
+  });
+});
+
+describe("what proves it, where the step carries an overruled verdict", () => {
+  function overriddenStep(): StepDetail {
+    return step({
+      overridden: true,
+      judge_checks: [{ criteria: 1, gaming_check: true }],
+      judged: [
+        { attempt: 1, criterion_id: "c1", verdict: "met" },
+        {
+          attempt: 1,
+          criterion_id: "c2",
+          verdict: "not_met",
+          expected: "The step should not touch crates/ipc/operations.toml.",
+        },
+      ],
+    });
+  }
+
+  it("draws the judge row overruled, naming the finding and the person's own words", () => {
+    const rows = provesItOf(overriddenStep(), [], NOW, undefined, "The note is correct and needed.");
+    const judge = rows.find((row) => row.named === "overruled");
+    expect(judge?.identifier).toMatch(/overruled by you$/);
+    expect(judge?.detail).toMatch(/The step should not touch crates\/ipc\/operations\.toml\./);
+    expect(judge?.detail).toMatch(/You: “The note is correct and needed\.”/);
+  });
+
+  it("draws the finding alone where the log kept no reason", () => {
+    const rows = provesItOf(overriddenStep(), [], NOW);
+    const judge = rows.find((row) => row.named === "overruled");
+    expect(judge?.detail).toBe("Not met: The step should not touch crates/ipc/operations.toml.");
+  });
+
+  it("draws the ordinary refused row where the step was not overridden", () => {
+    const rows = provesItOf({ ...overriddenStep(), overridden: false }, [], NOW);
+    expect(rows.some((row) => row.named === "overruled")).toBe(false);
+    expect(rows.some((row) => row.named === "refused")).toBe(true);
+  });
+});
+
+// `#663`: what the last attempt to keep a pull request's branch current
+// against a moved base says. Plain words, settled 2026-09-11: no commit id,
+// no "rebase", no "push", no "forge".
+describe("the currency line a moved base leaves", () => {
+  it("is undefined where the base has never moved", () => {
+    expect(currencyLineOf(undefined, NOW)).toBeUndefined();
+  });
+
+  it("says the branch is up to date, with a relative time in whole units, where it caught up cleanly", () => {
+    const said = currencyLineOf(
+      {
+        rebased_onto: "8c2ce681000000000000000000000000000000",
+        rebased_at: "2026-09-09T09:40:00Z",
+        conflict_files: [],
+      },
+      NOW,
+    );
+    expect(said?.conflicted).toBe(false);
+    expect(said?.said).toBe("Up to date with main, checked 5 minutes ago.");
+  });
+
+  it("says 'just now' rather than 'checked under a minute ago'", () => {
+    const said = currencyLineOf(
+      {
+        rebased_onto: "8c2ce681000000000000000000000000000000",
+        rebased_at: "2026-09-09T09:44:45Z",
+        conflict_files: [],
+      },
+      NOW,
+    );
+    expect(said?.said).toBe("Up to date with main, checked just now.");
+  });
+
+  it("says 'just now' rather than 'ago' where the timestamp will not parse", () => {
+    const said = currencyLineOf(
+      {
+        rebased_onto: "8c2ce681000000000000000000000000000000",
+        rebased_at: "not a date",
+        conflict_files: [],
+      },
+      NOW,
+    );
+    expect(said?.said).toBe("Up to date with main, checked just now.");
+  });
+
+  it("names the files and says the branch was left as it was where it clashed", () => {
+    const said = currencyLineOf(
+      {
+        rebased_onto: "8c2ce681000000000000000000000000000000",
+        rebased_at: "2026-09-09T09:40:00Z",
+        conflict_files: ["src/parse.rs", "src/lex.rs"],
+      },
+      NOW,
+    );
+    expect(said?.conflicted).toBe(true);
+    expect(said?.said).toBe(
+      "Main has changes that clash with this branch in src/parse.rs, src/lex.rs. Fleet left the branch as it was.",
+    );
+  });
+
+  it("is not conflicted where `conflict_files` is absent", () => {
+    const said = currencyLineOf(
+      {
+        rebased_onto: "8c2ce681000000000000000000000000000000",
+        rebased_at: "2026-09-09T09:40:00Z",
+      },
+      NOW,
+    );
+    expect(said?.conflicted).toBe(false);
+  });
+});
+
+// `#663`, `#1131`: the clash sentence still sits under the pull request
+// block, but nothing beside it is pressed any more — Fleet already sends a
+// Drone to clear it on its own, and this guards against the control coming
+// back.
+describe("the pull request block draws no resolve-conflicts control", () => {
+  const ADDRESS = "https://forge.example/armada/pull/533";
+  const now = Date.parse("2026-09-09T09:45:00Z");
+
+  function detail(currency: PullRequestDetail["currency"]): PullRequestDetail {
+    return { number: 533, reviews: [], currency };
+  }
+
+  test("the clash sentence shows, and no button beside it", async () => {
+    mount(
+      <>
+        {pullRequestBlockOf(
+          ADDRESS,
+          detail({
+            rebased_onto: "8c2ce681000000000000000000000000000000",
+            rebased_at: "2026-09-09T09:40:00Z",
+            conflict_files: ["src/parse.rs"],
+          }),
+          now,
+        )}
+      </>,
+    );
+    await expect
+      .element(page.getByText("Main has changes that clash with this branch in src/parse.rs."))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole("button", { name: "Resolve conflicts" }))
+      .not.toBeInTheDocument();
+    unmount();
+  });
+
+  test("is not offered where the branch is current", async () => {
+    mount(
+      <>
+        {pullRequestBlockOf(
+          ADDRESS,
+          detail({
+            rebased_onto: "8c2ce681000000000000000000000000000000",
+            rebased_at: "2026-09-09T09:40:00Z",
+          }),
+          now,
+        )}
+      </>,
+    );
+    await expect
+      .element(page.getByRole("button", { name: "Resolve conflicts" }))
+      .not.toBeInTheDocument();
+    unmount();
+  });
+
+  test("is not offered where the base has never moved", async () => {
+    mount(<>{pullRequestBlockOf(ADDRESS, detail(undefined), now)}</>);
+    await expect
+      .element(page.getByRole("button", { name: "Resolve conflicts" }))
+      .not.toBeInTheDocument();
+    unmount();
+  });
+});
+
+// #1117: `answerJudge` sends under `acting` — `answer_judge` is an
+// `ActingAct`, never a `DecidingAct` — so the question's own buttons have to
+// gate on `acting`, not `deciding`.
+describe("the judge question at the gate", () => {
+  const NO_DIFF: Diff = { state: "none" };
+  const NO_EVIDENCE: Evidence = { state: "none" };
+  const NO_REMARKS: Remarks = { state: "none" };
+
+  function openStep(): StepDetail {
+    return step({ step_id: "land" });
+  }
+
+  function whole(): JobWhole {
+    return {
+      job: job(),
+      created_at: "2026-09-14T08:00:00Z",
+      steps: [openStep()],
+      acceptance_criteria: [],
+      dependencies: [],
+      judge_question: {
+        step_id: "land",
+        criterion_id: "matches_brief",
+        question: "Does the fix address the cause the note names?",
+        expected: "The root cause is fixed.",
+        produced: "A symptom is patched.",
+        consequence: "The bug recurs under load.",
+        asked_at: "2026-09-14T08:55:00Z",
+      },
+    };
+  }
+
+  function slot(args: { acting: boolean; actingAct?: ActingAct; deciding?: boolean }) {
+    return (
+      <>
+        {verdictSlotAtGate({
+          job: job(),
+          whole: whole(),
+          open: openStep(),
+          render: "reviewing",
+          recorded: { diff: NO_DIFF, evidence: NO_EVIDENCE, remarks: NO_REMARKS },
+          opensRecords: { jobId: job().id, open: async () => ({ ok: true }), onSaid: () => {} },
+          now: NOW,
+          claimed: undefined,
+          onNeedMaterial: () => {},
+          onNeedRemarks: () => {},
+          stale: false,
+          acting: args.acting,
+          actingAct: args.actingAct,
+          deciding: args.deciding ?? false,
+          onMergePullRequest: () => {},
+          onApproveReview: () => {},
+          onRequestChanges: () => {},
+          onReject: () => {},
+          onTakeUpRemarks: () => {},
+          onOpenRemarkLink: () => {},
+          onOpenPullRequest: async () => ({ ok: true }),
+          onSaid: () => {},
+          onAnswerJudge: () => {},
+          // Read only where the step claimed a plan, which this one did not.
+          plan: {
+            job: job(),
+            whole: whole(),
+            floor: false,
+            view: "graph",
+            onView: () => {},
+            stale: false,
+            acting: args.acting,
+            deciding: args.deciding ?? false,
+            onApproveReview: () => {},
+            onAnswerJudge: () => {},
+            onRedirect: () => {},
+          },
+        })}
+      </>
+    );
+  }
+
+  test("a decision elsewhere at the gate leaves the answers live", async () => {
+    mount(slot({ acting: false, deciding: true }));
+    await expect
+      .element(page.getByRole("button", { name: "Disagree, just this step" }))
+      .toBeEnabled();
+    unmount();
+  });
+
+  test("the pressed answer waits while answer_judge is out, and the rest go off", async () => {
+    mount(slot({ acting: false }));
+    await userEvent.click(page.getByRole("button", { name: "Disagree, just this step" }));
+    rerender(slot({ acting: true, actingAct: "answer_judge" }));
+    const pressed = page.getByRole("button", { name: "Disagreeing, just this step…" });
+    await expect.element(pressed).toHaveAttribute("aria-busy", "true");
+    await expect
+      .element(page.getByRole("button", { name: "Agree with the refusal" }))
+      .toBeDisabled();
+    unmount();
+  });
+});
+
+describe("tookOf", () => {
+  const now = Date.parse("2026-09-09T09:05:00Z");
+
+  it("says nothing for a Job that has never run", () => {
+    expect(tookOf(job({ status: "awaiting_approval", started_at: undefined }), null, now)).toBeUndefined();
+  });
+
+  it("spans from started_at once the Job's first Drone has started", () => {
+    expect(tookOf(job({ status: "running", started_at: "2026-09-09T09:00:00Z" }), null, now)).toBe(
+      "5m 00s",
+    );
+  });
+});
+
+// The owner's Job 2, 2 Oct 2026: the delivering step a person reviews at ran
+// nothing of its own, so the record read one step and proved nothing.
+describe("what proves it reads the whole Job", () => {
+  const passed = (name: string) => ({ attempt: 1, name, outcome: "passed" as const });
+  const implement = () =>
+    step({ step_id: "implement", label: "Implement", ordinal: 1, check_runs: [passed("build"), passed("test")] });
+  const handoff = () => step({ step_id: "handoff", label: "Review the change", ordinal: 2 });
+
+  it("lists every step that measured something, in workflow order, and not the one that did not", () => {
+    const proof = proofOf([handoff(), implement()], handoff(), [], NOW);
+    expect(proof.map((one) => one.label)).toEqual(["Implement"]);
+  });
+
+  it("is empty where no step measured anything", () => {
+    expect(proofOf([handoff()], handoff(), [], NOW)).toEqual([]);
+  });
+
+  it("counts the Job's Checks for the pull request card, skips out of both figures", () => {
+    const tests = step({
+      step_id: "tests",
+      ordinal: 2,
+      check_runs: [passed("test"), { attempt: 1, name: "acceptance", outcome: "skipped" }],
+    });
+    expect(checksLineOf([implement(), tests, handoff()])).toBe("3/3 Checks passed");
+    expect(checksLineOf([handoff()])).toBeUndefined();
+  });
+});

@@ -3,7 +3,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { awaitingRepairChecksAgain } from "@armada/screens/src/fixtures/build/waiting";
+import { awaitingRepairChecksAgain } from "@armada/jobs/fixtures/build/waiting";
 
 export const s160ChecksAgain: Scenario = holding("repair/checks-again", awaitingRepairChecksAgain().name, [awaitingRepairChecksAgain()], {
   opens: awaitingRepairChecksAgain().job.id,

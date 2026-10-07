@@ -10,4 +10,14 @@ export * from "./testing";
 // Studios' mock fleet lives in `@armada/studios/fake`; its tests reach it, fixed to desktop's
 // state, through the harness.
 export * from "./studios-fake";
-export { sheet } from "./manifest-fleet";
+
+// Manifest's mock Fleet lives in `@armada/manifest/fake`; its tests reach it, fixed to desktop's
+// state, through the harness.
+export * from "./manifest-fake";
+
+// Setup's mock Fleet lives in `@armada/setup/fake`; its tests reach it, fixed to desktop's state,
+// through the harness.
+export * from "./setup-fake";
+// Both surfaces keep the same ended Verify sheet; the harness hands out Setup's.
+export { VERIFY_ENDED } from "./setup-fake";
+export * from "./scrolled";

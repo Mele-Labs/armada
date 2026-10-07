@@ -9,12 +9,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LeftOutWorkflow, ManifestReading, ManifestSummary, RepositorySummary } from "@armada/protocol";
 import { Button, Dialog, KbdBinding } from "@armada/components";
-import { AskRepository, DispatchJob } from "@armada/screens";
+import { AskRepository } from "@armada/screens";
+import { DispatchJob } from "@armada/jobs";
 import { Boundary } from "@armada/shell";
 
-import { dispatchSettingsOf } from "@armada/screens/src/draft/dispatch";
+import { dispatchSettingsOf } from "@armada/jobs/draft/dispatch";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
-import { landingRuleOf } from "@armada/screens/src/draft/landing";
+import { landingRuleOf } from "@armada/jobs/draft/landing";
 
 import type { BridgeState } from "../../shared/bridge";
 import { readComposing, searchFiles, stageAttachment, type useCommands } from "./commands";

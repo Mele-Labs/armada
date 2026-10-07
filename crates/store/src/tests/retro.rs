@@ -195,7 +195,7 @@ fn a_retro_that_could_not_be_written_is_not_owed_again() {
 fn a_job_that_ended_before_retros_existed_is_owed_none() {
     let dir = TempDir::new();
     let conn = Connection::open(dir.db()).expect("a file to put version 1 in");
-    conn.execute_batch(MIGRATIONS[0]).expect("version 1");
+    conn.execute_batch(MIGRATIONS[0].sql).expect("version 1");
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '1')",
         (SCHEMA_VERSION_KEY,),
@@ -302,7 +302,7 @@ fn an_item_kept_before_lands_in_reads_with_it_absent() {
     let dir = TempDir::new();
     let conn = Connection::open(dir.db()).expect("a file");
     for migration in &MIGRATIONS[..101] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute_batch(&format!(
         "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '101');

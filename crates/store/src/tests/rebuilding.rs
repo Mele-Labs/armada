@@ -27,7 +27,7 @@ use crate::{PortClaim, PortClaimant, Store, KNOWN_SCHEMA_VERSION};
 fn version_forty_nine(dir: &TempDir, job: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 49 in");
     for migration in &MIGRATIONS[..49] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '49')",

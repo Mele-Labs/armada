@@ -128,3 +128,13 @@ fn a_surface_imports_bridge_api() {
 fn surfaces_on_disk_is_empty_without_the_directory() {
     assert!(surfaces_on_disk(Path::new("/nonexistent-armada-root")).is_empty());
 }
+
+#[test]
+fn both_draft_directories_are_kept_out_of_the_main_process() {
+    assert!(reaches_the_drafts("@armada/screens/src/draft/sketch"));
+    assert!(reaches_the_drafts("@armada/jobs/draft/landing"));
+    assert!(reaches_the_drafts(
+        "../../../packages/surfaces/jobs/src/draft/wave"
+    ));
+    assert!(!reaches_the_drafts("@armada/jobs"));
+}

@@ -1,0 +1,492 @@
+// Merging asks first, and the other three answers still do not.
+//
+// # Why this is a browser test and not a story
+//
+// The dialog is wired here, in a screen. `xtask/src/rules_layers.rs` puts
+// `@armada/components` below `@armada/screens` and refuses the import the other
+// way, so no story can mount `Decide` — a story on `Primitives/Dialog` proves
+// what the layer does with focus and `Enter`, and this proves this screen puts
+// a merge behind it.
+//
+// # What is actually at risk
+//
+// Merging is the one act in Armada that writes into a repository Fleet did not
+// make, and nothing in Bridge takes it back. The failure to catch is not a
+// double press — `deciding` blocks that and always did — but a first press that
+// lands the work without anybody meaning it. So every assertion here is about
+// what did **not** happen: `onMerge` uncalled after the press, uncalled after
+// `Enter`, uncalled after `Esc`, and called exactly once after the deliberate
+// move to the other control.
+//
+// The three answers beside it are asserted for the same reason in reverse. A
+// change that put every answer behind a dialog would pass every test above and
+// be the gate in the wrong place, which is the thing the issue that asked for
+// this one warned against.
+
+import { afterEach, describe, expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+
+import type { Evidence, JobSummary, Remarks } from "@armada/protocol";
+import { Decide } from "./Decide";
+import { mount, rerender, unmount } from "@armada/screens/src/mounted";
+
+afterEach(unmount);
+
+/** A job holding an open pull request, waiting for somebody at the gate. */
+const JOB: JobSummary = {
+  id: "01M130Y1380016YK5S0JXBXDQ5",
+  handle: "12-a-job",
+  title: "Coalesce concurrent token refreshes",
+  status: "awaiting_review",
+  workflow_id: "bug",
+  owner_manifest_id: "01M1CNPKTV0018H2M1CXDNBK06",
+  origin: "dispatched",
+  urgency: "normal",
+  atomic: false,
+  model: "sonnet",
+  created_at: "2026-08-31T09:00:00Z",
+  branch: "armada/01M130Y1380016YK5S0JXBXDQ5",
+};
+
+/** Nothing read yet. The decision does not depend on either read arriving. */
+const NO_EVIDENCE: Evidence = { state: "none" };
+/**
+ * The pull request's comments, unread. **`none` and not an empty answer**: what
+ * is under test here is the four decisions, and a reading that arrived would
+ * put a second set of controls on the surface for no reason. The sentence a
+ * pending read draws is the one this leaves on screen.
+ */
+const NO_REMARKS: Remarks = { state: "none" };
+
+/** What each answer was told, in the order it was told. */
+type Sent = { merged: string[]; approved: string[]; changes: string[]; rejected: string[] };
+
+/** The gate, with a pull request to merge, and a record of what it sent. */
+function gate(): Sent {
+  const sent: Sent = { merged: [], approved: [], changes: [], rejected: [] };
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={NO_REMARKS}
+      stale={false}
+      deciding={false}
+      pullRequest="https://git.example/armada/armada/pull/533"
+      onMerge={(jobId) => sent.merged.push(jobId)}
+      onApprove={(jobId) => sent.approved.push(jobId)}
+      onRequestChanges={(jobId) => sent.changes.push(jobId)}
+      onReject={(jobId) => sent.rejected.push(jobId)}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />,
+  );
+  return sent;
+}
+
+/**
+ * The confirm control, scoped to the dialog.
+ *
+ * **The opener and the confirm carry the same words on purpose** — the design
+ * contract says an act keeps its name through the flow — so a query by name
+ * alone finds two buttons.
+ */
+function confirmMerge() {
+  return page.getByRole("dialog").getByRole("button", { name: "Merge pull request" });
+}
+
+/**
+ * Approve and Reject sit behind a caret each — the owner's arrangement of
+ * 30 Sep 2026 — so reaching either is two presses rather than one.
+ */
+async function chooseBehindCaret(caret: string, act: string): Promise<void> {
+  await userEvent.click(page.getByRole("button", { name: caret }));
+  await userEvent.click(page.getByRole("menuitem", { name: act }));
+}
+
+const TAKE_WORK = "The other way to take this work";
+const END_REVIEW = "The other way to end this review";
+
+test("pressing merge asks rather than merging", async () => {
+  const sent = gate();
+
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
+
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  expect(sent.merged, "the press merged").toEqual([]);
+});
+
+test("Enter cancels the merge, because Cancel is what holds focus", async () => {
+  const sent = gate();
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
+
+  // The contract's rule, run rather than described: `Enter` fires whatever
+  // holds focus, and on a plain confirmation that is Cancel.
+  const cancel = page.getByRole("dialog").getByRole("button", { name: "Cancel" });
+  await expect.element(cancel).toHaveFocus();
+
+  await userEvent.keyboard("{Enter}");
+
+  expect(sent.merged, "Enter merged past the focused Cancel").toEqual([]);
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("Esc cancels the merge too", async () => {
+  const sent = gate();
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
+
+  await userEvent.keyboard("{Escape}");
+
+  expect(sent.merged, "Esc merged").toEqual([]);
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("confirming merges once, and names the job it was asked about", async () => {
+  const sent = gate();
+  await userEvent.click(page.getByRole("button", { name: "Merge pull request" }));
+
+  // **The half that keeps the three above honest.** A dialog that refused every
+  // press would pass all of them, and a refusal is only correct if the
+  // deliberate move to the other control still lands the work.
+  await userEvent.click(confirmMerge());
+
+  expect(sent.merged).toEqual([JOB.id]);
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("approve and request changes send on the press, with no dialog", async () => {
+  const sent = gate();
+
+  await chooseBehindCaret(TAKE_WORK, "Approve the work");
+  expect(sent.approved).toEqual([JOB.id]);
+
+  // Requesting changes is refused while the note is blank, which is what Fleet
+  // would answer — so it is written before it is pressed.
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "Notes" }),
+    "The gate arm is missing from config's loader.",
+  );
+  await userEvent.click(page.getByRole("button", { name: "Request changes" }));
+  expect(sent.changes).toEqual([JOB.id]);
+
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("Approve's tooltip says the pull request stays open, with one open", async () => {
+  gate();
+
+  // Behind the caret, and the sentence went with the act: it is the only place
+  // left on the surface where what Approve costs can be read.
+  await userEvent.click(page.getByRole("button", { name: TAKE_WORK }));
+  await userEvent.hover(page.getByRole("menuitem", { name: "Approve the work" }));
+
+  await expect
+    .element(page.getByText("Takes the work without merging — the pull request stays open."))
+    .toBeVisible();
+});
+
+/**
+ * `#661`: `job.remarks_changed` re-reads the comments and this screen is
+ * handed the fresh list as an ordinary prop change — the same one Refresh and
+ * a reconnection already produce. What must not happen is what a naive
+ * refresh does everywhere else: replace the block and lose what a person was
+ * doing in it.
+ *
+ * **`#667`'s 20 s timer lands the same way.** `remarks-poll.ts` calls the
+ * same `remarksChanged` route `job.remarks_changed` does, so a fresh reading
+ * this screen receives is indistinguishable from the one this test sends —
+ * proving one proves both.
+ */
+test("a fresh remarks reading keeps a picked comment and a typed note", async () => {
+  const address = "https://forge.example/armada/pull/533";
+  const firstRead: Remarks = {
+    state: "read",
+    jobId: JOB.id,
+    review: {
+      job_id: JOB.id,
+      pull_request: address,
+      remarks: [
+        {
+          id: "IC_1",
+          by: "alice",
+          at: "2026-08-31T09:05:00Z",
+          said: "rename the flag",
+          taken_up: false,
+        },
+      ],
+    },
+  };
+  const screen = (remarks: Remarks) => (
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={remarks}
+      stale={false}
+      deciding={false}
+      pullRequest={address}
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={() => {}}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />
+  );
+  mount(screen(firstRead));
+
+  await userEvent.click(page.getByRole("checkbox", { name: "Act on this" }));
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "Notes" }),
+    "The gate arm is missing from config's loader.",
+  );
+
+  // The sweep found the pull request had a second comment since the last
+  // read, and `review.ts` asked for the comments again — the same `remarks`
+  // prop `onNeedRemarks` fills on open, arriving a second time.
+  const secondRead: Remarks = {
+    ...firstRead,
+    review: {
+      ...firstRead.review,
+      remarks: [
+        ...firstRead.review.remarks,
+        { id: "IC_2", by: "bob", at: "2026-08-31T09:10:00Z", said: "and this too", taken_up: false },
+      ],
+    },
+  };
+  rerender(screen(secondRead));
+
+  const boxes = page.getByRole("checkbox", { name: "Act on this" });
+  await expect.element(boxes.nth(1)).toBeInTheDocument();
+  await expect.element(boxes.nth(0)).toBeChecked();
+  await expect.element(boxes.nth(1)).not.toBeChecked();
+  await expect
+    .element(page.getByRole("textbox", { name: "Notes" }))
+    .toHaveValue("The gate arm is missing from config's loader.");
+});
+
+test("reject still asks, and merging is not what it asks about", async () => {
+  const sent = gate();
+
+  await chooseBehindCaret(END_REVIEW, "Reject the work");
+
+  // One question at a time: the two confirmations share a state, and a shape
+  // that let both stand would put two layers over one gate.
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  await expect.element(confirmMerge()).not.toBeInTheDocument();
+  expect(sent.rejected, "the press rejected").toEqual([]);
+
+  await userEvent.click(page.getByRole("dialog").getByRole("button", { name: "Reject the work" }));
+  expect(sent.rejected).toEqual([JOB.id]);
+});
+
+/**
+ * `take_up_remarks` is its own `DecidingAct`, #1117 — so the comments block
+ * marks its own button pending instead of reading `IN_FLIGHT` and greying
+ * every control at the gate for whichever act is out. A different act at
+ * the gate still turns the block off, with no mark: nothing here was
+ * pressed.
+ */
+describe("the comments block's own wait", () => {
+  const address = "https://forge.example/armada/pull/533";
+  const read: Remarks = {
+    state: "read",
+    jobId: JOB.id,
+    review: {
+      job_id: JOB.id,
+      pull_request: address,
+      remarks: [
+        { id: "IC_1", by: "alice", at: "2026-08-31T09:05:00Z", said: "rename the flag", taken_up: false },
+      ],
+    },
+  };
+  const screen = (deciding: boolean, decidingAct?: "take_up_remarks" | "approve") => (
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={read}
+      stale={false}
+      deciding={deciding}
+      decidingAct={decidingAct}
+      pullRequest={address}
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={() => {}}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />
+  );
+
+  test("sending to a drone waits on its own button once pressed", async () => {
+    mount(screen(false));
+    await userEvent.click(page.getByRole("checkbox", { name: "Act on this" }));
+    await userEvent.click(page.getByRole("button", { name: "Send to a drone" }));
+    rerender(screen(true, "take_up_remarks"));
+    const button = page.getByRole("button", { name: "Sending to a drone…" });
+    await expect.element(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  test("a different act at the gate disables the block with no mark", async () => {
+    mount(screen(true, "approve"));
+    const box = page.getByRole("checkbox", { name: "Act on this" });
+    await expect.element(box).toBeDisabled();
+    await expect.element(page.getByRole("button", { name: "Send to a drone" })).toBeDisabled();
+  });
+});
+
+test("a conversation comment an older Fleet sent with null fields still renders", async () => {
+  // A Fleet built before protocol 10.8's fix sent an empty `inline` and `url`
+  // as `null`. Passed through as a code block, `null.path` took down the whole
+  // comments region on the first conversation comment anybody left.
+  const remarks: Remarks = {
+    state: "read",
+    jobId: JOB.id,
+    review: {
+      job_id: JOB.id,
+      pull_request: "https://forge.example/armada/pull/533",
+      remarks: [
+        {
+          id: "IC_conversation",
+          by: "a-reviewer",
+          at: "2026-09-11T18:55:54Z",
+          said: "The branch has merge conflicts, please resolve them",
+          taken_up: false,
+          url: null,
+          inline: null,
+        },
+      ],
+    },
+  };
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={remarks}
+      stale={false}
+      deciding={false}
+      pullRequest="https://forge.example/armada/pull/533"
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={() => {}}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />,
+  );
+  await expect
+    .element(page.getByText("The branch has merge conflicts, please resolve them"))
+    .toBeVisible();
+});
+
+// `#663`, `#1131`: Fleet clears a conflict on its own now, so there is no
+// press anywhere for `Decide` to draw — it never has, and this stays a guard
+// against the control coming back.
+test("Decide itself never draws Resolve conflicts", async () => {
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={NO_REMARKS}
+      stale={false}
+      deciding={false}
+      pullRequest="https://forge.example/armada/pull/533"
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={() => {}}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />,
+  );
+  await expect
+    .element(page.getByRole("button", { name: "Resolve conflicts" }))
+    .not.toBeInTheDocument();
+});
+
+// `#663`: someone reading the conflict screen would press the biggest button
+// first. Merge must not be it, and it must not fail on the press either — it
+// stays visible, off, with the reason named beside it.
+test("merge is drawn and disabled while the branch conflicts, and the other three still work", async () => {
+  const approved: string[] = [];
+  const changed: string[] = [];
+  const rejected: string[] = [];
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={NO_REMARKS}
+      stale={false}
+      deciding={false}
+      pullRequest="https://forge.example/armada/pull/533"
+      onMerge={() => {}}
+      conflicted={true}
+      onApprove={(jobId) => approved.push(jobId)}
+      onRequestChanges={(jobId) => changed.push(jobId)}
+      onReject={(jobId) => rejected.push(jobId)}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />,
+  );
+
+  const merge = page.getByRole("button", { name: "Merge pull request" });
+  await expect.element(merge).toBeDisabled();
+  await expect
+    .element(page.getByText("This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."))
+    .toBeVisible();
+
+  // The dead face's own caret still opens, which is what keeps Approve
+  // reachable on the one screen a person most wants it from.
+  await chooseBehindCaret(TAKE_WORK, "Approve the work");
+  expect(approved).toEqual([JOB.id]);
+
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "Notes" }),
+    "Rebase and drop the stray import.",
+  );
+  await userEvent.click(page.getByRole("button", { name: "Request changes" }));
+  expect(changed).toEqual([JOB.id]);
+
+  await chooseBehindCaret(END_REVIEW, "Reject the work");
+
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  await userEvent.click(page.getByRole("dialog").getByRole("button", { name: "Reject the work" }));
+  expect(rejected).toEqual([JOB.id]);
+});
+
+test("merge is the primary act again once the branch is no longer conflicted", async () => {
+  mount(
+    <Decide
+      onNeedMaterial={() => {}}
+      onNeedRemarks={() => {}}
+      job={JOB}
+      evidence={NO_EVIDENCE}
+      remarks={NO_REMARKS}
+      stale={false}
+      deciding={false}
+      pullRequest="https://forge.example/armada/pull/533"
+      onMerge={() => {}}
+      onApprove={() => {}}
+      onRequestChanges={() => {}}
+      onReject={() => {}}
+      onTakeUpRemarks={() => {}}
+      onOpenRemarkLink={() => {}}
+    />,
+  );
+  await expect
+    .element(page.getByRole("button", { name: "Merge pull request" }))
+    .not.toBeDisabled();
+  await expect
+    .element(page.getByText("This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."))
+    .not.toBeInTheDocument();
+});

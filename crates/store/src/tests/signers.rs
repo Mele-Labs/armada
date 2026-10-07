@@ -77,7 +77,7 @@ fn a_plan_v89_wrote_survives_and_the_two_states_are_admitted() {
     let dir = TempDir::new();
     let conn = Connection::open(dir.db()).expect("a file");
     for migration in &MIGRATIONS[..BEFORE_THE_SIGNERS as usize] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute_batch(&format!(
         "INSERT INTO armada_meta (key, value) VALUES ('{SCHEMA_VERSION_KEY}', '89');

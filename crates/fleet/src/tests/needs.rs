@@ -27,6 +27,8 @@ use crate::tests::tmp::TempDir;
 use testkit::FakeWorkProduct;
 
 const PATH: &str = "crates/store/src/migrations.rs";
+/// The path the merge act watches for an undeclared number.
+const WATCHED: &str = "protocol-version.toml";
 
 fn git(repo: &std::path::Path, args: &[&str]) {
     let run = Command::new("git")
@@ -57,6 +59,9 @@ fn holding_on(home: &TempDir, merge_by: &str, base_known: bool) -> Fixture {
     );
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     if base_known {
+        std::fs::write(home.path().join(WATCHED), "major = 23\nminor = 36\n").expect("file");
+        git(home.path(), &["add", "."]);
+        git(home.path(), &["commit", "-m", "protocol", "--quiet"]);
         let sha = Command::new("git")
             .arg("-C")
             .arg(home.path())
@@ -265,43 +270,44 @@ async fn a_job_and_a_session_stand_in_one_order() {
         .expect("nothing is ahead");
 }
 
-/// The same rule `armada land` holds a session to: a Job whose branch appends a
-/// migration with no need declared is refused at its merge, naming what to run,
-/// and lands once it has declared.
+/// The same rule `armada land` holds a session to: a Job whose branch moves the
+/// protocol minor with no need declared is refused at its merge, naming what to
+/// run, and lands once it has declared.
 #[tokio::test]
-async fn a_job_that_took_a_migration_undeclared_is_refused() {
+async fn a_job_that_took_a_minor_undeclared_is_refused() {
     let home = TempDir::new();
     let fleet = holding_on(&home, "forge", true);
     let (job, branch) = at_the_gate(&fleet, &home).await;
-    let file = home.path().join(PATH);
-    std::fs::create_dir_all(file.parent().expect("a parent")).expect("dirs");
-    std::fs::write(&file, "pub const MIGRATIONS: &[&str] = &[\n    V1,\n];\n").expect("file");
-    git(home.path(), &["add", "."]);
-    git(home.path(), &["commit", "-m", "base", "--quiet"]);
+    let file = home.path().join(WATCHED);
     git(home.path(), &["branch", "-f", &branch]);
     git(home.path(), &["checkout", "--quiet", &branch]);
-    std::fs::write(
-        &file,
-        "pub const MIGRATIONS: &[&str] = &[\n    V1,\n    V2,\n];\n",
-    )
-    .expect("file");
-    git(home.path(), &["commit", "-am", "a migration", "--quiet"]);
+    std::fs::write(&file, "major = 23\nminor = 37\n").expect("file");
+    git(home.path(), &["commit", "-am", "a minor", "--quiet"]);
     // `main` must be the fork: put it back where the branch left it.
     git(home.path(), &["checkout", "--quiet", "main"]);
 
     let held = fleet
         .merge_pull_request(&job)
         .await
-        .expect_err("a number taken with no need");
+        .expect_err("a minor taken with no need");
     let (code, said) = refused(&fleet, held);
     assert_eq!(code, "fleet.merge_waiting_behind");
     assert!(
-        said.contains(&format!("armada need {PATH} \"a new migration\"")),
+        said.contains(&format!("armada need {WATCHED} \"a minor\"")),
         "{said}"
     );
     assert_eq!(fleet.vcs().times_asked_to_merge(), 0);
 
-    fleet.needs_declared(&job, &migration(Some("V2"))).await;
+    fleet
+        .needs_declared(
+            &job,
+            &[NeedClaim {
+                path: WATCHED.to_string(),
+                what: "a minor".to_string(),
+                took: Some("23.37".to_string()),
+            }],
+        )
+        .await;
     fleet.vcs().now_landed(Landing::Merged {
         url: String::from(crate::tests::merging::PULL_REQUEST),
     });

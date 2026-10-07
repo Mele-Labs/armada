@@ -11,6 +11,8 @@ import { page, userEvent } from "vitest/browser";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { mountApp, type Mounted, studying, entered, openHelm, whenFleet } from "@armada/desktop/mock";
+
+const SLICES = { slices: ["core", "studios"] } as const;
 import { everyKind } from "./fake";
 
 const windows: { app: Mounted; host: HTMLElement }[] = [];
@@ -20,7 +22,7 @@ function open(scenario: Parameters<typeof mountApp>[0], shared?: Mounted["api"])
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  const app = mountApp(scenario, host, shared);
+  const app = mountApp(scenario, host, shared, SLICES);
   windows.push({ app, host });
   return app;
 }

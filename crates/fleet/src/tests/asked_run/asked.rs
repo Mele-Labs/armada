@@ -182,11 +182,11 @@ async fn a_run_whose_task_died_is_closed_as_lost() {
     started(&fleet, &home).await;
     let (job, _) = the_one_drone(&fleet).await.expect("a Drone at work");
 
+    clock.doom_the_run_spawned_next();
     let running = fleet
         .run_checks(&job, ChecksAsk::everything(false))
         .await
         .expect("the run starts");
-    clock.doom_next_reading();
     let _ = running.finished().await;
 
     let rows = kept(&fleet, &job).await;

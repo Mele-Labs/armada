@@ -1124,7 +1124,9 @@ A reading of files another process writes. `armada land` keeps its queue and eac
 
 **Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.40).
 
-A repository nobody has run `armada land` in is left out rather than listed empty. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
+**Each line carries a `hub` since 23.41**: Fleet's own reading of the forge, which is not a file another process writes. `hub.main` is where main's newest commit stands (`green`, `red`, `running`, `nothing_ran`), and for a red each failed CI job with the Manifest Check it maps to (absent is ordinary), its log address and the tests its log names (absent where none could be read), and the pull request that merged it with the Job of ours that opened it. `hub.pull_requests` is every open pull request with its `ci` (`passed`, `running`, `failed`, or `waiting_on_main` where it failed only on the jobs main is failing, `ci` absent where nothing ran). `hub.fixing` is the Job working on main's red and is never set yet. A red stays `red` while a fix is still running, until a commit passes everything.
+
+A repository nobody has run `armada land` in is left out rather than listed empty **unless Fleet has read its forge**, when it is listed with an empty line and its hub. A Fleet before 23.41 sends no `hub`, and a Bridge before it draws the empty line. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
 `agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
 """
@@ -1142,6 +1144,8 @@ notes = """
 **The three names are the whole request, and no path is taken.** `root` must be a root this Fleet serves; the branch's outcome names its turn, as the directory its `logs` sit in, and the Checks that turn has started. `check` must be one path component and one of those, not `waiting`. The turn must resolve to exactly `logs/<entry>/<turn>` under this line's own `armada-land/` once links are followed, and a link where the log goes is refused, and read as unreadable if one is planted after. Anything else is one 422, `fleet.unacceptable_proposal`, before the socket opens: Fleet opens nothing it did not find this way.
 
 `get_merge_lines` still keeps the outcome's `logs` off the wire, and so does this: the opening carries the three names and no path.
+
+**The branch `main` names main's own run** (since 23.41), and `check` is a failed job's Check or its own name from `hub.main.failed`. Fleet asks the forge for that job's log now, bounded to its end, and serves it the way a finished Check's is: opened, sent whole, closed `finished`. It is refused with the same 422 unless main is red for that job, so a log is never served for a job that passed.
 
 `agent_access` is `No` for `get_merge_lines`' reason.
 """
@@ -2587,7 +2591,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person overrules the machine that stopped a step and the step advances, keeping what was ruled on the record"
 notes = """
-The fifth act that reaches an escalated Job, and the only one that lets the work
+The fifth act that reaches an escalated Job — and, since 2026-10-06, a Job held at `awaiting_repair` — and the only one that lets the work
 already done stand. `docs/concepts/job.md` has the other four and none of them is
 this: `approve_review` refuses anywhere but `awaiting_review` and a Job a gate
 refused is `escalated`; `restart_step` re-runs the step, which throws away
@@ -2612,11 +2616,19 @@ verdict exists — and the owner decided on 2026-10-05 that a person must be abl
 move a step the machine could not read: an engineer who deems the step did what it
 needs can advance it, and the record keeps `failed(gate_undecided)` beside
 `advanced`. That one takes no reason, as a gaming flag takes none, because there is
-no Judge opinion to learn from. The mechanical tier is unreachable by the check, and `build` failing is not a matter
-of opinion. It stopped being unreachable *by construction* when #208 landed: a
-Job whose gate-failure attempts are spent now holds at `awaiting_repair` with a
-stopped step, which is a step an act could land on. The refusal is the check
-alone now, and it is the check that has to hold.
+no Judge opinion to learn from. **A failed Check is overruled too, once its retries are spent** (owner, 2026-10-06:
+"I should be able to override things like this, not just judge checks. If I know
+the job has the work completed and it should move on I should be able to move it
+forward."). Any Check, `build` and `test` included. This reverses the position
+this row held since #208, that a failed Check is not a matter of opinion. The Job
+holds at `awaiting_repair` with a step stopped on `gate_failure`, the trigger a
+Judge refusal writes too, and the act lands there as it does beneath `escalated`:
+the step `stopped -> advanced`, the Job `awaiting_repair -> queued`, or finished
+where the step was the last. Nothing reads the Check runs and none is rewritten;
+`last_verdict` stays `failed(gate_failure)` and the Check's own failed run stays
+on the step. The body is still `{reason}` and the reason is still required,
+since the trigger is `gate_failure`. The closed `claim` set belongs to
+`file_report` and this act carries none.
 
 **Recorded as an override and never as a pass.** The step move is `stopped ->
 advanced` carrying the trigger it overruled, with the person as the actor, so
@@ -2643,7 +2655,7 @@ overruled step was the workflow's last, the work is committed, delivered and the
 Job recorded `completed_success`, exactly as `approve_review` ends one.
 
 **It asks for the next step's Drone rather than starting one.** The Job takes
-`escalated -> queued` and admission spawns when `settings.concurrency-cap` has
+`escalated -> queued` (`awaiting_repair -> queued` over a failed Check) and admission spawns when `settings.concurrency-cap` has
 room — the same edge `restart_step` takes and for the same reason: the cap
 bounds Drones, and an act that spawned for itself would let a person push Fleet
 past it. **It is never refused because the cap is spent.** The person's verdict
@@ -3470,6 +3482,8 @@ notes = """
 Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
 
 **Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
+
+**The hub moves it too**: the same loop folds `hub` onto every line before comparing, so main going red or green, or a pull request opening, publishes within two seconds with no second publisher to disagree with this one. Fleet reads the forge once a sweep interval for one repository at a time, and this loop only reads what that kept.
 
 Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """

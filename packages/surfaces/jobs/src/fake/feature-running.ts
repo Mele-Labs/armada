@@ -1,0 +1,82 @@
+// A feature Job past its gate and mid-Implement, for the running-Job canvas
+// (prototype, 4 Oct 2026): `featureRunInGroups`' plan, Fleet's groups as it
+// serves them since 23.4, the first two passed with their commits and the
+// third running its first try — so the canvas draws where the Job is, and
+// Groups filled in with the plan's own.
+
+import type { PlanGroup, PlanTask, StepDetail } from "@armada/protocol";
+import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
+
+import { featureRunInGroups } from "./job-groups-fixture";
+
+export function featureRunning(): JobFixture {
+  const base = featureRunInGroups();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const plan = whole.work_plan!;
+  // G3 on its first run, nothing back yet; T4 being worked.
+  const more: Record<string, string[]> = { G2: ["T5"], G3: ["T6", "T7"] };
+  const groups: PlanGroup[] = (plan.groups ?? []).map((group) => {
+    if (more[group.id] !== undefined) group = { ...group, tasks: [...group.tasks, ...more[group.id]!] };
+    if (group.id !== "G3") return group;
+    const { ended_at: _ended, ...rest } = group;
+    return { ...rest, state: "running", attempts: (group.attempts ?? []).slice(0, 1).map(({ verdict: _v, ended_at: _e, ...one }) => one) };
+  });
+  // A second task on Group 2 (done) and two on Group 3 (not started): chains and a parallel wave.
+  const added: PlanTask[] = [
+    { id: "T5", title: "Show a group's attempts on its panel", scope: ["packages/surfaces/jobs/src/plan-review.tsx"], state: "done", group: "G2" },
+    { id: "T6", title: "Draw tasks under their group", scope: ["packages/surfaces/jobs/src/approval-layout.ts"], state: "open", group: "G3", concurrent_with: ["T7"] },
+    { id: "T7", title: "Walk the canvas with a task open", scope: ["apps/desktop/src/renderer/src/mock/walks"], state: "open", group: "G3", concurrent_with: ["T6"] },
+  ];
+  // T1 and T2 may run at once, as may T6 and T7 (after T4): a wave of two beside plain chains.
+  const parallel: Record<string, string[]> = { T1: ["T2"], T2: ["T1"] };
+  const tasks = [...plan.tasks, ...added].map((task) => {
+    if (parallel[task.id] !== undefined) task = { ...task, concurrent_with: parallel[task.id]! };
+    if (task.id !== "T4") return task;
+    const { failed_reason: _reason, ...rest } = task;
+    return { ...rest, state: "working" as const };
+  });
+  const steps: StepDetail[] = whole.steps.map((step) => {
+    if (step.step_id !== "implement") return step;
+    const { last_verdict: _verdict, ...rest } = step;
+    return {
+      ...rest,
+      // `feature.json` declares a Drone per task here, as Fleet serves it since 23.1.
+      drone_per_task: true,
+      state: "running",
+      attempts: step.attempts.slice(0, 1).map(({ why: _w, ended_at: _e, ...one }) => ({ ...one, outcome: "running" })),
+      check_runs: (step.check_runs ?? []).filter((run) => run.group !== "G3"),
+    };
+  });
+  const job = {
+    ...base.job,
+    status: "running",
+    tasks: { done: 4, working: 1, open: 2, dropped: 0, failed: 0 },
+  };
+  return {
+    ...base,
+    // The repository's branches, so where it lands is picked from them.
+    branches: {
+      branches: [
+        { name: "main", base: false },
+        { name: "release/2026-10", base: false },
+        { name: "armada/1-draw-the-plans-groups", base: false },
+      ],
+    },
+    name: "running — a feature Job mid-Implement, its canvas marked with where it is",
+    job,
+    // Approved before it ran, as Fleet stamps it since 23.8.
+    watched: {
+      ...base.watched,
+      // Approved, then a person moved the model on since: the later steps run on opus.
+      detail: {
+        ...whole,
+        job,
+        steps,
+        work_plan: { ...plan, tasks, groups },
+        approved_at: "2026-10-02T13:58:00.000Z",
+        model_override: "opus",
+      },
+    },
+  };
+}

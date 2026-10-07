@@ -2,9 +2,10 @@
 //! CI ran on that commit, a failed job's log, and the pull request that merged
 //! it. `docs/concepts/fleet.md`, *What Fleet knows about main's CI*.
 //!
-//! **Four small asks, never one big one**, so Fleet pays for each only when it
+//! **Five small asks, never one big one**, so Fleet pays for each only when it
 //! needs it: the head is a ref lookup, the runs are asked once the head moves,
 //! a log is asked for a failed job only, and the pull request only for a red.
+//! The open pull requests are one listing, whatever their number.
 //!
 //! **No parse**, `crate::under_review`'s way: `--jq` reduces to `@tsv` and the
 //! vendor's words (`success`, `timed_out`, ...) stop in [`state_of`].
@@ -12,7 +13,7 @@
 use std::io::Read;
 use std::process::{Command, Stdio};
 
-use adapter_traits::{CiRun, CiRuns, CiState, FromOutside, MergedPull};
+use adapter_traits::{CiRun, CiRuns, CiState, FromOutside, MergedPull, OpenPull, OpenPulls};
 
 use crate::delivery::{run_in, FORGE};
 use crate::under_review::as_written;
@@ -197,6 +198,93 @@ pub(crate) fn named_in(subject: &str) -> Option<MergedPull> {
     })
 }
 
+/// `gh`'s listing: each pull request's checks ride on it as `name US status US
+/// conclusion`, joined by `RS`. A status context has no `name`, `status` or
+/// `conclusion`, so its `context` and `state` stand in.
+const OPEN_PULLS: &str = "\
+    .[] | [(.number | tostring), (.title // \"\"), (.headRefName // \"\"), (.url // \"\"), \
+    (.author.login // \"\"), \
+    ([.statusCheckRollup[]? | [(.name // .context // \"\"), (.status // \"\"), \
+    (.conclusion // .state // \"\")] | join(\"\\u001f\")] | join(\"\\u001e\"))] | @tsv";
+
+/// The check whose result is a pull request's `ci`, where it has one.
+const GATE: &str = "ci";
+
+/// Every open pull request, `None` where the forge would not answer.
+pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
+    let said = asked(
+        in_repo,
+        &[
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "100",
+            "--json",
+            "number,title,headRefName,url,author,statusCheckRollup",
+            "--jq",
+            OPEN_PULLS,
+        ],
+    )?;
+    Some(said.lines().filter_map(open_pull_of_line).collect())
+}
+
+fn open_pull_of_line(line: &str) -> Option<OpenPull> {
+    let mut field = line.split('\t');
+    let number = field.next()?.parse().ok()?;
+    let title = field.next().unwrap_or_default();
+    let branch = field.next().unwrap_or_default();
+    let url = field.next().unwrap_or_default();
+    let author = field.next().unwrap_or_default();
+    let checks: Vec<(String, CiState)> = field
+        .next()
+        .unwrap_or_default()
+        .split('\u{1e}')
+        .filter(|one| !one.is_empty())
+        .map(|one| {
+            let mut part = one.split('\u{1f}');
+            let name = part.next().unwrap_or_default();
+            let status = part.next().unwrap_or_default().to_ascii_lowercase();
+            let conclusion = part.next().unwrap_or_default().to_ascii_lowercase();
+            (as_written(name), check_state_of(&status, &conclusion))
+        })
+        .collect();
+    let deciding: Vec<&(String, CiState)> = match checks.iter().any(|(name, _)| name == GATE) {
+        true => checks.iter().filter(|(name, _)| name == GATE).collect(),
+        false => checks.iter().collect(),
+    };
+    let ci = [CiState::Failed, CiState::Pending, CiState::Passed]
+        .into_iter()
+        .find(|state| deciding.iter().any(|(_, one)| one == state));
+    Some(OpenPull {
+        number,
+        title: FromOutside::verbatim(as_written(title)),
+        branch: FromOutside::verbatim(as_written(branch)),
+        url: FromOutside::verbatim(as_written(url)),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
+        ci,
+        failing: checks
+            .iter()
+            .filter(|(_, state)| *state == CiState::Failed)
+            .map(|(name, _)| FromOutside::verbatim(name.as_str()))
+            .collect(),
+    })
+}
+
+/// How one check on a pull request came out, in the words `gh` lists: a
+/// check run's `status` and `conclusion`, or a status context's `state` alone.
+/// **A word with no name here is a failure**, [`state_of`]'s direction.
+fn check_state_of(status: &str, conclusion: &str) -> CiState {
+    match (status, conclusion) {
+        (_, "success" | "neutral" | "skipped") => CiState::Passed,
+        (_, "pending" | "expected") => CiState::Pending,
+        ("", "") => CiState::Pending,
+        (status, "") if status != "completed" => CiState::Pending,
+        _ => CiState::Failed,
+    }
+}
+
 fn is_a_commit(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -272,5 +360,41 @@ mod tests {
         assert!(is_a_commit(&"a".repeat(40)));
         assert!(!is_a_commit("main; rm -rf"));
         assert!(!is_a_commit(""));
+    }
+    #[test]
+    fn a_pull_requests_ci_is_the_check_named_ci_where_there_is_one() {
+        let line = "12\tAdd a cache\tarmada/cache\thttps://forge.invalid/pull/12\tnick\t\
+                    ci\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}desktop_test\u{1f}COMPLETED\u{1f}FAILURE";
+        let pull = open_pull_of_line(line).unwrap();
+        assert_eq!(pull.number, 12);
+        assert_eq!(pull.title.as_written(), "Add a cache");
+        assert_eq!(pull.branch.as_written(), "armada/cache");
+        assert_eq!(pull.author.unwrap().as_written(), "nick");
+        assert_eq!(pull.ci, Some(CiState::Passed));
+        let failing: Vec<&str> = pull.failing.iter().map(|one| one.as_written()).collect();
+        assert_eq!(failing, ["desktop_test"]);
+    }
+
+    #[test]
+    fn with_no_check_named_ci_every_check_decides() {
+        let running =
+            "13\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}IN_PROGRESS\u{1f}";
+        assert_eq!(
+            open_pull_of_line(running).unwrap().ci,
+            Some(CiState::Pending)
+        );
+        let failed = "14\tt\tb\tu\t\tlint\u{1f}COMPLETED\u{1f}SUCCESS\u{1e}build\u{1f}COMPLETED\u{1f}TIMED_OUT";
+        assert_eq!(open_pull_of_line(failed).unwrap().ci, Some(CiState::Failed));
+    }
+
+    #[test]
+    fn a_pull_request_nothing_ran_on_has_no_ci_and_a_status_context_is_read_by_its_state() {
+        let none = open_pull_of_line("15\tt\tb\tu\t\t").unwrap();
+        assert_eq!(none.ci, None);
+        assert!(none.author.is_none());
+        let context = "16\tt\tb\tu\ta\tbuild\u{1f}\u{1f}PENDING\u{1e}ci\u{1f}\u{1f}FAILURE";
+        let pull = open_pull_of_line(context).unwrap();
+        assert_eq!(pull.ci, Some(CiState::Failed));
+        assert_eq!(pull.failing.len(), 1);
     }
 }

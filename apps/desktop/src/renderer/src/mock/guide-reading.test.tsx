@@ -143,7 +143,7 @@ test("the drawing animates once when the guide is opened, and never on a loop", 
 
 test("under prefers-reduced-motion the figure holds still and still reads", async () => {
   // A real list that always matches rather than `{ matches: true }`, the way
-  // `packages/screens/src/travel.test.tsx` takes the preference.
+  // `packages/surfaces/overview/src/travel.test.tsx` takes the preference.
   const matchMedia = window.matchMedia.bind(window);
   vi.spyOn(window, "matchMedia").mockImplementation((query) =>
     matchMedia(query === "(prefers-reduced-motion: reduce)" ? "all" : query),

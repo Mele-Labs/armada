@@ -52,3 +52,27 @@ pub struct MergedPull {
 /// The CI jobs on one commit. `None` from the call that returns it is a forge
 /// that would not answer; an empty list is a commit nothing ran on.
 pub type CiRuns = Vec<CiRun>;
+
+/// One open pull request, as the forge lists it.
+///
+/// **`ci` is the check named `ci` where there is one, otherwise every check
+/// together**: a repository's gate is the check people read, and the rest report
+/// beside it. `None` is a pull request nothing has run on, which is not a pass.
+/// [`failing`](OpenPull::failing) is every check that failed, whichever decided
+/// `ci`, because whether a failure is the branch's own is a question about all
+/// of them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpenPull {
+    pub number: u64,
+    pub title: FromOutside,
+    pub branch: FromOutside,
+    pub url: FromOutside,
+    /// The login of whoever opened it, where the forge named one.
+    pub author: Option<FromOutside>,
+    pub ci: Option<CiState>,
+    pub failing: Vec<FromOutside>,
+}
+
+/// The open pull requests on a repository. `None` from the call that returns
+/// it is a forge that would not answer.
+pub type OpenPulls = Vec<OpenPull>;

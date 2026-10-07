@@ -16,7 +16,7 @@ import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { askHelm, readWorkflowDefinition, readWorkflows, saveWorkflow } from "./commands";
-import { contextOf } from "./helm-context";
+import { contextOf } from "@armada/helm";
 
 /** The rail mark on Workflows while Fleet has left a file out: a file that cannot run is not something to find by opening the surface. */
 export function workflowsWarned(health: HealthRead): Readonly<Record<string, string>> {

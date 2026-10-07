@@ -213,14 +213,27 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
-**It refuses a build older than the database.** Both numbers are read, never
-assumed: the tree's is how many entries `MIGRATIONS` lists in
-`crates/store/src/migrations.rs`, and the database's is the `schema_version` row
-in `armada_meta` of `~/Library/Application Support/Armada/armada.db`. A tree
-behind the database is refused naming both, because that Fleet would reject the
-file as written by a newer Armada. A list this cannot read to the end, or a
-database it cannot read, is refused too, with what it could not read. No
-database yet is not a refusal.
+**It guards the database by migration name, never by a count.**
+`docs/practices/store-migrations.md` has the rules. The build's names are read
+from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
+`armada_migrations` table (a file still carrying only the old count is
+converted in the read), and `origin/main`'s from `git show` and `git ls-tree`. Two refusals, both
+before Fleet is stopped:
+
+| The build or the database | Answer |
+|---|---|
+| The build lists a **breaking** migration `origin/main` lacks, which the database has not applied | Refused, naming the migration and its branch: that would migrate the real database with unlanded work, and a build of `main` could not open it afterwards |
+| The build lists only **additive** migrations `origin/main` lacks | Goes ahead, and says they are additive and safe to go back from |
+| The database applied a breaking migration the build does not list | Refused: that Fleet would refuse the file |
+| The database applied additive names the build does not list | Goes ahead, and names them |
+| A list, `origin/main` or the database it cannot read | Refused with what it could not read; nothing is guessed |
+
+The guard does not fetch, so a stale `origin/main` can call a landed breaking
+migration unlanded; `scripts/preview` fetches just before it. **The database is
+read read-only three times, then from a copy of its three files in a scratch
+directory**, which is what a WAL with no usable `-shm` needs
+(`unable to open database file (14)`, seen while launchd crash-looped Fleet).
+The real files are never written.
 
 **It copies the database before the switch**, with SQLite's online `.backup`, to
 `Armada/backups/armada-<UTC stamp>.db` beside the database, keeps the newest
@@ -251,7 +264,15 @@ its own, so you can use work while agents are still landing it.** In flight is a
 local branch with commits ahead of `main` that a slot holds
 (`armada worktree --status`) or the merge line has queued
 (`armada land --status`). `main`, `preview` and remote-only branches are
-ignored. It needs git and an `armada` on `PATH`, builds nothing, and
+ignored.
+
+**A branch held only by a stranded Job is left out, and named.** Stranded is a
+slot read as `kept` (the Job ended and could not give the slot back), or held by
+a Job that Fleet reports as killed, failed, rejected or superseded, or as
+running with no Drone. It comes back when the Job is restarted. A slot held by a
+live session, a Job waiting on a person, or a branch on the merge line keeps its
+branch in. Where Fleet does not answer, a Job's slot counts as live. An open
+pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
 `ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
@@ -270,7 +291,7 @@ abandoned. Use it, and land from the branch.
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
-| A migration number taken twice | The later branch is skipped, though git merged it cleanly, and the table says which number and whose it was |
+| A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
 **The worktree is `.armada/preview/`, kept and reused** the way the merge line's
@@ -283,10 +304,11 @@ changes. Moving Fleet and Bridge is `--restart`, which cannot be combined with
 it. `--restart` runs `scripts/restart --from .armada/preview` from the main
 checkout, so Fleet keeps serving that repository, and `--dry-run` goes through
 to it. Everything in *Restarting onto another tree* applies, including the
-migration refusal and the snapshot. To go back, run `scripts/restart` as before.
+migration guard and the snapshot. To go back, run `scripts/restart` as before.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
-with git alone. It is not part of the gate.
+with git alone, and a stub Fleet. CI runs it as `preview_test` when
+`scripts/preview` or `scripts/restart` changes.
 
 ## A Fleet of your own
 
@@ -390,7 +412,7 @@ return to a scenario without editing the address.
 | `markdown/agent-text` | A running Job whose Drone writes markdown and asks a question, beside a Job whose Judge asks, so every surface that draws an agent's words draws its markdown |
 | `kinds` | One Job per workflow kind on one Board, each on the steps its own file in `.armada/workflows/` declares |
 | `kind/<workflow>` | One of those Jobs, already open |
-| `job/<builder>` | One Job, already open, for each builder `packages/screens/src/fixtures/build/index.ts` exports |
+| `job/<builder>` | One Job, already open, for each builder `packages/surfaces/jobs/src/fixtures/build/index.ts` exports |
 | `recorded/<slug>` | One recorded Job, already open, for each recording under `packages/screens/src/fixtures/recorded/` |
 
 **Every Job is a Storybook fixture, never data made up for the mock.** A
@@ -795,9 +817,13 @@ to `main`, the forge's merge API and a `git merge` in the checkout at `main`. It
 names the pull request instead. `armada check hooks_test` proves the hook, and
 needs nothing built.
 
-**A red `ci` comes back to you.** Read `gh pr checks <n>`, then
-`gh run view --log-failed`, fix on the same branch and push again. The pull
-request updates.
+**An agent that opens a pull request watches `ci` on it**, so the owner does not
+have to: `gh pr checks <n> --watch`, in the background. A red `ci` comes back to
+the agent. It reads `gh pr checks <n>`, then `gh run view --log-failed`, fixes on
+the same branch and pushes again; the pull request updates and it watches the new
+run. It stops and tells him only where the failure is not its to fix: the same
+failure on `main`, a decision that is his, or one that survives two fixes.
+`desktop_test` reports beside `ci` without gating it.
 
 **A moved `main` is brought in by merging it**, never by rebasing.
 
@@ -809,8 +835,7 @@ unchanged.
 
 **A branch that declared a need waits behind the ones ahead of it.**
 `armada need <path> "<what>"` records what the branch needs on a path
-(`crates/store/src/migrations.rs`, "a new migration"; `protocol-version.toml`,
-"a minor"), says which branches are ahead and what they took, and the first to
+(`protocol-version.toml`, "a minor"; a migration needs none, it has a name), says which branches are ahead and what they took, and the first to
 declare goes first. `armada need --took <path> "<value>"` records the value
 chosen, `--status` lists the needs by path, `--release <path>` gives one back.
 The merge line keeps a branch with a need queued until every need ahead of it on
@@ -819,8 +844,8 @@ behind. A need is spent when its branch lands and given back when the branch no
 longer exists here. **Nothing expires by time**: a stalled need holds the
 branches behind it until a person runs `armada need --release <path>` from its
 branch, or deletes the branch. The state is under the git common directory, in
-`armada-needs/`. **`armada land preflight` refuses a branch that appends a
-migration or changes the protocol minor with no need declared for that path**,
+`armada-needs/`. **`armada land preflight` refuses a branch that changes the
+protocol minor with no need declared for that path**,
 and says to run `armada need <path> "<what>"`; a major change passes.
 
 ### The merge line is draining

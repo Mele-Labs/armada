@@ -27,6 +27,7 @@ Every number below was measured on macOS 27.0 / 26A5406e, launchd 7.0.0.
 - **Fleet is wedged — alive, not answering.** `launchctl kickstart -k gui/$UID/com.armada.fleet`. **26 ms** to a new PID. This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
 - **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and its step restarted — both in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
+- **While it reconciles.** The listener serves first and reconciliation runs in a task of its own, since it can re-run a Job's whole gate from a pending-evidence row and took 6m47s doing so. Health and every read answer at once. A command waits until reconciliation finishes, so none lands between two of its Job moves, and the turn loop starts after it. A stop during it ends the task where it stands, as a crash would, and the next boot repairs what was left.
 - **Uninstall.** Must `launchctl bootout`, not merely delete the plist. A loaded job survives deletion of its own plist — verified.
 
 Two plist keys do not mean what they read. **`RunAtLoad=false` is a lie in the presence of `KeepAlive`** — both `true` and `{SuccessfulExit:false}` started the job the moment it was bootstrapped. **`Crashed:true` means signal-terminated, not failed** — `exit 1` left the job down, and a Rust panic exits 101.
@@ -367,10 +368,13 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 | The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
+| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same interval and rotation |
 
 **A red stays red until a green.** A newer commit still running does not end it, and a commit that fails on top of a red is the same red unless it fails a job the red did not have. A commit nothing ran on is not a green and does not end a red.
 
-**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. Nothing is served over the wire yet, and no Job acts on it.
+**The reading is kept, so a restart loses nothing.** One row per repository holds the commit, green, red or running, when Fleet first read it red, the failed jobs, and the merge. The merge is the pull request's number and the Fleet Job that opened it, if one did; a direct push has neither, and the forge's silence leaves both empty rather than guessed. When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), for what acts on it next. No Job acts on it.
+
+**It is served as the merge line's `hub`**, protocol 23.41, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
 ### Restarting Fleet
 

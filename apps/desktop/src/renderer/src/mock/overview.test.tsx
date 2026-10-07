@@ -1,11 +1,11 @@
-// Overview and Settings, through `App`. Moved here from the `Screens/Overview
+// Overview, through `App`. Moved here from the `Screens/Overview
 // lists`, `Screens/Overview summary`, `Screens/Overview surface` and
 // `Screens/Settings surface` stories, which stood each in a shell of their own
 // rather than the one `App` draws — #1224.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { FleetLimits, JobSummary, RepositorySummary } from "@armada/protocol";
+import type { JobSummary, RepositorySummary } from "@armada/protocol";
 import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/board";
 
@@ -182,24 +182,4 @@ test("a summary tile opens its panel", async () => {
   await expect.element(page.getByRole("button", { name: "Expand Queued" })).toBeVisible();
   await page.getByRole("button", { name: /\d+ Queued/ }).click();
   await expect.element(page.getByRole("button", { name: "Collapse Queued" })).toBeVisible();
-});
-
-/** Fleet's four limits, as `get_limits` answers them. */
-const LIMITS: FleetLimits = {
-  concurrency: 2,
-  memory_spare_percent: 15,
-  disk_floor_gib: 10,
-  checks_at_once: 4,
-  shipped: { concurrency: 2, memory_spare_percent: 15, disk_floor_gib: 10, checks_at_once: 4 },
-};
-
-test("Settings draws Fleet's limits and this machine's settings under Helm's dock", async () => {
-  const scenario = onOverview(JOBS());
-  mount({ ...scenario, state: { ...scenario.state, limits: LIMITS } });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect.element(page.getByRole("heading", { name: "Fleet" })).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "This machine" })).toBeVisible();
-  // The dock is on every surface, Settings included — and it reaches this one
-  // over the content rather than out of it.
-  await openHelm();
 });

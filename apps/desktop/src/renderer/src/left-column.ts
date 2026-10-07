@@ -8,7 +8,7 @@ import type { Figure, StatRow, FleetPanelProps } from "@armada/components";
 import type { Connection, FleetCapacity, JobSummary, RepositorySummary } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import { fleetStateOf, shortLabelOf, silenceOf, versionsOf, type Statement } from "@armada/shell";
-import { doctorReading, driftReading, dronesReading } from "@armada/screens/src/overview";
+import { doctorReading, driftReading, dronesReading } from "@armada/overview";
 import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
 // `instant` and `lasting` are the Job elapsed-time figure's own parse-and-format
 // pair (`elapsedSince` above them). Reused rather than re-derived so a job's
@@ -121,7 +121,12 @@ export function fleetPanelOf(
  * once at connect time. A `startedAt` that will not parse drops the row.
  */
 function rowsOf(connection: Connection, now: number): Figure[] | undefined {
-  if (connection.state !== "connected" && connection.state !== "connecting" && connection.state !== "unreachable") {
+  if (
+    connection.state !== "connected" &&
+    connection.state !== "connecting" &&
+    connection.state !== "starting" &&
+    connection.state !== "unreachable"
+  ) {
     return undefined;
   }
   const rows: Figure[] = [
@@ -145,6 +150,7 @@ function sentenceOf(connection: Connection, statement: Statement, now: number, r
     case "connected":
       return connection.skew === "fleet_ahead" ? versionsOf(connection) : undefined;
     case "connecting":
+    case "starting":
       return undefined;
     case "unreachable":
       return `alive, ${silenceOf(connection, now, readAt)}`;

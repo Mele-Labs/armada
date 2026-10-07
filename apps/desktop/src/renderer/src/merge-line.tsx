@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 
 import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
-import { LandCheckLogSheet, mergeLineViews, type MergeLineView } from "@armada/screens";
+import { mergeLineViews, type MergeLineView } from "@armada/screens";
+import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -105,6 +106,7 @@ function OneLine({
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       open={open}
       {...(holds ? { focus } : {})}
+      {...(view.fixOffered === undefined ? {} : { onFix: () => {} })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}

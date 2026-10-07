@@ -1,149 +1,93 @@
-//! The migration list, and the two constants that name where a file stands
-//! against it.
+//! What a migration is, and the table that records which ones a file has had.
 //!
-//! **Moved out of `schema.rs`, faithfully.** That file holds `V1`..`V16` and
-//! sits at the 900 lines the gate refuses at — see its own header, and
-//! [`crate::ports::V45`]'s. `MIGRATIONS`, [`KNOWN_SCHEMA_VERSION`],
-//! [`SCHEMA_VERSION_KEY`] and [`tables_pointing_at_a_job`] behave exactly as
-//! they did there; nothing about what they do changed, only where they live.
-//! `V1`..`V16` stay in `schema.rs`, `pub(crate)` so this module can name them
-//! the same way it already names every later migration's own module.
+//! A migration is a file in `migrations/`, listed after the frozen 113 in
+//! `legacy_migrations.rs`. It has a stable name, not a position, so two
+//! branches that each add one never take the same number or touch one file, and
+//! a file written by a build with one more name than this one is read by it
+//! when that name was additive. `docs/practices/store-migrations.md` has the
+//! rules and why.
 
 use rusqlite::Connection;
 
-use crate::schema::{V1, V10, V11, V12, V13, V14, V15, V16, V2, V3, V4, V5, V6, V7, V8, V9};
+use crate::legacy_migrations::LEGACY;
 
-/// The key under which [`MIGRATIONS`]' applied count is recorded.
+include!(concat!(env!("OUT_DIR"), "/file_migrations.rs"));
+
+/// The frozen legacy entries, then the files by timestamp. Applying is by
+/// missing name, so the order between independent branches does not matter.
+pub(crate) const MIGRATIONS: &[Migration] = &ALL;
+const ALL: [Migration; LEGACY.len() + FROM_FILES.len()] = {
+    let mut all = [Migration::additive("", ""); LEGACY.len() + FROM_FILES.len()];
+    let mut at = 0;
+    while at < LEGACY.len() {
+        all[at] = LEGACY[at];
+        at += 1;
+    }
+    while at < all.len() {
+        all[at] = FROM_FILES[at - LEGACY.len()];
+        at += 1;
+    }
+    all
+};
+const _: () = assert!(LEGACY.len() == LEGACY_COUNT);
+
+/// The key the old numbered list recorded its applied count under. It is read
+/// once, to convert a file written before names, and written only for the first
+/// [`LEGACY_COUNT`] entries so a build that predates names still reads a fresh
+/// file.
 pub const SCHEMA_VERSION_KEY: &str = "schema_version";
 
-/// How many migrations this build knows. A file recording more than this was
-/// written by a newer Armada, and is refused rather than read with the older
-/// crate's assumptions.
+/// How many entries the numbered list held when names replaced it. A file
+/// recording `n` has the first `n` of these applied; nothing counts past it.
+pub const LEGACY_COUNT: usize = 113;
+
+/// How many migrations this build knows.
 pub const KNOWN_SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
 
-/// Applied in order. Index `n` takes a file from version `n` to `n + 1`.
-///
-/// **Nothing is ever edited here.** Changing entry zero changes what an already
-/// migrated file is assumed to contain, which is the one thing the version
-/// number exists to stop.
-pub const MIGRATIONS: &[&str] = &[
-    V1,
-    V2,
-    V3,
-    V4,
-    V5,
-    V6,
-    V7,
-    V8,
-    V9,
-    V10,
-    V11,
-    V12,
-    V13,
-    V14,
-    V15,
-    V16,
-    // Beside the table each creates, because this file is at the 900 lines the
-    // gate refuses at. The order lives here, and may not be anywhere else.
-    crate::report::V17,
-    crate::plan::V18,
-    crate::drone::V19,
-    crate::note::V20,
-    crate::delivery::V21,
-    crate::judged::V22,
-    crate::spend::V23,
-    crate::gaming::V24,
-    crate::footprint::V25,
-    crate::delivery::V26,
-    crate::process::V27,
-    crate::attempt::V28,
-    crate::proving::V29,
-    crate::judged::V30,
-    crate::remarks::V31,
-    crate::spend::V32,
-    crate::spend::V33,
-    crate::proposing::V34,
-    crate::judged::V35,
-    crate::numbering::V36,
-    crate::showing::V37,
-    crate::retain::V38,
-    crate::gaming::V39,
-    crate::spend::V40,
-    crate::showing::V41,
-    crate::showing::V42,
-    crate::shown_again::V43,
-    crate::allowing::V44,
-    crate::ports::V45,
-    crate::manifest_snapshot::V46,
-    crate::review::V47,
-    crate::delivery::V48,
-    crate::model_override::V49,
-    crate::ports::V50,
-    crate::delivery::V51,
-    crate::asking::V52,
-    crate::drift::V53,
-    crate::shown_again::V54,
-    crate::limits::V55,
-    crate::manifest_allowed::V56,
-    crate::repositories::V57,
-    crate::retrace::V58,
-    crate::work_plan::V59,
-    crate::review_record::V60,
-    crate::review_view::V61,
-    crate::preferences::V62,
-    crate::review_dismissals::V63,
-    crate::helm_sessions::V64,
-    crate::review_model::V65,
-    crate::review_followups::V66,
-    crate::limits::V67,
-    crate::breakages::V68,
-    crate::breakages::V69,
-    crate::reuse::V70,
-    crate::timings::V71,
-    crate::timings::V72,
-    crate::gaming::V73,
-    crate::rechecking::V74,
-    crate::delivery::V75,
-    crate::pending_evidence::V76,
-    crate::studio::V77,
-    crate::studio::V78,
-    crate::studio::V79,
-    crate::work_plan::V80,
-    crate::kit::V81,
-    crate::lineage::V82,
-    crate::ports::V83,
-    crate::studio::V84,
-    crate::studio::V85,
-    crate::studio::V86,
-    crate::resolved_policies::V87,
-    crate::checked::V88,
-    crate::resolved_policies::V89,
-    crate::work_plan::V90,
-    crate::studio::V91,
-    crate::task_drones::V92,
-    crate::slot::V93,
-    crate::breakages::V94,
-    crate::groups::V95,
-    crate::pull_request_kept::V96,
-    crate::model_per_task::V97,
-    crate::approval::V98,
-    crate::crew::V99,
-    crate::retro::V100,
-    crate::waves::V101,
-    crate::retro::V102,
-    crate::walk_notes::V103,
-    crate::approval::V104,
-    crate::retro::V105,
-    crate::slot_rescues::V106,
-    crate::slot_rescues::V107,
-    crate::merge_line::V108,
-    crate::check_runs::V109,
-    crate::retro::V110,
-    crate::pausing::V111,
-    crate::asked_runs::V113,
-    crate::main_ci::V114,
-    crate::step_baseline::V115,
-];
+/// One migration. **Never edit an entry's SQL once it is on `main`**: a file
+/// that applied it is assumed to hold exactly what it made.
+#[derive(Clone, Copy, Debug)]
+pub struct Migration {
+    /// Unique and permanent: `module.slug`, never a position.
+    pub name: &'static str,
+    pub sql: &'static str,
+    /// Drops, renames or rewrites something an older build reads. A migration
+    /// is additive unless it says so, and a test refuses an additive one whose
+    /// SQL is not.
+    pub breaking: bool,
+}
+
+impl Migration {
+    /// Creates tables and indexes, or adds columns with defaults, and nothing else.
+    pub const fn additive(name: &'static str, sql: &'static str) -> Self {
+        Self {
+            name,
+            sql,
+            breaking: false,
+        }
+    }
+
+    /// Anything else. A file that has applied it cannot be opened by a build
+    /// that does not list it.
+    pub const fn breaking(name: &'static str, sql: &'static str) -> Self {
+        Self {
+            name,
+            sql,
+            breaking: true,
+        }
+    }
+}
+
+/// The table of applied names. Created by [`ensure_applied_table`], never by a
+/// migration, since it is what records them.
+const APPLIED_TABLE: &str = "CREATE TABLE IF NOT EXISTS armada_migrations (
+    name TEXT PRIMARY KEY,
+    additive INTEGER NOT NULL CHECK (additive IN (0, 1))
+) STRICT";
+
+pub(crate) fn ensure_applied_table(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(APPLIED_TABLE)
+}
 
 /// Every table whose rows belong to one Job, asked of the file rather than
 /// listed here.
@@ -151,21 +95,21 @@ pub const MIGRATIONS: &[&str] = &[
 /// [`forget_job`](crate::Store::forget_job) deletes from each. It asks because
 /// a list is a thing somebody has to remember to extend, and three times in a
 /// row nobody did: `job_step_judgments`, `job_step_gaming_flags` and
-/// `job_step_evidence` arrived in [`V8`], [`V12`] and [`V10`] and none of them
+/// `job_step_evidence` arrived in `V8`, `V12` and `V10` and none of them
 /// reached the delete. Nothing failed while no shipped workflow declared a
 /// `judge_check` and the tables stayed empty; the day nine of them went live,
 /// every Job that reached a gate became one `armada clean` could not forget,
 /// because the `jobs` row it deletes first is the parent those rows point at.
 /// A catalog cannot fall behind the schema it is the schema of.
 ///
-/// **The file's catalog, not the constants above it.** [`V13`] builds four
+/// **The file's catalog, not the constants above it.** `V13` builds four
 /// tables under `_wide` names and renames them over the originals, so the
 /// `CREATE TABLE` text in that module names four tables no migrated file has
 /// and misses the four every one of them does.
 ///
 /// `job_events` is in this set and belongs there — it is append-only by
 /// trigger only while its Job row still exists, which by then it does not. See
-/// [`V4`], and the ordering it forces on `forget_job`.
+/// `V4`, and the ordering it forces on `forget_job`.
 pub(crate) fn tables_pointing_at_a_job(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     conn.prepare(
         r#"SELECT m.name

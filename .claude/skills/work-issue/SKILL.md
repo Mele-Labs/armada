@@ -76,15 +76,22 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 3. One issue. Finish it, and stop.
 
-**Declare a need before choosing a migration number or a protocol minor, and use
-the number the answer gives.** Never take "the next one" from `main`: another
-branch takes the same one, and whichever lands second renumbers, rewrites every
-mention and runs the Checks again (#1059).
+**A migration needs no `armada need`: it has a name, not a number.** Add one file,
+`crates/store/migrations/<UTC yyyymmddThhmmZ>-<module.slug>.sql`, and nothing
+collides: no two branches touch the same file, and order between them does not
+matter. It is additive unless a `-- breaking` comment line says otherwise, and
+a test refuses an additive one that drops, renames or rewrites. A breaking one is a decision: ask first. A branch that previews
+with a breaking migration `main` lacks is refused by `scripts/restart --from`.
+`docs/practices/store-migrations.md`.
+
+**A protocol minor is still a number. Declare a need before choosing one, and
+use the number the answer gives.** Never take "the next one" from `main`:
+another branch takes the same one, and whichever lands second renumbers,
+rewrites every mention and runs the Checks again (#1059).
 
 ```sh
-armada need crates/store/src/migrations.rs "a new migration"   # says who is ahead, and what each took
-armada need --took crates/store/src/migrations.rs "V96"        # once chosen, after theirs
 armada need protocol-version.toml "a minor"
+armada need --took protocol-version.toml "23.41"               # once chosen, after theirs
 ```
 
 A need is a path and what is needed there, in your words, and the first to
@@ -94,9 +101,8 @@ landed, so you land in order and nothing is renumbered. Needs are unchanged
 for now: Fleet will publish them as a required check on the pull request later. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
-**`armada land preflight` and Fleet's merge refuse a branch that appends a
-migration or changes the protocol minor with no need declared**, so declare
-first. `armada need --release <path>` gives one back; a branch deleted locally gives its
+**`armada land preflight` and Fleet's merge refuse a branch that changes the
+protocol minor with no need declared**, so declare first. `armada need --release <path>` gives one back; a branch deleted locally gives its
 needs back by itself, and a need that stalls is given back by a person, since
 nothing expires. `armada need --status` lists every need by path.
 
@@ -126,7 +132,7 @@ until he killed them by hand. There is no other machine.
 | A crate under `crates/` | `armada check test`, and `armada check test <test>` for one test while you work |
 | Any Rust | `cargo fmt --all --check`, and `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
-| `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`, `apps/desktop:desktop_test`. **A story is in `packages/components:components_test`**, a screen's test through `App` in `apps/desktop:desktop_test` (`src/renderer/src/mock/*.test.tsx`), and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |
+| `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`, `apps/desktop:app_smoke`. **A story is in `packages/components:components_test`**, a screen's test through `App` in `apps/desktop:app_smoke` (`src/renderer/src/mock/*.test.tsx`), and `apps/desktop/unit:desktop_test` is main and the renderer's own modules, and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |
 | `docs/`, or `crates/ipc/operations.toml` | `cargo xtask verify-docs` |
 | Anything | `cargo xtask verify-foundations` once, before landing — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
 
@@ -238,9 +244,17 @@ has passed, or with `--auto`. Never a squash, a rebase or `--admin`, never a pus
 to `main`, never a `git merge` in the checkout at `main`. A hook refuses all of
 them.
 
-**A red `ci` comes back to you.** Read `gh pr checks <n>` and
-`gh run view --log-failed`, fix on the same branch and push again. The pull
-request updates.
+**You watch `ci`, so he does not have to.** After opening the pull request,
+follow it until `ci` finishes: `gh pr checks <n> --watch` in the background, or
+Claude Code's Monitor tool, and do not report the work done while `ci` is still
+running. A red `ci` comes back to you. Read `gh pr checks <n>` and
+`gh run view --log-failed`, fix on the same branch and push again; the pull
+request updates, and you watch the new run. Stop and tell him only where the
+failure is not yours to fix: it fails the same way on `main`, it needs a
+decision of his, or the same failure survives two fixes. `desktop_test` reports
+beside `ci` without gating it: read it when it fails and fix what your change
+caused, and say so in the report when it fails in a file your diff does not
+touch.
 
 **A visual change is the exception: the pull request waits for the owner's
 look.** It ships with a walk, he opens its link on a mock served from your
@@ -255,7 +269,7 @@ says how to read one that is still draining.
 **Where a file sits near a threshold, leave headroom.** A branch and `main` can
 each sit under a limit that the two together cross, and `ci` measures the merged
 tree. Confirmed 2026-09-12: #730 passed `verify-foundations` at 898 lines in
-`packages/screens/src/JobDetail.tsx`; `main` grew the same file by seven while
+`packages/surfaces/jobs/src/JobDetail.tsx`; `main` grew the same file by seven while
 the branch was open, and the merge landed it at 905, over the 900-line rule.
 
 **Bring a moved `main` in by merging it, never by rebasing.** One pass meets
@@ -266,7 +280,7 @@ rebasing in #1131.
 Say in the commit message and the pull request description what you would want
 looked at closely. Then `milestone-step` steps 5, 6 and 7: close the issue with
 what contradicted the plan, give every open item an owner, report. **The report
-names the pull request.**
+names the pull request and says whether `ci` is green.**
 
 ## Dispatching several agents at once
 
@@ -325,8 +339,9 @@ the session's own `/context` put reads at 55% of everything it took in.
 
 **Put the numbers and the Checks in the brief, because an agent never loads this
 skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
-say *"before choosing a protocol minor or a store migration number, run `armada
-need`"*, or each agent takes the next one from `main`. Confirmed 4 to 5 Oct
+say *"before choosing a protocol minor, run `armada need`; a store migration is
+a file in `crates/store/migrations/` and needs none"*, or each agent takes the
+next minor from `main`. Confirmed 4 to 5 Oct
 2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
 V109 that another branch had taken, and the merge line sent each back to be
 renumbered by hand, five full requeues. The brief must also name what the line

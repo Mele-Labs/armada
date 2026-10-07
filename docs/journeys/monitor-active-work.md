@@ -38,7 +38,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 | Pulse | What it is costing this machine | cost |
 | Settings | What it was approved with, and what you changed since | configuration |
 
-**One label per destination, written once.** `packages/screens/src/detail-tabs.tsx` carries it and every surface that names a tab reads it from there. The design boards called one destination `Plan`, `Plan the split` and `Plan 4 groups`; a name written twice is a name that drifts.
+**One label per destination, written once.** `packages/surfaces/jobs/src/detail-tabs.tsx` carries it and every surface that names a tab reads it from there. The design boards called one destination `Plan`, `Plan the split` and `Plan 4 groups`; a name written twice is a name that drifts.
 
 **A tab carries a count only where the count is a reading.** Workflow carries the frozen workflow's steps and Plan carries the tasks a Drone may still do — a dropped task is not work outstanding, so it is not counted. Drones carries none because Pulse already counts the Drones running (the owner, 29 Sep 2026). The rest carry nothing, because a zero on a tab trains the eye to skip the number.
 
@@ -80,7 +80,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **What that board said is drawn on the Plan tab's List view, on the group cards that were already there.** Why: the owner, 28 September 2026, told that taking the board off Workflow left the commit a group left, what its boundary came to, the failed Check's own output handed on and a task's own cost with nowhere to be read — a run that says `implement · running` for two hours names neither the task nor the Check that broke without them. He chose this over dropping the reading and over putting the board back. **The cost he accepted is that the Plan tab gets heavier.**
 
-**One board and not two.** A second board drawing the same groups on the same destination would be the vocabulary split, so the two became one: a group card carries the shape it runs in, its tasks, and `GroupBoundary` under them, and which of those fields is filled in is the whole difference between a plan and a run. `packages/screens/src/plan-board.ts` composes it.
+**One board and not two.** A second board drawing the same groups on the same destination would be the vocabulary split, so the two became one: a group card carries the shape it runs in, its tasks, and `GroupBoundary` under them, and which of those fields is filled in is the whole difference between a plan and a run. `packages/surfaces/jobs/src/plan-board.ts` composes it.
 
 **A group does not fold, and the plan does not need opening to be read.** The board that folded was under a canvas, where the group that was moving opened itself and the rest were one line each; this is the page a person came to read the plan on, and a card that hid its own boundary would hide what they came for.
 
@@ -106,7 +106,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 ### Overview — one arrangement, until the Job is over
 
-**The run tree, the plan rail, *Where things are* and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/screens/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
+**The run tree, the plan rail, *Where things are* and the inspector below were retired by the Overview reframe of 29 Sep 2026, and their code is deleted.** Overview is a board now: the lead, a strip, and a card per destination, in `packages/surfaces/jobs/src/OverviewBoard.tsx`. *The run*, *The Plan region* and *The inspector* describe `InsideAJob` and `Inspector`, which nothing draws; they stay as the record of what was decided for that arrangement. The Land board paragraph is current.
 
 **The run is a tree on the left, the selected step fills the inspector, and the step's story reads in the order it happened.** Why: the screen had an arrangement per state, and below the header no region sat in the same place twice. Everything from The run down describes Overview.
 
@@ -185,7 +185,7 @@ sheet.
 
 **The run sheet follows the same rules.** It opens from the worktree row or `r`, and [Run and edit a Manifest](run-and-edit-a-manifest.md) owns what it holds.
 
-**This supersedes the inline expander for those chapters, which is built.** `StepStory` opens them in place today, and `packages/screens/src/JobDetail.tsx` holds the open chapter for the step. Drone instructions keeps that treatment and the collapse rule above; the activity log leaves the panel, and so does the diff, from Produced's own panel. `#286` builds the sheets.
+**This supersedes the inline expander for those chapters, which is built.** `StepStory` opens them in place today, and `packages/surfaces/jobs/src/JobDetail.tsx` holds the open chapter for the step. Drone instructions keeps that treatment and the collapse rule above; the activity log leaves the panel, and so does the diff, from Produced's own panel. `#286` builds the sheets.
 
 **The Job's brief sits above the step, on the panel's raised surface.** Why: every step is read against it.
 

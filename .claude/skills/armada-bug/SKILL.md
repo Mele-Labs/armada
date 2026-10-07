@@ -96,7 +96,8 @@ issue leaves nothing for the changelog or the milestone to point at.
 for anything the current milestone's claim depends on, and a later one otherwise.
 Give him the URL.
 
-**Fixed now:** dispatch with the file ownership stated, because agents collide.
+**Fixed now:** dispatch with the file ownership stated, because agents collide,
+into a slot you lease for it (`agent-worktrees`), never `isolation: "worktree"`.
 Give the agent the reproduction and the reasoning, not just the symptom — an
 agent handed a symptom rediscovers the cause you already found, at full cost.
 
@@ -108,6 +109,16 @@ why"; it declared one and had no `except`. That sentence went to the owner
 inside a pull request body and had to be corrected to him afterwards. The
 summary is written by the thing with an interest in it being right, and a
 paragraph of yours built on it inherits that interest without the evidence.
+
+**Then put the fix in his Fleet: preview and adopt, never "once it merges".**
+He uses Armada as its end user, so a fix to Fleet or Bridge reaches him through
+`scripts/preview --restart --adopt` as soon as it is committed and green, and
+the pull request follows without a question (`work-issue` step 6,
+`preview-app`). A Job the bug stranded is picked up again on the adopted Fleet
+through its own recourse, rather than left to wait on a merge. The preview takes
+only a branch a slot holds, which is why the dispatch above leases one: a branch
+in a cut tree never reaches it. Missed 6 Oct 2026: a `diff_nonempty` fix went
+into a cut tree and the owner was told his stuck Job would wait for the merge.
 
 ## What not to do
 

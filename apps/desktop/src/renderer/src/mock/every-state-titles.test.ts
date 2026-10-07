@@ -16,7 +16,7 @@
 
 import { expect, test } from "vitest";
 import { JOB_STATUS } from "@armada/components/src/generated/vocabulary";
-import { ARC_JOB_ID, ARC_TITLE } from "@armada/screens/src/fixtures/build/arc";
+import { ARC_JOB_ID, ARC_TITLE } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary } from "@armada/protocol";
 
 import { SCENARIOS, scenarioNamed } from "./scenario";

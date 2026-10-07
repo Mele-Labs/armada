@@ -1,7 +1,8 @@
-// Main going red on CI, three times, one moment at a time: what the owner sees and does, drawn ahead
-// of Fleet. **None of it is served yet**: the hub's head and its pull requests ride on the line as
-// `hub`, and a Job's part in the red rides on its row as `fixes_main`, the way the failed-Check mock
-// carried `notice`. `main-goes-red.ts` walks it.
+// Main going red on CI, three times, one moment at a time: what the owner sees and does. The hub's
+// head and its pull requests are what Fleet serves as the line's `hub` since 23.41. **Not served
+// yet**: a Job's part in the red, which rides on its row as `fixes_main`, and the two ways to hand
+// the red to a Job, which ride on the line as `fix_offered`, the way the failed-Check mock carried
+// `notice`. `main-goes-red.ts` walks it.
 //
 //   1  The Job's own pull request merges and main goes red. That Job was watching its landing, so it
 //      takes the red itself and nobody is asked.
@@ -11,11 +12,11 @@
 //
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
-import type { HubJob, HubPull, MainRed, MainState, MergeLineHub, RecentJob } from "@armada/components";
-import type { FollowedLandLog, JobSummary, LandCheckAt, MergeLine, MergeLines } from "@armada/protocol";
+import type { HubJob, HubPull, MainRed, MainState, RecentJob } from "@armada/components";
+import type { FollowedLandLog, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
-import { completedSuccess, queued, review, running } from "@armada/screens/src/fixtures/build/index";
+import { completedSuccess, queued, review, running } from "@armada/jobs/fixtures/build/index";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { BridgeState } from "../../../shared/bridge";
@@ -23,8 +24,6 @@ import { asRow } from "./holding";
 import type { FleetHandle } from "./moment";
 
 const PULL = "https://git.example/armada/pull/";
-const TREE = "https://git.example/armada/tree/";
-const BLOB = "https://git.example/armada/blob/main/";
 
 /** The Jobs on the Board, by the number each is drawn under. */
 export const CACHE = asRow(running(), 60, "cache", "Cache the manifest read between dispatches");
@@ -48,38 +47,35 @@ function rowOf(one: JobFixture, status: string, fixes?: FixesMain): JobSummary {
   return job as JobSummary;
 }
 
-/** The three reds: what failed, where its test is, and the pull request that merged it. */
+/** The three reds: what failed, its test, and the pull request that merged it. */
 const FIRST: MainRed = {
   check: "screens_test",
   test: "manifest-read.test.ts > reads the file again once it changes",
-  testUrl: `${BLOB}packages/screens/src/manifest-read.test.ts`,
-  merge: { number: 1812, url: `${PULL}1812`, branch: branchOf(CACHE), branchUrl: `${TREE}${branchOf(CACHE)}`, job: hubJob(CACHE) },
+  merge: { number: 1812, url: `${PULL}1812`, branch: branchOf(CACHE), job: hubJob(CACHE) },
 };
 const SECOND: MainRed = {
   check: "desktop_test",
   test: "resources-poll.test.ts > a reading that stops polls nothing",
-  testUrl: `${BLOB}apps/desktop/src/main/resources-poll.test.ts`,
-  merge: { number: 1816, url: `${PULL}1816`, branch: branchOf(DEBOUNCE), branchUrl: `${TREE}${branchOf(DEBOUNCE)}`, job: hubJob(DEBOUNCE) },
+  merge: { number: 1816, url: `${PULL}1816`, branch: branchOf(DEBOUNCE), job: hubJob(DEBOUNCE) },
 };
 const THIRD: MainRed = {
   check: "components_test",
   test: "Theme tokens > the dark ground keeps its contrast",
-  testUrl: `${BLOB}packages/components/src/tokens.test.ts`,
-  merge: { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens", branchUrl: `${TREE}nick/theme-tokens` },
+  merge: { number: 1815, url: `${PULL}1815`, branch: "nick/theme-tokens" },
 };
 
 /** A CI job that maps to no Manifest Check, and a log with no test Armada can read out of it. */
 const FOURTH: MainRed = {
   check: "test-all",
   unmapped: true,
-  merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", branchUrl: `${TREE}studio/zone-proposal`, job: hubJob(ZONE) },
+  merge: { number: 1814, url: `${PULL}1814`, branch: "studio/zone-proposal", job: hubJob(ZONE) },
 };
 
 const fixing = (red: MainRed): FixesMain => ({
   state: "fixing",
   check: red.check,
   ...(red.test === undefined ? {} : { test: red.test }),
-  merge: red.merge.number,
+  merge: red.merge!.number,
 });
 const fixed = (red: MainRed, in_: number): FixesMain => ({ ...fixing(red), state: "fixed", fixed_in: in_ });
 
@@ -222,11 +218,48 @@ const MOMENTS: Moment[] = [
   },
 ];
 
+const COMMIT = "9f3c1d2e4b5a69788796a5b4c3d2e1f001122334";
+const READ_AT = "2026-10-06T10:00:00Z";
+
+/** Main as Fleet serves it: the failing job named as the forge names it, and a Check only where it maps. */
+function standing(main: MainState): MainStanding {
+  if (main.state === "green") return { state: "green", commit: COMMIT, read_at: READ_AT };
+  const { red } = main;
+  const { merge } = red;
+  return {
+    state: "red",
+    commit: COMMIT,
+    read_at: READ_AT,
+    red_since: READ_AT,
+    failed: [
+      {
+        name: red.check,
+        ...(red.unmapped === true ? {} : { check: red.check }),
+        ...(red.test === undefined ? {} : { tests: [red.test] }),
+      },
+    ],
+    ...(merge === undefined ? {} : { merge: { number: merge.number, url: merge.url, branch: merge.branch, ...(merge.job === undefined ? {} : { job: merge.job }) } }),
+  };
+}
+
+const requestOf = (one: HubPull): HubPullRequest => ({
+  number: one.number,
+  title: one.branch,
+  branch: one.branch,
+  url: one.url,
+  ci: one.ci,
+  ...(one.job === undefined ? {} : { job: one.job }),
+});
+
 /** The line a moment serves for the repository, with the hub on it. */
 function lineAt(root: string, at: number): MergeLines {
   const { main, pulls, recent: others } = MOMENTS[at]!;
-  const hub: MergeLineHub = { main, pulls, recent: others };
-  return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
+  const hub: MergeLineHub = {
+    main: standing(main),
+    pull_requests: pulls.map(requestOf),
+    ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
+  };
+  return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub, fix_offered: { recent: others } } as MergeLine] };
 }
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */

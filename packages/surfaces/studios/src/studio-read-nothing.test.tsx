@@ -6,6 +6,8 @@ import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mountApp, type Mounted, readingNothing } from "@armada/desktop/mock";
+
+const SLICES = { slices: ["core", "studios"] } as const;
 import { NOTHING_FOUND, NOTHING_STUDIO_NAME } from "./fake";
 
 let mounted: { app: Mounted; host: HTMLElement } | null = null;
@@ -21,7 +23,7 @@ test("a read-in that comes back with nothing lands one Note off its Finding sayi
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
-  mounted = { app: mountApp(fleet.scenario, host), host };
+  mounted = { app: mountApp(fleet.scenario, host, undefined, SLICES), host };
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
   await page.getByRole("cell", { name: NOTHING_STUDIO_NAME, exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();

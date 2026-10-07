@@ -1,10 +1,8 @@
-// What Setup says about `setup.seed`, on the run sheet and the Manifest
-// surface. #1064.
+// What Setup says about `setup.seed`, on the run sheet. #1064.
 
 import { describe, expect, it } from "vitest";
 
-import type { CheckoutRunSheet, DeclaredSeed, RunSheet } from "@armada/protocol";
-import { checkoutGroupsOf } from "./checkout-runs";
+import type { DeclaredSeed, RunSheet } from "@armada/protocol";
 import { runSheetGroupsOf } from "./rehearsal";
 import { seedingSaid, seedSaid } from "./seed";
 
@@ -66,13 +64,5 @@ describe("seedSaid", () => {
     expect(seedSaid({ ...DECLARED, warmth: { state: "warming", commit: COMMIT } })).toContain(
       "a Job cut now starts cold",
     );
-  });
-
-  it("is the Manifest surface's Setup line, and absent where none is declared", () => {
-    const sheet: CheckoutRunSheet = { setup: [], checks: [], commands: [] };
-    expect(checkoutGroupsOf({ ...sheet, seed: DECLARED }).find((group) => group.kind === "setup")?.says).toContain(
-      "warmed by warm_build",
-    );
-    expect(checkoutGroupsOf(sheet).some((group) => "says" in group)).toBe(false);
   });
 });

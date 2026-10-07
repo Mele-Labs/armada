@@ -212,7 +212,7 @@ detail stamps its Job's id on its own root, and the layer reads the page at the
 save, so a note begun on one Job and saved on another names the second. Job
 detail alone counts as open: a retro read on the Retros page is not that Job's
 detail, and a note left there names no Job. The key is left out, never null,
-where none is open. `packages/screens/src/open-job.ts`.
+where none is open. `packages/surfaces/jobs/src/open-job.ts`.
 
 ## Where Bridge draws it
 

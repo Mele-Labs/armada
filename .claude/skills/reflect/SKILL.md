@@ -115,7 +115,8 @@ you report, not just before you act** — this repository moved 19 commits in tw
 hours that day.
 
 **Open a pull request, never merge by hand.** Push the branch and
-`gh pr create --base main`; the owner merges. `ci` runs the Checks on the merged
+`gh pr create --base main`, then `gh pr merge <n> --merge` once `ci` has passed, or
+with `--auto`. `ci` runs the Checks on the merged
 tree, so a branch that started before three other merges is measured against the
 `main` it lands on. Never rebase to catch up: a red or a conflict comes back, and
 you merge `origin/main` in and push again.

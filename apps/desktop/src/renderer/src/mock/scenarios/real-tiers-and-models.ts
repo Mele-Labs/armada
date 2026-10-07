@@ -2,6 +2,6 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { featureWithTiers } from "../job-tiers-fixture";
+import { featureWithTiers } from "@armada/jobs/fake";
 
 export const s170TiersAndModels: Scenario = holding("real/tiers-and-models", featureWithTiers().name, [featureWithTiers()], { opens: featureWithTiers().job.id });

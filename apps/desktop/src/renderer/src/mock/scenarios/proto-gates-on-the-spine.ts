@@ -2,6 +2,6 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { featureGates } from "../feature-gates";
+import { featureGates } from "@armada/jobs/fake";
 
 export const s120GatesOnTheSpine: Scenario = holding("proto/gates-on-the-spine", featureGates().name, [featureGates()], { opens: featureGates().job.id });

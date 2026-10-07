@@ -288,13 +288,27 @@ jobs:
           name: hooks_test
           cmd: python3 .claude/hooks/test_guard_merge.py
 
-  # macOS, because desktop_test is the one Check that needs it, sharded four
-  # ways to stay inside the runners the free plan gives at once. Kept out of
-  # `ci` until it is stable: docs/practices/ci.md.
-  desktop_test_shard:
-    name: desktop_test_shard
+  preview_test:
+    name: preview_test
     needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:desktop_test')
+    if: contains(fromJSON(needs.plan.outputs.checks), 'preview_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: preview_test
+          cmd: python3 scripts/test_preview.py
+
+  # macOS, because the smoke tests are the one Check that needs it, sharded four
+  # ways to stay inside the runners the free plan gives at once. The shards are
+  # cut by `vitest.shard.ts`, which weighs the walks, so they run about as long
+  # as each other. Kept out of `ci` until it is stable: docs/practices/ci.md.
+  app_smoke_shard:
+    name: app_smoke_shard
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:app_smoke')
     runs-on: macos-latest
     timeout-minutes: 45
     strategy:
@@ -308,19 +322,38 @@ jobs:
           browsers: "true"
       - uses: ./.github/actions/run-check
         with:
-          name: desktop_test shard ${{ matrix.shard }}/4
-          cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2
+          name: app_smoke shard ${{ matrix.shard }}/4
+          cmd: pnpm --dir apps/desktop exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=2 --project 'smoke*'
 
-  # The name a ruleset will require, once desktop_test is stable. Passes when
-  # the plan skipped the shards, fails when any shard failed or was cancelled.
-  desktop_test:
-    name: desktop_test
-    if: always()
-    needs: [plan, desktop_test_shard]
+  # The desktop tests that read no surface: main and the renderer's own modules,
+  # mostly node. Linux, one job, no shards: the files add up to 44 seconds.
+  desktop_unit:
+    name: desktop_unit
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop/unit:desktop_test')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Read the shards
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/node-setup
+        with:
+          browsers: "true"
+      - uses: ./.github/actions/run-check
+        with:
+          name: apps/desktop/unit:desktop_test
+          cmd: pnpm --dir apps/desktop exec vitest run --maxWorkers="$WIDTH" --project 'desktop*'
+
+  # The name a ruleset will require, once desktop_test is stable. Passes when
+  # the plan skipped both jobs, fails when a smoke shard or the unit job failed
+  # or was cancelled.
+  desktop_test:
+    name: desktop_test
+    if: always()
+    needs: [plan, app_smoke_shard, desktop_unit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Read the jobs
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
@@ -463,6 +496,7 @@ jobs:
       - typecheck
       - workspace_check
       - hooks_test
+      - preview_test
       - xtask_test
       - foundations
     runs-on: ubuntu-latest
