@@ -135,6 +135,9 @@ approximations.
     turns onto `main`, `scripts/land` (being retired for pull requests and CI),
     `armada need` (numbers land in the order they were declared), and where each
     part goes in Fleet.
+  - [`capabilities/needs.md`](capabilities/needs.md) — a Job or a Session says what
+    it needs, and Armada keeps one ledger row per need, so the one behind hears who
+    is ahead and a pull request waits its turn.
 
 ## Journeys
 
