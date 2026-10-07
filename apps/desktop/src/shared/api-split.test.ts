@@ -158,7 +158,7 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -402,6 +402,7 @@ type OldBridgeApi = {
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+    renameSession: (rename: RenameSession) => Promise<SessionActed>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -637,6 +638,7 @@ const OLD_CHANNELS = {
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
     tuneSession: "bridge:tune-session",
+    renameSession: "bridge:rename-session",
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
