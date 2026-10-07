@@ -29,6 +29,8 @@ pub struct Served<D> {
     /// call. `None` is answered by [`crate::sockets::NO_JOURNAL`] — a fault
     /// naming what is missing, never an empty stream.
     journal: Option<Arc<dyn Journal>>,
+    /// Set where Fleet serves before it has reconciled: commands wait on it.
+    reconciling: Option<tokio::sync::watch::Receiver<bool>>,
 }
 
 impl<D> Served<D> {
@@ -59,6 +61,7 @@ impl<D> Served<D> {
             run_id,
             events,
             journal: None,
+            reconciling: None,
         }
     }
 
@@ -67,6 +70,16 @@ impl<D> Served<D> {
     pub fn reading(mut self, journal: Arc<dyn Journal>) -> Served<D> {
         self.journal = Some(journal);
         self
+    }
+
+    /// Commands wait until this reconciliation has finished. Reads do not.
+    pub fn reconciling(mut self, reconciliation: &crate::reconciling::Reconciliation) -> Served<D> {
+        self.reconciling = Some(reconciliation.watched());
+        self
+    }
+
+    pub(crate) fn waiting_on(&self) -> Option<tokio::sync::watch::Receiver<bool>> {
+        self.reconciling.clone()
     }
 
     /// The stream this listener publishes from, for whoever holds the daemon.
@@ -106,6 +119,7 @@ impl<D> Clone for Served<D> {
             run_id: self.run_id.clone(),
             events: self.events.clone(),
             journal: self.journal.clone(),
+            reconciling: self.reconciling.clone(),
         }
     }
 }

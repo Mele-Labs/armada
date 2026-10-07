@@ -14,12 +14,17 @@
 //!    listener**. Publishing a number nobody listens on gives Bridge a socket
 //!    that refuses and no way to tell that from a wedged Fleet.
 //! 6. Assemble a Fleet serving nothing, on the store already open. Serve the
-//!    folder given, then every remembered one, and reconcile them all against
-//!    what this process can see. With none, reconciliation has no Job to move.
-//! 7. Serve, turning the same `Arc` the router holds. The loop starts first,
-//!    because reconciliation can admit a queued Job that needs turning whether
-//!    or not anything ever connects.
-//! 8. Wait to be stopped; the port goes back and the file's guard removes it.
+//!    folder given, then every remembered one.
+//! 7. Serve the router, and reconcile every served repository against what this
+//!    process can see in a task of its own. **Reads and health answer while it
+//!    runs; a command waits for it**, because it moves Jobs and a command
+//!    between two of its moves would race them. When it ends, the turn loop
+//!    starts on the same `Arc` the router holds, since reconciliation can admit
+//!    a queued Job that needs turning whether or not anything ever connects,
+//!    and then commands are let through. A reconciliation that fails stops the
+//!    server.
+//! 8. Wait to be stopped. A stop during step 7 ends its task where it stands,
+//!    as a crash would. The port goes back and the file's guard removes it.
 //!
 //! **`exit 0` on a permanent refusal is deliberately not implemented.**
 //! `docs/concepts/fleet.md` requires it of a supervised Fleet; started by hand,
@@ -527,79 +532,103 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     for why in fleet.served_again().await {
         eprintln!("  a remembered repository is not served: {why}");
     }
-    let reconciled = fleet.reconcile().await?;
-    println!(
-        "reconciled: {} interrupted, {} restarted, {} adopted, {} repaired, {} unreadable, {} mended{}",
-        reconciled.interrupted.len(),
-        reconciled.restarted.len(),
-        reconciled.adopted.len(),
-        reconciled.repaired,
-        reconciled.unreadable.len(),
-        reconciled.mended.len(),
-        match reconciled.admitted.as_slice() {
-            [] => String::new(),
-            admitted => format!(", admitted {}", admitted.len()),
-        }
-    );
-    // Said only where it happened: every boot after the one that converted
-    // them prints nought, and a line saying so every time would be noise.
-    if reconciled.recognised > 0 {
-        println!(
-            "  {} Link on a Studio is now the Issue, Pull request or Epic its address names",
-            reconciled.recognised
-        );
-    }
-    for job in &reconciled.adopted {
-        // Named rather than counted, because an adopted Drone is a Job whose
-        // record has a hole in it: what it did while Fleet was away is not in
-        // the transcript and never will be. The Job's own log says how wide.
-        eprintln!(
-            "  a Drone outlived the last Fleet and was adopted: {}",
-            job.as_str()
-        );
-    }
-    for job in &reconciled.mended {
-        // Named for the same reason: a person reading this Job's own log gets
-        // the why, and this line is where an operator watching boot sees that
-        // one existed at all.
-        eprintln!(
-            "  a Job the old `Agree` arm left stranded was moved to escalated: {}",
-            job.as_str()
-        );
-    }
-    for unreadable in &reconciled.unreadable {
-        // Carried out rather than dropped: a short list with nothing saying so
-        // is the one answer the store refuses to give.
-        eprintln!("  a row would not rebuild: {unreadable}");
-    }
-
-    // **Started before the listener, not after.** Reconciliation admitted a
-    // queued Job on the way out, and that Job is already dispatched — it needs
-    // turning whether or not anything ever connects.
-    let turning = fleet::keep_turning(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL, |why| {
-        // Carried out on its own line, and the loop keeps going: one turn
-        // having failed is not a reason for every later Job to stop advancing
-        // silently.
-        eprintln!("a turn did not complete: {why}");
-    });
-    println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
-
+    // **Served before it has reconciled**: reconciliation can take as long as a
+    // Job's gate, and the listener answered nothing for all of it. Reads and
+    // health answer at once; a command waits on `reconciliation`, so nothing
+    // races the Job moves below. `api::Reconciliation`.
+    let reconciliation = api::Reconciliation::begun();
     let events = fleet.events();
-    // Each served repository's merge line, read off disk and published when it
-    // moves: `armada land` is another process and tells Fleet nothing.
-    fleet::merge_lines::keep_reading(
-        Arc::clone(&fleet),
-        events.clone(),
-        fleet::merge_lines::EVERY,
-        |unread| eprintln!("{unread}"),
-    );
-    // Stale build output, trimmed in every checkout of each served repository.
-    fleet::sweeping::keep_sweeping(
-        Arc::clone(&fleet),
-        PROVISIONAL_SWEEP_INTERVAL,
-        adapters::leasing::Trim::SHIPPED,
-        |said| eprintln!("{said}"),
-    );
+    let (failed, reconcile_failed) = tokio::sync::oneshot::channel::<()>();
+    // The loops that move Jobs start inside the task, after `reconcile`, and
+    // only then are commands let through.
+    let booting = tokio::spawn({
+        let fleet = Arc::clone(&fleet);
+        let events = events.clone();
+        let reconciliation = reconciliation.clone();
+        async move {
+            let reconciled = match fleet.reconcile().await {
+                Ok(reconciled) => reconciled,
+                Err(why) => {
+                    let _ = failed.send(());
+                    return Err(why.to_string());
+                }
+            };
+            println!(
+                "reconciled: {} interrupted, {} restarted, {} adopted, {} repaired, {} unreadable, {} mended{}",
+                reconciled.interrupted.len(),
+                reconciled.restarted.len(),
+                reconciled.adopted.len(),
+                reconciled.repaired,
+                reconciled.unreadable.len(),
+                reconciled.mended.len(),
+                match reconciled.admitted.as_slice() {
+                    [] => String::new(),
+                    admitted => format!(", admitted {}", admitted.len()),
+                }
+            );
+            // Said only where it happened: every boot after the one that converted
+            // them prints nought, and a line saying so every time would be noise.
+            if reconciled.recognised > 0 {
+                println!(
+                    "  {} Link on a Studio is now the Issue, Pull request or Epic its address names",
+                    reconciled.recognised
+                );
+            }
+            for job in &reconciled.adopted {
+                // Named rather than counted, because an adopted Drone is a Job whose
+                // record has a hole in it: what it did while Fleet was away is not in
+                // the transcript and never will be. The Job's own log says how wide.
+                eprintln!(
+                    "  a Drone outlived the last Fleet and was adopted: {}",
+                    job.as_str()
+                );
+            }
+            for job in &reconciled.mended {
+                // Named for the same reason: a person reading this Job's own log gets
+                // the why, and this line is where an operator watching boot sees that
+                // one existed at all.
+                eprintln!(
+                    "  a Job the old `Agree` arm left stranded was moved to escalated: {}",
+                    job.as_str()
+                );
+            }
+            for unreadable in &reconciled.unreadable {
+                // Carried out rather than dropped: a short list with nothing saying so
+                // is the one answer the store refuses to give.
+                eprintln!("  a row would not rebuild: {unreadable}");
+            }
+
+            // **Started before commands are let through, not after.**
+            // Reconciliation admitted a queued Job on the way out, and that Job
+            // is already dispatched: it needs turning whether or not anything
+            // ever connects.
+            let turning =
+                fleet::keep_turning(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL, |why| {
+                    // Carried out on its own line, and the loop keeps going: one
+                    // turn having failed is not a reason for every later Job to
+                    // stop advancing silently.
+                    eprintln!("a turn did not complete: {why}");
+                });
+            println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
+            // Each served repository's merge line, read off disk and published when it
+            // moves: `armada land` is another process and tells Fleet nothing.
+            fleet::merge_lines::keep_reading(
+                Arc::clone(&fleet),
+                events.clone(),
+                fleet::merge_lines::EVERY,
+                |unread| eprintln!("{unread}"),
+            );
+            // Stale build output, trimmed in every checkout of each served repository.
+            fleet::sweeping::keep_sweeping(
+                Arc::clone(&fleet),
+                PROVISIONAL_SWEEP_INTERVAL,
+                adapters::leasing::Trim::SHIPPED,
+                |said| eprintln!("{said}"),
+            );
+            reconciliation.finished();
+            Ok(turning)
+        }
+    });
     // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
     let clock = SystemClock::new();
     api::tally_every(events.clone(), api::TALLY_EVERY, move |tally| {
@@ -615,7 +644,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // inside a Fleet method the way a Job's own release is, because there is
     // no Job whose transition would carry it. See `fleet::ports`.
     let fleet_for_shutdown = Arc::clone(&fleet);
-    let app = api::router(api::Served::sharing(fleet, run_id, events).reading(job_logs));
+    let app = api::router(
+        api::Served::sharing(fleet, run_id, events)
+            .reading(job_logs)
+            .reconciling(&reconciliation),
+    );
     println!("serving {} on {bound}", api::SERVED.len());
 
     // **With connect info**, because a Drone's tool call is attributed by the
@@ -625,15 +658,33 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(stop_requested())
+    .with_graceful_shutdown(async {
+        tokio::select! {
+            _ = stop_requested() => {}
+            // A reconciliation that failed stops the server. One that finished
+            // drops its sender too, which is not a reason to stop.
+            Ok(()) = reconcile_failed => {}
+        }
+    })
     .await?;
 
     // Between turns, letting the one in flight finish. A stop that returned
     // mid-turn could leave a step moved and its Job not — so this waits, and
     // says it is waiting, because a turn running a Check can hold it for the
     // whole Check budget and a terminal that has gone quiet reads as a wedge.
-    println!("stopping: letting the turn in flight finish");
-    turning.stopped().await;
+    // Stopped while still reconciling, the task is ended where it stands: what
+    // it leaves half done is what a crash leaves, and the next boot repairs it.
+    let turning = match booting.is_finished() {
+        true => Some(booting.await??),
+        false => {
+            booting.abort();
+            None
+        }
+    };
+    if let Some(turning) = turning {
+        println!("stopping: letting the turn in flight finish");
+        turning.stopped().await;
+    }
 
     // After teardown, never before it: the turn in flight has finished, and
     // every server Fleet holds — a Job's or the main checkout's — is stopped
