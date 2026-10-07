@@ -1,0 +1,196 @@
+/* Runs: the rows of a script or a skill that fires at a moment in a Job, drawn
+   in the Workflow creator and on Job detail. A card under a filled band, as the
+   creator's stage is; rows read like the workflow rows beside them.
+
+   Contrast, worked from the tokens: --fg-inverse on the band (--accent) 6.35:1,
+   as the stage's; --fg-muted on a row over --bg-raised clears 4.5:1, and
+   --fg-subtle on a shadowed row 4.58:1 at the lightest ground. */
+
+.armada-runs-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-raised);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+.armada-runs-card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-runs-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+.armada-runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-runs__row > button,
+.armada-runs__row--fired {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+}
+
+.armada-runs__row > button {
+  cursor: pointer;
+}
+
+.armada-runs__row > button:hover {
+  background: var(--bg-hover);
+}
+
+.armada-runs__row > button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-runs__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-runs__mark[data-hue="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-runs__mark[data-hue="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-runs__mark[data-hue="running"] {
+  color: var(--run-running);
+}
+
+.armada-runs__fired {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-runs__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.armada-runs__when {
+  margin-left: auto;
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* Shadowed by a more specific place: quiet, the way a shadowed workflow is. */
+.armada-runs__row[data-state="overridden"] > button,
+.armada-runs__row[data-state="overridden"] .armada-runs__mark,
+.armada-runs__row[data-state="overridden"] .armada-runs__when {
+  color: var(--fg-subtle);
+}
+
+.armada-runs__row[data-state="overridden"] .armada-runs__name {
+  text-decoration: line-through;
+}
+
+.armada-runs__fact {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-runs__fails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-runs__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* The repair Drone at work: circle-dot's inner dot, opacity and scale only, as
+   the running badge does. The ring holds still, so no row shifts. */
+.armada-runs__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-runs-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-runs-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+/* A step's runs, and the acts that add one. */
+.armada-runs__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-runs__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-runs__mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}

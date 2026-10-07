@@ -427,3 +427,6 @@ export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
+export { FiredRuns } from "./compositions/WorkflowRuns/WorkflowRuns";
+export { firedRunsOf } from "./compositions/WorkflowRuns/runs";
+export type { FiredRun } from "./compositions/WorkflowRuns/runs";

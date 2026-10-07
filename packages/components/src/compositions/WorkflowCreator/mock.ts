@@ -57,6 +57,7 @@ const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
         gate: { ...none, checks: true, judge: true },
       }),
       step("review", { evidence: "bundle", gate: { ...none, you: true } }),
+      step("deliver", { evidence: "", check: "pr_merged", gate: { ...none, repository: true } }),
     ],
   },
   "carried/bug": {

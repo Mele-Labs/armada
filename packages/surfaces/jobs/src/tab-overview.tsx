@@ -774,6 +774,7 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
+      {...(props.firedRuns === undefined ? {} : { firedRuns: props.firedRuns })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.
