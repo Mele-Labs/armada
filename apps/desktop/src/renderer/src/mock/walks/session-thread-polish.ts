@@ -17,7 +17,7 @@ function steps(narrow: boolean): Step[] {
     { look: inside(thread, text("/reload-plugins")), say: "A command is one line as typed, with no tags" },
     { look: inside(thread, text("Grep, Read, Bash")), say: "Three calls in a row are one closed row naming the tools" },
     { press: inside(thread, text("Grep, Read, Bash")), say: "Pressed, it shows each call" },
-    { look: inside(thread, text("Bash cat /private/tmp/claude-501/store-ci/out.txt")), say: "Every call, in order" },
+    { look: inside(thread, text("Bash cat /private/tmp/store-ci/out.txt")), say: "Every call, in order" },
     { look: inside(thread, text("Wait on the write instead of sleeping, and keep the test under a second.")), say: "The person's words sit left, on the panel, with no fill" },
     { look: inside(thread, text("It sleeps 50 ms and then reads the clock. CI is slower than that, so the read lands before the write.")), say: "The agent's the same" },
   ];

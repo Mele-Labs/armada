@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { Box, ChevronRight, GitBranch, KeyRound, ListCollapse, SquareTerminal, Wrench } from "lucide-react";
+import { Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -267,7 +267,7 @@ function Row({ row, onOpenSession }: { row: Exclude<SessionThreadRow, { kind: "t
         <details>
           <summary className="armada-session-fold__head">
             <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
-            <ListCollapse size={12} strokeWidth={2} aria-hidden />
+            <Layers size={12} strokeWidth={2} aria-hidden />
             Conversation compacted
           </summary>
           <div className="armada-session-fold__body">
