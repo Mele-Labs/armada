@@ -8,10 +8,15 @@ const URL = 'https://github.com/Mele-Labs/armada/pull/1853'
 
 type Posted = { url: string; body: any }
 
-function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {}) {
+function world(
+  on: On,
+  options: { running?: () => boolean; hangs?: boolean; held?: string[] } = {},
+) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
+  const submitted: { text: string; asUser?: boolean }[] = []
+  const asked: unknown[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user' })
   on('fs.read', () => {
@@ -22,6 +27,12 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {
   on('http.fetch', (_$, e) => {
     attempts.fetches += 1
     if (options.hangs) return new Promise(() => undefined)
+    // What the mod asks for, and not a report: kept apart so a count of reports holds.
+    if (e.url.endsWith('/sessions/held')) {
+      asked.push(JSON.parse(e.init?.body ?? '{}'))
+      const messages = options.held?.splice(0) ?? []
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages }) } }
+    }
     posts.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
   })
@@ -36,9 +47,12 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {
   // What the engine answers beneath the mod for the events a test raises.
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
-  on('prompt.submit', (_$, e) => ({ text: e.text }))
+  on('prompt.submit', (_$, e) => {
+    submitted.push({ text: e.text, asUser: e.origin?.asUser })
+    return { text: e.text }
+  })
   on('turn.complete', () => ({ text: '' }))
-  return { posts, attempts, clock }
+  return { posts, attempts, clock, submitted, asked }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -228,4 +242,30 @@ test('a need declared while Fleet is down costs nothing and is told again when i
   expect(needs(posts)).toEqual([
     { kind: 'attached', attachment: { kind: 'need', target: 'a.toml', detail: { what: 'a minor' } } },
   ])
+})
+
+test('what a person sent from Bridge is submitted as their own prompt, once, in order', async ($, on) => {
+  const { clock, submitted, asked } = world(on, { held: ['run the tests', 'then lint'] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(asked[0]).toEqual({ session_id: 'S1' })
+  expect(submitted).toEqual([
+    { text: 'run the tests', asUser: true },
+    { text: 'then lint', asUser: true },
+  ])
+  await clock.advance(2000)
+  await clock.settle()
+  expect(submitted).toHaveLength(2)
+})
+
+test('a Fleet that is not running is not asked, and nothing is submitted', async ($, on) => {
+  const { clock, submitted, asked } = world(on, { running: () => false, held: ['lost'] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(asked).toEqual([])
+  expect(submitted).toEqual([])
 })

@@ -1,10 +1,11 @@
 // Tells a running Fleet which sessions this machine has open and what each holds.
 // `docs/concepts/session.md`.
 //
-// **A session is reported as it happens and never read back.** No hook changes
-// what a session does or is told: each answers with what `next` returned and
-// lets its report go unawaited, so Fleet being down costs the session nothing
-// (`fleet.ts`). **No message text and no prompt leaves, apart from the first
+// **A session is reported as it happens and never read back**, with one
+// exception: a message a person sent it from Bridge, which Fleet holds until
+// this mod asks (`submitHeld`). No hook changes what a session does or is told:
+// each answers with what `next` returned and lets its report go unawaited, so
+// Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title.** A message is reported as who it went to
 // or came from, and how many.
 //
@@ -30,10 +31,11 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+const ASK_EVERY_MS = 2000
 const SILENT_MS = 30_000
 const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
 
-type Dollar = Door & Pick<Engine, 'process' | 'session'>
+type Dollar = Door & Pick<Engine, 'process' | 'prompt' | 'session'>
 
 type Known = {
   cwd: string
@@ -73,14 +75,20 @@ let silentUntil = 0
 let wasOut = false
 
 
-async function post($: Door, report: Report): Promise<boolean> {
+async function portOf($: Door): Promise<number | undefined> {
   const home = await $.env.get('HOME')
-  if (!home) return false
+  if (!home) return undefined
   const file = JSON.parse(await $.fs.read(`${home}/${RUNTIME_FILE}`)) as { port?: unknown }
   const port = file.port
   if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
-    return false
+    return undefined
   }
+  return port
+}
+
+async function post($: Door, report: Report): Promise<boolean> {
+  const port = await portOf($)
+  if (port === undefined) return false
   const sent = $.http.fetch(`http://127.0.0.1:${port}/sessions/report`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -103,6 +111,33 @@ async function deliver($: Door, report: Report): Promise<void> {
   } catch {
     silentUntil = now + SILENT_MS
     wasOut = true
+  }
+}
+
+// What a person sent this session from Bridge. Each is submitted as the
+// person's own prompt, which starts a turn when the session is idle and waits
+// for it when it is not (spike 27). One at a time, so they keep their order.
+let submitting: Promise<void> = Promise.resolve()
+
+async function submitHeld($: Dollar): Promise<void> {
+  if ((await $.clock.now()) < silentUntil) return
+  const port = await portOf($)
+  if (port === undefined) return
+  const id = await $.session.id()
+  const asked = await $.http.fetch(`http://127.0.0.1:${port}/sessions/held`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ session_id: id }),
+  })
+  if (!asked.ok) return
+  const held = JSON.parse(asked.text) as { messages?: unknown }
+  if (!Array.isArray(held.messages)) return
+  for (const text of held.messages) {
+    if (typeof text !== 'string') continue
+    submitting = submitting
+      .then(() => $.prompt.submit({ text, asUser: true }))
+      .then(() => undefined)
+      .catch(() => undefined)
   }
 }
 
@@ -284,6 +319,7 @@ async function ended($: Dollar, id: string, reason: string): Promise<void> {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
+    $.clock.every(ASK_EVERY_MS, () => submitHeld($).catch(() => undefined))
     void $.session
       .id()
       .then(id => begin($, id, e.cwd))
