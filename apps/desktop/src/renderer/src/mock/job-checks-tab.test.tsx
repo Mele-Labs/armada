@@ -41,7 +41,7 @@ test("the tab lists this Job's Checks alone, newest first", async () => {
   await openChecksTab();
   await expect
     .poll(listed)
-    .toEqual(["hooks_test", "ipc_test", "fleet_test", "format", "components_test", "docs_test", "clippy"]);
+    .toEqual(["desktop_test", "hooks_test", "ipc_test", "fleet_test", "format", "components_test", "docs_test", "clippy"]);
 });
 
 test("each filter narrows the Job's Checks, and Completed holds passed, failed and skipped", async () => {
@@ -52,7 +52,7 @@ test("each filter narrows the Job's Checks, and Completed holds passed, failed a
 
   const under: Record<string, string[]> = {
     Active: ["hooks_test"],
-    Waiting: ["fleet_test"],
+    Waiting: ["desktop_test", "fleet_test"],
     Completed: ["ipc_test", "format", "components_test", "docs_test", "clippy"],
     Passed: ["ipc_test", "components_test"],
     Failed: ["format", "clippy"],
@@ -63,7 +63,7 @@ test("each filter narrows the Job's Checks, and Completed holds passed, failed a
     await expect.poll(listed, { message: filter }).toEqual(names);
   }
   await page.getByRole("tab", { name: "All", exact: true }).click();
-  await expect.poll(() => listed().length).toBe(7);
+  await expect.poll(() => listed().length).toBe(8);
 });
 
 test("a row opens its facts and log, and its Drone opens on this Job's Drones tab", async () => {

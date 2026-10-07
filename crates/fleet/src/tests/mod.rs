@@ -233,3 +233,21 @@ mod work_plan;
 // descendant of this module and need the same temporary directory every
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
+mod tools;
+mod transcript;
+mod tuning;
+mod unattended;
+mod under_review;
+mod underway;
+mod verify_runs;
+mod waiting_checks;
+mod watching;
+mod wave_rounds;
+mod waves;
+mod widening;
+mod workflow_promise;
+mod workspace_gate;
+mod workspace_loading;
+mod workspace_ports;
+mod workspace_runs;
+mod workspace_verify;
