@@ -129,10 +129,18 @@ def queued(root):
 
 
 def base_of(root):
-    for ref in ("refs/heads/main", "refs/remotes/origin/main"):
-        if git(root, "rev-parse", "--verify", "--quiet", ref, check=False).returncode == 0:
-            return ref
-    sys.exit("preview: neither `main` nor `origin/main` exists")
+    """The newer of local `main` and `origin/main`, so a checkout that has not
+    pulled still previews what has landed. Local `main` wins only where it is
+    ahead of the remote; a diverged pair takes the remote, which is what lands."""
+    have = [ref for ref in ("refs/heads/main", "refs/remotes/origin/main")
+            if git(root, "rev-parse", "--verify", "--quiet", ref, check=False).returncode == 0]
+    if not have:
+        sys.exit("preview: neither `main` nor `origin/main` exists")
+    if len(have) == 2:
+        local_is_behind = git(root, "merge-base", "--is-ancestor", have[0], have[1], check=False).returncode == 0
+        local_is_ahead = git(root, "merge-base", "--is-ancestor", have[1], have[0], check=False).returncode == 0
+        return have[0] if local_is_ahead and not local_is_behind else have[1]
+    return have[0]
 
 
 def exists(root, branch):
