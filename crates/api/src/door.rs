@@ -123,6 +123,7 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "list_worktrees",
     "list_sessions",
     "who_owns",
+    "list_needs",
     "change_slot_pool",
     "rescue_slot",
     "list_servers",

@@ -4,7 +4,6 @@
 //! outside needs; and a migration is not watched, since names do not collide.
 
 use super::repo::TempRepo;
-use crate::needs::Needs;
 use crate::undeclared::undeclared;
 
 const MIGRATIONS: &str = "crates/store/src/migration_list.rs";
@@ -24,12 +23,11 @@ fn repo() -> TempRepo {
     repo
 }
 
-fn answer(repo: &TempRepo, needs: &Needs) -> Option<String> {
-    undeclared(repo.root(), "main", "work", needs).expect("git read")
-}
-
-fn needs_of(repo: &TempRepo) -> Needs {
-    Needs::of(repo.root()).expect("needs")
+/// What the caller says the branch has declared: Fleet reads its ledger for it
+/// and `armada land` the files, and this function is told either way.
+fn answer(repo: &TempRepo, declared: &[&str]) -> Option<String> {
+    let declared: Vec<String> = declared.iter().map(|path| path.to_string()).collect();
+    undeclared(repo.root(), "main", "work", &declared).expect("git read")
 }
 
 #[test]
@@ -37,7 +35,7 @@ fn an_appended_migration_needs_nothing() {
     let repo = repo();
     repo.write(MIGRATIONS, "Migration::additive(\"a.b\", crate::a::B),\n");
     repo.commit_everything("add");
-    assert_eq!(answer(&repo, &needs_of(&repo)), None);
+    assert_eq!(answer(&repo, &[]), None);
 }
 
 #[test]
@@ -45,7 +43,7 @@ fn a_changed_minor_with_no_need_is_refused() {
     let repo = repo();
     repo.write(PROTOCOL, &toml(23, 38));
     repo.commit_everything("bump");
-    let said = answer(&repo, &needs_of(&repo)).expect("refused");
+    let said = answer(&repo, &[]).expect("refused");
     assert!(said.contains(&format!("armada need {PROTOCOL} \"a minor\"")));
     assert!(!said.contains("a new migration"), "{said}");
 }
@@ -55,12 +53,13 @@ fn a_declared_need_passes() {
     let repo = repo();
     repo.write(PROTOCOL, &toml(23, 37));
     repo.commit_everything("bump");
-    let needs = needs_of(&repo);
-    assert!(answer(&repo, &needs).is_some());
-    needs
-        .declare("work", PROTOCOL, "a minor")
-        .expect("declared");
-    assert_eq!(answer(&repo, &needs), None);
+    assert!(answer(&repo, &[]).is_some());
+    assert_eq!(answer(&repo, &[PROTOCOL]), None);
+    assert_eq!(
+        answer(&repo, &[&format!("./{PROTOCOL}")]),
+        None,
+        "a path is read without its leading ./"
+    );
 }
 
 #[test]
@@ -68,7 +67,7 @@ fn a_branch_touching_nothing_watched_passes() {
     let repo = repo();
     repo.write("other.rs", "x");
     repo.commit_everything("unrelated");
-    assert_eq!(answer(&repo, &needs_of(&repo)), None);
+    assert_eq!(answer(&repo, &[]), None);
 }
 
 #[test]
@@ -76,7 +75,7 @@ fn a_major_move_is_outside_needs() {
     let repo = repo();
     repo.write(PROTOCOL, &toml(24, 0));
     repo.commit_everything("major");
-    assert_eq!(answer(&repo, &needs_of(&repo)), None);
+    assert_eq!(answer(&repo, &[]), None);
 }
 
 #[test]
@@ -87,5 +86,5 @@ fn a_base_that_moved_on_is_not_the_branchs_change() {
     repo.git(&["checkout", "-q", "main"]);
     repo.write(PROTOCOL, &toml(23, 40));
     repo.commit_everything("main bumps");
-    assert_eq!(answer(&repo, &needs_of(&repo)), None);
+    assert_eq!(answer(&repo, &[]), None);
 }

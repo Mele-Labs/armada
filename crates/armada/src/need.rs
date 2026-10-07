@@ -1,93 +1,81 @@
 //! `armada need`: a branch says what it needs on a path, and is told who is
-//! ahead of it there. The decision is `decisions/2026-10-02-a-plan-leases-its-numbers.md`;
-//! this is the half for agents working outside Fleet.
+//! ahead of it there. `docs/capabilities/needs.md`; the decision is
+//! `decisions/2026-10-02-a-plan-leases-its-numbers.md`. This is the half for
+//! agents working outside Fleet.
+//!
+//! **Fleet keeps the needs**, as rows on its session ledger, and this verb asks
+//! it: a Job and a session on one machine stand in one order because there is
+//! one table. **Where Fleet is not running this says so and does nothing else.**
+//! A list of its own, kept here, would be a second order that Fleet's merge never
+//! reads, which is what the files under `.git/armada-needs/` were.
 //!
 //! **A need is a path and what is needed there, in the declarer's words**, and
 //! the repository declares no kinds up front: the file is the resource. First
-//! to declare goes first. `armada land` holds a branch until every need ahead
-//! of it on the same path is spent or given back ([`crate::land::hold`]).
+//! to declare goes first, and **nothing expires by time**: a stalled need is
+//! given back by a person, `--release`.
 //!
-//! **State is one file per need under the git common directory**, beside
-//! `armada-land/`, so every worktree of one clone sees the same line. The files
-//! and their order are `adapters::needs`, which Fleet reads and writes for its
-//! Jobs too, so a session and a Job see one order. A need is spent when its
-//! branch lands, and given back when its branch no longer exists locally or a
-//! person runs `--release`. **Nothing expires by time**: whether a stalled need
-//! should is open, so a person gives a stalled one back.
+//! **`armada land` still reads the files** ([`Needs`], re-exported for it). It is
+//! being retired for pull requests and is not moved onto the ledger, so a need
+//! declared through Fleet is not one it holds a branch behind.
 
 use std::path::Path;
 
 pub use adapters::needs::{waiting_text, Need, Needs};
+use fleet::runtime;
+use ipc::{NeedAct as Act, NeedAnswer, NeedCall, NeedLine, NeedList, WireError};
 
 use crate::land::git::checked;
-use crate::land::StateDir;
+use crate::loopback::Loopback;
 
-/// What declaring came to.
-pub struct Declared {
-    pub mine: Need,
-    pub already: bool,
-    pub ahead: Vec<Need>,
-    /// Set where the branch already changes the path while others are ahead on
-    /// it: whatever number it took there may have to move.
-    pub late: bool,
-}
+/// Where Fleet serves the act and the read.
+const NEEDS: &str = "/needs";
 
-/// Record `branch`'s need on `path`, and say whether the checkout at `cwd`
-/// already changes it. The same branch and path again records nothing.
-pub fn declare(
-    needs: &Needs,
-    cwd: &Path,
+/// What `armada need` prints after declaring.
+pub fn declared_text(
+    done: &NeedAnswer,
     branch: &str,
     path: &str,
     what: &str,
-) -> Result<Declared, String> {
-    let done = needs.declare(branch, path, what)?;
-    let late = !done.ahead.is_empty() && changes(cwd, &done.mine.path);
-    Ok(Declared {
-        mine: done.mine,
-        already: done.already,
-        ahead: done.ahead,
-        late,
-    })
-}
-
-/// What `armada need` prints after declaring.
-pub fn declared_text(done: &Declared) -> String {
-    let mine = &done.mine;
+    late: bool,
+) -> String {
     let mut out = String::new();
     let verb = if done.already {
         "already recorded"
     } else {
         "recorded"
     };
-    out.push_str(&format!(
-        "need {verb}: {} on {}: {}\n",
-        mine.branch, mine.path, mine.what
-    ));
+    out.push_str(&format!("need {verb}: {branch} on {path}: {what}\n"));
     if done.ahead.is_empty() {
-        out.push_str(&format!("nothing is ahead of you on {}\n", mine.path));
+        out.push_str(&format!("nothing is ahead of you on {path}\n"));
         return out;
     }
-    out.push_str(&format!("ahead of you on {}:\n", mine.path));
+    out.push_str(&format!("ahead of you on {path}:\n"));
     for ahead in &done.ahead {
-        out.push_str(&format!("  {}\n", ahead.describe()));
+        out.push_str(&format!("  {}\n", describe(ahead)));
     }
     out.push_str(
         "pick the value after theirs, then `armada need --took <path> \"<value>\"`. \
-         `armada land` holds this branch until they have landed or been given back.\n",
+         Fleet holds this branch's merge until they have landed or been given back.\n",
     );
-    if done.late {
+    if late {
         out.push_str(&format!(
-            "this branch already changes {}: if it took a number there before declaring, \
+            "this branch already changes {path}: if it took a number there before declaring, \
              search comments and docs for the old number and change every mention.\n",
-            mine.path
         ));
     }
     out
 }
 
+/// `who: what`, and what it took where it said.
+fn describe(need: &NeedLine) -> String {
+    match &need.took {
+        Some(took) => format!("{}: {}, took {took}", need.held_by, need.what),
+        None => format!("{}: {}, took nothing yet", need.held_by, need.what),
+    }
+}
+
 /// `armada need --status`.
-pub fn status_text(needs: &[Need]) -> String {
+pub fn status_text(needs: &[NeedLine]) -> String {
     if needs.is_empty() {
         return "no needs standing\n".to_string();
     }
@@ -101,24 +89,14 @@ pub fn status_text(needs: &[Need]) -> String {
             out.push_str(&format!("{}\n", need.path));
         }
         n += 1;
-        out.push_str(&format!("  {n}. {}\n", need.describe()));
+        out.push_str(&format!("  {n}. {}\n", describe(need)));
     }
     out
 }
 
-/// Standing needs, grouped by path and in order within one.
-pub fn by_path(mut needs: Vec<Need>) -> Vec<Need> {
-    needs.sort_by(|a, b| {
-        a.path
-            .cmp(&b.path)
-            .then(adapters::needs::order(a).cmp(&adapters::needs::order(b)))
-    });
-    needs
-}
-
 /// Whether the checkout at `cwd` differs from the base at `path`, committed or
 /// not. Unanswerable reads as no.
-fn changes(cwd: &Path, path: &str) -> bool {
+pub(crate) fn changes(cwd: &Path, path: &str) -> bool {
     let env = crate::land::Env::read();
     let base = format!("{}/{}", env.remote, env.base);
     let Ok(point) = crate::land::merge_base(cwd, "HEAD", &base) else {
@@ -129,51 +107,79 @@ fn changes(cwd: &Path, path: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Run one form of `armada need` from the checkout at `cwd`; what it says.
-pub fn run(cwd: &Path, act: crate::cli::NeedAct) -> Result<String, String> {
-    use crate::cli::NeedAct;
-    let needs = Needs::of(cwd)?;
-    if let NeedAct::Status = act {
-        return Ok(status_text(&by_path(needs.standing())));
-    }
-    let branch = crate::land::current_branch(cwd)
-        .ok_or("no branch is checked out here, and a need belongs to a branch")?;
-    match act {
-        NeedAct::Declare { path, what } => {
-            Ok(declared_text(&declare(&needs, cwd, &branch, &path, &what)?))
-        }
-        NeedAct::Took { path, value } => {
-            let need = needs.took(&branch, &path, &value)?;
-            Ok(format!(
-                "recorded: {} took {value} on {}\n",
-                need.branch, need.path
-            ))
-        }
-        NeedAct::Release { path } => {
-            let said = match needs.release(&branch, &path) {
-                true => format!("gave back {branch}'s need on {path}\n"),
-                false => format!("{branch} had no need on {path}, so nothing was given back\n"),
-            };
-            nudge_the_line(cwd);
-            Ok(said)
-        }
-        NeedAct::Status => unreachable!("answered above"),
+/// The Fleet to ask, or the sentence saying there is not one.
+fn fleet_here() -> Result<Loopback, String> {
+    let at = runtime::machine_path().map_err(|why| why.to_string())?;
+    crate::mcp::listening(runtime::read(&at), &at)
+        .map(Loopback::at)
+        .map_err(|why| {
+            format!("{why} `armada need` asks Fleet and keeps no list of its own, so nothing was recorded.")
+        })
+}
+
+/// Fleet's refusal, as the sentence it carried.
+fn refusal(status: u16, body: &[u8]) -> String {
+    match ipc::decode::<WireError>("an error", body) {
+        Ok(error) => error.message,
+        Err(_) => format!("Fleet answered {status}"),
     }
 }
 
-/// A branch held behind the need just given back is not waiting on a runner
-/// that has already ended: start one where the line is not empty.
-fn nudge_the_line(cwd: &Path) {
-    let Ok(state) = StateDir::resolve(cwd) else {
-        return;
-    };
-    let Ok(line) = crate::land::queued(&state) else {
-        return;
-    };
-    if line.is_empty() {
-        return;
+fn asked<T: serde::de::DeserializeOwned>(
+    answer: Result<crate::loopback::Answer, crate::loopback::Unreachable>,
+    what: &'static str,
+) -> Result<T, String> {
+    let answer = answer.map_err(|why| format!("Fleet did not answer: {why}"))?;
+    if answer.status != 200 {
+        return Err(refusal(answer.status, &answer.body));
     }
-    if let (Ok(exe), Ok(common)) = (std::env::current_exe(), crate::land::common_git_dir(cwd)) {
-        let _ = crate::land::runner::ensure_runner(&exe, &state, &common);
+    ipc::decode(what, &answer.body)
+        .map_err(|why| format!("what Fleet answered could not be read: {why}"))
+}
+
+/// Run one form of `armada need` from the checkout at `cwd`; what it says.
+pub fn run(cwd: &Path, act: crate::cli::NeedAct) -> Result<String, String> {
+    use crate::cli::NeedAct;
+    let manifest = crate::mcp::standing_in(cwd)?.id().to_string();
+    let fleet = fleet_here()?;
+    if let NeedAct::Status = act {
+        let path = format!("{NEEDS}?manifest_id={}", ipc::door::encoded(&manifest));
+        let list: NeedList = asked(fleet.get(&path), "a need list")?;
+        return Ok(status_text(&list.needs));
+    }
+    let branch = crate::land::current_branch(cwd)
+        .ok_or("no branch is checked out here, and a need belongs to a branch")?;
+    let call = |act, path: &str, what: Option<&str>, value: Option<&str>| NeedCall {
+        act,
+        manifest_id: Some(ipc::ManifestId::carried(&manifest)),
+        branch: branch.clone(),
+        path: path.to_string(),
+        what: what.map(str::to_string),
+        value: value.map(str::to_string),
+    };
+    let send = |call: NeedCall| -> Result<NeedAnswer, String> {
+        let body = ipc::encode(&call).map_err(|why| why.to_string())?;
+        asked(fleet.post(NEEDS, body.as_bytes()), "a need answer")
+    };
+    match act {
+        NeedAct::Declare { path, what } => {
+            let done = send(call(Act::Declare, &path, Some(&what), None))?;
+            let path = adapters::needs::clean_path(&path);
+            let late = !done.ahead.is_empty() && changes(cwd, &path);
+            Ok(declared_text(&done, &branch, &path, &what, late))
+        }
+        NeedAct::Took { path, value } => {
+            let done = send(call(Act::Took, &path, None, Some(&value)))?;
+            let path = done.mine.map(|need| need.path).unwrap_or(path);
+            Ok(format!("recorded: {branch} took {value} on {path}\n"))
+        }
+        NeedAct::Release { path } => {
+            let done = send(call(Act::Release, &path, None, None))?;
+            Ok(match done.gave_back {
+                true => format!("gave back {branch}'s need on {path}\n"),
+                false => format!("{branch} had no need on {path}, so nothing was given back\n"),
+            })
+        }
+        NeedAct::Status => unreachable!("answered above"),
     }
 }

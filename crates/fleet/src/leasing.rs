@@ -338,6 +338,7 @@ where
             .await
             .record_slot(&job)
             .map_err(Adrift::Writing)?;
+        self.job_holds_slot(&job, slot).await;
         Ok(job)
     }
 
@@ -381,11 +382,14 @@ where
             return None;
         }
         let (level, said, why) = match self.vcs().release_slot(&pool, slot, id) {
-            Ok(()) => (
-                Level::Info,
-                "the Job's slot was given back to the pool",
-                None,
-            ),
+            Ok(()) => {
+                self.job_gave_back_slot(job).await;
+                (
+                    Level::Info,
+                    "the Job's slot was given back to the pool",
+                    None,
+                )
+            }
             Err(SlotKept(why)) => (
                 Level::Warn,
                 "the Job ended and its slot stays held, because the pool would not take it back",

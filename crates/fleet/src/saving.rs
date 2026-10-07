@@ -93,6 +93,7 @@ where
         }
         let name = format!("slot-{slot}");
         let Err(SlotKept(_)) = self.vcs().release_slot(&pool, slot, id) else {
+            self.job_gave_back_slot(job).await;
             self.noted_slot(
                 job,
                 Level::Info,
@@ -103,27 +104,30 @@ where
             return Freed::Released;
         };
         match self.vcs().park_slot(&pool, slot, id) {
-            Ok(parked) => match parked.commit {
-                Some(commit) => {
-                    let saved = SavedWork {
-                        branch: parked.branch,
-                        commit,
-                        files: parked.files,
-                    };
-                    self.noted_saved(job.id(), &saved, Some(&name), saved_said);
-                    Freed::Saved(saved)
+            Ok(parked) => {
+                self.job_gave_back_slot(job).await;
+                match parked.commit {
+                    Some(commit) => {
+                        let saved = SavedWork {
+                            branch: parked.branch,
+                            commit,
+                            files: parked.files,
+                        };
+                        self.noted_saved(job.id(), &saved, Some(&name), saved_said);
+                        Freed::Saved(saved)
+                    }
+                    None => {
+                        self.noted_slot(
+                            job,
+                            Level::Info,
+                            "the Job's slot was given back to the pool",
+                            &name,
+                            None,
+                        );
+                        Freed::Released
+                    }
                 }
-                None => {
-                    self.noted_slot(
-                        job,
-                        Level::Info,
-                        "the Job's slot was given back to the pool",
-                        &name,
-                        None,
-                    );
-                    Freed::Released
-                }
-            },
+            }
             Err(refused) => {
                 let why = refused.said();
                 self.noted_slot(

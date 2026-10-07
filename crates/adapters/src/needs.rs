@@ -14,8 +14,11 @@
 //! **Nothing expires by time**: whether a stalled need should is open, so a
 //! person gives a stalled one back.
 //!
-//! Both halves write through here and nothing else does, which is why this is
-//! in `adapters` and not in the binary: the same reason `land_state` is.
+//! **Fleet no longer writes these.** A need is a row on the session ledger now
+//! (`docs/capabilities/needs.md`), and `armada need` asks Fleet. What is left
+//! here is `armada land`'s own hold, which still reads these files and is being
+//! retired, and the one read Fleet makes of them, at its first start, to carry
+//! what a clone already holds into the ledger.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -194,6 +197,13 @@ impl Needs {
             .collect()
     }
 
+    /// Every need on disk, in order, read and nothing else. **Unlike
+    /// [`standing`](Needs::standing) it removes nothing**, which is what the
+    /// conversion into Fleet's ledger needs: the files stay where they are.
+    pub fn files(&self) -> Vec<Need> {
+        self.read_all()
+    }
+
     fn read_all(&self) -> Vec<Need> {
         let Ok(listing) = std::fs::read_dir(&self.dir) else {
             return Vec::new();
@@ -231,7 +241,9 @@ pub fn clean_path(path: &str) -> String {
     path.trim_start_matches("./").to_string()
 }
 
-fn branch_exists(repo: &Path, branch: &str) -> bool {
+/// Whether `branch` exists in the repository at `repo`. Git that could not run
+/// says nothing about it, so that reads as yes.
+pub fn branch_exists(repo: &Path, branch: &str) -> bool {
     Command::new("git")
         .arg("-C")
         .arg(repo)

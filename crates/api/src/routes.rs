@@ -133,6 +133,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/workflows/save",
             post(crate::repositories::save_workflow::<D>),
         )
+        .route(
+            "/needs",
+            get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
+        )
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(

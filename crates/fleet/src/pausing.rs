@@ -151,6 +151,7 @@ where
             .await
             .record_pause(&paused)
             .map_err(Adrift::Writing)?;
+        self.job_gave_back_slot(&paused).await;
         let said = match needed_by {
             Some(waiter) => format!(
                 "the Job was paused by Fleet and its slot given back so \"{}\" ({}) could start",
@@ -269,6 +270,7 @@ where
             .await
             .record_pause(&seated)
             .map_err(Adrift::Writing)?;
+        self.job_holds_slot(&seated, slot).await;
         self.noted_pause(
             &seated,
             Some(slot),

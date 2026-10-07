@@ -485,6 +485,17 @@ const ROUTES: &[Route] = &[
     },
     // The ledger of agent sessions a person runs: the harness's intake, then the
     // two reads. `docs/concepts/session.md`.
+    // `armada need`'s act and the read beside it, on one path. `docs/capabilities/needs.md`.
+    Route {
+        operation: "act_on_need",
+        method: "POST",
+        path: "/needs",
+    },
+    Route {
+        operation: "list_needs",
+        method: "GET",
+        path: "/needs",
+    },
     Route {
         operation: "report_session",
         method: "POST",

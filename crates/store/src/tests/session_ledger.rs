@@ -254,3 +254,117 @@ fn the_search_narrows_by_repository_and_by_state() {
     );
     assert_eq!(found(SessionSearch::default()).len(), 3);
 }
+
+/// A need is not exclusive, and its order is when it was taken, then the
+/// holder's id: not the order the ledger answers who holds a thing in.
+#[test]
+fn needs_stand_in_the_order_they_were_taken_and_are_not_exclusive() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = Holder::job("job-b");
+    let session = Holder::session("session-a");
+    let take = |store: &mut crate::Store, holder: &Holder, target: &str, at: &str| {
+        store
+            .attach(&attachment(holder.clone(), "need", target, at), false)
+            .expect("attached")
+    };
+    take(
+        &mut store,
+        &job,
+        "protocol-version.toml",
+        "2026-10-07T09:00:02.000Z",
+    );
+    take(
+        &mut store,
+        &session,
+        "protocol-version.toml",
+        "2026-10-07T09:00:01.000Z",
+    );
+    // One holder waits on two paths at once.
+    take(
+        &mut store,
+        &job,
+        "docs/INDEX.md",
+        "2026-10-07T09:00:03.000Z",
+    );
+
+    let standing = store
+        .standing_in_order("need", "armada", Some("protocol-version.toml"))
+        .expect("reads");
+    let order: Vec<&str> = standing.iter().map(|row| row.holder.id.as_str()).collect();
+    assert_eq!(order, ["session-a", "job-b"]);
+    assert_eq!(
+        store
+            .standing_in_order("need", "armada", None)
+            .expect("reads")
+            .len(),
+        3,
+        "a second path is not a replacement"
+    );
+
+    // Equal instants fall to the holder's id.
+    take(
+        &mut store,
+        &Holder::job("job-0"),
+        "x",
+        "2026-10-07T09:00:09.000Z",
+    );
+    take(
+        &mut store,
+        &Holder::job("job-1"),
+        "x",
+        "2026-10-07T09:00:09.000Z",
+    );
+    let tied = store
+        .standing_in_order("need", "armada", Some("x"))
+        .expect("reads");
+    assert_eq!(tied[0].holder.id, "job-0");
+}
+
+#[test]
+fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = Holder::job("job-1");
+    for target in ["a", "b"] {
+        store
+            .attach(
+                &attachment(job.clone(), "need", target, "2026-10-07T09:00:00.000Z"),
+                false,
+            )
+            .expect("attached");
+    }
+    store
+        .attach(
+            &attachment(job.clone(), "slot", "3", "2026-10-07T09:00:00.000Z"),
+            true,
+        )
+        .expect("attached");
+
+    assert!(store
+        .settle_held(
+            &job,
+            Some("need"),
+            AttachmentState::Spent,
+            "2026-10-07T10:00:00.000Z"
+        )
+        .expect("settled"));
+    let held = store.attachments_of(&job).expect("reads");
+    assert!(held
+        .iter()
+        .filter(|row| row.kind == "need")
+        .all(|row| row.state == AttachmentState::Spent));
+    assert!(
+        held.iter()
+            .any(|row| row.kind == "slot" && row.state == AttachmentState::Standing),
+        "a kind that was not named stays"
+    );
+    assert!(!store
+        .settle_held(
+            &job,
+            Some("need"),
+            AttachmentState::Spent,
+            "2026-10-07T11:00:00.000Z"
+        )
+        .expect("settled"));
+}
