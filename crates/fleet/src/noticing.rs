@@ -136,6 +136,8 @@ pub(crate) struct Sweep {
     /// own, for `crate::issue_noticing`'s reason: `crate::main_ci` reads a
     /// repository and this rotation reads a pull request.
     pub(crate) main_last: Option<Timestamp>,
+    /// When pull requests were last read to tell their owners, `crate::pull_notices`.
+    pub(crate) pulls_told_last: Option<Timestamp>,
     pub(crate) main_next: usize,
     /// The commits whose merging pull request was asked about, as `repository@commit`.
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,

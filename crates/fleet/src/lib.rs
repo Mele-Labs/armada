@@ -228,6 +228,8 @@ mod proposing;
 /// Running the repository's Checks against the tree a merge left behind, and
 /// the record that is keyed by the commit rather than by a Job.
 mod proving;
+/// What happened to a pull request, told to the Sessions and Jobs that own it.
+mod pull_notices;
 /// A pull request by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requesting;

@@ -99,7 +99,7 @@ impl Terminals {
     }
 
     /// Keep `text` for the mod, or say nobody is listening.
-    fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
+    pub(super) fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
         let mut table = self.listening.lock().expect("held across no panic");
         match table.get_mut(session) {
             Some(one) if one.asked_at.elapsed() <= listening_for => {
