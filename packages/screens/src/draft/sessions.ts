@@ -34,7 +34,8 @@ export type SessionAttachment =
       title: string;
       state: SessionJobState;
       branch: string;
-      slot: number;
+      /** Absent where the Job's own slot is not known: Fleet holds it on the Job, not on the Session. */
+      slot?: number;
       /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
       looking?: true;
       /** Closed by a person's word and not by its gates. */
@@ -64,7 +65,13 @@ export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
 /** A file or picture sent with a message. `src` is a `blob:` address for a picture. */
-export type SentFile = { id: string; name: string; src?: string };
+export type SentFile = {
+  id: string;
+  name: string;
+  src?: string;
+  /** What was picked. A host that sends the file reads its bytes from here. */
+  file?: File;
+};
 
 export type SessionPullRequestState = "draft" | "open" | "merged";
 
@@ -124,6 +131,12 @@ export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id
 
 export type Session = {
   id: string;
+  /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
+  address?: string;
+  /** A session from a terminal: its ledger is real and there is no thread to read or write in. */
+  terminal?: true;
+  /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
+  blank?: boolean;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];
@@ -151,7 +164,8 @@ export type SessionTag = {
   kind: "session" | "job" | "pull_request" | "branch";
   id: string;
   title: string;
-  job?: { number: number; branch: string; slot: number; state: SessionJobState };
+  /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
+  job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };
 
 /** What a message carries: its words, and what was attached to it. */
@@ -166,8 +180,14 @@ export type SentMessage = {
 /** A skill or command `/` offers, as a terminal session lists them. */
 export type SessionCommand = { name: string; says: string };
 
-/** A permission a Session's agent is held on. */
-export type SessionAsk = { command: string };
+/** What a person may answer a permission a Session is held on. */
+export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse";
+
+/**
+ * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it
+ * will take, in the order to draw them. Absent on the mock's, which offers two.
+ */
+export type SessionAsk = { command: string; call?: string; offers?: readonly SessionAnswer[] };
 
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
@@ -178,12 +198,26 @@ export type SessionAsk = { command: string };
 export type SessionsDraft = {
   get: () => readonly Session[];
   subscribe: (onChange: () => void) => () => void;
-  /** Takes a Job's worktree: starts a Session on it and returns the Session's id. */
-  pilot: (jobId: string, outcome: "take_over" | "restart_step") => string;
-  /** One of the three ways out of a pilot. */
-  exit: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
-  /** Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes. */
-  start: (tag?: SessionTag) => string;
+  /**
+   * Takes a Job's worktree: starts a Session on it and returns the Session's id. **Absent on a real
+   * Fleet** until its half of Pilot lands, and then the acts are left off rather than drawn dead.
+   */
+  pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string;
+  /** One of the three ways out of a pilot. Absent with `pilot`. */
+  exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
+  /**
+   * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.
+   * **A promise on a real Fleet**, which names the Session; one that could not start says why in `said`.
+   */
+  start: (tag?: SessionTag) => string | Promise<string | undefined>;
+  /** Opens a Session's thread for reading. Absent where the thread is already held. */
+  watch?: (id: string) => void;
+  /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
+  close?: (id: string) => void;
+  /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
+  refresh?: (id: string, number: number) => void;
+  /** What Fleet refused, in words, until the next act. Absent in the mock. */
+  said?: () => string | undefined;
   /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
@@ -194,13 +228,15 @@ export type SessionsDraft = {
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /** An act on one of a Session's pull requests. `review` dispatches a Job on the code review workflow against it. */
   act: (id: string, number: number, act: PullRequestAct) => void;
+  /** Set where `act` dispatches the review itself, so the window does not propose one beside it. */
+  reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
-  /** Answers the permission a Session is held on. */
-  answer: (id: string) => void;
+  /** Answers the permission a Session is held on. The mock offers two and names none. */
+  answer: (id: string, answer?: SessionAnswer) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */
@@ -212,7 +248,7 @@ export type ChipRef =
 
 /** Whether a Session has leased anything yet. A blank one has no slot and no branch. */
 export function isBlank(session: Session): boolean {
-  return session.attachments.length === 0 && session.rows.length === 0;
+  return session.blank ?? (session.attachments.length === 0 && session.rows.length === 0);
 }
 
 export function attachmentsOf<K extends SessionAttachmentKind>(

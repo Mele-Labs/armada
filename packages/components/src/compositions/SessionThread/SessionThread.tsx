@@ -4,6 +4,7 @@ import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Prose } from "../../primitives/Prose/Prose";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * A Session's conversation, drawn on Helm's own thread rows
@@ -48,11 +49,17 @@ export type SessionThreadRow =
       narrative: { trying_to: string; blocked_by: string; tried: readonly string[] };
     };
 
+/** One answer an ask will take: what the press hands back, the word on it and what it commits to. */
+export type AskOffer = { id: string; label: string; means: string };
+
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
-  /** The permission the agent is held on. */
-  asked?: { command: string };
-  onAnswer: () => void;
+  /**
+   * The permission the agent is held on. **`offers` are the answers Fleet will take**, drawn in its
+   * order; absent, the card offers Allow once and Deny and names neither.
+   */
+  asked?: { command: string; offers?: readonly AskOffer[] };
+  onAnswer: (answer?: string) => void;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
 };
@@ -230,12 +237,24 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession }: SessionT
           <span className="armada-session-thread__eyebrow">Permission</span>
           <p className="armada-session-thread__command">{asked.command}</p>
           <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            <Button size="sm" variant="secondary" onClick={onAnswer}>
-              Allow once
-            </Button>
-            <Button size="sm" variant="secondary" onClick={onAnswer}>
-              Deny
-            </Button>
+            {asked.offers === undefined ? (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => onAnswer()}>
+                  Allow once
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => onAnswer()}>
+                  Deny
+                </Button>
+              </>
+            ) : (
+              asked.offers.map((offer) => (
+                <Tooltip key={offer.id} label={offer.means}>
+                  <Button size="sm" variant="secondary" onClick={() => onAnswer(offer.id)}>
+                    {offer.label}
+                  </Button>
+                </Tooltip>
+              ))
+            )}
           </div>
         </Card>
       )}

@@ -25,6 +25,8 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
+import type { AnswerSessionAsk, PullRequestState, ReviewDispatched, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -565,6 +567,26 @@ const api: BridgeApi = {
   // first and nothing does the second.
   readReports: (want: boolean): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.readReports, want),
+
+  // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
+  // repository a new one starts in is the window's own pick, read in main, and a pull request is
+  // named by its number against the session that holds it. No path and no port crosses.
+  startSession: (title?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title),
+  sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
+  answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
+  tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
+  closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
+  watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
+  readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
+  pressPullRequest: (
+    sessionId: string,
+    number: number,
+    press: PullRequestPress,
+  ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
+    ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
 
   // What fleet is holding disk for, and the test each one did not pass. The
   // second read here with no job id, and for a different reason: what is being

@@ -28,6 +28,8 @@ export type OwnerChipRef =
 /** What the card says of the owner: its title, slot, pull requests, Jobs and last turn. */
 export type OwnerSummary = {
   id: string;
+  /** What other sessions call it, drawn where the id would be. */
+  address?: string;
   title?: string;
   state: SessionState;
   /** What the state's mark says on hover. */
@@ -124,12 +126,12 @@ export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: 
       role="group"
       // The card is drawn in the body but is a child of its chip in the tree, so a press on it would bubble to a row that opens on press.
       onClick={(event) => event.stopPropagation()}
-      aria-label={`Owned by ${owner.title ?? owner.id}`}
+      aria-label={`Owned by ${owner.title ?? owner.address ?? owner.id}`}
       style={at === undefined ? undefined : { top: at.top, left: at.left }}
     >
       <div className="armada-owner-card__band">
         <SquareTerminal size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-owner-card__id">{owner.id}</span>
+        <span className="armada-owner-card__id">{owner.address ?? owner.id}</span>
         <span className="armada-owner-card__title">{owner.title}</span>
         <SessionMark state={owner.state} said={owner.said} />
       </div>
