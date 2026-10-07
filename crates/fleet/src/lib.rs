@@ -288,6 +288,8 @@ pub mod seeding;
 mod servers;
 pub mod serving;
 pub mod session;
+/// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
+mod sessioning;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
 pub mod showing;

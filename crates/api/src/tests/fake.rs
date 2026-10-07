@@ -21,6 +21,7 @@ mod commands;
 mod conversing;
 mod queries;
 mod retros;
+mod sessions;
 mod studios;
 mod tools;
 

@@ -81,6 +81,10 @@ fn a_scout_runs_in_its_checkout_restricted_with_no_server_and_no_prompt_tool() {
     assert!(args.iter().any(|arg| arg == "--restricted"));
     assert!(args.iter().any(|arg| arg == "--strict-mcp-config"));
     assert_eq!(
+        value_after(args, "--setting-sources").as_deref(),
+        Some("project,local")
+    );
+    assert_eq!(
         value_after(args, "--mcp-config").as_deref(),
         Some("/var/armada/scout-mcp.json")
     );

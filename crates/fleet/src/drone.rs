@@ -57,10 +57,10 @@ pub struct HostPaths<'a> {
     ///
     /// **This is the confinement's known floor and it is written down as one.**
     /// Passing it is what lets the Drone authenticate at all; it is also what
-    /// lets the CLI read the operator's skills, plugins, subagents and session
-    /// hooks. `--strict-mcp-config` bounds MCP servers and bounds none of
-    /// those, which is the open question on Drone rather than something this
-    /// module quietly solved.
+    /// lets the CLI look in the operator's home. `--strict-mcp-config` bounds
+    /// MCP servers and nothing else; what bounds the rest is
+    /// `--setting-sources project,local`, which leaves their user settings, and
+    /// with them their plugins, mods, hooks and skills, unread (spike 023).
     pub home: &'a str,
 }
 

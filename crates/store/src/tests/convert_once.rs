@@ -59,13 +59,14 @@ fn convert(dir: &TempDir) -> (bool, String) {
     )
 }
 
+/// The frozen entries and the one file, and no other file: a migration added
+/// since would count as applied here and move the total the case asserts.
 fn with_the_file() -> Vec<Migration> {
-    // main may already carry the file itself (#1831 landed it); never list it twice.
-    let mut all: Vec<Migration> = MIGRATIONS.to_vec();
-    if !all.iter().any(|m| m.name == NAME) {
-        all.push(Migration::additive(NAME, V115));
-    }
-    all
+    MIGRATIONS[..LEGACY_COUNT]
+        .iter()
+        .copied()
+        .chain([Migration::additive(NAME, V115)])
+        .collect()
 }
 
 #[test]
@@ -85,8 +86,7 @@ fn the_recipe_opens_with_its_file_and_applies_nothing_again() {
         .conn
         .query_row("SELECT count(*) FROM armada_migrations", [], |r| r.get(0))
         .expect("count");
-    // Every listed migration, however many files main has gained since.
-    assert_eq!(applied as usize, with_the_file().len());
+    assert_eq!(applied as usize, LEGACY_COUNT + 1);
 }
 
 #[test]

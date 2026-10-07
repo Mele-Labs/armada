@@ -483,6 +483,23 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/workflows/save",
     },
+    // The ledger of agent sessions a person runs: the harness's intake, then the
+    // two reads. `docs/concepts/session.md`.
+    Route {
+        operation: "report_session",
+        method: "POST",
+        path: "/sessions/report",
+    },
+    Route {
+        operation: "list_sessions",
+        method: "GET",
+        path: "/sessions",
+    },
+    Route {
+        operation: "who_owns",
+        method: "GET",
+        path: "/sessions/owner",
+    },
     Route {
         operation: "list_manifests",
         method: "GET",

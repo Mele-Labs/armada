@@ -49,6 +49,26 @@ fn a_judge_call_takes_one_turn_and_holds_no_tool() {
     assert!(!args.iter().any(|arg| arg == "--mcp-config"));
 }
 
+/// An unattended call reads no user settings, so no plugin or mod the operator
+/// installed runs inside it. Every render of an ask, with and without a read.
+#[test]
+fn no_judge_call_reads_the_operators_user_settings() {
+    let agent = HeadlessAgent::on_path();
+    for call in [
+        agent.render(&ask()),
+        agent.render_watched(&ask()),
+        agent.render(&reading()),
+        agent.render_watched(&reading()),
+    ] {
+        assert_eq!(
+            arg_after(call.args(), "--setting-sources").as_deref(),
+            Some("project,local"),
+            "{:?}",
+            call.args()
+        );
+    }
+}
+
 /// `--allowedTools ""` denies each use and leaves the toolset standing; a
 /// single denied use still spends `--max-turns 1` and the call exits 1. Only
 /// `--tools ""` disables the toolset itself, and both renders of an ask with no
