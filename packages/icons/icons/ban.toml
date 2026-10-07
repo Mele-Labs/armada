@@ -1,0 +1,13 @@
+[icons.ban]
+  means = "A circle with a diagonal bar through it"
+  group = "Job state"
+  size = "12 and 16px"
+  status = "Specified"
+  notes = "Circle and diagonal: you declined it. Not a cross, because this is a decision and not an error. **That second sentence is why it also marks the destructive confirmation dialog**, added 10 Sep 2026: `x` had the head glyph there and `x` is reserved to system failure, its own row naming this one as where a human decision goes instead. The dialog covers more than declining — kill a Drone, kill a Job, give a worktree back, clear a terminal — and the circle-and-diagonal reads as *this will not continue* across all of them, where a cross would claim something had gone wrong. The badge and the dialog share the outline and not the hue, which rule 4 admits."
+
+  [[icons.ban.usage]]
+    means = "A workflow file Fleet left out, and the rail's warning that one is"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator, on the owner's word after walking it. A file that cannot run is declined by Fleet, which is what the circle and diagonal already say. One outline for both the row's mark and the rail row's warning, so the two read as the same fact. The tooltip names it; no count is drawn. `triangle-alert` stays Doctor's and is not drawn here."

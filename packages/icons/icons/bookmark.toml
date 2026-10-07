@@ -1,0 +1,7 @@
+[icons.bookmark]
+  means = "A ribbon with a notched foot \u2014 a thing set aside to come back to"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Deferring what a Studio node raised. Never a favourite, never a saved search, never a kept Job \u2014 nothing in Armada is bookmarked in that sense, and a second meaning here would leave the bar ambiguous the way `pin`'s reservation keeps the rail's from being."
+  notes = "Minted 2026-09-28 when the owner opened the mint for the hovering node bar. Defer writes a Deferred node: what was raised is not wrong and not now, which is what a ribbon left in a page says. Refused: `clock`, `alarm-clock`, `timer` and `calendar-clock`, since the set holds one time-shaped mark by decision and `hourglass` is banned outright, so a second clock face is rule 4's collision on the very glyph that row exists to protect; `flag`, reserved outright against every other use in Armada; `archive`, a Job state meaning the record no longer describes the work; `moon` and `snowflake`, metaphors for later that P1 confines to proper nouns."

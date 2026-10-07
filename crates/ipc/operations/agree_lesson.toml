@@ -1,0 +1,18 @@
+[operations.agree_lesson]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Agree with one retro item: propose a Job for it at the approval gate, or keep it where its fix lands in Kit"
+notes = """
+Since 23.26. `POST /lessons/:lesson_id/agree`, no body. Answers with the `Lesson` as it now stands.
+
+**By where the fix lands.** `manifest`: a Job is proposed on the repository the item's own Job worked on. `armada`: a Job is proposed on Armada's own repository, the Manifest named `armada`, and where this Fleet does not serve it the answer is a 422 `fleet.lesson_armada_not_served` and the item stays open. `kit`: no Job, the state becomes `accepted`.
+
+**The request is the item**: its title, what happened, the fix, and a line naming the source Job's handle. It goes through the same call as `propose_from_request`, so the Job stands at `awaiting_approval` and a person approves it where any other proposal is approved. The Job's id is `job_proposed` on the answer. A call that could not be made, or a request no workflow fits, is that call's own refusal, and the item is open again.
+
+**Agreeing twice proposes once.** An item that is not `open` answers with the state it stands in, and nothing else happens. The write that moves it off `open` is the claim, so two presses at once make one Job.
+
+An item kept before 23.15 names no place its fix lands, so it is a 422 `fleet.lesson_names_no_place`: where its Job would go is not Fleet's to guess. An id that names no item is a 404 `fleet.no_such_lesson`.
+
+**A person's act.** `agent_access` is `Helm only`, `propose_from_request`'s door: a Helm session may call it when a person asks, and its Job's origin reads *Drafted in Helm* where it did. A person in Bridge presses it and the Job reads *Dispatched by you*.
+"""

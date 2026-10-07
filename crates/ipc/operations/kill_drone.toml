@@ -1,0 +1,10 @@
+[operations.kill_drone]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Kills a Drone, captures learnings, holds the worktree"
+notes = """
+Intervention Ladder rung 2.
+
+**The Job's kept Drone, and every Drone beside it**, since 23.10: the step they work stops. One Drone of several is `kill_one_drone`.
+"""

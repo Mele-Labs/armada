@@ -24,7 +24,7 @@ export type BadgeProps = {
    * The glyph, required on every state. Redundant encoding, not decoration:
    * hue alone fails under deuteranopia, on a miscalibrated monitor and in a
    * screenshot, and several statuses share one hue and are told apart by
-   * glyph. Take it from `packages/icons/icons.toml`, group `Job state`.
+   * glyph. Take it from `packages/icons/icons/`, group `Job state`.
    */
   icon: LucideIcon;
   /**

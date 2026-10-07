@@ -1,0 +1,7 @@
+[icons.refresh-cw]
+  means = "Two arrows chasing each other round a closed loop"
+  group = "Escalation reason"
+  size = "12px"
+  status = "Specified"
+  reserved = "churning only. Refresh and poll controls use rotate-cw."
+  notes = "Two arrows chasing each other is busy-going-nowhere exactly."

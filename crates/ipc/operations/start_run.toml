@@ -1,0 +1,16 @@
+[operations.start_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Run one Check or Command in a Job's worktree, narrowed or whole — a rehearsal that records nothing on the Job"
+notes = """
+**The request names an entry, never a command line.** What runs is what the Job froze, or the worktree's `armada.yml` where `worktree_version` asks for it, and a Check's `requires` run first into the same log. **No shell**: `checks_runner` spawns the program directly, in a process group of its own. **No verdict**: no Evidence, no `job_step_checks` row, and nothing on the Job moves.
+
+It answers at once with the run underway; output arrives on `observe_run` and the end as `run.finished` on `/events`. The run is a task of its own, so a client that goes away does not stop it — `stop_run` does. A snapshot of the tree is taken first, so what the run changed can be named and put back.
+
+Refused where the worktree is gone, where a run is already out on this Job, where nothing declares the name, and where a narrowed run has nothing to narrow to. A Drone working in the tree is not a refusal: nothing locks, and the sheet says the run shares the tree.
+
+**The run's `requester` names who asked.** A call from a Drone through the agent's door reads `drone_task` or `drone_step`, with the Job, step, task and Drone the caller is at; a person's press from Bridge, a Helm session and a person's own agent read `outside`. Fleet places the caller by the connection the call arrived on, as it does a Drone's own tool call, and never by anything the call says. `docs/concepts/manifest.md`, *Who asked for a run*.
+
+`agent_access` is `Yes`: the description's own last clause is the reason — no Evidence, no `job_step_checks` row, nothing on the Job moves — so a rehearsal an agent starts costs the record no integrity.
+"""

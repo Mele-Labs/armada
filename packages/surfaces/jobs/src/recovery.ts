@@ -79,7 +79,7 @@ import { ordered } from "@armada/screens/src/facts";
 const HELD_FOR_A_PERSON: readonly string[] = ["escalated", "awaiting_repair"];
 
 /**
- * The acts, spelled as `crates/ipc/operations.toml` keys the operation that
+ * The acts, spelled as `crates/ipc/operations/` keys the operation that
  * performs each — which is how `stuck.recourse` names them. **Five names and
  * not the set**: Fleet declares the set by the acts it implements, so it may
  * name one this Bridge was built before, which `unreachable` says out loud.

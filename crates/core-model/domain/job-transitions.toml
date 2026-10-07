@@ -245,7 +245,7 @@ from = "proposing"
 to = "killed"
 on = "stop_proposal: a person who has waited long enough ends the call"
 in_code = "Yes"
-notes = "`killed` is reachable from every non-terminal status and carries no verdict, which is what a person abandoning their own dispatch means. The act already exists and already kills the call rather than only the socket — `crates/ipc/operations.toml`, `stop_proposal` — so what this edge adds is where the row goes afterwards. A stop that lands after the proposer has answered is not this edge: `ProposalStopped.stopped` is `false` there, the Jobs are on the Board, and the head Job took the edge above."
+notes = "`killed` is reachable from every non-terminal status and carries no verdict, which is what a person abandoning their own dispatch means. The act already exists and already kills the call rather than only the socket — `crates/ipc/operations/`, `stop_proposal` — so what this edge adds is where the row goes afterwards. A stop that lands after the proposer has answered is not this edge: `ProposalStopped.stopped` is `false` there, the Jobs are on the Board, and the head Job took the edge above."
 
 [[transitions]]
 from = "queued"

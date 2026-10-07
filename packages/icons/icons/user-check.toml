@@ -1,0 +1,21 @@
+[icons.user-check]
+  means = "A human figure with a check beside it — the only human silhouette in the badge set"
+  group = "Job state"
+  size = "12px"
+  status = "Specified"
+  reserved = "Human required, or actor=human."
+  notes = "The only human figure in the badge set, and a human being required is exactly the semantics."
+
+  [[icons.user-check.usage]]
+    means = "A retro item that got in the owner's way"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). Whose way an item got in is a mark with its word on hover, the owner's standing rule; the person's is this glyph because its own reservation is actor=human, which is what `who = owner` says. --fg-muted, never a status hue: the mark says who, not how bad. Tooltip: You."
+
+  [[icons.user-check.usage]]
+    means = "You, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. A step that stops for a person, which is the glyph's own `actor=human`."

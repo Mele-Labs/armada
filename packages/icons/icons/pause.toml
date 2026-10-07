@@ -1,0 +1,6 @@
+[icons.pause]
+  means = "Freeze dispatch"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  notes = "Two bars, the most legible glyph in the set. snowflake rejected as decorative. A second use, 5 Oct 2026: a merge line turn held because its failed Check is red on main too (`land_state.held`), drawn at 12px on the running turn's rows in `--status-not-started` and at 16px on the panel's neutral Alert, so the two read as one condition. It does not pulse. Freeze dispatch is a control and this is a state, and the two never share a surface."

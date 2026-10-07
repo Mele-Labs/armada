@@ -46,7 +46,7 @@ fn serving() -> ServerState {
     }
 }
 
-/// Three kinds, dotted as `operations.toml` keys them, each carrying the row
+/// Three kinds, dotted as `operations/` keys them, each carrying the row
 /// whole — and a server with no Job says so by having no `job_id` at all.
 #[test]
 fn the_three_lifecycle_kinds_carry_the_instance_whole() {

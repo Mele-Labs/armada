@@ -26,7 +26,7 @@ nothing.
 | | |
 |---|---|
 | Drafts | `packages/screens/src/draft/`, seventeen modules, 58 exported types |
-| Wire | `crates/ipc/src/`, `crates/ipc/operations.toml`, `protocol-version.toml` at 18.0 |
+| Wire | `crates/ipc/src/`, `crates/ipc/operations/`, `protocol-version.toml` at 18.0 |
 | Domain | `crates/core-model/src/`, `crates/core-model/domain/` |
 | Runtime | `crates/fleet/src/`, `crates/api/src/stream.rs`, `crates/config/settings.toml` |
 | Decisions | #1530, #1545, #1581, and the twelve pull requests of 22 Sep 2026 |
@@ -292,7 +292,7 @@ moves after the press.
 whether a pull request settled and never when; `ended_at` is a different
 instant.
 
-`crates/ipc/operations.toml` has `merge_pull_request` and `delete_branch` and
+`crates/ipc/operations/` has `merge_pull_request` and `delete_branch` and
 nothing that closes a pull request. Fleet rebases a branch onto its **base** —
 `crates/fleet/src/noticing.rs` writes `Currency` from that — and never onto
 another Job's branch. So `dropped` and `stacked` both name acts Fleet cannot

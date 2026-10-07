@@ -11,7 +11,7 @@ import { Trash2 } from "lucide-react";
  * always carry which one it is.
  *
  * **No icon on the name.** The `file-*` glyph family is reserved to Evidence
- * throughout `packages/icons/icons.toml` — an attachment staged on a draft
+ * throughout `packages/icons/icons/` — an attachment staged on a draft
  * brief is not evidence, so this does not reach for it.
  *
  * **The remove control draws `trash-2`**, minted 28 Sep 2026 for exactly this:

@@ -1,0 +1,14 @@
+[operations.dismiss_finding]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person dismisses a finding Armada's review raised, and says why"
+notes = """
+**Kept, not deleted.** The finding leaves the lists `get_job` serves under `confidence`, the reason stays on the Job's record as `confidence.dismissed`, and the next review pass is handed both in its opening brief so it does not raise the finding again. #907.
+
+**The finding is named by its words**, as the review served them: a review record has no ids, and the words are what a person saw. A finding the Job's latest review did not raise is refused, a 409. A blank reason is refused, a 422, because the reason is what the next pass is told.
+
+**It moves nothing.** The Job stays where it stands, and what comes back is the Job as it now stands.
+
+`agent_access` is `Helm only`: a Drone never rules on its own review, and dismissing one is still a person's judgment on it — Helm carries it out only where that person has just made the call.
+"""

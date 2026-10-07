@@ -1,0 +1,7 @@
+[icons.flag]
+  means = "A pennant on a staff"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "Nothing else in Armada may use flag — no flag-for-review, no feature flag."
+  notes = "Added 2026-08-21 with the sixth step-activity value. --fg-default on a --step-stopped-bg row: the surface carries the warning, so a hued glyph would say it twice. A flag marks a position rather than declaring a verdict, which is the correct claim — the verdict is on the criterion rows beneath it and the reason is on the badge above. octagon-x was rejected because the octagon belongs to stalled and a stopped step sits under an escalated badge; a bare attempt count was rejected for sharing a silhouette with a not-started row."

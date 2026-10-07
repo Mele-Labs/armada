@@ -1,0 +1,14 @@
+[operations.kill_processes]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Ends every process a Job holds, the Drone included; the Job survives. This is `kill_drone` and what its group signal misses, so the Drone's step stops. To end one runaway child and keep the Drone working, `kill_process` it instead"
+notes = """
+`POST /jobs/:job_id/processes/kill`, from Pulse's Processes card (#1647). Answers the Job's `JobSummary`.
+
+**`kill_drone`, and then what its group signal misses.** The Drone is in the tree, so its step stops by hand as there. A Drone leads its own process group and `kill_drone` signals that group; a tool that started a group of its own — a shell with job control does — is not in it, and would outlive the Drone reparented and invisible. This reaches every descendant the tree holds, leaves first, before the Drone ends.
+
+**Not `kill_job`.** The Job survives with its worktree held, and a restart lands on the stopped step. Where the tree will not read, or the Drone is gone, this is `kill_drone` alone.
+
+**`agent_access` is `Helm only`, the owner's decision of 2 Oct 2026**, `kill_process`'s reason: the same reach Helm has over `kill_drone`, and Destructive in `fleet::helm::deciding` as that is.
+"""

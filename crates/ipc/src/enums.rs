@@ -244,7 +244,7 @@ wire_enum! {
 }
 wire_enum! {
     /// An act a person may take on a Job that stopped, spelled as
-    /// `operations.toml` keys the operation that performs it.
+    /// `operations/` keys the operation that performs it.
     ///
     /// **The set is declared by the acts Fleet implements** and by no registry,
     /// so the spelling is the route's rather than a word chosen here — a screen

@@ -1,5 +1,5 @@
 //! Emit the protocol version's two numbers from `protocol-version.toml`, and
-//! the operations an agent may reach from `operations.toml`.
+//! the operations an agent may reach from `operations/`.
 //!
 //! Fleet and Bridge ship as a pair and version together, so the Rust constant
 //! and the TypeScript one are read from the same file rather than kept in step
@@ -51,16 +51,40 @@ fn main() {
     )
     .expect("OUT_DIR is writable");
 
-    let inventory = manifest.join("operations.toml");
-    println!("cargo:rerun-if-changed=operations.toml");
-    let named = fs::read_to_string(&inventory).unwrap_or_else(|e| {
-        panic!(
-            "{} is the authority on which operations an agent may reach: {e}",
-            inventory.display()
-        )
-    });
+    // One file an operation, so two branches adding two operations touch two
+    // files: a pull request is merged by the forge, which ignores `.gitattributes`.
+    let inventory = manifest.join("operations");
+    println!("cargo:rerun-if-changed=operations");
+    let named = read_operations(&inventory);
     fs::write(out.join("reachable.rs"), reachable(&named, &inventory))
         .expect("OUT_DIR is writable");
+}
+
+/// Every `operations/*.toml`, in name order, as the one text [`reachable`]
+/// splits on `\n[operations.`. The directory's mtime changes when an entry is
+/// added or removed; an edit inside one is each file's own, so they are named.
+fn read_operations(dir: &Path) -> String {
+    let mut files: Vec<PathBuf> = fs::read_dir(dir)
+        .unwrap_or_else(|e| {
+            panic!(
+                "{} is the authority on which operations an agent may reach: {e}",
+                dir.display()
+            )
+        })
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "toml"))
+        .collect();
+    files.sort();
+    let mut text = String::from("\n");
+    for path in files {
+        println!("cargo:rerun-if-changed={}", path.display());
+        let body = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("{} could not be read: {e}", path.display()));
+        text.push_str(body.trim_end());
+        text.push_str("\n\n");
+    }
+    text
 }
 
 fn number(text: &str, key: &str, source: &Path) -> u32 {

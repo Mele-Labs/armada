@@ -1,0 +1,10 @@
+[operations.resume_interrupted_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Restarts a Job after a Fleet crash"
+notes = """
+Moot for now: nothing serves this row (`xtask`'s `NOT_BUILT` names why), so
+`agent_access` moving to `Helm only` with the rest of this ruling changes
+nothing until somebody builds it.
+"""

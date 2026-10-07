@@ -1,0 +1,14 @@
+[operations.submit_for_verification]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person is done: the stopped step's gates run on the worktree as they would for a Drone, and a pass takes the Job from `piloted` to `running` with no Drone"
+notes = """
+`POST /jobs/:job_id/submit_for_verification`, no body. Answers the Job's `JobSummary`. Held for the whole run, as `rerun_checks` is.
+
+The same Checks, Judge and advance gate as a Drone's submission, on the Drone's evidence where it wrote any and otherwise on a claim Fleet words for the person. **A failing run leaves the Job `piloted`**, recorded as any run's is, since there is no Drone to hand it back to. A pass with steps left re-queues for admission, and a last step finishes the Job.
+
+409: `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.nothing_to_verify` where no step is stopped, at a gate or being worked, and `fleet.nothing_to_submit` where the step's evidence is writing its Drone writes and none was written.
+
+`agent_access` is `Helm only`, asked as `pushes to shared`: it moves the Job toward delivery.
+"""

@@ -1,0 +1,14 @@
+[operations.approve_wave]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Approves an Epic's plan and releases every Job of its wave, in one act"
+notes = """
+`POST /jobs/:job_id/approve_wave`, on the Epic's own id: #1694, spike 022 slice 6, since 23.13. The body is `ApproveWave`: `jobs`, every Job of the wave by id. **One act**: each member takes `awaiting_approval -> queued` as a person's act, as `edit_job` left it, and the Epic's plan step advances and the Epic is queued without the step after it being entered, so it waits on its members. The answer is the Epic's summary.
+
+**All or nothing.** 409 `fleet.wave_refused` unless the Epic is at the gate of a step that proposes Jobs and `jobs` names exactly the wave Fleet holds there: every Job that step proposed still at `awaiting_approval`. A member dropped before the press (`kill_job`) is not in the wave, and naming it refuses the press; leaving one out refuses it too. 409 `fleet.not_under_review` off the gate. Nothing moves on a refusal.
+
+The same code refuses the acts that would cut across it: `approve_review` on a plan holding a wave, `approve_dispatch` on one member, and the last approval of an Epic with `complete_when: all_members_landed` while a member's pull request has not merged.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason: releasing Jobs to spawn is a person's act, which Helm may take once asked.
+"""

@@ -33,7 +33,7 @@ type Publish = (change: Partial<BridgeState>) => void;
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
-/** Where each press on a pull request is served. `crates/ipc/operations.toml` is the authority. */
+/** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
   ready: "ready",
   merge: "merge",

@@ -1,0 +1,12 @@
+[operations."helm.asking_to_run"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Helm session reached for something its person's settings do not cover, and is waiting inside the call"
+notes = """
+**What puts a Helm call in the dock's upper zone**, beside a Drone's held command. It carries the ask whole — the tool, the one-line argument, the rule that would have to allow it, the answers offered and how long Fleet will hold — so the card draws from the event and nothing is read to complete it. `job.command_waiting` carries a Drone's the same way.
+
+**No `job_id`, and that is the difference.** A Helm call has no Job: nothing is queued, no step is running, and nothing moves while it waits. `manifest_id` is what names where it came from.
+
+Every ask is ended by a `helm.call_answered`, whoever ended it — so a card is taken down on an event and never on a timer.
+"""

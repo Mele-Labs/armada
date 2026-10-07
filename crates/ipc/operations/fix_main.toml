@@ -1,0 +1,20 @@
+[operations.fix_main]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Hand a repository's red main to a Job: dispatch a new one, or send the work back to an earlier one, and answer with that Job"
+notes = """
+`POST /merge_lines/fix`, protocol 23.42. The body is `FixMain`: the repository's `root`, optionally an earlier `job`, and optionally the `brief` the person edited. `docs/concepts/fleet.md`, *When main goes red*, has the model.
+
+**No `job` dispatches a new one.** It is proposed the way a person's own proposal is, under the workflow named `bug`, titled for what failed on main, and released at once: pressing Dispatch is the approval, and the brief is on screen before it. Where the failing Check and test are known the test is claimed for the new Job, as `draft_fix` claims one, so a Drone that hits the same test is pointed at it and drafts none. Where only a CI job is known there is no claim.
+
+**A `job` sends the work back to it.** A Job at `awaiting_review` is sent back at its gate with the brief as its note, which is `request_changes`. Any other Job that has ended is carried on as a redispatch is: a new Job under the same workflow and title, `redispatched_from` naming the first, on a fresh branch cut from main, with the brief as its facts, released at once. A Job still working is refused: it is not finished and cannot be sent back.
+
+**The brief is the facts Fleet read**, one line each: the CI job or Check, the tests its log named, the log's address, the pull request that turned main red and its branch. Absent `brief` sends exactly that.
+
+Either way the Job is recorded as having taken this red, so `hub.fixing` names it and its summary carries `fixes_main`. When main goes green that record says `fixed` with `fixed_in` for the Job whose pull request put it there.
+
+Refused with a 409 and nothing changed: `fleet.main_not_red` where main is not red for that repository or Fleet has read nothing of it, `fleet.main_checks_running` while a newer commit's CI is still running on main, which may already have fixed it (the hub's `main.checking` is then non-empty, since 23.44), `fleet.main_already_taken` where a Job is already working on this red, `fleet.not_finished` on a `job` that is still working, and `fleet.no_workflow_fits` where the repository holds no `bug` workflow. 404 `fleet.no_such_job` on an unknown `job`, and 422 on a `root` Fleet does not serve or a blank `brief`.
+
+`agent_access` is `No`: Fleet already hands a red to the Job that caused it by itself, and a person's choice of Job is a press.
+"""

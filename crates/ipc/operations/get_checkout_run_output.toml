@@ -1,0 +1,12 @@
+[operations.get_checkout_run_output]
+kind = "query"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "One checkout run's log, read back as a window that says it is one"
+notes = """
+**`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still runs. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.
+
+`get_run_output`'s shape and its allowlist: `:run_id` names a run the checkout recorded or the one in flight, resolved against its own run directories before anything is opened.
+
+`agent_access` is `Helm only`, `list_checkout_runs`' reason: what a run Helm started printed is what it reports back.
+"""

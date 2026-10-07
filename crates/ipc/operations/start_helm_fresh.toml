@@ -1,0 +1,10 @@
+[operations.start_helm_fresh]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Forget one repository's Helm session and thread, so the next message starts over"
+notes = """
+The stored session and the thread's file both go, and every viewer is sent `closed` / `started_fresh`. **Refused with `fleet.helm_still_replying` while a reply is being written**: forgetting a session under a process still writing into it would leave its answer nowhere.
+
+`agent_access` is `No`, for `ask_helm`'s reason.
+"""

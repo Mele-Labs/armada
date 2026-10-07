@@ -5,7 +5,7 @@
 //! A typo in a path here is a runtime 404, not a compile error. That trade was
 //! made deliberately against carrying a codegen toolchain, and it is why
 //! [`SERVED`] exists: every route is declared once as data beside the operation
-//! name `crates/ipc/operations.toml` keys it under, so a test can walk the
+//! name `crates/ipc/operations/` keys it under, so a test can walk the
 //! table and prove each row is actually routed. **A route that exists in the
 //! inventory and nowhere in the router is exactly the failure this shape is
 //! paying for.**

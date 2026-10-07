@@ -1384,7 +1384,7 @@ shortcut, and a shortcut cannot exist without a label to display next to
 it.
 
 **The glyph is named, never redrawn.** An entry's icon is a key in
-`packages/icons/icons.toml`, which stays the authority on what a
+`packages/icons/icons/`, which stays the authority on what a
 silhouette may mean; the gate refuses one that is unregistered or
 banned.
 

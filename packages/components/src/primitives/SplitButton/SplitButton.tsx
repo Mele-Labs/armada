@@ -45,7 +45,7 @@ export type SplitButtonProps = {
   /** The act the state calls for. */
   children: string;
   /**
-   * A leading glyph on the label segment, from `packages/icons/icons.toml`
+   * A leading glyph on the label segment, from `packages/icons/icons/`
    * only. Absent draws none — most callers have no icon to lead with, since a
    * list row's label already carries the act. The title row's Dispatch is the
    * one caller today (#1107).

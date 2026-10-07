@@ -1,0 +1,6 @@
+[icons.stethoscope]
+  means = "Doctor"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  notes = "Literal. heart-pulse and activity were rejected as collisions with Active jobs, which no longer exists — both are free again, and this row is the reason to re-read that choice rather than assume it still holds."

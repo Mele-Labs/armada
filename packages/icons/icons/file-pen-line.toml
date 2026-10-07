@@ -1,0 +1,14 @@
+[icons.file-pen-line]
+  means = "A page with a pen writing a line - changes on top of the commit that nobody committed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Uncommitted changes in a stranded worktree slot at the moment the Scout read it, on its Finding. Never an edit control, which is `square-pen`, and never drawing, which is `pencil`."
+  notes = "Proposed 4 Oct 2026 for a rescue Finding, on the walk `rescuingAStrandedSlot`. Work in progress sits on a page, so it takes the file family's outline with a pen on it. Refused: `file-diff`, reserved to a produced file's change. Tooltip `Uncommitted changes on top`."
+
+[[icons.file-pen-line.usage]]
+  means = "The Uncommitted row in a worktree's panel, beside how long the files have sat"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. The same files the Finding marks, named in the panel's own row and in Clear's confirm. Tooltip `Written and committed nowhere`."

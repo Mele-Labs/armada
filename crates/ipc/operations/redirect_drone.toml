@@ -1,0 +1,18 @@
+[operations.redirect_drone]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Structured instruction to a running Drone"
+notes = """
+Intervention Ladder rung 1, and Helm's original rung-1 act (`#73`). The ladder
+no longer bounds what else Helm reaches — `fleet::helm::may` denies only
+`RESERVED`, and this was never on it.
+
+**What is kept is the worktree and every step so far.** A Drone belongs to a workflow step, so whether there is a session to speak to depends on where the Job stands. Mid-step there is one and the instruction is a turn injected into it, and the session is kept too. At a step boundary there is none: the instruction waits and opens the next step's Drone in its brief. **It never respawns to deliver itself** — a redirect that spawned would be a restart that lost the session for nothing, and it is `restart_step` that puts a second Drone on a step that stopped.
+
+**Which act applies is decided by where the Job stands, not by whether a process exists** — `docs/concepts/job.md` has the table. Keying a surface on liveness instead would offer `restart_step` at every ordinary step boundary, because a Drone's absence stopped being evidence that anything went wrong.
+
+The body carries the person's own words. It is the one string in the workspace that reaches a Drone without Fleet assembling it, and the Agent Prompt Contract gives the turn no wording of its own for that reason. Blank is refused.
+
+Nothing bounds how often a Job may be redirected. Whether a cap belongs here is decided in no document, and none is invented.
+"""

@@ -1,0 +1,12 @@
+[operations."job.created"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job exists that did not before, carrying the row whole"
+notes = """
+Added because a Job proposed while a client was connected never reached it: creation published nothing, so nothing woke Bridge.
+
+A kind of its own rather than a `job.state_changed` on creation. That message has a `from` and a `to` and a created Job has no `from` — the honest fields would name a transition from a status the Job was never in, which the edge table does not contain and which every client folding the stream would apply as a move that did not happen. A row appearing and a row moving are different messages.
+
+It carries the whole summary, so a Board inserts the row rather than fetching the one it was just told about.
+"""

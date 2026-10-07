@@ -1,0 +1,7 @@
+[icons.square-pen]
+  means = "A pen crossing out of a square's open corner — a name in a box being rewritten"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Renaming, and nothing else. Today that is the Studio heading's Rename alone. Never a general edit, never drawing, which is `pencil`'s, and never writing a node up, which is `type`'s."
+  notes = "Minted 2026-09-29 from the owner's note on the Studio heading (annotation jyee): *an edit icon button instead of a word button*, with Rename in its tooltip. It lifts the ban his own 28 Sep registry put on `square-pen` for this one meaning, and he took the cost knowingly: the heading sits on the same screen as the canvas rail's `pencil`, and at 16px the two read as cousins — a pen on a diagonal, one boxed and one bare. What keeps them apart is the box and the reservations, not the pen: `pencil` is still the sketch pad's and still never edit or rename, and this row is rename only, so neither glyph ever means the other's act. Why this one and not `pencil`: lifting `pencil`'s reservation would have made one outline mean *draw* in the rail and *rename* in the heading, which is rule 4's mixed meaning on a single screen. Refused: `text-cursor-input`, which is honest but is not the edit glyph he asked for; `notebook-pen` and `pen-line`, whose unboxed pens sit closer still to `pencil`. The decision is `.claude/decisions/2026-09-29-rename-takes-square-pen.md`."

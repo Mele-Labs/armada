@@ -182,7 +182,7 @@ const api: BridgeApi = {
 
   // Real deletion, and the only entry here where that is true — every other
   // act moves a Job further, and this removes the row. A separate entry from
-  // the one above for the reason `crates/ipc/operations.toml` gives: one call
+  // the one above for the reason `crates/ipc/operations/` gives: one call
   // with two unrelated things to fail at is worse than two calls.
   forgetTerminalJobs: (jobIds: readonly string[]): Promise<ClearOutcome> =>
     ipcRenderer.invoke(CHANNELS.forgetTerminalJobs, jobIds),

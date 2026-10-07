@@ -1,0 +1,16 @@
+[operations.take_over]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person takes a Job over: its Drone ends where one is live, the Job goes to `piloted`, and the worktree is theirs"
+notes = """
+`POST /jobs/:job_id/take_over`, body `TakeOver` (`outcome`: `take_over` or `restart_step`; `session_id?`), or none for a take over with no Session named. Answers the Job's `JobSummary`, `piloted`, with `piloted` set. `docs/concepts/pilot.md`.
+
+**Assist is not an outcome**: it is deferred, so a body naming it does not decode (400). **`restart_step`** hands the worktree to a fresh Drone at the stopped step when the pilot is submitted, where `take_over` runs the step's gates.
+
+Fleet marks the Job, ends its Drone (`kill_drone`'s order: the process, then the step, then the Job) and moves it. Works from `running`, `escalated`, `awaiting_review`, `awaiting_repair` and `awaiting_attestation`. **A named Session holds the Job's slot and branch on the ledger**, with `detail.handed` reading `job <id>`, and the Job's own rows are given back. This route does not start the Session: `start_session` with a `pilot` does both in one call, and is how Bridge takes a Job over.
+
+Refused with a 409 and nothing changed: `fleet.not_pilotable` on a status with no edge to `piloted`; `fleet.already_piloted`; `fleet.pilot_busy` while another take over or a run of the Job's Checks is out; `fleet.no_step_to_restart` for `restart_step` where no step stopped. A Job at a gate with its worktree parked is refused `fleet.paused`, and one whose worktree is gone is told to redispatch.
+
+`agent_access` is `Helm only`, `restart_step`'s: Helm takes a Job over on a person's ask and never on its own reading, and asks first (`Destructive`: it ends a Drone).
+"""

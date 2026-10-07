@@ -1,0 +1,5 @@
+[operations.get_activity_feed]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Completed Jobs, chronological"

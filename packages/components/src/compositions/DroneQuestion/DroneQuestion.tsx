@@ -18,7 +18,7 @@ import { Textarea } from "../../primitives/Textarea/Textarea";
  *
  * **Still not the orchestrator `docs/scope.md` records as abandoned**: the
  * answers stay a closed set and no reply comes back — see [`DroneAnswer`]. No
- * glyph either: `icons.toml` has none for this, and the gap is reported.
+ * glyph either: `icons/` has none for this, and the gap is reported.
  */
 export type DroneQuestionProps = {
   /**

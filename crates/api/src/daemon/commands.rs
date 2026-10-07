@@ -1102,7 +1102,7 @@ pub trait Commands: Send + Sync + 'static {
     /// `clone_repository` — clone from a URL into a new folder under `parent`,
     /// then serve it as [`add_repository`](Commands::add_repository) does.
     /// Answers when git finishes; its refusals are `add_repository`'s and three
-    /// more, in `crates/ipc/operations.toml`.
+    /// more, in `crates/ipc/operations/`.
     fn clone_repository(
         self: std::sync::Arc<Self>,
         asked: ipc::CloneRepository,
@@ -1158,7 +1158,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `add_task` — a person adds a task to the Job's plan, and the plan it
     /// leaves comes back. `#897`. Refused where the Job has no plan, or
-    /// `after` names no task the plan holds — `crates/ipc/operations.toml`.
+    /// `after` names no task the plan holds — `crates/ipc/operations/`.
     /// **A working Drone is told**, mid-step; at a step boundary the next
     /// brief's THE PLAN carries it, and nothing respawns to deliver it.
     fn add_task(
@@ -1169,7 +1169,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `drop_task` — a person drops a task with a reason, and the plan it
     /// leaves comes back. Refused where the task is already `done` or
-    /// already `dropped`, on `crates/ipc/operations.toml`'s terms. Delivery
+    /// already `dropped`, on `crates/ipc/operations/`'s terms. Delivery
     /// is [`Commands::add_task`]'s.
     fn drop_task(
         self: std::sync::Arc<Self>,
@@ -1179,7 +1179,7 @@ pub trait Commands: Send + Sync + 'static {
 
     /// `restart_task` — a fresh Drone on one failed task, with an optional
     /// note it reads first, and the Job it leaves running. `#1656`. Refused
-    /// on a task that has not failed — `crates/ipc/operations.toml`.
+    /// on a task that has not failed — `crates/ipc/operations/`.
     fn restart_task(
         self: std::sync::Arc<Self>,
         job_id: JobId,

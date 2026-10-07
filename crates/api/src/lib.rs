@@ -18,7 +18,7 @@
 //! is the whole rule.
 //!
 //! **A subset of the inventory, and a stream.** [`SERVED`] is the operations M1
-//! needs, named with `crates/ipc/operations.toml`'s own keys. The rest of the
+//! needs, named with `crates/ipc/operations/`'s own keys. The rest of the
 //! inventory, the `/v0` lifeboat and version-skew handling belong to Ship and
 //! are neither built nor stubbed here. [`MCP_PATH`] is on the listener and on
 //! neither seam above: a Drone's Evidence tool, deliberately absent from

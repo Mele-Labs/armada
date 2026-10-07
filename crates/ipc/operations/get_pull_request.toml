@@ -1,0 +1,12 @@
+[operations.get_pull_request]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One pull request by repository and number: draft, open, merged or closed, auto-merge, the forge's checks, title, branch and address"
+notes = """
+`GET /pull_requests/:repository/:number`, `repository` a manifest id. Since 23.48. `PullRequestState`. **The read refreshes the ledger**: every Session's `pr` row for this pull request takes the answer as its `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`) through the ledger's own attach, and a merged one is settled `spent` and a closed one `given_back`. A read that changed nothing publishes nothing.
+
+`checks` is the forge's own: `pending` while any has not finished and none has failed, `passed` once every one has, and `failed` with the names the forge gives the failing ones. **A repository that runs nothing reads `pending`**, because nothing passed.
+
+Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer (no tool, nobody signed in, no such number), and a 422 for a repository Fleet does not serve.
+"""

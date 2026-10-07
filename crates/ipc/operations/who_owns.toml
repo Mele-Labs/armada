@@ -1,0 +1,12 @@
+[operations.who_owns]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Who holds a branch, a pull request, a Job or a slot: every holder on the ledger, the ones still holding it first"
+notes = """
+`GET /sessions/owner?kind=&target=&manifest_id=`, `kind` one of `branch`, `pr`, `job` or `slot`. Since 23.43. A slot is its number and a branch its name, and both are of one repository, so `manifest_id` names which; absent, every repository's.
+
+**Every holder, not the one.** A session that let go still appears, with `given_back` or `spent`, beneath whoever holds it now, so an answer of one `standing` holder and an answer of none read differently from a session that only ended.
+
+**What the ledger holds is what sessions reported, and what Fleet writes for its Jobs.** Since 23.46 a Job's own branch and slot are rows held by the Job, so a Job holding a slot is an answer here, and `kind=need` answers who holds a need on a path.
+"""

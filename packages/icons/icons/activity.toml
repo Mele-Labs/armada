@@ -1,0 +1,34 @@
+# packages/icons/icons.toml
+#
+# The Armada icon registry. AUTHORED HERE, not generated — this file is the
+# authority on which lucide-react glyph means what, and what a glyph may
+# never be reused for. Notion's "Armada Icons" database is retired to
+# history; a page there that disagrees with this file is stale, not right.
+#
+# One [icons.<name>] table per lucide glyph, keyed by its kebab-case
+# lucide-react name. `reserved` is the part that must not be edited
+# casually: it is the reservation rule — what a glyph's silhouette may
+# never be made to mean elsewhere. A glyph used in more than one place in
+# the UI (see `file-cog`, `chevron-down`) carries each context as a
+# `[[icons.<name>.usage]]` entry rather than overwriting the first.
+#
+# `[conventions.*]` tables record cross-cutting rules that name several
+# glyphs at once rather than assigning one glyph its own meaning.
+#
+# Fields:
+#   means    - what the glyph's outline depicts (or, for some rows, the
+#              concept it labels — carried as Notion recorded it)
+#   group    - the badge/UI family this assignment belongs to
+#   size     - "12px", "16px", or "12 and 16px"; absent where Notion left
+#              it unset
+#   status   - Specified | Proposed | Retired | Banned
+#   reserved - what this glyph may never be reused for (absent where
+#              Notion recorded none)
+#   notes    - the reasoning behind the choice (absent where Notion
+#              recorded none)
+[icons.activity]
+  means = "Active jobs"
+  group = "Navigation"
+  size = "16px"
+  status = "Retired"
+  notes = "Retired 2026-08-31. Active jobs folded into the Job Board when the Board became every Job with state as a filter, so the surface this named no longer exists — see docs/concepts/bridge.md. The glyph is free again. The ECG outline reads cleanly at 16px where it would not at 12px, which is why it was chosen and why it is worth someone else having."

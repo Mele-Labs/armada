@@ -1,0 +1,21 @@
+[icons.file-cog]
+  status = "Specified"
+  reserved = "Manifest only — the surface and the file. Never a generic settings or config glyph; Settings uses `settings` and Kit uses `briefcase`."
+
+  [[icons.file-cog.usage]]
+    means = "Manifest — Bridge's seventh surface"
+    group = "Navigation"
+    size = "12 and 16px"
+    notes = "Added 2026-08-21 with the Manifest surface (see Run and edit a Manifest). 16px in the rail, --fg-muted at rest and --fg-default when active, never status-coloured. The same glyph already assigned to Manifest in Git and config, reused deliberately: a surface and the thing it edits are one concept, and a second glyph would imply two. Bridge went from six surfaces to seven with this addition."
+
+  [[icons.file-cog.usage]]
+    means = "Manifest"
+    group = "Git and config"
+    size = "12px"
+
+  [[icons.file-cog.usage]]
+    means = "A retro item whose fix lands in the Manifest"
+    group = "Retro"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 3 Oct 2026 with where a retro item's fix lands (`lands_in = manifest`): the repository the Job worked on, its armada.yml Checks, its tests and its code, which the owner named Manifest. The Manifest's own glyph, so the tab and the mark say one word. `folder-git-2`, the repository, was the first candidate and is refused only because its component name carries a vendor literal the gate refuses outside adapters. 12px, --fg-muted. Tooltip: Lands in the Manifest."

@@ -302,7 +302,7 @@ where
     ///
     /// **The Judge's client, budget and dial, rather than a fourth set.** The
     /// call is the same call — one turn, no toolset, no directory — and the
-    /// model is the same cheap one, which `crates/ipc/operations.toml` says
+    /// model is the same cheap one, which `crates/ipc/operations/` says
     /// outright: the dial `judge_model` already derives, and not a fourth
     /// spelling of a vendor's name. What it does not take is a Job, because a
     /// reading is marked nowhere and filed nowhere.

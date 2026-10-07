@@ -1,0 +1,7 @@
+[icons.text-wrap]
+  means = "Ruled lines, the longest bending back under itself onto the line below"
+  group = "Console"
+  size = "16px"
+  status = "Specified"
+  reserved = "Wrapping the lines of a reading in a console, the reader's own toggle. Never a layout or alignment control, never a return or a redirect, and never undo."
+  notes = "Minted 2 Oct 2026 for the log panel's wrap toggle, on the owner's annotation that `split`, borrowed for it first, \"is not a wrap lines icon\". The glyph is the act itself: a long line turning back under itself. `text-wrap` and not `wrap-text`, which lucide-react keeps only as an alias of it. Against the arrows already in the set, rule 4 holds on outline: `corner-up-right` is a bare turn with no ruled lines, and `undo-2` an open arrow pointing against the reading direction. Refused: `split`, one line becoming two, which is an escalation reason and reads as fanning out rather than wrapping; `align-left`, which says how text is set rather than where a line breaks."
