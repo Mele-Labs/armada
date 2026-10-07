@@ -12,7 +12,7 @@ use ipc::{
     SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
     SessionVoice, TakeHeld,
 };
-use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
+use testkit::{FakeVcs, FakeHarness, FakeWorkProduct};
 
 use super::session_host::{Shared, StandIn};
 use crate::daemon::Fleet;
@@ -42,12 +42,7 @@ fn rig() -> Rig {
         Arc::new(Shared(Arc::new(StandIn::default()))),
         Duration::from_secs(600),
     );
-    let root = fleet
-        .repositories()
-        .first()
-        .expect("a repository")
-        .root()
-        .to_string();
+    let root = fleet.repositories().first().expect("a repository").root().to_string();
     let dir = home.path().join(adapters::SESSIONS).join("-somewhere");
     std::fs::create_dir_all(&dir).unwrap();
     let transcript = dir.join(format!("{ID}.jsonl"));
@@ -120,12 +115,7 @@ async fn opening_a_terminal_session_reads_its_transcript_and_then_follows_it() {
     rig.started().await;
     std::fs::write(
         &rig.transcript,
-        said(
-            "user",
-            "u1",
-            r#""origin":{"kind":"human"},"#,
-            "Fix the build",
-        ) + "\n",
+        said("user", "u1", r#""origin":{"kind":"human"},"#, "Fix the build") + "\n",
     )
     .unwrap();
 
@@ -167,15 +157,9 @@ async fn a_message_is_held_for_the_mod_that_is_asking_and_handed_over_once() {
     rig.started().await;
 
     let refused = rig.sends("are you there").await.unwrap_err();
-    assert!(
-        refused.contains("fleet.terminal_session_unreachable"),
-        "{refused}"
-    );
+    assert!(refused.contains("fleet.terminal_session_unreachable"), "{refused}");
 
-    assert!(
-        rig.mod_asks().await.is_empty(),
-        "nothing yet, and now it is listening"
-    );
+    assert!(rig.mod_asks().await.is_empty(), "nothing yet, and now it is listening");
     rig.sends("run the tests").await.expect("held");
     rig.sends("then lint").await.expect("held");
     assert_eq!(rig.mod_asks().await, vec!["run the tests", "then lint"]);
@@ -258,37 +242,19 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
         effort: Some("low".into()),
         mode: ipc::SessionMode::Auto,
     };
-    Arc::clone(&rig.fleet)
-        .tune_session(tune("haiku"))
-        .await
-        .expect("held");
+    Arc::clone(&rig.fleet).tune_session(tune("haiku")).await.expect("held");
     let held = rig
         .fleet
-        .take_held_messages(TakeHeld {
-            session_id: ID.into(),
-        })
+        .take_held_messages(TakeHeld { session_id: ID.into() })
         .await
         .unwrap();
-    let said: Vec<(String, String)> = held
-        .commands
-        .into_iter()
-        .map(|one| (one.command, one.args))
-        .collect();
-    assert_eq!(
-        said,
-        vec![("effort".to_string(), "low".to_string())],
-        "the model it already runs on is not sent"
-    );
+    let said: Vec<(String, String)> = held.commands.into_iter().map(|one| (one.command, one.args)).collect();
+    assert_eq!(said, vec![("effort".to_string(), "low".to_string())], "the model it already runs on is not sent");
 
-    Arc::clone(&rig.fleet)
-        .tune_session(tune("opus"))
-        .await
-        .expect("held");
+    Arc::clone(&rig.fleet).tune_session(tune("opus")).await.expect("held");
     let held = rig
         .fleet
-        .take_held_messages(TakeHeld {
-            session_id: ID.into(),
-        })
+        .take_held_messages(TakeHeld { session_id: ID.into() })
         .await
         .unwrap();
     assert_eq!(held.commands.len(), 2);
@@ -298,8 +264,5 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
 #[tokio::test]
 async fn a_session_that_is_not_a_terminal_one_is_handed_nothing() {
     let rig = rig();
-    assert!(
-        rig.mod_asks().await.is_empty(),
-        "no such session is not an error"
-    );
+    assert!(rig.mod_asks().await.is_empty(), "no such session is not an error");
 }

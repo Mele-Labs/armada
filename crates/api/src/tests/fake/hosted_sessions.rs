@@ -5,8 +5,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate,
-    SessionId, SessionRecord, SessionThread, StartSession, TakeHeld, TuneSession,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
+    SessionRecord, SessionThread, StartSession, TuneSession,
 };
 
 use super::FakeDaemon;

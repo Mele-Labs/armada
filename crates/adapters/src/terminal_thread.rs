@@ -49,10 +49,7 @@ pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
     open.seek(SeekFrom::Start(from))?;
     let mut bytes = Vec::new();
     open.read_to_end(&mut bytes)?;
-    let whole = bytes
-        .iter()
-        .rposition(|byte| *byte == b'\n')
-        .map_or(0, |at| at + 1);
+    let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
     let text = String::from_utf8_lossy(&bytes[..whole]);
     let rows = text.lines().flat_map(drawn).collect();
     Ok(Thread {
@@ -206,9 +203,7 @@ fn worded(text: &str) -> Worded {
     let text = text.trim();
     if text.is_empty()
         || text.starts_with("Another Claude session sent a message")
-        || NOT_SPOKEN
-            .iter()
-            .any(|tag| text.starts_with(&format!("<{tag}")))
+        || NOT_SPOKEN.iter().any(|tag| text.starts_with(&format!("<{tag}")))
     {
         return Worded::Skip;
     }
@@ -217,28 +212,15 @@ fn worded(text: &str) -> Worded {
     }
     if let Some(name) = inside(text, "command-name") {
         let name = name.trim();
-        let name = if name.starts_with('/') {
-            name.to_string()
-        } else {
-            format!("/{name}")
-        };
+        let name = if name.starts_with('/') { name.to_string() } else { format!("/{name}") };
         let args = inside(text, "command-args").unwrap_or_default().trim();
-        return Worded::Command(if args.is_empty() {
-            name
-        } else {
-            format!("{name} {args}")
-        });
+        return Worded::Command(if args.is_empty() { name } else { format!("{name} {args}") });
     }
     // What was pasted is what the person said; the tag around it is not.
     match (text.starts_with("<pasted_content"), text.find('>')) {
         (true, Some(open)) => {
             let rest = &text[open + 1..];
-            Worded::Said(
-                rest.strip_suffix("</pasted_content>")
-                    .unwrap_or(rest)
-                    .trim()
-                    .to_string(),
-            )
+            Worded::Said(rest.strip_suffix("</pasted_content>").unwrap_or(rest).trim().to_string())
         }
         _ => Worded::Said(text.to_string()),
     }
