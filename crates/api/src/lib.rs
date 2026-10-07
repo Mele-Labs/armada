@@ -67,6 +67,7 @@ mod one_drone;
 mod preferring;
 /// Pulse's kills: one process of a Job, and every one.
 mod processes;
+mod piloting;
 mod pull_requests;
 mod queries;
 mod reconciling;
@@ -104,7 +105,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, Needs, PermissionAnswer, PullRequests, Queries, Redirector, Refusal, Retros,
+    HelmReach, Needs, PermissionAnswer, Piloting, PullRequests, Queries, Redirector, Refusal, Retros,
     Sessions, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};

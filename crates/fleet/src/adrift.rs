@@ -496,6 +496,11 @@ pub enum Adrift {
         job: JobId,
         why: crate::rechecking::Unrecheckable,
     },
+    /// A Job could not be taken over, or a pilot ended — `crate::piloting`.
+    CannotPilot {
+        job: JobId,
+        why: crate::piloting::Unpilotable,
+    },
     /// An act was asked of a Job whose Checks are running again — a person's
     /// re-run, or a `merge_by: push` merge gating a moved base. Each would
     /// change the worktree the Checks are reading.

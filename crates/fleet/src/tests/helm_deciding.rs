@@ -241,12 +241,17 @@ fn the_doors_reads_run_and_only_some_of_its_acts_ask() {
         "restart_step",
         "review_pull_request",
         "get_pull_request",
+        "get_handoff",
     ] {
         let named = format!("mcp__{}__{operation}", ipc::door::SERVER);
         assert_eq!(because(&tool(&named)), None, "should have run: {operation}");
     }
     for (operation, why) in [
         ("merge_pull_request", Because::PushesToShared),
+        ("submit_for_verification", Because::PushesToShared),
+        ("attest_complete", Because::PushesToShared),
+        ("take_over", Because::Destructive),
+        ("close_as_superseded", Because::Destructive),
         ("merge_pull_request_by_number", Because::PushesToShared),
         ("ready_pull_request", Because::PushesToShared),
         ("enable_auto_merge", Because::PushesToShared),

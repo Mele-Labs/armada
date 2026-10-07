@@ -632,6 +632,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 Arc::clone(&fleet),
                 PROVISIONAL_SWEEP_INTERVAL,
                 adapters::leasing::Trim::SHIPPED,
+                {
+                    let fleet = Arc::clone(&fleet);
+                    move || {
+                        let fleet = Arc::clone(&fleet);
+                        async move { fleet.piloted_checkouts().await }
+                    }
+                },
                 |said| eprintln!("{said}"),
             );
             reconciliation.finished();

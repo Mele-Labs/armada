@@ -307,6 +307,11 @@ pub struct JobSummary {
     /// Absent is a Job that took none. Since 23.42.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixes_main: Option<crate::FixesMain>,
+    /// Who took it over and how that ended. Filled by Fleet off the store, like
+    /// [`tasks`](JobSummary::tasks). Absent is a Job nobody has piloted. Since
+    /// 23.49.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub piloted: Option<crate::Piloted>,
 }
 
 /// A Job's pause marker, as a row carries it.
@@ -398,6 +403,7 @@ impl JobSummary {
             }),
             // Filled by the caller that holds a store, for `tasks`' reason.
             fixes_main: None,
+            piloted: None,
         }
     }
 }

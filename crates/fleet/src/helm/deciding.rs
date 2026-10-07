@@ -86,11 +86,19 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "redispatch_job",
         "dispatch_studio_draft",
         "request_changes",
+        // Two of a pilot's exits: the work goes on toward delivery, or a person
+        // says finished work is finished with no gate run.
+        "submit_for_verification",
+        "attest_complete",
     ];
     const GONE: &[&str] = &[
         "kill_job",
         "kill_drone",
         "kill_one_drone",
+        // Taking a Job over ends its Drone, and closing one as superseded ends
+        // the Job.
+        "take_over",
+        "close_as_superseded",
         "kill_process",
         "kill_processes",
         "forget_job",

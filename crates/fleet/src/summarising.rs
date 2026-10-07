@@ -107,7 +107,11 @@ where
             .task_counts(job.id())
             .await
             .map_err(|why| self.refusal(why))?;
-        summary.fixes_main = self.fixes_main_of(&*self.store().lock().await, job);
+        {
+            let store = self.store().lock().await;
+            summary.fixes_main = self.fixes_main_of(&store, job);
+            summary.piloted = self.piloted_on_row(&store, job);
+        }
         Ok(summary)
     }
 

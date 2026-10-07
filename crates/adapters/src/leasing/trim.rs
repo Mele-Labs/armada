@@ -124,13 +124,19 @@ pub fn targets_of(root: &Path) -> Vec<std::path::PathBuf> {
 }
 
 /// [`trim_target`] on every [`targets_of`] `root`, each with what it did.
+///
+/// **`held` are checkouts a person is working in** (a piloted Job's), and their
+/// `target/` is not looked at: a person's build output is not stale because no
+/// Drone wrote it.
 pub fn sweep_repository(
     root: &Path,
     trim: Trim,
     now: SystemTime,
+    held: &[std::path::PathBuf],
 ) -> Vec<(std::path::PathBuf, Trimmed)> {
     targets_of(root)
         .into_iter()
+        .filter(|target| !held.iter().any(|held| target.parent() == Some(held.as_path())))
         .map(|target| {
             let done = trim_target(&target, trim, now);
             (target, done)

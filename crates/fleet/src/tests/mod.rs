@@ -143,6 +143,8 @@ mod paying;
 mod peer;
 mod peers;
 mod pending_evidence;
+mod piloting;
+mod piloting_exits;
 mod permitting;
 mod phases;
 mod picking_up;

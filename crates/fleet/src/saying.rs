@@ -20,7 +20,7 @@
 use std::error::Error;
 use std::fmt;
 
-use core_model::JobId;
+use core_model::{JobId, JobStatus};
 
 use crate::adrift::Adrift;
 use crate::proposing::Unresolved;
@@ -293,6 +293,16 @@ impl fmt::Display for Adrift {
                 ceiling,
                 asked
             ),
+            Adrift::NotReclaimable {
+                job,
+                status: JobStatus::Piloted,
+            } => write!(
+                out,
+                "{} is piloted: a person is working in its worktree, so it is not Fleet's to \
+                 give back. End the pilot first, by submitting the Job, attesting it complete or \
+                 closing it as superseded",
+                job.as_str()
+            ),
             Adrift::NotReclaimable { job, status } => write!(
                 out,
                 "{} is {} and its worktree cannot be reclaimed. There is no disk to give back \
@@ -443,6 +453,7 @@ impl fmt::Display for Adrift {
             // puts under the button a person just pressed.
             Adrift::CannotShowAgain { why, .. } => write!(out, "{}", why.said()),
             Adrift::CannotRerunChecks { why, .. } => write!(out, "{}", why.said()),
+            Adrift::CannotPilot { why, .. } => write!(out, "{}", why.said()),
             Adrift::ChecksRunningAgain { job } => write!(
                 out,
                 "{}'s Checks are running again on its worktree. Wait for that run to finish \
@@ -856,6 +867,7 @@ impl Adrift {
             | Adrift::NotUndecided { job, .. }
             | Adrift::NotStandingThere { job }
             | Adrift::CannotRerunChecks { job, .. }
+            | Adrift::CannotPilot { job, .. }
             | Adrift::ChecksRunningAgain { job }
             | Adrift::RecheckAbandoned { job }
             | Adrift::CannotShowAgain { job, .. }
@@ -1021,6 +1033,7 @@ impl Error for Adrift {
             | Adrift::CannotShowAgain { .. }
             | Adrift::PressAbandoned { .. }
             | Adrift::CannotRerunChecks { .. }
+            | Adrift::CannotPilot { .. }
             | Adrift::ChecksRunningAgain { .. }
             | Adrift::RecheckAbandoned { .. }
             | Adrift::ProposalAbandoned

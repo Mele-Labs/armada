@@ -142,6 +142,7 @@ pub fn cleaned(cleaned: &Cleaned) {
         && cleaned.unreadable.is_empty()
         && cleaned.uncommitted.is_empty()
         && cleaned.held.is_empty()
+        && cleaned.piloted.is_empty()
         && cleaned.bases.is_empty()
     {
         println!("\nno Jobs and no worktrees — there was nothing to give back");
@@ -149,11 +150,25 @@ pub fn cleaned(cleaned: &Cleaned) {
     // Last, because these are the only parts of this a person still has to act
     // on. The uncommitted work first: it is the only thing here that exists
     // nowhere else at all.
+    piloted_kept(cleaned);
     work_kept(cleaned);
     slots_held(cleaned);
     branches_left(cleaned);
     for fault in &cleaned.faults {
         eprintln!("  {fault}");
+    }
+}
+
+/// The Jobs a person is working in, left alone and named.
+fn piloted_kept(cleaned: &Cleaned) {
+    if cleaned.piloted.is_empty() {
+        return;
+    }
+    println!("
+these Jobs are piloted, so their worktrees were left alone:");
+    for kept in &cleaned.piloted {
+        println!("  {} — {}", kept.job_id, kept.title);
+        println!("    {}", kept.path);
     }
 }
 

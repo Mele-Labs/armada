@@ -29,6 +29,7 @@ mod authoring;
 mod commands;
 mod conversing;
 mod needs;
+mod piloting;
 mod pull_requests;
 mod queries;
 mod retros;
@@ -41,6 +42,7 @@ pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use needs::Needs;
+pub use piloting::Piloting;
 pub use pull_requests::PullRequests;
 pub use queries::{FramePart, FrameSpan, Queries};
 pub use retros::Retros;
@@ -96,6 +98,7 @@ pub trait Daemon:
     + Sessions
     + Needs
     + PullRequests
+    + Piloting
 {
 }
 
@@ -110,7 +113,8 @@ impl<
             + Authoring
             + Sessions
             + Needs
-            + PullRequests,
+            + PullRequests
+            + Piloting,
     > Daemon for D
 {
 }

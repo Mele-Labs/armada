@@ -937,6 +937,32 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/redirect",
     },
+    // A person taking a Job over, and the three ways back: `docs/concepts/pilot.md`.
+    Route {
+        operation: "take_over",
+        method: "POST",
+        path: "/jobs/:job_id/take_over",
+    },
+    Route {
+        operation: "get_handoff",
+        method: "GET",
+        path: "/jobs/:job_id/handoff",
+    },
+    Route {
+        operation: "submit_for_verification",
+        method: "POST",
+        path: "/jobs/:job_id/submit_for_verification",
+    },
+    Route {
+        operation: "attest_complete",
+        method: "POST",
+        path: "/jobs/:job_id/attest_complete",
+    },
+    Route {
+        operation: "close_as_superseded",
+        method: "POST",
+        path: "/jobs/:job_id/close_as_superseded",
+    },
     // A pause is not a kill and not a hold on a Drone: the Job's work is
     // parked and its slot freed, and the Job itself is kept.
     Route {

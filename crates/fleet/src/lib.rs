@@ -201,6 +201,7 @@ pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;
 mod pending_evidence;
+mod piloting;
 pub mod permitting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
@@ -397,6 +398,7 @@ pub use proposal::{proposed, Proposing};
 pub use proposing::{Brief, NotProposed, Proposal, ProposedJob, Unresolved};
 pub use questioning::{Answer, NotAnswered, NotAsked, Question, Told};
 pub use readopting::Recovered;
+pub use piloting::{Hatch, Unpilotable};
 pub use rechecking::Unrecheckable;
 pub use reconciled::Reconciled;
 pub use redaction::Redactor;
