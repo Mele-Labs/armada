@@ -41,10 +41,13 @@ test("the menu in the stacked run is over the next card", async () => {
   expect(itemsAreOnTop()).toBe(true);
 });
 
-test("the menu at the gate is over the next node", async () => {
-  mount("proto/feature-at-approval");
-  await onScreen();
-  await page.getByRole("button", { name: "Add a step after Plan the change" }).click();
-  await expect.element(page.getByRole("menuitem", { name: "Script" })).toBeVisible();
-  expect(itemsAreOnTop()).toBe(true);
-});
+// Every gap at the gate: ahead of the first step, between steps, and in the Delivery lane.
+for (const name of ["Add a step before Plan the change", "Add a step after Plan the change", "Add a step after Pull request"]) {
+  test(`the menu at the gate is over the next node: ${name}`, async () => {
+    mount("proto/feature-at-approval");
+    await onScreen();
+    await page.getByRole("button", { name }).click();
+    await expect.element(page.getByRole("menuitem", { name: "Script" })).toBeVisible();
+    expect(itemsAreOnTop()).toBe(true);
+  });
+}

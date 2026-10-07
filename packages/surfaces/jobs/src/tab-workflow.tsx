@@ -496,6 +496,7 @@ export function WorkflowTab({
                   opensOn={run.opensOn}
                   hangsFromTop
                   runsDown
+                  reveals={added.open}
                 />
               </div>
             </div>

@@ -187,14 +187,20 @@ export function removeInserted(jobId: string, id: string) {
   }));
 }
 
-/** What keeping an added step for every Job starts from: a trigger that fires when the step it follows passes. */
+/**
+ * What keeping an added step for every Job starts from. One added after a step
+ * fires when that step passes; one in the delivery lane fires when the PR
+ * opens; one ahead of the first step fires when that step starts.
+ */
 export function triggerFromInserted(one: Inserted, workflow: string, after: string): Trigger {
+  const delivery = after.startsWith("at:");
+  const ahead = after.startsWith("before:");
   return {
     id: `h-${one.id}`,
     place: "kit",
     applies: workflow,
-    when: "passes",
-    step: after,
+    when: delivery ? "pr_opened" : ahead ? "starts" : "passes",
+    step: delivery ? "" : ahead ? after.slice("before:".length) : after,
     kind: one.kind === "skill" ? "skill" : "command",
     name: one.name,
     block: one.block,
