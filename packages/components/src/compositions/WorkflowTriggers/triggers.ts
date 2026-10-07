@@ -3,6 +3,7 @@
 // from that text and written to it; nothing here reaches Fleet.
 
 import type {
+  KeptFrom,
   TriggerDefinition,
   TriggerLevel,
   TriggerMoment,
@@ -122,6 +123,7 @@ export type TriggersBinding = {
   /** The Commands the repository's `armada.yml` declares, which a Command Trigger may name. */
   commands: readonly string[];
   onOpen: (identity: TriggerIdentity, level?: TriggerLevel) => Promise<TriggerOpened>;
-  onSave: (scope: TriggerScope, definition: string, overwrite: boolean) => Promise<TriggerSavedAnswer>;
+  /** `keptFrom` is the addition a save keeps for every Job. */
+  onSave: (scope: TriggerScope, definition: string, overwrite: boolean, keptFrom?: KeptFrom) => Promise<TriggerSavedAnswer>;
   onRemove: (scope: TriggerScope, identity: TriggerIdentity) => Promise<TriggerRemovedAnswer>;
 };

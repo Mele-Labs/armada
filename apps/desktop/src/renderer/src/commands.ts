@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
+import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
@@ -892,6 +893,23 @@ export function useCommands(sending: Sending) {
     return answer;
   }
 
+  /**
+   * Add a step to a Job underway, or take one off before it fires. **Not through `act`**, `addTask`'s
+   * reason: the answer is the row, which the panel that filled it in needs to draw it at once. A
+   * refusal goes where every command's goes, in Fleet's sentence.
+   */
+  async function addJobStep(adding: AddingStep): Promise<AddStepAnswer> {
+    const answer = await window.armada.addJobStep(adding);
+    setOutcome(answer.ok ? { ok: true } : answer.outcome);
+    return answer;
+  }
+
+  async function removeJobStep(removing: RemovingStep): Promise<RemoveStepAnswer> {
+    const answer = await window.armada.removeJobStep(removing);
+    setOutcome(answer.ok ? { ok: true } : answer.outcome);
+    return answer;
+  }
+
   /** Drop a task from a job's plan, with a reason. `addTask`'s own reason. */
   async function dropTask(jobId: string, drop: DropTask): Promise<PlanEditAnswer> {
     const answer = await window.armada.dropTask(jobId, drop);
@@ -1092,6 +1110,8 @@ export function useCommands(sending: Sending) {
     report,
     addTask,
     dropTask,
+    addJobStep,
+    removeJobStep,
     movePlan,
     approveWave,
     editJob,

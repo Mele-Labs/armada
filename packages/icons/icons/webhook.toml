@@ -3,5 +3,5 @@
   group = "Trigger"
   size = "12px"
   status = "Specified"
-  reserved = "A Trigger: the mark on a step's card and the line of each one that fires there. Never a network call or an integration, and never a step the workflow itself declares."
+  reserved = "A Trigger, and a step added to one Job: the mark on a step's card, the line of each Trigger that fires there, and the card of an added step. Never a network call or an integration, and never a step the workflow itself declares."
   notes = "Added 7 Oct 2026 for the walk `aTriggerOnAWorkflow`; the owner picked the glyph and the name Trigger. It replaces `zap` on a step card's Trigger lines, since `zap` is reserved against automation. Three nodes joined by a strand is none of the outlines in the Job state set at 12px."

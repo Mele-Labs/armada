@@ -1,5 +1,6 @@
 // Jobs' mock data and its members as a mock Fleet answers them. Desktop's `mock/jobs-fake.ts` and
 // `mock/slices/jobs.ts` register them; each moment and handler is generic over the app's whole state and API.
+export * from "./fake/added-fleet";
 export * from "./fake/approval-fleet";
 export * from "./fake/check-logs-fleet";
 export * from "./fake/feature-at-approval";

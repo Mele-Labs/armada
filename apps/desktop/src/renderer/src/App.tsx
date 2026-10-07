@@ -133,6 +133,7 @@ import {
   watchManifestDrift,
   watchOverview,
 } from "./commands";
+import { useAddedBinding } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
@@ -304,6 +305,7 @@ export function App({ draft }: AppProps = {}) {
   // leaves the list — superseded, or gone from a resync — closes its own detail
   // rather than leaving a row on screen that Fleet no longer has.
   const reading = openJob === null ? null : (state.jobs.find((job) => job.id === openJob) ?? null);
+  const added = useAddedBinding(commands, reading?.id ?? null);
   // Main's log, opened from a Job that took main's red: the merge line head's own log, held here
   // because the Job's detail is not where that panel lives.
   const [mainLog, setMainLog] = useState<LandCheckAt | null>(null);
@@ -747,6 +749,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary key={reading.id} region="the job detail" {...guarded}>
                 <JobDetail
                   job={reading}
+                  {...(added === undefined ? {} : { added })}
                   {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
                   onWhere={(tab, item) => onJobWhere(reading.id, tab, item)}
                   // Every Job, not the picked repository's: a member dispatched

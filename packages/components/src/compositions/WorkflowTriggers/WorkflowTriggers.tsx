@@ -1,15 +1,29 @@
 import { useEffect, useState } from "react";
-import { Briefcase, Check, CircleDashed, CircleDot, Eye, FolderGit2, GitBranch, Minus, Package, Trash2, X } from "lucide-react";
+import { Briefcase, Check, CircleDashed, CircleDot, Eye, FolderGit2, GitBranch, Minus, Package, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { JobTrigger, TriggerFiringState, TriggerLevel, TriggerSaved, TriggerScope, TriggerSkip, TriggerSummary } from "@armada/protocol";
+import type {
+  AddedRuns,
+  AddedStep,
+  JobTrigger,
+  KeptFrom,
+  TriggerFiringState,
+  TriggerLevel,
+  TriggerSaved,
+  TriggerScope,
+  TriggerSkip,
+  TriggerSummary,
+} from "@armada/protocol";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Switch } from "../../primitives/Switch/Switch";
+import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import type { WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 import {
   blankDraft,
   definitionOf,
@@ -112,14 +126,25 @@ export function TriggerRows({
 }
 
 /** The two switches a Trigger carries. */
-function Fails({ block, repair, onChange }: { block: boolean; repair: boolean; onChange: (next: { block?: boolean; repair?: boolean }) => void }) {
+function Fails({
+  block,
+  repair,
+  onChange,
+  disabled = false,
+}: {
+  block: boolean;
+  repair: boolean;
+  onChange: (next: { block?: boolean; repair?: boolean }) => void;
+  /** An added step already on a Job is read: Fleet has no edit for one, so the switches are set before it is added. */
+  disabled?: boolean;
+}) {
   return (
     <div className="armada-triggers__fails" role="group" aria-label="If it fails">
       <span className="armada-triggers__eyebrow">If it fails</span>
-      <Switch checked={block} onChange={(event) => onChange({ block: event.target.checked })}>
+      <Switch checked={block} disabled={disabled} onChange={(event) => onChange({ block: event.target.checked })}>
         Block the Job
       </Switch>
-      <Switch checked={repair} onChange={(event) => onChange({ repair: event.target.checked })}>
+      <Switch checked={repair} disabled={disabled} onChange={(event) => onChange({ repair: event.target.checked })}>
         Self repair
       </Switch>
     </div>
@@ -214,9 +239,12 @@ export function TriggerSheet({
   onSaved,
   onRemoved,
   onClose,
+  keeping,
 }: {
   binding: TriggersBinding;
   target: TriggerTarget;
+  /** The addition this save keeps for every Job: Fleet records where it went. */
+  keeping?: KeptFrom;
   workflow: string | undefined;
   steps: readonly string[];
   onSaved: (saved: TriggerSaved) => void;
@@ -260,7 +288,7 @@ export function TriggerSheet({
   async function save() {
     if (draft === null) return;
     const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: draft.name === "" ? draft.with : draft.name };
-    const result = await binding.onSave(draft.scope, definitionOf(draft), replaces || (was !== null && target.kind === "open" && !moved(was, draft)));
+    const result = await binding.onSave(draft.scope, definitionOf(draft), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
     if (!result.ok) {
       setStanding("refused");
       setSaid(result.said);
@@ -302,7 +330,7 @@ export function TriggerSheet({
         {draft === null ? null : (
           <div className="armada-triggers__acts">
             <Button variant="primary" disabled={draft.with === ""} onClick={() => void save()}>
-              {replaces ? "Replace" : "Save"}
+              {replaces ? "Replace" : keeping === undefined ? "Save" : "Keep"}
             </Button>
             {target.kind === "open" && was !== null ? (
               <Button variant="ghost" onClick={() => void remove()}>
@@ -353,7 +381,7 @@ const STATE: Record<TriggerFiringState, { Glyph: LucideIcon; said: string; hue?:
   awaiting_owner: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
 };
 
-export function FiringMark({ trigger }: { trigger: JobTrigger }) {
+export function FiringMark({ trigger }: { trigger: { state: TriggerFiringState; skipped?: { said: string } | undefined; exit_code?: number | undefined } }) {
   const { Glyph, said, hue } = STATE[trigger.state];
   const label = trigger.state === "skipped" && trigger.skipped !== undefined ? trigger.skipped.said : trigger.state === "failed" && trigger.exit_code !== undefined ? `${said}, exit ${trigger.exit_code}` : said;
   return <Mark icon={Glyph} label={label} {...(hue === undefined ? {} : { hue })} pulsing={trigger.state === "running"} />;
@@ -383,5 +411,143 @@ export function FiredTriggers({ triggers, onOpenLog }: { triggers: readonly JobT
         </li>
       ))}
     </ul>
+  );
+}
+
+/** What a Job can be given between its steps. */
+export type AddedKind = AddedRuns["kind"];
+
+const ADDED_KIND: Record<AddedKind, string> = { script: "Script", skill: "Skill", drone: "Drone step" };
+
+/** The `+` on a connector: a menu of what one Job can be given. It draws over the canvas, which is why it takes `portal`. */
+export function AddStep({ label, onPick }: { label: string; onPick: (kind: AddedKind) => void }) {
+  return (
+    <span className="armada-triggers__add">
+      <Tooltip label="Add a step to this Job only">
+        <span>
+          <DropdownMenu
+            triggerLabel={label}
+            icon={SquarePlus}
+            portal
+            entries={(Object.keys(ADDED_KIND) as AddedKind[]).map((id) => ({ kind: "item", id, label: ADDED_KIND[id] }))}
+            onSelect={(id) => onPick(id as AddedKind)}
+          />
+        </span>
+      </Tooltip>
+    </span>
+  );
+}
+
+/** What an added step runs, as its card names it. */
+export const addedName = (runs: AddedRuns): string => (runs.kind === "script" ? runs.command : runs.kind === "skill" ? runs.skill : "Drone step");
+
+/** What it runs, as its panel's field holds it: the Command, the skill, or the brief. */
+const ranText = (runs: AddedRuns): string => (runs.kind === "script" ? runs.command : runs.kind === "skill" ? runs.skill : runs.brief);
+
+/** An added step's firing state as its card's activity and hue. */
+const ADDED_STATE: Record<TriggerFiringState, { activity: WorkflowStepCardProps["activity"]; token: string }> = {
+  pending: { activity: "not_started", token: "--status-not-started" },
+  skipped: { activity: "not_started", token: "--status-not-started" },
+  running: { activity: "running", token: "--status-running" },
+  passed: { activity: "advanced", token: "--step-advanced" },
+  failed: { activity: "failed", token: "--step-failed" },
+  awaiting_owner: { activity: "not_started", token: "--step-waiting" },
+};
+
+/**
+ * An added step as a card: a dashed accent edge and the `webhook` mark, so it reads apart from the
+ * workflow's own. **One Fleet recorded skipped wears the skipped mark**, with its reason on its chip.
+ */
+export function addedCard(one: AddedStep, selected: boolean, onOpen: () => void): WorkflowStepCardProps {
+  const { activity, token } = ADDED_STATE[one.state];
+  const fails = [one.block ? "blocks" : "", one.repair ? "repairs" : ""].filter((word) => word !== "").join(", ");
+  const skipped = one.state === "skipped" && one.skipped !== undefined;
+  return {
+    kind: "step",
+    name: addedName(one.runs),
+    ...(one.runs.kind === "drone" ? {} : { nameIsAnIdentifier: true }),
+    activity,
+    mark: { icon: skipped ? Minus : Webhook, token },
+    said: `Added to this Job only, ${STATE[one.state].said.toLowerCase()}`,
+    added: true,
+    facts: [
+      { value: ADDED_KIND[one.runs.kind].toLowerCase() },
+      ...(skipped ? [{ value: "skipped", hint: one.skipped!.said }] : []),
+      ...(fails === "" ? [] : [{ value: fails }]),
+    ],
+    selected,
+    onOpen,
+  };
+}
+
+/**
+ * The fields of a step added to one Job. **Editable until it is added**, at the gate or in the
+ * panel that adds it; after that it is read, because Fleet has no edit for one: what a person can
+ * still do is take it off before it fires, and keep it for every Job.
+ */
+export function AddedFields({
+  one,
+  commands,
+  editable,
+  onChange,
+  onKeep,
+  onRemove,
+}: {
+  one: AddedStep;
+  commands: readonly string[];
+  editable: boolean;
+  onChange?: (next: Partial<Pick<AddedStep, "runs" | "block" | "repair">>) => void;
+  onKeep?: () => void;
+  onRemove?: () => void;
+}) {
+  const { runs } = one;
+  const held = runs.kind !== "script" || runs.command === "" || commands.includes(runs.command) ? commands : [...commands, runs.command];
+  const change = onChange ?? (() => undefined);
+  return (
+    <>
+      <span className="armada-triggers__fact">{`${ADDED_KIND[runs.kind]}, this Job only`}</span>
+      <span className="armada-triggers__fact">{whenSaid(one.when, one.step)}</span>
+      {editable ? null : (
+        <span className="armada-triggers__fired">
+          <FiringMark trigger={one} />
+          {one.kept === undefined ? null : <span className="armada-triggers__fact">{`Kept: ${LEVEL[one.kept].said.toLowerCase()}`}</span>}
+        </span>
+      )}
+      {!editable ? (
+        runs.kind === "drone" ? (
+          <span className="armada-triggers__fact">{runs.brief}</span>
+        ) : (
+          <span className="armada-triggers__fact">{ranText(runs)}</span>
+        )
+      ) : runs.kind === "drone" ? (
+        <Textarea label="Brief" rows={4} value={runs.brief} onChange={(event) => change({ runs: { kind: "drone", brief: event.target.value } })} />
+      ) : runs.kind === "script" ? (
+        <Select label="Script" value={runs.command} onChange={(event) => change({ runs: { kind: "script", command: event.target.value } })}>
+          <option value="" />
+          {held.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <Input label="Skill" mono value={runs.skill} onChange={(event) => change({ runs: { kind: "skill", skill: event.target.value } })} />
+      )}
+      <Fails block={one.block} repair={one.repair} disabled={!editable} onChange={change} />
+      {onKeep === undefined && onRemove === undefined ? null : (
+        <div className="armada-triggers__acts">
+          {onKeep === undefined || runs.kind === "drone" || one.kept !== undefined ? null : (
+            <Button variant="secondary" onClick={onKeep}>
+              Keep for every Job
+            </Button>
+          )}
+          {onRemove === undefined ? null : (
+            <Button variant="ghost" onClick={onRemove}>
+              <Trash2 size={12} strokeWidth={2} aria-hidden /> Remove step
+            </Button>
+          )}
+        </div>
+      )}
+    </>
   );
 }

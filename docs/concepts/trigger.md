@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, and steps added to one Job in Fleet and on the wire. Skills, Drone steps, `block`, `repair`, asking the owner, the repair branch and the `+` on Bridge's canvas are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, and the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab. Skills, Drone steps, `block`, `repair`, asking the owner and the repair branch are not.
 
 ## What a Trigger is
 
@@ -125,6 +125,6 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 > **Rule.** A Drone step is recorded `skipped` and not run.
 > Why: a step a Drone works needs a gate, and the frozen workflow's step rows are the only one Fleet has. A second gate model for one Job is not a step.
 
-An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. A Script or a Skill can be kept and a Drone step cannot. A kept one applies from the next Job, as every saved Trigger does.
+**Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. A Script or a Skill can be kept and a Drone step cannot. A kept one applies from the next Job, as every saved Trigger does.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

@@ -244,6 +244,15 @@
   }
 }
 
+/* In a layer of its own: placed by the component from the trigger's box. */
+.armada-dropdown-menu__panel[data-portal] {
+  position: fixed;
+  position-anchor: none;
+  position-area: none;
+  inset: auto;
+  margin: 0;
+}
+
 /* The entrance. A menu rises out of its trigger and fades in at
  * --duration-base: the contract's "chrome that a person summoned may enter".
  *

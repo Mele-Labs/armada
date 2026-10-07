@@ -207,3 +207,21 @@
     animation: none;
   }
 }
+
+/* The `+` between steps. As a node, at the head of a run or the end of one, it is a step's width so it sits on the spine. */
+.armada-triggers__add {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The bubble is drawn inside a trigger one icon wide, so it sizes to its words and not to the icon. */
+.armada-triggers__add .armada-tooltip__bubble {
+  width: max-content;
+}
+
+.armada-triggers__plus {
+  display: flex;
+  width: var(--w-workflow-node);
+  justify-content: center;
+  padding: var(--space-1) 0;
+}

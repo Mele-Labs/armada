@@ -37,6 +37,7 @@ import {
   saveWorkflow,
 } from "./commands";
 import { contextOf } from "@armada/helm";
+import { savedAs } from "./trigger-answers";
 
 /** The rail mark on Workflows while Fleet has left a file out: a file that cannot run is not something to find by opening the surface. */
 export function workflowsWarned(health: HealthRead): Readonly<Record<string, string>> {
@@ -140,15 +141,8 @@ function Held({ current, manifests }: { current: string; manifests: { id: string
     },
     onSave: async (scope, definition, overwrite): Promise<TriggerSavedAnswer> => {
       const answer = await saveTrigger({ manifestId: null, body: { scope, definition, ...(overwrite ? { overwrite: true } : {}) } });
-      if (answer.ok) {
-        await rereadTriggers();
-        return { ok: true, saved: answer.saved };
-      }
-      const { outcome } = answer;
-      if (outcome.ok === false && outcome.why === "refused") {
-        return { ok: false, said: outcome.error.message, ...(outcome.error.code === "fleet.trigger_exists" ? { exists: true as const } : {}) };
-      }
-      return { ok: false, said: said(outcome) };
+      if (answer.ok) await rereadTriggers();
+      return savedAs(answer);
     },
     onRemove: async (scope, identity): Promise<TriggerRemovedAnswer> => {
       const answer = await removeTrigger({ manifestId: null, body: { scope, ...identity } });

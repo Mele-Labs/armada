@@ -481,6 +481,7 @@ function OneJob(props: JobDetailProps) {
                       ? {}
                       : { onToProposer: (body: ToProposer) => props.onToProposer!(whole.job.id, body) })}
                     machineCap={props.machineCap ?? null}
+                    {...(props.added === undefined ? {} : { added: props.added })}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                   />
                 ),
@@ -495,6 +496,7 @@ function OneJob(props: JobDetailProps) {
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
+                      {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       onOpenJob={openJob}
                       {...(props.onSetLandingTarget === undefined
@@ -543,6 +545,7 @@ function OneJob(props: JobDetailProps) {
       ) : tab === "workflow" ? (
         <WorkflowTab
           key={landed}
+          {...(props.added === undefined ? {} : { added: props.added })}
           pulse={{ resources: props.resources, examination: props.examination, onNeedPulse: props.onNeedPulse }}
           job={job}
           whole={whole}
