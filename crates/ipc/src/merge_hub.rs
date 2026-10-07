@@ -20,10 +20,34 @@ pub struct MergeLineHub {
     /// Every open pull request, newest first as the forge lists them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_requests: Vec<HubPullRequest>,
-    /// The Job working on main's red. **Never set yet**: a Job picking the red
-    /// up is a later change.
+    /// The newest pull requests merged into the base, newest first, read from
+    /// the forge on the same visit as the open ones. Since 23.42. **Absent from
+    /// an older Fleet**, and a Bridge then draws the line's own `landed`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub merged: Vec<HubMerged>,
+    /// The Job working on main's red, since 23.42: the newest Job that took it
+    /// and has not been stopped. Absent while nobody has it, and once main is
+    /// green.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixing: Option<HubJob>,
+}
+
+/// One pull request recently merged into the base. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HubMerged {
+    pub number: u64,
+    pub title: String,
+    pub branch: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    pub merged_at: Instant,
+    /// The merge commit, whole. Absent where the forge named none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// The Job that opened it. Absent for a person's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<HubJob>,
 }
 
 /// A Job, by its id and what it is called.
@@ -125,4 +149,43 @@ pub enum HubPullCi {
     Running,
     Failed,
     WaitingOnMain,
+}
+
+/// A Job's part in main's red, on its summary as `fixes_main`. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FixesMain {
+    pub state: FixesMainState,
+    /// The Manifest Check that was red, or the CI job's own name where none maps.
+    pub check: String,
+    /// The first failing test the log named. Absent where none could be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test: Option<String>,
+    /// The pull request that turned main red. Absent where none was named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merge: Option<u64>,
+    /// The pull request of this Job that put main green. `fixed` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_in: Option<u64>,
+}
+
+/// Where a Job's part in the red stands. **Strict**: Bridge picks a mark from it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FixesMainState {
+    Fixing,
+    Fixed,
+}
+
+/// `fix_main`'s body: hand a repository's red main to a Job. Since 23.42.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FixMain {
+    /// The repository, as `get_merge_lines` names it.
+    pub root: String,
+    /// An earlier Job to send the work back to. Absent dispatches a new one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<JobId>,
+    /// What the Job is told. Absent is the facts Fleet read, as the band shows
+    /// them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
 }

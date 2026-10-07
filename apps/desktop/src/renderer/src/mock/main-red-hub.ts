@@ -1,8 +1,7 @@
 // Main going red on CI, three times, one moment at a time: what the owner sees and does. The hub's
-// head and its pull requests are what Fleet serves as the line's `hub` since 23.41. **Not served
-// yet**: a Job's part in the red, which rides on its row as `fixes_main`, and the two ways to hand
-// the red to a Job, which ride on the line as `fix_offered`, the way the failed-Check mock carried
-// `notice`. `main-goes-red.ts` walks it.
+// head, its pull requests and the Job on the red are what Fleet serves as the line's `hub`, and a
+// Job's part in the red rides on its row as `fixes_main` (23.41, 23.42). The Jobs the work can go
+// back to are read off the Board's rows. `main-goes-red.ts` walks it.
 //
 //   1  The Job's own pull request merges and main goes red. That Job was watching its landing, so it
 //      takes the red itself and nobody is asked.
@@ -12,7 +11,7 @@
 //
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
-import type { HubJob, HubPull, MainRed, MainState, RecentJob } from "@armada/components";
+import type { HubJob, HubPull, MainRed, MainState } from "@armada/components";
 import type { FollowedLandLog, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -39,7 +38,6 @@ export const FIXTURES: JobFixture[] = [CACHE, DEBOUNCE, NOTIFY, ZONE, PAUSE, FIX
 
 const branchOf = (one: JobFixture) => `armada/${one.job.handle}`;
 const hubJob = (one: JobFixture): HubJob => ({ id: one.job.id, title: one.job.title });
-const recent = (one: JobFixture): RecentJob => ({ ...hubJob(one), branch: branchOf(one) });
 
 /** A Job's row at a moment: its status, and its part in main's red where it has one. */
 function rowOf(one: JobFixture, status: string, fixes?: FixesMain): JobSummary {
@@ -91,8 +89,6 @@ type Moment = {
   main: MainState;
   /** The pull requests open now, by how each one's `ci` stands. */
   pulls: HubPull[];
-  /** The Jobs work can be sent back to, newest first. */
-  recent: RecentJob[];
   jobs: JobSummary[];
 };
 
@@ -115,7 +111,6 @@ const MOMENTS: Moment[] = [
       PERSON,
       ...BYSTANDING("passed", "running").pulls,
     ],
-    recent: [recent(NOTIFY)],
     jobs: [rowOf(CACHE, "awaiting_review"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "running").jobs],
   },
   // 1  #1812 merged and main is red. The Job that merged it was watching, so it has the red already.
@@ -126,49 +121,42 @@ const MOMENTS: Moment[] = [
       { ...PERSON, ci: "waiting_on_main" },
       ...BYSTANDING("waiting_on_main", "failed").pulls,
     ],
-    recent: [recent(NOTIFY)],
     jobs: [rowOf(CACHE, "running", fixing(FIRST)), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   // 2  Its fix landed in #1821: green, and the Job says it fixed it.
   {
     main: { state: "green" },
     pulls: [pull(1816, branchOf(DEBOUNCE), "passed", DEBOUNCE), PERSON, ...BYSTANDING("passed", "failed").pulls],
-    recent: [recent(CACHE), recent(NOTIFY)],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
   },
   // 3  A person merged the Job's pull request on the forge, so nothing was watching it.
   {
     main: { state: "red", red: SECOND },
     pulls: [{ ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
-    recent: [recent(CACHE), recent(DEBOUNCE), recent(NOTIFY)],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success"), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   // 4  The owner sent the work back to it, and it is running.
   {
     main: { state: "red", red: SECOND, taken: hubJob(DEBOUNCE) },
     pulls: [{ ...PERSON, ci: "waiting_on_main" }, ...BYSTANDING("waiting_on_main", "failed").pulls],
-    recent: [recent(CACHE), recent(DEBOUNCE), recent(NOTIFY)],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "running", fixing(SECOND)), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   // 5  #1822 landed.
   {
     main: { state: "green" },
     pulls: [PERSON, ...BYSTANDING("passed", "failed").pulls],
-    recent: [recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)), ...BYSTANDING("passed", "failed").jobs],
   },
   // 6  A person's own pull request turned it red.
   {
     main: { state: "red", red: THIRD },
     pulls: BYSTANDING("waiting_on_main", "failed").pulls,
-    recent: [recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [rowOf(CACHE, "completed_success", fixed(FIRST, 1821)), rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   // 7  The owner dispatched a new Job, and it is running.
   {
     main: { state: "red", red: THIRD, taken: hubJob(FIX) },
     pulls: BYSTANDING("waiting_on_main", "failed").pulls,
-    recent: [recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -180,7 +168,6 @@ const MOMENTS: Moment[] = [
   {
     main: { state: "green" },
     pulls: BYSTANDING("passed", "failed").pulls,
-    recent: [recent(FIX), recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -192,7 +179,6 @@ const MOMENTS: Moment[] = [
   {
     main: { state: "red", red: FOURTH, taken: hubJob(ZONE) },
     pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
-    recent: [recent(FIX), recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -206,7 +192,6 @@ const MOMENTS: Moment[] = [
   {
     main: { state: "green" },
     pulls: [pull(1819, "fleet/pause-markers", "failed", PAUSE)],
-    recent: [recent(ZONE), recent(FIX), recent(DEBOUNCE), recent(CACHE), recent(NOTIFY)],
     jobs: [
       rowOf(CACHE, "completed_success", fixed(FIRST, 1821)),
       rowOf(DEBOUNCE, "completed_success", fixed(SECOND, 1822)),
@@ -253,13 +238,13 @@ const requestOf = (one: HubPull): HubPullRequest => ({
 
 /** The line a moment serves for the repository, with the hub on it. */
 function lineAt(root: string, at: number): MergeLines {
-  const { main, pulls, recent: others } = MOMENTS[at]!;
+  const { main, pulls } = MOMENTS[at]!;
   const hub: MergeLineHub = {
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
   };
-  return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub, fix_offered: { recent: others } } as MergeLine] };
+  return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
 }
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */

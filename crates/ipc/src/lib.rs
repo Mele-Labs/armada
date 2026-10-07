@@ -304,8 +304,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    HubJob, HubPullCi, HubPullRequest, MainCiState, MainFailedJob, MainMerge, MainStanding,
-    MergeLineHub,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, MainCiState,
+    MainFailedJob, MainMerge, MainStanding, MergeLineHub,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,

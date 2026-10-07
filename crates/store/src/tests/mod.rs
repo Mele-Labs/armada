@@ -35,6 +35,7 @@ mod lessons;
 mod limits;
 mod lineage;
 mod main_ci;
+mod main_fix;
 mod manifest_allowed;
 mod manifest_snapshot;
 mod merge_line;

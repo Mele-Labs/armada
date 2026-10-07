@@ -193,6 +193,12 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines/checks/observe",
     },
+    // Main's red handed to a Job, from the band on that line.
+    Route {
+        operation: "fix_main",
+        method: "POST",
+        path: "/merge_lines/fix",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",

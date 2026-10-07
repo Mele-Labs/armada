@@ -37,8 +37,45 @@ export type MergeLineHub = {
   main?: MainStanding;
   /** Newest first, as the forge lists them. Absent is none open. */
   pull_requests?: HubPullRequest[];
-  /** The Job working on main's red. Fleet sets none yet. */
+  /** The newest pull requests merged into the base, newest first. Absent from a Fleet before 23.42. */
+  merged?: HubMerged[];
+  /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
+};
+
+/** One pull request recently merged. Since 23.42. */
+export type HubMerged = {
+  number: number;
+  title: string;
+  branch: string;
+  url: string;
+  author?: string;
+  merged_at: string;
+  /** The merge commit, whole. */
+  commit?: string;
+  /** The Job that opened it. Absent for a person's. */
+  job?: HubJob;
+};
+
+/** `fix_main`'s body: hand a repository's red main to a Job. Since 23.42. */
+export type FixMain = {
+  root: string;
+  /** An earlier Job to send the work back to. Absent dispatches a new one. */
+  job?: string;
+  /** What the Job is told. Absent is the facts Fleet read. */
+  brief?: string;
+};
+
+/** A job's part in main's red, on its row. `state` is `fixing` or `fixed`. Since 23.42. */
+export type FixesMain = {
+  state: string;
+  /** The Check that was red, or the CI job's own name. */
+  check: string;
+  test?: string;
+  /** The pull request that turned main red. */
+  merge?: number;
+  /** The pull request of this job that put main green, once `fixed`. */
+  fixed_in?: number;
 };
 
 /** A Job, by its id and what it is called. */

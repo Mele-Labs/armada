@@ -298,6 +298,9 @@ where
         // Beside it, on its own interval and cursor: it reads a repository's
         // main, where that reads one Job's pull request. `crate::main_ci`.
         turned.main_changed = self.notice_main().await?;
+        // Right after, on what it read: a red a Job of ours caused is sent
+        // back to it, and a green ends the takes. `crate::main_fix`.
+        self.main_acted_on(&turned.main_changed).await;
         // Beside the merge notice, on its interval and with a cursor of its
         // own: a Job that came from an issue has no pull request to be in that
         // rotation by, and sharing its cursor would slow every pull request's

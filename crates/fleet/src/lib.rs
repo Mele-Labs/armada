@@ -167,6 +167,7 @@ pub mod listener;
 /// An open one is asked a second question on the same rotation —
 /// `crate::under_review`.
 pub mod main_ci;
+mod main_fix;
 pub(crate) mod main_hub;
 /// The merge line `armada land` keeps in each served repository, read and published.
 mod manifest_checks;

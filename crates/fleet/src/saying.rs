@@ -503,6 +503,7 @@ impl fmt::Display for Adrift {
                 job.as_str(),
                 status.as_wire()
             ),
+            Adrift::MainNotFixable { why, .. } => write!(out, "{why}"),
             Adrift::AlreadyPaused { job } => write!(out, "{} is already paused", job.as_str()),
             Adrift::NotPaused { job } => write!(out, "{} is not paused", job.as_str()),
             Adrift::NothingToPark { job } => write!(
@@ -913,6 +914,7 @@ impl Adrift {
             | Adrift::NoWorkflowFits { .. }
             | Adrift::ModelNotHeld { .. }
             | Adrift::ProposalAbandoned
+            | Adrift::MainNotFixable { .. }
             | Adrift::NotProposed { .. } => None,
         }
     }
@@ -1031,6 +1033,7 @@ impl Error for Adrift {
             | Adrift::SlotLost { .. }
             // A pause says what the Job's record holds or what the pool said,
             // as a sentence; none wraps an `Error`.
+            | Adrift::MainNotFixable { .. }
             | Adrift::Paused { .. }
             | Adrift::NotPausable { .. }
             | Adrift::AlreadyPaused { .. }

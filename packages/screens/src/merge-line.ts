@@ -6,7 +6,7 @@
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
 import type { HubPull, MainRed, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
-import type { MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { HubMerged, JobSummary, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -27,16 +27,13 @@ export type MergeLineView = {
   notice?: MergeLineNotice;
   /** Main's state and the repository's open pull requests, where Fleet serves them. */
   hub?: MergeLineHub;
-  /** Fleet can take main's red to a Job, so the band offers the two ways. None does yet. */
-  fixOffered?: true;
 };
 
 /**
  * A line as the mock serves it ahead of the wire. `notice` is not a field of protocol 23 yet, so a
- * Fleet sends none and nothing draws; `fix_offered` is the same for handing main's red to a Job,
- * which no Fleet can take yet. Folded here so the panel can be walked before it is built.
+ * Fleet sends none and nothing draws. Folded here so the panel can be walked before it is built.
  */
-type NoticedLine = MergeLine & { notice?: MergeLineNotice; fix_offered?: { recent: readonly RecentJob[] } };
+type NoticedLine = MergeLine & { notice?: MergeLineNotice };
 
 /** A row as the mock serves it ahead of the wire: `why`, the reason a waiting branch is not in the turn. */
 type ReasonedRow = MergeLineRow & { why?: MergeLineWaiting };
@@ -69,6 +66,7 @@ export function mergeLineViews(
   lines: MergeLines | null,
   picked: string | null,
   repositories: readonly RepositorySummary[],
+  jobs: readonly JobSummary[] = [],
 ): readonly MergeLineView[] {
   const served = lines?.lines ?? [];
   const chosen = picked === null ? served : served.filter((one) => one.root === picked);
@@ -77,12 +75,34 @@ export function mergeLineViews(
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
     line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
-    landed: one.landed.map((row) => entryOf(row)),
+    // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
+    // files only from a Fleet before 23.42, or one whose forge said none.
+    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => entryOf(row)),
     sentBack: one.sent_back.map((row) => entryOf(row)),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
-    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, (one as NoticedLine).fix_offered?.recent ?? []) }),
-    ...((one as NoticedLine).fix_offered === undefined ? {} : { fixOffered: true as const }),
+    ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs)) }),
   }));
+}
+
+/** A pull request the forge lists as merged, as a landed row draws it. */
+function mergedEntryOf(pull: HubMerged): MergeLineEntry {
+  return {
+    branch: pull.branch,
+    pr: { number: pull.number, url: pull.url },
+    state: "landed",
+    ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
+  };
+}
+
+/** The statuses work can be sent back to: at its review, or over. */
+const SENDABLE = new Set(["awaiting_review", "completed_success", "completed_failed", "killed"]);
+
+/** The Jobs main's red can be sent back to, newest first: the Board's rows that hold a branch. */
+function recentOf(jobs: readonly JobSummary[]): readonly RecentJob[] {
+  return jobs
+    .filter((job) => SENDABLE.has(job.status) && job.branch !== undefined)
+    .sort((a, b) => (b.ended_at ?? "").localeCompare(a.ended_at ?? "") || b.id.localeCompare(a.id))
+    .map((job) => ({ id: job.id, title: job.title, branch: job.branch! }));
 }
 
 /**

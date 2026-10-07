@@ -302,6 +302,11 @@ pub struct JobSummary {
     /// Absent is a Job that is not paused. Since 23.39.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paused: Option<Paused>,
+    /// Its part in main's red: working on it, or the Job that fixed it.
+    /// Filled by Fleet off the store, like [`tasks`](JobSummary::tasks).
+    /// Absent is a Job that took none. Since 23.42.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixes_main: Option<crate::FixesMain>,
 }
 
 /// A Job's pause marker, as a row carries it.
@@ -391,6 +396,8 @@ impl JobSummary {
                 at: Instant::from(&pause.at),
                 resuming: pause.resuming,
             }),
+            // Filled by the caller that holds a store, for `tasks`' reason.
+            fixes_main: None,
         }
     }
 }

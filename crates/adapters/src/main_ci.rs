@@ -13,7 +13,10 @@
 use std::io::Read;
 use std::process::{Command, Stdio};
 
-use adapter_traits::{CiRun, CiRuns, CiState, FromOutside, MergedPull, OpenPull, OpenPulls};
+use adapter_traits::{
+    CiRun, CiRuns, CiState, FromOutside, MergedPull, OpenPull, OpenPulls, RecentlyMerged,
+    RecentlyMergedPulls,
+};
 
 use crate::delivery::{run_in, FORGE};
 use crate::under_review::as_written;
@@ -230,6 +233,63 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
     Some(said.lines().filter_map(open_pull_of_line).collect())
 }
 
+const MERGED_PULLS: &str = "\
+    .[] | [(.number | tostring), (.title // \"\"), (.headRefName // \"\"), (.url // \"\"), \
+    (.author.login // \"\"), (.mergedAt // \"\"), (.mergeCommit.oid // \"\")] | @tsv";
+
+/// The newest `limit` pull requests merged into `base`, newest first. `None`
+/// where the forge would not answer.
+pub(crate) fn recently_merged(
+    in_repo: &str,
+    base: &str,
+    limit: usize,
+) -> Option<RecentlyMergedPulls> {
+    if base.is_empty() || base.starts_with('-') {
+        return None;
+    }
+    let limit = limit.to_string();
+    let said = asked(
+        in_repo,
+        &[
+            "pr",
+            "list",
+            "--state",
+            "merged",
+            "--base",
+            base,
+            "--limit",
+            &limit,
+            "--json",
+            "number,title,headRefName,url,author,mergedAt,mergeCommit",
+            "--jq",
+            MERGED_PULLS,
+        ],
+    )?;
+    let mut merged: Vec<RecentlyMerged> = said.lines().filter_map(merged_of_line).collect();
+    merged.sort_by(|a, b| b.merged_at.as_written().cmp(a.merged_at.as_written()));
+    Some(merged)
+}
+
+fn merged_of_line(line: &str) -> Option<RecentlyMerged> {
+    let mut field = line.split('\t');
+    let number = field.next()?.parse().ok()?;
+    let title = field.next().unwrap_or_default();
+    let branch = field.next().unwrap_or_default();
+    let url = field.next().unwrap_or_default();
+    let author = field.next().unwrap_or_default();
+    let merged_at = field.next().unwrap_or_default();
+    let commit = field.next().unwrap_or_default();
+    (!merged_at.is_empty()).then(|| RecentlyMerged {
+        number,
+        title: FromOutside::verbatim(as_written(title)),
+        branch: FromOutside::verbatim(as_written(branch)),
+        url: FromOutside::verbatim(as_written(url)),
+        author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
+        merged_at: FromOutside::verbatim(as_written(merged_at)),
+        commit: is_a_commit(commit).then(|| FromOutside::verbatim(commit)),
+    })
+}
+
 fn open_pull_of_line(line: &str) -> Option<OpenPull> {
     let mut field = line.split('\t');
     let number = field.next()?.parse().ok()?;
@@ -353,6 +413,20 @@ mod tests {
         assert_eq!(named_in("Fix the thing (#77)").unwrap().number, 77);
         assert!(named_in("Fix the thing").is_none());
         assert!(named_in("Merge branch 'x' into main").is_none());
+    }
+
+    #[test]
+    fn a_merged_pull_request_is_read_with_its_time_and_merge_commit() {
+        let commit = "c".repeat(40);
+        let line = format!("1839\tAdd it\tarmada/it\thttps://forge.invalid/pull/1839\tnick\t2026-10-06T21:00:00Z\t{commit}");
+        let pull = merged_of_line(&line).unwrap();
+        assert_eq!(pull.number, 1839);
+        assert_eq!(pull.merged_at.as_written(), "2026-10-06T21:00:00Z");
+        assert_eq!(pull.commit.unwrap().as_written(), commit);
+        assert_eq!(pull.author.unwrap().as_written(), "nick");
+        let bare = merged_of_line("7\tt\tb\tu\t\t2026-10-06T21:00:00Z\t").unwrap();
+        assert!(bare.author.is_none() && bare.commit.is_none());
+        assert!(merged_of_line("8\tt\tb\tu\t\t\t").is_none(), "not merged");
     }
 
     #[test]

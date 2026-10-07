@@ -21,10 +21,10 @@ use crate::tests::daemon::{
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
-const ONE: &str = "1111111111111111111111111111111111111111";
-const TWO: &str = "2222222222222222222222222222222222222222";
+pub(super) const ONE: &str = "1111111111111111111111111111111111111111";
+pub(super) const TWO: &str = "2222222222222222222222222222222222222222";
 
 /// A runner's own summary, as a job's log ends.
 const NEXTEST_TWO_FAILURES: &str = "\
@@ -35,7 +35,7 @@ error: test run failed
 ";
 
 /// The Manifest names a base, a Check, and the CI job that answers for it.
-const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\n    ci_jobs: [ci]\n  lint:\n    run: cargo fmt --check\n";
+pub(super) const MANIFEST: &str = "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\nchecks:\n  test:\n    run: cargo nextest run\n    ci_jobs: [ci]\n  lint:\n    run: cargo fmt --check\n";
 
 fn a_fleet_reading_main(home: &TempDir) -> Fixture {
     a_fleet_over(home, MANIFEST)
@@ -49,7 +49,7 @@ fn a_fleet_over(home: &TempDir, manifest: &str) -> Fixture {
     Fleet::assembled(fittings)
 }
 
-fn run(name: &str, handle: &str, state: CiState) -> CiRun {
+pub(super) fn run(name: &str, handle: &str, state: CiState) -> CiRun {
     CiRun {
         name: FromOutside::verbatim(name),
         state,
@@ -60,7 +60,7 @@ fn run(name: &str, handle: &str, state: CiState) -> CiRun {
     }
 }
 
-fn merged(number: u64) -> MergedPull {
+pub(super) fn merged(number: u64) -> MergedPull {
     MergedPull {
         number,
         url: None,
@@ -68,7 +68,7 @@ fn merged(number: u64) -> MergedPull {
     }
 }
 
-async fn kept(fleet: &Fixture) -> Option<store::MainCi> {
+pub(super) async fn kept(fleet: &Fixture) -> Option<store::MainCi> {
     let root = fleet.repositories().served()[0].root().to_string();
     fleet.store().lock().await.main_ci(&root).unwrap()
 }
@@ -367,7 +367,7 @@ fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
     }
 }
 
-async fn the_hub(fleet: &Fixture) -> ipc::MergeLineHub {
+pub(super) async fn the_hub(fleet: &Fixture) -> ipc::MergeLineHub {
     let root = fleet.repositories().served()[0].root().to_string();
     let hubs = fleet.merge_hubs().await;
     hubs.into_iter()

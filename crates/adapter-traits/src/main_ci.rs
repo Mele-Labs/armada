@@ -76,3 +76,21 @@ pub struct OpenPull {
 /// The open pull requests on a repository. `None` from the call that returns
 /// it is a forge that would not answer.
 pub type OpenPulls = Vec<OpenPull>;
+
+/// One pull request recently merged into the base, as the forge lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecentlyMerged {
+    pub number: u64,
+    pub title: FromOutside,
+    pub branch: FromOutside,
+    pub url: FromOutside,
+    pub author: Option<FromOutside>,
+    /// When the forge says it merged, as the forge wrote it (RFC 3339).
+    pub merged_at: FromOutside,
+    /// The merge commit, whole, where the forge named one.
+    pub commit: Option<FromOutside>,
+}
+
+/// The newest merged pull requests, newest first. `None` from the call that
+/// returns it is a forge that would not answer.
+pub type RecentlyMergedPulls = Vec<RecentlyMerged>;

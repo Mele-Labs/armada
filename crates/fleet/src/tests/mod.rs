@@ -121,6 +121,7 @@ mod listener;
 mod log_rows;
 mod looping;
 mod main_ci;
+mod main_fix;
 mod manifest_proposals;
 mod mending;
 mod merge_lines;

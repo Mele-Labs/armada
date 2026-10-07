@@ -6,7 +6,7 @@ import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened } from "@armada/protocol";
+import type { CaptureOpened, FixMain } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -141,6 +141,7 @@ const api: BridgeApi = {
   killJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.killJob, jobId),
   parkJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.parkJob, jobId),
   resumeJob: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.resumeJob, jobId),
+  fixMain: (fix: FixMain): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.fixMain, fix),
 
   killProcess: (jobId: string, pid: number): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.killProcess, jobId, pid),

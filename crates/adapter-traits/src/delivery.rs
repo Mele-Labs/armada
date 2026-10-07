@@ -803,6 +803,15 @@ pub trait Delivery {
     /// open.
     fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
 
+    /// The newest `limit` pull requests merged into `base`, newest first, in
+    /// one forge call. `None` is the forge's silence.
+    fn recently_merged_pull_requests(
+        &self,
+        in_repo: &str,
+        base: &str,
+        limit: usize,
+    ) -> Option<crate::RecentlyMergedPulls>;
+
     /// The diff of a pull request somebody else opened, for a Code Review Job whose review is
     /// checked against it. #903. **`None` is the forge's silence**, for
     /// [`landed`](Delivery::landed)'s reason.
