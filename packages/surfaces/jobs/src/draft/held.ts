@@ -18,6 +18,7 @@ import type { LandingRule } from "./landing";
 import type { LedgerRow } from "./ledger";
 import type { CallView } from "./calls";
 import type { JobMembersView } from "./members";
+import type { NowView } from "./now";
 import type { ProposalView } from "./proposal";
 import type { WaveView } from "./wave";
 
@@ -89,4 +90,9 @@ export type JobDraft = {
    * the Board alone**, which is every real Job until Fleet publishes the reads behind it.
    */
   calls?: Readonly<Record<string, CallView>>;
+   * What the Now panel beside the Overview canvas draws, by Job id. **A Job
+   * absent here draws no panel**, which is every real Job until Fleet publishes
+   * the reads behind it.
+   */
+  now?: Readonly<Record<string, NowView>>;
 };

@@ -3141,3 +3141,20 @@
 
 /* A Job's marks beside its title in the pane: paused, fixing main, an alert, piloted. */
 .armada-call__marks { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: var(--space-3); vertical-align: middle; }
+
+/* The Overview with its Now panel: the cards (or the run) in one column, the
+   panel beside them. The panel is as tall as what it holds, from the top. */
+.armada-overview-board__with-now {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-overview-board__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
