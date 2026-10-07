@@ -163,7 +163,33 @@ where
         asked: ipc::SaveTrigger,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::TriggerSaved, Refusal> {
-        self.save_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
+        let served = self.served_named(manifest_id.as_ref())?;
+        // Asked before the file is written, so a refusal leaves nothing behind.
+        let kept = match &asked.kept_from {
+            Some(from) => Some(self.addition_to_keep(from).await?),
+            None => None,
+        };
+        let saved = self.save_trigger_file(asked, &served)?;
+        if let Some((job, added)) = kept {
+            self.addition_kept(&job, &added, saved.scope).await;
+        }
+        Ok(saved)
+    }
+
+    async fn add_job_step(
+        &self,
+        job_id: ipc::JobId,
+        add: ipc::AddStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        self.step_added(&job_id.to_domain(), &add).await
+    }
+
+    async fn remove_job_step(
+        &self,
+        job_id: ipc::JobId,
+        remove: ipc::RemoveAddedStep,
+    ) -> Result<ipc::AddedStepRemoved, Refusal> {
+        self.step_removed(&job_id.to_domain(), &remove.id).await
     }
 
     async fn remove_trigger(

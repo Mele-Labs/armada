@@ -70,4 +70,36 @@ impl Authoring for FakeDaemon {
             crate::tests::shapes::run_id(),
         )))
     }
+
+    async fn add_job_step(
+        &self,
+        _job_id: ipc::JobId,
+        add: ipc::AddStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        Ok(ipc::AddedStep {
+            id: String::from("a1"),
+            runs: add.runs,
+            when: add.when,
+            step: add.step,
+            block: add.block,
+            repair: add.repair,
+            placed: ipc::AddedPlaced::Running,
+            added_at: ipc::Instant::carried("2026-10-07T10:00:00.000Z"),
+            state: ipc::TriggerFiringState::Pending,
+            skipped: None,
+            exit_code: None,
+            started_at: None,
+            ended_at: None,
+            log_at: None,
+            kept: None,
+        })
+    }
+
+    async fn remove_job_step(
+        &self,
+        _job_id: ipc::JobId,
+        remove: ipc::RemoveAddedStep,
+    ) -> Result<ipc::AddedStepRemoved, Refusal> {
+        Ok(ipc::AddedStepRemoved { id: remove.id })
+    }
 }

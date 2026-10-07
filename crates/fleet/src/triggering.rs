@@ -51,7 +51,7 @@ pub fn freeze(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Comes {
+pub(crate) enum Comes {
     Run { command: String },
     Skip(TriggerSkipped),
     AskTheOwner,
@@ -84,7 +84,7 @@ pub fn plan(
         .collect()
 }
 
-fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
+pub(crate) fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
     match resolution {
         TriggerResolution::Skipped(why) => Comes::Skip(why.clone()),
         TriggerResolution::Skill { name } => Comes::Skip(TriggerSkipped::SkillNotRun {
@@ -172,10 +172,21 @@ where
         }
     }
 
-    /// Fire the Job's frozen Triggers for `when` on `step`, in its worktree, and
-    /// record each. **Fails nothing**: every refusal in here is a line in the
+    /// Fire what runs at this moment: the Job's frozen Triggers, then the steps
+    /// added to it. **Fails nothing**: every refusal in here is a line in the
     /// Job's log and the Job carries on.
     pub(crate) async fn fire_triggers(
+        &self,
+        job: &Job,
+        when: TriggerWhen,
+        step: &StepId,
+        worktree: &Worktree,
+    ) {
+        Box::pin(self.fire_frozen_triggers(job, when, step, worktree)).await;
+        Box::pin(self.fire_additions(job, when, step, worktree)).await;
+    }
+
+    async fn fire_frozen_triggers(
         &self,
         job: &Job,
         when: TriggerWhen,

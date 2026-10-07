@@ -163,6 +163,11 @@ pub struct SaveTrigger {
     /// **Required to replace a copy already in the scope.** Absent is `false`.
     #[serde(default)]
     pub overwrite: bool,
+    /// **Keep a Job's added step for every Job**: the addition this save came
+    /// from. Fleet writes the Trigger the definition says and records on the
+    /// addition where it was kept. A Script or a Skill only. Since 23.59.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kept_from: Option<crate::added_steps::KeptFrom>,
 }
 
 /// What `save_trigger` wrote.

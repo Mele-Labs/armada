@@ -25,6 +25,7 @@ fn asking(scope: TriggerScope, definition: &str, overwrite: bool) -> SaveTrigger
         scope,
         definition: definition.to_string(),
         overwrite,
+        kept_from: None,
     }
 }
 

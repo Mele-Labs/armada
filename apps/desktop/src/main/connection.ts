@@ -38,6 +38,7 @@ import { RehearsalConnection } from "./rehearsal";
 import { ManifestFileCommands } from "./editing";
 import { PlanEdits } from "./plan-edits";
 import { KitCommands } from "./kit";
+import { AddedStepCommands } from "./added-steps";
 import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
@@ -110,6 +111,8 @@ export class FleetConnection {
       overview: OverviewReads;
     }
   >();
+  /** Steps added to one Job — see `added-steps.ts`. Keyed by Job, so no window has its own. */
+  readonly addedSteps = new AddedStepCommands((): number | null => this.connected()?.port ?? null);
   /** A person's own add or drop of a task — see `plan-edits.ts`. */
   readonly planEdits: PlanEdits;
   /** What Fleet serves and which repository each window picked — see `repositories.ts`. */

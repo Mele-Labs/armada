@@ -189,6 +189,7 @@ mod studio_added;
 mod studio_sketch;
 /// The Triggers a repository runs, saving one, and what a Job did with each.
 /// Since 23.58.
+mod added_steps;
 mod triggers;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
@@ -421,6 +422,10 @@ pub use studio_added::{AddedContent, StudioNodeAdded};
 pub use studio_sketch::{
     EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
     SketchPictureDrawn, SketchPoint, SketchStroke,
+};
+pub use added_steps::{
+    AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
+    JobAdditionChanged, KeptFrom, RemoveAddedStep,
 };
 pub use triggers::{
     ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,

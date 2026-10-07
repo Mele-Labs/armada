@@ -9,8 +9,9 @@
 use std::future::Future;
 
 use ipc::{
-    ChooseTriggerFix, JobId, ManifestId, RemoveTrigger, SaveTrigger, SaveWorkflow,
-    TriggerFixChosen, TriggerRemoved, TriggerSaved, WorkflowSaved,
+    AddStep, AddedStep, AddedStepRemoved, ChooseTriggerFix, JobId, ManifestId, RemoveAddedStep,
+    RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerFixChosen, TriggerRemoved, TriggerSaved,
+    WorkflowSaved,
 };
 
 use crate::daemon::Refusal;
@@ -65,4 +66,24 @@ pub trait Authoring: Send + Sync + 'static {
         job_id: JobId,
         choose: ChooseTriggerFix,
     ) -> impl Future<Output = Result<TriggerFixChosen, Refusal>> + Send;
+
+    /// `add_job_step` — one step added to a Job that is underway, for this Job
+    /// only. **Refused where its moment has already come**: a 409
+    /// `fleet.added_step_behind` for a gap behind the current step or a Job
+    /// that is over, `fleet.added_step_before_approval` where the approval
+    /// should carry it, and a 422 `fleet.unacceptable_addition` for nothing to
+    /// run or a place the workflow lacks. Since 23.59.
+    fn add_job_step(
+        &self,
+        job_id: JobId,
+        add: AddStep,
+    ) -> impl Future<Output = Result<AddedStep, Refusal>> + Send;
+
+    /// `remove_job_step` — take an added step off the Job **before it fires**. A
+    /// 409 `fleet.added_step_fired` once its moment has come. Since 23.59.
+    fn remove_job_step(
+        &self,
+        job_id: JobId,
+        remove: RemoveAddedStep,
+    ) -> impl Future<Output = Result<AddedStepRemoved, Refusal>> + Send;
 }

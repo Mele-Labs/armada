@@ -24,10 +24,10 @@ use crate::tests::tools::submitted_by_the_one;
 
 /// The Trigger files a case plants, as the composition root would read them.
 #[derive(Default)]
-pub(super) struct Files(Mutex<Vec<TriggerWritten>>);
+pub(crate) struct Files(pub(crate) Mutex<Vec<TriggerWritten>>);
 
 impl Files {
-    pub(super) fn say(&self, files: Vec<TriggerWritten>) {
+    pub(crate) fn say(&self, files: Vec<TriggerWritten>) {
         *self.0.lock().unwrap_or_else(PoisonError::into_inner) = files;
     }
 }
@@ -75,21 +75,21 @@ impl Locating for Arc<Files> {
     fn serving(&self, _: &str) {}
 }
 
-pub(super) fn machine(file: &str, text: &str) -> TriggerWritten {
+pub(crate) fn machine(file: &str, text: &str) -> TriggerWritten {
     TriggerWritten::on_machine(
         Path::new("/home/user/.armada/machine/triggers").join(file),
         text.to_string(),
     )
 }
 
-pub(super) fn deploys() -> TriggerWritten {
+pub(crate) fn deploys() -> TriggerWritten {
     machine(
         "deploy.yml",
         "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\n",
     )
 }
 
-pub(super) fn manifest(deploy_qa: Option<&str>) -> Manifest {
+pub(crate) fn manifest(deploy_qa: Option<&str>) -> Manifest {
     let mut text = String::from("version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  fmt:\n    run: \"true\"\n  wipe:\n    run: \"true\"\n    destructive: true\n");
     if let Some(run) = deploy_qa {
         text.push_str(&format!("  deploy_qa:\n    run: \"{run}\"\n"));
@@ -97,7 +97,7 @@ pub(super) fn manifest(deploy_qa: Option<&str>) -> Manifest {
     Manifest::parse(Path::new("armada.yml"), &text).expect("a Manifest")
 }
 
-fn a_fleet(
+pub(crate) fn a_fleet(
     home: &TempDir,
     files: &Arc<Files>,
     manifest: Manifest,
@@ -111,7 +111,7 @@ fn a_fleet(
 }
 
 /// Approve, work the first step, and enter the delivering one.
-pub(super) async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> JobId {
+pub(crate) async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> JobId {
     let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
     worktree_directory(home, &job);
     dispatched(fleet, job.id()).await.unwrap();
@@ -120,7 +120,7 @@ pub(super) async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> J
     job.id().clone()
 }
 
-pub(super) async fn firings(fleet: &Fixture, job: &JobId) -> Vec<(String, TriggerWhen, String, TriggerState)> {
+pub(crate) async fn firings(fleet: &Fixture, job: &JobId) -> Vec<(String, TriggerWhen, String, TriggerState)> {
     let store = fleet.store().lock().await;
     store
         .trigger_firings(job)
@@ -130,7 +130,7 @@ pub(super) async fn firings(fleet: &Fixture, job: &JobId) -> Vec<(String, Trigge
         .collect()
 }
 
-fn log(fleet: &Fixture, home: &TempDir, job: &core_model::Job) -> String {
+pub(crate) fn log(fleet: &Fixture, home: &TempDir, job: &core_model::Job) -> String {
     let _ = fleet;
     let path = crate::transcript::log_of(&home.path().to_string_lossy(), &job.handle());
     std::fs::read_to_string(path).unwrap_or_default()
@@ -335,6 +335,7 @@ async fn a_saved_trigger_is_on_the_next_list_and_says_what_runs() {
                 scope: ipc::TriggerScope::Machine,
                 definition: mine.into(),
                 overwrite: false,
+                kept_from: None,
             },
             None,
         )

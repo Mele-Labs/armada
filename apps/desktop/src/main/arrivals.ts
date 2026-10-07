@@ -346,9 +346,10 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.refresh(fleet.port, event.job_id);
     return;
   }
-  if (event.kind === "job.trigger_changed") {
-    // **The open Job's detail is re-read and the Board is not touched**: a Trigger moves
-    // nothing on a row, and the row it carries is whole in `detail.triggers` after the read.
+  if (event.kind === "job.trigger_changed" || event.kind === "job.addition_changed") {
+    // **The open Job's detail is re-read and the Board is not touched**: a Trigger or an added
+    // step moves nothing on a row, and the row it carries is whole in `detail.triggers` or
+    // `detail.additions` after the read.
     host.publish({ connection });
     host.refresh(fleet.port, event.job_id);
     return;

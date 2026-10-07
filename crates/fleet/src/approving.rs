@@ -103,6 +103,9 @@ pub enum Refused {
     NothingToAutoMerge,
     /// A step's tuning nothing could honour.
     Untuned(crate::tuned::Untunable),
+    /// A step added to this Job only, naming nothing to run or a place the
+    /// workflow does not have.
+    Unplaceable(String),
 }
 
 impl fmt::Display for Refused {
@@ -192,6 +195,7 @@ impl fmt::Display for Refused {
                  nothing to auto-merge"
             ),
             Refused::Untuned(why) => write!(out, "{why}"),
+            Refused::Unplaceable(why) => write!(out, "an added step: {why}"),
         }
     }
 }
@@ -207,6 +211,9 @@ pub struct Decided {
     pub drone_cap: Option<u32>,
     pub landing: Landing,
     pub overrides: PolicyOverrides,
+    /// `None` keeps what was placed, `Some` replaces it. **Beside the
+    /// workflow**, so the edit above never carries it.
+    pub additions: Option<Vec<store::NewAddition>>,
 }
 
 /// Approve's body, read against the Job. `held` is the workflow the body
@@ -271,6 +278,16 @@ pub fn decided_under(
         Some(map) => Some(tiers_named(map)?),
         None => None,
     };
+    let additions = match &body.additions {
+        Some(added) => Some(
+            added
+                .iter()
+                .map(|one| crate::added_steps::new_addition(one, &workflow))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(Refused::Unplaceable)?,
+        ),
+        None => None,
+    };
     if body.drone_cap == Some(0) {
         return Err(Refused::NoCap);
     }
@@ -297,6 +314,7 @@ pub fn decided_under(
         drone_cap: body.drone_cap,
         landing: landing_of(body.landing.as_ref(), pr_mode)?,
         overrides,
+        additions,
     })
 }
 

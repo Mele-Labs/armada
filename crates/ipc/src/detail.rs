@@ -382,6 +382,12 @@ pub struct JobDetail {
     /// after [`JobDetail::of`]. `job.trigger_changed` moves one without a read.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub triggers: Vec<crate::triggers::JobTrigger>,
+    /// The steps added to this Job, beside its frozen workflow and never in it:
+    /// each with its place, what it runs and how it stands, in the order they
+    /// were added. **Since 23.59.** Empty is a Job with none. Filled after
+    /// [`JobDetail::of`]. `job.addition_changed` moves one without a read.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additions: Vec<crate::added_steps::AddedStep>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -814,6 +820,7 @@ impl JobDetail {
             wave_rounds: Vec::new(),
             walk_notes: Vec::new(),
             triggers: Vec::new(),
+            additions: Vec::new(),
         }
     }
 }

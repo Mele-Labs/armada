@@ -1,0 +1,18 @@
+[operations.add_job_step]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Add one step to a Job that is underway, for this Job only"
+notes = """
+`POST /jobs/:job_id/add_job_step`, protocol 23.59. The body is `AddStep`: `runs` (`script` with a `command` from `armada.yml`, `skill` with a `skill`, or `drone` with a `brief`), `when` and `step` (the moment it fires, a Trigger's: `step_starts` is before the step, `step_passes` after it, and `pr_opened` hangs from the delivering step), and the two switches `block` and `repair`, off where left out. The answer is the `AddedStep`.
+
+**A step added to a Job lives beside its frozen workflow and never in it.** It fires at its moment through the path a command Trigger does, in the Job's worktree under the Check budget, and its exit code never advances or fails a gate. A Skill is recorded `skipped`, as a skill Trigger is. **So is a Drone step**: a step a Drone works needs a gate, and Fleet has none for it beside the frozen workflow's step rows. `block` and `repair` are carried and not acted on yet.
+
+**Refused where the moment has already come**, with nothing written. 409 `fleet.added_step_behind` for a step that has started (a `step_starts` or `pr_opened` place), a step the Job is past (a `step_passes` place) and a Job that is over, with `when`, `step` and `reason` (`started`, `passed` or `ended`). 409 `fleet.added_step_before_approval` on a Job not yet approved, where `approve_dispatch`'s `additions` carries it. 422 `fleet.unacceptable_addition` for nothing to run, a step the workflow lacks, and `pr_opened` on a step that is not the delivering one.
+
+A place checked against the Job's step rows and written a moment later can lose to a step that starts between the two. The addition then sits `pending` and never fires. The window is one store write.
+
+Publishes `job.addition_changed` and writes one line in the Job's log.
+
+`agent_access` is `Bridge only`: what runs on a Job's worktree is a person's choice, and Helm has no ask for it yet.
+"""
