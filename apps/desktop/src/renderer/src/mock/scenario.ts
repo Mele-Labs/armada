@@ -84,9 +84,13 @@ export type { FleetHandle, Scenario } from "./moment";
  * the names carry a rank for the rows that were here first. A name two files both export would
  * overwrite one with the other, which `scenario.test.ts` refuses.
  */
-const LISTED: Scenario[] = Object.entries(
-  Object.assign({}, ...Object.values(import.meta.glob<Record<string, Scenario>>("./scenarios/*.ts", { eager: true }))) as Record<string, Scenario>,
-)
+const ROW_FILES = (
+  import.meta as ImportMeta & {
+    glob(pattern: string, options: { eager: true }): Record<string, Record<string, Scenario>>;
+  }
+).glob("./scenarios/*.ts", { eager: true });
+
+const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW_FILES)) as Record<string, Scenario>)
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 
