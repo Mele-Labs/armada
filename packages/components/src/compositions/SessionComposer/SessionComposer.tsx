@@ -181,7 +181,14 @@ export function SessionComposer({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!open) return;
+    if (!open) {
+      // Enter sends and Shift+Enter breaks the line; a key that confirms an IME candidate is neither.
+      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        send();
+      }
+      return;
+    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setActive((current + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length);
@@ -208,13 +215,17 @@ export function SessionComposer({
 
   const held = files.length + drawn.length + tags.length > 0;
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  const send = () => {
     if (working || (text.trim() === "" && !held)) return;
     onSend({ text: text.trim(), files, tags });
     setText("");
     setCaret(0);
     setFiles([]);
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    send();
   };
 
   const said = MODES.find((one) => one.id === mode)!.says;
