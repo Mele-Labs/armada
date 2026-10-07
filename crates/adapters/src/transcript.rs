@@ -245,6 +245,10 @@ fn detail(input: &ToolInput) -> CallDetail {
     if let (Some(to), Some(note)) = (&input.to, &input.note) {
         return CallDetail::of(&format!("to {to}: {note}"));
     }
+    // `SendMessage`: who it went to, then what it said.
+    if let (Some(to), Some(message)) = (&input.to, &input.message) {
+        return CallDetail::of(&format!("to {to}: {message}"));
+    }
     // `draft_fix`: which test the Drone said is broken on main. Both keys, so a
     // stray `test` on another tool leaves that tool's row alone. #999.
     if let (Some(check), Some(test)) = (&input.check, &input.test) {
@@ -549,6 +553,9 @@ struct ToolInput {
     /// `leave_note`: what it said. Carried because nothing else keeps a note
     /// once it has been delivered, so this row is the sender's record of it.
     note: Option<String>,
+    /// `SendMessage`: what one session said to another. Carried because
+    /// the receiving session's thread draws it, and nothing else shows it.
+    message: Option<String>,
     /// `draft_fix`: the Check a test failed under. #999.
     check: Option<String>,
     /// `draft_fix`: the test the Drone said is broken on main. With `check`,
@@ -605,4 +612,51 @@ struct RateLimitInfo {
     status: String,
     #[serde(rename = "rateLimitType", default)]
     rate_limit_type: String,
+}
+
+/// Who a `SendMessage` call went to and what it said, out of the detail
+/// [`detail`] composed for it. **Read here, beside the line that writes it**,
+/// so the two ends of that spelling cannot drift.
+pub fn sent_message<'a>(tool: &str, detail: &'a str) -> Option<(&'a str, &'a str)> {
+    if tool != "SendMessage" {
+        return None;
+    }
+    let (to, message) = detail.strip_prefix("to ")?.split_once(": ")?;
+    Some((to, message))
+}
+
+#[derive(Deserialize)]
+struct InitLine {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    subtype: String,
+    #[serde(default)]
+    slash_commands: Vec<String>,
+    #[serde(default)]
+    skills: Vec<String>,
+}
+
+/// The commands a session's `init` line says the agent has: its slash commands,
+/// then its skills that are not among them, by name. **`None` on every line
+/// but that one**, so a caller may offer every line it hears. Read here and not
+/// in [`read`] because only a hosted session offers them, and a Drone's events
+/// are not the place to carry a list of seventy-five names.
+pub fn init_commands(line: &str) -> Option<Vec<String>> {
+    // Every line of a turn passes here, and only one is this one.
+    if !line.contains("\"slash_commands\"") {
+        return None;
+    }
+    let init: InitLine = ipc::decode("an init line", line.trim().as_bytes()).ok()?;
+    if init.kind != "system" || init.subtype != "init" {
+        return None;
+    }
+    let mut names = init.slash_commands;
+    for skill in init.skills {
+        if !names.contains(&skill) {
+            names.push(skill);
+        }
+    }
+    names.retain(|name| !name.trim().is_empty());
+    Some(names)
 }

@@ -307,7 +307,7 @@ where
 
     /// End every Drone on the Job, and stop the step it was working: the
     /// kill ladder's first rungs, `kill_drone`'s order.
-    async fn drones_ended_for_a_pause(&self, job: &Job) -> Result<Job, Adrift> {
+    pub(crate) async fn drones_ended_for_a_pause(&self, job: &Job) -> Result<Job, Adrift> {
         let job_id = job.id();
         self.end_the_crew(job_id, ExtraEnded::Killed).await;
         let mut ended = false;

@@ -208,7 +208,7 @@ reason_storage = "Stored"
 reason_vocabulary = "take_over / restart_step / assist"
 transitions_in = ["running -> piloted", "awaiting_review -> piloted", "awaiting_repair -> piloted", "escalated -> piloted", "awaiting_attestation -> piloted"]
 transitions_out = ["piloted -> running", "piloted -> completed_success", "piloted -> superseded", "piloted -> killed"]
-in_code = "Not yet"
+in_code = "Yes"
 notes = "A person is working it: the Drone is gone, the worktree belongs to the engineer, and Fleet must not reclaim it. It is distinguished from `escalated` by who holds the worktree, not by whether anyone has acted — escalated is waited on, piloted is worked."
 why = "Keeping the distinction in the state machine, rather than a UI label, keeps it authoritative over what a surface can say."
 

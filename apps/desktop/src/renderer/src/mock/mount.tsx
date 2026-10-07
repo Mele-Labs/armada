@@ -5,6 +5,7 @@
 // because it mounts itself on import.
 
 import { StrictMode, useEffect, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
@@ -13,7 +14,9 @@ import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { DraftedFrom } from "../drafted";
-import { fakeBridge, liveDraft } from "./fake";
+import { SessionsFrom } from "../sessions-draft";
+import { WiredSessions } from "../sessions-wired";
+import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import type { Scenario } from "./scenario";
@@ -44,6 +47,14 @@ export type Mounted = {
 function OnScreen({ say }: { say: () => void }) {
   useEffect(() => say(), [say]);
   return null;
+}
+
+/**
+ * Sessions from the scenario's fixtures where it carries them, and otherwise **from the fake's own
+ * capabilities**, the way a real window has them. A fake whose Fleet serves none leaves them off.
+ */
+function SessionsHere({ held, children }: { held: ReturnType<typeof heldSessions>; children: ReactNode }) {
+  return held === undefined ? <WiredSessions>{children}</WiredSessions> : <SessionsFrom held={held}>{children}</SessionsFrom>;
 }
 
 /** The fixed draft a fake that holds none stands in with. */
@@ -92,7 +103,9 @@ export function mountApp(
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+          <SessionsHere held={heldSessions(api)}>
+            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+          </SessionsHere>
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

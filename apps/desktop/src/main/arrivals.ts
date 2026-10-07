@@ -26,6 +26,7 @@ import type { ReviewMaterial } from "./review";
 import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
 import type { BridgeStateFleet } from "./socket";
+import type { SessionsHost } from "./sessions";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -46,6 +47,8 @@ export interface ArrivalHost {
   readonly helm: { reconnected(port: number): void };
   /** The Studios surface's two reads — `studios.ts`. */
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
+  /** Every session and the threads a window opened — `sessions.ts`. */
+  readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
   readonly material: ReviewMaterial;
   readonly socket: { close(): void; resetUnreachable(): void };
   publish(change: Partial<BridgeState>): void;
@@ -193,6 +196,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And the Studios surface's two reads, where held: a Studio written while the stream was down
     // or lagging published a `studio.changed` this window never folded.
     void host.studios.again();
+    // And every session, with the threads a window holds: a row published while the stream was down was never folded.
+    void host.sessions.again(fleet.port);
     return;
   }
 
@@ -455,6 +460,19 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
   if (event.kind === "studio.deleted") {
     host.publish({ connection });
     host.studios.deleted({ id: event.id, manifest_id: event.manifest_id });
+    return;
+  }
+  if (event.kind === "session.changed") {
+    // Above the tail, `studio.changed`'s reason: no Job to find, and the session travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...record } = event;
+    host.sessions.changed(record);
+    return;
+  }
+  if (event.kind === "session.row") {
+    host.publish({ connection });
+    const { kind: _kind, ...change } = event;
+    host.sessions.row(change);
     return;
   }
   if (event.kind === "run.finished") {

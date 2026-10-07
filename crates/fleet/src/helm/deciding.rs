@@ -77,14 +77,28 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "approve_dispatch",
         "approve_review",
         "merge_pull_request",
+        // A pull request by number is nobody's Job and the same act: the
+        // merge, the draft taken out of draft, and the standing instruction
+        // to merge. All three change what other people read.
+        "merge_pull_request_by_number",
+        "ready_pull_request",
+        "enable_auto_merge",
         "redispatch_job",
         "dispatch_studio_draft",
         "request_changes",
+        // Two of a pilot's exits: the work goes on toward delivery, or a person
+        // says finished work is finished with no gate run.
+        "submit_for_verification",
+        "attest_complete",
     ];
     const GONE: &[&str] = &[
         "kill_job",
         "kill_drone",
         "kill_one_drone",
+        // Taking a Job over ends its Drone, and closing one as superseded ends
+        // the Job.
+        "take_over",
+        "close_as_superseded",
         "kill_process",
         "kill_processes",
         "forget_job",

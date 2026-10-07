@@ -514,6 +514,11 @@ export async function studioFrameOf(
   return await fileAt(port, at);
 }
 
+/** A picture or file a hosted session's message carried, read the way a frame is. `GET /sessions/file`. */
+export async function sessionFileOf(port: number, sessionId: string, file: string): Promise<FrameRead> {
+  return await fileAt(port, `/sessions/file?session_id=${encodeURIComponent(sessionId)}&file=${encodeURIComponent(file)}`);
+}
+
 /** The file at one path, as [`frameOf`] describes: bytes and a media type, or a refusal. */
 async function fileAt(port: number, path: string): Promise<FrameRead> {
   const asked = { method: "GET" as const, path };

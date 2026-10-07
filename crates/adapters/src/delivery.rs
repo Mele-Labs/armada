@@ -269,6 +269,18 @@ impl Delivery for GitVcs {
         crate::landing::enable_auto_merge(in_repo, pull_request)
     }
 
+    fn pull_request_facts(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<adapter_traits::PullRequestFacts> {
+        crate::pull_request_facts::read(in_repo, pull_request)
+    }
+
+    fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
+        crate::pull_request_facts::mark_ready(in_repo, pull_request)
+    }
+
     fn merge_by_push(
         &self,
         in_repo: &str,

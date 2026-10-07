@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar } from "@armada/components";
+import { AttestedMark, Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, PilotedBy, pilotable, useOpenInSession, usePilot } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { ScrollText } from "lucide-react";
 
@@ -204,6 +204,18 @@ export function Row({
   const paused = pausedSaid(job, now);
   const fixes = fixesMainOf(job);
   const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
+  // A Job that has gone wrong can be talked through in a Session, where the window serves them.
+  const session = useOpenInSession();
+  // Pilot leads an escalated Job: the recourse acts step down into the menu (issue 257).
+  const pilot = usePilot();
+  const pilotLeads = pilot !== null && job.status === "escalated" && pilotable(job.status);
+  const talk =
+    session === null || (job.status !== "escalated" && job.status !== "completed_failed")
+      ? []
+      : [
+          { label: "Open in a Session", onSelect: () => session.open(job.id) },
+          ...session.targets.map((one) => ({ label: `Add to ${one.title}`, onSelect: () => session.open(job.id, one.id) })),
+        ];
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
   // workflow at all, so there is no workflow to name, no step machine to place
@@ -351,13 +363,15 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
-      {...(paused === undefined && fixes === undefined
+      {...(paused === undefined && fixes === undefined && job.status !== "piloted" && job.piloted?.exit !== "attested"
         ? {}
         : {
             mark: (
               <>
                 {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
                 {paused === undefined ? null : <PausedMark said={paused} />}
+                {job.status === "piloted" ? <PilotedBy jobId={job.id} compact /> : null}
+                {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} compact /> : null}
               </>
             ),
           })}
@@ -397,7 +411,7 @@ export function Row({
             disabled={stale}
             onAction={() => onRedispatch(job.id)}
             menuLabel={`More for ${titleOf(job)}`}
-            items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
+            items={[...talk, { label: "Clear", onSelect: () => onClear(job.id) }]}
           >
             {ACT_LABEL.redispatch}
           </SplitButton>
@@ -422,18 +436,21 @@ export function Row({
           <SplitButton
             ground="card"
             disabled={stale}
-            onAction={() => onOpen(job.id)}
+            onAction={() => (pilotLeads ? pilot.ask(job.id) : onOpen(job.id))}
             menuLabel={`More for ${titleOf(job)}`}
             // The binding is displayed here and bound in `keys.ts`, which is
             // the only way a person finds `x` without reading a contract.
             items={[
+              ...(pilotLeads ? [{ label: ROW_VERBS[verb].label, onSelect: () => onOpen(job.id) }] : []),
+              ...(pilot !== null && job.status === "running" ? [{ label: "Pilot", onSelect: () => pilot.ask(job.id) }] : []),
+              ...talk,
               ...(pausing === null || onPausing === undefined
                 ? []
                 : [{ label: ACT_LABEL[pausing], onSelect: () => onPausing(pausing, job.id) }]),
               { label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) },
             ]}
           >
-            {ROW_VERBS[verb].label}
+            {pilotLeads ? "Pilot" : ROW_VERBS[verb].label}
           </SplitButton>
         )
       }

@@ -1,0 +1,64 @@
+/* A Session open, in the glass panel (`Card`, glass.css) and not a frame of
+   its own. A head row over a body of columns. */
+
+.armada-session-frame {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.armada-session-frame__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.armada-session-frame__id {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-frame__title {
+  flex: 1;
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-frame__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-4);
+}
+
+.armada-session-mark {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The running mark breathes as Badge's does: only the inner dot moves. */
+.armada-session-mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}
+
+/* The conversation and its message box, one column beside the ledger. */
+.armada-session-frame__centre {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}

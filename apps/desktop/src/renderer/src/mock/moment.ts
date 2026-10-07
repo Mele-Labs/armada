@@ -9,6 +9,8 @@ import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@arma
 import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
+import type { BoardControl, SessionsStore } from "./sessions/script";
+
 import type { BridgeApi } from "../../../shared/api";
 import { NOTHING_YET } from "../../../shared/bridge";
 import type { BridgeState } from "../../../shared/bridge";
@@ -16,7 +18,13 @@ import type { BridgeState } from "../../../shared/bridge";
 export { unanswered };
 
 /** One moment: what is published before anything is opened, and the reads behind each Job. */
-export type Scenario = ScenarioOf<BridgeState, BridgeApi, ArcDraft>;
+/**
+ * What a moment holds that Fleet cannot serve yet: the Arc milestone's draft, and Sessions.
+ * **Sessions are built per window** (a factory), because a Session's turns are time in this window.
+ */
+export type MockDraft = ArcDraft & { sessions?: (board: BoardControl) => SessionsStore };
+
+export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;
 
 /** What a scenario's `behaves` reaches: the state as published, and the one way to change it. */
 export type FleetHandle = FleetHandleOf<BridgeState>;

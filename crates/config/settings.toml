@@ -597,6 +597,21 @@ How long one call a Helm session made is held open for a person to answer in the
 **Silence answers deny, never allow.** Resolved once at daemon start (`HELM_ASK_HOLD` in `crates/armada/src/serve.rs`), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
 """
 
+[settings.session-quiet-timeout]
+name = "Session quiet timeout"
+scope = "Machine"
+default = "10 minutes"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long the process of a session Fleet hosts may sit with no turn running before Fleet ends it. The next message resumes the session by its id, so nothing is lost; what is lost is that another session's message cannot wake a session whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
+
+**Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open sessions are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
+"""
+
 [settings.helm-budget-soft-warning-threshold]
 name = "Helm budget soft-warning threshold"
 scope = "Machine"

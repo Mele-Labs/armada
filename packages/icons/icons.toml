@@ -1429,3 +1429,87 @@
   status = "Proposed"
   reserved = "A Job that took main's red, on its Board row, its header and the merge line's head, pulsing in `--status-running` while it works. Never a Job's own Check failing, which is `shield-x`, and never a repair a person owes, which is `wrench`."
   notes = "Proposed 6 Oct 2026 for the walk `mainGoesRed`, for the owner to rule on. The owner kept `hammer` off `land_state.preparing` on 2 Oct because it reads as fixing, and fixing main is the one place that reading is the point. It sits beside the status badge as `circle-pause` does and never replaces it. Once main is green again the Job's mark is `shield-check`, the Check outcome glyph, so no second glyph is minted for the fix landing."
+
+[icons.square-terminal]
+  means = "A square with a prompt caret inside it — a Session, a raw conversation with a hosted agent"
+  group = "Navigation"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "A Session: its rail row, its band, its card. Never Pilot, which is `terminal`'s, and never Helm, which is `message-square`."
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`, for the owner to rule on. A Session sits beside Helm and is not Helm, and it is a conversation and not a Pilot window, so neither of their glyphs could carry it. The square keeps it a different outline from `terminal` at 12px. A Navigation glyph is the owner's to mint, as `shield-check` on Checks was."
+
+[[icons.split.usage]]
+  means = "A subagent a Session dispatched, in its ledger"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`. One line becoming two is what dispatching a subagent is; `split` carries no reservation, and `bot` does (a Drone's Record row), so a subagent could not take it."
+
+[[icons.box.usage]]
+  means = "A Job on a chip and in a Session's ledger, beside its slot"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`. The same Job mark Cleanup's tile already draws before the Job's title, on the chips that name a Job and in the ledger row of a Job a Session dispatched."
+
+[conventions.session_state_borrowing]
+  glyphs = ["circle-dashed", "circle-dot", "eye", "shield-x", "check"]
+  means = "A Session's state, and a subagent's, borrowed from the sets one level away"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`. A Session answers the question a Job answers, so it takes the Job set's glyphs and not a silhouette of its own: `circle-dashed` for blank, nothing leased and nothing said, as a step not yet started is; `circle-dot` pulsing while a turn runs; `eye` while it waits on the person; `shield-x` while a pull request's Checks are red, the Check family's own mark. `check` is a subagent done. The state is told by the frame's hue as well, so no mark is the only carrier of it."
+
+[icons.paperclip]
+  means = "A paper clip - a file attached to a message"
+  group = "Action"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Attaching a file or a picture to a Session's message, and nothing else. Never a staged attachment's own mark, which is a name and a removal, and never evidence, which is the file-* family."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. The message box is one slim row, so the act is a glyph with a tooltip and not a word."
+
+[icons.pencil-ruler]
+  means = "A pencil crossed with a ruler - drawing a diagram"
+  group = "Action"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "Drawing a sketch for a Session's message, and a Session's own sketch rows. Never placing a Sketch node on a whiteboard, which is `shapes`, and never freehand, which is `pencil`."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. `shapes` is reserved to placing a Sketch node on a Studio's whiteboard, and `pencil` is freehand; this act opens the same pad Dispatch draws on, in a sheet, so it needed a glyph that says drawing a diagram and neither of those."
+
+[icons.panel-right-open]
+  means = "A panel on the trailing edge with an arrow opening out of it - a side column folded into a sheet"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Opening a Session's ledger as a sheet where the window is too narrow to hold it beside the conversation. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. Below `--layout-breakpoint` the ledger leaves the Session's side and this is the press that brings it back, as the Helm dock folds."
+
+[[icons.search.usage]]
+  means = "A Job a Session is looking at, in its ledger: tagged by the person and not dispatched from there"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. The Job's own mark is its state, so this says what the Session is doing with it, in the tooltip and not in a word."
+
+[conventions.session_composer_marks]
+  glyphs = ["shield", "cpu", "zap"]
+  means = "What a Session's message box sets, as a glyph before its value where the window is narrow"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. `shield` is the permission mode, `cpu` the model and `zap` the effort. They are drawn only below the breakpoint, where the select's label is given up, and each is named by its tooltip and its accessible name. Borrowed and not minted: none of the three is reserved to a state, and the owner may rule otherwise."
+
+[icons.hand]
+  means = "An open hand - something handed over"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot or branch a Session holds because a Job was piloted into it, handed over and not leased. Never a stop, a refusal or a Job waiting on a person."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. The ledger has to say a slot came with a Job and was not leased on a first write, and `key-round` already says a slot is held."
+
+[[icons.terminal.usage]]
+  means = "A Job a Session is piloting, on its ledger row"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. `terminal` is Pilot's alone and this is Pilot: the same mark the piloted badge wears, so the row and the Board say one thing."

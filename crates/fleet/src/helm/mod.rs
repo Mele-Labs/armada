@@ -18,7 +18,7 @@ mod serving;
 mod thread;
 pub(crate) mod unanswered;
 
-pub use asking::{Asks, HelmAskHold, NotAnswerable, Said};
+pub use asking::{answering, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
 pub use brief::{brief, Brief, Voice};
 pub use conversation::{ConversationKey, Conversations};
 pub use deciding::{because, Because};

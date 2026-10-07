@@ -3202,6 +3202,72 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them. `kind=need` is not exclusive. Bridge's half is `packages/protocol/src/needs.ts`, written by hand like the rest.
 
+## Protocol 23.48: acts on a pull request
+
+`docs/concepts/session.md`, *Acts on a pull request*. **Additive only**: five operations, the DTOs of `ipc::pull_requests`, and one `origin` value. A pull request is named by its repository (a manifest id) and its number, and nothing here is a Job's. 23.49 is the session host's.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `get_pull_request` (`GET /pull_requests/:repository/:number`) | `PullRequestState`: `state` (`draft`, `open`, `merged` or `closed`), `auto_merge`, `checks` (`pending`, `passed`, or `failed` with `failing` names), `title`, `branch`, `address` | `agent_access` `Yes`. Refreshes every Session's `pr` row for it; a merged one is settled `spent`, a closed one `given_back` |
+| `ready_pull_request` (`POST /pull_requests/:repository/:number/ready`) | nothing | Answers `PullRequestState`. `agent_access` `Helm only`, asked as `pushes to shared` |
+| `merge_pull_request_by_number` (`POST /pull_requests/:repository/:number/merge`) | nothing | Answers `PullRequestState`. Refused with `fleet.merge_checks_not_passed` unless the checks have passed. `Helm only`, `pushes to shared` |
+| `enable_auto_merge` (`POST /pull_requests/:repository/:number/auto_merge`) | nothing | Answers `PullRequestState`. Only while the checks run. `Helm only`, `pushes to shared` |
+| `review_pull_request` (`POST /pull_request_reviews/:repository`) | `ReviewPullRequest`: `pull_request` (a number or an address), `session_id?` | Answers `ReviewDispatched {job_id, address, session_id?}`, a 201. `Helm only` |
+
+**`merge_pull_request` was taken**, and is a Job's press at its gate, so the by-number sibling is `merge_pull_request_by_number` and the two are never one route. **`origin` gains `session_dispatched`** (*From a Session, by you*); a Bridge before 23.48 shows the raw spelling on such a row, since `origin` is a string on the wire. Which Session is the ledger's: the Session holds a `job` row with `detail.origin` reading *dispatched from Session <id>*.
+
+**Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.pull_request_checks_passed`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
+
+## Protocol 23.49: a session Fleet hosts
+
+`docs/concepts/session.md`, *A session Fleet hosts*. **Additive only**: eight operations, one event kind, one optional field on `SessionRecord`, and the DTOs of `ipc::hosted_sessions`. Nothing an older Bridge reads changes, and Helm's operations are untouched.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `start_session` (`POST /sessions/start`) | `StartSession`: `manifest_id`, and `title`, `model`, `effort`, `mode` | Answers the `SessionRecord`, `origin` `bridge`, `hosted` set, holding nothing |
+| `send_session_message` (`POST /sessions/message`) | `SendSessionMessage`: `text`, `attachments` (`name`, `media_type`, base64 `data`), `mentions` (`SessionTag`) | **202**. Answers the `SessionRecord`; the reply is the thread's |
+| `answer_session_ask` (`POST /sessions/ask/answer`) | `AnswerSessionAsk`: `session_id`, the ask's `call`, an `answer` it offered, a `note` | 409 where nothing is waiting under that call |
+| `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
+| `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
+| `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
+| `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
+| `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
+
+**A row is `message`, `tool`, `lease` or `ask`**, tagged by `kind`. A message's `from` is `you`, `agent` or `session`, with the other session named. An ask carries the whole `HelmCallInFlight` and a `state`, and is replaced by id as it is answered. `session.changed` still carries the row whole, now with `hosted`: the `turn` (`idle`, or `working` with `woken_by` where another session started it), what the agent is `asked`, `model`, `effort`, `mode` and whether a process is `running`.
+
+**`SessionRecord.hosted` is optional**, so a record a terminal reports reads as before. **One migration**, `session_host.tables`: `hosted_sessions` and `session_rows`. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
+**Two changes that are not wire.** The agent door offers a hosted session what any agent of the person's is offered, and `ask_the_person`, so its permission tool is answerable; its acts are not recorded as Helm's. And `report_session` keeps `origin: bridge` when the mod in a hosted session reports `started`, and ignores its `ended`.
+
+## Protocol 23.50: taking a Job over
+
+`docs/concepts/pilot.md`. **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.48 is the pull-request acts and 23.49 is the session host's.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `take_over` (`POST /jobs/:job_id/take_over`) | `TakeOver`: `outcome` (`take_over` or `restart_step`), `session_id?`; or no body | Answers the Job's `JobSummary`, `piloted`. `Helm only`, asked as `destructive` |
+| `get_handoff` (`GET /jobs/:job_id/handoff`) | nothing | Answers `HandoffBundle`: the Job's detail, its history, its evidence, the declared plans and the worktree's changed files marked against them, the worktree path and branch, where it stopped and the Drone's `narrative?`. `agent_access` `Yes` |
+| `submit_for_verification` (`POST /jobs/:job_id/submit_for_verification`) | nothing | Held for the whole run. `Helm only`, `pushes to shared` |
+| `attest_complete` (`POST /jobs/:job_id/attest_complete`) | `PilotNote`: `note?`; or no body | `Helm only`, `pushes to shared` |
+| `close_as_superseded` (`POST /jobs/:job_id/close_as_superseded`) | `PilotNote`: `note?`; or no body | `Helm only`, `destructive` |
+
+**`JobSummary.piloted`** is `Piloted`: `reason`, `session_id?`, `since`, and `exit?`, `ended_at?`, `note?` once the pilot ended. Absent on a Job nobody piloted, and on every row from a Fleet before 23.49. **`exit` reads `attested` on a Job a person completed**, and a Bridge draws that apart from a Job that passed its gates. Assist is not an `outcome`: a body naming it does not decode.
+
+**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked. The migration adds `job_pilots`. Bridge's half is `packages/protocol/src/piloting.ts`, written by hand like the rest.
+
+## Protocol 23.51: a session started on a Job, and the commands an agent names
+
+`docs/concepts/session.md`, *Started on a piloted Job*. **Additive only**: two optional fields, one row kind, and no operation. 23.50 is the take over and its exits.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession.pilot?`: `job_id`, `outcome` (`take_over` or `restart_step`) | Takes the Job over and starts the session on its worktree in one call. **`manifest_id` is not read** where `pilot` is set: the repository is the Job's. Refused with `take_over`'s own 409s and no session is written |
+| `session.row`, `get_session` | `SessionRow` kind `handoff`: `job_id`, `number`, `title`, `reason`, `slot?`, `branch`, `step?`, `attempts`, `refusals`, `plan` (`declared`, `outside`, `unwritten`), `narrative?` | First in a piloted session's thread, once. **`plan` is Fleet's comparison and not two lists to compare**, since a declared path covers everything beneath it |
+| `SessionRecord.hosted` | `commands?`: names, slash commands then skills | Off the stream's `init` line. Empty before an agent has started anywhere, and after a Fleet restart |
+
+**A bundle that is the agent's first context is not a row.** Fleet renders it as prose and puts it ahead of the person's first message. A session closed or released from a pilot clears its own lease, so its next write leases a slot as any session's does. Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -61,6 +61,8 @@ mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
+/// What a session Fleet hosts keeps beside its ledger row, and its thread.
+mod hosted_sessions;
 /// Where a verdict's own question was kept, and the column that points at it.
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
@@ -101,6 +103,7 @@ mod open;
 mod pausing;
 /// Evidence a Drone submitted, kept durable until the gate rules on it. #796.
 mod pending_evidence;
+mod piloting;
 /// What a step said its work would be, kept after the slot that held it is
 /// gone.
 mod plan;
@@ -193,6 +196,7 @@ pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
+pub use hosted_sessions::KeptHosting;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -201,6 +205,7 @@ pub use merge_line::{Blame, Ended, HeldBack, LineEntry, LineSize, LineState, Tur
 pub use migrations::KNOWN_SCHEMA_VERSION;
 pub use open::Store;
 pub use pending_evidence::PendingEvidence;
+pub use piloting::{KeptPilot, Narrative, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::Preferences;

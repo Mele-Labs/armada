@@ -42,6 +42,7 @@ mod judge;
 mod landable;
 mod link_lookup;
 mod main_ci;
+mod pull_request;
 mod secret;
 mod setup;
 mod slots;
@@ -73,6 +74,7 @@ pub use main_ci::{
     CiRun, CiRuns, CiState, CommitStatus, MergedPull, OpenPull, OpenPulls, RecentlyMerged,
     RecentlyMergedPulls, StatusState,
 };
+pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
@@ -375,6 +377,16 @@ pub trait Vcs {
         pool: &SlotPool,
         slot: u32,
         job_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
+    /// [`park_slot`](Vcs::park_slot) for a slot a session Fleet hosts leased,
+    /// which the pool holds under the session's id: the WIP commit names a
+    /// session, and not a Job of that id.
+    fn park_hosted_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session_id: &str,
     ) -> Result<SlotParked, SlotParkRefused>;
 
     /// Commit everything in a slot held by an agent session to its branch and

@@ -95,6 +95,9 @@ mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
 mod holding;
+/// A session Bridge hosts: its commands, its thread and the gate its first
+/// write goes through. `docs/concepts/session.md`.
+mod hosted_sessions;
 mod ids;
 mod job;
 /// What Fleet did to a Job, out of the Job's own log. **The third voice the
@@ -123,10 +126,15 @@ mod needs;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
 mod overlap;
+/// Taking a Job over and the bundle a person is handed. `docs/concepts/pilot.md`.
+mod piloting;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// A pull request, by repository and number, and the acts a Session takes on one.
+/// Since 23.48.
+mod pull_requests;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one
@@ -278,6 +286,12 @@ pub use holding::{
     SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotReleased, SlotRescued,
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
+pub use hosted_sessions::{
+    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
+    PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    TagKind, TaggedJob, TuneSession,
+};
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
@@ -319,10 +333,17 @@ pub use merge_line::{
 };
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
+pub use piloting::{
+    DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
+    TakeOver,
+};
 pub use preferences::{Preferences, SavePreference};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,
+};
+pub use pull_requests::{
+    ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{

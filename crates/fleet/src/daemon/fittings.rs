@@ -311,6 +311,13 @@ where
             Arc::new(crate::helm::ProcessHost::on_this_machine(&fittings.host)),
             fittings.helm_ask_hold,
         );
+        let sessions = crate::session_host::Hosts::hosted_by(
+            Arc::new(crate::session_host::ProcessHost::on_this_machine(
+                &fittings.host,
+            )),
+            crate::session_host::SHIPPED_QUIET_TIMEOUT,
+            fittings.helm_ask_hold,
+        );
         let scouts = crate::scout::Scouts::hosted_by(Arc::new(
             crate::scout::ScoutHost::on_this_machine(&fittings.host),
         ));
@@ -382,6 +389,7 @@ where
             events: fittings.events,
             turns: turns.clone(),
             helm,
+            sessions,
             scouts,
             inbox: EvidenceInbox::new(),
             delivered: Mutex::new(BTreeMap::new()),
@@ -436,6 +444,17 @@ where
     /// a test.
     pub fn scouting_on(mut self, host: crate::scout::ScoutHost) -> Fleet<H, V, W> {
         self.scouts = crate::scout::Scouts::hosted_by(Arc::new(host));
+        self
+    }
+
+    /// The same Fleet with its hosted sessions' processes started by
+    /// `processes`, and ended after `quiet` — a stand-in agent in a test.
+    pub fn hosting_sessions_on(
+        mut self,
+        processes: Arc<dyn crate::session_host::Processes>,
+        quiet: std::time::Duration,
+    ) -> Fleet<H, V, W> {
+        self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.helm.hold());
         self
     }
 

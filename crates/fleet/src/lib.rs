@@ -202,6 +202,7 @@ pub mod peer;
 pub mod peers;
 mod pending_evidence;
 pub mod permitting;
+mod piloting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
 mod plan_acts;
@@ -223,6 +224,9 @@ mod proposing;
 /// Running the repository's Checks against the tree a merge left behind, and
 /// the record that is keyed by the commit rather than by a Job.
 mod proving;
+/// A pull request by repository and number, and the acts a Session takes on one.
+/// Since 23.48.
+mod pull_requesting;
 /// `merge_by: push` over a base that moved: brought up, gated again, pushed.
 mod pushing_onto_base;
 pub mod questioning;
@@ -290,6 +294,7 @@ mod servers;
 pub mod serving;
 pub mod session;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
+pub mod session_host;
 mod sessioning;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
@@ -386,6 +391,7 @@ pub use mint::{Mint, UlidMint};
 pub use noticing::{Noticed, Noticing};
 pub use overruling::Overruling;
 pub use peer::{NotACaller, PeerOf};
+pub use piloting::{Hatch, Unpilotable};
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use policy::{HeldBecause, Policies};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};

@@ -28,7 +28,10 @@ mod admitting;
 mod authoring;
 mod commands;
 mod conversing;
+mod hosted_sessions;
 mod needs;
+mod piloting;
+mod pull_requests;
 mod queries;
 mod retros;
 mod sessions;
@@ -39,7 +42,10 @@ pub use admitting::{offerable, Admitting, HelmReach, Redirector};
 pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
+pub use hosted_sessions::{HostedSessions, StoredFile};
 pub use needs::Needs;
+pub use piloting::Piloting;
+pub use pull_requests::PullRequests;
 pub use queries::{FramePart, FrameSpan, Queries};
 pub use retros::Retros;
 pub use sessions::Sessions;
@@ -81,7 +87,8 @@ use ipc::WireError;
 /// its module says why the answer is placed rather than asked for. [`Studios`]
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
-/// and [`Needs`] a last one beside it.
+/// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
+/// last ones.
 pub trait Daemon:
     Queries
     + Commands
@@ -92,7 +99,10 @@ pub trait Daemon:
     + Retros
     + Authoring
     + Sessions
+    + HostedSessions
     + Needs
+    + PullRequests
+    + Piloting
 {
 }
 
@@ -106,7 +116,10 @@ impl<
             + Retros
             + Authoring
             + Sessions
-            + Needs,
+            + HostedSessions
+            + Needs
+            + PullRequests
+            + Piloting,
     > Daemon for D
 {
 }

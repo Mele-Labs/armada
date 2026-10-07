@@ -612,6 +612,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     eprintln!("a turn did not complete: {why}");
                 });
             println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
+            // Main and the open pull requests, on the merge notice's interval but not
+            // behind a turn, which waits on every Job's Checks.
+            fleet::main_ci::keep_reading_main(
+                Arc::clone(&fleet),
+                PROVISIONAL_TURN_INTERVAL,
+                |why| eprintln!("main was not read: {why}"),
+            );
             // Each served repository's merge line, read off disk and published when it
             // moves: `armada land` is another process and tells Fleet nothing.
             fleet::merge_lines::keep_reading(
@@ -625,6 +632,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 Arc::clone(&fleet),
                 PROVISIONAL_SWEEP_INTERVAL,
                 adapters::leasing::Trim::SHIPPED,
+                {
+                    let fleet = Arc::clone(&fleet);
+                    move || {
+                        let fleet = Arc::clone(&fleet);
+                        async move { fleet.piloted_checkouts().await }
+                    }
+                },
                 |said| eprintln!("{said}"),
             );
             reconciliation.finished();

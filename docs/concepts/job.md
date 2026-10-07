@@ -546,6 +546,33 @@ act writes one line in the Job's log.
 
 **An act on a paused Job opens the Resume confirm.** Approve, request changes, restart and override come back `fleet.paused`, and Bridge shows Resume and Cancel instead of a refusal. Resume only resumes: the act is pressed again after. Where the pool is full the Job reads waiting for a slot, and the confirm says nothing about it. Each refusal of Pause or Resume is said inside the confirm or panel that sent it, in git's words.
 
+## Taking a Job over
+
+[Pilot](pilot.md) is the fifth act on a stopped or running Job, and the only one that hands its worktree to a person. `take_over` ends the Drone where one is live, stops the step it was on, and moves the Job to `piloted`. It works from `running`, `awaiting_review`, `awaiting_repair`, `escalated` and `awaiting_attestation`, and is refused on any other status.
+
+**A piloted Job is not scheduled and takes no working slot.** No Drone is on it, no turn moves it, and admission, auto-release, the build sweep, `armada clean` and every reclaim leave its worktree alone. A reclaim says so rather than skipping it: `{job} is piloted: a person is working in its worktree`.
+
+**The row carries `piloted` beside the status**: the reason (`take_over` or `restart_step`), the Session the person pilots from, and, once the pilot ended, how it ended. It stays on the row after the exit, because `attested` is what tells a Job a person completed from one that passed its gates.
+
+| Exit | Moves the Job to | The gates |
+|---|---|---|
+| `submit_for_verification` | `running` with no Drone, then wherever the ruling puts it; a failing run leaves it `piloted` | Run on the worktree as for a Drone |
+| `attest_complete` | `completed_success`, recorded as attested | None. Refused while a step has not advanced |
+| `close_as_superseded` | `superseded` | None. A Job waiting on it is released, with a warning in its own log |
+
+A Job piloted as Restart Step is handed to a fresh Drone when the person submits: `running`, then `queued`, with its step still `stopped` as a restart leaves it.
+
+| Refused as | When |
+|---|---|
+| `fleet.not_pilotable` | the status has no edge to `piloted` |
+| `fleet.already_piloted`, `fleet.not_piloted` | a take over on a piloted Job, an exit on one that is not |
+| `fleet.pilot_busy` | another take over, or a run of the Job's Checks, is out |
+| `fleet.no_step_to_restart` | Restart Step on a Job no step of which stopped |
+| `fleet.nothing_to_verify`, `fleet.nothing_to_submit` | no step to run the gates on, or evidence its Drone writes and did not |
+| `fleet.steps_not_advanced` | an attestation while a step has not advanced |
+
+All four acts are `Helm only`, asked as destructive (`take_over`, `close_as_superseded`) or as pushes to shared (`submit_for_verification`, `attest_complete`); `get_handoff` is a read.
+
 ## Step state
 
 **Step state is rows, not a field.** `job_steps` carries one row per `(job_id, step_id)`, written at Job creation from the frozen WorkflowDef — every step of the workflow, in order, all `not_started`. A Job at `proposing` is the one exception and it is not a gap: there is no frozen WorkflowDef to write them from yet, so the rows are written where that status is left. The state of steps that are *not* current is therefore recorded rather than inferred from position relative to the current step. Position-inference breaks on a loop workflow, where a step can have advanced and then be re-entered.

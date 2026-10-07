@@ -50,6 +50,7 @@ mod fleetwide;
 /// One Job's own log, followed off the file Fleet already writes.
 /// **The third voice in the activity log.**
 mod following;
+mod hosted_sessions;
 mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
@@ -62,11 +63,13 @@ mod needs;
 mod observing;
 /// A message or a stop addressed to one Drone of a Job. #1666.
 mod one_drone;
+mod piloting;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
 mod preferring;
 /// Pulse's kills: one process of a Job, and every one.
 mod processes;
+mod pull_requests;
 mod queries;
 mod reconciling;
 /// The `:job_id` a route carries, resolved before a handler can reach it.
@@ -103,8 +106,8 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, Needs, PermissionAnswer, Queries, Redirector, Refusal, Retros, Sessions, Studios,
-    Tools,
+    HelmReach, HostedSessions, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
+    Redirector, Refusal, Retros, Sessions, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

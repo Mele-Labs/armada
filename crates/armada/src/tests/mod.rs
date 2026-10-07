@@ -14,6 +14,7 @@ mod agent;
 mod authoring;
 mod booting;
 mod clean;
+mod clean_piloted;
 mod clean_slots;
 mod cli;
 mod declared;

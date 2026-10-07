@@ -14,7 +14,7 @@
 //! **Two files, read as one text.** `SERVED` moved out of `routes.rs` when
 //! that file crossed the 900-line rule; the router and the table it is
 //! compared against are still one subject to this rule, so both are read and
-//! joined before anything is parsed. The table is itself three files since it
+//! joined before anything is parsed. The table is itself several files since it
 //! reached the 1200-line rule, and [`served_rows`] reads them as one.
 //!
 //! **The other direction is [`unserved`](mod@unserved)**, and it is a second
@@ -51,6 +51,7 @@ const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
 const SERVED_PARTS: &[&str] = &[
     "crates/api/src/routes/served/studios.rs",
     "crates/api/src/routes/served/events.rs",
+    "crates/api/src/routes/served/piloting.rs",
 ];
 const EVENT_ENUM: &str = "crates/ipc/src/event.rs";
 

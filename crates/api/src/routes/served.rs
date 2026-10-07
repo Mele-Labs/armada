@@ -5,13 +5,15 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into three tables joined at compile
+//! **Split again at the 1200-line rule**, into four tables joined at compile
 //! time: Studios' in [`studios`](mod@studios), the published event kinds in
-//! [`events`](mod@events), and every other row here. Each is a subject a
+//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), and every
+//! other row here. Each is a subject a
 //! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
 //! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
 
 mod events;
+mod piloting;
 mod studios;
 
 /// One operation, and where it is served.
@@ -37,12 +39,12 @@ pub struct Route {
 /// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
 /// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
 pub const SERVED: &[Route] = &joined::<
-    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() },
->([ROUTES, studios::ROUTES, events::ROUTES]);
+    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() + piloting::ROUTES.len() },
+>([ROUTES, studios::ROUTES, events::ROUTES, piloting::ROUTES]);
 
-/// The three tables as one, in order. A count that disagrees with `N` fails
+/// The four tables as one, in order. A count that disagrees with `N` fails
 /// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 3]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 4]) -> [Route; N] {
     // Filled from the first row and overwritten below: a literal `Route` here
     // would read as a row to the gate rule, which parses this file as text.
     let mut out = [tables[0][0]; N];
@@ -60,7 +62,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 3]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's nor a published event kind.
+/// Every row that is neither a Studio's, a pilot's nor a published event kind.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -496,6 +498,33 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/needs",
     },
+    // A pull request by repository and number, and the acts a Session takes on
+    // one. Beside `merge_pull_request`, which is a Job's and not this.
+    Route {
+        operation: "get_pull_request",
+        method: "GET",
+        path: "/pull_requests/:repository/:number",
+    },
+    Route {
+        operation: "ready_pull_request",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/ready",
+    },
+    Route {
+        operation: "merge_pull_request_by_number",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/merge",
+    },
+    Route {
+        operation: "enable_auto_merge",
+        method: "POST",
+        path: "/pull_requests/:repository/:number/auto_merge",
+    },
+    Route {
+        operation: "review_pull_request",
+        method: "POST",
+        path: "/pull_request_reviews/:repository",
+    },
     Route {
         operation: "report_session",
         method: "POST",
@@ -510,6 +539,47 @@ const ROUTES: &[Route] = &[
         operation: "who_owns",
         method: "GET",
         path: "/sessions/owner",
+    },
+    // A session Fleet hosts for Bridge. Since 23.49.
+    Route {
+        operation: "start_session",
+        method: "POST",
+        path: "/sessions/start",
+    },
+    Route {
+        operation: "send_session_message",
+        method: "POST",
+        path: "/sessions/message",
+    },
+    Route {
+        operation: "answer_session_ask",
+        method: "POST",
+        path: "/sessions/ask/answer",
+    },
+    Route {
+        operation: "tune_session",
+        method: "POST",
+        path: "/sessions/tune",
+    },
+    Route {
+        operation: "close_session",
+        method: "POST",
+        path: "/sessions/close",
+    },
+    Route {
+        operation: "get_session",
+        method: "GET",
+        path: "/sessions/one",
+    },
+    Route {
+        operation: "get_session_file",
+        method: "GET",
+        path: "/sessions/file",
+    },
+    Route {
+        operation: "gate_session_call",
+        method: "POST",
+        path: "/sessions/gate",
     },
     Route {
         operation: "list_manifests",

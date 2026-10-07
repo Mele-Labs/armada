@@ -19,7 +19,7 @@ Pilot moves a Job from Drone execution to human execution. A single MCP tool, `e
 - The tool is the exit path for a **running** Drone. Both the human and the Drone route through it, so one code path covers both.
 - A Job with no live Drone takes a third path — see Trigger paths.
 - Fleet does the work. The Drone contributes a narrative of what it is stuck on, and nothing else.
-- The result is a Claude Code session on the Drone's worktree with the Drone's context loaded, at an unrestricted toolset.
+- The result is an Armada [Session](session.md) on the Job's own worktree with the handoff bundle as its first context, at an unrestricted toolset.
 
 ## Trigger paths
 
@@ -31,7 +31,7 @@ Pilot moves a Job from Drone execution to human execution. A single MCP tool, `e
 | Drone | Drone calls `escape_hatch` on its own | Stuck signal, in place of thrashing or self-reporting completion |
 | Human, **no Drone** | Same button on an escalated Job; Fleet assembles the bundle and opens the session directly | Autonomous progress has demonstrably ended |
 
-**Pilot appears on escalated Jobs as well as running ones**, and is the primary action on an escalated Job. An escalated Job has no Drone — its retries are spent and it stopped — so there is no `escape_hatch` call to make. That is the state an engineer is most likely to take over from.
+**Pilot appears on escalated Jobs as well as running ones.** It is the primary act on an escalated Job and a secondary one on a running Job. An escalated Job has no Drone — its retries are spent and it stopped — so there is no `escape_hatch` call to make. That is the state an engineer is most likely to take over from.
 
 **One button, not two.** Taking over a stopped Job is the same act as taking over a running one — hand me this worktree with context — differing only in whether a process happens to be alive. The one-code-path property covers the two live-Drone callers only.
 
@@ -39,7 +39,7 @@ Pilot moves a Job from Drone execution to human execution. A single MCP tool, `e
 
 **The Drone-initiated path is the counterweight to v1's lesson.** v1 proved Drones will report success they did not achieve rather than admit a dead end. Giving the Drone a sanctioned way out is what balances that.
 
-Any path lands the engineer in a confirmation modal that names the three outcomes below. The modal itself, its copy and its placement belong to the Take Over a Job user journey.
+Any path lands the engineer in a confirmation that offers Take Over and Restart Step, with Assist shown deferred. The confirmation itself, its copy and its placement belong to the Take Over a Job user journey.
 
 ## The mark
 
@@ -73,12 +73,13 @@ Fleet assembles this. The Drone supplies one field of it.
 | Contents | Source |
 | --- | --- |
 | Job record and the Workflow step it stopped on | Job Board |
-| Drone transcript | Structured JSON logs |
+| Every attempt of every step, and every Judge refusal | Job record and its log of moves |
 | Declared file plan against the actual diff | Fleet, from the drift detection already in place |
 | Worktree path and branch | Fleet |
 | Evidence collected so far, and the gate that failed | Job record |
-| Narrative of what it is stuck on | Drone, as the argument to `escape_hatch` |
+| Narrative of what it is stuck on | Drone, as the argument to `escape_hatch`, where it gave one |
 
+**The Drone's transcript is not in the bundle.** A transcript has no bound, and the bundle is a first message; it stays where `get_job_log` reads it. The bundle is the query `get_handoff`, served for as long as the Job has a pilot on record, so it is still there once the pilot ended.
 The narrative carries three named fields: `trying_to`, what the step was meant to produce; `blocked_by`, the specific thing preventing it, such as a denied command or a missing credential; `tried`, what was attempted and what each attempt produced.
 
 **The narrative is not Evidence.** Why: Evidence is proof tied to an advance gate, and this states that no proof is coming.
@@ -89,22 +90,23 @@ Fleet then adds what it knows and the Drone does not: sibling workspaces, and th
 
 ## The piloted session
 
-A new Claude Code session, on the Drone's worktree, with the bundle loaded as context.
-
+**A piloted session is an Armada Session**, the same row a terminal session has, started on the Job's own worktree with the bundle as its first context. The owner decided this on 7 Oct 2026, and it settles what opens one: Fleet's session host starts the Session. The bundle is an ordinary query, so what a Session is handed can be read from any client of Fleet.
+- **The worktree is handed over, not newly leased.** The Job's slot and branch are written to the ledger as rows the Session holds, each with `detail.handed` reading `job <id>`, and the Job's own rows are given back, so `who_owns` names one holder. On an exit the Session gives them back and the Job holds them again.
+- **The Session is named by the person who takes over**, and the Job records it, so the Board and Job detail can say who is in the worktree. A take over that names none is still a take over.
 - **Kit-level toolset, unrestricted.** The narrow toolset is the thing being escaped. The Manifest allowlist governs Drones, not people, and a human at a terminal is outside its scope.
 - **Secrets brokering does not apply.** Drones never touch secrets directly, and the broker exists to enforce that. A piloted session is the engineer's own shell with the engineer's own credentials.
 - **Fleet stops scheduling against the Job** for as long as it is piloted. The Job stays on the Board and leaves the scheduler.
 - **Worktree ownership transfers.** Fleet must not reclaim, clean or garbage-collect a piloted worktree.
 
-**The exits are a panel on the Job, not a prompt in the session.** Armada says nothing inside a Claude Code session, so the only place a way back can live is the surface a person returns to. Submit for verification, Attest complete and Close as superseded render there; submitting returns the Job to `running` with no Drone assigned.
+**The three exits live in two places**: on the piloting Session's ledger row for the Job, and on Job detail. Armada says nothing inside a terminal, so a way back cannot live there, and a person is as likely to be looking at the Session as at the Job. Submit for verification, Attest complete and Close as superseded render in both, and either one ends the pilot. Submitting returns the Job to `running` with no Drone assigned.
 
 ## Job state
 
-A piloted Job has its own status, `piloted` — **the ninth Job status**, carrying a Pilot-specific reason. On the Board, not scheduled, not finished, with the worktree belonging to the engineer rather than to Fleet. Its reason records which of the three outcomes was chosen.
+A piloted Job has its own status, `piloted`, carrying a Pilot-specific reason. On the Board, not scheduled, not finished, with the worktree belonging to the engineer rather than to Fleet. Its reason records which of the three outcomes was chosen.
 
 **A Job that owes a human an attestation is a different status.** `awaiting_attestation` is waited on — a person owes an action outside Armada and must return to report it. `piloted` is worked — a person is at an unrestricted toolset right now.
 
-Who is acting, against what is being waited on, is the axis the whole status set is built on, and one reason on one status cannot carry both. See [Job](job.md). The ninth status also holds a Job that is done but owes a human an attestation; its name and its reason set are still open — see Open questions.
+Who is acting, against what is being waited on, is the axis the whole status set is built on, and one reason on one status cannot carry both. See [Job](job.md).
 
 Neither is `stalled`, which describes a Drone still assigned and making no progress, and neither is `rejected`, which is reserved for hard stops.
 
@@ -120,13 +122,17 @@ Neither is `stalled`, which describes a Drone still assigned and making no progr
 | **Attest complete** | Replaced by a human attestation | The plan was wrong and the outcome is right |
 | **Close as superseded** | None run | The Job was a bad idea |
 
-**Submit for verification.** The engineer signals done from Bridge and [Fleet](fleet.md) runs that step's gates against the worktree exactly as it would for a Drone — same Checks, same Judge, same advance gate. Most of the machinery never needed a Drone: Fleet invokes Checks itself and the Judge reads the diff, and only the Evidence submission did. It is right when the Job was basically fine and needed a wider toolset for a step, so the gates still mean something.
+**Submit for verification.** The engineer signals done and [Fleet](fleet.md) runs that step's gates against the worktree exactly as it would for a Drone — same Checks, same Judge, same advance gate. Most of the machinery never needed a Drone: Fleet invokes Checks itself and the Judge reads the diff, and only the Evidence submission did. It is right when the Job was basically fine and needed a wider toolset for a step, so the gates still mean something.
+
+**The evidence is the Drone's where it wrote any, and otherwise Fleet words a claim for the person**, since a person at a terminal has no evidence tool. A step whose evidence is writing a Drone does, such as a plan or a review, has nothing to be submitted on when none was written, and is refused. **A run the gates refuse leaves the Job piloted**: there is no Drone to hand the failure back to, and the person is still in the worktree. A Job piloted as Restart Step is handed to a fresh Drone at the step that stopped when the person submits, and no gate runs first.
 
 **Attest complete.** The engineer marks criteria satisfied using the **human-attested verification source**. Recorded as attested rather than verified — human-only, and rendered distinctly, so a Job closed by hand never looks like one that passed its gates. Why: re-running a Judge against a step definition the engineer has just invalidated tells nobody anything.
 
+**It is refused while a step has not advanced.** `piloted -> completed_success` is guarded on every step having advanced, so attesting is a verdict on finished work and not a way past a step. A pilot that stopped a step therefore submits, or closes the Job as superseded.
+
 **Close as superseded.** A distinct terminal state meaning **superseded by human work** — not `completed_failed`, not `killed`, both of which read as the work being lost. It is right when the work has landed and the Job record has nothing left to say.
 
-**A Job depending on a superseded one unblocks and surfaces**, with its dependency marked unsatisfied and a warning that the upstream never landed as planned. Why: superseding means the work landed outside the Job, so blocking on the record rather than the outcome is the wrong test.
+**A Job depending on a superseded one unblocks and surfaces**, with its dependency marked unsatisfied and a warning in its own log that the upstream never landed as planned. Why: superseding means the work landed outside the Job, so blocking on the record rather than the outcome is the wrong test.
 
 **Most takeovers are expected to end in attest or supersede**, because an engineer takes over precisely when a Job has gone wrong.
 
@@ -143,22 +149,3 @@ Resuming it as-is produces a Drone that fights the engineer's changes or redoes 
 **It is no longer work with no other reason to exist.** A Drone belongs to a workflow step ([Drone](drone.md)), so every step boundary already hands a fresh Drone a worktree it did not make and tells it what it inherited. Assist is the same brief with a person's edits in it rather than a previous step's. What it still needs beyond that is a decision about whether the parked Drone resumes at all or is replaced, which is the third outcome wearing Assist's name.
 
 **Assist renders disabled in the modal with a coming-soon state**, rather than hidden, so the outcome set does not change shape when it ships.
-
-## Open questions
-
-- **[pilot-session-launch]** What opens a piloted session on this machine? *The
-  piloted session* above says what the session is — the Drone's worktree, the
-  bundle loaded, an unrestricted toolset — and never what runs it. The two
-  shapes are a terminal Armada launches itself and an instruction a person
-  follows, and they differ in what Armada has to know about the engineer's
-  shell, which of the two owns the failure when the session does not open, and
-  whether a piloted Job can be entered from a machine Bridge is not running on.
-  The act cannot be built until this is decided.
-- **[pilot-exits-ship-with-entry]** May the act that starts a pilot land before
-  the panel that ends one? Both are claimed by the Pilot milestone, so they ship
-  in the same release and that half is settled. What is not is the order inside
-  it: *The piloted session* states the three exits as a panel on the Job, and a
-  pilot a person can start and cannot end holds a worktree out of the scheduler
-  with no recorded way back.
-
-`[pilot-ninth-status-name]` asked what the ninth status is called and what its reasons are, on the premise that one status carried both a piloted Job and one owing an attestation. **The code answered it by splitting them.** `crates/core-model/domain/job-statuses.toml` carries `piloted` and `awaiting_attestation` as separate rows, each with its own reasons — which is why the question could not be answered as asked.

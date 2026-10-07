@@ -19,7 +19,10 @@
 mod authoring;
 mod commands;
 mod conversing;
+mod hosted_sessions;
 mod needs;
+mod piloting;
+mod pull_requests;
 mod queries;
 mod retros;
 mod sessions;

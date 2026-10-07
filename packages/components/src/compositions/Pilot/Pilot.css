@@ -1,0 +1,42 @@
+/* A Job being piloted: who has it, the way out, and the confirmation. */
+
+.armada-pilot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+.armada-pilot-exits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-pilot-exits[data-compact] {
+  flex-basis: 100%;
+}
+
+.armada-pilot-said {
+  flex-basis: 100%;
+}
+
+.armada-pilot-confirm__job {
+  margin: 0 0 var(--space-3);
+  font-weight: var(--weight-medium);
+}
+
+.armada-pilot-confirm__says {
+  margin: 0 0 var(--space-3);
+  padding-inline-start: var(--space-6);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}

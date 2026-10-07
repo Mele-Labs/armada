@@ -81,7 +81,7 @@ in_code = "Not yet"
 from = "awaiting_repair"
 to = "piloted"
 on = "Pilot"
-in_code = "Not yet"
+in_code = "Yes"
 
 [[transitions]]
 from = "awaiting_repair"
@@ -126,7 +126,7 @@ in_code = "Not yet"
 [[transitions]]
 from = "awaiting_review"
 to = "piloted"
-in_code = "Not yet"
+in_code = "Yes"
 
 [[transitions]]
 from = "awaiting_review"
@@ -165,7 +165,7 @@ notes = "Includes rephrase-and-redispatch, which kills this Job and creates a ne
 from = "escalated"
 to = "piloted"
 on = "Pilot — the primary action on an escalated Job"
-in_code = "Not yet"
+in_code = "Yes"
 
 [[transitions]]
 from = "escalated"
@@ -186,26 +186,26 @@ from = "piloted"
 to = "completed_success"
 on = "Attest complete, under the human-attested verification source"
 guard = "every_step_advanced"
-in_code = "Not yet"
+in_code = "Yes"
 notes = "Attesting is a verdict on the work and not a way past the steps. A pilot whose steps have not all advanced submits for verification — `piloted -> running` — and advances them there."
 
 [[transitions]]
 from = "piloted"
 to = "killed"
-in_code = "Not yet"
+in_code = "Yes"
 
 [[transitions]]
 from = "piloted"
 to = "running"
 on = "Submit for verification. Fleet runs the step's gates with no Drone"
-in_code = "Not yet"
+in_code = "Yes"
 notes = "Fleet invokes Checks itself and the Judge reads the diff, so `assigned_drone` is null. See the `running` status row."
 
 [[transitions]]
 from = "piloted"
 to = "superseded"
 on = "Close as superseded"
-in_code = "Not yet"
+in_code = "Yes"
 
 [[transitions]]
 from = "proposing"
@@ -337,5 +337,5 @@ notes = "The reversal of `queued -> running`, and it exists for the working slot
 from = "running"
 to = "piloted"
 on = "escape_hatch, on a Job Fleet marked for the handoff"
-in_code = "Not yet"
+in_code = "Yes"
 notes = "An unmarked pull does not fire this edge. Fleet refuses it and the Job escalates as `hatch_unbidden`, on the default edge."

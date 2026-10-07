@@ -141,6 +141,17 @@ pub struct WorkKept {
     pub files: Vec<String>,
 }
 
+/// A Job a person has taken over, whose checkout a clean does not touch.
+///
+/// **Named, because a clean that skipped it silently would leave a person to
+/// wonder whether the act worked.** `docs/concepts/pilot.md`.
+#[derive(Debug)]
+pub struct PilotedKept {
+    pub job_id: String,
+    pub title: String,
+    pub path: String,
+}
+
 /// A machine file `--all` was asked about.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FileGone {
@@ -165,6 +176,8 @@ pub struct Cleaned {
     pub uncommitted: Vec<WorkKept>,
     /// Pool slots a Job still holds. **Left alone**, branches and records too.
     pub held: Vec<SlotHeld>,
+    /// Jobs a person is working in. **Left alone**, whatever `--force` says.
+    pub piloted: Vec<PilotedKept>,
     /// Rows that would not rebuild and belong to some other Manifest. Left for
     /// the repository that owns them, and counted so a person is not told
     /// nothing about rows they can see in Fleet's boot line.
@@ -350,12 +363,28 @@ fn forget_this_manifests_jobs(
     let declared_base = manifest.base().map(str::to_string);
     let base = declared_base.as_deref();
 
+    // **Before anything is given back**, and not shaped by `--force`: the
+    // worktree is a person's for as long as the Job is piloted.
+    for job in loaded
+        .jobs
+        .iter()
+        .filter(|job| job.owner_manifest_id().as_str() == manifest.id().as_str())
+        .filter(|job| job.status() == core_model::JobStatus::Piloted)
+    {
+        cleaned.piloted.push(PilotedKept {
+            job_id: job.id().as_str().to_string(),
+            title: job.title().as_str().to_string(),
+            path: piloted_path(root, job),
+        });
+    }
+
     // The id joins the record, the handle names the worktree and the branch,
     // and the title is what a person reads back. Three values, one pass.
     let mine: Vec<(JobId, String, String, Option<u32>)> = loaded
         .jobs
         .iter()
         .filter(|job| job.owner_manifest_id().as_str() == manifest.id().as_str())
+        .filter(|job| job.status() != core_model::JobStatus::Piloted)
         .map(|job| {
             (
                 job.id().clone(),
@@ -405,6 +434,29 @@ fn forget_this_manifests_jobs(
     clear_this_manifests_unreadable_rows(
         store, manifest, root, base, unmerged, now, unreadable, cleaned,
     );
+}
+
+/// Where a piloted Job's checkout is: its slot where it holds one, and the path
+/// its handle derives otherwise.
+fn piloted_path(root: &Path, job: &core_model::Job) -> String {
+    let at = root.to_string_lossy();
+    // The handle first and the id where only that is on disk, as `give_back`
+    // reads a checkout cut before Jobs had handles.
+    let named = [job.handle(), job.id().as_str().to_string()]
+        .iter()
+        .filter_map(|name| WorktreeSpec::for_job(&at, name).ok())
+        .collect::<Vec<_>>();
+    let Some(spec) = named
+        .iter()
+        .find(|spec| Path::new(&spec.worktree_path()).exists())
+        .or_else(|| named.first())
+    else {
+        return String::new();
+    };
+    match job.worktree_slot() {
+        Some(slot) => spec.clone().in_slot(slot).worktree_path(),
+        None => spec.worktree_path(),
+    }
 }
 
 /// The rows this store holds and could not fold, removed by the id they carry.

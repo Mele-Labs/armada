@@ -39,6 +39,7 @@ import { frameStream, FRAME_SCHEME } from "./streaming";
 import { Attention, soundOf } from "./telling";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
+import { handleSessions } from "./session-channels";
 import { handleStudios } from "./studio-channels";
 
 // Bridge's window, and the one connection under it.
@@ -871,6 +872,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
     connection?.readHeld(want),
   );
+  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull

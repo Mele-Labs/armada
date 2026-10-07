@@ -11,6 +11,7 @@ import type { BridgeIdentity } from "@armada/protocol";
 import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
+import { WiredSessions } from "./sessions-wired";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -41,7 +42,9 @@ function Root() {
     >
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
-        <App />
+        <WiredSessions>
+          <App />
+        </WiredSessions>
       </HapticsProvider>
     </Boundary>
   );

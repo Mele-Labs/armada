@@ -69,7 +69,22 @@ pub(crate) fn lease_existing(
 
 /// Commit the Job's work to its branch and give the slot back.
 pub(crate) fn park(slots: &SlotPool, slot: u32, job: &str) -> Result<SlotParked, SlotParkRefused> {
-    parked_as(slots, slot, &Holder::job(job))
+    parked_as(slots, slot, &Holder::job(job), None)
+}
+
+/// [`park`] for a slot a hosted session leased. **It holds it as a Job of its
+/// own id**, so the WIP commit is told whose it is.
+pub(crate) fn park_hosted(
+    slots: &SlotPool,
+    slot: u32,
+    session: &str,
+) -> Result<SlotParked, SlotParkRefused> {
+    parked_as(
+        slots,
+        slot,
+        &Holder::job(session),
+        Some(&format!("session {session}")),
+    )
 }
 
 /// [`park`] for a slot an agent session holds, only while it is still held by
@@ -83,7 +98,7 @@ pub(crate) fn release_session(
         SlotState::Held {
             holder: holder @ Holder::Process { .. },
             ..
-        } if holder.said() == expected => parked_as(slots, slot, &holder),
+        } if holder.said() == expected => parked_as(slots, slot, &holder, None),
         SlotState::Held { holder, .. } => Err(SlotParkRefused::HolderChanged(holder.said())),
         SlotState::Free | SlotState::Abandoned { .. } => {
             Err(SlotParkRefused::HolderChanged(String::from("nobody")))
@@ -93,8 +108,17 @@ pub(crate) fn release_session(
     }
 }
 
-fn parked_as(slots: &SlotPool, slot: u32, holder: &Holder) -> Result<SlotParked, SlotParkRefused> {
-    match pool(slots).park(slot as usize, holder) {
+fn parked_as(
+    slots: &SlotPool,
+    slot: u32,
+    holder: &Holder,
+    whose: Option<&str>,
+) -> Result<SlotParked, SlotParkRefused> {
+    let parked = match whose {
+        Some(whose) => pool(slots).park_named(slot as usize, holder, whose),
+        None => pool(slots).park(slot as usize, holder),
+    };
+    match parked {
         Ok(parked) => {
             let (commit, files) = match parked.committed {
                 Some(committed) => (Some(committed.commit), committed.files),

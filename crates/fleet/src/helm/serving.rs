@@ -140,6 +140,18 @@ where
         self.helm_permission(asking, manifest_id).await
     }
 
+    async fn ask_the_person_at(
+        &self,
+        asking: AskingToRun,
+        manifest_id: Option<ManifestId>,
+        caller: api::Caller,
+    ) -> Result<RunOrNot, Refusal> {
+        match self.session_holding(&caller) {
+            Some(session) => self.session_permission(&session, asking).await,
+            None => self.helm_permission(asking, manifest_id).await,
+        }
+    }
+
     async fn list_helm_calls(&self) -> Result<HelmCallsWaiting, Refusal> {
         Ok(self.helm_calls_waiting())
     }
