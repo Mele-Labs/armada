@@ -104,18 +104,29 @@ const TEXT = (chip: OwnerChipRef): string => {
   }
 };
 
-/** A chip drawn whole: its glyph and its figure, named for what it is. Never a bare figure. */
-export function Chip({ chip, matched = false }: { chip: OwnerChipRef; matched?: boolean }) {
+const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
+
+/**
+ * A chip drawn whole: its glyph and its figure, named for what it is. Never a bare figure.
+ * **A pull request's Checks sit inside it**, at its right end past a divider, coloured by how they stand.
+ */
+export function Chip({ chip, matched = false, checks }: { chip: OwnerChipRef; matched?: boolean; checks?: { state: "pending" | "passed" | "failed"; said: string } }) {
   const Glyph = GLYPH[chip.kind];
+  const Shield = checks === undefined || chip.kind !== "pull_request" ? undefined : CHECKS[checks.state];
   return (
-    <span className="armada-ref-chip" data-matched={matched || undefined} role="img" aria-label={`${matched ? "Matched " : ""}${NAME(chip)}`}>
+    <span className="armada-ref-chip" data-matched={matched || undefined} role="img" aria-label={`${matched ? "Matched " : ""}${NAME(chip)}${Shield === undefined || checks === undefined ? "" : `, ${checks.said}`}`}>
       <Glyph size={12} strokeWidth={2} aria-hidden />
       {TEXT(chip)}
+      {Shield === undefined || checks === undefined ? null : (
+        <Tooltip label={checks.said}>
+          <span className="armada-ref-chip__checks" data-checks={checks.state}>
+            <Shield size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+      )}
     </span>
   );
 }
-
-const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
 
 /** The card: the Session's head, with its state's mark, over what it holds. */
 export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: () => void; at?: { top: number; left: number } }) {
@@ -143,15 +154,9 @@ export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: 
             </li>
           ))}
           {owner.pullRequests.map((pr) => {
-            const Glyph = CHECKS[pr.checks];
             return (
               <li key={pr.number}>
-                <Chip chip={{ kind: "pull_request", number: pr.number }} />
-                <Tooltip label={pr.said}>
-                  <span role="img" aria-label={pr.said} className="armada-owner-card__checks">
-                    <Glyph size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
+                <Chip chip={{ kind: "pull_request", number: pr.number }} checks={{ state: pr.checks, said: pr.said }} />
               </li>
             );
           })}

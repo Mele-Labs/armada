@@ -61,3 +61,14 @@ export const ModOutOfDate: Story = {
     await expect(canvas.getByRole("img", { name: "Mod out of date: run /reload-plugins" })).toBeInTheDocument();
   },
 };
+
+/** No title yet: the header offers Rename as an icon, since there is no name to press. */
+export const Untitled: Story = {
+  args: { state: "waiting", said: "Waiting on you", onRename: fn() },
+  play: async ({ canvas, userEvent, args }) => {
+    await expect(canvas.getByRole("button", { name: "Rename" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Rename" }));
+    await userEvent.type(canvas.getByRole("textbox", { name: "Session name" }), "Fresh name{Enter}");
+    await expect(args.onRename).toHaveBeenCalledWith("Fresh name");
+  },
+};
