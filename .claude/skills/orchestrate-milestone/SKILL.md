@@ -155,6 +155,10 @@ leased slot; see `agent-worktrees`. At the merge, not later.
 Fleet is a stale binary the moment you merge, and a major bump means Bridge
 refuses to connect until it is rebuilt.
 
+**Before landing a change that moves Checks between manifests or renames a Check key, ask what each gate reads.** `armada covers` on the *installed* binary, and `.github/ci/plan.py`, must both name the new keys, or the change gates nothing and says nothing. Confirmed 6 Oct 2026: the Bridge Checks moved into workspace manifests (B3) while the installed `armada` read only the root file, so it printed `test` for an `App.tsx` change and no Bridge Check; the branch was withdrawn from the line and Fleet restarted first. CI then skipped every Bridge Check on three pull requests because `checks.yml` filtered `armada covers` against a list of bare names; it was found by reading one PR's job list. Run `printf 'apps/desktop/src/renderer/src/App.tsx\n' | armada covers` and read the job list of one PR before the next move.
+
+**A test that pins the list of every Check across all manifests breaks on each new manifest.** Derive the expectation from the loaded manifests. Confirmed 6 Oct 2026: `each_named_check_resolved_to_the_command_the_manifest_holds` went red on the merge line three times (B3, `bridge-api`, Studios), each a round trip through a queue of five. It now asserts the root's Checks literally and derives the rest.
+
 ## What you decide, and what you bring the owner
 
 **Decide** anything the code or an existing decision settles. Read the record
