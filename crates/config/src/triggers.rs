@@ -67,6 +67,20 @@ impl Written {
     }
 }
 
+impl Written {
+    pub fn source(&self) -> TriggerSource {
+        self.source
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+}
+
 /// Every Trigger Armada carries. None.
 pub fn carried() -> Vec<Written> {
     Vec::new()
@@ -172,6 +186,37 @@ fn failure(value: &Value, out: &mut Vec<Refusal>) -> Option<OnTriggerFailure> {
     })
 }
 
+/// One Trigger checked the way a catalogue checks a file, before anything is
+/// written: the parse, and what it comes to against the repository's Commands.
+#[derive(Debug, Clone)]
+pub struct Fitted {
+    trigger: Trigger,
+    resolution: TriggerResolution,
+}
+
+impl Fitted {
+    pub fn trigger(&self) -> &Trigger {
+        &self.trigger
+    }
+
+    pub fn resolution(&self) -> &TriggerResolution {
+        &self.resolution
+    }
+}
+
+/// Parse `text` and resolve it against `manifest`. **Fails only where the
+/// catalogue would leave the file out**: a Command the repository does not
+/// declare resolves to [`TriggerResolution::Skipped`], and whether that
+/// refuses a save is the caller's.
+pub fn fit(path: &Path, text: &str, manifest: &Manifest) -> Result<Fitted, LoadError> {
+    let trigger = parse(path, text)?;
+    let resolution = resolution(&trigger, manifest);
+    Ok(Fitted {
+        trigger,
+        resolution,
+    })
+}
+
 /// Why a file is not among the Triggers.
 #[derive(Debug)]
 pub enum WhyLeftOut {
@@ -223,8 +268,17 @@ impl fmt::Display for LeftOut {
 /// Every Trigger in hand, grouped by identity, and the files already set aside.
 #[derive(Debug)]
 pub struct Catalogue {
-    held: BTreeMap<TriggerIdentity, Vec<(Trigger, TriggerSource)>>,
+    held: BTreeMap<TriggerIdentity, Vec<Copy>>,
     left_out: Vec<LeftOut>,
+}
+
+/// One parsed file: the Trigger, where it was read, and its text.
+#[derive(Debug)]
+struct Copy {
+    trigger: Trigger,
+    source: TriggerSource,
+    path: PathBuf,
+    text: String,
 }
 
 impl Catalogue {
@@ -232,15 +286,19 @@ impl Catalogue {
     /// place with one identity are both left out; across places it is an
     /// override.
     pub fn of(written: impl IntoIterator<Item = Written>) -> Catalogue {
-        let mut placed: BTreeMap<(TriggerSource, TriggerIdentity), Vec<(Trigger, PathBuf)>> =
-            BTreeMap::new();
+        let mut placed: BTreeMap<(TriggerSource, TriggerIdentity), Vec<Copy>> = BTreeMap::new();
         let mut left_out = Vec::new();
         for one in written {
             match parse(&one.path, &one.text) {
                 Ok(trigger) => placed
                     .entry((one.source, trigger.identity()))
                     .or_default()
-                    .push((trigger, one.path)),
+                    .push(Copy {
+                        trigger,
+                        source: one.source,
+                        path: one.path,
+                        text: one.text,
+                    }),
                 Err(why) => left_out.push(LeftOut {
                     source: one.source,
                     path: one.path,
@@ -248,17 +306,16 @@ impl Catalogue {
                 }),
             }
         }
-        let mut held: BTreeMap<TriggerIdentity, Vec<(Trigger, TriggerSource)>> = BTreeMap::new();
+        let mut held: BTreeMap<TriggerIdentity, Vec<Copy>> = BTreeMap::new();
         for ((source, identity), mut triggers) in placed {
             if triggers.len() > 1 {
-                let also = triggers.drain(1..).map(|(_, path)| path).collect();
-                let (_, path) = triggers.remove(0);
+                let also = triggers.drain(1..).map(|copy| copy.path).collect();
+                let path = triggers.remove(0).path;
                 let why = WhyLeftOut::Duplicated { also };
                 left_out.push(LeftOut { source, path, why });
                 continue;
             }
-            let (trigger, _) = triggers.remove(0);
-            held.entry(identity).or_default().push((trigger, source));
+            held.entry(identity).or_default().push(triggers.remove(0));
         }
         Catalogue { held, left_out }
     }
@@ -270,14 +327,27 @@ impl Catalogue {
         let triggers = self
             .held
             .into_values()
-            .filter_map(|candidates| candidates.into_iter().max_by_key(|(_, source)| *source))
-            .map(|(trigger, source)| {
-                let resolution = resolution(&trigger, manifest);
-                ResolvedTrigger {
-                    trigger,
-                    source,
+            .filter_map(|mut candidates| {
+                candidates.sort_by_key(|copy| copy.source);
+                let winner = candidates.pop()?;
+                let replaced = candidates
+                    .into_iter()
+                    .rev()
+                    .map(|copy| ReplacedTrigger {
+                        source: copy.source,
+                        path: copy.path,
+                        text: copy.text,
+                    })
+                    .collect();
+                let resolution = resolution(&winner.trigger, manifest);
+                Some(ResolvedTrigger {
+                    trigger: winner.trigger,
+                    source: winner.source,
+                    path: winner.path,
+                    text: winner.text,
+                    replaced,
                     resolution,
-                }
+                })
             })
             .collect();
         ResolvedTriggers {
@@ -307,10 +377,36 @@ fn resolution(trigger: &Trigger, manifest: &Manifest) -> TriggerResolution {
 pub struct ResolvedTrigger {
     trigger: Trigger,
     source: TriggerSource,
+    path: PathBuf,
+    text: String,
+    replaced: Vec<ReplacedTrigger>,
     resolution: TriggerResolution,
 }
 
+/// A copy of a Trigger that a more specific place replaced whole.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplacedTrigger {
+    pub source: TriggerSource,
+    pub path: PathBuf,
+    pub text: String,
+}
+
 impl ResolvedTrigger {
+    /// The file this copy was read from.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The file's text, as read.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// The copies this one replaced, the most specific first.
+    pub fn replaced(&self) -> &[ReplacedTrigger] {
+        &self.replaced
+    }
+
     pub fn trigger(&self) -> &Trigger {
         &self.trigger
     }

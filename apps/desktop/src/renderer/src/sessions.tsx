@@ -80,7 +80,8 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  return { state: "idle", said: "Idle" };
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
@@ -221,6 +222,7 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
   { label: "Running", has: (state) => state === "working" },
+  { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
 ];
 
@@ -246,8 +248,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       state,
       said,
       slots: attachmentsOf(session, "slot").map((one) => one.slot),
-      pullRequests: pullRequestsOf(session),
-      jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
+      pullRequests: attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks), state: one.state })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
@@ -264,7 +265,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
   return session.rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
@@ -548,7 +549,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const { state, said } = stateOf(session);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
-  const mode: SessionMode = session.mode ?? "auto";
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
   const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
     setLedgerOpen(false);
@@ -617,6 +618,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         <div className="armada-session-frame__centre">
           <Refused />
           <SessionThread
+            sessionId={session.id}
             rows={threadRowsOf(session)}
             {...(session.asked === undefined
               ? {}
@@ -631,8 +633,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
             onOpenSession={onOpen}
           />
-          {session.terminal === true ? null : (
           <SessionComposer
+            modeLocked={session.terminal === true}
+            modeHidden={session.terminal === true && session.mode === undefined}
             working={session.turn.state === "working"}
             mode={mode}
             onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
@@ -641,7 +644,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             models={draft.models}
             efforts={draft.efforts}
             onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={draft.commands}
+            commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
             compact={narrow}
             taggable={[
               ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
@@ -657,7 +660,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               setDrawn([]);
             }}
           />
-          )}
         </div>
       </SessionFrame>
       {narrow ? (

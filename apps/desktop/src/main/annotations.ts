@@ -10,9 +10,10 @@
 // packaged Bridge has neither end of the channel.
 
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 import {
   ANNOTATION_CHANNELS,
@@ -37,6 +38,20 @@ export function repositoryRoot(start: string): string | null {
     const up = dirname(at);
     if (up === at) return null;
     at = up;
+  }
+}
+
+/**
+ * The repository Fleet serves for a checkout of it. **A worktree, the preview among them, is not
+ * what Fleet lists**: its main repository is, and a send naming the worktree is refused or lands
+ * nowhere. Where git cannot say, or the checkout is its own repository, it is `root` itself.
+ */
+export function servedRoot(root: string): string {
+  try {
+    const common = execFileSync("git", ["-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return basename(common) === ".git" ? dirname(common) : root;
+  } catch {
+    return root;
   }
 }
 
@@ -114,7 +129,7 @@ export function handleAnnotations(ipc: Handles, appPath: string, capture: Captur
   ipc.handle(ANNOTATION_CHANNELS.list, () => listAnnotations(dir));
   ipc.handle(ANNOTATION_CHANNELS.save, (_event, note) => saveAnnotation(dir, note));
   ipc.handle(ANNOTATION_CHANNELS.remove, (_event, id) => removeAnnotation(dir, id));
-  ipc.handle(ANNOTATION_CHANNELS.root, () => root);
+  ipc.handle(ANNOTATION_CHANNELS.root, () => servedRoot(root));
   ipc.handle(ANNOTATION_CHANNELS.capture, (event, box) => (isBoxOf(box) ? capture(event, box) : null));
   return dir;
 }

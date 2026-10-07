@@ -15,13 +15,14 @@ import { sessions } from "./slices/sessions";
 import { settings } from "./slices/settings";
 import { setup } from "./slices/setup";
 import { studios } from "./slices/studios";
+import { triggers } from "./slices/triggers";
 import { workflows } from "./slices/workflows";
 
 /** A slice of any surface: what `fake.ts` composes, once each member is known to be answered. */
 export type AnySlice = Slice<Partial<BridgeApi>, Partial<BridgeState>>;
 
 /** **A `Record` over every name**, so a surface with no entry here fails typecheck. */
-const BY_NAME = { core, studios, manifest, setup, workflows, helm, settings, overview, cleanup, reports, jobs, sessions } satisfies Record<
+const BY_NAME = { core, studios, manifest, setup, workflows, triggers, helm, settings, overview, cleanup, reports, jobs, sessions } satisfies Record<
   SliceName,
   AnySlice
 >;

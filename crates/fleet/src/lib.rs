@@ -195,6 +195,8 @@ pub mod noticing;
 mod one_drone;
 /// Which of a step's Checks starts first, from this repository's past runs.
 mod ordering;
+/// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
+pub mod orphans;
 pub mod overlap;
 pub mod overruling;
 /// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
@@ -326,6 +328,7 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+pub use orphans::keep_ending_orphans;
 pub mod sweeping;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
 /// The merge line Fleet runs for each repository, and its turn.
@@ -336,6 +339,10 @@ pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;
+mod trigger_authoring;
+mod trigger_wire;
+/// What a Job's Triggers come to at each moment, and where Fleet fires them.
+pub mod triggering;
 /// A step's tuning at the approval press. 23.20.
 pub mod tuned;
 pub mod turning;
@@ -426,6 +433,7 @@ pub use silence::{Liveness, Poke, Quiet, Vigil};
 pub use slots::Concurrency;
 pub use sub_dispatch::NotDispatched;
 pub use transcript::{history, log_of, transcript_of, Live, Recording, Spine, Tap, Taps};
+pub use trigger_wire::{job_triggers, trigger_definition, trigger_list};
 pub use turning::{keep_turning, Turned, Turning, Worked};
 pub use underway::{Announcing, LiveLog, Underway};
 pub use watch::{Drained, Progress, Watching};

@@ -1,4 +1,5 @@
-import { Box, GitBranch, KeyRound, SquareTerminal } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
+import { Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -34,6 +35,10 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
+  /** A command the person ran in the terminal, as typed, mono. */
+  | { id: string; at: string; kind: "command"; text: string }
+  /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
+  | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
   | {
       id: string;
@@ -65,6 +70,8 @@ export type SessionThreadProps = {
   onAnswer: (answer?: string) => void;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
+  /** Which Session this is. A change of it opens the thread at its newest row again. */
+  sessionId?: string;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -182,7 +189,52 @@ function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> 
   );
 }
 
-function Row({ row, onOpenSession }: { row: SessionThreadRow; onOpenSession: (id: string) => void }) {
+/** What the thread draws: a row, or the tool calls that ran one after another, folded into one. */
+type Item = { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" }> } | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] };
+
+function itemsOf(rows: readonly SessionThreadRow[]): Item[] {
+  const items: Item[] = [];
+  for (const row of rows) {
+    const last = items[items.length - 1];
+    if (row.kind !== "tool") items.push({ kind: "row", row });
+    else if (last?.kind === "calls") last.rows = [...last.rows, row];
+    else items.push({ kind: "calls", id: row.id, rows: [row] });
+  }
+  return items;
+}
+
+/** The tools a group holds, each named once, in the order they were first called. */
+function namesOf(rows: readonly { text: string }[]): string[] {
+  return [...new Set(rows.map((one) => one.text.split(/\s/, 1)[0] ?? ""))].filter((name) => name !== "");
+}
+
+/**
+ * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
+ * count; pressing it shows each call. A lone call is a group of one.
+ */
+function Calls({ rows }: { rows: readonly { id: string; text: string }[] }) {
+  const names = namesOf(rows);
+  return (
+    <li className="armada-session-fold armada-session-fold--calls">
+      <details>
+        <summary className="armada-session-fold__head" aria-label={`Tool calls: ${names.join(", ")}`}>
+          <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+          <Wrench size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-session-fold__names">{names.join(", ")}</span>
+        </summary>
+        <ol className="armada-session-fold__calls">
+          {rows.map((one) => (
+            <li key={one.id} className="armada-session-command">
+              <code className="armada-session-command__text">{one.text}</code>
+            </li>
+          ))}
+        </ol>
+      </details>
+    </li>
+  );
+}
+
+function Row({ row, onOpenSession }: { row: Exclude<SessionThreadRow, { kind: "tool" }>; onOpenSession: (id: string) => void }) {
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "lease") {
     return (
@@ -202,12 +254,26 @@ function Row({ row, onOpenSession }: { row: SessionThreadRow; onOpenSession: (id
       </li>
     );
   }
-  if (row.kind === "tool") {
+  if (row.kind === "command") {
     return (
-      <li className="armada-helm-thread__row" data-actor="helm">
-        <p className="armada-helm-thread__message" data-mono="true">
-          {row.text}
-        </p>
+      <li className="armada-session-command">
+        <code className="armada-session-command__text">{row.text}</code>
+      </li>
+    );
+  }
+  if (row.kind === "compaction") {
+    return (
+      <li className="armada-session-fold">
+        <details>
+          <summary className="armada-session-fold__head">
+            <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+            <Layers size={12} strokeWidth={2} aria-hidden />
+            Conversation compacted
+          </summary>
+          <div className="armada-session-fold__body">
+            <Prose text={row.text} />
+          </div>
+        </details>
       </li>
     );
   }
@@ -241,14 +307,41 @@ function Row({ row, onOpenSession }: { row: SessionThreadRow; onOpenSession: (id
   );
 }
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession }: SessionThreadProps) {
+/** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
+const NEAR_END = 24;
+
+export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId }: SessionThreadProps) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
+  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
+  // A person who scrolled up to read is not moved by a row that arrives.
+  useLayoutEffect(() => {
+    pinned.current = true;
+  }, [sessionId]);
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
+  }, [rows, sessionId]);
   return (
     <div className="armada-session-thread">
-      <div className="armada-session-thread__rows" role="region" aria-label="Thread">
+      <div
+        ref={scroller}
+        className="armada-session-thread__rows"
+        role="region"
+        aria-label="Thread"
+        onScroll={(event) => {
+          const one = event.currentTarget;
+          pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
+        }}
+      >
         <ol className="armada-helm-thread__rows">
-          {rows.map((row) => (
-            <Row key={row.id} row={row} onOpenSession={onOpenSession} />
-          ))}
+          {itemsOf(rows).map((item) =>
+            item.kind === "calls" ? (
+              <Calls key={item.id} rows={item.rows} />
+            ) : (
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} />
+            ),
+          )}
         </ol>
       </div>
       {asked === undefined ? null : (

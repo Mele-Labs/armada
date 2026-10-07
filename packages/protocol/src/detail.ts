@@ -21,6 +21,7 @@
 // The header rules there hold here: these are hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
 import type { JobFootprint } from "./footprint";
@@ -66,6 +67,8 @@ export type JobDetail = {
   job: JobSummary;
   /** What a person pointed at walking this Job's work, oldest first, sent ones too. Since 23.18. */
   walk_notes?: WalkNote[];
+  /** The Triggers frozen onto this Job: pending, or fired and how each ended. Since 23.58. */
+  triggers?: JobTrigger[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */
@@ -267,7 +270,7 @@ export type JobDetail = {
   /**
    * What a Job still at its approval gate opens its pull request as when its approval says
    * nothing: the workflow's delivering step, the repository, this machine, then ready. Since
-   * 23.57. Absent once `landing` is there, and on a Fleet before it.
+   * 23.60. Absent once `landing` is there, and on a Fleet before it.
    */
   pr_mode_default?: string;
   /** What the approval said in place of the repository's policies. Since 23.8. Absent is the repository deciding. */

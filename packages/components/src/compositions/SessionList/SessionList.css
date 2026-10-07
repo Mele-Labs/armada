@@ -55,9 +55,43 @@
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
+  border-inline-start: var(--space-1) solid var(--session-edge, var(--border-subtle));
   background: var(--bg-raised);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+}
+
+/* State in the frame, from the Job rows' own status tokens. */
+.armada-session-list__row[data-state="working"] {
+  --session-edge: var(--status-running);
+}
+
+.armada-session-list__row[data-state="waiting"] {
+  --session-edge: var(--status-awaiting-review);
+}
+
+.armada-session-list__row[data-state="failing"] {
+  --session-edge: var(--status-completed-failed);
+}
+
+.armada-session-list__row[data-state="idle"] {
+  --session-edge: var(--status-completed-success);
+}
+
+.armada-session-list__row[data-state="blank"] {
+  --session-edge: var(--status-not-started);
+}
+
+.armada-session-list__row[data-state] .armada-session-mark {
+  color: var(--session-edge);
+}
+
+.armada-session-list__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .armada-session-list__row:hover {
@@ -66,6 +100,7 @@
 
 .armada-session-list__open {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -102,27 +137,38 @@
   color: var(--fg-subtle);
 }
 
-/* The ledger is its own line under the title, in line with the title's text and not the mark. */
+/* The open items are one line that never wraps; the ghost is the same items measured, unseen. */
 .armada-session-list__chips {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-2);
+  overflow: hidden;
   padding-inline-start: calc(var(--space-4) + var(--space-2));
   font-family: var(--font-mono);
 }
 
-.armada-session-list__chips:empty {
-  display: none;
+.armada-session-list__item {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-session-list__more {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+.armada-session-list__ghost {
+  position: absolute;
+  display: flex;
+  gap: var(--space-2);
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .armada-session-list__pr {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-}
-
-.armada-session-list__checks {
-  display: inline-flex;
-  color: var(--fg-muted);
 }

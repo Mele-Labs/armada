@@ -273,6 +273,21 @@ pub enum SessionRow {
         at: Instant,
         text: String,
     },
+    /// A command the person ran in the terminal, as typed: `/reload-plugins`,
+    /// with its arguments. Its output is not drawn. Since 23.56.
+    Command {
+        id: String,
+        at: Instant,
+        text: String,
+    },
+    /// The summary the agent's CLI wrote in place of a conversation it
+    /// compacted. **Not the person's words**, and not the agent's either.
+    /// Since 23.56.
+    Compaction {
+        id: String,
+        at: Instant,
+        text: String,
+    },
     /// The first write: the slot leased and the branch cut.
     Lease {
         id: String,
@@ -318,6 +333,8 @@ impl SessionRow {
             SessionRow::Message { id, .. }
             | SessionRow::Handoff { id, .. }
             | SessionRow::Tool { id, .. }
+            | SessionRow::Command { id, .. }
+            | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
@@ -348,6 +365,31 @@ pub struct SessionGate {
     pub tool_name: String,
     #[serde(default)]
     pub tool_input: serde_json::Value,
+}
+
+/// What the `armada` mod in a terminal session asks on a timer: has anyone
+/// written to this session from Bridge. Since 23.53.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TakeHeld {
+    pub session_id: String,
+}
+
+/// What a person sent a terminal session, oldest first, handed over once. The
+/// mod submits each as the person's own prompt.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessagesHeld {
+    pub messages: Vec<String>,
+    /// Commands to run as if typed, in order with the messages' own turns.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<HeldCommand>,
+}
+
+/// A slash command a person chose in Bridge for a terminal session: `model` or
+/// `effort`, and its argument.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldCommand {
+    pub command: String,
+    pub args: String,
 }
 
 /// What the hook is answered with. **Spelled as the harness reads it**, as

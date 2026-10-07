@@ -202,7 +202,7 @@ fn a_drone_whose_tools_outlive_it(marker: &std::path::Path) -> FakeHarness {
         "echo CALLED; \
          /usr/bin/perl -e 'setpgrp(0,0); open my $out, \">\", \"{marker}\" or die; \
          print $out $$; close $out; sleep 30' & \
-         while [ ! -s '{marker}' ]; do sleep 0.05; done; \
+         while [ ! -s '{marker}' ]; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.05; done; \
          echo ENDED; sleep 30"
     );
     FakeHarness::running("/bin/sh", &["-c", leaves_a_tool_holding_stdout.as_str()])

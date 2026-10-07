@@ -42,6 +42,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
+| `tuned` | `model?`, `effort?`, `mode?`, `commands?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
 | `ended` | `reason` | Ends it and gives back everything it still holds |
 
@@ -230,15 +231,26 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
 
+## A terminal session's thread
+
+Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
+
+> **Rule.** The thread is drawn and never read as a claim. Nothing Fleet knows about a terminal session, its title, its Job or its state, comes from its rows.
+
+A slash command the person ran is one `command` row, as typed, and the summary the CLI writes where it compacted a long conversation is one `compaction` row, so neither reads as the person's words. What is not drawn: the agent's reasoning, a tool's answer, a command's output, a subagent's own turns, the CLI's bookkeeping (a caveat, a reminder, a task notification) and a message from another session. No wrapper tag the CLI writes for itself reaches a row.
+
+**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session asks `take_held_messages` every two seconds and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. A file or picture is saved by Fleet as for a hosted session and sent as `Attached file: <path>` in the text. The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer. A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27). **The permission mode is shown and not set**: nothing in the mods API switches a live session's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn. There is no Close in Bridge for a terminal session. The sent text shows in the thread when the transcript has it, which is when the turn starts.
+
 ## Not built
 
 **The `/` list is empty until an agent has started.** `hosted.commands` is the names in the stream's `init` line, slash commands then skills, and a session whose own process has not started is given the last one any session read. It is held in memory, so after a Fleet restart it is empty until a process starts, and the harness says nothing of what each command does, so the list draws names only.
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
 
-**A terminal session's messages are not drawn.** A hosted session's thread carries
-what another hosted session wrote to it; the mod reports a message from a
-terminal session as a count and never its text.
+**A message another session sent a terminal session is not drawn.** A hosted
+session's thread carries what another hosted session wrote to it; a terminal
+thread skips the line, and the mod reports the message as a count and never
+its text.
 
 **Hosted sessions in different permission modes may not wake each other.** The
 tool says a session in another mode holds a cross-session message for approval.

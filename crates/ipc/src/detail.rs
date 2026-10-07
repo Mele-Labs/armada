@@ -276,7 +276,7 @@ pub struct JobDetail {
     pub landing: Option<crate::LandingRule>,
     /// What a Job still at its approval gate opens its pull request as when its
     /// approval says nothing: the workflow's delivering step, the repository,
-    /// this machine, then ready. **Since 23.57.** Absent once `landing` is
+    /// this machine, then ready. **Since 23.60.** Absent once `landing` is
     /// there, and on a Fleet before it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr_mode_default: Option<crate::PrMode>,
@@ -376,6 +376,12 @@ pub struct JobDetail {
     /// one whose notes were all removed. Filled after [`JobDetail::of`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub walk_notes: Vec<WalkNote>,
+    /// The Triggers frozen onto this Job, each pending, or fired and how it
+    /// ended, in the order they were frozen and fired. **Since 23.58.** Empty
+    /// is a Job with none, and every Job approved before Triggers. Filled
+    /// after [`JobDetail::of`]. `job.trigger_changed` moves one without a read.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub triggers: Vec<crate::triggers::JobTrigger>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -807,6 +813,7 @@ impl JobDetail {
             replaces: None,
             wave_rounds: Vec::new(),
             walk_notes: Vec::new(),
+            triggers: Vec::new(),
         }
     }
 }

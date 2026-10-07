@@ -5,15 +5,15 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use api::Sessions;
 use ipc::{
-    AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow, SessionRowChanged, SessionTag,
-    TagKind, WireError,
+    AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow,
+    SessionRowChanged, SessionTag, TagKind, WireError,
 };
 use serde::Serialize;
 
 use crate::daemon::Fleet;
 
 /// A row that would not encode or a thread that would not read.
-const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
+pub(super) const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
 
 impl<H, V, W> Fleet<H, V, W>
 where

@@ -10,7 +10,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, SendSessionMessage, SessionGate, SessionId,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
     SessionRecord, SessionThread, StartSession, TuneSession,
 };
 
@@ -58,7 +58,7 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `get_session`: the row and its thread.
     fn get_session(
-        &self,
+        self: Arc<Self>,
         id: SessionId,
     ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
 
@@ -74,4 +74,11 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         gate: SessionGate,
     ) -> impl Future<Output = Result<GateAnswer, Refusal>> + Send;
+
+    /// `take_held_messages`: what a person sent a terminal session, handed to
+    /// its mod once. **Every ask also says the session is listening.**
+    fn take_held_messages(
+        &self,
+        ask: TakeHeld,
+    ) -> impl Future<Output = Result<MessagesHeld, Refusal>> + Send;
 }

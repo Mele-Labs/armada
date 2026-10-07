@@ -2799,6 +2799,8 @@ matters most for `fan_out` and `evidence_suspect`, whose plain forms are
 not guessable back to the enum; the triggers named for their condition
 are near-identity and lose little either way.
 
+A Trigger's firing has its own states, `skipped`, `running`, `passed`, `failed` and `awaiting_owner`. `awaiting_owner` renders as **waiting on you**: a Trigger on a destructive Command is not run until he says so. It is not **needs you** in the Job's own sense, because the Job carries on.
+
 `silent` takes no verb of its own. It is a sub-kind of `stalled` and
 renders as **stalled** — the difference is entirely in the suggested
 action on the payload, which is rephrase and redispatch rather than

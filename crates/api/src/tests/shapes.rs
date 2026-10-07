@@ -388,6 +388,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         wave_rounds: Vec::new(),
         // The fake keeps no walk notes.
         walk_notes: Vec::new(),
+        triggers: Vec::new(),
     }
 }
 

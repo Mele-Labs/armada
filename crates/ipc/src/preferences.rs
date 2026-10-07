@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct Preferences {
     pub where_things_are_open: bool,
     /// Whether this machine offers a pull request as a draft unless the
-    /// repository, the workflow or the Job says otherwise. **Since 23.57.**
+    /// repository, the workflow or the Job says otherwise. **Since 23.60.**
     /// Absent is false, and from a Fleet before it, which offered every one ready.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub draft_pull_requests: bool,

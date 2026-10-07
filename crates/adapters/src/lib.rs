@@ -82,7 +82,11 @@ mod rerunning;
 mod scouting;
 /// A worktree before a person's run, and putting back what the run changed.
 pub mod snapshot;
+/// A terminal session's thread, drawn from the transcript its agent CLI keeps.
+pub mod terminal_thread;
 mod transcript;
+/// The repository's Trigger files as `main` holds them.
+mod trigger_files;
 /// A branch that changes a watched path with no need declared is refused. `#1059`.
 pub mod undeclared;
 mod under_review;
@@ -122,4 +126,5 @@ pub use scouting::{
     Looked, ScoutRefused, Scouting, Shown,
 };
 pub use transcript::{init_commands, sent_message, written_document};
+pub use trigger_files::triggers_on_base;
 pub use worktree::GitVcs;

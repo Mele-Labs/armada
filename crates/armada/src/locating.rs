@@ -142,6 +142,32 @@ impl Locating for Locator {
         }
     }
 
+    fn save_trigger(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveTrigger,
+    ) -> Result<fleet::repositories::SavedTrigger, fleet::repositories::TriggerNotSaved> {
+        crate::trigger_authoring::save(root, &self.machine, manifest, asked)
+    }
+
+    fn remove_trigger(
+        &self,
+        root: &Path,
+        asked: &ipc::RemoveTrigger,
+    ) -> Result<String, fleet::repositories::TriggerNotRemoved> {
+        crate::trigger_authoring::remove(root, &self.machine, asked)
+    }
+
+    fn triggers(&self, root: &Path, base: Option<&str>) -> Vec<config::TriggerWritten> {
+        let mut written: Vec<_> = adapters::triggers_on_base(root, base)
+            .into_iter()
+            .map(|(path, text)| config::TriggerWritten::in_repository(path, text))
+            .collect();
+        written.extend(crate::trigger_authoring::on_machine(&self.machine));
+        written
+    }
+
     fn located(&self, folder: &Path) -> Result<Located, NotLocated> {
         let not_one = |why: String| {
             // The person's sentence names no library; its codes stay here.
