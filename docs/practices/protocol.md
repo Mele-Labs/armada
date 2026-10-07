@@ -3280,6 +3280,17 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
+## Protocol 23.56: a command and a compaction in a terminal session's thread
+
+`docs/concepts/session.md`, *A terminal session's thread*. **Additive only**: two row kinds and nothing else. 23.53 is the terminal session.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `session.row`, `get_session` | `SessionRow` kind `command`: `text` | A slash command or `!` shell line as the person typed it, `/reload-plugins` or `/model opus`. **No markup and no output**: the command's own output is not drawn |
+| `session.row`, `get_session` | `SessionRow` kind `compaction`: `text` | The summary the CLI wrote in place of a conversation it compacted. It is neither the person's nor the agent's words |
+
+Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.59: a mod that is out of date
 
 `docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
