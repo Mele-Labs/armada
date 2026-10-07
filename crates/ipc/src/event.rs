@@ -188,7 +188,7 @@ pub enum Event {
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
     // One row of a hosted session's thread, appended or replaced by its id.
-    // Since 23.47.
+    // Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
 }

@@ -9,6 +9,10 @@ pub enum Delivered {
     BroughtUpToDate { branch: String, base: String },
     /// Auto-merge was turned on for this pull request.
     AutoMerge { pull_request: String },
+    /// The forge was asked what a pull request is, by anybody.
+    ReadPullRequest { pull_request: String },
+    /// A pull request was taken out of draft.
+    MarkedReady { pull_request: String },
     /// The branch was pushed.
     Pushed { branch: String },
     /// The branch was pushed `--force-with-lease`, over history this fake was

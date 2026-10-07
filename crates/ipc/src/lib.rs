@@ -130,6 +130,9 @@ mod overlap;
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// A pull request, by repository and number, and the acts a Session takes on one.
+/// Since 23.48.
+mod pull_requests;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one
@@ -332,6 +335,9 @@ pub use preferences::{Preferences, SavePreference};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,
+};
+pub use pull_requests::{
+    ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{

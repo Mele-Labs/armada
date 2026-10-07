@@ -1,7 +1,7 @@
 //! A session Fleet hosts for Bridge, against a stand-in process: intake to the
 //! ledger as one row, the lease taken on the first write and every write held
 //! until then, a turn started by another session's message, tune, close, and
-//! resume after a quiet spell. Since 23.47.
+//! resume after a quiet spell. Since 23.49.
 //!
 //! **The stand-in is the process seam and not the agent CLI**: a real one needs
 //! a model and an account. It records what Fleet started and wrote, and says

@@ -1,5 +1,5 @@
 //! A hosted session's permission door: the call is put to the person on the
-//! session's own thread, and the answer goes back inside the call. Since 23.47.
+//! session's own thread, and the answer goes back inside the call. Since 23.49.
 //!
 //! **Helm's asking machinery, not a second one**: the same table, the same
 //! reading of what is destructive, pushes to a shared space or writes off this

@@ -1,4 +1,4 @@
-//! The sessions Fleet hosts for Bridge. Since 23.47.
+//! The sessions Fleet hosts for Bridge. Since 23.49.
 //! `docs/concepts/session.md`, *A session Fleet hosts*.
 //!
 //! **Beside Helm and changing nothing about it.** A hosted session is a ledger

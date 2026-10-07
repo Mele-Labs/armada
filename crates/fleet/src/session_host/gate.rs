@@ -1,5 +1,5 @@
 //! The hook a hosted session runs before a write: **the lease is taken on the
-//! first one, and until then nothing can write the main checkout**. Since 23.47.
+//! first one, and until then nothing can write the main checkout**. Since 23.49.
 //!
 //! The process's directory is fixed when it starts, so the lease cannot move it
 //! in place (spike 24 measured the built-in worktree tool refusing a permission

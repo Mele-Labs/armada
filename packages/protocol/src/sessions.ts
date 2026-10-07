@@ -65,7 +65,7 @@ export type SessionRecord = {
   end_reason?: string;
   usage: SessionUsage;
   attachments: Attachment[];
-  /** What a session Fleet hosts carries beyond a terminal's. Since 23.47. */
+  /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
 };
 

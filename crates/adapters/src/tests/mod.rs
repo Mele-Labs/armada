@@ -36,6 +36,7 @@ mod leasing_trim;
 mod mcp;
 mod merging_after_a_kill;
 mod merging_by_push;
+mod pull_request_facts;
 mod reading_in;
 mod reclaim;
 mod remembering;

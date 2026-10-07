@@ -296,6 +296,7 @@ origin field of its own. The label above is what a row renders.
 | `sub_dispatched` | Sub-dispatched by `<parent job id>` |
 | `studio_dispatched` | From a Studio, by you |
 | `studio_helm_drafted` | From a Studio, via Helm |
+| `session_dispatched` | From a Session, by you |
 
 **Three of the first five read as sentences rather than labels**, settled on the
 drawing and amended 2026-08-21 — see [Monitor active

@@ -52,7 +52,7 @@ mod existing_setup;
 mod filing;
 mod git_guard;
 mod harness;
-/// A session Bridge hosts: a live process, resumed by id. Since 23.47.
+/// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
 mod inline_comments;
 mod issue_lookup;
@@ -72,6 +72,7 @@ pub mod needs;
 /// The step onto a base, shared by `armada land` and `merge_by: push`.
 pub mod onto_base;
 mod pull_request_diff;
+mod pull_request_facts;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
 mod reclaim;

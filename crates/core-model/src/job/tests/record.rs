@@ -258,7 +258,7 @@ fn each_enums_size_is_pinned_here_and_compared_to_no_registry() {
     assert_eq!(JobStatus::ALL.len(), 14);
     assert_eq!(StepState::ALL.len(), 6);
     assert_eq!(EscalationTrigger::ALL.len(), 28);
-    assert_eq!(Origin::ALL.len(), 8);
+    assert_eq!(Origin::ALL.len(), 9);
     assert_eq!(PilotReason::ALL.len(), 3);
     assert_eq!(CriterionSource::ALL.len(), 3);
     assert_eq!(DependencyDirection::ALL.len(), 2);

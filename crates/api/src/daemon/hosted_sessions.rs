@@ -1,5 +1,5 @@
 //! A session Bridge hosts: start it, talk to it, answer what it asks, tune it,
-//! close it, read its thread. Since 23.47. `docs/concepts/session.md`.
+//! close it, read its thread. Since 23.49. `docs/concepts/session.md`.
 //!
 //! **Beside [`Sessions`](super::Sessions) and not in it**, for that trait's
 //! reason one subject over: the ledger is what a harness reports and these are

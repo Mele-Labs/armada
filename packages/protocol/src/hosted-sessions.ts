@@ -1,6 +1,6 @@
 // A session Fleet hosts for Bridge: the commands that drive one, its thread and
 // the event that streams it. `crates/ipc/src/hosted_sessions.rs`,
-// `docs/concepts/session.md`. Since protocol 23.47.
+// `docs/concepts/session.md`. Since protocol 23.49.
 //
 // The header rules in `protocol.ts` hold here. A hosted session is a
 // `SessionRecord` with `origin: "bridge"` and `hosted` set; its thread is not on

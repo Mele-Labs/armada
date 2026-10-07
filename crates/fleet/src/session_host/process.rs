@@ -1,4 +1,4 @@
-//! The process a hosted session runs in, behind one interface. Since 23.47.
+//! The process a hosted session runs in, behind one interface. Since 23.49.
 //!
 //! **Built to change, as `helm::Hosting` is**: a test plants a host that
 //! answers with events, and a host elsewhere is a second implementation. What

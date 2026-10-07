@@ -3695,7 +3695,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Start a session Fleet hosts for Bridge in one repository, with no slot and no branch until the agent writes"
 notes = """
-`POST /sessions/start`, body `StartSession`: `manifest_id`, and `title`, `model`, `effort` and `mode` where the person chose them. Since 23.47. Answered with the `SessionRecord`, `origin` `bridge`, `hosted` set. **No process starts**: the first message does. `mode` absent is `auto`.
+`POST /sessions/start`, body `StartSession`: `manifest_id`, and `title`, `model`, `effort` and `mode` where the person chose them. Since 23.49. Answered with the `SessionRecord`, `origin` `bridge`, `hosted` set. **No process starts**: the first message does. `mode` absent is `auto`.
 
 `agent_access` is `No` for all of the hosted-session commands: a session is the person's own conversation, and an agent that could start, tune or close one could drive another's.
 """
@@ -3706,7 +3706,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "A message to a hosted session, with the pictures and files sent beside it and the sessions, Jobs, pull requests and branches it names. It takes a turn"
 notes = """
-`POST /sessions/message`, body `SendSessionMessage`: `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`). **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.47.
+`POST /sessions/message`, body `SendSessionMessage`: `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`). **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.49.
 
 **Fleet stores an attachment and passes it on.** A picture reaches the session as a picture; any other file as a path in a directory the session may read. **A mention becomes one line Fleet adds** ahead of the message; the thread keeps only the person's words, with the mentions beside them. A message to a session whose process ended starts one with `--resume`.
 """
@@ -3717,7 +3717,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Answer the call a hosted session is held on: allow once, allow and remember, or refuse"
 notes = """
-`POST /sessions/ask/answer`, body `AnswerSessionAsk`: `session_id`, the ask's `call`, one of its `offers` and a `note` on a refusal. Since 23.47. Answered with the `SessionRecord`. **A second table from Helm's**: the ask is on the session's thread and never in the dock, and `answer_helm_call` does not find it. A call nothing is waiting under is a 409.
+`POST /sessions/ask/answer`, body `AnswerSessionAsk`: `session_id`, the ask's `call`, one of its `offers` and a `note` on a refusal. Since 23.49. Answered with the `SessionRecord`. **A second table from Helm's**: the ask is on the session's thread and never in the dock, and `answer_helm_call` does not find it. A call nothing is waiting under is a 409.
 """
 
 [operations.tune_session]
@@ -3726,7 +3726,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Set the model, effort and permission mode a hosted session's next turn runs on"
 notes = """
-`POST /sessions/tune`, body `TuneSession`. Since 23.47. A model or effort left out is the machine's own. A process that is running is ended once its turn is over, and the next message resumes the session with the new settings.
+`POST /sessions/tune`, body `TuneSession`. Since 23.49. A model or effort left out is the machine's own. A process that is running is ended once its turn is over, and the next message resumes the session with the new settings.
 """
 
 [operations.close_session]
@@ -3735,7 +3735,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Close a hosted session: end its process, give back the slot it holds and end its row"
 notes = """
-`POST /sessions/close`, body `CloseSession`. Since 23.47. The slot is parked, which commits what is in it to the session's own branch and pushes nothing, so closing loses no work.
+`POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the session's own branch and pushes nothing, so closing loses no work.
 """
 
 [operations.get_session]
@@ -3744,7 +3744,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "One hosted session and its thread, oldest row first"
 notes = """
-`GET /sessions/one?session_id=`. Since 23.47. `SessionThread`: the `SessionRecord` and its `rows`. A client reads this once and follows `session.row`.
+`GET /sessions/one?session_id=`. Since 23.49. `SessionThread`: the `SessionRecord` and its `rows`. A client reads this once and follows `session.row`.
 """
 
 [operations.get_session_file]
@@ -3753,7 +3753,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "A picture or file that was sent to a hosted session, as it was sent"
 notes = """
-`GET /sessions/file?session_id=&file=`, `file` a `SentFile.id` from a row. Since 23.47. The bytes, under the media type they were sent as.
+`GET /sessions/file?session_id=&file=`, `file` a `SentFile.id` from a row. Since 23.49. The bytes, under the media type they were sent as.
 """
 
 [operations.gate_session_call]
@@ -3762,7 +3762,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The hook a hosted session runs before a tool: holds a write until the session has leased a slot, and leases one on the first"
 notes = """
-`POST /sessions/gate`, body `SessionGate`: the session's id, its working directory, the tool and its input. Since 23.47. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client.
+`POST /sessions/gate`, body `SessionGate`: the session's id, its working directory, the tool and its input. Since 23.49. Answered with the harness's own hook shape: `{}` to let the call go on to the rest of the permission path, or a `deny` whose reason the model reads. **Reached by the harness itself**, never by a client.
 """
 
 [operations.act_on_need]
@@ -3791,6 +3791,69 @@ notes = """
 `GET /needs?manifest_id=`. Since 23.46. `NeedList`: the same row `who_owns` answers for `kind=need`, with each holder named as a person would and every path in one answer, so a session asks what stands in its way once. A path's order is when each was declared, then the holder's id.
 """
 
+[operations.get_pull_request]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One pull request by repository and number: draft, open, merged or closed, auto-merge, the forge's checks, title, branch and address"
+notes = """
+`GET /pull_requests/:repository/:number`, `repository` a manifest id. Since 23.48. `PullRequestState`. **The read refreshes the ledger**: every Session's `pr` row for this pull request takes the answer as its `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`) through the ledger's own attach, and a merged one is settled `spent` and a closed one `given_back`. A read that changed nothing publishes nothing.
+
+`checks` is the forge's own: `pending` while any has not finished and none has failed, `passed` once every one has, and `failed` with the names the forge gives the failing ones. **A repository that runs nothing reads `pending`**, because nothing passed.
+
+Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer (no tool, nobody signed in, no such number), and a 422 for a repository Fleet does not serve.
+"""
+
+[operations.ready_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person takes a draft pull request out of draft"
+notes = """
+`POST /pull_requests/:repository/:number/ready`. Since 23.48. Answers the pull request as the forge shows it afterwards. **A write to the forge**: it tells everyone watching the repository the work is ready to be read, so Helm asks first (`pushes to shared`), as for `merge_pull_request`.
+
+Refused with a 409 `fleet.pull_request_not_a_draft` where it is open already, a 409 `fleet.merge_not_open` where it is merged or closed, and a 409 `fleet.ready_refused` carrying the forge's own sentence where it would not.
+"""
+
+[operations.merge_pull_request_by_number]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person merges a pull request by repository and number, once the forge's checks have passed"
+notes = """
+`POST /pull_requests/:repository/:number/merge`. Since 23.48. **`merge_pull_request`'s sibling for a pull request that is nobody's Job**: that one is a Job's press at its gate and records the landing on the Job, and this one has no Job to record on, so it merges through the same forge call and answers the pull request afterwards. A Session's `pr` row is settled `spent`.
+
+**It refuses before it writes when the checks have not passed.** `fleet.merge_checks_not_passed` is a 409 for `pending` and for `failed` alike, with the failing names in the message; the answer to a pending one is `enable_auto_merge`. A draft is `fleet.pull_request_is_a_draft`. A merged one is answered as it stands, not refused: the work is where the press was trying to put it.
+
+The forge's own refusals keep the nine codes `merge_pull_request` has (`fleet.merge_branch_protected`, `fleet.merge_conflicted`, `fleet.merge_not_open`, `fleet.merge_no_tool`, `fleet.merge_refused` and the rest). **A need does not hold this press**: a need is declared by a branch and this names none. `pushes to shared`, so Helm asks first.
+"""
+
+[operations.enable_auto_merge]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person asks the forge to merge a pull request when its checks pass"
+notes = """
+`POST /pull_requests/:repository/:number/auto_merge`. Since 23.48. **Merges nothing itself**: the forge merges when its required checks pass, and until then this is a standing instruction on a repository other people read, so Helm asks first (`pushes to shared`).
+
+Allowed **while the checks run**. A 409 `fleet.pull_request_checks_passed` where they have already (merge it), a 409 `fleet.merge_checks_not_passed` where one has failed, `fleet.pull_request_is_a_draft` and `fleet.merge_not_open` as for a merge, and a 409 `fleet.auto_merge_refused` carrying the forge's sentence where the repository does not allow it. Asked twice, the second answers the pull request as it stands.
+"""
+
+[operations.review_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A Code Review Job drafted against a pull request, by number or address, naming the workflow itself"
+notes = """
+`POST /pull_request_reviews/:repository`, body `ReviewPullRequest`: `pull_request` a number or an address, and `session_id` where a Session pressed it. Since 23.48. Answered with `ReviewDispatched`, a 201.
+
+**The workflow is named, not guessed.** `propose_from_request` asks the proposer to choose, and a link is the one input a proposer has least to go on; this drafts `code_review` directly with the pull request as the Job's `subject`, so what runs is what the press said. **At the approval gate** like every dispatch, and read-only on the pull request.
+
+**`origin` is `session_dispatched`**, *From a Session, by you*, so the Board row says where it came from. Which Session is the ledger's: the Session holds a `job` row for it, with `detail.origin` saying *dispatched from Session <id>*, and `who_owns` answers it. A press with no `session_id` records no Session.
+
+A 422 `fleet.pull_request_unnamed` for something that is neither a number nor a pull request address, and `fleet.pull_request_unreadable` where a number was given and the forge would not say what it is.
+"""
+
 [operations."session.changed"]
 kind = "event"
 transport = "WebSocket"
@@ -3806,5 +3869,5 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "One row of a hosted session's thread, appended or replaced by its id"
 notes = """
-`SessionRowChanged`: `session_id` and the `row`. A client with the row's id replaces it; otherwise appends. An ask is replaced as it is answered. Since 23.47.
+`SessionRowChanged`: `session_id` and the `row`. A client with the row's id replaces it; otherwise appends. An ask is replaced as it is answered. Since 23.49.
 """

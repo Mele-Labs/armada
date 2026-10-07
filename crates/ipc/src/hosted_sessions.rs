@@ -1,5 +1,5 @@
 //! A session Bridge hosts: the commands that drive one, the thread it keeps and
-//! the gate its first write goes through. Since 23.47.
+//! the gate its first write goes through. Since 23.49.
 //! `docs/concepts/session.md`, *A session Fleet hosts*.
 //!
 //! **The ledger's own row, and one thing more.** A hosted session is a

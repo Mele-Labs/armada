@@ -1,4 +1,4 @@
-//! The routes of a session Bridge hosts. Since 23.47.
+//! The routes of a session Bridge hosts. Since 23.49.
 //! `docs/concepts/session.md`.
 
 use axum::body::Bytes;

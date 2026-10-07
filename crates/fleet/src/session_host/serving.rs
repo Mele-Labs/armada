@@ -1,5 +1,5 @@
 //! `api::HostedSessions`, over a real Fleet: start a session, take a message,
-//! answer an ask, tune, close, read. Since 23.47.
+//! answer an ask, tune, close, read. Since 23.49.
 //!
 //! **Nothing here waits on a process.** A message is written to its input and
 //! answered at once; what comes back is the thread's, a row at a time.

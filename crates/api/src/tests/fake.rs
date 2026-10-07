@@ -21,6 +21,7 @@ mod commands;
 mod conversing;
 mod hosted_sessions;
 mod needs;
+mod pull_requests;
 mod queries;
 mod retros;
 mod sessions;

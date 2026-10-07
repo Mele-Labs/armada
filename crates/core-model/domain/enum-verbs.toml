@@ -1261,6 +1261,14 @@ vocabulary = "Origin"
 in_code = ""
 notes = "`studio_dispatched`'s sibling, and the pair is read side by side on one board — so it is spelled to the same length for the same reason, and the two differ only in their second clause. **It says `via Helm` and not `drafted in Helm`**, which drops `helm_drafted`'s own word for what is still owed: a Job Helm wrote up and dispatched on your ask takes your approval, and this verb no longer says so. That reading is on Job detail and in the Job's own state, which is where a person acts on it; the row says who sent it, not what it is waiting for. Neither glyph nor token, for `auto_detected`'s reason. #1362."
 
+[verbs.origin.session_dispatched]
+verb = "From a Session, by you"
+icon = ""
+status_token = ""
+vocabulary = "Origin"
+in_code = ""
+notes = "A person pressed Review on a pull request a Session holds, and Fleet drafted a Code Review Job naming the workflow itself, so the proposer's reading is not in it. **Where from, and who pressed**, as `studio_dispatched` carries both clauses and for the same reason. *Which* Session is not on the Job: the `job` row that Session holds on the session ledger says it, read back with `who_owns`, and goes when the Session's rows are cleared without the Job losing what it says about itself. Neither glyph nor token, for `auto_detected`'s reason."
+
 [verbs.land_state.waiting]
 verb = "waiting"
 icon = "clock"

@@ -1,4 +1,4 @@
-//! A session Bridge hosts, as the headless CLI is started for it. Since 23.47.
+//! A session Bridge hosts, as the headless CLI is started for it. Since 23.49.
 //! `docs/concepts/session.md`, *A session Fleet hosts*.
 //!
 //! **A live process, and a person's.** It is [`crate::conversing`]'s launch

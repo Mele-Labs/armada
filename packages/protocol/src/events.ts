@@ -94,7 +94,7 @@ export type Event =
   | ({ kind: "helm.call_answered" } & HelmCallAnswered)
   /** A session after any fact about it, whole. Since 23.43. */
   | ({ kind: "session.changed" } & SessionRecord)
-  /** One row of a hosted session's thread, appended or replaced by its id. Since 23.47. */
+  /** One row of a hosted session's thread, appended or replaced by its id. Since 23.49. */
   | ({ kind: "session.row" } & SessionRowChanged);
 
 /**
