@@ -69,7 +69,7 @@ export type SessionRecord = {
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
   terminal?: TerminalFacts;
-  /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.59. */
+  /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
 };
 

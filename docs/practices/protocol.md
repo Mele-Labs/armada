@@ -3291,7 +3291,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
-## Protocol 23.59: a mod that is out of date
+## Protocol 23.62: a mod that is out of date
 
 `docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
 

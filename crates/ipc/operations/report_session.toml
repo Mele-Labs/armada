@@ -10,7 +10,7 @@ notes = """
 
 **Fleet resolves what the sender cannot.** `started` and `moved` carry only the directory; Fleet matches it to a served repository and to the pool slot it stands in, and a session moving out of a slot gives it back. A `branch` or `slot` attachment is exclusive per session; every other `kind` is kept as the open word it arrived as.
 
-**`started` and `tuned` carry the mod's `mod_version`** (since 23.59), kept on the session's row; a fact without one leaves it.
+**`started` and `tuned` carry the mod's `mod_version`** (since 23.62), kept on the session's row; a fact without one leaves it.
 
 **A fact is idempotent**: the same attachment reported twice changes nothing and publishes nothing. A session Fleet has never heard of is created by whatever fact arrives first, so a session already running when Fleet started is recorded from its next fact.
 
