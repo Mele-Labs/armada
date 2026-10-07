@@ -67,6 +67,7 @@ mod preferring;
 /// Pulse's kills: one process of a Job, and every one.
 mod processes;
 mod queries;
+mod reconciling;
 /// The `:job_id` a route carries, resolved before a handler can reach it.
 mod reference;
 /// The run sheet's routes: a person's run of one Manifest entry in a Job's
@@ -107,6 +108,7 @@ pub use following::{Follow, Followed, LandOutput, LiveOutput};
 pub use journal::{Journal, Reading, Window, FOLLOW};
 pub use mcp::{Caller, MCP_PATH};
 pub use observing::{Channel, Feed, Observed, Seen, Turns, Watch, WATCHING};
+pub use reconciling::Reconciliation;
 pub use reference::Resolved;
 pub use routes::{router, Route, SERVED};
 pub use served::Served;
