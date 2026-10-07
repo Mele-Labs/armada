@@ -25,7 +25,7 @@ is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 | The `needs` status on a pull request | Built: Fleet publishes it, 23.46 unchanged. Making it required in the ruleset is the owner's and is not done |
 | The `armada` mod reporting a need from a terminal Session | Built: a declare, a took and a release, from the Bash command |
 | A Bridge list, and giving a need back from Bridge | Not built |
-| `armada land` | Still reads the files, and is not moved: it is being retired for pull requests |
+| `armada land` | Retired. It was the only reader of the files |
 
 ## What a person sees
 

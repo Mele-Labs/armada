@@ -45,31 +45,12 @@ pub enum Verb {
     /// The agent's door, spoken on stdin and stdout for an agent standing in
     /// this repository. Started by an agent's MCP client, never by a person.
     Mcp,
-    /// The merge line — `docs/capabilities/merge-line.md`.
-    Land(LandAct),
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
     /// What a branch needs on a path — `docs/capabilities/merge-line.md`.
     Need(NeedAct),
     /// What the verbs are.
     Help,
-}
-
-/// Which of `armada land`'s forms was asked for.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LandAct {
-    /// `armada land` — join the line, and return at once.
-    Join,
-    /// `armada land preflight` — ready this branch, and stamp its tree.
-    Preflight,
-    /// `armada land --status [branch]` — where it is, from disk.
-    Status { branch: Option<String> },
-    /// `armada land --withdraw [branch]` — out of the line.
-    Withdraw { branch: Option<String> },
-    /// `armada land --runner <common-git-dir>` — hidden: the detached
-    /// runner's own entry point, started by `ensure_runner` rather than
-    /// typed.
-    Runner { common_git_dir: PathBuf },
 }
 
 /// The verbs, in the order the usage prints them, each with what it is for.
@@ -99,7 +80,6 @@ const VERBS: &[(&str, &str)] = &[
         MCP,
         "relay this repository's agent door on stdin and stdout — an agent's client runs it",
     ),
-    (LAND, "join, ready, or poll the merge line to `main`"),
     (
         WORKTREE,
         "lease a warm worktree, give it back, or list who holds each",
@@ -117,14 +97,11 @@ const VERBS: &[(&str, &str)] = &[
 /// a rename that missed one of the two would publish a door nothing answers.
 pub const MCP: &str = "mcp";
 
-/// The verb that answers which Checks a change hits. `scripts/land` names it.
+/// The verb that answers which Checks a change hits. CI names it.
 pub const COVERS: &str = "covers";
 
-/// The merge line. `scripts/land` is now a thin shim over this verb.
-pub const LAND: &str = "land";
-
-/// `check`'s flag for a run over what the changed paths on stdin reach. The
-/// merge line names it.
+/// `check`'s flag for a run over what the changed paths on stdin reach. CI
+/// names it.
 pub const CHANGED: &str = "--changed";
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
@@ -214,7 +191,6 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
                 force: rest.iter().any(|arg| arg == "--force"),
             })
         }
-        LAND => read_land(rest, &mut faults),
         WORKTREE => worktree::read(rest, &mut faults),
         NEED => need::read(rest, &mut faults),
         _ => {
@@ -245,80 +221,6 @@ fn positionals(args: &[String], allowed: &[&str], faults: &mut Vec<Fault>) -> Ve
         }
     }
     positional
-}
-
-/// `land`'s own shape: an optional `preflight` positional, `--status` and
-/// `--withdraw` with an optional value, and the hidden `--runner <common-git-dir>` —
-/// different enough from every other verb's flags (a value, not a bare
-/// switch) that it is read by hand rather than through [`positionals`].
-/// Precedence where more than one is given — `--runner`, then `--status`,
-/// then `--withdraw`, then `preflight`, then joining the line — matches `argparse`'s own
-/// dispatch in `scripts/land`'s `main()`.
-fn read_land(rest: &[String], faults: &mut Vec<Fault>) -> Option<Verb> {
-    let mut positional = Vec::new();
-    let mut status: Option<Option<String>> = None;
-    let mut withdraw: Option<Option<String>> = None;
-    let mut runner = None;
-    let mut i = 0;
-    while i < rest.len() {
-        let arg = &rest[i];
-        if arg == "--status" || arg == "--withdraw" {
-            let value = rest
-                .get(i + 1)
-                .filter(|next| !next.starts_with('-'))
-                .cloned();
-            i += usize::from(value.is_some());
-            if arg == "--status" {
-                status = Some(value);
-            } else {
-                withdraw = Some(value);
-            }
-        } else if arg == "--runner" {
-            match rest.get(i + 1) {
-                Some(value) => {
-                    runner = Some(value.clone());
-                    i += 1;
-                }
-                None => faults.push(Fault::FlagNeedsAValue { flag: arg.clone() }),
-            }
-        } else if arg.starts_with('-') {
-            faults.push(Fault::NoSuchFlag {
-                given: arg.clone(),
-                allowed: vec!["--status".to_string(), "--withdraw".to_string()],
-            });
-        } else {
-            positional.push(arg.clone());
-        }
-        i += 1;
-    }
-    at_most_one(LAND, &positional, faults);
-    if let Some(first) = positional.first() {
-        if first != "preflight" {
-            faults.push(Fault::LandActionUnknown {
-                given: first.clone(),
-            });
-        }
-    }
-
-    if let Some(common_git_dir) = runner {
-        return Some(Verb::Land(LandAct::Runner {
-            common_git_dir: PathBuf::from(common_git_dir),
-        }));
-    }
-    if let Some(branch) = status {
-        return Some(Verb::Land(LandAct::Status {
-            branch: branch.filter(|branch| !branch.is_empty()),
-        }));
-    }
-    if let Some(branch) = withdraw {
-        return Some(Verb::Land(LandAct::Withdraw {
-            branch: branch.filter(|branch| !branch.is_empty()),
-        }));
-    }
-    if positional.first().map(String::as_str) == Some("preflight") {
-        return Some(Verb::Land(LandAct::Preflight));
-    }
-    positional.is_empty().then_some(Verb::Land(LandAct::Join))
 }
 
 fn at_most_one(verb: &str, positional: &[String], faults: &mut Vec<Fault>) {
@@ -366,15 +268,6 @@ pub enum Fault {
     /// `covers` reads its paths on stdin, one per line, so a diff of any size
     /// fits and a path is never mistaken for a flag.
     PathsComeOnStdin {
-        given: String,
-    },
-    /// `--status` or `--runner` at the end of the line, with no value after
-    /// it.
-    FlagNeedsAValue {
-        flag: String,
-    },
-    /// `land`'s one positional is `preflight`; anything else named there.
-    LandActionUnknown {
         given: String,
     },
     /// `check --changed` beside one test's name.
@@ -451,14 +344,6 @@ impl fmt::Display for Fault {
                 "`armada {COVERS}` reads the changed paths on stdin, one per line, so `{given}` \
                  has nowhere to go — `git diff --name-only main | armada {COVERS}`"
             ),
-            Fault::FlagNeedsAValue { flag } => {
-                write!(out, "`{flag}` needs a value after it")
-            }
-            Fault::LandActionUnknown { given } => write!(
-                out,
-                "`armada {LAND} {given}` is not a form this verb takes — they are `{LAND}`, \
-                 `{LAND} preflight`, `{LAND} --status [branch]`, `{LAND} --withdraw [branch]`"
-            ),
             Fault::ChangedRunsTheWholeCheck { test } => write!(
                 out,
                 "`{CHANGED}` narrows the whole Check to what a change reaches, so `{test}` \
@@ -493,25 +378,6 @@ impl fmt::Display for Usage {
         writeln!(out, "armada — Fleet, and what a repository's Manifest says")?;
         writeln!(out)?;
         for (verb, what) in VERBS {
-            if *verb == LAND {
-                writeln!(
-                    out,
-                    "  armada {LAND}                       join the merge line, and return at once"
-                )?;
-                writeln!(
-                    out,
-                    "  armada {LAND} preflight              ready this branch, and stamp its tree"
-                )?;
-                writeln!(
-                    out,
-                    "  armada {LAND} --status [<branch>]    where it is, answered from disk"
-                )?;
-                writeln!(
-                    out,
-                    "  armada {LAND} --withdraw [<branch>]  out of the line, this branch by default"
-                )?;
-                continue;
-            }
             if *verb == WORKTREE {
                 worktree::usage(out)?;
                 continue;

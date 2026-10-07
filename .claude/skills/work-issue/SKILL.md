@@ -102,7 +102,7 @@ you land in order and nothing is renumbered; a required status on the pull reque
 is not built. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
-**`armada land preflight` and Fleet's merge refuse a branch that changes the
+**Fleet's merge refuses a branch that changes the
 protocol minor with no need declared**, so declare first. `armada need --release <path>` gives one back; a branch deleted locally gives its
 needs back by itself, and a need that stalls is given back by a person, since
 nothing expires. `armada need --status` lists every need by path.
@@ -259,11 +259,6 @@ touch.
 look.** It ships with a walk, he opens its link on a mock served from your
 worktree, and you open the pull request only after his OK. `annotations`, step
 4, has the rule, and `docs/practices/running-locally.md` *Walks* has the walk.
-
-**The merge line is retiring.** `scripts/land` and `armada land` are not for new
-work. A branch already queued there is left alone: do not withdraw it or open a
-pull request for it. `docs/practices/running-locally.md`, *Landing a branch*,
-says how to read one that is still draining.
 
 **Where a file sits near a threshold, leave headroom.** A branch and `main` can
 each sit under a limit that the two together cross, and `ci` measures the merged

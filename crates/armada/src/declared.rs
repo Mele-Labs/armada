@@ -259,7 +259,7 @@ pub fn machine_slots_for_fleet() -> Option<CheckSlots> {
 /// in a workspace. [`Manifests::covering`] says which manifests are asked.
 ///
 /// **One answer with a Job's gate**: each Check is asked through the same
-/// [`config::Check::covers`], so `scripts/land` choosing what to rerun and
+/// [`config::Check::covers`], so CI choosing what to rerun and
 /// Fleet choosing what to skip cannot come apart. `docs/capabilities/merge-line.md`.
 pub fn covering(root: &Path, changed: &[String]) -> Result<Vec<String>, NotDeclared> {
     Ok(Manifests::load(root)?.covering(changed))

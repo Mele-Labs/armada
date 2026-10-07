@@ -5,16 +5,12 @@ Merges to `main` go through pull requests and the `ci` check. An agent may
 merge a pull request with "Create a merge commit" once `ci` has passed, or ask
 GitHub to do it when `ci` does (`--auto`). So this refuses the commands that
 reach `main` around that: a push to it, a forge merge that is not that one, and
-a `git merge` run in the checkout that has it. `scripts/land` and `armada land` drain what is already
-queued on the merge line and are not refused here.
+a `git merge` run in the checkout that has it.
 
 Reads the hook payload on stdin and answers `deny` or nothing at all.
-`docs/capabilities/merge-line.md` is the design of the line being retired.
-
-The line's own push of `main` is the one allowed, and it never reaches this
-hook: the detached runner makes it, not the Bash tool. So no command typed
-here is the runner's, and nothing in one, an environment variable included,
-lets it through.
+`docs/practices/ci.md` is how a pull request reaches `main`. No command typed
+here gets round it, and nothing in one, an environment variable included, lets
+it through.
 """
 import json
 import os
@@ -22,7 +18,7 @@ import shlex
 import subprocess
 import sys
 
-# What `land` puts on the base. Both spellings of the same ref, plus the bare
+# What a push to the base names. Both spellings of the same ref, plus the bare
 # name a refspec may use.
 BASE = "main"
 BASE_REFS = (BASE, f"refs/heads/{BASE}")

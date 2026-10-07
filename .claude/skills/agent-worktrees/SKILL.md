@@ -104,8 +104,7 @@ open it. Check it merged with `gh pr view <branch> --json state` (it reads
 `MERGED`) before removing a worktree, and run the three checks below first,
 every time: nothing here can tell your worktree from one another agent is still
 writing in. Delete the remote branch with `git push origin --delete <branch>` or
-GitHub's delete-branch button. A branch still queued on the merge line is
-cleaned up by `scripts/land`, which prints these two commands when it lands it.
+GitHub's delete-branch button.
 
 **Removing the worktree is the fix. Deleting its `target/` is not.** A build
 directory rebuilds; a worktree that nobody removes stays forever and takes a new

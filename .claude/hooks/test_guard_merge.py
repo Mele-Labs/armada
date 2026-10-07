@@ -156,7 +156,6 @@ class Refuses(unittest.TestCase):
         self.assertIn("Create a merge commit", reason)
         self.assertIn("gh pr merge <n> --merge", reason)
         self.assertIn("docs/practices/ci.md", reason)
-        self.assertNotIn("scripts/land", reason)
 
 
 def checkout(root: pathlib.Path, name: str, branch: str) -> str:
@@ -274,13 +273,8 @@ class Allows(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIsNone(decide(command))
 
-    def test_the_line_itself_and_reading_a_pull_request(self) -> None:
-        # Still allowed while the line drains; the refusal no longer teaches them.
+    def test_reading_and_opening_a_pull_request(self) -> None:
         for command in (
-            "scripts/land",
-            "scripts/land --status",
-            "armada land preflight",
-            "armada land",
             "gh pr view 1327 --json state",
             "gh pr list --state merged",
             "gh pr create --fill",

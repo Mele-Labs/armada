@@ -24,10 +24,10 @@ use std::process::ExitCode;
 
 use adapters::UnmergedWork;
 use armada::clean::Scope;
-use armada::cli::{self, LandAct, NeedAct, Usage, Verb, WorktreeAct};
+use armada::cli::{self, NeedAct, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
 use armada::serve::PROVISIONAL_CHECK_BUDGET;
-use armada::{clean, declared, land, leasing, say, serve};
+use armada::{clean, declared, leasing, say, serve};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -79,7 +79,6 @@ async fn main() -> ExitCode {
         // verb is a pipe with one message in flight; nothing else is running
         // to be starved. `armada::mcp` holds the argument.
         Verb::Mcp => armada::mcp::speak(),
-        Verb::Land(act) => land_verb(act),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::Need(act) => need_verb(act),
     }
@@ -126,101 +125,6 @@ fn worktree_verb(act: WorktreeAct) -> ExitCode {
             pool.open(slot).map(|()| format!("slot-{slot} open"))
         }),
     })
-}
-
-/// `armada land`'s four visible forms, plus the hidden `--runner` the
-/// detached runner starts itself with. Every message here closely
-/// paraphrases `scripts/land`'s own prints — this is a person-facing CLI,
-/// not a wire contract — and every exit code matches
-/// `docs/practices/running-locally.md`'s table.
-fn land_verb(act: LandAct) -> ExitCode {
-    let env = land::Env::read();
-    if let LandAct::Runner { common_git_dir } = act {
-        return land::run_runner(&common_git_dir, &env);
-    }
-    let cwd = match std::env::current_dir() {
-        Ok(cwd) => cwd,
-        Err(why) => {
-            eprintln!("the working directory could not be read: {why}");
-            return ExitCode::FAILURE;
-        }
-    };
-    match act {
-        LandAct::Runner { .. } => unreachable!("handled above"),
-        LandAct::Preflight => match land::preflight(&cwd, &env) {
-            Ok(done) => {
-                println!(
-                    "ready: {}, {}, tree {}",
-                    done.branch,
-                    done.pull_request
-                        .map_or("no pull request".to_string(), |pr| format!(
-                            "pull request #{pr}"
-                        )),
-                    short(&done.tree)
-                );
-                let checks = if done.checks.is_empty() {
-                    "none".to_string()
-                } else {
-                    done.checks.join(", ")
-                };
-                println!("Checks this change hits: {checks}. The line runs each of them.");
-                println!("Once the self-check passes: armada land");
-                ExitCode::SUCCESS
-            }
-            Err(why) => refused(&why),
-        },
-        LandAct::Join => match land::land(&cwd, &env) {
-            Ok(queued) => {
-                let pr = queued
-                    .pull_request
-                    .map_or(String::new(), |pr| format!(", #{pr}"));
-                println!("queued: {}{pr}, {} ahead", queued.branch, queued.ahead);
-                if let Some(waiting) = &queued.waiting {
-                    println!("{waiting}");
-                    println!(
-                        "a stalled need is given back by whoever holds it, or by a person: \
-                         armada need --release <path>"
-                    );
-                }
-                println!("poll: armada land --status {}", queued.branch);
-                ExitCode::SUCCESS
-            }
-            Err(why) => refused(&why),
-        },
-        LandAct::Status { branch } => match land::status(&cwd, branch.as_deref()) {
-            Ok(code) => ExitCode::from(code),
-            Err(why) => refused(&why),
-        },
-        LandAct::Withdraw { branch } => match land::withdraw(&cwd, branch.as_deref()) {
-            Ok(land::Withdrawn::NotInLine(branch)) => {
-                println!("{branch}: not in line, so nothing was withdrawn");
-                ExitCode::SUCCESS
-            }
-            Ok(land::Withdrawn::Waiting(branch)) => {
-                println!(
-                    "withdrew {branch}: it was waiting, and nothing of it was gated or merged"
-                );
-                ExitCode::SUCCESS
-            }
-            Ok(land::Withdrawn::InTurn(branch)) => {
-                println!(
-                    "withdrew {branch}. It is in a turn now: a gate it is already in will still \
-                     finish, and can land it; a gate it is waiting for will not take it"
-                );
-                ExitCode::SUCCESS
-            }
-            Err(why) => refused(&why),
-        },
-    }
-}
-
-fn refused(why: &land::Refused) -> ExitCode {
-    eprintln!("land: {why}");
-    ExitCode::from(1)
-}
-
-fn short(sha: &str) -> &str {
-    sha.get(..10).unwrap_or(sha)
 }
 
 /// Run one Check or one Command in the repository the caller is standing in.

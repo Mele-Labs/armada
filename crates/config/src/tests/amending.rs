@@ -381,7 +381,7 @@ fn removing_a_check_takes_the_comment_written_over_it() {
     let edited = amended(OWN, &[check("hooks_test", CheckEdit::Remove)]);
     let comment = line_of(
         OWN,
-        "  # The Python suite for the hook that keeps agents landing through the merge",
+        "  # The Python suite for the hook that keeps agents landing through pull",
     );
     let next = line_of(OWN, "  preview_test:");
     assert_eq!(edited, without(OWN, comment - 1, next - 2));

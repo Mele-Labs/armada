@@ -6,9 +6,9 @@ milestone: Throughput
 
 # Merges take turns, and each one is checked against the main it lands on
 
-> New work goes through pull requests and the `ci` check, and the line takes
-> nothing new. It drains what is already queued and is retired at the cutover;
-> `docs/practices/ci.md` lists what is owed.
+> Work goes through pull requests and the `ci` check. `armada land` and
+> `scripts/land` are retired; Fleet still reads the outcome files an earlier run
+> left under `.git/armada-land/`.
 
 ## What replaces each part
 
@@ -35,10 +35,9 @@ merged.
 write-scope overlap stays a warning ([Fleet](../concepts/fleet.md),
 *Write-scope overlap*). Only the step onto `main` takes turns.
 
-`armada land` (`scripts/land` is a thin shim over it) is the local stand-in,
-for agents working this repository outside Fleet. It is built so each part
-has a named home in Fleet, listed under *Where each part goes in Fleet*. How
-to run it is `docs/practices/running-locally.md`, *Landing a branch*.
+`armada land` was the local stand-in, for agents working this repository
+outside Fleet, and is gone. It was built so each part has a named home in
+Fleet, listed under *Where each part goes in Fleet*.
 
 ## What holds
 
@@ -130,11 +129,11 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 - **An entry is keyed by a hash of its branch** and carries the name, because branch names hold `/`.
 - **Every finished entry leaves the line**, whatever the outcome, as soon as its own outcome is known, not when the rest of its batch finishes.
 - **A conflict and a red keep their place.** Resubmitted, the entry reuses the place the outcome recorded: the wait was already served.
-- **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, `CHECK_LIMIT` in `crates/armada/src/land/env.rs`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
+- **A Check that runs past its limit is killed and read as red, and the line moves on.** The limit is 15 minutes, the retired runner's `CHECK_LIMIT`, and `ARMADA_LAND_CHECK_LIMIT` overrides it in seconds. It holds on the branch and on `main`'s rerun alike, and the kill takes every process group under the Check, since `armada check` starts the command in a group of its own. Until then a hung Check held the turn until somebody killed the runner, and one turn took 4,364 s. A timeout had been ruled out because evicting a holder that is still working puts two merges in flight. This evicts nothing: the runner keeps the turn, kills its own Check and ends the turn red. What it costs is a slow Check that was not hung, such as a cold build plus the app suite, which now reads as red.
 - **A turn's Checks run one at a time, and each asks ahead of every other ask for a Check slot.** Decided 2 Oct 2026, when running them at once was dropped: the machine was already at a load of 20 to 32 on 18 cores, so a parallel turn would raise the peak for little. Asking ahead stops a turn queueing behind agents' own `armada check` runs instead. [Manifest](../concepts/manifest.md), *How many Checks run at once*.
 - **State lives under the common git directory**, in `armada-land/`, so every worktree of one clone shares one line.
 - **Each gate's logs get a directory of their own**, `armada-land/logs/<entry>/<turn>/`, where `<entry>` is the branch's key (or the batch's) and `<turn>` is when the gate started, in UTC. `main`'s reruns of a Check log into the same directory as the turn that asked. The outcome names the files of its own turn. **A Check's log is written as it runs**: the `$ <command>` line first, each chunk of stdout and stderr as it arrives (in arrival order, so the two interleave), and `[exit N]` last. Until 1 Oct 2026 the directory was the entry's alone and each turn emptied it first, so a rerun that landed erased the red before it: about fifteen `desktop_test` files timed out on `main` that morning and the logs that would have said why were gone.
-- **A turn's logs are kept for two weeks**, `KEPT_FOR` in `crates/armada/src/land/logs.rs`, and pruned when the runner takes a turn. Age rather than a count per entry, because each batch is an entry of its own and is seldom gated twice, so a per-entry count bounds nothing. Measured 1 Oct 2026: 79 MB over 247 entries, about 0.3 MB a turn.
+- **A turn's logs are kept for two weeks**, the retired runner's `KEPT_FOR`, and pruned when the runner takes a turn. Age rather than a count per entry, because each batch is an entry of its own and is seldom gated twice, so a per-entry count bounds nothing. Measured 1 Oct 2026: 79 MB over 247 entries, about 0.3 MB a turn.
 - **Two worktrees, under `.armada/land/`, kept and reused.** `candidate/` is where a branch is gated, `base/` where `main`'s own runs happen. Inside the repository, because a checkout outside it is not somewhere this project's tooling runs: Vite refuses to serve a `node_modules` outside its allow list and `tsc` cannot name a type through one, and three Bridge Checks failed there for reasons that had nothing to do with the branch. `land/` is neither `worktrees/` nor `bases/`, so nothing here is taken for a Job's checkout, and `.armada/*` is already ignored.
 - **Each turn resets its worktree and cleans it, keeping the build directories.** `git reset --hard`, then `git clean -xdff` with `target/` and `node_modules/` excepted — so nothing of the turn before survives but what makes the next one fast. **The lock is what makes reuse safe**: one turn at a time means there is never a second reader of either worktree.
 - **A worktree that is missing, unregistered or no longer a worktree is remade**, and a killed runner's half-merged tree is the same case — `reset --hard` clears the merge with everything else.
@@ -462,5 +461,5 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 
 - `concepts/fleet.md` — *Write-scope overlap*, *Catching a branch up*, and what Fleet knows after a merge.
 - `concepts/manifest.md` — *Which paths a Check covers* and *Proving what merged*.
-- `practices/running-locally.md` — *Landing a branch*, how to run it and read its outcomes.
+- `practices/running-locally.md` — *Landing a branch*, how a branch lands now.
 
