@@ -641,6 +641,19 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 },
                 |said| eprintln!("{said}"),
             );
+            // After adoption above, so a Drone taken back is already recorded and
+            // only those of a Fleet that is gone are ended.
+            fleet::keep_ending_orphans(
+                fleet::orphans::EVERY,
+                {
+                    let fleet = Arc::clone(&fleet);
+                    move || {
+                        let fleet = Arc::clone(&fleet);
+                        async move { fleet.recorded_drone_pids().await }
+                    }
+                },
+                |said| eprintln!("{said}"),
+            );
             reconciliation.finished();
             Ok(turning)
         }

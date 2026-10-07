@@ -193,6 +193,8 @@ pub mod noticing;
 mod one_drone;
 /// Which of a step's Checks starts first, from this repository's past runs.
 mod ordering;
+/// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
+pub mod orphans;
 pub mod overlap;
 pub mod overruling;
 /// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
@@ -323,6 +325,7 @@ mod studios;
 pub mod sub_dispatch;
 mod summarising;
 mod superseding;
+pub use orphans::keep_ending_orphans;
 pub mod sweeping;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
 /// The merge line Fleet runs for each repository, and its turn.
