@@ -174,7 +174,7 @@ type NotRunning = Extract<Connection, { state: "not_running" }>["absence"];
 /**
  * Which of the Fleet panel's dot hues this reading takes.
  *
- * Four of Bridge's seven connection states are none of the contract's three —
+ * Four of Bridge's eight connection states are none of the contract's three —
  * reading, connecting, a refused runtime file and a protocol Bridge does not
  * speak. Those keep the neutral dot and `shortLabelOf` names each one instead;
  * `starting` is a Fleet booting, which draws a glyph in place of the dot.
