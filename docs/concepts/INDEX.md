@@ -36,4 +36,5 @@ assuming it is restated here.
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |
 | [session.md](session.md) | An agent session a person runs, kept as a row so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
+| [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |
 | [workflow.md](workflow.md) | The template a Job runs against — ordered steps, gates and retry policy |
