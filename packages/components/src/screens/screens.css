@@ -106,16 +106,13 @@
    rail width when Sidebar is collapsed — `:has()` is what lets this rule
    follow a child's own state without a prop crossing the two files.
 
-   **The inset is padding, not margin, so the cards' shadow is inside the
-   clip.** A scroller clips at its padding box, and `--shadow-card` reaches
-   12px past a card's sides, 24px below it and 1px above. Held in margin,
-   Navigation, Stats and Fleet lost all three and read as cut out (#1319).
-   Each side keeps its old outer line: the left is all padding, the right's
-   padding is handed back by an equal negative margin (so the box reaches into
-   the gap, where the handle is later in the tree and still takes the pointer),
-   and the top is 12px margin over 4px padding, so what scrolls up still clips
-   under the title bar. Only the bottom moves: 24px of padding to the window's
-   edge, so the last card's drop shows at the end of a scroll too.
+   **The inset is padding, not margin.** The panels are flat now and cast no
+   shadow, but the padding stays: reducing it moves the column's edges, and
+   the layout is the owner's to move (#1319 put it here for the card shadow).
+   The left is all padding, the right's padding is handed back by an equal
+   negative margin (so the box reaches into the gap, where the handle is later
+   in the tree and still takes the pointer), and the top is 12px margin over
+   4px padding, so what scrolls up still clips under the title bar.
 
    `content-box` so every width here — ours, the rail's 48px, and the inline
    one a drag writes — stays the cards' width, and the padding adds outside
