@@ -309,7 +309,8 @@ abandoned. Use it, and land from the branch.
 | Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
-| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
+| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved, with one exception below |
+| A conflict only in `protocol-version.toml` and its generated mirror | Every branch that moves the wire bumps both, so any two conflict. The preview writes one number of its own, the higher of the two sides' `major.minor` with the minor plus one, so it is no branch's and no release's. It writes both files directly (codegen needs an install a preview lacks), commits the merge, and the table says `protocol: preview's own 23.N`. Fleet and Bridge are built from this one tree, so they agree |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
