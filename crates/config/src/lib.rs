@@ -3,7 +3,8 @@
 //! Owns scan, propose, select and verify, plus Check and Command definitions.
 //! A Manifest is an `armada.yml` at a workspace root, version-controlled with
 //! the project it configures; the nearest one up the tree owns a path, and the
-//! root owns what no Workspace claims. **Of Kit, only Workflows are read**:
+//! root owns what no Workspace claims. [`triggers`](mod@triggers) reads the
+//! files that run at a moment in a Job. **Of Kit, only Workflows are read**:
 //! [`catalogue`](mod@catalogue) merges them between Armada's and a repository's
 //! own (#425). Every other tier is a constant, this Manifest, a step.
 //!
@@ -38,6 +39,7 @@ mod resolve;
 mod roster;
 mod runners;
 mod scope;
+mod triggers;
 mod widening;
 mod workflow;
 mod yaml;
@@ -63,6 +65,11 @@ pub use manifest::{
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;
 pub use runners::{detected, shipped, RunnerDescription};
+pub use triggers::{
+    carried as carried_triggers, parse as parse_trigger, Catalogue as TriggerCatalogue,
+    LeftOut as TriggerLeftOut, ResolvedTrigger, ResolvedTriggers, WhyLeftOut as WhyTriggerLeftOut,
+    Written as TriggerWritten,
+};
 pub use widening::with_manifests_added;
 pub use workflow::{MechanicalCheck, Step, WorkflowDef};
 

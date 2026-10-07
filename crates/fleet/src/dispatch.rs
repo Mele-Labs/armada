@@ -984,6 +984,7 @@ where
     ) -> Result<Job, Adrift> {
         let (by, via) = crate::retro::signed(by);
         let finishes = matches!(to, StepTarget::Advanced | StepTarget::Overridden(_));
+        let passes = matches!(to, StepTarget::Advanced);
         let moved = job
             .transition_step(step, to, by, self.now())
             .map_err(Adrift::IllegalStepMove)?;
@@ -1011,6 +1012,19 @@ where
             &moved.event,
             summary,
         )));
+        // An override is a person advancing a step that did not pass, so only
+        // `Advanced` is `step_passes`.
+        if passes {
+            if let Ok(Some(worktree)) = self.worktree_of(&moved.job) {
+                Box::pin(self.fire_triggers(
+                    &moved.job,
+                    core_model::TriggerWhen::StepPasses,
+                    step,
+                    &worktree,
+                ))
+                .await;
+            }
+        }
         Ok(moved.job)
     }
 

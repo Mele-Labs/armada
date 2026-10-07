@@ -36,6 +36,8 @@ mod kit;
 mod retro;
 /// A Studio, its nodes and its edges. `docs/concepts/studio.md`.
 mod studio;
+/// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
+mod trigger;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
@@ -89,4 +91,8 @@ pub use studio::{
     StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioGraph, StudioId, StudioName,
     StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, StudioPosition,
     StudioRelation, StudioRun, StudioRunKept, ToItself,
+};
+pub use trigger::{
+    FrozenTrigger, OnTriggerFailure, Trigger, TriggerFiring, TriggerIdentity, TriggerResolution,
+    TriggerRuns, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
 };

@@ -56,7 +56,7 @@ Reaching `completed_success` creates that Job at `awaiting_approval`, wired back
 
 **A successor is not a sub-dispatch.** It carries no `dispatched_by` — the Job that named it is finished and there is no live Drone to attribute it to — so it does not consume the fan-out cap, and [Job](job.md)'s `origin` carries `workflow_triggered` rather than `sub_dispatched`.
 
-**It is a completion edge, not an event hook.** A Job that lands cleanly and breaks main an hour later is not a workflow completing; that trigger is a different mechanism.
+**`on_complete` is a completion edge, not an event hook.** A Job that lands cleanly and breaks main an hour later is not a workflow completing. What runs at a moment inside a Job is a [Trigger](trigger.md).
 
 **Declared File Plan (continuous drift check).** For steps with `scope_diff_check: true`, the Drone can declare `context_paths` at step *start* (`declare_plan_at: step_start`), not only at evidence-submission time. Fleet then compares live edits against the declared plan throughout the step rather than only at the end.
 
