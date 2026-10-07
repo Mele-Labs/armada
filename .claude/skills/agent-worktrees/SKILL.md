@@ -37,12 +37,15 @@ with `git reset --keep`). After any restart run `git -C <slot> branch
 `armada worktree lease --existing <branch>`. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
-**A lease taken in one tool call can read free when the call ends**, because the
-holder is the shell that ran it. Confirmed 6 Oct 2026, twice in one session:
-`--status` said `holder is gone after 0m` on slots just leased, and another
-session was given each, with an agent's uncommitted work landing on its branch.
-Take the lease and do the work that needs the slot in one background task, and
-commit before it ends; a branch with its commits is safe whoever has the slot.
+**A lease taken in one tool call could read free when the call ended**, because
+the holder was a shell that ran it: `$(armada worktree lease x | tail -1)` runs
+the command under a subshell of the tool's own shell. Confirmed 6 Oct 2026,
+twice in one session: `--status` said `holder is gone after 0m` on slots just
+leased, and another session was given each, with an agent's uncommitted work
+landing on its branch. The holder is now the first process above the command
+that is not a shell, so the agent's session holds it. A lease taken by an
+older binary still has the old holder: commit before a call ends, because a
+branch with its commits is safe whoever has the slot.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A

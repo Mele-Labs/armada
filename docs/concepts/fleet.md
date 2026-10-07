@@ -414,8 +414,9 @@ worktrees a repository leases* — until a person changes the pool on this machi
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
-release at a time. The holder is the process that ran the shell the command was
-run from — an agent's session, or the terminal a person typed in.
+release at a time. The holder is the first process above the command that is not a shell
+— an agent's session, or the terminal a person typed in — so a subshell or a
+pipeline between the two does not become the holder.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
