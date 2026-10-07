@@ -1,6 +1,6 @@
 //! A Trigger that holds its Job, and what the owner does about it.
 //! `docs/concepts/trigger.md`, *A failed Trigger with `block` on*.
-//! **Since 23.63.**
+//! **Since 23.68.**
 //!
 //! A hold is a firing in `held` (or `repairing`, `rerunning` and `fix_ready`
 //! where `repair` is also on) whose Trigger blocks. The firing's row says so on

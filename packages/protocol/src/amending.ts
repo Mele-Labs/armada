@@ -79,7 +79,7 @@ export type ManifestEdit =
   | { edit: "set_poke_limit"; poke_limit: number | null }
   /** Empty defers to what Fleet runs with. */
   | { edit: "set_exclude_paths"; exclude_paths: string[] }
-  /** `null` removes the key, and the repository defers to this machine's default. Since 23.59. */
+  /** `null` removes the key, and the repository defers to this machine's default. Since 23.68. */
   | { edit: "set_pr_mode"; pr_mode: string | null };
 
 /** A Check a form declares. */
@@ -176,7 +176,7 @@ export type ManifestDeclared = {
   quiet_after_seconds?: number;
   poke_limit?: number;
   exclude_paths?: string[];
-  /** `pr_mode`, the repository's Draft default. Absent where the file defers to this machine's. Since 23.59. */
+  /** `pr_mode`, the repository's Draft default. Absent where the file defers to this machine's. Since 23.68. */
   pr_mode?: string;
 };
 

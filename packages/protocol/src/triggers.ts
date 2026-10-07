@@ -13,7 +13,7 @@ export type TriggerScope = "repository" | "machine";
 
 export type TriggerRuns = { kind: "command"; name: string } | { kind: "skill"; name: string };
 
-/** `by_owner`: it failed and held the Job, and the owner skipped it. Since 23.63. */
+/** `by_owner`: it failed and held the Job, and the owner skipped it. Since 23.68. */
 export type TriggerSkipReason = "not_in_this_repo" | "skill_not_run" | "by_owner";
 
 /** Why a Trigger does not run. `said` is rendered and never matched on. */
@@ -63,7 +63,7 @@ export type SaveTrigger = {
   scope: TriggerScope;
   definition: string;
   overwrite?: boolean;
-  /** Keeps a Job's added step for every Job: the definition is the Trigger drawn from it. Since 23.59. */
+  /** Keeps a Job's added step for every Job: the definition is the Trigger drawn from it. Since 23.68. */
   kept_from?: KeptFrom;
 };
 
@@ -98,13 +98,13 @@ export type TriggerFiringState =
   | "passed"
   | "failed"
   | "awaiting_owner"
-  /** Failed with `repair` on, and a repair Drone is working on a branch of its own. Since 23.60. */
+  /** Failed with `repair` on, and a repair Drone is working on a branch of its own. Since 23.68. */
   | "repairing"
-  /** The Command is running again, on the repair branch or on the Job's. Since 23.60. */
+  /** The Command is running again, on the repair branch or on the Job's. Since 23.68. */
   | "rerunning"
-  /** The repair branch passes. Held for the owner's `choose_trigger_fix`. Since 23.60. */
+  /** The repair branch passes. Held for the owner's `choose_trigger_fix`. Since 23.68. */
   | "fix_ready"
-  /** Failed with `block` on, and the Job waits on it: `rerun_trigger` or `skip_trigger` lets it go. Since 23.63. */
+  /** Failed with `block` on, and the Job waits on it: `rerun_trigger` or `skip_trigger` lets it go. Since 23.68. */
   | "held";
 
 /** Where a held fix goes: onto the Job's branch, or into a pull request of its own. */
@@ -113,7 +113,7 @@ export type TriggerFixChoice = "this_branch" | "new_pr";
 /** A pull request a repair opened. `number` is read off the end of `url` and absent where it has none. */
 export type TriggerPullRequest = { url: string; number?: number };
 
-/** What a failed Trigger's repair has come to. Present from the first repair Drone on. Since 23.60. */
+/** What a failed Trigger's repair has come to. Present from the first repair Drone on. Since 23.68. */
 export type TriggerRepair = {
   /** Which try this is, 1 or 2. Never drawn as a count. */
   attempt: number;
@@ -147,9 +147,9 @@ export type JobTrigger = {
   ended_at?: string;
   /** The Job's log note for this firing: `get_job_log`'s whose `at` is this and whose `trigger` field is `name`. */
   log_at?: string;
-  /** Absent until a repair Drone has been put on it, and where `repair` is off. Since 23.60. */
+  /** Absent until a repair Drone has been put on it, and where `repair` is off. Since 23.68. */
   repair?: TriggerRepair;
-  /** The Trigger blocks, so a failure holds the Job. Absent where it does not. Since 23.63. */
+  /** The Trigger blocks, so a failure holds the Job. Absent where it does not. Since 23.68. */
   blocks?: boolean;
 };
 

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Take an added step off a Job before it fires"
 notes = """
-`POST /jobs/:job_id/remove_job_step`, protocol 23.59. The body is `RemoveAddedStep`: `id`. The answer is `AddedStepRemoved`.
+`POST /jobs/:job_id/remove_job_step`, protocol 23.68. The body is `RemoveAddedStep`: `id`. The answer is `AddedStepRemoved`.
 
 **Only before the step fires.** Once its moment has come it is part of what the Job did, and 409 `fleet.added_step_fired` says so. 422 `fleet.no_such_addition` where the Job holds none by that id, or it was removed already. The row stays, marked removed, and `JobDetail.additions` no longer lists it. Publishes `job.addition_changed` with `removed` set, and writes one line in the Job's log.
 

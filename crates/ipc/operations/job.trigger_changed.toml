@@ -6,9 +6,9 @@ description = "One of a Job's Triggers moved: it started, was skipped, is held f
 notes = """
 Protocol 23.58. `JobTriggerChanged`: `job_id`, `trigger` (a `JobTrigger`, the row whole) and `at`. Published when Fleet opens a firing (`running`, `skipped` or `awaiting_owner`) and when a running one ends (`passed` or `failed`), so an open Job's Triggers move without a read. `get_job`'s `triggers` is the same rows, with the pending ones.
 
-**A failed Trigger with `repair` on moves through `repairing`, `rerunning` and `fix_ready` (23.60)**, one message each time the repair writes its row, so the count above is two plus a few per repair try. `trigger.repair` carries the try, the repair branch, the files the fix changes, the owner's choice and the pull request it opened.
+**A failed Trigger with `repair` on moves through `repairing`, `rerunning` and `fix_ready` (23.68)**, one message each time the repair writes its row, so the count above is two plus a few per repair try. `trigger.repair` carries the try, the repair branch, the files the fix changes, the owner's choice and the pull request it opened.
 
-**A Trigger that blocks moves through `held` (23.63)** where its Command failed and no repair is on, or the repair did not fix it, and `skipped` (reason `by_owner`) or `passed` where the owner let it go. `trigger.blocks` says which Triggers hold the Job, so `repairing` on one that blocks is told from one that does not.
+**A Trigger that blocks moves through `held` (23.68)** where its Command failed and no repair is on, or the repair did not fix it, and `skipped` (reason `by_owner`) or `passed` where the owner let it go. `trigger.blocks` says which Triggers hold the Job, so `repairing` on one that blocks is told from one that does not.
 
 **Whole, and keyed by `name`, `when` and `step`**, with `started_at` telling a step run again apart. Nothing a Command printed rides along: `trigger.log_at` names the Job's log line, and `get_job_log` has it.
 

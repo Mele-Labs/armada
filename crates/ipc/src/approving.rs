@@ -52,7 +52,7 @@ pub struct ApproveDispatch {
     pub tuning: Option<Vec<StepTuning>>,
     /// Steps added to this Job only, placed at the press and kept beside the
     /// frozen workflow. **Left out keeps what was placed**; `[]` clears it.
-    /// Every place is ahead at the gate. Since 23.59.
+    /// Every place is ahead at the gate. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub additions: Option<Vec<crate::added_steps::AddStep>>,
 }

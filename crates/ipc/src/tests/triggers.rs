@@ -199,7 +199,7 @@ fn a_held_trigger_says_it_blocks_and_one_that_does_not_leaves_it_out() {
     assert_eq!(back, a_held_firing());
     assert!(!encode(&a_failed_firing()).expect("encodes").contains("blocks"));
     let before: JobTrigger = decode("a trigger", FIRED.as_bytes()).expect("decodes");
-    assert!(!before.blocks, "a Fleet before 23.63 sends none");
+    assert!(!before.blocks, "a Fleet before 23.68 sends none");
 }
 
 #[test]

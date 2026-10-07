@@ -1,6 +1,6 @@
 //! Steps added to one Job on the wire: placed at approval, added to a running
 //! Job, removed before they fire, and how each stands. `docs/concepts/trigger.md`,
-//! *Steps added to one Job*. **Since 23.59.**
+//! *Steps added to one Job*. **Since 23.68.**
 //!
 //! **DTOs, never `core_model::AddedStep`.** `fleet::added_steps` is where the
 //! conversion is. An addition sits beside the Job's frozen workflow and never in
@@ -82,7 +82,7 @@ pub enum AddedSkipReason {
     SkillNotRun,
     /// A Drone step, which is not run yet.
     DroneStepNotRun,
-    /// It failed and held the Job, and the owner skipped it. Since 23.63.
+    /// It failed and held the Job, and the owner skipped it. Since 23.68.
     ByOwner,
 }
 

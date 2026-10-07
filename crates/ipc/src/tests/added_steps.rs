@@ -1,4 +1,4 @@
-//! Steps added to one Job on the wire (23.59): each crosses as the JSON the
+//! Steps added to one Job on the wire (23.68): each crosses as the JSON the
 //! TypeScript side reads, absent where empty, and a 23.58 peer sees nothing new.
 
 use crate::tests::{detail_of, job};

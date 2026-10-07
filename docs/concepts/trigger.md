@@ -79,7 +79,7 @@ A Command runs in the Job's worktree under the Check budget, with no shell. What
 > **Rule.** A repair is bounded at 2 tries. A Trigger that fails after both is `failed` for good, or `held` where it blocks, and the Job gets an alert.
 > Why: a third repair is one that does not hold, as the worktree's is. The alert is the existing `list_alerts`, and the Job's status is where it was.
 
-The firing's row carries the tries, the repair branch, the files the fix changes, the choice and the pull request. All of it is on the wire as `JobTrigger.repair` (protocol 23.60), each state is a `job.trigger_changed`, and `choose_trigger_fix` is the owner's choice. Bridge draws the repair as a branch off the Job's workflow, on the Overview canvas and the Workflow tab, from the same rows. `docs/concepts/fleet.md`, *A failed Trigger's repair*, has the mechanism.
+The firing's row carries the tries, the repair branch, the files the fix changes, the choice and the pull request. All of it is on the wire as `JobTrigger.repair` (protocol 23.68), each state is a `job.trigger_changed`, and `choose_trigger_fix` is the owner's choice. Bridge draws the repair as a branch off the Job's workflow, on the Overview canvas and the Workflow tab, from the same rows. `docs/concepts/fleet.md`, *A failed Trigger's repair*, has the mechanism.
 
 ## A failed Trigger with `block` on
 
@@ -110,7 +110,7 @@ The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. Th
 
 ## On the wire
 
-Protocol 23.58, the four operations and one event, 23.59, steps added to one Job, 23.60, a failed Trigger's repair, and 23.63, a Trigger that blocks. `docs/practices/protocol.md`.
+Protocol 23.58, the four operations and one event, 23.68, steps added to one Job, 23.68, a failed Trigger's repair, and 23.68, a Trigger that blocks. `docs/practices/protocol.md`.
 
 | Operation | What it does |
 |---|---|

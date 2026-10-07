@@ -63,7 +63,7 @@ pub enum TriggerSkipReason {
     NotInThisRepo,
     /// It names a skill, which is not run yet.
     SkillNotRun,
-    /// It failed and held the Job, and the owner skipped it. Since 23.63.
+    /// It failed and held the Job, and the owner skipped it. Since 23.68.
     ByOwner,
 }
 
@@ -168,7 +168,7 @@ pub struct SaveTrigger {
     pub overwrite: bool,
     /// **Keep a Job's added step for every Job**: the addition this save came
     /// from. Fleet writes the Trigger the definition says and records on the
-    /// addition where it was kept. A Script or a Skill only. Since 23.59.
+    /// addition where it was kept. A Script or a Skill only. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept_from: Option<crate::added_steps::KeptFrom>,
 }
@@ -237,16 +237,16 @@ pub enum TriggerFiringState {
     /// A destructive Command, held for the owner. **Nothing asks him yet.**
     AwaitingOwner,
     /// Failed with `repair` on, and a repair Drone is working on a branch of
-    /// its own. Since 23.60.
+    /// its own. Since 23.68.
     Repairing,
     /// The Command is running again, on the repair branch or on the Job's.
-    /// Since 23.60.
+    /// Since 23.68.
     Rerunning,
     /// The repair branch passes. **Held for the owner's choice**, which
-    /// `choose_trigger_fix` makes. Since 23.60.
+    /// `choose_trigger_fix` makes. Since 23.68.
     FixReady,
     /// Failed with `block` on, and **the Job waits on it**: `rerun_trigger` or
-    /// `skip_trigger` lets it go. Since 23.63.
+    /// `skip_trigger` lets it go. Since 23.68.
     Held,
 }
 
@@ -271,7 +271,7 @@ pub struct TriggerPullRequest {
 }
 
 /// What a failed Trigger's repair has come to. Present from the first repair
-/// Drone on. **Since 23.60.**
+/// Drone on. **Since 23.68.**
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriggerRepair {
     /// Which try this is, 1 or 2. A client draws no count from it: it is how a
@@ -342,12 +342,12 @@ pub struct JobTrigger {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_at: Option<Instant>,
     /// Absent until a repair Drone has been put on it, and where `repair` is
-    /// off. Since 23.60.
+    /// off. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repair: Option<TriggerRepair>,
     /// The Trigger blocks, so a failure holds the Job. Left out where it does
     /// not. It is what tells `repairing` on a Trigger that holds the Job from
-    /// one that does not. Since 23.63.
+    /// one that does not. Since 23.68.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub blocks: bool,
 }

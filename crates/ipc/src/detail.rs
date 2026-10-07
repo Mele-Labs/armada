@@ -276,7 +276,7 @@ pub struct JobDetail {
     pub landing: Option<crate::LandingRule>,
     /// What a Job still at its approval gate opens its pull request as when its
     /// approval says nothing: the workflow's delivering step, the repository,
-    /// this machine, then ready. **Since 23.57.** Absent once `landing` is
+    /// this machine, then ready. **Since 23.68.** Absent once `landing` is
     /// there, and on a Fleet before it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr_mode_default: Option<crate::PrMode>,
@@ -384,7 +384,7 @@ pub struct JobDetail {
     pub triggers: Vec<crate::triggers::JobTrigger>,
     /// The steps added to this Job, beside its frozen workflow and never in it:
     /// each with its place, what it runs and how it stands, in the order they
-    /// were added. **Since 23.59.** Empty is a Job with none. Filled after
+    /// were added. **Since 23.68.** Empty is a Job with none. Filled after
     /// [`JobDetail::of`]. `job.addition_changed` moves one without a read.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub additions: Vec<crate::added_steps::AddedStep>,

@@ -3292,17 +3292,6 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
 
-## Protocol 23.57: a draft default for pull requests
-
-`docs/concepts/landing.md`, *What the landing rule carries*. **Additive only**: two optional fields and no operation. 23.56 is the last on `main` ahead of it that this branch waited for.
-
-| Where | Carries | Notes |
-| --- | --- | --- |
-| `get_job` | `JobDetail.pr_mode_default?`: `ready` or `draft` | What a Job still at its approval gate opens as when its approval says nothing: the workflow's delivering step, the repository, this machine, then ready. Absent once `landing` is there, and from a Fleet before 23.57 |
-| `get_preferences`, `save_preferences` | `Preferences.draft_pull_requests?`, and the name `draft_pull_requests` for a save | This machine's default, off until set. Absent is `false` |
-
-**Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
-
 ## Protocol 23.58: Triggers on the wire
 
 `docs/concepts/trigger.md`. **Additive only**: four operations, one event, the DTOs of `ipc::triggers` and one optional field on `JobDetail`. 23.52 is a session's name.
@@ -3321,9 +3310,9 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
 
-## Protocol 23.59: steps added to one Job, and the repository's Draft default
+## Protocol 23.68: steps added to one Job, and the repository's Draft default
 
-`docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit. 23.58 is the last on `main` ahead of it that this branch waited for.
+`docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit. The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3332,7 +3321,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `approve_dispatch` | `additions?`: a list of `AddStep` | Placed at the press. Left out keeps what was placed, `[]` clears it. 422 `fleet.unacceptable_proposal` |
 | `save_trigger` | `kept_from?`: `{ job_id, addition_id }` | **Keeps an addition for every Job** with no new operation: the definition is the Trigger the editor drew, and Fleet records where it went. A Script or a Skill only |
 | `job.addition_changed` (event) | `JobAdditionChanged`: `job_id`, `addition`, `removed?`, `at` | The row whole, on each add, removal, keep and state a firing reaches |
-| `JobDetail.additions` | `AddedStep`: `id`, `runs`, `when`, `step`, `block`, `repair`, `placed`, `added_at`, `state`, `skipped?`, `exit_code?`, `started_at?`, `ended_at?`, `log_at?`, `kept?` | `state` reuses `TriggerFiringState`: `pending` until the moment has come. Absent from a Fleet before 23.59 and where empty |
+| `JobDetail.additions` | `AddedStep`: `id`, `runs`, `when`, `step`, `block`, `repair`, `placed`, `added_at`, `state`, `skipped?`, `exit_code?`, `started_at?`, `ended_at?`, `log_at?`, `kept?` | `state` reuses `TriggerFiringState`: `pending` until the moment has come. Absent from a Fleet before 23.68 and where empty |
 | `edit_manifest` | the edit `set_pr_mode`: `{ "edit": "set_pr_mode", "pr_mode": "draft" \| "ready" \| null }` | `null` removes the key |
 | `ManifestDeclared` | `pr_mode?` | Absent where the file defers to this machine's default |
 
@@ -3342,11 +3331,11 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
 
-**Skew.** A Fleet before 23.59 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts`, written by hand like the rest.
 
-## Protocol 23.60: a failed Trigger's repair on the wire
+## Protocol 23.68: a failed Trigger's repair on the wire
 
-`docs/concepts/trigger.md`, *A failed Trigger with `repair` on*. **Additive only**: one operation, three states and one optional field. 23.59 is the last on `main` ahead of it that this branch waited for.
+`docs/concepts/trigger.md`, *A failed Trigger with `repair` on*. **Additive only**: one operation, three states and one optional field.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3356,9 +3345,9 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **A fix waiting on the owner is an alert already**: `list_alerts` carries it, and a Trigger that failed after both tries. Nothing new is read for it. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
-## Protocol 23.63: a Trigger that blocks holds the Job
+## Protocol 23.68: a Trigger that blocks holds the Job
 
-`docs/concepts/trigger.md`, *A failed Trigger with `block` on*. **Additive only**: two operations, one state, one skip reason, one escalation reason and two optional fields. `armada need` claimed the number behind 23.61 and 23.62, which other branches took; the final one is fixed at landing.
+`docs/concepts/trigger.md`, *A failed Trigger with `block` on*. **Additive only**: two operations, one state, one skip reason, one escalation reason and two optional fields.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3375,7 +3364,18 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **The event stream: no change.** Every state a hold passes through is a `job.trigger_changed` or `job.addition_changed` that already existed, and a rerun adds one transient `rerunning` that is not stored.
 
-**Skew.** A Fleet before 23.63 holds nothing and sends no `blocks`, no `alert` and no `held`, which Bridge reads as every row before. A Bridge before it draws `held` as an unknown state and has no Rerun or Skip, and the Job it cannot answer is `escalated`, whose acts it already offers. Bridge's half is `packages/protocol/src/trigger-holds.ts`, written by hand like the rest.
+**Skew.** A Fleet before 23.68 holds nothing and sends no `blocks`, no `alert` and no `held`, which Bridge reads as every row before. A Bridge before it draws `held` as an unknown state and has no Rerun or Skip, and the Job it cannot answer is `escalated`, whose acts it already offers. Bridge's half is `packages/protocol/src/trigger-holds.ts`, written by hand like the rest.
+
+## Protocol 23.68: a draft default for pull requests
+
+`docs/concepts/landing.md`, *What the landing rule carries*. **Additive only**: two optional fields and no operation.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_job` | `JobDetail.pr_mode_default?`: `ready` or `draft` | What a Job still at its approval gate opens as when its approval says nothing: the workflow's delivering step, the repository, this machine, then ready. Absent once `landing` is there, and from a Fleet before 23.68 |
+| `get_preferences`, `save_preferences` | `Preferences.draft_pull_requests?`, and the name `draft_pull_requests` for a save | This machine's default, off until set. Absent is `false` |
+
+**Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
 
 ## Open questions
 

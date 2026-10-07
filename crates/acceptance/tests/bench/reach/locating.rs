@@ -6,7 +6,7 @@ use std::path::Path;
 use config::{Manifest, ResolvedWorkflow};
 use fleet::repositories::{Located, Repositories, Served, SetUp};
 
-use super::{definition, written, CARRYABLE, CHECKOUT};
+use super::{CARRYABLE, CHECKOUT, definition, written};
 
 /// A second repository, nothing like the storefront.
 pub const MAILER_AT: &str = "/repos/mailer";

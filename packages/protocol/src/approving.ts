@@ -29,7 +29,7 @@ export type ApproveDispatch = {
   landing?: LandingChoice;
   /** One per step a person tuned, `gates`' shape; a step left out runs as declared. Since 23.20. */
   tuning?: StepTuning[];
-  /** Steps for this Job only, placed at the press. Left out keeps what was placed; `[]` clears it. Since 23.59. */
+  /** Steps for this Job only, placed at the press. Left out keeps what was placed; `[]` clears it. Since 23.68. */
   additions?: AddStep[];
 };
 

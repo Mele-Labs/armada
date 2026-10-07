@@ -6,7 +6,7 @@ description = "Every preference a person has saved in Bridge, and what is in for
 notes = """
 Kept the way `get_limits` is: Fleet-wide, surviving a relaunch, and read once per connection rather than on a timer — nothing but a save changes it. `store::Preferences` is a row per name and an absent row is the shipped default, so this always answers whole even where nobody has ever saved anything.
 
-**`draft_pull_requests` is the second** (23.57): whether this machine offers a pull request as a draft below the repository's and the workflow's say. Left out of the answer while `false`.
+**`draft_pull_requests` is the second** (23.68): whether this machine offers a pull request as a draft below the repository's and the workflow's say. Left out of the answer while `false`.
 
 **The first preference is `where_things_are_open`**, a boolean defaulting to `false` — whether Job detail's *Where things are* chapter opens collapsed or expanded. Moving the Board's own view and sort onto this table is left for later.
 

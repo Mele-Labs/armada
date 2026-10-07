@@ -1,5 +1,5 @@
 // What the mock's Fleet does with steps added to one Job, as `crates/fleet/src/added_steps.rs` does it
-// (23.59): a place is checked against the frozen workflow and against where the Job is, a row is
+// (23.68): a place is checked against the frozen workflow and against where the Job is, a row is
 // answered whole, removal works only before the step fires, and a Skill or a Drone step is
 // recorded skipped when its moment comes. Every shape is `packages/protocol/src/added-steps.ts`'s.
 

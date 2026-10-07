@@ -316,7 +316,7 @@ pub struct JobSummary {
     /// a Trigger holds the Job, a repair's fix waits on the owner's choice, or
     /// a Trigger failed after its repair tries. Filled by Fleet off the store,
     /// like [`tasks`](JobSummary::tasks). **Absent is a Job with none of them**,
-    /// and a Board draws no mark. Since 23.63.
+    /// and a Board draws no mark. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alert: Option<crate::JobAlert>,
 }

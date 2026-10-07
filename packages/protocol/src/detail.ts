@@ -70,7 +70,7 @@ export type JobDetail = {
   walk_notes?: WalkNote[];
   /** The Triggers frozen onto this Job: pending, or fired and how each ended. Since 23.58. */
   triggers?: JobTrigger[];
-  /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.59. */
+  /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.68. */
   additions?: AddedStep[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
@@ -273,7 +273,7 @@ export type JobDetail = {
   /**
    * What a Job still at its approval gate opens its pull request as when its approval says
    * nothing: the workflow's delivering step, the repository, this machine, then ready. Since
-   * 23.57. Absent once `landing` is there, and on a Fleet before it.
+   * 23.68. Absent once `landing` is there, and on a Fleet before it.
    */
   pr_mode_default?: string;
   /** What the approval said in place of the repository's policies. Since 23.8. Absent is the repository deciding. */

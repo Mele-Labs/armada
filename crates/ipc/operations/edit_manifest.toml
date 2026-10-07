@@ -12,5 +12,5 @@ notes = """
 
 `agent_access` is `Helm only`, `save_manifest_file`'s reason: this writes the tracked file that decides what every Job is gated on. A change to what Checks mean is still a person's, and Helm applies one only on that person's ask.
 
-**Since 23.59 `set_pr_mode` edits `pr_mode`**, the repository's Draft default: `{ "edit": "set_pr_mode", "pr_mode": "draft" | "ready" | null }`, `null` removing the key so the repository defers to this machine's. `ManifestDeclared.pr_mode?` carries it back, absent where the file defers. The next approval's `pr_mode_default` reads it once the running Fleet has read the file again.
+**Since 23.68 `set_pr_mode` edits `pr_mode`**, the repository's Draft default: `{ "edit": "set_pr_mode", "pr_mode": "draft" | "ready" | null }`, `null` removing the key so the repository defers to this machine's. `ManifestDeclared.pr_mode?` carries it back, absent where the file defers. The next approval's `pr_mode_default` reads it once the running Fleet has read the file again.
 """

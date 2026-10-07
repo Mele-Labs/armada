@@ -111,7 +111,7 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // One of a Job's added steps moved, carried whole. Since 23.59.
+    // One of a Job's added steps moved, carried whole. Since 23.68.
     Route {
         operation: "job.addition_changed",
         method: "GET",

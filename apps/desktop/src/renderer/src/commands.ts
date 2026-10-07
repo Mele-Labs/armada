@@ -32,9 +32,8 @@ import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
-import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
-import type { EditManifest, HoldAct, SaveManifestFile, TriggerFixChoice } from "@armada/protocol";
+import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import { triggerActs } from "./trigger-commands";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
   AddTask,
@@ -257,11 +256,7 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
-/** Triggers: what the picked repository runs, one as its file holds it, a save and a removal. */
-export const readTriggers = () => window.armada.readTriggers();
-export const readTrigger = (reading: ReadingTrigger) => window.armada.readTrigger(reading);
-export const saveTrigger = (saving: SavingTrigger) => window.armada.saveTrigger(saving);
-export const removeTrigger = (removing: RemovingTrigger) => window.armada.removeTrigger(removing);
+export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
@@ -319,6 +314,7 @@ export type Sending = {
  */
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const triggers = triggerActs(setOutcome);
   // The trackpad, for the finger that pressed. Every act on a Job answers through `heard`.
   const tap = useHaptics();
   // A press a freeze took and holds. Its own state: `outcome` draws refusals, and this is not one.
@@ -407,31 +403,6 @@ export function useCommands(sending: Sending) {
   async function fixMain(fix: FixMain): Promise<void> {
     const answer = await window.armada.fixMain(fix);
     if (!answer.ok) setOutcome(answer);
-  }
-
-  /**
-   * Where a failed Trigger's held fix goes. **A refusal goes to the pipeline every command failure
-   * uses**, in Fleet's own words; an accepted one says nothing, since the branch moves a beat later
-   * as `job.trigger_changed` re-reads the Job. The answer tells the branch whether to ask again.
-   */
-  async function chooseTriggerFix(jobId: string, trigger: string, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
-    const answer = await window.armada.chooseTriggerFix(jobId, { trigger, choice });
-    if (!answer.ok) setOutcome(answer);
-    return { ok: answer.ok };
-  }
-
-  /** Run a held Trigger's Command again. A refusal goes to the command-failure pipeline. */
-  async function rerunTrigger(jobId: string, body: HoldAct): Promise<{ ok: boolean }> {
-    const answer = await window.armada.rerunTrigger(jobId, body);
-    if (!answer.ok) setOutcome(answer);
-    return { ok: answer.ok };
-  }
-
-  /** Let a held Trigger go. Same pipeline as `rerunTrigger`. */
-  async function skipTrigger(jobId: string, body: HoldAct): Promise<{ ok: boolean }> {
-    const answer = await window.armada.skipTrigger(jobId, body);
-    if (!answer.ok) setOutcome(answer);
-    return { ok: answer.ok };
   }
 
   /**
@@ -918,23 +889,6 @@ export function useCommands(sending: Sending) {
     return answer;
   }
 
-  /**
-   * Add a step to a Job underway, or take one off before it fires. **Not through `act`**, `addTask`'s
-   * reason: the answer is the row, which the panel that filled it in needs to draw it at once. A
-   * refusal goes where every command's goes, in Fleet's sentence.
-   */
-  async function addJobStep(adding: AddingStep): Promise<AddStepAnswer> {
-    const answer = await window.armada.addJobStep(adding);
-    setOutcome(answer.ok ? { ok: true } : answer.outcome);
-    return answer;
-  }
-
-  async function removeJobStep(removing: RemovingStep): Promise<RemoveStepAnswer> {
-    const answer = await window.armada.removeJobStep(removing);
-    setOutcome(answer.ok ? { ok: true } : answer.outcome);
-    return answer;
-  }
-
   /** Drop a task from a job's plan, with a reason. `addTask`'s own reason. */
   async function dropTask(jobId: string, drop: DropTask): Promise<PlanEditAnswer> {
     const answer = await window.armada.dropTask(jobId, drop);
@@ -1096,9 +1050,7 @@ export function useCommands(sending: Sending) {
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,
     fixMain,
-    chooseTriggerFix,
-    rerunTrigger,
-    skipTrigger,
+    ...triggers,
     dismissFinding,
     rerunFailedChecks,
     investigateFailedChecks,
@@ -1138,8 +1090,6 @@ export function useCommands(sending: Sending) {
     report,
     addTask,
     dropTask,
-    addJobStep,
-    removeJobStep,
     movePlan,
     approveWave,
     editJob,

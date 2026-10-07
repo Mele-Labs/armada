@@ -222,7 +222,7 @@ export type JobSummary = {
   piloted?: Piloted;
   /**
    * Why this row carries the bell, and which Trigger it is about: one holds the job, a repair's fix
-   * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.63.
+   * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.68.
    */
   alert?: JobAlert;
 };

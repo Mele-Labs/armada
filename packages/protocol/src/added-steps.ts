@@ -1,5 +1,5 @@
 // Steps added to one Job: placed at approval, added to a Job underway, removed before they fire,
-// and how each stands. Hand-mirrored from `crates/ipc/src/added_steps.rs`. Since protocol 23.59.
+// and how each stands. Hand-mirrored from `crates/ipc/src/added_steps.rs`. Since protocol 23.68.
 //
 // An addition sits beside the Job's frozen workflow and never in it, so it is on `JobDetail.additions`
 // and not in the workflow's steps.

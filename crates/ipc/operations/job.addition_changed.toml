@@ -4,7 +4,7 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "One of a Job's added steps moved: it was added, removed, kept for every Job, started, was skipped, is held for the owner, or ended"
 notes = """
-Protocol 23.59. `JobAdditionChanged`: `job_id`, `addition` (an `AddedStep`, the row whole), `removed?` and `at`. Published when a step is added or placed, when it is removed (`removed` true, the row as it was), when it is kept for every Job, when Fleet opens its firing (`running`, `skipped` or `awaiting_owner`) and when a running one ends. `get_job`'s `additions` is the same rows.
+Protocol 23.68. `JobAdditionChanged`: `job_id`, `addition` (an `AddedStep`, the row whole), `removed?` and `at`. Published when a step is added or placed, when it is removed (`removed` true, the row as it was), when it is kept for every Job, when Fleet opens its firing (`running`, `skipped` or `awaiting_owner`) and when a running one ends. `get_job`'s `additions` is the same rows.
 
 `job.trigger_changed` is not this one's carrier: an addition has no level, so it is not a `JobTrigger`.
 

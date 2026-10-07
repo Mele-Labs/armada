@@ -70,7 +70,7 @@ pub trait Authoring: Send + Sync + 'static {
     /// `rerun_trigger` — run a held Trigger's Command again, with no Drone,
     /// and let the Job go if it passes. **By `Arc`**, for
     /// `choose_trigger_fix`'s reason: it runs the Command, and a client that
-    /// stops waiting must not stop it halfway. Since 23.63.
+    /// stops waiting must not stop it halfway. Since 23.68.
     ///
     /// [`Refusal::IllegalMove`] where nothing holds the Job under that name,
     /// where a repair is under way, where a fix waits on a choice, where there
@@ -83,7 +83,7 @@ pub trait Authoring: Send + Sync + 'static {
     ) -> impl Future<Output = Result<HoldSettled, Refusal>> + Send;
 
     /// `skip_trigger` — let a held Trigger go without its Command passing, and
-    /// record it skipped by the owner. Since 23.63.
+    /// record it skipped by the owner. Since 23.68.
     fn skip_trigger(
         &self,
         job_id: JobId,
@@ -95,7 +95,7 @@ pub trait Authoring: Send + Sync + 'static {
     /// `fleet.added_step_behind` for a gap behind the current step or a Job
     /// that is over, `fleet.added_step_before_approval` where the approval
     /// should carry it, and a 422 `fleet.unacceptable_addition` for nothing to
-    /// run or a place the workflow lacks. Since 23.59.
+    /// run or a place the workflow lacks. Since 23.68.
     fn add_job_step(
         &self,
         job_id: JobId,
@@ -103,7 +103,7 @@ pub trait Authoring: Send + Sync + 'static {
     ) -> impl Future<Output = Result<AddedStep, Refusal>> + Send;
 
     /// `remove_job_step` — take an added step off the Job **before it fires**. A
-    /// 409 `fleet.added_step_fired` once its moment has come. Since 23.59.
+    /// 409 `fleet.added_step_fired` once its moment has come. Since 23.68.
     fn remove_job_step(
         &self,
         job_id: JobId,

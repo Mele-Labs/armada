@@ -142,7 +142,7 @@ pub enum Event {
     // One of the Job's Triggers moved, whole. Since 23.58.
     #[serde(rename = "job.trigger_changed")]
     JobTriggerChanged(JobTriggerChanged),
-    // One of the Job's added steps moved, whole. Since 23.59.
+    // One of the Job's added steps moved, whole. Since 23.68.
     #[serde(rename = "job.addition_changed")]
     JobAdditionChanged(JobAdditionChanged),
     #[serde(rename = "proposal.moved")]

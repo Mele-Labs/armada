@@ -11,7 +11,7 @@ export type Preferences = {
    * (`false`) or expanded (`true`). */
   where_things_are_open: boolean;
   /** Whether this machine offers a pull request as a draft unless the repository, the
-   * workflow or the Job says otherwise. Since 23.57. Absent is `false`. */
+   * workflow or the Job says otherwise. Since 23.68. Absent is `false`. */
   draft_pull_requests?: boolean;
 };
 
