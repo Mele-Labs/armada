@@ -65,7 +65,7 @@ export function useJobTab(openJob: string | null): [DetailTab | null, (job: stri
 
 /**
  * Record `current` as it changes — by observation, so every way of getting
- * somewhere is a visit — and bind `⌘[` / `⌘]` to `restore`. A place `valid`
+ * somewhere is a visit — and bind `⌘[`, `⌘]`, the mouse buttons and the OS swipe to `restore`. A place `valid`
  * refuses (its Job is gone) is stepped over.
  */
 export function useHistory(current: Place, restore: (place: Place) => void, valid: (place: Place) => boolean): void {
@@ -89,4 +89,6 @@ export function useHistory(current: Place, restore: (place: Place) => void, vali
     latest.current.restore(next.at);
   }
   useHistoryKeys(() => go("back"), () => go("forward"));
+  // A swipe or browser key only main hears.
+  useEffect(() => window.armada.onHistory((step) => go(step)), []); // eslint-disable-line react-hooks/exhaustive-deps
 }

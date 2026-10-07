@@ -162,7 +162,7 @@ import type { AnswerSessionAsk, PilotOutcome, PullRequestState, ReviewDispatched
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
-import type { BridgeState, Summons } from "./bridge";
+import type { BridgeState, HistoryStep, Summons } from "./bridge";
 
 type OldBridgeState = {
     connection: Connection;
@@ -391,6 +391,7 @@ type OldBridgeApi = {
     openPullRequest: (jobId: string) => Promise<Followed>;
     openRemarkLink: (jobId: string, remarkId: string) => Promise<Followed>;
     onSummoned: (onGo: (to: Summons) => void) => () => void;
+    onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
     startHelmFresh: () => Promise<Outcome>;
@@ -597,6 +598,7 @@ const OLD_CHANNELS = {
     openPullRequest: "bridge:open-pull-request",
     openRemarkLink: "bridge:open-remark-link",
     summoned: "bridge:summoned",
+    history: "bridge:history",
     readComposing: "bridge:read-composing",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
