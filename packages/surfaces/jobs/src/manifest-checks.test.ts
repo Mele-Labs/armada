@@ -114,8 +114,8 @@ test("a Job's gate rows are listed before the checkout's run sheet has been read
     { ...base, name: "test", state: "passed", ended_at: "2026-10-07T04:56:54Z" },
   ];
   const rows = checkEntriesOf(undefined, [], [], reported).map((one) => checkRowOf(one, label));
-  // A skipped Check says the registry's word for it, `not run`, and is neither mark of a verdict.
-  expect(rows.map((one) => [one.name, one.says])).toEqual([["build", "not run"], ["test", "passed"]]);
+  // A skipped Check says skipped, and is neither mark of a verdict.
+  expect(rows.map((one) => [one.name, one.says])).toEqual([["build", "skipped"], ["test", "passed"]]);
   expect(rows.map((one) => one.status)).not.toContain("failed");
   expect(rows[0]?.status).not.toBe("passed");
 });
