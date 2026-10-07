@@ -273,6 +273,21 @@ pub enum SessionRow {
         at: Instant,
         text: String,
     },
+    /// A command the person ran in the terminal, as typed: `/reload-plugins`,
+    /// with its arguments. Its output is not drawn. Since 23.56.
+    Command {
+        id: String,
+        at: Instant,
+        text: String,
+    },
+    /// The summary the agent's CLI wrote in place of a conversation it
+    /// compacted. **Not the person's words**, and not the agent's either.
+    /// Since 23.56.
+    Compaction {
+        id: String,
+        at: Instant,
+        text: String,
+    },
     /// The first write: the slot leased and the branch cut.
     Lease {
         id: String,
@@ -318,6 +333,8 @@ impl SessionRow {
             SessionRow::Message { id, .. }
             | SessionRow::Handoff { id, .. }
             | SessionRow::Tool { id, .. }
+            | SessionRow::Command { id, .. }
+            | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }

@@ -16,6 +16,7 @@ function steps(narrow: boolean): Step[] {
     { press: inside(sessions, button("CI timeout hunt")), say: "A Session from a terminal is in the list with the others" },
     { look: inside(thread, text("It sleeps 50 ms")), say: "A long conversation opens at its newest message, with no scrolling" },
     { look: inside(thread, text("Why does the store test fail only in CI?")), say: "What was typed in the terminal is the first row" },
+    { press: inside(thread, text("Grep, Read")), say: "Calls that ran in a row are one closed row, and it opens" },
     { look: inside(thread, text("Read crates/store/src/tests/ledger.rs")), say: "Calls are one line each, as they are in a Session Bridge started" },
     { look: inside(thread, text("It sleeps 50 ms")), say: "And what the agent answered" },
     { look: role("combobox", "Model"), say: "The model is the terminal's, and it can be changed from here" },

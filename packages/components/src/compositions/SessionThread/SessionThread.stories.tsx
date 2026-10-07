@@ -50,6 +50,54 @@ export const FirstWriteAndASender: Story = {
   },
 };
 
+const WORKED: SessionThreadRow[] = [
+  { id: "w1", at: "14:03:07", kind: "message", from: "you", text: "Fix the flaky store test." },
+  { id: "w2", at: "14:03:14", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
+  { id: "w3", at: "14:03:15", kind: "tool", text: "Bash cat /tmp/out.txt" },
+  { id: "w4", at: "14:03:16", kind: "tool", text: "Read crates/store/src/clock.rs" },
+  { id: "w5", at: "14:03:28", kind: "message", from: "agent", text: "The test reads the wall clock." },
+  { id: "w6", at: "14:03:40", kind: "command", text: "/reload-plugins" },
+  { id: "w7", at: "14:03:50", kind: "compaction", text: "This session is being continued from a previous conversation." },
+];
+
+/** Calls that ran one after another are one closed row naming the tools, and pressing it shows each call. */
+export const ToolCallsFoldIntoOneRow: Story = {
+  args: { rows: WORKED },
+  play: async ({ canvas }) => {
+    const group = canvas.getByLabelText("Tool calls: Read, Bash").closest("details");
+    await expect(group).not.toHaveAttribute("open");
+    await expect(canvas.getByText("Read, Bash")).toBeVisible();
+    await userEvent.click(canvas.getByLabelText("Tool calls: Read, Bash"));
+    await expect(group).toHaveAttribute("open");
+    await expect(canvas.getByText("Bash cat /tmp/out.txt")).toBeVisible();
+  },
+};
+
+/** A command is a line as typed, a compaction is a quiet row that opens to its text, and neither is "You". */
+export const CommandAndCompaction: Story = {
+  args: { rows: WORKED },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("/reload-plugins")).toBeVisible();
+    await expect(canvas.getAllByText("You")).toHaveLength(1);
+    await userEvent.click(canvas.getByText("Conversation compacted"));
+    await expect(canvas.getByText(/continued from a previous conversation/)).toBeVisible();
+  },
+};
+
+/** Every message is left aligned, yours too, and sits on the panel with no fill of its own. */
+export const MessagesAreLeftAlignedWithNoFill: Story = {
+  args: { rows: WORKED },
+  play: async ({ canvas }) => {
+    for (const text of ["Fix the flaky store test.", "The test reads the wall clock."]) {
+      const message = canvas.getByText(text).closest(".armada-helm-thread__message") as HTMLElement;
+      const row = message.closest("li") as HTMLElement;
+      await expect(getComputedStyle(row).textAlign).not.toBe("right");
+      await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");
+      await expect(getComputedStyle(message).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    }
+  },
+};
+
 const LONG: SessionThreadRow[] = Array.from({ length: 40 }, (_, at): SessionThreadRow => ({ id: `m${at}`, at: "14:03:07", kind: "message", from: at % 2 === 0 ? "you" : "agent", text: `Message ${at + 1}` }));
 
 /** A long thread opens at its newest message, and a row that arrives keeps it there. */
