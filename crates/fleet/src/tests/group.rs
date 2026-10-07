@@ -126,7 +126,7 @@ async fn a_looping_drone_dies_with_the_directory_its_test_ran_in() {
     let at = TempDir::new();
     let marker = at.path().join("loop.pid");
     let loops = format!(
-        "while :; do sleep 0.1; done & echo $! > '{}'; exec cat >/dev/null",
+        "while :; do kill -0 $PPID 2>/dev/null || exit 0; sleep 0.1; done & echo $! > '{}'; exec cat >/dev/null",
         marker.display()
     );
     let started = start(

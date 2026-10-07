@@ -46,6 +46,7 @@ mod rerunning;
 mod scouting;
 mod snapshot;
 mod standing;
+mod terminal_thread;
 mod transcript;
 mod trigger_files;
 mod undeclared;

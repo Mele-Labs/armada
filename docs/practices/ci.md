@@ -5,9 +5,11 @@ workflow that runs this repository's Checks and `cargo xtask verify-foundations`
 GitHub, and with pull requests it replaces the local merge line. Why, and what was
 measured: `.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
 The workflow reports and gates nothing itself: a ruleset on `main` that requires
-`ci` does the gating. The repository allows merge commits only, auto-merge is
-enabled, and the owner, as admin, bypasses the ruleset so the draining line still
-works.
+`ci` does the gating. The repository allows merge commits only and auto-merge is
+enabled. The same ruleset holds a merge queue: merge method MERGE, grouping
+ALLGREEN, up to five entries built and merged together, and 60 minutes for `ci`
+to answer a group. Set 7 Oct 2026; the free plan allows it on a public
+repository. The owner, as admin, bypasses the ruleset.
 
 ## What runs when
 
@@ -190,7 +192,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 |---|---|
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
-| The merge queue setting | Repository settings |
 
 ## What `foundations` measured and what it did not
 
