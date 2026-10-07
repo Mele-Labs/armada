@@ -595,6 +595,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                 </>
               ),
             }}
+        {...(narrow || minimized ? {} : { aside: <SessionLedger entries={entries} /> })}
       >
         <div className="armada-session-frame__centre">
           <Refused />
@@ -641,7 +642,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           />
           )}
         </div>
-        {narrow || minimized ? null : <SessionLedger entries={entries} />}
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
