@@ -6,7 +6,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
-import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
+import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
 /**
  * Sessions, searchable, under the headings Overview's lists use: **Needs you**
@@ -37,6 +37,8 @@ export type SessionRowView = {
   lastTurn?: string;
   /** When it was, so the row can say how long ago. */
   lastTurnAt?: string;
+  /** Its mod is older than the repository's. */
+  modOutOfDate?: boolean;
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -196,6 +198,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, now = Dat
                       <span className="armada-session-list__title">
                         {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                       </span>
+                      {row.modOutOfDate === true ? <ModMark size={12} /> : null}
                     </button>
                     {row.lastTurn === undefined ? null : (
                       <Tooltip label={`Last turn ${row.lastTurn}`}>

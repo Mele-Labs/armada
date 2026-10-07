@@ -54,6 +54,14 @@ export const Renamable: Story = {
   },
 };
 
+/** A terminal Session whose mod is older than the repository's is marked in its header. */
+export const ModOutOfDate: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Release notes script", modOutOfDate: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Mod out of date: run /reload-plugins" })).toBeInTheDocument();
+  },
+};
+
 /** No title yet: the header offers Rename as an icon, since there is no name to press. */
 export const Untitled: Story = {
   args: { state: "waiting", said: "Waiting on you", onRename: fn() },

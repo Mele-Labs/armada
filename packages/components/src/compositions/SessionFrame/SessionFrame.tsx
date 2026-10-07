@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Check, CircleDashed, CircleDot, Eye, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -38,6 +38,19 @@ export function SessionMark({ state, said }: { state: SessionState; said: string
   );
 }
 
+/** A terminal Session whose mod is older than the repository's. The act is the terminal's own. */
+export const MOD_OUT_OF_DATE = "Mod out of date: run /reload-plugins";
+
+export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
+  return (
+    <Tooltip label={MOD_OUT_OF_DATE}>
+      <span className="armada-session-mark" role="img" aria-label={MOD_OUT_OF_DATE}>
+        <RotateCw size={size} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
 export type SessionFrameProps = {
   state: SessionState;
   /** What the state's mark says on hover. */
@@ -52,6 +65,8 @@ export type SessionFrameProps = {
    * Enter saves it and Esc, or leaving it, keeps the old one.
    */
   onRename?: (title: string) => void;
+  /** The Session's mod is older than the repository's: marked beside the state. */
+  modOutOfDate?: boolean;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -108,7 +123,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, actions, aside, children }: SessionFrameProps) {
   return (
     <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
@@ -117,6 +132,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, action
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
+        {modOutOfDate ? <ModMark /> : null}
         <SessionMark state={state} said={said} />
       </header>
       <div className="armada-session-frame__body">{children}</div>

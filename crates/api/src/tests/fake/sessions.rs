@@ -30,6 +30,7 @@ impl Sessions for FakeDaemon {
             attachments: Vec::new(),
             hosted: None,
             terminal: None,
+            mod_out_of_date: false,
         })
     }
 

@@ -153,3 +153,11 @@ export const LastTurnAgo: Story = {
     await expect(canvas.getByLabelText("Last turn 13:15")).toHaveTextContent("3d");
   },
 };
+
+/** A terminal Session whose mod is older than the repository's carries a mark that names the act. */
+export const ModOutOfDate: Story = {
+  args: { groups: [{ label: "Running", rows: [{ ...LIVE, modOutOfDate: true }, NOTES] }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("img", { name: "Mod out of date: run /reload-plugins" })).toHaveLength(1);
+  },
+};
