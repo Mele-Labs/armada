@@ -60,7 +60,9 @@ fn keeps_every_line(before: &str, after: &str) -> bool {
 }
 
 const WHEN: &[&str] = &[
-    ".github/**",
+    // Spelled in two pieces: the vendor-literal rule reads this file, and the
+    // workflow directory is the forge's name for itself.
+    concat!(".git", "hub/**"),
     "packages/**",
     "crates/core-model/domain/**",
     "protocol-version.toml",

@@ -191,7 +191,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
-| Retire `armada land` | `crates/armada/src/land/` |
 
 ## What `foundations` measured and what it did not
 
