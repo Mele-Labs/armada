@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Webhook, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Alert } from "../../primitives/Alert/Alert";
@@ -8,6 +8,7 @@ import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
 import { Select } from "../../primitives/Select/Select";
 import { Sheet } from "../../primitives/Sheet/Sheet";
+import { Switch } from "../../primitives/Switch/Switch";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { WorkflowCanvas, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "../WorkflowCanvas/WorkflowCanvas";
 import type { WorkflowStepBand, WorkflowStepDetail } from "../WorkflowStepCard/WorkflowStepCard";
@@ -33,6 +34,9 @@ import {
   type Step,
 } from "./def";
 import { writeDefinition } from "./json";
+import { TriggerRows, TriggerSheet, type TriggerTarget } from "../WorkflowTriggers/WorkflowTriggers";
+import { firingAt, identityKey, type TriggersBinding } from "../WorkflowTriggers/triggers";
+import type { TriggerLevel, TriggerMoment, TriggerSaved, TriggerSummary } from "@armada/protocol";
 
 /**
  * The Workflow creator: the workflows Fleet resolved for this repository as a
@@ -55,6 +59,8 @@ export type WorkflowCreatorProps = {
   onSave: (def: Definition, overwrite: boolean) => Promise<Saved>;
   /** Hand the draft to Helm, which can author one too. */
   onDiscuss?: (draft: string) => void;
+  /** The repository's Triggers and what can be done to them. Absent draws none. */
+  triggers?: TriggersBinding;
 };
 
 type Standing = "draft" | "refused" | "saved";
@@ -117,14 +123,24 @@ export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
 }
 
 /** What the step is, a labelled line each: its evidence, then every way it advances. */
-export function detailsOf(step: Step): WorkflowStepDetail[] {
+export function detailsOf(step: Step, triggers: readonly TriggerSummary[] = []): WorkflowStepDetail[] {
   const g = step.gate;
   const rows: WorkflowStepDetail[] = step.evidence === "" ? [] : [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
-  if (g.repository) return [...rows, { icon: GATE.repository.icon, label: GATE.repository.said }];
-  if (g.checks) rows.push({ icon: GATE.checks.icon, label: GATE.checks.said, value: step.check === "none" ? "none named" : step.check });
-  if (g.judge) rows.push({ icon: GATE.judge.icon, label: GATE.judge.said, value: step.judge.trim() === "" ? "no question" : step.judge });
-  if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
-  if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
+  if (g.repository) rows.push({ icon: GATE.repository.icon, label: GATE.repository.said });
+  else {
+    if (g.checks) rows.push({ icon: GATE.checks.icon, label: GATE.checks.said, value: step.check === "none" ? "none named" : step.check });
+    if (g.judge) rows.push({ icon: GATE.judge.icon, label: GATE.judge.said, value: step.judge.trim() === "" ? "no question" : step.judge });
+    if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
+    if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
+  }
+  // Triggers fire at a moment, so each moment is a line of its own after how the step advances.
+  const fires = (when: TriggerMoment, label: string) => {
+    const named = triggers.filter((one) => one.when === when).map((one) => one.name);
+    if (named.length > 0) rows.push({ icon: Webhook, label, value: named.join(", ") });
+  };
+  fires("pr_opened", "PR opened");
+  fires("step_starts", "Triggers on start");
+  fires("step_passes", "Triggers on pass");
   return rows;
 }
 
@@ -132,12 +148,12 @@ export function detailsOf(step: Step): WorkflowStepDetail[] {
 const titleOf = (id: string, at: number) => (id === "" ? `Step ${at + 1}` : id.charAt(0).toUpperCase() + id.slice(1).replaceAll("_", " "));
 
 /** The definition as the canvas draws it: a spine down, and a back edge wherever a step sends work back. */
-function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void) {
+function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, triggersAt: (step: Step) => TriggerSummary[]) {
   let y = 0;
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
     const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
-    const details = detailsOf(step);
+    const details = detailsOf(step, triggersAt(step));
     const rows = details.length + needs.length + (back ? 1 : 0);
     const here = y;
     y += STEP_APART + BAND + (rows - 1) * ROW + 8;
@@ -176,11 +192,14 @@ function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: 
   return { nodes, edges };
 }
 
-export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss }: WorkflowCreatorProps) {
+export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss, triggers }: WorkflowCreatorProps) {
   const [definitions, setDefinitions] = useState<Readonly<Record<string, Definition>>>({});
   const [open, setOpen] = useState<Open | null>(null);
   const [picked, setPicked] = useState<Entry | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
+  // The Trigger open in its own panel, and what each save answered, for the row's `waits_for_main`.
+  const [triggerEdit, setTriggerEdit] = useState<{ target: TriggerTarget; at: number } | null>(null);
+  const [answered, setAnswered] = useState<ReadonlyMap<string, TriggerSaved>>(new Map());
   const asked = useRef(new Set<string>());
   const opening = useRef(0);
 
@@ -216,6 +235,17 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
     // A carried definition is edited as a copy, written to the Manifest the window is in.
     def.scope = entry.source === "kit" ? KIT : repository;
     setOpen({ from: entry.key, def, standing: "draft", refusals: [], handed: false });
+  }
+
+  // One overlay panel at a time: a step, the workflow's settings, or a Trigger.
+  const openPanel = useCallback((next: Panel) => {
+    setTriggerEdit(null);
+    setPanel(next);
+  }, []);
+
+  function openTrigger(target: TriggerTarget) {
+    setPanel(null);
+    setTriggerEdit((was) => ({ target, at: (was?.at ?? 0) + 1 }));
   }
 
   function change(next: (def: Definition) => Definition) {
@@ -282,6 +312,24 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
             <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => void begin(entry)} />
           ))}
         </ul>
+        {triggers === undefined ? null : (
+          <section className="armada-triggers-card" aria-label="Triggers on every workflow">
+            <div className="armada-triggers-card__band">Every workflow</div>
+            <div className="armada-triggers-card__body">
+              <TriggerRows
+                triggers={triggers.triggers.filter((one) => one.workflow === undefined)}
+                label="Triggers on every workflow"
+                saved={answered}
+                onOpen={(summary, level) => openTrigger({ kind: "open", summary, ...(level === undefined ? {} : { level }) })}
+              />
+              <div>
+                <Button variant="secondary" onClick={() => openTrigger({ kind: "new", init: {} })}>
+                  Add trigger
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
       </section>
       {picked?.leftOut !== undefined ? (
         <section className="armada-wf-left" aria-label={`${picked.id}, left out`}>
@@ -295,10 +343,23 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
           manifests={manifests}
           entries={entries}
           panel={panel}
-          onPanel={setPanel}
+          onPanel={openPanel}
+          {...(triggers === undefined ? {} : { triggers, saved: answered, onTrigger: openTrigger })}
           onChange={change}
           onSave={() => void save()}
           onDiscuss={onDiscuss === undefined ? undefined : discuss}
+        />
+      )}
+      {triggers === undefined || triggerEdit === null ? null : (
+        <TriggerSheet
+          key={triggerEdit.at}
+          binding={triggers}
+          target={triggerEdit.target}
+          workflow={open === null || open.def.id === "" ? undefined : open.def.id}
+          steps={open === null ? [] : open.def.steps.map((one) => one.id).filter((one) => one !== "")}
+          onSaved={(saved) => setAnswered((was) => new Map(was).set(identityKey(saved), saved))}
+          onRemoved={() => setTriggerEdit(null)}
+          onClose={() => setTriggerEdit(null)}
         />
       )}
     </div>
@@ -384,6 +445,9 @@ function Stage({
   entries,
   panel,
   onPanel,
+  triggers,
+  saved,
+  onTrigger,
   onChange,
   onSave,
   onDiscuss,
@@ -394,6 +458,9 @@ function Stage({
   entries: readonly Entry[];
   panel: Panel;
   onPanel: (panel: Panel) => void;
+  triggers?: TriggersBinding;
+  saved?: ReadonlyMap<string, TriggerSaved>;
+  onTrigger?: (target: TriggerTarget) => void;
   onChange: (next: (def: Definition) => Definition) => void;
   onSave: () => void;
   onDiscuss: (() => void) | undefined;
@@ -426,7 +493,13 @@ function Stage({
     }, 120);
     return () => window.clearTimeout(land);
   }, [focus]);
-  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel), [def, marked, panel, onPanel]);
+  // The Triggers that fire at a step: this workflow's and every workflow's, and the ones that name the step or none.
+  const listed = triggers?.triggers;
+  const triggersAt = useCallback(
+    (step: Step) => (listed === undefined ? [] : firingAt(listed, def.id, step)),
+    [listed, def.id],
+  );
+  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, triggersAt), [def, marked, panel, onPanel, triggersAt]);
   const replaces = entries
     .filter((one) => one.id === def.id && one.leftOut === undefined && SOURCE_RANK[one.source] < SOURCE_RANK[def.scope === KIT ? "kit" : "repository"])
     .map((one) => PLACE[one.source].said);
@@ -528,6 +601,19 @@ function Stage({
                 at={panel}
                 steps={def.steps}
                 refused={marked.has(panel)}
+                {...(triggers === undefined || onTrigger === undefined
+                  ? {}
+                  : {
+                      triggers: triggersAt(def.steps[panel]),
+                      saved,
+                      onOpenTrigger: (summary: TriggerSummary, level?: TriggerLevel) =>
+                        onTrigger({ kind: "open", summary, ...(level === undefined ? {} : { level }) }),
+                      onAddTrigger: (when: TriggerMoment) =>
+                        onTrigger({
+                          kind: "new",
+                          init: { workflow: def.id, when, step: when === "pr_opened" ? "" : def.steps[panel]!.id },
+                        }),
+                    })}
                 onChange={(next) =>
                   onChange((was) => ({ ...was, steps: was.steps.map((one, i) => (i === panel ? { ...one, ...next } : one)) }))
                 }
@@ -600,6 +686,10 @@ function StepFields({
   at,
   steps,
   refused,
+  triggers,
+  saved,
+  onOpenTrigger,
+  onAddTrigger,
   onChange,
   onRemove,
 }: {
@@ -607,6 +697,11 @@ function StepFields({
   at: number;
   steps: readonly Step[];
   refused: boolean;
+  /** The Triggers that fire at this step. Absent draws no section. */
+  triggers?: readonly TriggerSummary[];
+  saved?: ReadonlyMap<string, TriggerSaved> | undefined;
+  onOpenTrigger?: (summary: TriggerSummary, level?: TriggerLevel) => void;
+  onAddTrigger?: (when: TriggerMoment) => void;
   onChange: (next: Partial<Step>) => void;
   onRemove: () => void;
 }) {
@@ -683,6 +778,35 @@ function StepFields({
           value={step.iterationCap}
           onChange={(event) => onChange({ iterationCap: event.target.valueAsNumber })}
         />
+      )}
+      {step.delivers !== true ? null : (
+        <Switch
+          checked={step.draftPr === true}
+          // Off says nothing again where the file said nothing before, so a switch that was never set is not written as `ready`.
+          onChange={(event) =>
+            onChange({ draftPr: event.target.checked ? true : typeof step.carried?.draft_pr === "boolean" ? false : undefined })
+          }
+        >
+          Draft PR
+        </Switch>
+      )}
+      {triggers === undefined || onOpenTrigger === undefined || onAddTrigger === undefined || step.id === "" ? null : (
+        <div className="armada-triggers__section">
+          <TriggerRows triggers={triggers} label={`Triggers on ${step.id}`} saved={saved} onOpen={onOpenTrigger} />
+          <span className="armada-triggers__acts">
+            {step.delivers === true ? (
+              <Button variant="secondary" onClick={() => onAddTrigger("pr_opened")}>
+                Add trigger on PR opened
+              </Button>
+            ) : null}
+            <Button variant="secondary" onClick={() => onAddTrigger("step_starts")}>
+              Add trigger on start
+            </Button>
+            <Button variant="secondary" onClick={() => onAddTrigger("step_passes")}>
+              Add trigger on pass
+            </Button>
+          </span>
+        </div>
       )}
       <div>
         <Button variant="ghost" onClick={onRemove}>

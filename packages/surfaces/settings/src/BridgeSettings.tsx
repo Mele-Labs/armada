@@ -18,9 +18,10 @@ import {
   FleetSettings,
   GuidesSetting,
   MachineSettings,
+  Switch,
   type FleetSettingsRow,
 } from "@armada/components";
-import type { FleetLimits, HelmActionAuthority, Outcome, SaveLimits } from "@armada/protocol";
+import type { FleetLimits, HelmActionAuthority, Outcome, Preferences, SaveLimits, SavePreference } from "@armada/protocol";
 import { useState } from "react";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
@@ -45,6 +46,10 @@ export type BridgeSettingsProps = {
   /** `GET /health`, `#1127`'s reason: what Fleet resolved `this machine`'s own settings to. */
   health: HealthRead;
   onSave: (values: SaveLimits) => Promise<Outcome>;
+  /** What is in force for each preference. Absent draws no preference. */
+  preferences?: Preferences;
+  /** Save one preference by name. Fleet answers every preference now in force. */
+  onSavePreference?: (save: SavePreference) => Promise<Outcome>;
   /** Opens the guide catalogue. Navigation is the window's, so it arrives as a prop. */
   onReadGuides?: () => void;
 };
@@ -57,7 +62,7 @@ export function helmActionAuthorityValue(health: HealthRead): string | undefined
 
 const WORDS: Record<HelmActionAuthority, string> = { acting: "Acting", read_only: "Read-only" };
 
-export function BridgeSettings({ limits, live, health, onSave, onReadGuides }: BridgeSettingsProps) {
+export function BridgeSettings({ limits, live, health, onSave, preferences, onSavePreference, onReadGuides }: BridgeSettingsProps) {
   return (
     <div className="armada-screen__pane">
       {/* Before Fleet answers there is nothing to draw: no heading over nothing. */}
@@ -87,6 +92,9 @@ export function BridgeSettings({ limits, live, health, onSave, onReadGuides }: B
               },
             ]}
           />
+          {preferences === undefined || onSavePreference === undefined ? null : (
+            <DraftPullRequests on={preferences.draft_pull_requests === true} live={live} onSave={onSavePreference} />
+          )}
         </CardContent>
       </Card>
 
@@ -99,6 +107,28 @@ export function BridgeSettings({ limits, live, health, onSave, onReadGuides }: B
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * This machine's default for a pull request: offered as a draft unless the repository, the
+ * workflow or the Job says otherwise. **The press shows at once** and the republished preference
+ * takes over, so a refused save puts the switch back where Fleet has it.
+ */
+function DraftPullRequests({ on, live, onSave }: { on: boolean; live: boolean; onSave: (save: SavePreference) => Promise<Outcome> }) {
+  const [asked, setAsked] = useState<boolean | null>(null);
+  return (
+    <Switch
+      checked={asked ?? on}
+      disabled={!live}
+      onChange={(event) => {
+        const value = event.target.checked;
+        setAsked(value);
+        void onSave({ name: "draft_pull_requests", value }).then(() => setAsked(null));
+      }}
+    >
+      Draft pull requests
+    </Switch>
   );
 }
 

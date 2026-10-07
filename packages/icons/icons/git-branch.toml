@@ -10,3 +10,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Nothing could name the base`."
+
+[[icons.git-branch.usage]]
+  means = "A repository Trigger saved and not yet on main"
+  group = "Trigger"
+  size = "12px"
+  status = "Specified"
+  notes = "Added 7 Oct 2026 with Triggers. A repository's Triggers are read from `main`, so a save answers `waits_for_main`; tooltip `Runs once it is on main`. `hourglass` is banned, and `clock` is queued's."

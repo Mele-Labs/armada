@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, and the wire to Bridge. Skills, `block`, `repair`, asking the owner and Bridge's screens are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, the wire to Bridge, and Bridge's saved Triggers, step cards and Job card. Skills, `block`, `repair`, asking the owner, and the repair branch and the `+` that adds a step on Bridge's canvas are not.
 
 ## What a Trigger is
 
@@ -88,5 +88,16 @@ Protocol 23.58, the four operations and one event, `docs/practices/protocol.md`.
 > Why: Fleet reads a repository's files from the base branch. A save writes the checkout and answers `waits_for_main`, and a removal there waits the same way.
 
 Nothing is held, so a save is on the next `list_triggers`. A Job's log line for a firing is stamped with the firing's own end, which is what `JobTrigger.log_at` points at.
+
+## In Bridge
+
+| Where | What it draws |
+|---|---|
+| Workflows, beside the list | The Triggers that apply to every workflow, and an editor for one: When, Step, Applies to, Set in, Runs, and the two switches under If it fails |
+| A workflow's step | The Triggers that fire at it, one line a moment. The delivering step also carries the Draft PR switch, which is its `draft_pr` |
+| Settings, This machine | The Draft pull requests switch, which is `draft_pull_requests` |
+| A Job's Overview | Its Triggers, each with the state as a mark and the level that sets it. A firing's name opens its line in the Job's log through `log_at` |
+
+A copy a more specific level replaced is drawn struck through under the one that runs. A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped. The repository's own `pr_mode` is not edited in Bridge: no edit of `armada.yml` serves that key yet.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

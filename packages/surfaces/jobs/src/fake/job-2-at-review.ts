@@ -20,6 +20,7 @@ import { recorded } from "@armada/screens/src/fixtures/recorded";
 
 import served from "./job-2-landed.json";
 import evidence from "./job-2-evidence.json";
+import { JOB_2_TRIGGERS, triggerNotes } from "./job-2-triggers";
 
 /** When the handoff step asked for a person: its attempt's own `ended_at`. */
 const ASKED_AT = "2026-10-01T21:23:46.361Z";
@@ -62,10 +63,16 @@ export function job2AtReview(): JobFixture {
   if (fixture.watched.state !== "read") return fixture;
   const { detail } = fixture.watched;
   const delivery = { ...detail.delivery, pull_request_title: TITLE, pull_request_comments: 0 };
+  // Triggers are 23.58's, and the recording is older: they are put on, with the log's line for each.
+  const { journalled } = fixture;
+  const held = journalled.state === "watching" || journalled.state === "ended" || journalled.state === "failed" ? journalled : undefined;
+  const notes = held?.log.notes ?? [];
+  const log = { skipped: held?.log.skipped ?? 0, notes: [...notes, ...triggerNotes(Math.max(0, ...notes.map((one) => one.seq)))] };
   return {
     ...fixture,
     name: "Job 2, at its review gate, as Fleet served it",
-    watched: { ...fixture.watched, detail: { ...detail, delivery } },
+    watched: { ...fixture.watched, detail: { ...detail, delivery, triggers: JOB_2_TRIGGERS } },
+    journalled: held === undefined ? { state: "watching", jobId: detail.job.id, log } : { ...held, log },
   };
 }
 
