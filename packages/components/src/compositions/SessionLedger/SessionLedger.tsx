@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -40,6 +40,11 @@ export type LedgerEntry = {
   exits?: ReactNode;
   /** A Job's own slot, as a chip at the row's end. */
   slot?: number;
+  /**
+   * Done with: a merged pull request, an ended Job, a finished subagent. Such a row is drawn only
+   * under **All**, and a section that holds one gets the `Open | All` toggle.
+   */
+  finished?: boolean;
   onOpen: () => void;
 };
 
@@ -70,16 +75,66 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   piloted: Terminal,
 };
 
+type Show = "open" | "all";
+
+/** Which of a section's two views the viewer chose, kept per section. A viewer's convenience, so a blocked store only forgets it. */
+function useShow(kind: LedgerKind): [Show, (next: Show) => void] {
+  const key = `armada.session-ledger.show.${kind}`;
+  const [show, set] = useState<Show>(() => {
+    try {
+      return localStorage.getItem(key) === "all" ? "all" : "open";
+    } catch {
+      return "open";
+    }
+  });
+  return [
+    show,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(key, next);
+      } catch {
+        // Not kept: the section is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
+function ShowToggle({ label, show, onShow }: { label: string; show: Show; onShow: (next: Show) => void }) {
+  return (
+    <div className="armada-session-ledger__show" role="radiogroup" aria-label={`${label} shown`}>
+      {(["open", "all"] as const).map((one) => (
+        <button key={one} type="button" role="radio" aria-checked={show === one} className="armada-session-ledger__show-option" onClick={() => onShow(one)}>
+          {one === "open" ? "Open" : "All"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
       {entries.length === 0 ? <EmptyLedger /> : null}
-      {SECTIONS.map(({ kind, label, Glyph }) => {
-        const rows = entries.filter((one) => one.kind === kind);
-        if (rows.length === 0) return null;
-        return (
-          <section className="armada-session-ledger__group" key={kind} aria-label={label}>
-            <h3 className="armada-session-ledger__eyebrow">{label}</h3>
+      {SECTIONS.map(({ kind, label, Glyph }) => (
+        <LedgerSection key={kind} kind={kind} label={label} Glyph={Glyph} all={entries.filter((one) => one.kind === kind)} />
+      ))}
+    </aside>
+  );
+}
+
+function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: string; Glyph: LucideIcon; all: readonly LedgerEntry[] }) {
+  const [show, setShow] = useShow(kind);
+  if (all.length === 0) return null;
+  const toggles = all.some((one) => one.finished === true);
+  const rows = toggles && show === "open" ? all.filter((one) => one.finished !== true) : all;
+  return (
+    <section className="armada-session-ledger__group" aria-label={label}>
+      <div className="armada-session-ledger__head">
+        <h3 className="armada-session-ledger__eyebrow">{label}</h3>
+        {toggles ? <ShowToggle label={label} show={show} onShow={setShow} /> : null}
+      </div>
+      {rows.length === 0 ? null : (
             <ul className="armada-session-ledger__rows">
               {rows.map((row) => {
                 const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
@@ -135,10 +190,8 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
                 );
               })}
             </ul>
-          </section>
-        );
-      })}
-    </aside>
+      )}
+    </section>
   );
 }
 
