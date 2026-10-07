@@ -113,18 +113,27 @@ impl StandIn {
     }
 }
 
-struct Rig {
-    fleet: Arc<Hosted>,
-    stand_in: Arc<StandIn>,
+pub(super) struct Rig {
+    pub(super) fleet: Arc<Hosted>,
+    pub(super) stand_in: Arc<StandIn>,
     manifest: ManifestId,
-    root: String,
+    pub(super) root: String,
     _home: TempDir,
 }
 
 fn rig() -> Rig {
+    rig_placing(None)
+}
+
+/// A rig whose callers and process trees are placed by a plant the test holds.
+pub(super) fn rig_placing(peers: Option<Arc<crate::tests::peer::Placing>>) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[])).hosting_sessions_on(
+    let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
+    if let Some(peers) = peers {
+        fittings.peers = peers;
+    }
+    let fleet = Fleet::assembled(fittings).hosting_sessions_on(
         Arc::new(Shared(Arc::clone(&stand_in))),
         Duration::from_secs(600),
     );
@@ -141,7 +150,7 @@ fn rig() -> Rig {
 }
 
 impl Rig {
-    async fn start(&self) -> SessionId {
+    pub(super) async fn start(&self) -> SessionId {
         self.fleet
             .start_session(StartSession {
                 manifest_id: self.manifest.clone(),
@@ -156,7 +165,7 @@ impl Rig {
             .id
     }
 
-    async fn send(&self, id: &SessionId, text: &str) {
+    pub(super) async fn send(&self, id: &SessionId, text: &str) {
         Arc::clone(&self.fleet)
             .send_session_message(SendSessionMessage {
                 session_id: id.clone(),
@@ -168,11 +177,11 @@ impl Rig {
             .expect("taken");
     }
 
-    async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
+    pub(super) async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
         Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
-    async fn gate(&self, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
+    pub(super) async fn gate(&self, id: &SessionId, tool: &str, input: &str) -> GateAnswer {
         let call = format!(
             r#"{{"session_id":"{}","cwd":"{}","tool_name":"{tool}","tool_input":{input}}}"#,
             id.as_str(),
@@ -182,13 +191,13 @@ impl Rig {
         self.fleet.gate_session_call(gate).await.expect("answered")
     }
 
-    async fn turn(&self, id: &SessionId) -> SessionTurn {
+    pub(super) async fn turn(&self, id: &SessionId) -> SessionTurn {
         let record = Arc::clone(&self.fleet).get_session(id.clone()).await.unwrap().session;
         record.hosted.expect("hosted").turn
     }
 }
 
-async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
+pub(super) async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
     for _ in 0..500 {
         if check().await {
             return;
@@ -198,11 +207,11 @@ async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut
     panic!("it did not come true within five seconds");
 }
 
-fn denied(answer: &GateAnswer) -> bool {
+pub(super) fn denied(answer: &GateAnswer) -> bool {
     matches!(answer, GateAnswer::Hold { .. })
 }
 
-fn reason(answer: &GateAnswer) -> String {
+pub(super) fn reason(answer: &GateAnswer) -> String {
     match answer {
         GateAnswer::Hold { held } => held.reason.clone(),
         GateAnswer::Pass {} => String::new(),

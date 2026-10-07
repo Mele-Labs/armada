@@ -144,6 +144,24 @@ refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
+**What the write gate covers.** A slot lives under the main checkout's path, so
+the gate tells three places apart: the main checkout, a slot, and anywhere
+else. A file tool is let through in **any slot whose lease is held by this
+session's process or by a process it started**, which is how `armada worktree
+lease` records its caller (the first process above it that is not a shell), so
+a slot the session's own subagent leased is writable. A slot held by anything
+else, or by a holder that has gone, is refused with a sentence saying so. The
+main checkout stays refused, and a `..` is resolved by reading before the path
+is placed. A shell line is also held when it **obviously names a path in the
+main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
+`2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
+`chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
+argument, and `git -C <path>` with any subcommand that is not a read. **Not
+covered**: a relative path (the session's directory is the slot, so it lands
+there), a path built from a variable or a substitution, a `cd` into the
+checkout and then a relative write, and anything a script or a build writes by
+itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+
 **The slot is held by the session's id as a Job's is held by its id**, so a
 restart of the process or of Fleet is not the session ending. It is given back
 on close by parking: what is in it is committed to the session's own branch and

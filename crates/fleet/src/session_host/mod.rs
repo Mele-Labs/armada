@@ -11,6 +11,7 @@ mod asking;
 mod gate;
 mod hearing;
 mod piloting;
+mod places;
 mod process;
 mod rows;
 mod serving;
