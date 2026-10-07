@@ -28,8 +28,14 @@ fn an_open_pull_request_that_is_a_draft_is_a_draft() {
 fn each_state_the_forge_names_reads_as_its_own() {
     let standing = |state, draft| parsed(&line(state, draft, "false")).map(|facts| facts.standing);
     assert_eq!(standing("OPEN", "false"), Some(PullRequestStanding::Open));
-    assert_eq!(standing("MERGED", "false"), Some(PullRequestStanding::Merged));
-    assert_eq!(standing("CLOSED", "false"), Some(PullRequestStanding::Closed));
+    assert_eq!(
+        standing("MERGED", "false"),
+        Some(PullRequestStanding::Merged)
+    );
+    assert_eq!(
+        standing("CLOSED", "false"),
+        Some(PullRequestStanding::Closed)
+    );
 }
 
 /// A draft that was merged or closed is not a draft: the flag stays on the
@@ -44,7 +50,11 @@ fn a_merged_pull_request_is_not_a_draft_whatever_its_flag_says() {
 
 #[test]
 fn auto_merge_is_whether_the_forge_holds_a_request_for_it() {
-    assert!(parsed(&line("OPEN", "false", "true")).expect("read").auto_merge);
+    assert!(
+        parsed(&line("OPEN", "false", "true"))
+            .expect("read")
+            .auto_merge
+    );
 }
 
 /// **A state this build has no word for is silence**, never a guess.

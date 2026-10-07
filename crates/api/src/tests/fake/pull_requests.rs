@@ -3,7 +3,7 @@
 //! `fleet::pull_requesting`'s, against a scripted one.
 
 use ipc::{
-    ManifestId, ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched,
+    ForgeChecks, ManifestId, PullRequestStanding, PullRequestState, ReviewDispatched,
     ReviewPullRequest,
 };
 

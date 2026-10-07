@@ -37,7 +37,9 @@ pub enum ForgeChecks {
     Pending,
     Passed,
     /// At least one did not pass, named as the forge names it.
-    Failed { failing: Vec<String> },
+    Failed {
+        failing: Vec<String>,
+    },
 }
 
 /// One pull request as the forge shows it now. `get_pull_request`, and what

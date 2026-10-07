@@ -353,65 +353,6 @@ impl FakeVcs {
         delivery.merged_at = Some(at.to_string());
     }
 
-    /// Say what the forge says about the open pull request: who has looked at
-    /// it, what ran against it, what anybody wrote.
-    ///
-    /// `&self` for [`now_landed`](FakeVcs::now_landed)'s reason — nothing is
-    /// reviewed until the Job that opened the pull request has finished, by
-    /// which time the fake is inside a Fleet.
-    pub fn now_under_review(&self, under_review: UnderReview) {
-        self.delivery.lock().expect("not poisoned").under_review = under_review;
-    }
-
-    /// How many times the forge has been asked what is happening on an open
-    /// pull request. **Counted apart from the merge question**, because the two
-    /// ride one rotation and a test proving the sweep did not grow a second
-    /// loop is counting these against those.
-    pub fn times_asked_what_is_under_review(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::AskedWhatIsUnderReview { .. }))
-    }
-
-    /// Say what the forge answers for inline diff comments. `&self` for
-    /// [`now_under_review`](FakeVcs::now_under_review)'s reason.
-    pub fn now_inline_remarks(&self, remarks: Option<Vec<Remark>>) {
-        self.delivery.lock().expect("not poisoned").inline_remarks = remarks;
-    }
-
-    /// How many times the forge has been asked for inline comments — the
-    /// query the sweep makes once per turn on an open pull request.
-    pub fn times_asked_for_inline_remarks(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::AskedForInlineRemarks { .. }))
-    }
-
-    /// Say what the forge shows of a pull request from now on, or that it is
-    /// silent. **Writes taken afterwards show on the next read**, as a real
-    /// forge's would: a merge makes it merged, a ready makes a draft open.
-    pub fn now_pull_request(&self, facts: Option<adapter_traits::PullRequestFacts>) {
-        self.pull_requests.lock().expect("not poisoned").facts = facts;
-    }
-
-    /// Say what the forge answers when auto-merge is asked for: `Err` is its
-    /// own sentence. `&self`, as [`now_pull_request`](FakeVcs::now_pull_request).
-    pub fn now_auto_merge(&self, answer: Result<(), String>) {
-        self.delivery.lock().expect("not poisoned").auto_merge = answer;
-    }
-
-    /// Say that taking a pull request out of draft is refused, in the forge's
-    /// own sentence.
-    pub fn ready_refuses(&self, said: &str) {
-        self.pull_requests.lock().expect("not poisoned").ready = Err(said.to_string());
-    }
-
-    /// How many times a pull request was taken out of draft.
-    pub fn times_asked_to_ready(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::MarkedReady { .. }))
-    }
-
-    /// How many times auto-merge was asked for.
-    pub fn times_asked_for_auto_merge(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::AutoMerge { .. }))
-    }
-
     /// Say what the forge does when it is asked to merge.
     ///
     /// `&self` for [`now_landed`](FakeVcs::now_landed)'s reason: nothing merges
@@ -794,14 +735,7 @@ impl Delivery for FakeVcs {
     }
 
     fn enable_auto_merge(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
-        let answered = commit::auto_merge(self, pull_request);
-        if answered.is_ok() {
-            self.pull_requests
-                .lock()
-                .expect("not poisoned")
-                .took_auto_merge();
-        }
-        answered
+        self.auto_merge_asked(pull_request)
     }
 
     fn pull_request_facts(
@@ -809,32 +743,11 @@ impl Delivery for FakeVcs {
         _in_repo: &str,
         pull_request: &str,
     ) -> Option<adapter_traits::PullRequestFacts> {
-        self.delivered
-            .lock()
-            .expect("not poisoned")
-            .push(Delivered::ReadPullRequest {
-                pull_request: pull_request.to_string(),
-            });
-        self.pull_requests
-            .lock()
-            .expect("not poisoned")
-            .facts
-            .clone()
+        self.pull_request_read(pull_request)
     }
 
     fn mark_ready(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
-        self.delivered
-            .lock()
-            .expect("not poisoned")
-            .push(Delivered::MarkedReady {
-                pull_request: pull_request.to_string(),
-            });
-        let mut forge = self.pull_requests.lock().expect("not poisoned");
-        let answered = forge.ready.clone();
-        if answered.is_ok() {
-            forge.took_ready();
-        }
-        answered
+        self.ready_asked(pull_request)
     }
 
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
@@ -849,7 +762,7 @@ impl Delivery for FakeVcs {
             });
         match self.merging.lock().expect("not poisoned").clone() {
             Merging::Takes => {
-                self.pull_requests.lock().expect("not poisoned").took_merge();
+                self.pull_request_merged();
                 Ok(Merged::Taken)
             }
             Merging::AlreadyMerged => Ok(Merged::AlreadyMerged),

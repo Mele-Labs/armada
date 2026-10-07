@@ -287,7 +287,11 @@ async fn a_draft_is_taken_out_of_draft_and_the_answer_is_the_new_state() {
     assert_eq!(now.state, Wire::Open);
     assert_eq!(fleet.vcs().times_asked_to_ready(), 1);
     assert_eq!(
-        the_row(&fleet, "s1", "pr").await.detail.get("state").map(String::as_str),
+        the_row(&fleet, "s1", "pr")
+            .await
+            .detail
+            .get("state")
+            .map(String::as_str),
         Some("open")
     );
 }
@@ -375,7 +379,10 @@ async fn a_merge_while_the_checks_have_not_passed_is_refused_before_it_writes() 
             .now_pull_request(Some(facts(PullRequestStanding::Open)));
         forge_ran(&fleet, ran.clone());
 
-        let refused = fleet.merge_pull_request_by_number(id, 12).await.unwrap_err();
+        let refused = fleet
+            .merge_pull_request_by_number(id, 12)
+            .await
+            .unwrap_err();
 
         assert_eq!(code(&refused), "fleet.merge_checks_not_passed");
         assert_eq!(refused.status(), 409);
@@ -398,7 +405,10 @@ async fn a_draft_and_a_closed_pull_request_are_not_merged() {
         fleet.vcs().now_pull_request(Some(facts(standing)));
         forge_ran(&fleet, passed());
 
-        let refused = fleet.merge_pull_request_by_number(id, 12).await.unwrap_err();
+        let refused = fleet
+            .merge_pull_request_by_number(id, 12)
+            .await
+            .unwrap_err();
 
         assert_eq!(code(&refused), expected);
         assert_eq!(fleet.vcs().times_asked_to_merge(), 0);
@@ -425,22 +435,30 @@ async fn one_already_merged_is_answered_as_it_stands_and_nothing_is_written() {
 async fn the_forges_own_refusals_keep_the_codes_a_job_merge_has() {
     for (why, expected, status) in [
         (
-            NotMerged::Protected { said: "needs a review".into() },
+            NotMerged::Protected {
+                said: "needs a review".into(),
+            },
             "fleet.merge_branch_protected",
             409,
         ),
         (
-            NotMerged::Conflicted { said: "conflicts".into() },
+            NotMerged::Conflicted {
+                said: "conflicts".into(),
+            },
             "fleet.merge_conflicted",
             409,
         ),
         (
-            NotMerged::NoTool { said: "no gh".into() },
+            NotMerged::NoTool {
+                said: "no gh".into(),
+            },
             "fleet.merge_no_tool",
             500,
         ),
         (
-            NotMerged::Refused { said: "something new".into() },
+            NotMerged::Refused {
+                said: "something new".into(),
+            },
             "fleet.merge_refused",
             500,
         ),
@@ -454,7 +472,10 @@ async fn the_forges_own_refusals_keep_the_codes_a_job_merge_has() {
         forge_ran(&fleet, passed());
         fleet.vcs().merging(Merging::Refuses(why));
 
-        let refused = fleet.merge_pull_request_by_number(id, 12).await.unwrap_err();
+        let refused = fleet
+            .merge_pull_request_by_number(id, 12)
+            .await
+            .unwrap_err();
 
         assert_eq!(code(&refused), expected);
         assert_eq!(refused.status(), status);
@@ -481,7 +502,11 @@ async fn auto_merge_is_asked_for_while_the_checks_run() {
     assert_eq!(now.state, Wire::Open, "it merges nothing itself");
     assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 1);
     assert_eq!(
-        the_row(&fleet, "s1", "pr").await.detail.get("auto_merge").map(String::as_str),
+        the_row(&fleet, "s1", "pr")
+            .await
+            .detail
+            .get("auto_merge")
+            .map(String::as_str),
         Some("true")
     );
 
@@ -493,7 +518,11 @@ async fn auto_merge_is_asked_for_while_the_checks_run() {
 #[tokio::test]
 async fn auto_merge_is_refused_once_the_checks_passed_or_failed_and_on_a_draft() {
     for (standing, ran, expected) in [
-        (PullRequestStanding::Open, passed(), "fleet.pull_request_checks_passed"),
+        (
+            PullRequestStanding::Open,
+            passed(),
+            "fleet.pull_request_checks_passed",
+        ),
         (
             PullRequestStanding::Open,
             WhatTheForgeRan::SomeFailed {
@@ -502,8 +531,16 @@ async fn auto_merge_is_refused_once_the_checks_passed_or_failed_and_on_a_draft()
             },
             "fleet.merge_checks_not_passed",
         ),
-        (PullRequestStanding::Draft, running(), "fleet.pull_request_is_a_draft"),
-        (PullRequestStanding::Merged, passed(), "fleet.merge_not_open"),
+        (
+            PullRequestStanding::Draft,
+            running(),
+            "fleet.pull_request_is_a_draft",
+        ),
+        (
+            PullRequestStanding::Merged,
+            passed(),
+            "fleet.merge_not_open",
+        ),
     ] {
         let home = TempDir::new();
         let fleet = a_fleet(&home);
@@ -528,7 +565,9 @@ async fn a_repository_that_does_not_allow_auto_merge_says_so_in_the_forges_words
         .vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&fleet, running());
-    fleet.vcs().now_auto_merge(Err("Auto merge is not allowed".into()));
+    fleet
+        .vcs()
+        .now_auto_merge(Err("Auto merge is not allowed".into()));
 
     let refused = fleet.enable_auto_merge(id, 12).await.unwrap_err();
 
@@ -578,7 +617,7 @@ async fn an_address_is_taken_as_it_is_without_asking_the_forge() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    let address = "https://github.com/someone/else/pull/7";
+    let address = "https://forge.invalid/someone/else/pull/7";
 
     let made = fleet
         .review_pull_request(id, review(address, None), api::Redirector::Person)
@@ -605,7 +644,11 @@ async fn a_review_from_a_session_is_recorded_on_the_ledger_as_dispatched_from_it
     forge_ran(&fleet, passed());
 
     let made = fleet
-        .review_pull_request(id.clone(), review("12", Some("s1")), api::Redirector::Person)
+        .review_pull_request(
+            id.clone(),
+            review("12", Some("s1")),
+            api::Redirector::Person,
+        )
         .await
         .expect("dispatched");
 
@@ -631,7 +674,11 @@ async fn a_review_asked_by_a_session_nobody_heard_of_makes_no_job() {
     let (id, _) = manifest(&fleet);
 
     let refused = fleet
-        .review_pull_request(id, review("https://x.invalid/a/b/pull/7", Some("ghost")), api::Redirector::Person)
+        .review_pull_request(
+            id,
+            review("https://x.invalid/a/b/pull/7", Some("ghost")),
+            api::Redirector::Person,
+        )
         .await
         .unwrap_err();
 
@@ -641,7 +688,8 @@ async fn a_review_asked_by_a_session_nobody_heard_of_makes_no_job() {
 }
 
 #[tokio::test]
-async fn something_that_names_no_pull_request_is_refused_and_so_is_a_number_the_forge_cannot_read() {
+async fn something_that_names_no_pull_request_is_refused_and_so_is_a_number_the_forge_cannot_read()
+{
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);

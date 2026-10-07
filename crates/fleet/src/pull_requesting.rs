@@ -159,8 +159,8 @@ where
             .vcs()
             .pull_request_facts(root, &named)
             .ok_or_else(unreadable)?;
-        let checks = checks_of(&self.vcs().under_review(root, &named).checks)
-            .ok_or_else(unreadable)?;
+        let checks =
+            checks_of(&self.vcs().under_review(root, &named).checks).ok_or_else(unreadable)?;
         Ok(PullRequestState {
             manifest_id: manifest_id.clone(),
             number,
@@ -282,7 +282,10 @@ where
             )
         };
         match state.state {
-            PullRequestStanding::Draft => Some(raised(IS_A_DRAFT, "is a draft, and the forge will not do that to one")),
+            PullRequestStanding::Draft => Some(raised(
+                IS_A_DRAFT,
+                "is a draft, and the forge will not do that to one",
+            )),
             PullRequestStanding::Merged => Some(raised(MERGE_NOT_OPEN, "is merged already")),
             PullRequestStanding::Closed => Some(raised(MERGE_NOT_OPEN, "is closed")),
             PullRequestStanding::Open => None,
@@ -293,9 +296,16 @@ where
     fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
         let said = match &state.checks {
             ForgeChecks::Failed { failing } => {
-                format!("{} failed on pull request {}", failing.join(", "), state.number)
+                format!(
+                    "{} failed on pull request {}",
+                    failing.join(", "),
+                    state.number
+                )
             }
-            _ => format!("the checks on pull request {} are still running", state.number),
+            _ => format!(
+                "the checks on pull request {} are still running",
+                state.number
+            ),
         };
         Refusal::IllegalMove(self.pr_refusal(MERGE_CHECKS_NOT_PASSED, said))
     }
@@ -532,11 +542,11 @@ mod named_as {
 
     #[test]
     fn an_address_ending_in_pull_and_a_number_is_one() {
-        let said = "https://github.com/Mele-Labs/armada/pull/1843/";
+        let said = "https://forge.invalid/armada/pull/1843/";
         match named(said) {
             Some(Named::Address { number, address }) => {
                 assert_eq!(number, 1843);
-                assert_eq!(address, "https://github.com/Mele-Labs/armada/pull/1843");
+                assert_eq!(address, "https://forge.invalid/armada/pull/1843");
             }
             _ => panic!("an address"),
         }
@@ -544,7 +554,13 @@ mod named_as {
 
     #[test]
     fn anything_else_is_neither() {
-        for said in ["", "#1843", "armada", "https://github.com/Mele-Labs/armada/issues/12", "pull/12"] {
+        for said in [
+            "",
+            "#1843",
+            "armada",
+            "https://forge.invalid/armada/issues/12",
+            "pull/12",
+        ] {
             assert!(named(said).is_none(), "{said}");
         }
     }

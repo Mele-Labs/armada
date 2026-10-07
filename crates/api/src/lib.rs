@@ -67,6 +67,7 @@ mod one_drone;
 mod preferring;
 /// Pulse's kills: one process of a Job, and every one.
 mod processes;
+mod pull_requests;
 mod queries;
 mod reconciling;
 /// The `:job_id` a route carries, resolved before a handler can reach it.
@@ -86,7 +87,6 @@ mod scoped;
 /// the gate rule reads.
 mod served;
 mod servers;
-mod pull_requests;
 mod sessions;
 mod sockets;
 mod stream;
@@ -104,8 +104,8 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, Needs, PermissionAnswer, PullRequests, Queries, Redirector, Refusal, Retros, Sessions, Studios,
-    Tools,
+    HelmReach, Needs, PermissionAnswer, PullRequests, Queries, Redirector, Refusal, Retros,
+    Sessions, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};
