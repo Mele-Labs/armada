@@ -3309,7 +3309,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
-## Protocol 23.61: a session forked from an ended one
+## Protocol 23.69: a session forked from an ended one
 
 `docs/concepts/session.md`, *A forked session*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`. **Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
 

@@ -1,5 +1,5 @@
 //! A session started as a copy of an ended or dead one's conversation. Since
-//! 23.61. `docs/concepts/session.md`, *A forked session*.
+//! 23.69. `docs/concepts/session.md`, *A forked session*.
 //!
 //! **The fork is a new session.** It has its own id and ledger, holds no slot
 //! and no branch of the old one's, and takes a slot on its first write like any

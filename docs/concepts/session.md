@@ -217,7 +217,7 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 ## A forked session
 
-A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.61) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
+A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.69) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
 
 | | |
 |---|---|
