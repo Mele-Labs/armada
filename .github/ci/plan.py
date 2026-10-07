@@ -15,7 +15,7 @@ import json
 import sys
 
 # Bare names with a static job in checks.yml.
-ROOT = {"build", "test", "acceptance", "typecheck", "format", "hooks_test"}
+ROOT = {"build", "test", "acceptance", "typecheck", "format", "hooks_test", "preview_test"}
 
 # Run by the macOS shard job, which cannot go through `armada check`: that has
 # no `--shard`.

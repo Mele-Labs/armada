@@ -59,7 +59,7 @@
 // still standing, so it sits beside a redirect; a failed Check has already stood
 // its Drone down, so the Checks' re-run sits beside a restart.
 
-import { JOB_STATUS } from "@armada/components";
+import { CHECK_ADVANCES, JOB_STATUS } from "@armada/components";
 import type { JobDetail as JobWhole, JobSummary, RedirectInFlight, StepDetail, Stuck } from "@armada/protocol";
 import type { JobAct } from "./Acts";
 import { clock } from "@armada/screens/src/duration";
@@ -195,6 +195,14 @@ export type Overrule = {
   trigger: Overruled;
   /** Whether that step is the workflow's last, so the Job lands rather than runs on. */
   commits: boolean;
+  /**
+   * The Checks that failed on the stopped step's latest attempt, by name.
+   * **Present only where the step stopped on a Check**, which is read off the
+   * step's own runs and not off `trigger`: a failed Check and a Judge's refusal
+   * both arrive as `gate_failure`, and the words differ because the machine
+   * that said no does.
+   */
+  checks?: string[];
 };
 
 /** The triggers this file has words for. Fleet decides which are overrulable. */
@@ -375,6 +383,30 @@ export const OVERRULING: Record<Overruled, Overruling> = {
 };
 
 /**
+ * The words for a step that stopped on a failed Check. **Not a trigger of its
+ * own**: Fleet spells it `gate_failure`, the Judge's refusal, and the step's
+ * runs are what tell them apart. Nothing here says a machine was wrong — the
+ * owner's call (6 Oct 2026) is that a person who knows the work is done may
+ * go past any Check once the retries are spent.
+ */
+function checkOverruling(checks: string[]): Overruling {
+  const named = checks.join(", ");
+  const label = checks.length === 1 ? `Overrule ${named}` : "Overrule the Checks";
+  return {
+    label,
+    asks: `${label} on this step?`,
+    field: "Why this step is done",
+    screen: `${label}. The step advances, recorded as failed.`,
+    dialog: (step) => `${named} failed on ${step}. The step advances, recorded as failed.`,
+  };
+}
+
+/** The words for this override: the Check's where the step failed one, else the trigger's. */
+export function overrulingOf(overrule: Overrule): Overruling {
+  return overrule.checks === undefined ? OVERRULING[overrule.trigger] : checkOverruling(overrule.checks);
+}
+
+/**
  * The override Fleet offered, in the words this build has for it. Fleet's
  * answer is the caller's guard, so this reads only what the sentence needs.
  *
@@ -386,11 +418,20 @@ function overruleOf(whole: JobWhole, stuck: Stuck): Overrule | undefined {
   const held = stoppedIn(whole, stuck);
   const trigger = stuck.stopped_by;
   if (held === undefined || !worded(trigger)) return undefined;
+  const checks = failedChecks(held.stopped);
   return {
     step: held.stopped,
     trigger,
     commits: held.steps[held.steps.length - 1]?.step_id === held.stopped.step_id,
+    ...(trigger === "gate_failure" && checks.length > 0 ? { checks } : {}),
   };
+}
+
+/** The Checks that failed on the step's latest attempt, in the order they ran. */
+function failedChecks(step: StepDetail): string[] {
+  const runs = step.check_runs ?? [];
+  const latest = runs.reduce((at, run) => Math.max(at, run.attempt), 0);
+  return runs.filter((run) => run.attempt === latest && CHECK_ADVANCES[run.outcome] === false).map((run) => run.name);
 }
 
 /**
@@ -469,7 +510,7 @@ function unreachable(stuck: Stuck, made: Recourse): string | undefined {
  */
 function overruling(overrule: Overrule): string {
   return (
-    `${OVERRULING[overrule.trigger].screen} ${onwards(overrule)} The reason given is written to ` +
+    `${overrulingOf(overrule).screen} ${onwards(overrule)} The reason given is written to ` +
     "the job's log, which is append-only."
   );
 }

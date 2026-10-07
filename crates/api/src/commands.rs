@@ -328,10 +328,10 @@ pub(crate) async fn reject_job<D: Commands>(
 /// **The Job comes back `running`** at the step that follows, with everything
 /// the stopped Drone did still on the branch.
 ///
-/// 409 anywhere but an `escalated` Job stopped on `gate_failure` or
-/// `evidence_suspect`: a gate that never weighed the work has no opinion to
-/// overrule, and a failed mechanical Check reaches this route as a Job that is
-/// not escalated. 422 on a blank reason, except on `evidence_suspect`, where a
+/// 409 anywhere but an `escalated` or `awaiting_repair` Job stopped on
+/// `gate_failure`, `evidence_suspect` or `gate_undecided`: a failed mechanical
+/// Check is a `gate_failure` at `awaiting_repair` and is overruled like any
+/// other. 422 on a blank reason, except on `evidence_suspect`, where a
 /// person carrying on past a gaming flag need not type one.
 pub(crate) async fn override_verdict<D: Commands>(
     State(served): State<Served<D>>,

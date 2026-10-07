@@ -75,6 +75,7 @@ fn this_repositorys_own_setup_loads_and_resolves() {
             "build".to_string(),
             "format".to_string(),
             "hooks_test".to_string(),
+            "preview_test".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
         ],
@@ -135,7 +136,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .collect();
     let root: Vec<(&str, &str)> = resolved
         .iter()
-        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test")
+        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test" && *name != "preview_test")
         .map(|(_, name, run)| (*name, *run))
         .collect();
 
@@ -203,6 +204,14 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .find(|(_, name, _)| *name == "hooks_test")
         .expect("the hook suite is declared");
     assert!(hooks.2.ends_with("hooks/test_guard_merge.py"), "{hooks:?}");
+    let preview = resolved
+        .iter()
+        .find(|(_, name, _)| *name == "preview_test")
+        .expect("the preview suite is declared");
+    assert!(
+        preview.2.ends_with("scripts/test_preview.py"),
+        "{preview:?}"
+    );
 }
 
 /// **`every_manifest_check` expands in the order `armada.yml` writes, and that
@@ -250,6 +259,7 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "acceptance",
             "typecheck",
             "hooks_test",
+            "preview_test",
             "format",
         ],
         "the order `armada.yml` declares them in, which is the order they answer \

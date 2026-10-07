@@ -458,18 +458,71 @@ async fn a_gaming_flag_is_overruled_and_the_step_advances_still_carrying_it() {
 
 // ------------------------------------------ what it must not be able to do
 
-/// **A failed mechanical Check is not a matter of opinion.**
+/// A two-step workflow whose first step declares one Check, named by the
+/// caller and exiting non-zero, with no criterion. The second step gives an
+/// override somewhere to advance to.
+fn failing_check_then_summarised(name: &'static str) -> config::ResolvedWorkflow {
+    testkit::resolved(&[
+        Sketch {
+            id: "implement",
+            label: "Implement",
+            evidence_type: Some("diff"),
+            gates: &[Gate::Check {
+                name,
+                run: "/usr/bin/false",
+                expect_exit_code: 0,
+                when: &[],
+            }],
+            judged_on: &[],
+            scope: None,
+            gaming: None,
+        },
+        Sketch {
+            id: "summarise",
+            label: "Summarise",
+            evidence_type: Some("facts_note"),
+            gates: &[],
+            judged_on: &[],
+            scope: None,
+            gaming: None,
+        },
+    ])
+}
+
+/// A Job dispatched, worked, failed by a mechanical Check and held at
+/// `awaiting_repair` with its step stopped on `gate_failure`.
+async fn held_for_repair(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
+    let job = fleet
+        .propose(a_proposal("claim a fix the Check cannot see"))
+        .await
+        .expect("a Job at the approval gate");
+    let job_id = job.id().clone();
+    worktree_directory(home, &job);
+    dispatched(fleet, &job_id).await.expect("released to run");
+    submitted_by_the_one(fleet, diff_evidence())
+        .await
+        .expect("the Drone reports its diff");
+    let turned = fleet.turn().await.expect("the gate ruled");
+    assert!(
+        matches!(turned.ruled(), Some(Ruling::Failed { .. })),
+        "the mechanical tier is what stopped this: {:?}",
+        turned.ruled()
+    );
+    let held = fleet.load(&job_id).await.expect("the Job reads");
+    assert_eq!(held.status(), JobStatus::AwaitingRepair);
+    job_id
+}
+
+/// **A failed Check is overruled like a Judge's refusal**, since the owner's
+/// ruling of 2026-10-06 reversed #208's refusal of it. Job 12 sat here with only
+/// `diff_nonempty` red, from a baseline bug, and every act on offer ran the same
+/// Check again or threw the work away.
 ///
-/// **And this is the case #208 had to leave alone.** The Job used to be
-/// terminal here, so the act was refused by terminality and by nothing else; it
-/// now holds at `awaiting_repair`, over a step that is `stopped` carrying
-/// `failed(gate_failure)` — the very shape an override lands on beneath
-/// `escalated`. What refuses it is the status, and behind that `Stuck` reads
-/// `checks_passed` out of the store rather than reading the trigger. A person
-/// still cannot wave a red suite through; what changed is who is asked to fix
-/// it.
+/// **And it is a record of an override, never of a pass**: the step reads
+/// `advanced` with `failed(gate_failure)` on it, and the Check's failed run is
+/// still filed under the step.
 #[tokio::test]
-async fn a_failed_mechanical_check_cannot_be_overruled() {
+async fn a_failed_diff_check_is_overruled_at_awaiting_repair() {
     let home = TempDir::new();
     // The first step declares `diff_nonempty`, and this Drone changed nothing.
     let fleet = a_fleet_judged_by(
@@ -478,31 +531,101 @@ async fn a_failed_mechanical_check_cannot_be_overruled() {
         judged_then_summarised(),
         a_judge_that_refuses(),
     );
-    let job = fleet
-        .propose(a_proposal("claim a fix that was never written"))
+    let job_id = held_for_repair(&fleet, &home).await;
+
+    let held = fleet.load(&job_id).await.expect("the Job reads");
+    let ran = fleet
+        .store()
+        .lock()
         .await
-        .expect("a Job at the approval gate");
-    let job_id = job.id().clone();
-    worktree_directory(&home, &job);
-    dispatched(&fleet, &job_id).await.expect("released to run");
-    submitted_by_the_one(&fleet, diff_evidence())
+        .step_checks(&job_id)
+        .expect("the Check runs read");
+    let stuck = fleet
+        .why_stuck(&held, None, &ran)
         .await
-        .expect("the Drone reports a diff it did not make");
-    let turned = fleet.turn().await.expect("the gate ruled");
+        .expect("a Job that stopped");
     assert!(
-        matches!(turned.ruled(), Some(Ruling::Failed { .. })),
-        "the mechanical tier is what stopped this: {:?}",
-        turned.ruled()
+        stuck.admits(core_model::Recourse::OverrideVerdict),
+        "the person is offered the act: {:?}",
+        stuck.recourse()
     );
 
-    match fleet.override_verdict(&job_id, Some(&a_reason())).await {
-        Err(Adrift::NotResumable { status, .. }) => assert_eq!(
-            status,
-            JobStatus::AwaitingRepair,
-            "a Job held for repair is not a Job with a verdict to disagree with"
-        ),
-        other => panic!("a failed Check was overruled: {other:?}"),
-    }
+    let job = fleet
+        .override_verdict(&job_id, Some(&a_reason()))
+        .await
+        .expect("the person overrules the failed Check");
+    assert_eq!(job.status(), JobStatus::Queued, "a step is left to run");
+    let row = job.step(&implement()).expect("the row is there");
+    assert_eq!(row.state(), StepState::Advanced);
+    assert_eq!(
+        row.last_verdict(),
+        StepLevelTrigger::of(EscalationTrigger::GateFailure).map(StepVerdict::Failed),
+        "an override is not a pass"
+    );
+    let runs = fleet
+        .store()
+        .lock()
+        .await
+        .step_checks(&job_id)
+        .expect("the Check runs read");
+    assert!(
+        runs.iter()
+            .filter(|(id, _)| *id == implement())
+            .flat_map(|(_, checks)| checks.iter())
+            .any(|check| !check.outcome.advances()),
+        "the failed run is still on the record beside the override"
+    );
+}
+
+/// The same for `build`: any Check, not just the one that prompted it.
+#[tokio::test]
+async fn a_failed_build_is_overruled_at_awaiting_repair() {
+    let home = TempDir::new();
+    let fleet = a_fleet_judged_by(
+        &home,
+        FakeWorkProduct::changed(&["src/log.rs"]),
+        failing_check_then_summarised("build"),
+        a_judge_that_refuses(),
+    );
+    let job_id = held_for_repair(&fleet, &home).await;
+
+    let job = fleet
+        .override_verdict(&job_id, Some(&a_reason()))
+        .await
+        .expect("the person overrules the failed build");
+
+    assert_eq!(job.status(), JobStatus::Queued);
+    let row = job.step(&implement()).expect("the row is there");
+    assert_eq!(row.state(), StepState::Advanced);
+    assert_eq!(
+        row.last_verdict(),
+        StepLevelTrigger::of(EscalationTrigger::GateFailure).map(StepVerdict::Failed),
+    );
+    let reloaded = started(&fleet, &job_id)
+        .await
+        .expect("the turn puts a Drone on the step that follows");
+    assert_eq!(
+        reloaded.current_step_id().map(|id| id.as_str()),
+        Some("summarise")
+    );
+}
+
+/// A reason is still required: the trigger is `gate_failure`.
+#[tokio::test]
+async fn an_override_of_a_failed_check_with_no_reason_is_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet_judged_by(
+        &home,
+        FakeWorkProduct::untouched(),
+        judged_then_summarised(),
+        a_judge_that_refuses(),
+    );
+    let job_id = held_for_repair(&fleet, &home).await;
+
+    assert!(matches!(
+        fleet.override_verdict(&job_id, None).await,
+        Err(Adrift::Unreasoned { .. })
+    ));
     assert_eq!(
         fleet
             .load(&job_id)
@@ -511,8 +634,6 @@ async fn a_failed_mechanical_check_cannot_be_overruled() {
             .step(&implement())
             .map(|step| step.state()),
         Some(StepState::Stopped),
-        "and the refusal moved nothing: the step is frozen where the failure left \
-         it, stopped and carrying the verdict that stopped it — #179"
     );
 }
 

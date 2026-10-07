@@ -142,28 +142,31 @@ export function StepActs({
   const reread = recourse?.reread;
   const rerunChecks = recourse?.rerunChecks;
 
+  // First of the acts that resume where the Judge or the gaming check stopped
+  // the step, because it takes nothing away. **Last where a Check failed**: the
+  // two re-runs and the restart are what a person reaches for first, and the
+  // override is the one that goes past the Check (owner, 6 Oct 2026).
+  const overruleFirst = overrule?.checks === undefined;
+  const overruleControl = overrule === undefined ? null : (
+    // No binding on the tooltip: `actions.toml` registers none for the
+    // override, and a tooltip promising a key the map does not hold is
+    // worse than one with no key at all.
+    <Tooltip label={recourse?.says.override_verdict ?? ACT_LABEL.override_verdict}>
+      <OverruleControl
+        jobId={job.id}
+        overrule={overrule}
+        opens={opens}
+        disabled={acting || stale}
+        pending={acting && actingAct === "override_verdict"}
+        answer={answerTo(answered, "override_verdict")}
+        onOverrule={onOverrule}
+      />
+    </Tooltip>
+  );
+
   return (
     <>
-      {/* First of the acts that resume, because it is the one that takes
-          nothing away — the refused step's own work is kept. Secondary and not
-          primary: an override that looked like an approval would be claiming
-          the work was right rather than that the Judge was wrong. */}
-      {overrule === undefined ? null : (
-        // No binding on the tooltip: `actions.toml` registers none for the
-        // override, and a tooltip promising a key the map does not hold is
-        // worse than one with no key at all.
-        <Tooltip label={recourse?.says.override_verdict ?? ACT_LABEL.override_verdict}>
-          <OverruleControl
-            jobId={job.id}
-            overrule={overrule}
-            opens={opens}
-            disabled={acting || stale}
-            pending={acting && actingAct === "override_verdict"}
-            answer={answerTo(answered, "override_verdict")}
-            onOverrule={onOverrule}
-          />
-        </Tooltip>
-      )}
+      {overruleFirst ? overruleControl : null}
       {/* Where nothing ruled, beside the accept: both keep the step's work. **No dialog and no
           confirmation** — a re-run destroys nothing, overrules nothing and
           commits nothing, so stopping to ask would claim a cost Fleet does not
@@ -229,6 +232,7 @@ export function StepActs({
           </Button>
         </Tooltip>
       ) : null}
+      {overruleFirst ? null : overruleControl}
     </>
   );
 }
