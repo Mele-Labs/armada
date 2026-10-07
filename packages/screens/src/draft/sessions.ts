@@ -11,8 +11,9 @@
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
-  | { kind: "slot"; slot: number }
-  | { kind: "branch"; name: string; slot: number }
+  /** `handed` is a slot that came with a Job a person piloted, which the Session did not lease. */
+  | { kind: "slot"; slot: number; handed?: { job: number } }
+  | { kind: "branch"; name: string; slot: number; handed?: { job: number } }
   | {
       kind: "pull_request";
       number: number;
@@ -36,6 +37,8 @@ export type SessionAttachment =
       slot: number;
       /** A Job the person tagged, which the Session is looking at. Absent is one it dispatched. */
       looking?: true;
+      /** Closed by a person's word and not by its gates. */
+      attested?: true;
     }
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
@@ -70,7 +73,8 @@ export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
 
 export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
 
-export type SessionJobState = "running" | "review" | "landed" | "escalated";
+/** `piloted` is a Job the person is working in this Session, its Drone stopped. */
+export type SessionJobState = "running" | "review" | "landed" | "escalated" | "piloted" | "superseded";
 
 export type SessionAttachmentKind = SessionAttachment["kind"];
 
@@ -95,6 +99,23 @@ export type SessionRow =
     }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
+  /**
+   * What a piloted Session starts with: the Job's own worktree, handed over,
+   * and what Fleet knew when its Drone stopped. Structured, never prose.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "handoff";
+      job: { number: number; title: string };
+      slot: number;
+      branch: string;
+      step: { id: string; label: string };
+      attempts: number;
+      refusals: readonly string[];
+      plan: { declared: readonly string[]; actual: readonly string[] };
+      narrative: { trying_to: string; blocked_by: string; tried: readonly string[] };
+    }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string };
 
@@ -157,6 +178,10 @@ export type SessionAsk = { command: string };
 export type SessionsDraft = {
   get: () => readonly Session[];
   subscribe: (onChange: () => void) => () => void;
+  /** Takes a Job's worktree: starts a Session on it and returns the Session's id. */
+  pilot: (jobId: string, outcome: "take_over" | "restart_step") => string;
+  /** One of the three ways out of a pilot. */
+  exit: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /** Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes. */
   start: (tag?: SessionTag) => string;
   /** What `@` offers beyond other Sessions: Jobs, pull requests and branches. */

@@ -116,3 +116,13 @@
   min-height: 100%;
   border-radius: 0;
 }
+
+/* A row that carries its own acts, as a piloted Job's three exits, wraps them under it. */
+.armada-session-ledger__row {
+  flex-wrap: wrap;
+}
+
+.armada-session-ledger__row > .armada-pilot-exits {
+  flex-basis: 100%;
+  padding: 0 var(--space-3) var(--space-2);
+}

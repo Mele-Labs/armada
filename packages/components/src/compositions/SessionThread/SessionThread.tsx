@@ -1,4 +1,4 @@
-import { GitBranch, KeyRound, SquareTerminal } from "lucide-react";
+import { Box, GitBranch, KeyRound, SquareTerminal } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -33,7 +33,20 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
-  | { id: string; at: string; kind: "lease"; slot: number; branch: string };
+  | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  | {
+      id: string;
+      at: string;
+      kind: "handoff";
+      job: { number: number; title: string };
+      slot: number;
+      branch: string;
+      step: { id: string; label: string };
+      attempts: number;
+      refusals: readonly string[];
+      plan: { declared: readonly string[]; actual: readonly string[] };
+      narrative: { trying_to: string; blocked_by: string; tried: readonly string[] };
+    };
 
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
@@ -70,7 +83,81 @@ function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" 
   );
 }
 
+/** What Fleet knew when a Job's Drone stopped, as the structured fields the handoff bundle has. */
+function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> }) {
+  const extra = row.plan.actual.filter((one) => !row.plan.declared.includes(one));
+  const missing = row.plan.declared.filter((one) => !row.plan.actual.includes(one));
+  return (
+    <li className="armada-session-handoff" role="region" aria-label={`Handed over: Job ${row.job.number}`}>
+      <div className="armada-session-handoff__head">
+        <span className="armada-session-lease__eyebrow">Handed over</span>
+        <span className="armada-session-lease__facts">
+          <span className="armada-session-lease__chip" role="img" aria-label={`Job ${row.job.number}`}>
+            <Box size={12} strokeWidth={2} aria-hidden />
+            {row.job.number}
+          </span>
+          <span className="armada-session-lease__chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
+            <KeyRound size={12} strokeWidth={2} aria-hidden />
+            {row.slot}
+          </span>
+          <span className="armada-session-lease__chip" role="img" aria-label={`Branch ${row.branch}`}>
+            <GitBranch size={12} strokeWidth={2} aria-hidden />
+            {row.branch}
+          </span>
+        </span>
+        <span className="armada-session-lease__at">{row.at}</span>
+      </div>
+      <dl className="armada-session-handoff__fields">
+        <dt>Stopped on</dt>
+        <dd>
+          <code>{row.step.id}</code> {row.step.label}
+        </dd>
+        <dt>Attempts</dt>
+        <dd>
+          <code>{row.attempts}</code>
+        </dd>
+        <dt>Judge refused</dt>
+        <dd>
+          <ul>
+            {row.refusals.map((one) => (
+              <li key={one}>{one}</li>
+            ))}
+          </ul>
+        </dd>
+        <dt>Plan against diff</dt>
+        <dd>
+          <ul>
+            {extra.map((one) => (
+              <li key={one}>
+                <code>{one}</code> written, not declared
+              </li>
+            ))}
+            {missing.map((one) => (
+              <li key={one}>
+                <code>{one}</code> declared, not written
+              </li>
+            ))}
+          </ul>
+        </dd>
+        <dt>Trying to</dt>
+        <dd>{row.narrative.trying_to}</dd>
+        <dt>Blocked by</dt>
+        <dd>{row.narrative.blocked_by}</dd>
+        <dt>Tried</dt>
+        <dd>
+          <ol>
+            {row.narrative.tried.map((one) => (
+              <li key={one}>{one}</li>
+            ))}
+          </ol>
+        </dd>
+      </dl>
+    </li>
+  );
+}
+
 function Row({ row, onOpenSession }: { row: SessionThreadRow; onOpenSession: (id: string) => void }) {
+  if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "lease") {
     return (
       <li className="armada-session-lease" role="region" aria-label="Leased on first write">

@@ -77,8 +77,6 @@ export const s200Sessions: Scenario = {
   ...base,
   reads: { ...base.reads, [stuck.job.id]: stuck, [pin.job.id]: pin, [sleeps.job.id]: sleeps, [inspecting.job.id]: inspecting },
   held: held(),
-  // The first moment the walk lets pass: the Jobs the Session dispatched reach the Board.
-  later: [{ jobs: [plain.job, stuck.job, pin.job, sleeps.job] }],
   // A request Bridge sends is a Job on the Board, as it is on a real Fleet; here, the review Job.
   behaves: (fleet) => ({
     proposeFromRequest: () => {
@@ -87,5 +85,5 @@ export const s200Sessions: Scenario = {
       return new Promise(() => {});
     },
   }),
-  draft: { sessions: () => sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(stuck, 55, 9), state: "escalated" }]) },
+  draft: { sessions: (board) => sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(plain, 44, 1), state: "review" }, { ...dispatched(stuck, 55, 9), state: "escalated" }], board, [pin.job, sleeps.job]) },
 };

@@ -1498,3 +1498,18 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 7 Oct 2026 for the walk `sessions`. `shield` is the permission mode, `cpu` the model and `zap` the effort. They are drawn only below the breakpoint, where the select's label is given up, and each is named by its tooltip and its accessible name. Borrowed and not minted: none of the three is reserved to a state, and the owner may rule otherwise."
+
+[icons.hand]
+  means = "An open hand - something handed over"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A worktree slot or branch a Session holds because a Job was piloted into it, handed over and not leased. Never a stop, a refusal or a Job waiting on a person."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. The ledger has to say a slot came with a Job and was not leased on a first write, and `key-round` already says a slot is held."
+
+[[icons.terminal.usage]]
+  means = "A Job a Session is piloting, on its ledger row"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. `terminal` is Pilot's alone and this is Pilot: the same mark the piloted badge wears, so the row and the Board say one thing."

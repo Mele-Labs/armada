@@ -156,3 +156,54 @@
   display: flex;
   gap: var(--space-2);
 }
+
+/* What a piloted Session starts with: a filled head like the first write's, and
+   the bundle's fields as a definition list, in the order the bundle holds them. */
+.armada-session-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--slot-held);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-session-handoff__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: calc(var(--space-2) * -1) calc(var(--space-3) * -1) 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--slot-held);
+  color: var(--fg-inverse);
+}
+
+.armada-session-handoff__fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-handoff__fields dt {
+  color: var(--fg-muted);
+}
+
+.armada-session-handoff__fields dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.armada-session-handoff__fields ul,
+.armada-session-handoff__fields ol {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.armada-session-handoff__fields code {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}

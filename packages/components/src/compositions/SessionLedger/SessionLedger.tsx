@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, Megaphone, Search, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Hand, Megaphone, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -25,9 +25,13 @@ export type LedgerEntry = {
   name: string;
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
-  mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated"; said: string };
+  mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted"; said: string };
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
+  /** Came with a Job a person piloted: handed over, not leased. */
+  handed?: string;
+  /** A Job this Session is piloting: its exits are drawn in the row. */
+  exits?: ReactNode;
   /** A Job's own slot, as a chip at the row's end. */
   slot?: number;
   onOpen: () => void;
@@ -50,6 +54,7 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   running: CircleDot,
   done: Check,
   escalated: Megaphone,
+  piloted: Terminal,
 };
 
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
@@ -68,6 +73,13 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
                       <Glyph size={12} strokeWidth={2} aria-hidden />
                       <span className="armada-session-ledger__text">{row.text}</span>
+                      {row.handed === undefined ? null : (
+                        <Tooltip label={row.handed}>
+                          <span className="armada-session-mark" role="img" aria-label={row.handed}>
+                            <Hand size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
                       {row.looking !== true ? null : (
                         <Tooltip label="Looking at it, not dispatched from here">
                           <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
@@ -94,6 +106,7 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
                         </Tooltip>
                       )}
                     </button>
+                    {row.exits}
                   </li>
                 );
               })}

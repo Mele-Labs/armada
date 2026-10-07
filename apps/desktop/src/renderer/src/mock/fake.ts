@@ -61,7 +61,27 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   const api = compose(kept, left, scenario, fleet);
   const fake = { ...api, ...scenario.behaves?.({ state: fleet.state, publish: fleet.publish }) };
   let passed = 0;
-  const sessions = scenario.draft?.sessions?.();
+  // What a Session may do to the Board: a Job's status moves on its row, on its detail and on the read a later open gets.
+  const board = {
+    add: (rows: readonly unknown[]) => {
+      const held = fleet.state().jobs;
+      fleet.publish({ jobs: [...held, ...(rows as typeof held).filter((row) => !held.some((one) => one.id === row.id))] } as Partial<BridgeState>);
+    },
+    setStatus: (jobId: string, status: string) => {
+      const now = fleet.state();
+      const watched = now.watched;
+      fleet.publish({
+        jobs: now.jobs.map((one) => (one.id === jobId ? { ...one, status, reason: undefined } : one)),
+        ...(watched.state === "read" && watched.jobId === jobId ? { watched: { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, status, reason: undefined } } } } : {}),
+      } as Partial<BridgeState>);
+      const read = scenario.reads[jobId];
+      if (read !== undefined) {
+        read.job = { ...read.job, status, reason: undefined } as typeof read.job;
+        if (read.watched.state === "read") read.watched = { ...read.watched, detail: { ...read.watched.detail, job: { ...read.watched.detail.job, status, reason: undefined } } } as typeof read.watched;
+      }
+    },
+  };
+  const sessions = scenario.draft?.sessions?.(board);
   onTimePassing(
     scenario.later === undefined && sessions === undefined
       ? undefined

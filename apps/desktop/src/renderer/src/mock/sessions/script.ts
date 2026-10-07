@@ -91,7 +91,21 @@ export const MINE = "s7";
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
 
-export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], review: DispatchedJob, taggableJobs: readonly TaggableJob[]): SessionsStore {
+/** What the mock Fleet lets a Session do to the Board: move a Job to another status, on the row and on its detail. */
+export type BoardControl = {
+  setStatus: (jobId: string, status: string) => void;
+  /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
+  add: (rows: readonly unknown[]) => void;
+};
+
+export function sessionsStore(
+  jobs: readonly [DispatchedJob, DispatchedJob],
+  review: DispatchedJob,
+  taggableJobs: readonly TaggableJob[],
+  board: BoardControl,
+  /** The Board rows the dispatching moment adds. */
+  dispatchedRows: readonly unknown[] = [],
+): SessionsStore {
   let now: readonly Session[] = others();
   let clock = 0;
   let rowId = 0;
@@ -151,6 +165,7 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
   };
 
   const dispatching = () => {
+    board.add(dispatchedRows);
     const [first, second] = jobs;
     add(
       [
@@ -250,7 +265,7 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
 
   const turns = [dispatching, opening, woken];
 
-  return {
+  const store: SessionsStore = {
     get: () => now,
     subscribe(listener) {
       listeners.add(listener);
@@ -278,7 +293,94 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
         title: `${j.number} ${j.title}`,
         job: { number: j.number, branch: j.branch, slot: j.slot, state: j.state === "escalated" ? "escalated" : "review" },
       }));
-      return [...jobsOnBoard, ...fromSessions];
+      const dispatched = now.flatMap((one) =>
+        one.attachments.flatMap((a): SessionTag[] =>
+          a.kind === "job" && a.looking !== true && !taggableJobs.some((j) => j.id === a.id)
+            ? [{ kind: "job", id: a.id, title: `${a.number} ${a.title}`, job: { number: a.number, branch: a.branch, slot: a.slot, state: a.state === "escalated" ? "escalated" : "review" } }]
+            : [],
+        ),
+      );
+      return [...jobsOnBoard, ...dispatched, ...fromSessions];
+    },
+    pilot(jobId, outcome) {
+      void outcome;
+      const tag = store.taggable().find((one) => one.kind === "job" && one.id === jobId);
+      made += 1;
+      const id = `s${7 + made}`;
+      const n = tag?.job?.number ?? 0;
+      const branch = tag?.job?.branch ?? "";
+      const slot = tag?.job?.slot ?? 0;
+      const title = (tag?.title ?? "").replace(/^\d+ /, "");
+      board.setStatus(jobId, "piloted");
+      set([
+        {
+          id,
+          title,
+          turn: idle,
+          lastTurn: "14:30",
+          rows: [
+            {
+              id: `h${made}`,
+              at: at(),
+              kind: "handoff",
+              job: { number: n, title },
+              slot,
+              branch,
+              step: { id: "regression_verify", label: "Verify the fix" },
+              attempts: 3,
+              refusals: ["No test covers the retry cap, retry.rs:41", "The lint Check still fails on the loop at retry.rs:41"],
+              plan: {
+                declared: ["crates/retry/src/lib.rs", "crates/retry/tests/backoff.rs"],
+                actual: ["crates/retry/src/lib.rs", "crates/retry/src/loop.rs"],
+              },
+              narrative: {
+                trying_to: "Cap the retry backoff at five attempts",
+                blocked_by: "The lint Check fails on the loop at retry.rs:41",
+                tried: ["Added a retry loop with exponential backoff", "Added a sleep between attempts", "Ran the Check after each"],
+              },
+            },
+          ],
+          attachments: [
+            { kind: "slot", slot, handed: { job: n } },
+            { kind: "branch", name: branch, slot, handed: { job: n } },
+            { kind: "job", id: jobId, number: n, title, state: "piloted", branch, slot },
+          ],
+        },
+        ...now,
+      ]);
+      return id;
+    },
+    exit(jobId, how) {
+      const holder = now.find((one) => one.attachments.some((a) => a.kind === "job" && a.id === jobId && a.state === "piloted"));
+      if (holder === undefined) return;
+      const id = holder.id;
+      const settle = (state: "review" | "landed" | "superseded", status: string, said_: string, extra: Record<string, unknown> = {}) => {
+        board.setStatus(jobId, status);
+        edit(id, (one) => ({
+          ...one,
+          // The worktree goes back with the Job: the Session no longer holds its slot or its branch.
+          attachments: one.attachments
+            .filter((a) => !((a.kind === "slot" || a.kind === "branch") && a.handed !== undefined))
+            .map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state, ...extra } : a)),
+          rows: [...one.rows, row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "agent" }, text: said_ }))],
+          turn: idle,
+          lastTurn: "14:41",
+        }));
+      };
+      if (how === "submit") {
+        board.setStatus(jobId, "running");
+        edit(id, (one) => ({
+          ...one,
+          rows: [...one.rows, tool(`submit_for_verification ${(holder.attachments.find((a) => a.kind === "job") as { number: number }).number}`)],
+          attachments: one.attachments.map((a) => (a.kind === "job" && a.id === jobId ? { ...a, state: "running" as const } : a)),
+          turn: { state: "working" },
+        }));
+        after(1500, () => settle("review", "awaiting_review", "The step's Checks and Judge passed on the worktree. The slot is back with the Job."));
+      } else if (how === "attest") {
+        settle("landed", "completed_success", "Recorded as done by your word. The Job's gates did not run.", { attested: true });
+      } else {
+        settle("superseded", "superseded", "Closed as superseded. The Job record says the work landed outside it.");
+      }
     },
     setTags: (id, tags) => edit(id, (one) => ({ ...one, pendingTags: tags })),
     send(id, sent) {
@@ -313,6 +415,17 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
       if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
+      } else if (now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "job" && a.state === "piloted" && a.looking !== true)) {
+        // A piloted Session: the person and the agent fix the Job's worktree together.
+        after(900, () => {
+          addTo(id, [
+            tool("Read crates/retry/src/loop.rs"),
+            tool("Edit crates/retry/src/loop.rs: stop after five attempts"),
+            tool("cargo clippy -p retry"),
+            said("The loop stops after five attempts and clippy is clean on the worktree."),
+          ]);
+          finishOf(id, "14:38");
+        });
       } else if (id !== MINE) {
         // A Session handed a Job: the first ask is read with the fleet tools, the next acts on what it found.
         const had = asked.get(id) ?? 0;
@@ -364,4 +477,5 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], rev
     },
     dispose: () => timers.forEach((one) => window.clearTimeout(one)),
   };
+  return store;
 }

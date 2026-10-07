@@ -122,6 +122,8 @@ export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: 
       className="armada-owner-card"
       data-owner-chip
       role="group"
+      // The card is drawn in the body but is a child of its chip in the tree, so a press on it would bubble to a row that opens on press.
+      onClick={(event) => event.stopPropagation()}
       aria-label={`Owned by ${owner.title ?? owner.id}`}
       style={at === undefined ? undefined : { top: at.top, left: at.left }}
     >

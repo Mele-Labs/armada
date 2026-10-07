@@ -10,6 +10,9 @@ import {
   Button,
   ChipOwnership,
   OpenInSession,
+  PilotAct,
+  PilotConfirm,
+  PilotExits,
   Tooltip,
   Prose,
   PullRequestActs,
@@ -27,6 +30,7 @@ import {
 import type {
   ChipOwnershipValue,
   OpenInSessionValue,
+  PilotValue,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
@@ -127,9 +131,39 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
       },
     };
   }, [draft, sessions, onOpen]);
+  const [asking, setAsking] = useState<string | null>(null);
+  const pilot = useMemo<PilotValue | null>(() => {
+    if (draft === undefined) return null;
+    return {
+      ask: setAsking,
+      pilotedBy: (jobId) => {
+        for (const one of sessions) {
+          const held = one.attachments.find((a) => a.kind === "job" && a.id === jobId && a.state === "piloted");
+          if (held?.kind === "job") return { id: one.id, title: one.title ?? one.id, number: held.number };
+        }
+        return undefined;
+      },
+      exit: (jobId, exit) => draft.exit(jobId, exit),
+      open: onOpen,
+    };
+  }, [draft, sessions, onOpen]);
+  const asked = asking === null || draft === undefined ? undefined : draft.taggable().find((one) => one.kind === "job" && one.id === asking);
   return (
     <ChipOwnership.Provider value={value}>
-      <OpenInSession.Provider value={talk}>{children}</OpenInSession.Provider>
+      <OpenInSession.Provider value={talk}>
+        <PilotAct.Provider value={pilot}>
+          {children}
+          <PilotConfirm
+            open={asked !== undefined}
+            title={asked?.title ?? ""}
+            onCancel={() => setAsking(null)}
+            onConfirm={(outcome) => {
+              setAsking(null);
+              if (asking !== null && draft !== undefined) onOpen(draft.pilot(asking, outcome));
+            }}
+          />
+        </PilotAct.Provider>
+      </OpenInSession.Provider>
     </ChipOwnership.Provider>
   );
 }
@@ -183,7 +217,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
   return session.rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
@@ -324,9 +358,23 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "slot":
-        return { key: `slot${one.slot}`, kind: "slot", name: `Worktree slot ${one.slot}`, text: <code>{one.slot}</code>, onOpen: () => slot(one.slot) };
+        return {
+          key: `slot${one.slot}`,
+          kind: "slot",
+          name: `Worktree slot ${one.slot}`,
+          text: <code>{one.slot}</code>,
+          ...(one.handed === undefined ? {} : { handed: `Handed over with Job ${one.handed.job}, not leased` }),
+          onOpen: () => slot(one.slot),
+        };
       case "branch":
-        return { key: one.name, kind: "branch", name: `Branch ${one.name}`, text: <code>{one.name}</code>, onOpen: () => slot(one.slot) };
+        return {
+          key: one.name,
+          kind: "branch",
+          name: `Branch ${one.name}`,
+          text: <code>{one.name}</code>,
+          ...(one.handed === undefined ? {} : { handed: `Handed over with Job ${one.handed.job}, not created here` }),
+          onOpen: () => slot(one.slot),
+        };
       case "pull_request":
         return {
           key: String(one.number),
@@ -344,7 +392,7 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
         return {
           key: one.id,
           kind: "job",
-          name: `Job ${one.number}${one.state === "escalated" ? ", needs you" : ""}`,
+          name: `Job ${one.number}${one.state === "escalated" ? ", needs you" : one.state === "piloted" ? ", piloted" : ""}`,
           text: (
             <>
               <code>{one.number}</code> {one.title}
@@ -354,7 +402,11 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
             ? { mark: { glyph: "escalated" as const, said: "Needs you" } }
             : one.state === "running"
               ? { mark: { glyph: "running" as const, said: "Running" } }
-              : {}),
+              : one.state === "piloted"
+                ? { mark: { glyph: "piloted" as const, said: "Piloted: its Drone is stopped and you are working it here" }, exits: <PilotExits jobId={one.id} compact /> }
+                : one.attested === true
+                  ? { mark: { glyph: "done" as const, said: "Closed by your word, not verified" } }
+                  : {}),
           ...(one.looking === true ? { looking: true } : {}),
           slot: one.slot,
           onOpen: () => goes.onOpenJob(one.id),
