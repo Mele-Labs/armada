@@ -253,6 +253,17 @@ That is the owner's standing answer (1 Oct 2026). Confirmed the same day: a
 merge-line agent stopped with two commits unpushed, and its branch landed only
 after the dispatching session merged and pushed on his say-so.
 
+**A lease can lapse while an agent is still working in the slot, and another
+session then takes it.** A lease made in a background shell, or before the
+session restarted, reads `holder is gone` in `armada worktree --status`.
+Confirmed 7 Oct 2026: a second session checked its own branch out in a slot an
+agent was writing in, and its `git commit -a` swept three of that agent's
+half-built files into a commit on pull request #1845, which then failed `ci`.
+So lease in the foreground (a lease that waits past the tool's timeout is held
+by a shell that then exits), check `git branch --show-current` before every
+commit, stage by name and never `commit -a` in a slot, and commit early and push
+after the first commit so nothing lives only in the working tree.
+
 ## Sweeping when it has already got away
 
 Audit before deleting, and print what will be kept rather than what will go — the
