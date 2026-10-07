@@ -296,6 +296,65 @@ fn a_branch_holding_unlanded_work_is_not_reset_by_a_lease() {
 
 /// The shell between a command and its caller ends with the command; the
 /// caller does not, so it is what a lease is held for.
+fn ps_of(pid: u32, column: &str) -> Option<String> {
+    let said = std::process::Command::new("ps")
+        .args(["-o", column, "-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    let said = String::from_utf8_lossy(&said.stdout).trim().to_string();
+    (!said.is_empty()).then_some(said)
+}
+
+/// A command run under two shells, as `$(a | b)` runs it under the tool's
+/// shell: the holder is the process above both, which outlives the call. The
+/// old rule skipped one shell and held for the other, which ends with the call.
+#[test]
+fn a_command_under_two_shells_is_held_for_the_process_above_them() {
+    let mut outer = std::process::Command::new("sh")
+        .args(["-c", "sh -c 'sleep 5; :'; :"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .expect("sh runs");
+    let outer_pid = outer.id();
+    let child_of = |parent: u32| {
+        (0..100).find_map(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            let out = std::process::Command::new("pgrep")
+                .args(["-P", &parent.to_string()])
+                .output()
+                .ok()?;
+            String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .next()?
+                .trim()
+                .parse::<u32>()
+                .ok()
+        })
+    };
+    let inner = child_of(outer_pid).expect("the outer shell started an inner one");
+    let table = |pid: u32| {
+        Some((
+            ps_of(pid, "ppid=")?.parse().ok()?,
+            ps_of(pid, "comm=")?,
+        ))
+    };
+
+    let held = Holder::above(inner, table);
+    let one_shell_up = ps_of(inner, "ppid=").and_then(|p| p.parse::<u32>().ok());
+    let _ = outer.kill();
+    let _ = outer.wait();
+
+    assert_eq!(one_shell_up, Some(outer_pid), "the old rule held for this shell");
+    assert_eq!(held.and_then(|h| h.pid()), Some(std::process::id()));
+}
+
+#[test]
+fn a_walk_that_reaches_the_first_process_holds_for_nothing() {
+    let table = |pid: u32| Some((pid - 1, String::from("zsh")));
+    assert!(Holder::above(5, table).is_none());
+}
+
 #[test]
 fn the_caller_is_a_running_process_that_is_not_this_one() {
     let caller = Holder::the_caller().expect("a test runs under something");
