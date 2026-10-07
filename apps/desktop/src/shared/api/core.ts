@@ -55,6 +55,11 @@ export type CoreApi<S = CoreState> = {
    */
   onSummoned: (onGo: (to: Summons) => void) => () => void;
   /**
+   * A trackpad swipe or a browser back/forward key, which only main hears.
+   * One-way and `"back" | "forward"` only; it grants nothing.
+   */
+  onHistory: (onStep: (step: HistoryStep) => void) => () => void;
+  /**
    * Play a trackpad pattern for a press Fleet has just answered. Returns
    * nothing and waits for nothing; main plays one of the two patterns and
    * ignores anything else. Touch, in `docs/contracts/design-system.md`.
@@ -142,6 +147,8 @@ export const CORE_CHANNELS = {
   openServerLink: "bridge:open-server-link",
   openLink: "bridge:open-link",
   summoned: "bridge:summoned",
+  // A swipe or a browser key, from the OS to the window. Sent by main, never invoked.
+  history: "bridge:history",
   // A press Fleet answered, felt on the trackpad. Sent, never invoked: nothing waits on it.
   tap: "bridge:tap",
 } as const;
@@ -157,3 +164,6 @@ export const CORE_CHANNELS = {
  * It travels main → renderer only. Nothing the renderer sends can produce one.
  */
 export type Summons = { jobId: string | null };
+
+/** Which way a gesture the OS recognised asks to move through visited places. */
+export type HistoryStep = "back" | "forward";

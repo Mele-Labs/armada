@@ -138,7 +138,7 @@ import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
+import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
@@ -605,10 +605,10 @@ export function App({ draft }: AppProps = {}) {
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
   // Back and forward are keys and nothing on screen — `history.ts`.
-  const [jobTab, onJobTab] = useJobTab(openJob);
+  const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, tab: jobTab, session: sessionOpen, studio: openStudio, studioNode },
-    (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: place.tab === null ? {} : { tab: place.tab } }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
   // Refresh is a key and a palette row, and nothing on screen.
@@ -744,7 +744,7 @@ export function App({ draft }: AppProps = {}) {
                 <JobDetail
                   job={reading}
                   {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
-                  onTab={(tab) => onJobTab(reading.id, tab)}
+                  onWhere={(tab, item) => onJobWhere(reading.id, tab, item)}
                   // Every Job, not the picked repository's: a member dispatched
                   // by this one is still its member while the rail is filtered.
                   board={state.jobs}

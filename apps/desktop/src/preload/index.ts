@@ -4,7 +4,7 @@ import { CHANNELS } from "../shared/bridge";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
-import type { BridgeState, Summons } from "../shared/bridge";
+import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, FixMain } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
@@ -755,6 +755,15 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.summoned, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.summoned, handler);
+    };
+  },
+
+  // A swipe or browser key main heard. `onSummoned`'s shape: a listener and its remover; two words arrive.
+  onHistory: (onStep: (step: HistoryStep) => void): (() => void) => {
+    const handler = (_event: unknown, step: HistoryStep): void => onStep(step);
+    ipcRenderer.on(CHANNELS.history, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.history, handler);
     };
   },
 
