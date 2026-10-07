@@ -43,7 +43,7 @@ fn rig() -> Rig {
         Duration::from_secs(600),
     );
     let root = fleet.repositories().first().expect("a repository").root().to_string();
-    let dir = home.path().join(".claude/projects/-somewhere");
+    let dir = home.path().join(adapters::SESSIONS).join("-somewhere");
     std::fs::create_dir_all(&dir).unwrap();
     let transcript = dir.join(format!("{ID}.jsonl"));
     Rig {
@@ -58,7 +58,7 @@ impl Rig {
     async fn reports(&self, fact: SessionFact) {
         self.fleet
             .report_session(SessionReport {
-                harness: "claude_code".into(),
+                harness: adapters::HOSTED_HARNESS.into(),
                 session_id: SessionId::carried(ID),
                 fact,
             })

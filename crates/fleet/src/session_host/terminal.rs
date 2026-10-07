@@ -18,17 +18,14 @@ use ipc::{MessagesHeld, SendSessionMessage, SessionId, SessionRecord, SessionRow
 use ipc::{TakeHeld, WireError};
 use store::{KeptSession, SessionState};
 
-use super::rows::mention_line;
+use super::rows::{mention_line, SESSION_THREAD_UNREADABLE as THREAD_UNREADABLE};
+use super::serving::MESSAGE_EMPTY;
 use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
 const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
 /// A terminal session is sent words and nothing else. A 422.
 const TERMINAL_TEXT_ONLY: &str = "fleet.terminal_session_text_only";
-/// A thread whose reader did not come back. A 500.
-const THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
-/// A message with no words. A 422.
-const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 
 /// How long after its mod last asked a session still counts as listening. The
 /// mod asks every couple of seconds.

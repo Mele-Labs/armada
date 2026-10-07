@@ -91,6 +91,11 @@ export type SessionComposerProps = {
   onDraw: () => void;
   onRemoveDrawn: (id: string) => void;
   onSend: (sent: SentFromComposer) => void;
+  /**
+   * Words only, for a session run in a terminal: no mode, model or effort, which it holds itself, and no
+   * file, picture or sketch, which Fleet does not send it.
+   */
+  words?: boolean;
 };
 
 type Item = { id: string; name: string; says?: string; tag?: ComposerTag };
@@ -123,6 +128,7 @@ export function SessionComposer({
   onDraw,
   onRemoveDrawn,
   onSend,
+  words = false,
 }: SessionComposerProps) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
@@ -147,7 +153,7 @@ export function SessionComposer({
   const current = Math.min(active, Math.max(items.length - 1, 0));
 
   const add = (picked: readonly File[]) => {
-    if (picked.length === 0) return;
+    if (words || picked.length === 0) return;
     setFiles((was) => [
       ...was,
       ...picked.map((file) => ({
@@ -251,35 +257,39 @@ export function SessionComposer({
         />
       </div>
       <div className="armada-session-composer__bar">
-        <Pick Glyph={Shield} compact={compact} label={said}>
-          <Select aria-label="Permission mode" value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
-            {MODES.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.label}
-              </option>
-            ))}
-          </Select>
-        </Pick>
-        <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
-          <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-            <option value="">{compact ? "Auto" : "Model"}</option>
-            {models.map((one) => (
-              <option key={one} value={one}>
-                {one}
-              </option>
-            ))}
-          </Select>
-        </Pick>
-        <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
-          <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-            <option value="">{compact ? "Auto" : "Effort"}</option>
-            {efforts.map((one) => (
-              <option key={one} value={one}>
-                {one}
-              </option>
-            ))}
-          </Select>
-        </Pick>
+        {words ? null : (
+          <>
+            <Pick Glyph={Shield} compact={compact} label={said}>
+              <Select aria-label="Permission mode" value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
+                {MODES.map((one) => (
+                  <option key={one.id} value={one.id}>
+                    {one.label}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+            <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
+              <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
+                <option value="">{compact ? "Auto" : "Model"}</option>
+                {models.map((one) => (
+                  <option key={one} value={one}>
+                    {one}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+            <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
+              <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
+                <option value="">{compact ? "Auto" : "Effort"}</option>
+                {efforts.map((one) => (
+                  <option key={one} value={one}>
+                    {one}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+          </>
+        )}
         <input
           ref={picker}
           type="file"
@@ -291,16 +301,20 @@ export function SessionComposer({
             event.target.value = "";
           }}
         />
-        <Tooltip label="Attach a file or a picture">
-          <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
-            <Paperclip size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-        <Tooltip label="Draw a sketch to send with the message">
-          <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
-            <PencilRuler size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
+        {words ? null : (
+          <>
+            <Tooltip label="Attach a file or a picture">
+              <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
+                <Paperclip size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tooltip label="Draw a sketch to send with the message">
+              <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
+                <PencilRuler size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </>
+        )}
         <div className="armada-session-composer__chips" role="group" aria-label="Attached">
           {files.map((one) => (
             <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />

@@ -567,8 +567,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
             onOpenSession={onOpen}
           />
-          {session.terminal === true ? null : (
           <SessionComposer
+            words={session.terminal === true}
             working={session.turn.state === "working"}
             mode={mode}
             onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
@@ -577,7 +577,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             models={draft.models}
             efforts={draft.efforts}
             onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={draft.commands}
+            commands={session.terminal === true ? [] : draft.commands}
             compact={narrow}
             taggable={[
               ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
@@ -593,7 +593,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               setDrawn([]);
             }}
           />
-          )}
         </div>
         {narrow ? null : <SessionLedger entries={entries} />}
       </SessionFrame>

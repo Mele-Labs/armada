@@ -40,6 +40,20 @@ const drawing = (boxes: [string, number, number, string][], lines: [string, stri
 function others(): Session[] {
   return [
     {
+      id: "s4",
+      terminal: true,
+      title: "CI timeout hunt",
+      turn: idle,
+      lastTurn: "14:02",
+      rows: [
+        { id: "s4-1", at: "14:01:12", kind: "message", from: { kind: "you" }, text: "Why does the store test fail only in CI?" },
+        { id: "s4-2", at: "14:01:20", kind: "tool", text: "Grep flaky in crates/store/src/tests" },
+        { id: "s4-3", at: "14:01:31", kind: "tool", text: "Read crates/store/src/tests/ledger.rs" },
+        { id: "s4-4", at: "14:02:03", kind: "message", from: { kind: "agent" }, text: "It sleeps 50 ms and then reads the clock. CI is slower than that." },
+      ],
+      attachments: [],
+    },
+    {
       id: "s2",
       title: "Release notes script",
       turn: idle,
@@ -406,10 +420,17 @@ export function sessionsStore(
           ],
           // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
           attachments: [...one.attachments, ...looking, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
-          turn: { state: "working" },
+          // A session in a terminal is not told to be working: Fleet reads its transcript and nothing else.
+          turn: one.terminal === true ? one.turn : { state: "working" },
         };
       });
-      if (id === MINE && !started) {
+      if (now.find((one) => one.id === id)?.terminal === true) {
+        // The terminal takes the message, and what it does shows in the thread a moment later.
+        after(900, () => {
+          addTo(id, [tool("Read crates/store/src/tests/ledger.rs:88"), said("Line 88. Waiting on the clock there instead of the sleep fixes it.")]);
+          finishOf(id, "14:09");
+        });
+      } else if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
       } else if (now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "job" && a.state === "piloted" && a.looking !== true)) {

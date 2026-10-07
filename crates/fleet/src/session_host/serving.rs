@@ -28,7 +28,7 @@ const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
-const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
+pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// An attachment that would not decode, or is too large. A 422.
 const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 /// The agent's process would not start. A 500.
