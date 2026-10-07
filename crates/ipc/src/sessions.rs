@@ -116,6 +116,10 @@ pub enum SessionFact {
         title: Option<String>,
         #[serde(default)]
         origin: SessionOrigin,
+        /// The version of the `armada` mod reporting, so a session whose mod is older than the
+        /// repository's can be marked. Absent from a mod that predates it. Since 23.62.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mod_version: Option<String>,
     },
     /// A title. **`named`** says a person chose it, in the terminal's `/rename`:
     /// it replaces whatever title there is. Otherwise it is the first prompt's
@@ -152,6 +156,9 @@ pub enum SessionFact {
         mode: Option<crate::hosted_sessions::SessionMode>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         commands: Vec<TerminalCommand>,
+        /// As on `started`. Since 23.62.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mod_version: Option<String>,
     },
     TurnCompleted,
     Ended {
@@ -244,6 +251,11 @@ pub struct SessionRecord {
     /// What a session run in a terminal runs on, once its mod has said. Since 23.53.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal: Option<TerminalFacts>,
+    /// A session run in a terminal whose `armada` mod is older than the one the repository holds,
+    /// or reported no version at all. Absent otherwise, and where Fleet cannot read the
+    /// repository's. Since 23.62.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mod_out_of_date: bool,
 }
 
 /// `list_sessions`: the most recently seen first.

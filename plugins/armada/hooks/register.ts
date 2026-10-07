@@ -29,6 +29,7 @@ import {
   effortOf,
   modeOf,
   modelName,
+  MOD_VERSION,
   transcriptPath,
 } from './facts'
 import type { Door, Fact, Report } from './fleet'
@@ -66,7 +67,7 @@ function told(id: string, fact: Fact): Report {
 
 function everything(): Report[] {
   return [...known].flatMap(([id, one]) => [
-    told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal' }),
+    told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal', mod_version: MOD_VERSION }),
     ...(one.tuned === undefined ? [] : [told(id, one.tuned)]),
     ...(one.branch === undefined
       ? []
@@ -234,7 +235,7 @@ async function look($: Dollar, id: string): Promise<void> {
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   const where = cwd ?? (await $.session.cwd())
   known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
-  say($, id, { kind: 'started', cwd: where, origin: 'terminal' })
+  say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
 }
@@ -262,6 +263,7 @@ async function tuned(
   }
   if (withCommands) {
     next.commands = (await $.command.list()).map(c => ({ name: c.name, says: c.description }))
+    next.mod_version = MOD_VERSION
   }
   const before = one.tuned
   const same =
@@ -270,7 +272,7 @@ async function tuned(
     before.effort === (next.effort ?? before.effort) &&
     before.mode === (next.mode ?? before.mode)
   if (same && !withCommands) return
-  one.tuned = { ...before, ...next, commands: undefined }
+  one.tuned = { ...before, ...next, commands: undefined, mod_version: undefined }
   say($, id, next)
 }
 

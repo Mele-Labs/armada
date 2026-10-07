@@ -6,5 +6,7 @@ description = "Every agent session on the ledger, most recently seen first, with
 notes = """
 `GET /sessions?manifest_id=&q=&state=`. Since 23.43. `q` finds a session by its title, a branch name, a pull request number (`#12` or `12`, whole), a Job id (whole, or its start) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every session on the machine, a terminal session in no repository Fleet serves included.
 
+A terminal session carries `mod_out_of_date` (since 23.62) where its mod is older than its repository's, or reported no version.
+
 A session run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.
 """

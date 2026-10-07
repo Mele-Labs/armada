@@ -13,6 +13,13 @@
     notes = "Added 2026-09-28 with the owner's rename of that button from `Look now` to `Refresh`. Not a new claim: docs/contracts/iconography.md's reserved list already sends every refresh and poll control here, because refresh-cw is churning's alone. It replaced `search`, which meant search and had been borrowed for a button that goes and reads. Draws at 12px rather than the 16px above, matching the small button it sits in; the silhouette is one arrow and a gap, which rule 3 keeps at that size."
 
   [[icons.rotate-cw.usage]]
+    means = "A terminal Session's mod is older than the repository's: reload the plugins in that session"
+    group = "Session"
+    size = "12 and 16px"
+    status = "Specified"
+    notes = "Added 7 Oct 2026. A reload is the same act a refresh is, and rotate-cw is the refresh mark. Tooltip `Mod out of date: run /reload-plugins`, on the Session's row and in its header."
+
+  [[icons.rotate-cw.usage]]
     means = "Rerun on a held Trigger: run its Command again, with no Drone"
     group = "Trigger"
     size = "12px"

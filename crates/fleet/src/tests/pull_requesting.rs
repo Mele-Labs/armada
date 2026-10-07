@@ -81,6 +81,7 @@ async fn a_session_holding_pull_request_12(fleet: &Fixture, id: &str) -> Session
             cwd: root,
             title: Some("fix the ledger".into()),
             origin: ipc::SessionOrigin::Terminal,
+            mod_version: None,
         }))
         .await
         .expect("started");
