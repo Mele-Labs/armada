@@ -527,6 +527,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         id={session.id}
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
+        {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(narrow || draft.close !== undefined
           ? {
               actions: (

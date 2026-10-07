@@ -402,3 +402,83 @@ async fn a_report_naming_nothing_is_refused_and_keeps_nothing() {
         Err(api::Refusal::Unacceptable(_))
     ));
 }
+
+fn titled(title: &str, named: bool) -> SessionFact {
+    SessionFact::Titled {
+        title: title.into(),
+        named,
+    }
+}
+
+#[tokio::test]
+async fn a_name_a_person_gave_beats_the_first_prompt_and_the_next_one_beats_it() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    fleet
+        .report_session(report("s1", started(&root)))
+        .await
+        .expect("kept");
+
+    let by_hand = fleet
+        .report_session(report("s1", titled("ledger work", true)))
+        .await
+        .expect("renamed in the terminal");
+    assert_eq!(by_hand.title.as_deref(), Some("ledger work"));
+
+    let prompt = fleet
+        .report_session(report("s1", titled("a later first line", false)))
+        .await
+        .expect("kept");
+    assert_eq!(
+        prompt.title.as_deref(),
+        Some("ledger work"),
+        "a prompt fills a gap only"
+    );
+
+    let mut watching = fleet.events().subscribe();
+    let renamed = fleet
+        .rename_session(ipc::RenameSession {
+            session_id: SessionId::carried("s1"),
+            title: "  the   Bridge name ".into(),
+        })
+        .await
+        .expect("renamed in Bridge");
+    assert_eq!(renamed.title.as_deref(), Some("the Bridge name"));
+    assert_eq!(
+        next_session(&mut watching).await.title.as_deref(),
+        Some("the Bridge name")
+    );
+
+    let again = fleet
+        .report_session(report("s1", titled("typed in the terminal", true)))
+        .await
+        .expect("kept");
+    assert_eq!(again.title.as_deref(), Some("typed in the terminal"));
+}
+
+#[tokio::test]
+async fn renaming_to_nothing_or_a_stranger_is_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    fleet
+        .report_session(report("s1", started(&root)))
+        .await
+        .expect("kept");
+    for (id, title) in [("s1", "   "), ("nobody", "a name")] {
+        let rename = ipc::RenameSession {
+            session_id: SessionId::carried(id),
+            title: title.into(),
+        };
+        assert!(
+            fleet.rename_session(rename).await.is_err(),
+            "{id} {title:?}"
+        );
+    }
+    let kept = fleet
+        .report_session(report("s1", SessionFact::TurnCompleted))
+        .await
+        .expect("kept");
+    assert_eq!(kept.title.as_deref(), Some("fix the ledger"));
+}

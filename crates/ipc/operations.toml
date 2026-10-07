@@ -3758,6 +3758,19 @@ notes = """
 **What the ledger holds is what sessions reported, and what Fleet writes for its Jobs.** Since 23.46 a Job's own branch and slot are rows held by the Job, so a Job holding a slot is an answer here, and `kind=need` answers who holds a need on a path.
 """
 
+[operations.rename_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Give a session, hosted or in a terminal, a name of the person's choosing"
+notes = """
+`POST /sessions/rename`, body `RenameSession`: `session_id` and `title`. Since 23.52. Answered with the `SessionRecord`, and published as `session.changed` when the title changed. A blank title, or a session Fleet has no row for, is refused with 422 and nothing is written.
+
+**A name from Bridge stands until the next terminal `/rename`**, which the mod reports as `titled` with `named: true`; the first prompt's `titled` (no `named`) only fills a session with no title. Armada's title is the whole of it: a hosted session's harness is not told.
+
+`agent_access` is `No`: a session's name is the person's own.
+"""
+
 [operations.start_session]
 kind = "command"
 transport = "HTTP"
