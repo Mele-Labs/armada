@@ -153,6 +153,40 @@ export function awaitingRepair(): JobFixture {
   };
 }
 
+/**
+ * `awaitingRepair` where the Check that failed is `diff_nonempty` — the
+ * owner's Job 12, 6 Oct 2026 — and Fleet offers `override_verdict` beside the
+ * two re-runs. **`stopped_by` is `gate_failure`**, the spelling the step's own
+ * verdict carries; whether Fleet will spell a failed Check that way is the
+ * other agent's to settle.
+ *
+ * **Not in `FIXTURES`**: it is `awaitingRepair` with one more act offered.
+ */
+export function awaitingRepairOverridable(): JobFixture {
+  const base = awaitingRepair();
+  if (base.watched.state !== "read") return base;
+  const whole = base.watched.detail;
+  const steps = whole.steps.map(
+    (step): StepDetail =>
+      step.step_id !== "regression_verify"
+        ? step
+        : {
+            ...step,
+            checks: [{ kind: "diff_nonempty" }],
+            check_runs: [1, 2].map((attempt): CheckRun => ({ attempt, name: "diff_nonempty", outcome: "failed" })),
+          },
+  );
+  return {
+    ...base,
+    name: "awaiting_repair — a failed Check the owner may override",
+    watched: watchedRead({
+      ...whole,
+      steps,
+      stuck: { ...whole.stuck!, stopped_by: "gate_failure", recourse: ["rerun_checks", "restart_step", "override_verdict", "redispatch_job"] },
+    }),
+  };
+}
+
 /** The four Checks the owner's Job 3 ran again on 4 Oct 2026, by their Manifest names. */
 const RERUN: [name: string, run: string][] = [
   ["bridge_build", "pnpm -C apps/desktop build"],

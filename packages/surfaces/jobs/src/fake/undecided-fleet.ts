@@ -12,6 +12,14 @@ function undecidedStep(whole: JobDetail): StepDetail | undefined {
   return whole.steps.find((step) => step.step_id === stuck.step_id);
 }
 
+/** The step `stuck` names, where it stopped on a failed Check and Fleet offers the override. */
+function checkStoppedStep(whole: JobDetail): StepDetail | undefined {
+  const stuck = whole.stuck;
+  if (stuck?.stopped_by !== "gate_failure" || !stuck.recourse.includes("override_verdict")) return undefined;
+  const step = whole.steps.find((one) => one.step_id === stuck.step_id);
+  return step?.check_runs.some((run) => run.outcome === "failed") ? step : undefined;
+}
+
 /** The Judge asked again and still did not answer: one more attempt, nothing else moved. */
 export function askedAgain(whole: JobDetail, at: string): JobDetail | undefined {
   const asked = undecidedStep(whole);
@@ -31,9 +39,9 @@ export function askedAgain(whole: JobDetail, at: string): JobDetail | undefined 
   return { ...whole, steps };
 }
 
-/** A person accepted the step: it advances, recorded as overridden, and the next one starts. */
+/** A person accepted the step, or overrode its failed Check: it advances, recorded as overridden, and the next one starts. */
 export function accepted(whole: JobDetail, at: string): JobDetail | undefined {
-  const held = undecidedStep(whole);
+  const held = undecidedStep(whole) ?? checkStoppedStep(whole);
   if (held === undefined) return undefined;
   const next = whole.steps.filter((step) => step.ordinal > held.ordinal).sort((a, b) => a.ordinal - b.ordinal)[0];
   const steps = whole.steps.map((step): StepDetail => {
