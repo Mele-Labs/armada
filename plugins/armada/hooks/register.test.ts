@@ -13,7 +13,7 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean } = {
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
   const clock = mock.clock(on, { now: 1_000_000 })
-  mock.env(on, { HOME: '/home/u' })
+  mock.env(on, { HOME: '/home/user' })
   on('fs.read', () => {
     attempts.reads += 1
     if (!running()) throw new Error('no such file')
