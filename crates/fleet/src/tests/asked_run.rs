@@ -93,7 +93,13 @@ impl Held {
         }
     }
 
-    /// The next reading panics, once: a task that reads the clock dies there.
+    /// The next reading **by a run's own task** panics, once: that task dies there.
+    ///
+    /// Other tasks share this clock (the quiet Drone, the writers), and a doom
+    /// for whoever read next let one of them take it under load, so the run
+    /// finished and the case waited for a loss that never came. A reading is
+    /// the run's when `asked_run_begins` is on its stack, which is only the
+    /// task it spawns.
     fn doom_next_reading(&self) {
         self.doomed.store(true, Ordering::SeqCst);
     }
@@ -105,7 +111,12 @@ impl Held {
 
 impl Clock for Held {
     fn now(&self) -> Timestamp {
-        if self.doomed.swap(false, Ordering::SeqCst) {
+        if self.doomed.load(Ordering::SeqCst)
+            && std::backtrace::Backtrace::force_capture()
+                .to_string()
+                .contains("asked_run_begins")
+            && self.doomed.swap(false, Ordering::SeqCst)
+        {
             panic!("the clock was doomed by the test");
         }
         let at = self.ticks.fetch_add(1, Ordering::SeqCst) + self.pushed.load(Ordering::SeqCst);
