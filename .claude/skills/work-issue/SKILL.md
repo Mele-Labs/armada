@@ -76,15 +76,23 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 3. One issue. Finish it, and stop.
 
-**Declare a need before choosing a migration number or a protocol minor, and use
-the number the answer gives.** Never take "the next one" from `main`: another
-branch takes the same one, and whichever lands second renumbers, rewrites every
-mention and runs the Checks again (#1059).
+**A migration needs no `armada need`: it has a name, not a number.** Append
+`Migration::additive("module.slug", crate::module::SQL),` to the end of
+`crates/store/src/migration_list.rs` and nothing collides: two branches that
+each append one both keep it, in either order. It is additive unless you write
+`Migration::breaking`, and a test refuses an additive one that drops, renames
+or rewrites. A breaking one is a decision: ask first. A branch that previews
+with a breaking migration `main` lacks is refused by `scripts/restart --from`.
+`docs/practices/store-migrations.md`.
+
+**A protocol minor is still a number. Declare a need before choosing one, and
+use the number the answer gives.** Never take "the next one" from `main`:
+another branch takes the same one, and whichever lands second renumbers,
+rewrites every mention and runs the Checks again (#1059).
 
 ```sh
-armada need crates/store/src/migrations.rs "a new migration"   # says who is ahead, and what each took
-armada need --took crates/store/src/migrations.rs "V96"        # once chosen, after theirs
 armada need protocol-version.toml "a minor"
+armada need --took protocol-version.toml "23.41"               # once chosen, after theirs
 ```
 
 A need is a path and what is needed there, in your words, and the first to
@@ -94,9 +102,8 @@ landed, so you land in order and nothing is renumbered. Needs are unchanged
 for now: Fleet will publish them as a required check on the pull request later. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
-**`armada land preflight` and Fleet's merge refuse a branch that appends a
-migration or changes the protocol minor with no need declared**, so declare
-first. `armada need --release <path>` gives one back; a branch deleted locally gives its
+**`armada land preflight` and Fleet's merge refuse a branch that changes the
+protocol minor with no need declared**, so declare first. `armada need --release <path>` gives one back; a branch deleted locally gives its
 needs back by itself, and a need that stalls is given back by a person, since
 nothing expires. `armada need --status` lists every need by path.
 
@@ -333,8 +340,9 @@ the session's own `/context` put reads at 55% of everything it took in.
 
 **Put the numbers and the Checks in the brief, because an agent never loads this
 skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
-say *"before choosing a protocol minor or a store migration number, run `armada
-need`"*, or each agent takes the next one from `main`. Confirmed 4 to 5 Oct
+say *"before choosing a protocol minor, run `armada need`; a store migration is
+a name appended to `migration_list.rs` and needs none"*, or each agent takes the
+next minor from `main`. Confirmed 4 to 5 Oct
 2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
 V109 that another branch had taken, and the merge line sent each back to be
 renumbered by hand, five full requeues. The brief must also name what the line
