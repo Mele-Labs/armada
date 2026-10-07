@@ -134,6 +134,7 @@ mod modelling;
 mod needs;
 mod needs_served;
 mod needs_status;
+mod notice_loop;
 mod noticing;
 mod out_of_bounds;
 mod overlap;
