@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 
-use crate::orphans::{end, find, mark_of, names_a_dead_test};
+use crate::orphans::{end, find, mark_in_environment, mark_of, names_a_dead_test};
 use crate::process::{holder_of, Holder};
 use crate::Detached;
 
@@ -155,4 +155,15 @@ fn a_fake_drone_left_by_a_test_that_is_gone_is_named_by_its_directory() {
     assert!(!names_a_dead_test(command, &temp, &mut alive));
     let elsewhere = "vim /srv/armada-fleet-65966-725/x";
     assert!(!names_a_dead_test(elsewhere, &temp, &mut vacant));
+}
+
+#[test]
+fn a_mark_is_read_out_of_a_nul_separated_environment() {
+    let environment = b"PATH=/bin\0ARMADA_SPAWNED_BY=42:Mon_Oct_7_10:00:00_2026\0HOME=/x\0";
+    assert_eq!(
+        mark_in_environment(environment),
+        Some(Some((42, "Mon_Oct_7_10:00:00_2026".to_string())))
+    );
+    assert_eq!(mark_in_environment(b"PATH=/bin\0HOME=/x\0"), None);
+    assert_eq!(mark_in_environment(b"ARMADA_SPAWNED_BY=junk\0"), Some(None));
 }

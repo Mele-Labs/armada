@@ -10,8 +10,11 @@
 //! whose argv names `<temp>/armada-fleet-<pid>-<n>/` for a dead `<pid>` is a
 //! Fleet test's fake Drone. Nothing else unmarked is touched.
 //!
-//! `ps eww` hides the environment of Apple's binaries, so a `/bin/sh` fake
-//! Drone is unmarked here; the agent CLI is not.
+//! **Reading the mark differs by platform.** macOS: `ps eww` appends each
+//! process's environment to its row, and hides that of Apple's binaries, so a
+//! `/bin/sh` fake Drone is unmarked there; the agent CLI is not. Linux: `ps`
+//! does not print the environment in a custom column list, so a group
+//! leader's `/proc/<pid>/environ` is read instead.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -93,7 +96,7 @@ where
 /// The groups to end: orphans of a Fleet that is gone, minus `held`.
 pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
     let listing = Command::new("ps")
-        .args(["eww", "-axo", "pid=,ppid=,pgid=,command="])
+        .args([LISTING_STYLE, "-axo", "pid=,ppid=,pgid=,command="])
         .output()?;
     let temp = temp_prefixes();
     let mut probed: HashMap<u32, Option<String>> = HashMap::new();
@@ -122,8 +125,8 @@ pub(crate) fn find(held: &[u32]) -> io::Result<Vec<NonZeroU32>> {
         if row.pid != row.pgid || row.pid == me || held.contains(&row.pid) {
             continue;
         }
-        let ended = match mark_in(row.command) {
-            Some(Some((by, started))) => by != me && gone(by, Some(started)),
+        let ended = match mark_of_process(&row) {
+            Some(Some((by, started))) => by != me && gone(by, Some(&started)),
             Some(None) => false,
             None => row.ppid == 1 && names_a_dead_test(row.command, &temp, &mut gone),
         };
@@ -180,16 +183,49 @@ impl<'a> Row<'a> {
     }
 }
 
-/// The last mark on the line, since the environment follows argv. The inner
-/// `None` is something there that is not a mark.
-fn mark_in(command: &str) -> Option<Option<(u32, &str)>> {
+/// `e` appends the environment to each row; only macOS's `ps` honours it
+/// beside a column list.
+#[cfg(target_os = "macos")]
+const LISTING_STYLE: &str = "eww";
+#[cfg(not(target_os = "macos"))]
+const LISTING_STYLE: &str = "ww";
+
+/// The mark a process carries. `None` is no mark, or an environment that cannot
+/// be read; the inner `None` is something there that is not a mark.
+#[cfg(target_os = "macos")]
+fn mark_of_process(row: &Row) -> Option<Option<(u32, String)>> {
+    mark_in(row.command)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn mark_of_process(row: &Row) -> Option<Option<(u32, String)>> {
+    let environment = std::fs::read(format!("/proc/{}/environ", row.pid)).ok()?;
+    mark_in_environment(&environment)
+}
+
+/// The last mark on the line, since the environment follows argv.
+#[cfg(any(target_os = "macos", test))]
+fn mark_in(command: &str) -> Option<Option<(u32, String)>> {
     let at = command.rfind(&format!(" {MARK}="))? + MARK.len() + 2;
-    let value = command[at..].split_whitespace().next().unwrap_or("");
-    Some(
-        value
-            .split_once(':')
-            .and_then(|(pid, started)| Some((pid.parse().ok()?, started))),
-    )
+    Some(parse_mark(
+        command[at..].split_whitespace().next().unwrap_or(""),
+    ))
+}
+
+/// The mark in a NUL-separated environment block, as `/proc/<pid>/environ` has it.
+#[cfg(any(not(target_os = "macos"), test))]
+pub(crate) fn mark_in_environment(environment: &[u8]) -> Option<Option<(u32, String)>> {
+    let prefix = format!("{MARK}=");
+    let value = environment
+        .split(|byte| *byte == 0)
+        .filter_map(|entry| entry.strip_prefix(prefix.as_bytes()))
+        .next_back()?;
+    Some(parse_mark(&String::from_utf8_lossy(value)))
+}
+
+fn parse_mark(value: &str) -> Option<(u32, String)> {
+    let (pid, started) = value.split_once(':')?;
+    Some((pid.parse().ok()?, started.to_string()))
 }
 
 fn temp_prefixes() -> Vec<String> {
