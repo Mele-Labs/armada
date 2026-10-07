@@ -390,6 +390,8 @@ async fn a_destructive_command_waits_on_the_owner_and_a_skill_is_not_run_yet() {
         Some(TriggerSkipped::SkillNotRun {
             skill: "tidy-up".to_string()
         })
+    );
+}
 
 // ------------------------------------------------------ the draft default
 
