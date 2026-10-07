@@ -40,6 +40,8 @@ mod approval;
 mod asked_runs;
 mod asking;
 mod attempt;
+/// That a person asked the forge to merge a Job's pull request when its checks pass.
+mod auto_merge_asked;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.

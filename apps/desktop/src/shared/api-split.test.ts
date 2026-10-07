@@ -389,6 +389,7 @@ type OldBridgeApi = {
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
+    autoMergePullRequest: (jobId: string) => Promise<Outcome>;
     rerunFailedChecks: (jobId: string) => Promise<Outcome>;
     investigateFailedChecks: (jobId: string) => Promise<Outcome>;
     queueAfterFinding: (jobId: string, finding: string) => Promise<Outcome>;
@@ -603,6 +604,7 @@ const OLD_CHANNELS = {
     readHeld: "bridge:read-held",
     approveReview: "bridge:approve-review",
     mergePullRequest: "bridge:merge-pull-request",
+    autoMergePullRequest: "bridge:auto-merge-pull-request",
     rerunFailedChecks: "bridge:rerun-failed-checks",
     investigateFailedChecks: "bridge:investigate-failed-checks",
     queueAfterFinding: "bridge:queue-after-finding",

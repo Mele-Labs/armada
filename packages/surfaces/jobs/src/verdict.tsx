@@ -29,6 +29,7 @@ import {
 } from "@armada/components";
 import { ReviewedGate, type PendingChanges } from "./confidence";
 import { ciOf, ciShown } from "./ci";
+import { checksFactOf } from "./merge-face";
 import { NO_FRAMES, type Frames } from "./frames";
 import { capturedOf, groundsOf } from "./grounds";
 import type {
@@ -38,6 +39,7 @@ import type {
   JobSummary,
   JudgeAnswer,
   PullRequestDetail,
+  PullRequestState,
   Remarks,
   StepDetail,
   Submitted,
@@ -346,6 +348,8 @@ export type PullRequestFacts = {
   comments?: number;
   /** What became of it — `delivery.landed`. Absent is open. */
   landed?: string;
+  /** The forge asked to merge it when its checks pass. */
+  autoMerge?: boolean;
 };
 
 /**
@@ -402,6 +406,8 @@ export function pullRequestBlockOf(
       {...(facts.comments === undefined ? {} : { comments: facts.comments })}
       {...(onOpen === undefined ? {} : { onOpen })}
     >
+      {checksFactOf(detail?.checks) === undefined ? null : <span>{checksFactOf(detail?.checks)}</span>}
+      {facts.autoMerge === true && facts.landed === undefined ? <span>Auto-merge on</span> : null}
       {currency === undefined ? null : (
         <p className={currency.conflicted ? "text-xs text-fg-default" : "text-2xs text-fg-subtle"}>
           {currency.said}
@@ -468,6 +474,8 @@ export type VerdictArgs = {
     onOpen?: () => void;
     /** Present where the last commit never reached this pull request. Since protocol 11.2, `#691`. */
     unpushed?: string;
+    /** The pull request as the forge showed it after the last press at the gate. */
+    reading?: PullRequestState | undefined;
   };
   /** Fleet's own reason the gate could not decide, scoped to this step. */
   undecided?: string;
@@ -507,6 +515,7 @@ export function verdictOf({
           ...(checksLineOf(steps) === undefined ? {} : { checks: checksLineOf(steps) }),
           ...pullRequestNamedOf(whole),
           ...(whole?.delivery?.landed === undefined ? {} : { landed: whole.delivery.landed }),
+          ...(pullRequest.reading?.auto_merge === true ? { autoMerge: true } : {}),
         });
   const note = proof.length === 0 ? NOTHING_PROVED : provesItNoteOf(step, render);
   // The card names the branch, so the figures do not name it twice.
@@ -559,6 +568,10 @@ export type VerdictSlotAtGateArgs = {
   /** What Fleet said to the last act on this Job, so the gate's pressed control answers. */
   answered?: ActAnswer | undefined;
   onMergePullRequest: (jobId: string) => void;
+  /** Merge pressed while the forge's checks run. */
+  onAutoMergePullRequest?: ((jobId: string) => void) | undefined;
+  /** The pull request as the forge showed it after the last press here. */
+  forgeReading?: PullRequestState | undefined;
   /** Start the pull request's failed CI runs again. #905. */
   onRerunFailedChecks?: (jobId: string) => void;
   /** Send the branch back for a Drone to find out why CI failed. #905. */
@@ -616,6 +629,8 @@ export function verdictSlotAtGate({
   deciding,
   decidingAct,
   onMergePullRequest,
+  onAutoMergePullRequest,
+  forgeReading,
   onRerunFailedChecks,
   onInvestigateFailedChecks,
   onQueueAfterFinding,
@@ -701,6 +716,7 @@ export function verdictSlotAtGate({
               if (because !== null) onSaid(because);
             }),
           unpushed,
+          reading: forgeReading,
         },
         undecided,
       })}
@@ -718,6 +734,9 @@ export function verdictSlotAtGate({
           answered={answered}
           {...(address === undefined ? {} : { pullRequest: address, conflicted })}
           onMerge={onMergePullRequest}
+          checks={detail?.checks}
+          onAutoMerge={onAutoMergePullRequest}
+          forgeReading={forgeReading}
           onApprove={onApproveReview}
           onRequestChanges={onRequestChanges}
           walkNotes={whole?.walk_notes ?? []}

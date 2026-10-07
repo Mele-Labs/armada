@@ -332,6 +332,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/approve_review", post(approve_review::<D>))
         .route("/jobs/:job_id/merge", post(merge_pull_request::<D>))
         .route(
+            "/jobs/:job_id/auto_merge",
+            post(crate::commands::enable_job_auto_merge::<D>),
+        )
+        .route(
             "/jobs/:job_id/rerun_failed_checks",
             post(crate::commands::rerun_failed_checks::<D>),
         )

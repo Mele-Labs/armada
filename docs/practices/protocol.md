@@ -3308,6 +3308,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
+## Protocol 23.67: Merge pressed while the forge's checks run
+
+`docs/concepts/fleet.md`, *A person presses to merge*. **Additive only**: one operation, one optional field on Bridge's `Outcome`, and a store column.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have passed (`fleet.pull_request_checks_passed`) or failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
+| the sweep | nothing on the wire | A Job at its gate whose pull request is found merged, and whose ask is recorded, is taken as `approve_review` takes it, actor `fleet`. Any other merge is recorded and left |
+
+`Outcome.pullRequest` is Bridge's own and not on the wire: the `PullRequestState` main carries back from `enable_job_auto_merge`, which the gate draws as Auto-merge on.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

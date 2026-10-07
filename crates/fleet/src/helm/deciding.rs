@@ -116,6 +116,7 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "file_finding_issue",
         "rerun_checks",
         "rerun_failed_checks",
+        "enable_job_auto_merge",
         "rerun_gate",
         "investigate_failed_checks",
         "add_repository",

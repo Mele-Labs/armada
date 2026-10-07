@@ -697,6 +697,9 @@ const api: BridgeApi = {
   mergePullRequest: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.mergePullRequest, jobId),
 
+  autoMergePullRequest: (jobId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.autoMergePullRequest, jobId),
+
   rerunFailedChecks: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.rerunFailedChecks, jobId),
 

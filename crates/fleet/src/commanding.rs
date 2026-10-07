@@ -208,6 +208,12 @@ where
         self.summarised(&job).await
     }
 
+    /// Merge pressed while the forge's checks run. **Not [`budgeted`]**, for
+    /// [`Commands::merge_pull_request`]'s reason.
+    async fn enable_job_auto_merge(&self, job_id: JobId) -> Result<ipc::PullRequestState, Refusal> {
+        Fleet::enable_job_auto_merge(self, &job_id.to_domain()).await
+    }
+
     /// The pull request's failed CI runs, started again. #905. **Not [`budgeted`]**, for
     /// [`Commands::merge_pull_request`]'s reason: the forge write inside is over a network.
     async fn rerun_failed_checks(&self, job_id: JobId) -> Result<JobSummary, Refusal> {

@@ -83,6 +83,13 @@ fn named(said: &str) -> Option<Named> {
     })
 }
 
+/// The number a pull request's address ends in.
+pub(crate) fn number_of(address: &str) -> Option<u64> {
+    match named(address)? {
+        Named::Number(number) | Named::Address { number, .. } => Some(number),
+    }
+}
+
 fn checks_of(ran: &WhatTheForgeRan) -> Option<ForgeChecks> {
     match ran {
         // **Not a pass**, `WhatTheForgeRan::NothingRan`'s own rule.

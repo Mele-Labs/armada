@@ -867,6 +867,8 @@ export function App({ draft }: AppProps = {}) {
                   onShowAgain={showAgain}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
+                  onAutoMergePullRequest={(jobId) => void commands.decide(jobId, "merge", "", false, true)}
+                  forgeReading={commands.forgeReadingOn(reading.id)}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
                   onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}
                   onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}

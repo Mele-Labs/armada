@@ -47,6 +47,7 @@ import type {
   Observed,
   Outcome,
   ProposalInFlight,
+  PullRequestState,
   RepositorySummary,
   Watched,
   WhenBlocked,
@@ -374,6 +375,10 @@ export type JobDetailProps = {
    * request, which `Decide` decides from the detail rather than from a flag.
    */
   onMergePullRequest: (jobId: string) => void;
+  /** Merge pressed while the forge's checks run: the forge merges when they pass, and the Job stays at the gate. */
+  onAutoMergePullRequest?: ((jobId: string) => void) | undefined;
+  /** The pull request as the forge showed it after the last press at the gate. */
+  forgeReading?: PullRequestState | undefined;
   /** Start the pull request's failed CI runs again. #905. */
   onRerunFailedChecks: (jobId: string) => void;
   /** Send the branch back for a Drone to find out why CI failed. #905. */

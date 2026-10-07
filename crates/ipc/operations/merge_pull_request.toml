@@ -10,6 +10,8 @@ notes = """
 
 **It is `approve_review` with a write to the forge in front of it.** What it adds is the merge, the record of it and the Checks over what merged; what it does to the two machines is that route's, called rather than restated — the step advances beneath the gate and the Job is `queued` at the next step, or `completed_success` where the step that passed was the workflow's last.
 
+**Pressed while the forge's checks still run, the gate sends `enable_job_auto_merge` instead** (since 23.67): the forge merges when they pass, and the sweep then takes the work off the gate, so this route is the press for a pull request whose checks have passed or that has none.
+
 **Not a `recourse`.** `core_model::Stuck` classifies a Job that *stopped*, and `awaiting_review` is not one of the five statuses it is asked of: nothing went wrong, and what the Job needs is in the status itself. A surface draws this where it draws the other three answers, off `status`.
 
 **Everything after the merge is `noticing`'s, reached rather than repeated.** The record, the fast-forward of the base branch, the run of `after_merge.checks` and the `job.landed` event are one path whether Fleet noticed a merge or a person pressed for one. So the Checks cannot run twice for one commit — the dedupe is keyed by the commit, not by the Job, because two Jobs merging within a minute are two merges into one commit.

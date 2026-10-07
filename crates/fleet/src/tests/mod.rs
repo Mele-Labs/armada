@@ -134,6 +134,7 @@ mod modelling;
 mod needs;
 mod needs_served;
 mod needs_status;
+mod job_auto_merge;
 mod noticing;
 mod orphans;
 mod out_of_bounds;
