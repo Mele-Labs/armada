@@ -1,17 +1,25 @@
 # Store migrations
 
-A migration has a **name**, not a number. `crates/store/src/migration_list.rs`
-lists them: `Migration::additive("main_ci.state", crate::main_ci::V115),`. The
-first 113 are the old numbered list under `module.vN` names, in their order, and
-are never edited or reordered.
+A migration has a **name**, not a number, and is **one file**:
+`crates/store/migrations/<UTC yyyymmddThhmmZ>-<module.slug>.sql`, for example
+`20261007T0130Z-main_ci.state.sql`. The file holds the SQL. A `-- breaking`
+line among its leading comments declares it breaking; without one it is
+additive. `build.rs` reads the directory at compile time and lists the files in
+file-name order, after the first 113, which are the old numbered list under
+`module.vN` names in `src/legacy_migrations.rs`, frozen and never edited.
 
 ## Adding one
 
-Append a line at the end of the list. **No `armada need`, no number to take.** The
-list is a list file (`docs/practices/list-files.md`), so two branches that each
-append one both keep it when `git merge` joins them, in either order, and a
-name used twice fails `tests::named_migrations`. Pick `module.slug`, unique
-across the list. The migration's own SQL stays beside the table it creates.
+Add a file. **No `armada need`, no number to take, and no shared file to
+touch**, so two branches that each add one merge cleanly in git and on GitHub,
+which ignores `merge=union`. A name used twice fails the build. Pick the
+timestamp when you write it and `module.slug` unique across the list.
+
+**Order between independent branches does not matter.** The store applies by
+missing name, never by position, so a branch that lands with an earlier
+timestamp than one already applied is still applied. **A migration must not
+depend on one from another branch that has not landed**: it may use only
+tables that are on `main`.
 
 ## What the store records
 

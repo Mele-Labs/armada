@@ -28,17 +28,15 @@ case "$1 $2" in
 esac
 """
 
-LIST = "crates/store/src/migration_list.rs"
+LEGACY = "crates/store/src/legacy_migrations.rs"
+DIR = "crates/store/migrations"
+# The frozen numbered entries a build lists, which is what the guard reads for them.
 MIGRATIONS = (
-    "pub(crate) const MIGRATIONS: &[Migration] = &[\n"
-    '    Migration::additive("schema.v1", V1),\n'
-    "    // a spacer so two appends do not touch the same lines\n"
+    "pub(crate) const LEGACY: &[Migration] = &[\n"
+    '    Migration::additive("schema.v1", crate::schema::V1),\n'
     '    Migration::additive("x.v2", crate::x::V2),\n'
-    "    // another\n"
-    "    // another\n"
     "];\n"
 )
-
 
 class Preview(unittest.TestCase):
     def setUp(self):
@@ -58,7 +56,7 @@ class Preview(unittest.TestCase):
         self.git("config", "user.name", "t")
         self.git("config", "user.email", "t@example.com")
         self.write("a.txt", "one\ntwo\nthree\n")
-        self.write(LIST, MIGRATIONS)
+        self.write(f"{DIR}/.gitkeep", "")
         self.commit("main: start")
         self.slot_lines = []
 
@@ -151,12 +149,8 @@ class Preview(unittest.TestCase):
         self.assertNotIn("UU", status)
 
     def test_a_migration_name_taken_twice_is_skipped_though_git_merges_it(self):
-        base = MIGRATIONS
-        one = base.replace('("schema.v1", V1),\n', '("schema.v1", V1),\n    Migration::additive("p.same", crate::p::A),\n')
-        two = base.replace("    // another\n    // another\n",
-                           '    // another\n    // another\n    Migration::additive("p.same", crate::q::B),\n')
-        self.branch("feat/m-first", {LIST: one})
-        self.branch("feat/m-second", {LIST: two})
+        self.branch("feat/m-first", {f"{DIR}/20261007T0100Z-p.same.sql": "CREATE TABLE a (x TEXT);"})
+        self.branch("feat/m-second", {f"{DIR}/20261007T0200Z-p.same.sql": "CREATE TABLE b (x TEXT);"})
         self.hold("feat/m-first", "feat/m-second")
         said = self.run_preview()
         self.assertRegex(said, r"feat/m-second\s+skipped \(migration p.same is already taken by feat/m-first\)")
@@ -288,15 +282,6 @@ def roster_server(jobs):
     return server
 
 
-def entry(name, breaking=False, module="x"):
-    kind = "breaking" if breaking else "additive"
-    return f'    Migration::{kind}("{name}", crate::{module}::SQL),\n'
-
-
-def listing(*entries):
-    return "pub(crate) const MIGRATIONS: &[Migration] = &[\n" + "".join(entries) + "];\n"
-
-
 def run(cwd, *args):
     return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd,
                           check=True, capture_output=True, text=True).stdout.strip()
@@ -309,8 +294,8 @@ def scratch_root(base, main_list):
     os.makedirs(os.path.join(root, "scripts"))
     shutil.copy(RESTART, os.path.join(root, "scripts", "restart"))
     run(root, "init", "-q", "-b", "main")
-    os.makedirs(os.path.join(root, os.path.dirname(LIST)))
-    with open(os.path.join(root, LIST), "w") as f:
+    os.makedirs(os.path.join(root, os.path.dirname(LEGACY)))
+    with open(os.path.join(root, LEGACY), "w") as f:
         f.write(main_list)
     run(root, "add", ".")
     run(root, "commit", "-q", "-m", "main")
@@ -333,7 +318,7 @@ class RestartAdopt(unittest.TestCase):
         os.makedirs(os.path.join(self.tree, "crates", "store", "src"))
         os.makedirs(os.path.join(self.tree, "apps", "desktop"))
         open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
-        with open(os.path.join(self.tree, LIST), "w") as f:
+        with open(os.path.join(self.tree, LEGACY), "w") as f:
             f.write(MIGRATIONS)
         # The build steps run before the late roster check; stubs keep them off.
         self.bin = os.path.join(self.dir, "bin")
@@ -419,35 +404,33 @@ class MigrationGuard(unittest.TestCase):
     """The names guard of `scripts/restart --from`, as `--dry-run` runs it, under a
     scratch HOME and a scratch root whose `origin/main` is the base. Never the real database."""
 
-    BASE = (entry("schema.v1", module="schema"), entry("x.v2"))
-
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.dir, True)
         self.home = os.path.join(self.dir, "home")
         self.support = os.path.join(self.home, "Library", "Application Support", "Armada")
         os.makedirs(self.support)
-        self.script = scratch_root(self.dir, listing(*self.BASE))
+        self.script = scratch_root(self.dir, MIGRATIONS)
         self.tree = os.path.join(self.dir, "tree")
         os.makedirs(os.path.join(self.tree, "crates", "armada"))
         os.makedirs(os.path.join(self.tree, "apps", "desktop"))
+        os.makedirs(os.path.join(self.tree, DIR))
+        os.makedirs(os.path.join(self.tree, os.path.dirname(LEGACY)))
         open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
+        with open(os.path.join(self.tree, LEGACY), "w") as f:
+            f.write(MIGRATIONS)
+        open(os.path.join(self.tree, DIR, ".gitkeep"), "w").close()
         run(self.tree, "init", "-q", "-b", "main")
-        self.build(*self.BASE)
         run(self.tree, "add", ".")
         run(self.tree, "commit", "-q", "-m", "base")
 
-    def build(self, *entries):
-        """The build being previewed, on a branch of its own."""
-        path = os.path.join(self.tree, LIST)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
-            f.write(listing(*entries))
-
-    def on_branch(self, branch, *entries):
+    def on_branch(self, branch, name, breaking=False):
+        """The build being previewed: a branch that adds one migration file."""
         run(self.tree, "checkout", "-q", "-b", branch)
-        self.build(*entries)
-        run(self.tree, "commit", "-q", "-am", branch)
+        with open(os.path.join(self.tree, DIR, f"20261007T0130Z-{name}.sql"), "w") as f:
+            f.write(("-- breaking\n" if breaking else "") + "CREATE TABLE t (x TEXT);\n")
+        run(self.tree, "add", ".")
+        run(self.tree, "commit", "-q", "-m", branch)
 
     def database(self, rows=None, numbered=None):
         db = os.path.join(self.support, "armada.db")
@@ -475,22 +458,37 @@ class MigrationGuard(unittest.TestCase):
 
     def test_an_unlanded_breaking_migration_is_refused_naming_it_and_its_branch(self):
         self.database([("schema.v1", 1), ("x.v2", 1)])
-        self.on_branch("fleet/rebuilds-a-table", *self.BASE, entry("y.rebuild", breaking=True))
+        self.on_branch("fleet/rebuilds-a-table", "y.rebuild", breaking=True)
         code, said = self.guard()
         self.assertNotEqual(code, 0)
         self.assertIn("y.rebuild from fleet/rebuilds-a-table", said)
         self.assertIn("unlanded work", said)
 
+    def test_a_migration_file_already_on_origin_main_is_not_unlanded(self):
+        self.database([("schema.v1", 1), ("x.v2", 1), ("y.rebuild", 1)])
+        name = f"{DIR}/20261007T0130Z-y.rebuild.sql"
+        root = os.path.dirname(os.path.dirname(self.script))
+        os.makedirs(os.path.join(root, DIR))
+        for base in (root, self.tree):
+            with open(os.path.join(base, name), "w") as f:
+                f.write("-- breaking\nDROP TABLE t;\n")
+            run(base, "add", ".")
+            run(base, "commit", "-q", "-m", "landed")
+        run(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertNotIn("unlanded", said)
+
     def test_an_unlanded_additive_migration_is_allowed_and_said_to_be_safe(self):
         self.database([("schema.v1", 1), ("x.v2", 1)])
-        self.on_branch("fleet/step-baseline", *self.BASE, entry("step_baseline.survives_restart"))
+        self.on_branch("fleet/step-baseline", "step_baseline.survives_restart")
         code, said = self.guard()
         self.assertEqual(code, 0, said)
         self.assertIn("unlanded and additive, so safe to go back from: step_baseline.survives_restart", said)
 
     def test_an_unlanded_breaking_migration_the_database_already_has_applies_nothing_new(self):
         self.database([("schema.v1", 1), ("x.v2", 1), ("y.rebuild", 0)])
-        self.on_branch("fleet/rebuilds-a-table", *self.BASE, entry("y.rebuild", breaking=True))
+        self.on_branch("fleet/rebuilds-a-table", "y.rebuild", breaking=True)
         code, said = self.guard()
         self.assertEqual(code, 0, said)
 

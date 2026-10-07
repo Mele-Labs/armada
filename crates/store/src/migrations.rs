@@ -1,14 +1,35 @@
 //! What a migration is, and the table that records which ones a file has had.
 //!
-//! The list is `migration_list.rs`. A migration has a stable name, not a
-//! position, so two branches that each add one never take the same number, and
+//! A migration is a file in `migrations/`, listed after the frozen 113 in
+//! `legacy_migrations.rs`. It has a stable name, not a position, so two
+//! branches that each add one never take the same number or touch one file, and
 //! a file written by a build with one more name than this one is read by it
 //! when that name was additive. `docs/practices/store-migrations.md` has the
 //! rules and why.
 
 use rusqlite::Connection;
 
-pub(crate) use crate::migration_list::MIGRATIONS;
+use crate::legacy_migrations::LEGACY;
+
+include!(concat!(env!("OUT_DIR"), "/file_migrations.rs"));
+
+/// The frozen legacy entries, then the files by timestamp. Applying is by
+/// missing name, so the order between independent branches does not matter.
+pub(crate) const MIGRATIONS: &[Migration] = &ALL;
+const ALL: [Migration; LEGACY.len() + FROM_FILES.len()] = {
+    let mut all = [Migration::additive("", ""); LEGACY.len() + FROM_FILES.len()];
+    let mut at = 0;
+    while at < LEGACY.len() {
+        all[at] = LEGACY[at];
+        at += 1;
+    }
+    while at < all.len() {
+        all[at] = FROM_FILES[at - LEGACY.len()];
+        at += 1;
+    }
+    all
+};
+const _: () = assert!(LEGACY.len() == LEGACY_COUNT);
 
 /// The key the old numbered list recorded its applied count under. It is read
 /// once, to convert a file written before names, and written only for the first

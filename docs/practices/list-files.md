@@ -19,7 +19,6 @@ else lists them. Git does the merge, so a branch needs nothing but the file.
 | `crates/ipc/operations.toml` | A header, then one `[operations.<name>]` table an entry |
 | `crates/fleet/src/tests/mod.rs` | `mod` lines and their comments only |
 | `packages/icons/icons.toml` | A header, then one table an entry |
-| `crates/store/src/migration_list.rs` | A header, then one `Migration::additive("name", sql)` entry a line, then `];`. Names make order irrelevant to what is applied, so two appends in either order are both applied (`docs/practices/store-migrations.md`) |
 | `apps/desktop/src/renderer/src/mock/scenario-rows.ts` | `export * from "./scenarios/<row>";` lines only, one a scenario. Each row, with its own imports, is a file in `scenarios/` |
 
 `cargo xtask verify-foundations` (*every declared list file holds only entries*)

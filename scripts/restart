@@ -257,8 +257,9 @@ PY
 backups="$support/backups"
 
 # The migration guard, for `--from`. **Names, never a count**: a migration is
-# a name in `crates/store/src/migration_list.rs` with an additive or breaking
-# flag, and the database records the names it has applied in
+# a file in `crates/store/migrations/` (the 113 before files are named in
+# `legacy_migrations.rs`) with an additive or breaking flag, and the database
+# records the names it has applied in
 # `armada_migrations`. `docs/practices/store-migrations.md` has the rules.
 #
 # Two refusals, both before Fleet is touched:
@@ -281,8 +282,10 @@ migration_guard() {
 import os, re, shutil, sqlite3, subprocess, sys, tempfile, time
 
 src, root, db = sys.argv[1:4]
-LIST = "crates/store/src/migration_list.rs"
+LEGACY_FILE = "crates/store/src/legacy_migrations.rs"
 OLD = "crates/store/src/migrations.rs"
+DIR = "crates/store/migrations"
+FILE_NAME = re.compile(r"\d{8}T\d{4}Z-([a-z0-9_]+\.[a-z0-9_.]+)\.sql")
 LEGACY = 113
 
 
@@ -312,13 +315,44 @@ def read(path):
         return ""
 
 
-def main_text():
-    for path in (LIST, OLD):
-        shown = subprocess.run(["git", "-C", root, "show", f"origin/main:{path}"],
-                               capture_output=True, text=True)
-        if shown.returncode == 0 and names_in(shown.stdout):
-            return shown.stdout
-    return ""
+def git_show(path):
+    shown = subprocess.run(["git", "-C", root, "show", f"origin/main:{path}"], capture_output=True, text=True)
+    return shown.stdout if shown.returncode == 0 else ""
+
+
+def from_files(listing, text_of):
+    """[(name, breaking)] for the migration files in `listing`, by file name."""
+    found = []
+    for file in sorted(listing):
+        m = FILE_NAME.fullmatch(file)
+        if m:
+            head = []
+            for line in text_of(file).splitlines():
+                if line.strip() and not line.lstrip().startswith("--"):
+                    break
+                head.append(line.strip())
+            found.append((m.group(1), "-- breaking" in head))
+    return found
+
+
+def target_names():
+    legacy = names_in(read(LEGACY_FILE) or read(OLD))
+    if not legacy:
+        return []
+    try:
+        listing = os.listdir(os.path.join(src, DIR))
+    except OSError:
+        listing = []
+    return legacy + from_files(listing, lambda f: read(f"{DIR}/{f}"))
+
+
+def main_names():
+    legacy = names_in(git_show(LEGACY_FILE) or git_show(OLD))
+    if not legacy:
+        return None
+    tree = subprocess.run(["git", "-C", root, "ls-tree", "--name-only", "origin/main", DIR + "/"],
+                          capture_output=True, text=True).stdout.split()
+    return {n for n, _ in legacy} | {n for n, _ in from_files([os.path.basename(t) for t in tree], lambda f: "")}
 
 
 def query(path, mode):
@@ -361,8 +395,10 @@ def live():
 
 def branch_of(name):
     """The branch that added `name` to the build, where git can say."""
-    sha = subprocess.run(["git", "-C", src, "log", "-S" + f'"{name}"', "--format=%H", "--", LIST],
+    sha = subprocess.run(["git", "-C", src, "log", "--diff-filter=A", "--format=%H", "--", DIR],
                          capture_output=True, text=True).stdout.split()
+    sha = [c for c in sha if name in subprocess.run(
+        ["git", "-C", src, "show", "--name-only", "--format=", c], capture_output=True, text=True).stdout]
     if sha:
         held = subprocess.run(["git", "-C", src, "for-each-ref", "--contains", sha[-1], "refs/heads",
                                "--format=%(refname:short)"], capture_output=True, text=True).stdout.split()
@@ -372,9 +408,9 @@ def branch_of(name):
     return "a branch not on origin/main"
 
 
-target = names_in(read(LIST) or read(OLD))
+target = target_names()
 if not target:
-    print(f"REFUSE cannot read the migrations in {src}/{LIST}, so cannot tell whether this build is older than the database")
+    print(f"REFUSE cannot read the migrations in {src}/{LEGACY_FILE}, so cannot tell whether this build is older than the database")
     sys.exit(0)
 target_names = {n for n, _ in target}
 applied = live()
@@ -393,12 +429,11 @@ if unknown_breaking:
     sys.exit(0)
 extra = [n for n in applied if n not in target_names]
 
-main_text_ = main_text()
-if not main_text_:
-    print(f"REFUSE cannot read the migrations on origin/main from {root} (git show origin/main:{LIST}), so cannot tell which are unlanded; fetch it and run again")
+main_names_ = main_names()
+if main_names_ is None:
+    print(f"REFUSE cannot read the migrations on origin/main from {root} (git show origin/main:{LEGACY_FILE}), so cannot tell which are unlanded; fetch it and run again")
     sys.exit(0)
-main_names = {n for n, _ in names_in(main_text_)}
-unlanded = [(n, b) for n, b in target if n not in main_names]
+unlanded = [(n, b) for n, b in target if n not in main_names_]
 fresh = [(n, b) for n, b in unlanded if n not in applied]
 breaking = [n for n, b in fresh if b]
 if breaking:

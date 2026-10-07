@@ -76,12 +76,11 @@ docs and nothing had acted on it. An issue is a claim like any other.
 
 `milestone-step` step 3. One issue. Finish it, and stop.
 
-**A migration needs no `armada need`: it has a name, not a number.** Append
-`Migration::additive("module.slug", crate::module::SQL),` to the end of
-`crates/store/src/migration_list.rs` and nothing collides: two branches that
-each append one both keep it, in either order. It is additive unless you write
-`Migration::breaking`, and a test refuses an additive one that drops, renames
-or rewrites. A breaking one is a decision: ask first. A branch that previews
+**A migration needs no `armada need`: it has a name, not a number.** Add one file,
+`crates/store/migrations/<UTC yyyymmddThhmmZ>-<module.slug>.sql`, and nothing
+collides: no two branches touch the same file, and order between them does not
+matter. It is additive unless a `-- breaking` comment line says otherwise, and
+a test refuses an additive one that drops, renames or rewrites. A breaking one is a decision: ask first. A branch that previews
 with a breaking migration `main` lacks is refused by `scripts/restart --from`.
 `docs/practices/store-migrations.md`.
 
@@ -341,7 +340,7 @@ the session's own `/context` put reads at 55% of everything it took in.
 **Put the numbers and the Checks in the brief, because an agent never loads this
 skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
 say *"before choosing a protocol minor, run `armada need`; a store migration is
-a name appended to `migration_list.rs` and needs none"*, or each agent takes the
+a file in `crates/store/migrations/` and needs none"*, or each agent takes the
 next minor from `main`. Confirmed 4 to 5 Oct
 2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
 V109 that another branch had taken, and the merge line sent each back to be

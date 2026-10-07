@@ -7,4 +7,3 @@ crates/ipc/operations.toml merge=union
 crates/fleet/src/tests/mod.rs merge=union
 packages/icons/icons.toml merge=union
 apps/desktop/src/renderer/src/mock/scenario-rows.ts merge=union
-crates/store/src/migration_list.rs merge=union

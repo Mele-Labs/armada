@@ -1,12 +1,11 @@
-//! The migration list: a name, the SQL, and whether it is additive. A list
-//! file, declared `merge=union` in `.gitattributes`, so two branches that each
-//! append an entry both keep it (`docs/practices/list-files.md`). Nothing but
-//! entries below the header; the rules are in `crate::migrations`.
+//! The 113 migrations the numbered list held when names replaced it, in its
+//! order. **Frozen: nothing is appended here and nothing is edited.** A new
+//! migration is a file in `crates/store/migrations/`, so no two branches touch
+//! one shared list (`docs/practices/store-migrations.md`).
 
 use crate::migrations::Migration;
 
-pub(crate) const MIGRATIONS: &[Migration] = &[
-    // The first 113 are the old numbered list, in its order. Never reorder or edit them.
+pub(crate) const LEGACY: &[Migration] = &[
     // Those the additive test caught are `breaking`: they drop, rename or rewrite.
     Migration::additive("schema.v1", crate::schema::V1),
     Migration::breaking("schema.v2", crate::schema::V2),
@@ -121,5 +120,4 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
     Migration::additive("pausing.v111", crate::pausing::V111),
     Migration::additive("asked_runs.v113", crate::asked_runs::V113),
     Migration::additive("main_ci.v114", crate::main_ci::V114),
-    // Append a new entry below this line: Migration::additive("module.slug", crate::module::SQL),
 ];

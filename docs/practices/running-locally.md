@@ -215,9 +215,9 @@ above. It exists for the preview below.
 
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
-from `crates/store/src/migration_list.rs`, the database's from its
+from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
 `armada_migrations` table (a file still carrying only the old count is
-converted in the read), and `origin/main`'s from `git show`. Two refusals, both
+converted in the read), and `origin/main`'s from `git show` and `git ls-tree`. Two refusals, both
 before Fleet is stopped:
 
 | The build or the database | Answer |

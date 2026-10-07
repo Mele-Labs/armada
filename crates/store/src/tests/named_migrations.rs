@@ -244,3 +244,106 @@ fn an_entry_declared_additive_drops_renames_and_rewrites_nothing() {
         "declared additive, and not: {lies:?}. Declare them with Migration::breaking"
     );
 }
+
+/// The files of `dir` as a list that follows the real one, leaked because a
+/// `Migration` holds `'static` text.
+fn list_from(dir: &std::path::Path) -> Vec<Migration> {
+    let files =
+        crate::migration_files::read_dir(&dir.join("crates/store/migrations")).expect("files");
+    let mut list: Vec<Migration> = MIGRATIONS[..LEGACY_COUNT].to_vec();
+    for file in files {
+        let name: &'static str = Box::leak(file.name.into_boxed_str());
+        let sql: &'static str = Box::leak(
+            std::fs::read_to_string(&file.path)
+                .expect("sql")
+                .into_boxed_str(),
+        );
+        list.push(if file.breaking {
+            Migration::breaking(name, sql)
+        } else {
+            Migration::additive(name, sql)
+        });
+    }
+    list
+}
+
+fn root_of(dir: &TempDir) -> std::path::PathBuf {
+    dir.db().parent().expect("a parent").to_path_buf()
+}
+
+fn git(dir: &std::path::Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+        .args(args)
+        .output()
+        .expect("git");
+    assert!(out.status.success(), "git {args:?}: {out:?}");
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// Two branches each add a migration file; `git merge` of both, in either
+/// order, is clean and the merged directory applies both. No shared file is
+/// touched, which is what a forge's merge needs: it ignores `merge=union`.
+#[test]
+fn two_branches_each_adding_a_migration_file_merge_cleanly_and_both_apply() {
+    for first in ["a", "b"] {
+        let repo = TempDir::new();
+        let root = &root_of(&repo);
+        let dir = root.join("crates/store/migrations");
+        fs::create_dir_all(&dir).expect("dir");
+        fs::write(dir.join(".gitkeep"), "").expect("keep");
+        git(root, &["init", "-q", "-b", "main"]);
+        git(root, &["add", "."]);
+        git(root, &["commit", "-q", "-m", "base"]);
+        for (branch, file, sql) in [
+            ("a", "20261007T0130Z-branch_a.things.sql", A),
+            ("b", "20261007T0200Z-branch_b.things.sql", B),
+        ] {
+            git(root, &["checkout", "-q", "-b", branch, "main"]);
+            fs::write(dir.join(file), sql).expect("file");
+            git(root, &["add", "."]);
+            git(root, &["commit", "-q", "-m", branch]);
+        }
+        let second = if first == "a" { "b" } else { "a" };
+        git(root, &["checkout", "-q", "-b", "merged", first]);
+        git(root, &["merge", "-q", "--no-edit", second]);
+
+        let db = TempDir::new();
+        let store = Store::open_with(&db.db(), &list_from(root)).expect("the merged directory");
+        assert!(has_table(&store, "branch_a_things") && has_table(&store, "branch_b_things"));
+    }
+}
+
+#[test]
+fn a_migration_file_is_named_by_timestamp_and_slug_and_may_say_it_is_breaking() {
+    let repo = TempDir::new();
+    let dir = root_of(&repo).join("crates/store/migrations");
+    fs::create_dir_all(&dir).expect("dir");
+    fs::write(
+        dir.join("20261007T0130Z-a.one.sql"),
+        "-- note\n-- breaking\nDROP TABLE x;",
+    )
+    .expect("f");
+    fs::write(dir.join("20261007T0100Z-a.zero.sql"), A).expect("f");
+    let read = crate::migration_files::read_dir(&dir).expect("read");
+    let seen: Vec<(&str, bool)> = read.iter().map(|m| (m.name.as_str(), m.breaking)).collect();
+    assert_eq!(seen, [("a.zero", false), ("a.one", true)], "by timestamp");
+    for bad in ["a.one.sql", "2026-a.one.sql", "20261007T0130Z-NoDot.sql"] {
+        fs::write(dir.join(bad), A).expect("f");
+        assert!(crate::migration_files::read_dir(&dir).is_err(), "{bad}");
+        fs::remove_file(dir.join(bad)).expect("rm");
+    }
+}
+
+/// What is compiled in is what the directory says, and every file in it holds
+/// to the additive rule unless it declares itself breaking.
+#[test]
+fn the_compiled_list_is_the_directory_after_the_legacy_entries() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let files = crate::migration_files::read_dir(&dir).expect("files");
+    let compiled: Vec<&str> = MIGRATIONS[LEGACY_COUNT..].iter().map(|m| m.name).collect();
+    let on_disk: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(compiled, on_disk);
+}

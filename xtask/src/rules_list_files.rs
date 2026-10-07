@@ -62,17 +62,6 @@ fn not_entries(name: &str, text: &str) -> Vec<usize> {
                 }
                 in_tables || line.is_empty() || line.starts_with('#')
             }
-            "rs" if name.ends_with("migration_list.rs") => {
-                // A header, then one `Migration::` entry a line, then `];`.
-                if line.starts_with("Migration::") {
-                    in_tables = true;
-                }
-                !in_tables
-                    || line.is_empty()
-                    || line.starts_with("//")
-                    || line.starts_with("Migration::") && line.ends_with("),")
-                    || line == "];"
-            }
             "rs" => line.is_empty() || line.starts_with("//") || is_mod(line),
             _ => return vec![0],
         };

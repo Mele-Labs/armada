@@ -128,8 +128,8 @@ on #1070, conflicted in `checking.rs` on one of #1070's own commits; `git rebase
 
 **Brief every child to declare a need before it picks a protocol minor**
 (`armada need <path> "<what>"`, `work-issue` step 3), and to use the number the
-answer gives. A store migration needs none: it is a name appended to
-`migration_list.rs`. The line then lands them in the order they declared,
+answer gives. A store migration needs none: it is a file in
+`crates/store/migrations/`. The line then lands them in the order they declared,
 so nothing is renumbered; a branch that took a number undeclared is refused at
 preflight and at Fleet's merge. A child that stalls holds the ones behind it: give its
 need back with `armada need --release <path>` from its branch, or delete the

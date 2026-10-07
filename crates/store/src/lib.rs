@@ -65,6 +65,8 @@ mod helm_sessions;
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
+/// The 113 migrations the numbered list held, frozen.
+mod legacy_migrations;
 /// The Fleet limits a person saved, one row or none.
 mod limits;
 /// A redispatch read backwards: which Job replaced this one.
@@ -80,8 +82,9 @@ mod manifest_snapshot;
 /// The merge line Fleet keeps for each repository it serves: entries, the turn,
 /// and the size a turn takes.
 mod merge_line;
-/// The migration list: names, SQL, and whether each is additive. A list file.
-mod migration_list;
+/// Reads the `migrations/` directory; the build script includes it too.
+#[cfg(test)]
+mod migration_files;
 /// What a migration is, and the table recording which names a file has had.
 mod migrations;
 /// The model a person chose for a Job's later steps.
