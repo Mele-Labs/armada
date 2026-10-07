@@ -61,6 +61,7 @@ import type { FrameSrc, ReadFrame } from "./frames";
 import type { FoldedReads } from "@armada/screens/src/folded-reads";
 import type { OpenArtifact, OpenPullRequest } from "@armada/screens/src/opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
+import type { ManifestChecksProps } from "./ManifestChecks";
 import type { ReadBrief } from "./pulse-brief";
 import type { AnswerLesson, ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -304,6 +305,11 @@ export type JobDetailProps = {
    * fetching.
    */
   onReadCheckOutput: ReadCheckOutput;
+  /**
+   * What the Checks page reads, for this Job's Checks tab to narrow to the Job. Absent draws the tab
+   * empty, as a caller with no Checks read would.
+   */
+  checks?: Omit<ManifestChecksProps, "job" | "floor" | "jobLabel" | "onOpenJob">;
   /** Read one kept brief, for Pulse's log panel. `onReadCheckOutput`'s shape one record over. */
   onReadBrief: ReadBrief;
   /** Read this Job's retro, for the Record's Retro sheet — on open and on focus. `retro.ts`. */

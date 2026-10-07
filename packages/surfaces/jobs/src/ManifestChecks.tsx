@@ -27,7 +27,19 @@ import type {
 
 import { JobCheckLogSheet, LandCheckLogSheet } from "./check-log-sheet";
 import type { JobOpening } from "./detail-props";
-import { askerOf, checkDetailsOf, checkEntriesOf, checkRowOf, type Asker, type CheckEntry } from "./manifest-checks";
+import {
+  askerOf,
+  CHECK_FILTER_LABEL,
+  CHECK_FILTERS,
+  checkDetailsOf,
+  checkEntriesOf,
+  checkRowOf,
+  heldBy,
+  ofJob,
+  type Asker,
+  type CheckEntry,
+  type CheckFilter,
+} from "./manifest-checks";
 import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOutput } from "./outputs";
 import { LogSheet } from "./log-sheet";
 
@@ -58,13 +70,27 @@ export type ManifestChecksProps = {
   onOpenMergeLine: (branch?: string) => void;
   /** The window is at `--window-floor`. */
   floor: boolean;
+  /** Narrows the list to one Job's Checks, which is the Job detail's Checks tab. */
+  job?: string;
 };
+
+/** The filter row, a panel's filters as filled tabs. All on opening, no figure on any. */
+function CheckFilters({ value, onChange }: { value: CheckFilter; onChange: (filter: CheckFilter) => void }) {
+  return (
+    <Tabs
+      items={CHECK_FILTERS.map((id) => ({ id, label: CHECK_FILTER_LABEL[id] }))}
+      value={value}
+      onChange={(id) => onChange(id as CheckFilter)}
+    />
+  );
+}
 
 export function ManifestChecks(props: ManifestChecksProps) {
   const { sheet, onListRuns, onReadChecks, lines, jobLabel, floor } = props;
   const [reported, setReported] = useState<readonly ManifestCheckRow[]>([]);
   const [runs, setRuns] = useState<readonly CheckoutRunRecord[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<CheckFilter>("all");
   const data = sheet.state === "read" ? sheet.sheet : undefined;
 
   // Read on opening, and again the moment a run ends: `checkout_run.finished` moves the sheet's
@@ -85,13 +111,25 @@ export function ManifestChecks(props: ManifestChecksProps) {
     };
   }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
 
-  const entries = useMemo(() => checkEntriesOf(data, runs, lines, reported), [data, runs, lines, reported]);
-  const open = entries.find((one) => one.id === openId);
+  const { job } = props;
+  const entries = useMemo(() => {
+    const all = checkEntriesOf(data, runs, lines, reported);
+    return job === undefined ? all : ofJob(all, job);
+  }, [data, runs, lines, reported, job]);
+  const shown = useMemo(() => entries.filter((one) => heldBy(filter, one)), [entries, filter]);
+  const open = shown.find((one) => one.id === openId);
   const bands = open === undefined ? undefined : <FactsOf entry={open} {...props} />;
 
   return (
     <div className="armada-screen__overview">
-      <CheckList rows={entries.map((one) => checkRowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
+      <CheckFilters
+        value={filter}
+        onChange={(next) => {
+          setFilter(next);
+          setOpenId(null);
+        }}
+      />
+      <CheckList rows={shown.map((one) => checkRowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
       {open === undefined ? null : open.land !== undefined ? (
         <LandCheckLogSheet
           key={open.id}
