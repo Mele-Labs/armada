@@ -256,8 +256,8 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
 
 // The mod's `titleOf` rule (plugins/armada/hooks/facts.ts), applied on read so a title stored before
 // the mod stripped markup shows clean. A title that cleans to nothing is no title.
-const MACHINE_BLOCK = /<((?:local-)?command-[\w-]+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
-const WRAPPER_TAG = /<\/?[a-z]+(?:-[\w]+)+(?:\s[^>]*)?>/gi;
+const MACHINE_BLOCK = /<((?:local-)?command(?:-\w+)+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
+const WRAPPER_TAG = /<\/?[a-z]+(?:-\w+)+(?:\s[^>]*)?>/gi;
 
 /** A stored title without the harness's markup, flattened to one line; nothing where nothing is left. */
 export function cleanTitle(title: string | undefined): string | undefined {

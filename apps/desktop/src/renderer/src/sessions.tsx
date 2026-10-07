@@ -80,7 +80,8 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  return { state: "idle", said: "Idle" };
 }
 
 type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
@@ -221,6 +222,7 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
 const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
   { label: "Running", has: (state) => state === "working" },
+  { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
 ];
 

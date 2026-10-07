@@ -74,6 +74,10 @@
   --session-edge: var(--status-completed-failed);
 }
 
+.armada-session-list__row[data-state="idle"] {
+  --session-edge: var(--status-completed-success);
+}
+
 .armada-session-list__row[data-state="blank"] {
   --session-edge: var(--status-not-started);
 }
@@ -175,17 +179,14 @@
   color: var(--fg-muted);
 }
 
-.armada-session-list__pr[data-checks="passed"] .armada-session-list__checks,
-.armada-session-list__pr[data-checks="passed"] .armada-ref-chip {
+.armada-session-list__pr[data-checks="passed"] .armada-session-list__checks {
   color: var(--status-completed-success);
 }
 
-.armada-session-list__pr[data-checks="failed"] .armada-session-list__checks,
-.armada-session-list__pr[data-checks="failed"] .armada-ref-chip {
+.armada-session-list__pr[data-checks="failed"] .armada-session-list__checks {
   color: var(--status-completed-failed);
 }
 
-.armada-session-list__pr[data-checks="pending"] .armada-session-list__checks,
-.armada-session-list__pr[data-checks="pending"] .armada-ref-chip {
+.armada-session-list__pr[data-checks="pending"] .armada-session-list__checks {
   color: var(--status-awaiting-review);
 }
