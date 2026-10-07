@@ -1,0 +1,22 @@
+[operations.save_manifest_file]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Write a corrected armada.yml to disk, and stop there"
+notes = """
+**Save writes the file and stops.** No staging, no commit, no formatting and no reserialisation — the bytes the caller sends are the bytes on disk. The file is tracked, so the edit appears in the working tree and is committed along with everything else; Armada committing to git on a person's behalf would be a surprise in the one place a person is most sensitive to one. Journey 9, *Editing*.
+
+**Fleet owns the write, and there is no path in.** Bridge writing a repository file directly would be a second writer against the file Fleet resolves, watches and re-reads, and a path Bridge composed is the capability a row refuses by deriving instead of handing over where it lives.
+
+**A write that does not parse is still a write.** A person correcting a file gets it wrong on the way, and refusing to save invalid YAML would mean work in progress cannot be saved at all — which is the editor this operation exists to stop sending people to. The bytes land, Fleet's own watch settles and re-reads, and `manifest.reread` reports every fault key by key with the previous values still in force.
+
+**The answer is not a reading.** The watch settles before it re-reads, so what a save moved is not known when the write returns. `ManifestSaved` says the bytes landed and when, and the reading that follows carries its own later `at` — which is what tells this save's answer from a reading already on screen. `worthSaying` stays the judgement about whether one is news, and is not restated here.
+
+**A save over a file that moved is refused, never merged and never overwritten.** Nothing in this repository destroys a person's work without saying so, and `armada.yml` is tracked — a `git checkout` or `git pull` landing while the file view is open, taken silently by the next Save, is somebody's committed edit gone. So `SaveManifestFile.read` is required and carries the text the edit started from, whole: a digest would need an algorithm both sides agree on to compare a few kilobytes, and answers *probably the same* where this answers *the same*. Omitting it does not overwrite; the body fails to decode, so there is no unguarded save to reach for, including the first save of a file nobody has read.
+
+Fleet compares against **the disk at the moment of the save**, never against its last reading — that can be older than the file by the settle window, and a guard consulting it would pass exactly the save it exists to stop. A mismatch is a 409 under `fleet.manifest_moved_under_the_edit` with what is on disk now as the `on_disk` field, so Bridge shows both without a second round trip. `on_disk` is absent where the file is gone, which is a different thing to do about. The rename-over write sits behind the comparison; the microseconds between them are the accepted race, against a lock on a repository file held across a request.
+
+**Editing during a running Job needs no warning and no lock.** A Job is judged against the Checks and Commands it snapshotted at creation, so an edit here cannot reach it.
+
+`agent_access` is `Helm only`. The seven checkout-run operations it follows keep their `No`-turned-`Helm only` reasoning for Drone confinement, which does not apply here — Helm reaches this door, never a Drone's. What does still apply: a change to what Checks mean is a person's, and Helm writes this file only where that person just asked it to.
+"""

@@ -1,0 +1,8 @@
+[operations.get_session]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "One hosted session and its thread, oldest row first"
+notes = """
+`GET /sessions/one?session_id=`. Since 23.49. `SessionThread`: the `SessionRecord` and its `rows`. A client reads this once and follows `session.row`.
+"""

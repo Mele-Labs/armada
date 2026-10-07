@@ -1,0 +1,7 @@
+[icons.diff]
+  means = "A plus over a rule: what was, and something more"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "The issue a criterion was read from has been edited since Fleet read it, beside that criterion's origin only. Never a change count, a diff view or a produced file's change: `file-diff` holds that, and a diff's gutter draws `+` and `-` as signs. Never on a canvas."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`git-compare` and `asterisk` refused). Says *differs* in three strokes. It takes the caution hue of the moved state, which is the state's and not the glyph's; rule 4 holds against the other marks in that hue, none of which is a plus over a rule. Kept off canvases because on its own it reads as add, and the canvas rail's `+` is a sign in a square. It replaced the sentence slice 4 drew, which said the issue moved *since these words were frozen*: wrong at the gate, where nothing is frozen yet. Its tooltip names it and the date the issue moved."

@@ -449,7 +449,7 @@ async fn the_worktree_decides_the_act_and_a_reclaim_leaves_the_record() {
 ///
 /// The gap this closes is the one #313 named: a Job can be told an act applies
 /// and have nothing to land on. `Recourse` is spelled as
-/// `crates/ipc/operations.toml` keys the operation, and `api::SERVED` is the
+/// `crates/ipc/operations/` keys the operation, and `api::SERVED` is the
 /// table `api`'s own tests walk against the router — so a match here is a live
 /// route and not a coincidence of spelling.
 ///

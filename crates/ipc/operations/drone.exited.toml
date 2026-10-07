@@ -1,0 +1,5 @@
+[operations."drone.exited"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Drone exits, clean or otherwise"

@@ -28,7 +28,7 @@ export type JobAct =
   // is running, which is exactly when a person wants the space back.
   | "reclaim_worktree"
   // The tenth, and the one act on this header that cannot be undone. It takes
-  // the row `reclaim_worktree` leaves — `crates/ipc/operations.toml` argues
+  // the row `reclaim_worktree` leaves — `crates/ipc/operations/` argues
   // the split on the same row that argues this one's — so a person wanting
   // both sends both, and this is never the act a stray `Enter` reaches.
   | "forget_job"

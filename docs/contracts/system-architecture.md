@@ -407,9 +407,9 @@ offers but `undo_run` once a person asks for it in conversation —
 **A `Bridge only` command reaches no agent, Helm included**: accepting a Studio
 edge, removing a node and deleting a Studio are a person's acts. The full set of
 operations — each with its kind, its transport and what an agent may reach
-directly — is in `crates/ipc/operations.toml`.
+directly — is in `crates/ipc/operations/`.
 
-**`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing. `agent_access` is `Helm only`, and the row in `crates/ipc/operations.toml` carries the rest.
+**`save_workflow` is the one command whose write may land outside the repository.** It writes a workflow definition under the repository's own `.armada/workflows/` or under Kit's `~/.armada/workflows/`, as the caller names, after checking it with the loader's rules; a definition that does not fit writes nothing. `agent_access` is `Helm only`, and the row in `crates/ipc/operations/` carries the rest.
 
 **An operation the inventory names and nothing serves fails the gate**, with
 an allowance that carries a written reason per operation. Four commands and

@@ -1,0 +1,14 @@
+[operations.review_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A Code Review Job drafted against a pull request, by number or address, naming the workflow itself"
+notes = """
+`POST /pull_request_reviews/:repository`, body `ReviewPullRequest`: `pull_request` a number or an address, and `session_id` where a Session pressed it. Since 23.48. Answered with `ReviewDispatched`, a 201.
+
+**The workflow is named, not guessed.** `propose_from_request` asks the proposer to choose, and a link is the one input a proposer has least to go on; this drafts `code_review` directly with the pull request as the Job's `subject`, so what runs is what the press said. **At the approval gate** like every dispatch, and read-only on the pull request.
+
+**`origin` is `session_dispatched`**, *From a Session, by you*, so the Board row says where it came from. Which Session is the ledger's: the Session holds a `job` row for it, with `detail.origin` saying *dispatched from Session <id>*, and `who_owns` answers it. A press with no `session_id` records no Session.
+
+A 422 `fleet.pull_request_unnamed` for something that is neither a number nor a pull request address, and `fleet.pull_request_unreadable` where a number was given and the forge would not say what it is.
+"""

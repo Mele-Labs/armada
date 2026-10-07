@@ -1,0 +1,18 @@
+[operations.undo_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Put back the files one run changed, from the snapshot taken just before it"
+notes = """
+**Never a plain discard.** A Drone's work is uncommitted until delivery (`crates/fleet/src/landing.rs`), so a checkout would take it with the run's. Undo writes back only the paths the run changed, as the snapshot held them.
+
+Refused while a Drone is working in the tree, while a run is in flight, on a run already undone or with no snapshot, and where a path the run changed has moved since — writing the older version over it would take somebody's later work.
+
+`agent_access` is `Yes`, `start_run`'s reason: what it reverses is a rehearsal's own footprint, never a step's recorded work, so an agent putting the tree back costs the Job's record nothing.
+"""
+
+# Journey 9, *Running one*: the same acts for the main checkout, which is not a
+# Job and is not a Job with a blank id. Their shapes are the Job's minus what
+# only a Job has — a frozen Manifest, a worktree that can be gone, a Drone in
+# the tree, and a diff to narrow against. `observe_checkout_run` is with the
+# sockets.

@@ -246,7 +246,7 @@ async fn a_person_merging_is_what_takes_the_job_to_completed_success() {
 /// **Every answer at the gate is an operation Fleet serves.**
 ///
 /// The gap this closes is the one `recovery.rs` names one status over: a surface
-/// can be told an act applies and have nothing to land on. `crates/ipc/operations.toml`
+/// can be told an act applies and have nothing to land on. `crates/ipc/operations/`
 /// keys each act and `api::SERVED` is the table `api`'s own tests walk against
 /// the router, so a match here is a live route and not a coincidence of
 /// spelling.

@@ -1,0 +1,14 @@
+[operations.remove_allowed_command]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Take back a command a person allowed for one Job"
+notes = """
+The body is `run`, the command exactly as `JobDetail.allowed_commands` lists it, and the answer is the Job's summary. **The next reach for it is answered by the Job's `when_blocked` again.**
+
+**This Job's own row only, since `#836`.** A rule always-allowed for the whole repository is a different row — `remove_repository_allowed_command`'s — kept by Fleet apart from any one Job rather than written into `armada.yml`. Before `#836` a `repository` allow was two things, this Job's row and a commit on its branch, and this route took back only the row; the row is now the whole of what an always-allow is, and this route is unchanged.
+
+Refused with a 409 where the Job holds no such allow, so a window left open across a removal is told rather than answered 200.
+
+`agent_access` is `Helm only`, `answer_command`'s reason: what a Drone may run is still the owner's decision, and Helm only takes one back when that owner asked it to.
+"""

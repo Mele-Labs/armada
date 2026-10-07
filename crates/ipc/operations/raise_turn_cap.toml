@@ -1,0 +1,16 @@
+[operations.raise_turn_cap]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Let one Job take more turns than the tier above it allows"
+notes = """
+**The other half of what `over_budget` folds, and it had nothing at all.** The dollar cap got three tiers, a route and a control in Sept 2026; the turn cap in the same constant got none of them, and stayed a compile-time number changed by a rebuild. `budget-turn-cap-per-job` read `scope = "Machine"`, `merge_strategy = "n/a — single layer"`, and there was no key in `armada.yml`, no column on a Job and no act anywhere.
+
+**What falsified the reason there was no act.** The argument was that a Job over its turn cap is going in circles and wants its brief rewritten rather than a bigger number, so a lever would buy more circles. Job `01M22TYSAE0023MADDP5ZQEYGW` was the counter-example: it finished its work, passed every Check, had its last verdict overruled, and then stopped at 393 turns against 300 with a cheap `summarise` never run. A redispatch would have thrown away thirty-five files that three gates had already passed, and its branch was committed by hand instead. A Job going in circles and a Job held out of its last step are both over the same number, and only one of them wants a new brief.
+
+**It moves a number and never the Job**, exactly as `raise_cost_cap` does, and what comes back is the summary. The field a caller reads it for is `queued_reason` — and beside it `budget_hold`, which says which of the two ceilings the label is about, so a caller can tell "cleared" from "still held, on the other one".
+
+**422 on a value at or under the cap in force**, and **409 on a terminal Job**, for that route's reasons.
+
+**`agent_access` is `Yes`**, for that route's reason and with more force: the Job that bought this route stopped on its cheapest final step, and a person is not always at the screen when that happens. Helm is bounded where a person is not — `raised_by` again, the same `Ceiling` and the same `HELM_MULTIPLE`, because a bound on how far an agent may move a ceiling says nothing about what the ceiling counts.
+"""

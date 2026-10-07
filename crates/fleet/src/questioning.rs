@@ -14,7 +14,7 @@
 //! **Not a state** — `ipc::QuestionInFlight` carries that argument, and neither
 //! registry moves. **Not a conversation** — one question per Job, asked once and
 //! answered once from a closed set the Drone offered, specified by
-//! `operations.toml`'s `answer_question` row. **Not blocking** — a person's wait
+//! `operations/`'s `answer_question` row. **Not blocking** — a person's wait
 //! has no budget an HTTP call could bound, and a Drone blocked inside the call
 //! would swallow every redirect sent to unstick it.
 //!

@@ -1,0 +1,7 @@
+[icons.thumbs-up]
+  means = "A hand with its thumb raised — the work is fine"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  reserved = "Carry on past a gaming flag, on its button only. Never Approve, which is `check`, and never a Judge's verdict."
+  notes = "Minted 2 Oct 2026 with `thumbs-down`, the owner's call on the walk of #1672. Carry on overrules a flag rather than approving the work, so `check` — which means yes and is Approve's — would claim more than the press does. The pair breaks the Actions rule that text buttons carry no icon on these two buttons alone."

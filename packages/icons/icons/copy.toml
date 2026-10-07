@@ -1,0 +1,5 @@
+[icons.copy]
+  means = "copy an id or a path"
+  group = "Chrome"
+  size = "16px"
+  status = "Specified"

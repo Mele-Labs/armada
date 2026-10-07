@@ -9,7 +9,7 @@
 //! to be back-filled by hand, which is what happened to Copy debug info.
 //!
 //! **The glyph column is checked against the icon registry, not restated.**
-//! An `icon` is a key in `packages/icons/icons.toml`, which stays the authority
+//! An `icon` is a key in `packages/icons/icons/`, which stays the authority
 //! on what a silhouette may mean.
 //!
 //! **A row Bridge cannot answer yet says which issue answers it.** The
@@ -30,7 +30,7 @@ use crate::Report;
 use self::contract::MapLine;
 
 const REGISTRY: &str = "crates/core-model/domain/actions.toml";
-const ICONS: &str = "packages/icons/icons.toml";
+const ICONS: &str = "packages/icons/icons";
 const CONTRACT: &str = "docs/contracts/design-system.md";
 
 /// The keys a row may carry. An unrecognised one is a typo, and the value it
@@ -100,7 +100,7 @@ pub fn every_action_carries_three_columns(root: &Path) -> Report {
     };
     let entries = read_registry(&text, &mut report);
 
-    let glyphs = match fs::read_to_string(root.join(ICONS)) {
+    let glyphs = match crate::rules_icons::registry_text(root) {
         Ok(icons) => glyph_statuses(&icons),
         Err(_) => {
             report.fail(format!(

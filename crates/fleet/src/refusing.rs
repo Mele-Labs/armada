@@ -272,7 +272,7 @@ pub(crate) const MERGE_REFUSED: &str = "fleet.merge_refused";
 /// out may already have landed. `#712`.
 const COMMAND_TIMED_OUT: &str = "fleet.command_timed_out";
 /// A reading asked for on a call this Job is neither waiting on nor refused.
-/// **A 404**, which `crates/ipc/operations.toml` states and which is this
+/// **A 404**, which `crates/ipc/operations/` states and which is this
 /// seam's one exception to [`UNACCEPTABLE`]'s reading of "the Job is there and
 /// the id names nothing": the id is only nameable off a command still open, so
 /// one that names none is a person acting on a screen that has moved on.

@@ -1,0 +1,16 @@
+[operations.list_reports]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every report a person has filed, newest first, with the Job record each carries and the counts they are read beside"
+notes = """
+The other half of `file_report`, and the half that makes a report worth filing: a record nobody can list is a record nobody triages.
+
+**The bodies travel with the list.** A report is the rare artifact — one per verdict somebody disagreed with — and the rendered record is the payload the sentence is the finding about, so a second route per report would defer exactly the part every reader wants. The cost is that a store with hundreds of reports answers this with hundreds of bodies, which is stated rather than designed around: nothing has hundreds.
+
+It is not scoped to a Job, and that is deliberate. A report outlives the Job it is about — `armada clean` forgets the Job and the report stays — so a listing reachable only through a Job would lose exactly the reports that most need reading.
+
+`calibration` is four counts and not a rate. Dividing disputes by refusals would put every Job nobody read into the denominator, and an unread Job is not a pass; the gap stays unmeasured rather than divided away.
+
+`agent_access` is `Yes` because reading what a person has already said is not saying it for them — which is exactly why `file_report` beside it is `No`.
+"""

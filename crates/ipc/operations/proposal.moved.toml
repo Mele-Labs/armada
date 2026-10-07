@@ -1,0 +1,15 @@
+[operations."proposal.moved"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job proposer call goes out, gets somewhere, or comes back"
+notes = """
+The one kind on this stream that names no Job, and that is what it is for. A proposal is the interval before any Job exists, so there is no id to hang it off and no Board row that changes. job.created is what says the Jobs arrived, and it is a different message.
+
+It exists because a proposal is the one model call in Armada made with a person waiting in front of a form for it. job.judging settles for two messages per call on the grounds that a surface can subtract an elapsed count for itself, and that is right for a gate, which runs with nobody watching. It is wrong here: a person who has been waiting ninety seconds is being asked whether to keep waiting, and "thinking, and here is how much" and "never reached the vendor at all" are opposite decisions that an elapsed count draws identically.
+
+So this one ticks, and what it costs is stated rather than hoped for. Fleet publishes none of these while nobody is subscribed, a reach change publishes at most four times in a call's life, and the token estimate is throttled to one message a second. A two-minute call watched the whole way through is bounded above by about a hundred and twenty-five messages; an unwatched one costs nothing at all. That is a real cost, and it buys the control stop_proposal offers.
+
+client_ref is the caller's own token, echoed back unchanged, and it is on the envelope as well as inside the payload — a client filters on it, and the coming-back message carries no payload to read it from. It is not an id: Fleet reads nothing from it, mints nothing from it and keeps none of it. A client cannot filter on proposal_id instead, because Fleet mints that when the request arrives and the client learns it from this message.
+
+Absent proposing means the call came back, however it came back — with Jobs, with a refusal, or stopped. That is job.judging's shape exactly and for the same reason: a proposal nobody is making and one that has just landed are the same thing, and they are both this message with nothing in it.

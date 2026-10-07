@@ -1,0 +1,7 @@
+[icons.menu]
+  means = "Three stacked horizontal lines"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The narrow title row's menu only, which holds the row's own controls. Never a drag handle, never a list or a Board view, and never a row's more-actions."
+  notes = "Added 2026-09-30 when the owner put the narrow title row behind one menu, the way a mobile web app does. Three lines is the silhouette people already read as that menu, and nothing else in the set is three plain bars."

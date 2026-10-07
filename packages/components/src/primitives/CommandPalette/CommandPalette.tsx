@@ -54,7 +54,7 @@ export type PaletteEntry = {
    */
   shortcut?: string;
   /**
-   * The glyph, 16px, from `packages/icons/icons.toml` by way of `actions.ts`.
+   * The glyph, 16px, from `packages/icons/icons/` by way of `actions.ts`.
    *
    * **Absent is common and says nothing is wrong.** Thirteen acts carry no
    * registered glyph, so the slot holds its width and draws nothing rather

@@ -1,0 +1,6 @@
+[icons.send]
+  means = "Dispatch"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  notes = "Survives as: dispatched."

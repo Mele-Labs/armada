@@ -1,0 +1,7 @@
+[icons.type]
+  means = "A capital T \u2014 the one letterform in the set, standing for words set down"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Writing a Studio node up into prose. Never a text field, never a rename, never a font or a style control, and never editing what is already written."
+  notes = "Minted 2026-09-28 with the node bar's mint. Write up turns a Note, a Cluster, a Contradiction or an Outline into an Issue draft, which is prose with a title and a body \u2014 so the glyph has to say *words* and not *a document*. Refused: `file-text` and `file-pen`, since `file-*` is reserved to evidence throughout and a draft is not a submission; `notebook-pen`, a compound whose pen collides with `pencil`, reserved to the sketch pad and banned there from meaning edit; `square-pen`, which means rename since 29 Sep 2026 and nothing else; `feather`, a held instrument on a diagonal, which is `pencil`'s own silhouette at 16px; `notepad-text`, a lined pad, which parts from `sticky-note` and `clipboard-list` on interior detail alone."

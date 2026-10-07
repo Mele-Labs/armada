@@ -1,0 +1,7 @@
+[icons.shield-minus]
+  means = "A pointed-base pentagon with a minus inside"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "Check results only."
+  notes = "Reassigned 2026-08-21. Previously circle-minus; moved when circle-* became the Judge family. Completes the check family rather than damaging it — not reached is a Check state and belongs beside shield-check and shield-x, where it should have been."

@@ -11,7 +11,7 @@ id: armada-jobs
 # the mock's composition (not another surface's `*-fleet.ts` or `*-fake.ts`: those
 # reach the composition only through `slices/`) and the shared types. `main` and
 # `preload` are not, since the mock bridge does not run them. The scenarios its tests
-# name are desktop's rows (`scenario-rows.ts`, `scenarios/`, built with `holding.ts`).
+# name are desktop's rows (`scenarios/`, built with `holding.ts`).
 # Its whole-app tests mount `slices: ["core", "jobs"]`, so of `mock/slices/` only
 # those two files are here.
 depends_on:
@@ -36,7 +36,6 @@ depends_on:
   - "apps/desktop/src/renderer/src/mock/moment.ts"
   - "apps/desktop/src/renderer/src/mock/mount.tsx"
   - "apps/desktop/src/renderer/src/mock/remembered.ts"
-  - "apps/desktop/src/renderer/src/mock/scenario-rows.ts"
   - "apps/desktop/src/renderer/src/mock/scenario.ts"
   - "apps/desktop/src/renderer/src/mock/scenarios/**"
   - "apps/desktop/src/renderer/src/mock/scrolled.ts"

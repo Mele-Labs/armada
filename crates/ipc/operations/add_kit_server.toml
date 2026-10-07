@@ -1,0 +1,14 @@
+[operations.add_kit_server]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Put an MCP server in Kit, reaching no Drone until a person says so"
+notes = """
+The body is a name and an address — a program with its arguments, or an `http`/`https` URL. The answer is `get_kit_servers`' whole list, so a caller folding one answer has already folded the other.
+
+**It cannot widen a Drone.** `core_model::KitServer::added` takes no reach and there is no constructor that starts one anywhere but off, so a server arrives reaching nobody and `set_kit_server_reach` or `set_manifest_server_reach` is the second, separate act. That is `docs/scope.md`'s one confinement kept: without `--strict-mcp-config` a v1 Drone came up holding every server the operator had connected, and a Kit whose rows arrived switched on would be the same defect through the front door.
+
+A name Kit already holds replaces that server's address and leaves both tiers of its reach alone — correcting a command is not re-granting it. Refused with a 409 where the name is blank, over 64 characters, holds anything but letters, digits, `-` and `_`, is `armada`, or where the address is a blank command or not `http`.
+
+**No environment.** A server needing an API key is still a terminal's job; a credential in Fleet's store is a decision nobody has taken.
+"""

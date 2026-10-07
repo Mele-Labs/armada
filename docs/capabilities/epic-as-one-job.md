@@ -60,7 +60,7 @@ A Drone that does not know has two options today, and here neither one works.
 every toolbelt and `answer_question` is the Bridge command that answers it; the question
 rides beside the state on the working slot, crosses on `get_job` as `asking`,
 and moves as `job.asking`. A step whose Drone is waiting is still `running`, for
-the reason `crates/ipc/operations.toml` gives about a Judge call in flight — a
+the reason `crates/ipc/operations/` gives about a Judge call in flight — a
 seventh step state or a twelfth Job status would be a variant the other side
 matches on, which is a major bump and Bridge falling back to the /v0 lifeboat.
 

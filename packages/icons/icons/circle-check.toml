@@ -1,0 +1,7 @@
+[icons.circle-check]
+  means = "A circle with a check inside"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Specified"
+  reserved = "Judge verdicts only. Never a Check result, never a generic success mark, never a completed step — that is bare check in --step-advanced."
+  notes = "Added 2026-08-21. In --verdict-met. circle-* is the Judge's own glyph family, beside shield-* for Checks and file-* for evidence artifacts — a verdict on a criterion is neither a gate nor an artifact, so the silhouette carries hedge-by-source before the label is read. Rendered as \"no objection\" rather than \"accepted\": the Judge declines to refuse, it never grants."

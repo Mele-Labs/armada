@@ -1,0 +1,12 @@
+[operations.list_helm_calls]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every Helm call waiting on a person right now, across every repository Fleet serves"
+notes = """
+**Read once on a resync, never polled.** `helm.asking_to_run` carries each ask as it arrives and `helm.call_answered` says it is over; this is what a Bridge started while one was already waiting reads to draw the dock.
+
+Fleet-wide rather than per Manifest, because the dock is: a person answers what is waiting on them wherever it is, which is how `#935` already gathers a Job's questions.
+
+`agent_access` is `No`: what is waiting on a person is a person's, and a session reading which of its own calls are held would be reading the dock over their shoulder.
+"""

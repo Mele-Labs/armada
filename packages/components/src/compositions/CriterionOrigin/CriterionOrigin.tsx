@@ -4,7 +4,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Where a criterion's words came from, as a mark — the owner's picks of 3 Oct
- * 2026, group `Criterion origin` in `packages/icons/icons.toml`.
+ * 2026, group `Criterion origin` in `packages/icons/icons/`.
  *
  * **A state is never text, and a bare mark names itself on hover** (the
  * owner's two standing rules). The words slice 4 drew here — *From issue*,

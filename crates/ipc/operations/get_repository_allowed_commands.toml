@@ -1,0 +1,12 @@
+[operations.get_repository_allowed_commands]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every rule a person always-allowed for this Manifest's repository"
+notes = """
+`#836`: Always allow stopped writing to `armada.yml`, on the finding that Fleet's own commit of the line was itself a change on the Job's branch, and the gate's absolute boundary on `armada.yml` refuses every later step of that Job over its own commit. A repository-wide allow is now a row Fleet keeps per Manifest, granted the same way a declared, non-destructive Command is — to every Job's Drone, from the next spawn on — and never a line a pull request's reviewer reads.
+
+The same list, unfiltered, rides on `get_job`'s `JobDetail.repository_allowed_commands`, for a person reading one Job to see why its Drone was let through something `armada.yml` never declares. This route is the Manifest screen's own read, apart from any one Job.
+
+`agent_access` is `No`: what a Drone may run without asking is the owner's to decide, `answer_command`'s reason for the write beside this read.
+"""

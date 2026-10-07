@@ -1,0 +1,7 @@
+[icons.workflow]
+  means = "Two small squares and a larger one joined by a routed line — steps connected into a flow"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Workflows surface: its rail row and its palette entry. Never a Job's own workflow, which is `scroll-text` on a row, and never a graph or a canvas."
+  notes = "Minted 5 Oct 2026 for the Workflow creator's rail row, replacing the `scroll-text` the first draft borrowed. The glyph is lucide's own drawing of the thing the surface edits, so the row names itself. It sits in the Machine panel beside Kit, Settings and Guides, which hold what this machine brings and how it runs."

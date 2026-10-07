@@ -1,0 +1,18 @@
+[operations.start_server]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Start a server the Manifest declares, for a Job or for the main checkout — or be handed the one already running"
+notes = """
+**A name, never a command line and never a port.** What runs is the Manifest's `run` then `serve`, with `${port.NAME}` resolved from the span it runs under: the Job's, or the named checkout's where the body names no Job. Which repository is `?manifest_id=`, the one Fleet was started in where absent; a Job's is the Job's own.
+
+**`checkout` names which checkout of that repository, by path.** Absent is its main checkout. A repository has more than one — somebody cuts a worktree to look at another branch — and each takes a span of its own, so two of them serve the same Manifest at once rather than one taking the other's number. A path that is not a worktree of this repository is `fleet.not_a_checkout`, and so is a Job's worktree, which says to name the Job instead. `#1577`. `serve` starts only if `run` exits zero, and the instance is `serving` once `ready` exits zero — polled, never a duration — or at once where there is no `ready`.
+
+**One instance per Job per server, and one per checkout per server.** A second request, from a person or through a Drone's `start_server` tool, is answered with the instance already starting or serving rather than a second one on the same port.
+
+It answers at once, `starting`; `server.serving` and `server.exited` follow on `/events`, and the output is `observe_server`'s. Refused where the name declares no server, where the Job's worktree is gone or the Job has ended.
+
+**A refusal over a name says when this Fleet last read `armada.yml`.** Fleet holds the Manifest it resolved at startup, so a server declared since is one this process does not know — and the list of names it offers instead reads as the repository's answer when it is this process's memory of one. Where `commands` changed in that read and could not be taken up, the refusal says a restart is what takes it up. `#1564`.
+
+`agent_access` is `Yes`: holding a server up writes no Evidence and moves nothing on the Job, and an agent that cannot hold one up cannot look at what it is building.
+"""

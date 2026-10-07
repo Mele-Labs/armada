@@ -1,0 +1,12 @@
+[operations.redirect_one_drone]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "A person's words to one of a Job's live Drones by its id. A Drone that is not live is refused with `fleet.drone_not_live`"
+notes = """
+**Spike 022, slice 5, #1666.** `redirect_drone`'s body and its rules, addressed to one Drone. The Job's kept Drone is `redirect_drone` exactly; one running beside it is told in its own session, and the Job does not move.
+
+**Refused, never redirected.** An id that is not live is a 409 `fleet.drone_not_live`, and nothing is sent to another Drone in its place.
+
+`agent_access` is `Yes`, `redirect_drone`'s.
+"""

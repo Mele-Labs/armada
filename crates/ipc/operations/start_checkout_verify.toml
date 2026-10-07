@@ -1,0 +1,20 @@
+[operations.start_checkout_verify]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Run setup and every Check once in the main checkout, one after another - Verify's live dry-run, a rehearsal that records no verdict anywhere"
+notes = """
+**A sequence of ordinary checkout runs, not a record of its own.** Each step is `start_checkout_run`'s run, with its own log, snapshot, diff and Undo, listed by `list_checkout_runs` and followed on `observe_checkout_run`. What Verify adds rides `get_checkout_run_sheet` as `verify`: the order, which step is out, and why a step did not run. It is held in memory, as a run in flight is.
+
+**Setup in `setup.requires` order, then every Check in written order, and nothing else** — no other Command and no server. A Check's own `requires` runs inside that Check's run, as it always does.
+
+**The body is optional and names a workspace.** Empty runs the root's Manifest. `StartCheckoutVerify.workspace` is a directory relative to the repository root: Fleet reads that directory's own `armada.yml` from disk and runs its setup and Checks with that directory as each command's working directory. A path that leaves the repository is refused, and so is a file that is missing or will not load, carrying `faults` as `[key, fault]` pairs. The Verify names the file it ran in `CheckoutVerify.workspace`, absent for the root. **`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still verifies. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning. With no `workspace` there, it is refused as having nothing to run. **It is still the checkout's one Verify**: a workspace's file sits in the root's tree and build directory, so a root Verify and a workspace Verify never run at once.
+
+**One at a time, because the checkout has one run slot.** The next step takes it as the last gives it back, before that step's `checkout_run.finished` is published, so a reader re-reading the sheet on the event finds the next step already out. While a Verify is underway `start_checkout_run` and `undo_checkout_run` are refused, rather than slipped in between two steps. Stop is `stop_checkout_run` on the step that is out, and the steps after it are not run.
+
+**Never automatic.** Nothing starts one but this — Journey 9, *Verify*: drift is the free read on opening, and this runs a real test suite. A failed setup step ends it, as a Job's worktree stops preparing at the first failure; the journey does not yet say whether Verify should, and #719 carries the question.
+
+**No Evidence, no Check row, nothing reaches Doctor.** A step's exit code is a fact read beside the code it expects.
+
+`agent_access` is `Helm only`, as `start_checkout_run` is: Helm starts one on a person's ask, and no other agent is offered it because the main checkout is the tree a Drone is confined out of and a Verify runs every Check in it.
+"""

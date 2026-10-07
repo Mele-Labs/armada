@@ -135,7 +135,7 @@ export type JobDetailField = {
 export type JobDetailHeaderActionsProps = {
   /** The status token stem, e.g. `running`. Drives the badge's hue and tint. */
   status: string;
-  /** The glyph, from `packages/icons/icons.toml`, group `Job state`. */
+  /** The glyph, from `packages/icons/icons/`, group `Job state`. */
   statusIcon: LucideIcon;
   /** The verb, from the enum→verb map. Never written by hand where it ships. */
   statusLabel: ReactNode;

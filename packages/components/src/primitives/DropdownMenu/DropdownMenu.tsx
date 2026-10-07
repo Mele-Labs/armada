@@ -68,7 +68,7 @@ export type DropdownMenuProps = {
   /**
    * Draw the trigger as an icon-only ghost button named by `triggerLabel`, for
    * a canvas rail's act — Run, the owner's call of 2 Oct 2026. **No chevron**:
-   * the menu-trigger mark's own row in `packages/icons/icons.toml` keeps it off
+   * the menu-trigger mark's own row in `packages/icons/icons/` keeps it off
    * a trigger with no label, and `aria-haspopup` says it opens a menu.
    */
   icon?: LucideIcon;
@@ -164,7 +164,7 @@ export function DropdownMenu({
         >
           {triggerLabel}
           <Count of={triggerCount} />
-          {/* Says this opens a menu, settled 2026-09-17 (icons.toml, chevron-down).
+          {/* Says this opens a menu, settled 2026-09-17 (icons/, chevron-down).
               Every labelled trigger carries it. */}
           <ChevronDown className="armada-dropdown-menu__chevron" size={12} strokeWidth={2} aria-hidden />
         </button>

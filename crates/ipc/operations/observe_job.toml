@@ -1,0 +1,28 @@
+[operations.observe_job]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One Job's activity, the history and then the live rows, in three voices, on a socket of its own"
+notes = """
+**Three voices, and it carried one.** A step is Armada opening it, the Drone working, and Fleet running the Checks and reading what came out — and only the middle one was written down, so a surface drawing the activity log had the Drone's turns and nothing about what it had been asked or what was made of it. `Voice` is which of the three a row is; `instructed`, `checked` and `produced` are the rows Fleet authors. They travel here rather than on a channel of their own because they belong beside the turns they caused, in one order, stamped by one clock.
+
+`instructed` is where **what Armada told the Drone at the top of a step** finally lives. `session::Turn` is the one shape that goes down the pipe, and it was rendered and dropped — so the brief a step opened with survived only inside a process that had already exited.
+
+`produced` is the only **per-step** reading of the worktree there is. `get_diff` is the Job's whole patch and `job.files_changed` is a live reading with no boundary attached, so neither could say which step made what. It carries the names and never the bytes, which is `ChangedFile`'s own rule: the diff is `get_diff`, on the one route that spends it.
+
+The one query on the socket, and the row that makes `kind` decide `transport` a rule with an exception rather than a law. Who initiates is still the whole rule — a viewer opens this deliberately on one Job — but the answer does not end: it is the turns already taken followed by the ones that follow, which no request-response shape carries. A poll would have to choose between missing rows between calls and re-sending them.
+
+It does not travel `/events`. That stream is one drop-oldest channel of fixed capacity carrying every Job, so transcript rows at Drone speed would evict the state changes Bridge draws the Board from — and an eviction there is not a lost row but a full resync of every Job, paid continuously for as long as anybody is watching anything.
+
+`agent_access` is `No` for the reason `get_events_since` gives about tokens: a Drone's whole transcript streamed into a Helm session stays in that session for its remainder, and Helm has `get_drone` for the snapshot. The viewer this is for is a person.
+
+Not `get_drone`, which is a snapshot of one Drone over HTTP. This is one Job across every Drone it has had, and it continues.
+
+**The row a Drone ends on is what carries a spend.** It was withheld because the Job's rail was said to state the cost and the turn count; the rail states neither, and no other operation here answers with either — so this is the only place on the wire a Drone's cost appears. A Job that retried has one such row per Drone, and what the Job cost is the sum of them.
+
+**One channel per Job, since 23.10, carries every live Drone's rows** (spike 022, slice 5). It is made at the Job's admission and dropped at its end, every Drone's feed sends into it, so a viewer hears every Drone running at once from whenever it joins. `closed` with `drone_ended` is the channel closing, not one Drone exiting; the quarter-second wait for a step's next Drone went with it.
+
+**Every row names the Drone whose transcript it is in**, as `drone_id`, the id `list_job_drones` names, so a Job with several Drones has rows that can be told apart (#1662). A field on the row rather than a socket per Drone: one Job's rows stay in one order on one clock, which is what this socket is for, and a viewer of one Drone filters. Fleet stamps it from the transcript's file name, `<drone-id>.jsonl`, on the history and on the live rows alike, so an older file is stamped as fully as a new one.
+
+**`thinking` carries how much the model thought**, the harness's estimate, cumulative within one model call, and never what it thought (#1664). Before 21.4 it arrived as `unrecognised` with the kind `system/thinking_tokens` and no figure.
+"""

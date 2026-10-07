@@ -1,0 +1,16 @@
+[operations.get_manifest_spend]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The costliest and the longest Job against this Manifest, for the budget form's warning"
+notes = """
+**A cap below one Job's cost makes the workspace undispatchable**, and the Manifest surface is where past Jobs exist to set a cap against — Journey 9, *Editing*. So the answer is the highest per-Job cost and the highest per-Job turn count, each summed across that Job's Drones, and how many Jobs have spent anything. The highest and not a total, because a cap is set per Job.
+
+Under `/manifest` for `get_manifest_drift`'s reason: a Fleet serves one repository, so nothing names it. A cost is a floor where a Drone named no price, as `get_usage` says of its own sum.
+
+`agent_access` is `Yes` for `get_usage`'s reason: reading what was spent decides nothing, and it is three numbers.
+"""
+
+# Servers: a Command with `serve`, held by Fleet — `docs/concepts/fleet.md`,
+# *Servers*. `observe_server` is with the sockets and the three `server.*`
+# kinds with the events.

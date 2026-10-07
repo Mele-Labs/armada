@@ -13,7 +13,7 @@
 //
 // **A blank glyph is a fact, not a default.** `iconAbsent` says which kind of
 // blank it is: `undecided` means no registered silhouette means the act and
-// assigning one is a decision for `packages/icons/icons.toml`; `by design`
+// assigning one is a decision for `packages/icons/icons/`; `by design`
 // means a document decided the act carries none. A surface says which it is
 // drawing rather than inventing a glyph to fill the column.
 //

@@ -1,0 +1,7 @@
+[icons.life-buoy]
+  means = "A life ring - a stranded slot a person can rescue"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "Rescuing a stranded worktree slot, the act on its bay. Never help, support or a Job's recovery."
+  notes = "Proposed 4 Oct 2026 for the rescue of a stranded slot, on the walk `rescuingAStrandedSlot`. The stranded bay is a ghost left holding work; a ring thrown to it is the one drawing that says the work can be got back, and no glyph in the set claims it. Refused: `undo-2`, which is a reversal of a change; `rotate-cw`, which is Refresh; `ghost`, the state itself. Tooltip `Rescue`."

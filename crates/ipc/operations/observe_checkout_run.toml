@@ -1,0 +1,12 @@
+[operations.observe_checkout_run]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One person's run in the main checkout - what its log holds, then what it prints next - on a socket of its own"
+notes = """
+**`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still verifies. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.
+
+`observe_run`'s socket, one owner over, message for message. What ended the run is `checkout_run.finished`'s, as it is for a Job — this carries only what the run printed.
+
+`agent_access` is `No` for `observe_run`'s reason.
+"""

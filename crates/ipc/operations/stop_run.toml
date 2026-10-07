@@ -1,0 +1,10 @@
+[operations.stop_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "End a run's process group; its log keeps what printed"
+notes = """
+Answers with the run's record once it is written, so the caller does not wait on the event for an end it asked for. Refused on a run that is not in flight on this Job.
+
+`agent_access` is `Yes`, `start_run`'s reason: ending a rehearsal moves nothing on the Job, so the agent that started one may also end it.
+"""

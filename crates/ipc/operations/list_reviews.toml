@@ -1,0 +1,5 @@
+[operations.list_reviews]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Jobs awaiting sign-off"

@@ -1,0 +1,16 @@
+[operations.answer_question]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person picks one of the answers a waiting Drone offered"
+notes = """
+**The other half of a Drone's `ask_question`.** That tool is on the Fleet/Drone seam and is in no row here; this is the Fleet/Bridge half, and the two are the same act seen from its two ends.
+
+The body carries the question's id and the label chosen, and there is no field for prose. That is the whole difference between this and the conversation `docs/scope.md` records as abandoned: the medium is a closed set the Drone itself offered, so a question is asked once and answered once and nothing waits on somebody typing. A person who needs to say something the options do not cover has `redirect_drone`, which is rung one of the ladder and already carries a person's own words.
+
+The id is what makes a stale answer a refusal. A window left open across an answered question would otherwise send a label that matched the *next* question's options by coincidence, and what a wrong answer produces here is dispatched Jobs that run and spend rather than a bad verdict.
+
+**`agent_access` is `Helm only` now, on `file_report`'s argument read against itself.** Answering on the owner's behalf without his sentence is the failure mode that rule names, and here it is worse than a filed report: the answer becomes work that exists. Nick's ruling grants this row anyway, on the reasoning that his own ask to Helm to pick an answer *is* his sentence — named here rather than resolved, the same tension `file_report` carries.
+
+It moves no status and no step state. The Job is `running` while it waits and `running` after — see `job.asking`.
+"""

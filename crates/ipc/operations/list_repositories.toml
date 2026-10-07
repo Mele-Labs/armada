@@ -1,0 +1,10 @@
+[operations.list_repositories]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every repository Fleet serves, in the order they were added, each with its Manifest where one has loaded, and none on a Fleet nobody has added one to"
+notes = """
+Beside `list_manifests` rather than instead of it: Setup starts from a folder nobody wrote an `armada.yml` for, and that repository has a root and records before it has a Manifest. The root is what `?repository=` names on Scan and its proposals.
+
+`agent_access` is `No` for `get_repository_scan`'s reason: a root is the owner's checkout on disk.
+"""

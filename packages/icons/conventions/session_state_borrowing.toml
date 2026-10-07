@@ -1,0 +1,7 @@
+[conventions.session_state_borrowing]
+  glyphs = ["circle-dashed", "circle-dot", "eye", "shield-x", "check"]
+  means = "A Session's state, and a subagent's, borrowed from the sets one level away"
+  group = "Session"
+  size = "12 and 16px"
+  status = "Proposed"
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`. A Session answers the question a Job answers, so it takes the Job set's glyphs and not a silhouette of its own: `circle-dashed` for blank, nothing leased and nothing said, as a step not yet started is; `circle-dot` pulsing while a turn runs; `eye` while it waits on the person; `shield-x` while a pull request's Checks are red, the Check family's own mark. `check` is a subagent done. The state is told by the frame's hue as well, so no mark is the only carrier of it."

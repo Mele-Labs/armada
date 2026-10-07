@@ -1,0 +1,7 @@
+[icons.list-ordered]
+  means = "Numbered lines \u2014 things read in an order"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Reading several Studio nodes as one Outline. Never a plan, never a step list, and never a generic list control."
+  notes = "Minted 2026-09-28 with the node bar's mint. An Outline is several nodes read *in order*, and the digits carry the whole claim \u2014 which is why `list`, the same lines without them, is refused: unordered is the one thing an Outline is not. Refused besides: `clipboard-list`, which is the Job Board and carries a board and a clip; `list-tree`, a hierarchy an Outline does not have; `align-left`, which says how text is set rather than what it is."

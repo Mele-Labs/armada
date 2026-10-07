@@ -5,7 +5,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 /**
  * A field on a proposing Job the proposer has not written yet: a blinking
  * caret, the owner's pick of 3 Oct 2026 (`text-cursor`, group `Proposing` in
- * `packages/icons/icons.toml`).
+ * `packages/icons/icons/`).
  *
  * **It stands in the cell, and the cell's own heading names it.** The tooltip
  * says the field is still being settled, which is the state the caret is.

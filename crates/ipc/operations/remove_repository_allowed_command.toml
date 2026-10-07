@@ -1,0 +1,12 @@
+[operations.remove_repository_allowed_command]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Take back a rule a person always-allowed for this Manifest's repository"
+notes = """
+The body is `run`, exactly as `get_repository_allowed_commands` lists it. **Read by the next permission question and the next spawn**, so nothing already running is touched: a Job whose Drone was spawned under the grant keeps it for the step it is on, and the next Job dispatched against this Manifest is asked again.
+
+Refused with a 409 where nothing always-allowed for this Manifest is spelled `run`.
+
+`agent_access` is `Helm only`, `remove_allowed_command`'s reason.
+"""

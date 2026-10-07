@@ -8,7 +8,7 @@
 //! and that mapping existed only as refusals — you learned what you could not
 //! do by trying it. So [`Stuck`] carries the trigger unchanged and adds
 //! [`Recourse`], the acts Fleet will take now, spelled as
-//! `crates/ipc/operations.toml` spells the routes.
+//! `crates/ipc/operations/` spells the routes.
 //!
 //! # Live facts, and they are why this is not Bridge's to compute
 //!
@@ -35,7 +35,7 @@ use crate::job::transition::TransitionReason;
 
 /// An act a person may take on a Job that stopped.
 ///
-/// **Spelled as `crates/ipc/operations.toml` keys the operation**, which is the
+/// **Spelled as `crates/ipc/operations/` keys the operation**, which is the
 /// point: this names the route a surface would call, so a screen that says an
 /// act applies and a header that offers it cannot end up describing different
 /// things. No registry declares this set — it is decided by the acts Fleet

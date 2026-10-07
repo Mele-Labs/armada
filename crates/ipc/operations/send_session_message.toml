@@ -1,0 +1,10 @@
+[operations.send_session_message]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A message to a hosted session, with the pictures and files sent beside it and the sessions, Jobs, pull requests and branches it names. It takes a turn"
+notes = """
+`POST /sessions/message`, body `SendSessionMessage`: `session_id`, `text`, `attachments` (`name`, `media_type`, base64 `data`) and `mentions` (`SessionTag`). **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 23.49.
+
+**Fleet stores an attachment and passes it on.** A picture reaches the session as a picture; any other file as a path in a directory the session may read. **A mention becomes one line Fleet adds** ahead of the message; the thread keeps only the person's words, with the mentions beside them. A message to a session whose process ended starts one with `--resume`.
+"""

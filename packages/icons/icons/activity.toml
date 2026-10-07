@@ -1,0 +1,6 @@
+[icons.activity]
+  means = "Active jobs"
+  group = "Navigation"
+  size = "16px"
+  status = "Retired"
+  notes = "Retired 2026-08-31. Active jobs folded into the Job Board when the Board became every Job with state as a filter, so the surface this named no longer exists — see docs/concepts/bridge.md. The glyph is free again. The ECG outline reads cleanly at 16px where it would not at 12px, which is why it was chosen and why it is worth someone else having."

@@ -1,0 +1,5 @@
+[operations."job.state_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Any of the Job states transitions"

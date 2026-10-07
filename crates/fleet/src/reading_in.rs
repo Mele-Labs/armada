@@ -596,7 +596,7 @@ where
     /// This repository's Helm thread, as what was said in it.
     ///
     /// **Fleet's own read and not a tool.** `observe_helm` refuses every agent
-    /// — `crates/ipc/operations.toml` — so a scout reaching a thread through a
+    /// — `crates/ipc/operations/` — so a scout reaching a thread through a
     /// tool would be that door opened; the file is read here instead and its
     /// prose handed over.
     async fn helm_thread(

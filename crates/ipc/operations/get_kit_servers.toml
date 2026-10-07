@@ -1,0 +1,12 @@
+[operations.get_kit_servers]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every MCP server in Kit, both tiers of its reach, and whether a Drone dispatched against this Manifest resolves it"
+notes = """
+`#1275`. `docs/concepts/kit.md` designs Kit and until now nothing parsed one, so connecting an MCP server meant leaving Armada for a terminal. The row carries Kit's own default, this Manifest's word over it, and `resolves` — the answer `core_model::a_drone_resolves` gives over the two, which is the same call that writes the document a Drone is spawned against. A surface that recomputed it could draw a server as reaching a Drone that no Drone is handed.
+
+The Manifest rides as `?manifest_id=`, `get_repository_allowed_commands`' reason: a Fleet serves one repository, and the parameter scopes the second tier rather than naming a resource.
+
+`agent_access` is `No` on this read and on all four writes below: what a Drone may reach is the owner's decision, `answer_command`'s reason, and a tool that let an agent read the set is a step toward one that changes it.
+"""

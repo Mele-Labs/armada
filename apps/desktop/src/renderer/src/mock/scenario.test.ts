@@ -12,7 +12,6 @@ import { ARC_MOMENTS } from "@armada/jobs/fixtures/build/arc";
 import { KIND_FIXTURES } from "@armada/jobs/fixtures/build/kinds";
 
 import { BUILDERS, SCENARIOS, scenarioNamed } from "./scenario";
-import * as listed from "./scenario-rows";
 
 const ROW_FILES = import.meta.glob<Record<string, unknown>>("./scenarios/*.ts", { eager: true });
 
@@ -145,10 +144,13 @@ test("the split rows are still listed, in the order they had", () => {
   expect(names[names.indexOf("real/job-2-landed") - 1]).toBe("recorded/landed-and-merged");
 });
 
-// `export *` drops a name two files both export without saying so, which would drop a walk's row,
-// and a file nobody listed in `scenario-rows.ts` is a row nobody sees.
-test("every file in scenarios/ is listed, and every row it exports reaches the list", () => {
+// A name two files both export would overwrite one with the other, which would drop a walk's row
+// without saying so.
+test("every row exported from scenarios/ has a name of its own, and reaches the list", () => {
   const exported = Object.values(ROW_FILES).flatMap((one) => Object.keys(one));
-  expect(Object.keys(listed).sort()).toEqual(exported.sort());
-  expect(Object.keys(listed)).toHaveLength(Object.keys(ROW_FILES).length);
+  expect(new Set(exported).size).toBe(exported.length);
+  const names = SCENARIOS.map((one) => one.name);
+  for (const file of Object.values(ROW_FILES)) {
+    for (const row of Object.values(file)) expect(names).toContain((row as { name: string }).name);
+  }
 });

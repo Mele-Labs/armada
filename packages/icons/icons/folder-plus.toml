@@ -1,0 +1,7 @@
+[icons.folder-plus]
+  means = "A folder with a cross beside it - one more slot"
+  group = "Worktree slot"
+  size = "16px"
+  status = "Specified"
+  reserved = "Adding a slot to the worktree pool, the ghost tile at the end of Cleanup's bay grid. Never composing a Job, which is plus, and never a node on a canvas, which is square-plus."
+  notes = "Proposed 4 Oct 2026 with the pool's controls. A slot is a directory, and folder-x already marks one that is not a checkout, so the add sits in the same family. Refused: `plus`, reserved to the Dispatch segment; `square-plus`, reserved to a canvas; `square-dashed`, which is the slot not made yet that the add produces."

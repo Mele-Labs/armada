@@ -1,0 +1,12 @@
+[operations.approve_review]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Advances past a human gate"
+notes = """
+The counterpart to `approve_dispatch`, at the other end: that one is the gate before a Job runs and this is the decision after it has. Both were human acts with no exception for Helm; both are now Helm's too, on request — the person's ask in conversation is the same gate the press always was.
+
+**It goes through the machine like any other move.** The step advances on the inner machine — which is legal beneath `awaiting_review`, one of the two statuses a step moves under — and then the Job either goes back to `running` at the next step or, where the step that passed was the workflow's last, is committed, delivered and recorded `completed_success`. Nothing here writes a status directly.
+
+Refused with a 409 on a Job that is not at `awaiting_review`. The three review acts share that refusal, and it is what keeps this from quietly becoming `approve_dispatch`: `awaiting_approval -> rejected` is a legal edge too, and it belongs to `deny_dispatch`.
+"""

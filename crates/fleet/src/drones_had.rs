@@ -4,7 +4,7 @@
 //! exits; the history keeps `drone_spawned` and `drone_exited` for every one and
 //! the spend rows outlive them, so this reads both and holds no slot. Nothing
 //! records a Drone's state, so it is read off the moves around it — the rule is
-//! `list_job_drones`'s note in `crates/ipc/operations.toml`.
+//! `list_job_drones`'s note in `crates/ipc/operations/`.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
