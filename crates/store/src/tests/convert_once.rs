@@ -60,11 +60,12 @@ fn convert(dir: &TempDir) -> (bool, String) {
 }
 
 fn with_the_file() -> Vec<Migration> {
-    MIGRATIONS
-        .iter()
-        .copied()
-        .chain([Migration::additive(NAME, V115)])
-        .collect()
+    // main may already carry the file itself (#1831 landed it); never list it twice.
+    let mut all: Vec<Migration> = MIGRATIONS.to_vec();
+    if !all.iter().any(|m| m.name == NAME) {
+        all.push(Migration::additive(NAME, V115));
+    }
+    all
 }
 
 #[test]

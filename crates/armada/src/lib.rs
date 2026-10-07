@@ -41,6 +41,7 @@
 
 pub mod agent;
 pub mod authoring;
+mod booting;
 pub mod clean;
 pub mod cli;
 pub mod declared;

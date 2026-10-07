@@ -134,8 +134,9 @@ poked or handed a verdict; its recorded spend is an undercount; its Job shows as
 `unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
 dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
 is open, so a surviving Check group is not swept at boot); a Drone that cannot
-be adopted is ended. A Job whose Drone is gone resumes by itself: Fleet restarts its
-step at boot, once, unless its cap is spent (`docs/concepts/drone.md`). A roster that does not answer still refuses. Without
+be adopted is ended. A Job whose Drone is gone, or was ended, resumes by itself:
+Fleet restarts its step at boot, once, unless one of the stops in
+`docs/concepts/drone.md` holds. A roster that does not answer still refuses. Without
 `--adopt` the refusal is as above. It combines with `--from`, and
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
@@ -325,6 +326,11 @@ with git alone, and a stub Fleet. CI runs it as `preview_test` when
 `scripts/preview` or `scripts/restart` changes.
 
 ## A Fleet of your own
+
+**This is not how the app is started.** Day to day that is
+`scripts/preview --restart`, which runs the latest `main` plus every in-flight
+branch. `scripts/restart` starts from `main` alone. A scratch Fleet is for wire
+data and recording Jobs.
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
 has its own home, its own store, a local clone of this repository with
@@ -836,6 +842,14 @@ the same branch and pushes again; the pull request updates and it watches the ne
 run. It stops and tells him only where the failure is not its to fix: the same
 failure on `main`, a decision that is his, or one that survives two fixes.
 `desktop_test` reports beside `ci` without gating it.
+
+**`ci` is not listed until the Checks it waits on finish**, so a `--watch` that
+ends, or a `grep '^ci'` over `gh pr checks`, can come back with nothing while
+the run is still going. Confirmed 7 Oct 2026: the same watch returned empty
+four times in one session, each costing a re-poll. Poll until the `ci` row
+exists and reads `pass` or `fail`:
+`until gh pr checks <n> | grep -E '^ci\s' | grep -qE 'pass|fail'; do sleep 20; done`,
+in the background.
 
 **A moved `main` is brought in by merging it**, never by rebasing.
 
