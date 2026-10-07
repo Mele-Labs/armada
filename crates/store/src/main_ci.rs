@@ -115,11 +115,29 @@ pub struct MainCi {
     /// first red reading until a green one, so a `Running` reading on top of a
     /// red is still red and a later green is a red turned green.
     pub red_at: Option<Timestamp>,
+    /// The commit the red was read at, **kept while a newer commit runs on top
+    /// of it**, so a held red still names the commit its failed jobs belong to.
+    /// `None` outside a red, and for a red kept before this was.
+    pub red_commit: Option<String>,
     /// CI jobs on the commit with no conclusion yet. Fleet reads it again while
     /// this is above zero.
     pub unfinished: u32,
     pub failed: Vec<MainFailedJob>,
     pub merge: Option<MainMerge>,
+}
+
+impl MainCi {
+    /// A red that a newer commit's CI is still running on top of. **Held**: that
+    /// run may already have fixed it, so nothing hands it to a Job until it ends.
+    pub fn held(&self) -> bool {
+        self.red_at.is_some() && self.state == MainState::Running
+    }
+
+    /// The commit the failed jobs were read at: the red's own while a newer
+    /// commit runs on top of it, and the head otherwise.
+    pub fn red_commit(&self) -> &str {
+        self.red_commit.as_deref().unwrap_or(&self.commit)
+    }
 }
 
 impl Store {
@@ -136,11 +154,11 @@ impl Store {
         let merge = main.merge.as_ref();
         tx.execute(
             "INSERT INTO main_ci (repository, base, commit_sha, state, read_at, red_at, \
-             merge_number, merge_url, merge_branch, merge_job, unfinished) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
+             merge_number, merge_url, merge_branch, merge_job, unfinished, red_commit) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
              ON CONFLICT (repository) DO UPDATE SET base = ?2, commit_sha = ?3, state = ?4, \
              read_at = ?5, red_at = ?6, merge_number = ?7, merge_url = ?8, merge_branch = ?9, \
-             merge_job = ?10, unfinished = ?11",
+             merge_job = ?10, unfinished = ?11, red_commit = ?12",
             (
                 &main.repository,
                 &main.base,
@@ -155,6 +173,7 @@ impl Store {
                     .and_then(|merge| merge.job.as_ref())
                     .map(|job| job.as_str().to_string()),
                 main.unfinished,
+                &main.red_commit,
             ),
         )
         .map_err(keeping)?;
@@ -185,7 +204,7 @@ impl Store {
             .conn
             .query_row(
                 "SELECT base, commit_sha, state, read_at, red_at, merge_number, merge_url, \
-                 merge_branch, merge_job, unfinished FROM main_ci WHERE repository = ?1",
+                 merge_branch, merge_job, unfinished, red_commit FROM main_ci WHERE repository = ?1",
                 (repository,),
                 |row| {
                     Ok((
@@ -199,14 +218,26 @@ impl Store {
                         row.get::<_, Option<String>>(7)?,
                         row.get::<_, Option<String>>(8)?,
                         row.get::<_, u32>(9)?,
+                        row.get::<_, Option<String>>(10)?,
                     ))
                 },
             )
             .optional()
             .map_err(reading)
             .map_err(database)?;
-        let Some((base, commit, state, read_at, red_at, number, url, branch, job, unfinished)) =
-            head
+        let Some((
+            base,
+            commit,
+            state,
+            read_at,
+            red_at,
+            number,
+            url,
+            branch,
+            job,
+            unfinished,
+            red_commit,
+        )) = head
         else {
             return Ok(None);
         };
@@ -251,6 +282,7 @@ impl Store {
             state,
             read_at: Timestamp::from_rfc3339(read_at),
             red_at: red_at.map(Timestamp::from_rfc3339),
+            red_commit,
             unfinished,
             failed,
             merge: number.map(|number| MainMerge {

@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type {
   AddTask,
+  FixMain,
   EditTask,
   MovePlan,
   ApproveWave,
@@ -229,6 +230,7 @@ type OldBridgeApi = {
     killJob: (jobId: string) => Promise<Outcome>;
     parkJob: (jobId: string) => Promise<Outcome>;
     resumeJob: (jobId: string) => Promise<Outcome>;
+    fixMain: (fix: FixMain) => Promise<Outcome>;
     killProcess: (jobId: string, pid: number) => Promise<Outcome>;
     killProcesses: (jobId: string) => Promise<Outcome>;
     pilotTask: (jobId: string, taskId: string) => Promise<Outcome>;
@@ -454,6 +456,7 @@ const OLD_CHANNELS = {
     killJob: "bridge:kill-job",
     parkJob: "bridge:park-job",
     resumeJob: "bridge:resume-job",
+    fixMain: "bridge:fix-main",
     killProcess: "bridge:kill-process",
     killProcesses: "bridge:kill-processes",
     pilotTask: "bridge:pilot-task",

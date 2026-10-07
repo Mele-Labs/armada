@@ -330,6 +330,19 @@
 }
 
 /* A Job's title where a row names the Job it came from: a link in the accent. */
+.armada-merge-line__run {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.armada-merge-line__run:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-merge-line__job {
   padding: 0;
   border: 0;

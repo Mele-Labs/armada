@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { LandCheckAt, RepositorySummary } from "@armada/protocol";
+import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine } from "@armada/components";
 import { mergeLineViews, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
@@ -18,11 +18,11 @@ import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
 import { usePanelOpen } from "./panel-open";
 
-type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed">;
+type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed" | "jobs">;
 
-function viewsOf({ mergeLines, repository, holds }: Lined): readonly MergeLineView[] {
+function viewsOf({ mergeLines, repository, holds, jobs }: Lined): readonly MergeLineView[] {
   const repositories: readonly RepositorySummary[] = holds.repositories ?? [];
-  return mergeLineViews(mergeLines, repository, repositories);
+  return mergeLineViews(mergeLines, repository, repositories, jobs);
 }
 
 /** The surfaces the rail and the palette leave off: the merge line's, until Fleet serves one. */
@@ -38,12 +38,15 @@ export function MergeLinePanel({
   state,
   onOpenLink,
   onOpenJob,
+  onFix,
   focus,
 }: {
   state: Lined;
   onOpenLink: (address: string) => void;
   /** A Job the head or a pull request names. Absent, it is not a press. */
   onOpenJob?: (jobId: string) => void;
+  /** Hands main's red to a Job. Absent, the band offers no way to. */
+  onFix?: (fix: FixMain) => void;
   focus?: string;
 }) {
   const [reading, setReading] = useState<LandCheckAt | null>(null);
@@ -56,6 +59,7 @@ export function MergeLinePanel({
           view={view}
           {...(focus === undefined ? {} : { focus })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onFix === undefined ? {} : { onFix })}
           onOpenLink={onOpenLink}
           onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
         />
@@ -79,6 +83,7 @@ function OneLine({
   focus,
   onOpenLink,
   onOpenJob,
+  onFix,
   onOpenCheck,
 }: {
   view: MergeLineView;
@@ -86,6 +91,7 @@ function OneLine({
   focus?: string;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onFix?: (fix: FixMain) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
@@ -106,7 +112,15 @@ function OneLine({
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       open={open}
       {...(holds ? { focus } : {})}
-      {...(view.fixOffered === undefined ? {} : { onFix: () => {} })}
+      {...(onFix === undefined
+        ? {}
+        : {
+            onFix: (choice) =>
+              onFix({
+                root: view.root,
+                ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }),
+              }),
+          })}
       onOpenChange={setOpen}
       onOpenPullRequest={onOpenLink}
       onOpenCheck={onOpenCheck}
@@ -121,6 +135,7 @@ export function MergeLineSurface({
   onCopied,
   onOpenLink,
   onOpenJob,
+  onFix,
   focus,
 }: {
   state: Lined;
@@ -128,6 +143,7 @@ export function MergeLineSurface({
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onFix?: (fix: FixMain) => void;
   focus?: string;
 }) {
   return (
@@ -137,6 +153,7 @@ export function MergeLineSurface({
           state={state}
           onOpenLink={onOpenLink}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onFix === undefined ? {} : { onFix })}
           {...(focus === undefined ? {} : { focus })}
         />
       </div>

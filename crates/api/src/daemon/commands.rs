@@ -170,6 +170,14 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `fix_main` — hands a repository's red main to a Job: a new one, or an
+    /// earlier one the work is sent back to. Answers with that Job. 409 where
+    /// main is not red, a Job already has it, or the Job cannot be sent back to.
+    fn fix_main(
+        self: std::sync::Arc<Self>,
+        fix: ipc::FixMain,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `resume_job` — lifts the pause. **A gate Job takes a slot now if one is
     /// free** and waits for the first to free if not; a queued one is let into
     /// admission's line. Neither starts a Drone itself. 409 where the Job is

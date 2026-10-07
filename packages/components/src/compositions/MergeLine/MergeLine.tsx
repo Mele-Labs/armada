@@ -78,6 +78,11 @@ export type MergeLineEntry = {
   batch?: string;
   /** Landed: the merge commit, short. */
   merge?: string;
+  /**
+   * Landed: the CI run on the merge commit, on main itself, apart from the pull request's own
+   * checks. Absent where nothing ran. `branch` is the Check log's address for its failed jobs.
+   */
+  mainRun?: { state: "passed" | "running" | "failed"; failed?: readonly string[]; branch: string };
   /** Red: the Checks that failed. */
   failed?: readonly string[];
   /** Conflict: the files main did not merge into. */
@@ -492,6 +497,44 @@ const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | nul
   waiting_on_main: { reading: QUEUED_REASON.blocked_by_dependency, says: "ci red because main is" },
 };
 
+/**
+ * The CI run on a landed pull request's merge commit, on main, in the marks an open pull request's
+ * `ci` takes. **Apart from the pull request's own checks**, which passed before it merged. A failed
+ * run opens its first failed job's log, as main's band does.
+ */
+function MainRunMark({ run, onOpen }: { run: NonNullable<MergeLineEntry["mainRun"]>; onOpen?: (check: string) => void }) {
+  const mark = CI[run.state];
+  const Icon = mark.reading?.icon ?? null;
+  const said = `${mark.says} on main`;
+  const first = run.failed?.[0];
+  const glyph = (
+    <span
+      className="armada-merge-line__mark"
+      data-pulsing={run.state === "running" || undefined}
+      data-state={run.state === "running" ? "gating" : undefined}
+      style={mark.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
+      role="img"
+      aria-label={said}
+    >
+      {Icon === null ? null : <Icon size={MARK} strokeWidth={STROKE} aria-hidden />}
+    </span>
+  );
+  if (run.state !== "failed" || first === undefined || onOpen === undefined) {
+    return (
+      <Tooltip label={said} asChild>
+        {glyph}
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip label={said} asChild>
+      <button type="button" className="armada-merge-line__run" aria-label={`${said}, open its log`} onClick={() => onOpen(first)}>
+        {glyph}
+      </button>
+    </Tooltip>
+  );
+}
+
 /** One open pull request: its `ci` as a mark, the branch, the number, and the Job it came from. */
 function Pull({
   pull,
@@ -621,11 +664,16 @@ function Detail({
     );
   }
   if ((entry.state === "red" || entry.state === "stopped") && strip !== null) return strip;
-  if (entry.state === "landed" && entry.merge !== undefined) {
+  if (entry.state === "landed" && (entry.merge !== undefined || entry.mainRun !== undefined)) {
     return (
-      <Tooltip label="Merge commit">
-        <span className="mono">{entry.merge}</span>
-      </Tooltip>
+      <>
+        {entry.mainRun === undefined ? null : <MainRunMark run={entry.mainRun} {...(onOpenCheck === undefined ? {} : { onOpen: (check: string) => onOpenCheck(entry.mainRun!.branch, check) })} />}
+        {entry.merge === undefined ? null : (
+          <Tooltip label="Merge commit">
+            <span className="mono">{entry.merge}</span>
+          </Tooltip>
+        )}
+      </>
     );
   }
   if (entry.state === "red" && entry.failed !== undefined) {

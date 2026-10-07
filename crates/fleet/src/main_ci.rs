@@ -31,6 +31,9 @@ const LOGS_A_READING: usize = 8;
 pub enum MainChange {
     /// It failed, where it was not failing before or fails something new.
     WentRed,
+    /// It was red and a newer commit's CI was running on top of it, and that
+    /// run ended red on the same jobs. **The red is back, and may be acted on.**
+    BackToRed,
     /// It was red and a commit has passed everything.
     WentGreen,
 }
@@ -73,6 +76,8 @@ where
         };
         let root = served.root().to_string();
         self.notice_pulls(&served).await;
+        self.notice_merged(&served).await;
+        self.notice_merged_runs(&served).await;
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
@@ -126,6 +131,13 @@ where
             state,
             read_at: now.clone(),
             red_at: streak.clone(),
+            // The red's own commit, kept while a newer one runs on top of it.
+            red_commit: streak.as_ref().and_then(|_| {
+                before.as_ref().map(|it| match it.state {
+                    MainState::Red => it.commit.clone(),
+                    _ => it.red_commit().to_string(),
+                })
+            }),
             unfinished: unfinished as u32,
             failed: before
                 .as_ref()
@@ -137,6 +149,7 @@ where
             Reduced::Green => (
                 MainCi {
                     red_at: None,
+                    red_commit: None,
                     failed: Vec::new(),
                     merge: None,
                     ..carried(MainState::Green)
@@ -144,16 +157,21 @@ where
                 streak.as_ref().map(|_| MainChange::WentGreen),
             ),
             Reduced::Running => (carried(MainState::Running), None),
-            // Nothing ran: nothing proved, so a red is not ended by it.
+            // Nothing ran: nothing proved, so a red is not ended by it. A red that was
+            // held is no longer: the run it waited on is not coming.
             Reduced::NothingRan => (
-                carried(match streak {
-                    Some(_) => before.as_ref().map_or(MainState::NothingRan, |it| it.state),
-                    None => MainState::NothingRan,
+                carried(match (&streak, before.as_ref()) {
+                    (Some(_), Some(it)) if it.state != MainState::Running => it.state,
+                    _ => MainState::NothingRan,
                 }),
                 None,
             ),
             Reduced::Red => {
-                let same_commit = before.as_ref().is_some_and(|it| it.commit == head);
+                // A reading that was only running carries the red's old jobs, and
+                // is no proof that this commit failed the same ones.
+                let same_commit = before
+                    .as_ref()
+                    .is_some_and(|it| it.commit == head && it.state == MainState::Red);
                 let failed = self
                     .failed_jobs(&served, &head, &failing, before.as_ref())
                     .await;
@@ -173,11 +191,18 @@ where
                     MainCi {
                         state: MainState::Red,
                         red_at: streak.clone().filter(|_| continues).or(Some(now.clone())),
+                        red_commit: Some(head.clone()),
                         failed,
                         merge,
                         ..carried(MainState::Red)
                     },
-                    (!continues).then_some(MainChange::WentRed),
+                    match continues {
+                        false => Some(MainChange::WentRed),
+                        true => before
+                            .as_ref()
+                            .filter(|it| it.held())
+                            .map(|_| MainChange::BackToRed),
+                    },
                 )
             }
         };
@@ -249,7 +274,7 @@ where
         for run in failing {
             let name = run.name.as_written().to_string();
             let kept = before
-                .filter(|it| it.commit == head)
+                .filter(|it| it.red_commit() == head)
                 .and_then(|it| it.failed.iter().find(|was| was.name == name));
             if let Some(kept) = kept {
                 failed.push(kept.clone());

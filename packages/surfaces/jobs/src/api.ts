@@ -3,6 +3,7 @@
 
 import type {
   AddTask,
+  FixMain,
   EditTask,
   MovePlan,
   ApproveWave,
@@ -142,6 +143,8 @@ export type JobsApi = {
   parkJob: (jobId: string) => Promise<Outcome>;
   /** Lift the pause. A gate Job takes a slot now or waits for the first to free. */
   resumeJob: (jobId: string) => Promise<Outcome>;
+  /** Hand a repository's red main to a Job: a new one, or an earlier one the work goes back to. */
+  fixMain: (fix: FixMain) => Promise<Outcome>;
   /**
    * Kill one process the Job holds, by pid. **Fleet decides whether the pid is
    * the Job's** — it rebuilds the tree at the act — so this names, never grants.
@@ -852,6 +855,7 @@ export const JOBS_CHANNELS = {
   killJob: "bridge:kill-job",
   parkJob: "bridge:park-job",
   resumeJob: "bridge:resume-job",
+  fixMain: "bridge:fix-main",
   killProcess: "bridge:kill-process",
   killProcesses: "bridge:kill-processes",
   pilotTask: "bridge:pilot-task",

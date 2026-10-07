@@ -4,7 +4,7 @@
 // real `armada-land/` directory and holds equal to this file, so this is the other half of one
 // reading of the wire.
 
-import type { MergeLineHub, MergeLines } from "@armada/protocol";
+import type { JobSummary, MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
@@ -248,11 +248,85 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [], recent: [] });
   });
 
-  test("a line from a Fleet before the hub draws none, and the two ways to a Job are offered only when asked for", () => {
+  test("a line from a Fleet before the hub draws none and keeps its own landed rows", () => {
     const [none] = views({ lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [] }] }, null);
     expect(none && "hub" in none).toBe(false);
-    expect(none && "fixOffered" in none).toBe(false);
-    const offered = { lines: [{ ...hubbed({}).lines[0]!, fix_offered: { recent: [] } }] } as unknown as MergeLines;
-    expect(views(offered, null)[0]?.fixOffered).toBe(true);
+    const before = views(SERVED, null)[0];
+    expect(before?.landed.length).toBeGreaterThan(0);
+  });
+
+  test("the forge's merged pull requests take the Recently landed list, newest first, with the short merge commit", () => {
+    const commit = "c".repeat(40);
+    const lines = hubbed({
+      merged: [
+        { number: 1839, title: "Add it", branch: "armada/it", url: `${PULL}1839`, merged_at: "2026-10-06T21:00:00Z", commit },
+        { number: 1838, title: "Fix it", branch: "nick/fix", url: `${PULL}1838`, merged_at: "2026-10-06T20:00:00Z" },
+      ],
+    });
+    const [view] = views({ lines: [{ ...lines.lines[0]!, landed: SERVED.lines[0]!.landed }] }, null);
+    expect(view?.landed).toEqual([
+      { branch: "armada/it", pr: { number: 1839, url: `${PULL}1839` }, state: "landed", merge: "cccccccccc" },
+      { branch: "nick/fix", pr: { number: 1838, url: `${PULL}1838` }, state: "landed" },
+    ]);
+  });
+
+  test("each merged pull request carries the CI run on its merge commit, and a state this build does not know draws none", () => {
+    const commit = "c".repeat(40);
+    const merged = (number: number, main_run?: { state: string; failed?: string[] }) => ({
+      number,
+      title: "t",
+      branch: `b/${number}`,
+      url: `${PULL}${number}`,
+      merged_at: "2026-10-06T21:00:00Z",
+      commit,
+      ...(main_run === undefined ? {} : { main_run }),
+    });
+    const lines = hubbed({
+      merged: [merged(3, { state: "running" }), merged(2, { state: "failed", failed: ["ci", "lint"] }), merged(1, { state: "passed" }), merged(4, { state: "later" }), merged(5)],
+    });
+    const [view] = views(lines, null);
+    expect(view?.landed.map((row) => row.mainRun)).toEqual([
+      { state: "running", branch: `main@${commit}` },
+      { state: "failed", failed: ["ci", "lint"], branch: `main@${commit}` },
+      { state: "passed", branch: `main@${commit}` },
+      undefined,
+      undefined,
+    ]);
+  });
+
+  test("a red with newer commits running is held: it names them by their pull request, or by commit where none was named", () => {
+    const commit = "d".repeat(40);
+    const hub = hubOf({
+      main: {
+        state: "red",
+        commit,
+        read_at: "x",
+        red_commit: "a".repeat(40),
+        failed: [{ name: "ci", check: "test" }],
+        checking: [{ commit, pull_request: { number: 1852, url: `${PULL}1852` } }, { commit: "e".repeat(40) }],
+      },
+    });
+    expect(hub?.main).toEqual({
+      state: "red",
+      red: { check: "test" },
+      checking: [{ commit, number: 1852, url: `${PULL}1852` }, { commit: "e".repeat(40) }],
+    });
+    const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
+    expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
+  });
+
+  test("the Jobs main's red can go back to are the Board's rows at their review or over, newest first", () => {
+    const row = (id: string, status: string, branch?: string, ended_at?: string) =>
+      ({ id, title: id, status, ...(branch === undefined ? {} : { branch }), ...(ended_at === undefined ? {} : { ended_at }) }) as JobSummary;
+    const jobs = [
+      row("01A", "running", "armada/a"),
+      row("01B", "completed_success", "armada/b", "2026-10-06T10:00:00Z"),
+      row("01C", "awaiting_review", "armada/c"),
+      row("01D", "killed", "armada/d", "2026-10-06T12:00:00Z"),
+      row("01E", "completed_success"),
+    ];
+    const lines = hubbed({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "ci", check: "test" }] } });
+    const [view] = mergeLineViews(lines, null, REPOSITORIES, jobs);
+    expect(view?.hub?.recent.map((one) => one.id)).toEqual(["01D", "01B", "01C"]);
   });
 });

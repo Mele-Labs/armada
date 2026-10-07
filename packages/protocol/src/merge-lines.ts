@@ -37,8 +37,57 @@ export type MergeLineHub = {
   main?: MainStanding;
   /** Newest first, as the forge lists them. Absent is none open. */
   pull_requests?: HubPullRequest[];
-  /** The Job working on main's red. Fleet sets none yet. */
+  /** The newest pull requests merged into the base, newest first. Absent from a Fleet before 23.42. */
+  merged?: HubMerged[];
+  /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
+};
+
+/** One pull request recently merged. Since 23.42. */
+export type HubMerged = {
+  number: number;
+  title: string;
+  branch: string;
+  url: string;
+  author?: string;
+  merged_at: string;
+  /** The merge commit, whole. */
+  commit?: string;
+  /** The Job that opened it. Absent for a person's. */
+  job?: HubJob;
+  /** The CI run on its merge commit, on main itself, apart from the pull request's own checks. Absent where nothing ran or none was read yet. Since 23.44. */
+  main_run?: MainRun;
+};
+
+/**
+ * The CI run on one commit of main. `state` is `passed`, `running` or `failed`. A press on a failed
+ * job opens its log on the Check log socket under the branch `main@<commit>`. Since 23.44.
+ */
+export type MainRun = {
+  state: string;
+  /** Each job that failed, by the forge's name. */
+  failed?: string[];
+};
+
+/** `fix_main`'s body: hand a repository's red main to a Job. Since 23.42. */
+export type FixMain = {
+  root: string;
+  /** An earlier Job to send the work back to. Absent dispatches a new one. */
+  job?: string;
+  /** What the Job is told. Absent is the facts Fleet read. */
+  brief?: string;
+};
+
+/** A job's part in main's red, on its row. `state` is `fixing` or `fixed`. Since 23.42. */
+export type FixesMain = {
+  state: string;
+  /** The Check that was red, or the CI job's own name. */
+  check: string;
+  test?: string;
+  /** The pull request that turned main red. */
+  merge?: number;
+  /** The pull request of this job that put main green, once `fixed`. */
+  fixed_in?: number;
 };
 
 /** A Job, by its id and what it is called. */
@@ -58,6 +107,21 @@ export type MainStanding = {
   failed?: MainFailedJob[];
   /** The pull request that turned main red, where the forge named one. */
   merge?: MainMerge;
+  /** The commit the red was read at, whole. `red` only. Since 23.44. */
+  red_commit?: string;
+  /**
+   * Newer commits whose CI is still running, newest first. `red` only. **Non-empty is a held red**:
+   * a newer run may already have fixed it, so Fleet refuses `fix_main` (`fleet.main_checks_running`)
+   * and the band is caution with no buttons. Absent from a Fleet before 23.44. Since 23.44.
+   */
+  checking?: MainChecking[];
+};
+
+/** A commit on main, newer than the red one, whose CI is still running. Since 23.44. */
+export type MainChecking = {
+  commit: string;
+  /** The pull request that merged it, where the forge named one. */
+  pull_request?: MainMerge;
 };
 
 export type MainFailedJob = {

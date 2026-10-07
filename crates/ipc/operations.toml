@@ -1124,7 +1124,7 @@ A reading of files another process writes. `armada land` keeps its queue and eac
 
 **Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.40).
 
-**Each line carries a `hub` since 23.41**: Fleet's own reading of the forge, which is not a file another process writes. `hub.main` is where main's newest commit stands (`green`, `red`, `running`, `nothing_ran`), and for a red each failed CI job with the Manifest Check it maps to (absent is ordinary), its log address and the tests its log names (absent where none could be read), and the pull request that merged it with the Job of ours that opened it. `hub.pull_requests` is every open pull request with its `ci` (`passed`, `running`, `failed`, or `waiting_on_main` where it failed only on the jobs main is failing, `ci` absent where nothing ran). `hub.fixing` is the Job working on main's red and is never set yet. A red stays `red` while a fix is still running, until a commit passes everything.
+**Each line carries a `hub` since 23.41**: Fleet's own reading of the forge, which is not a file another process writes. `hub.main` is where main's newest commit stands (`green`, `red`, `running`, `nothing_ran`), and for a red each failed CI job with the Manifest Check it maps to (absent is ordinary), its log address and the tests its log names (absent where none could be read), and the pull request that merged it with the Job of ours that opened it. `hub.pull_requests` is every open pull request with its `ci` (`passed`, `running`, `failed`, or `waiting_on_main` where it failed only on the jobs main is failing, `ci` absent where nothing ran). `hub.fixing` is the Job working on main's red (since 23.42). A red stays `red` while a fix is still running, until a commit passes everything.
 
 A repository nobody has run `armada land` in is left out rather than listed empty **unless Fleet has read its forge**, when it is listed with an empty line and its hub. A Fleet before 23.41 sends no `hub`, and a Bridge before it draws the empty line. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
 
@@ -1148,6 +1148,27 @@ notes = """
 **The branch `main` names main's own run** (since 23.41), and `check` is a failed job's Check or its own name from `hub.main.failed`. Fleet asks the forge for that job's log now, bounded to its end, and serves it the way a finished Check's is: opened, sent whole, closed `finished`. It is refused with the same 422 unless main is red for that job, so a log is never served for a job that passed.
 
 `agent_access` is `No` for `get_merge_lines`' reason.
+"""
+
+[operations.fix_main]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Hand a repository's red main to a Job: dispatch a new one, or send the work back to an earlier one, and answer with that Job"
+notes = """
+`POST /merge_lines/fix`, protocol 23.42. The body is `FixMain`: the repository's `root`, optionally an earlier `job`, and optionally the `brief` the person edited. `docs/concepts/fleet.md`, *When main goes red*, has the model.
+
+**No `job` dispatches a new one.** It is proposed the way a person's own proposal is, under the workflow named `bug`, titled for what failed on main, and released at once: pressing Dispatch is the approval, and the brief is on screen before it. Where the failing Check and test are known the test is claimed for the new Job, as `draft_fix` claims one, so a Drone that hits the same test is pointed at it and drafts none. Where only a CI job is known there is no claim.
+
+**A `job` sends the work back to it.** A Job at `awaiting_review` is sent back at its gate with the brief as its note, which is `request_changes`. Any other Job that has ended is carried on as a redispatch is: a new Job under the same workflow and title, `redispatched_from` naming the first, on a fresh branch cut from main, with the brief as its facts, released at once. A Job still working is refused: it is not finished and cannot be sent back.
+
+**The brief is the facts Fleet read**, one line each: the CI job or Check, the tests its log named, the log's address, the pull request that turned main red and its branch. Absent `brief` sends exactly that.
+
+Either way the Job is recorded as having taken this red, so `hub.fixing` names it and its summary carries `fixes_main`. When main goes green that record says `fixed` with `fixed_in` for the Job whose pull request put it there.
+
+Refused with a 409 and nothing changed: `fleet.main_not_red` where main is not red for that repository or Fleet has read nothing of it, `fleet.main_checks_running` while a newer commit's CI is still running on main, which may already have fixed it (the hub's `main.checking` is then non-empty, since 23.44), `fleet.main_already_taken` where a Job is already working on this red, `fleet.not_finished` on a `job` that is still working, and `fleet.no_workflow_fits` where the repository holds no `bug` workflow. 404 `fleet.no_such_job` on an unknown `job`, and 422 on a `root` Fleet does not serve or a blank `brief`.
+
+`agent_access` is `No`: Fleet already hands a red to the Job that caused it by itself, and a person's choice of Job is a press.
 """
 
 [operations.add_repository]

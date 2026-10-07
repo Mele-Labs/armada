@@ -193,6 +193,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         reclaimed_at: None,
         tasks: None,
         paused: None,
+        fixes_main: None,
     }
 }
 

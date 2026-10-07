@@ -139,6 +139,11 @@ pub(crate) struct Sweep {
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,
     /// Each repository's open pull requests as last listed, by root. `crate::main_hub`.
     pub(crate) pulls: BTreeMap<String, Vec<crate::main_hub::OpenPulled>>,
+    /// Each repository's newest merged pull requests as last listed, by root.
+    pub(crate) merged: BTreeMap<String, Vec<crate::main_hub::MergedPulled>>,
+    /// The CI run on main for each of those merge commits, by root and commit.
+    /// A settled one is kept and never asked again.
+    pub(crate) main_runs: BTreeMap<String, BTreeMap<String, crate::main_hub::MergedRun>>,
 }
 
 /// What the record's state says on the wire, where it says anything.

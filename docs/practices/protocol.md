@@ -3158,6 +3158,14 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 **Event stream: neither better nor worse.** It adds no queue and no event kind. The two-second loop already published `merge_lines.changed` whole on a change; the hub makes that message larger (a hundred pull requests at most) and changes it when main or a pull request does, which is rarer than a queue turn.
 
 
+## Protocol 23.42: acting on main's red, and what merged
+
+Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?}`) dispatches a Job for a red main or sends the work back to one, and answers with that Job's `JobSummary`. `JobSummary.fixes_main` (`FixesMain {state, check, test?, merge?, fixed_in?}`) is a Job's part in a red; `hub.fixing`, which 23.41 declared and never set, now names the Job on it; `hub.merged` lists the newest five pull requests merged into the base, read from the forge on the visit that already lists the open ones.
+
+**Older peers:** a Bridge before 23.42 ignores every field and draws no buttons, so nothing breaks; it draws the line's own `landed` list. A Bridge at 23.42 against an older Fleet is refused as any minor ahead is, so the buttons never reach a Fleet without the route. `FixesMain.state` is read as working for a value it does not know, so a new one is not a major.
+
+**One store table, additive** (`main_fix.main_ci_fixes`): which Job took each red. No other record changed.
+
 ## Protocol 23.43: the session ledger
 
 `docs/concepts/session.md`. **Additive only**: three operations, one event kind and the DTOs of `ipc::sessions`, and nothing an older Bridge reads changes.
@@ -3172,6 +3180,14 @@ The owner, 6 Oct 2026: a Drone's `run_checks` left no record, and no Check run s
 **`kind` on an attachment is open text, and `state` is not.** A kind Fleet has not met is kept as it arrived; every kind's state is `standing`, `spent` or `given_back`, so a released slot and a spent need are read the same way. A holder is `{ kind: session | job, id }` and no foreign key to either.
 
 **One migration**, `session_ledger.tables`: `sessions` and `ledger_attachments`. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+
+## Protocol 23.44: a held red, and each merge's run on main
+
+Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest first) names the newer commits whose CI is still running while main is red, and `hub.main.red_commit` the commit the red was read at. Non-empty `checking` is a held red: `fix_main` refuses with `fleet.main_checks_running` and Fleet's own pickup waits. `hub.merged[].main_run` (`MainRun {state, failed?}`, `state` passed, running or failed) is the CI run on that merge commit on main itself. A failed job's log opens on `observe_land_check` under the branch `main@<commit>`, a new spelling of an existing free-text field.
+
+**Older peers:** a Bridge before 23.44 ignores the three fields and draws the red band with its buttons, which Fleet then refuses while held. `state` stays `red` rather than gaining a variant, because Bridge branches on it and a new variant would be a major. A Bridge at 23.44 against an older Fleet is refused as any minor ahead is.
+
+**One store column, additive** (`main_ci.red_commit`). Forge cost is in `docs/concepts/fleet.md`, *What Fleet knows about main's CI*.
 
 ## Open questions
 

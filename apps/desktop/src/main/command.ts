@@ -27,7 +27,7 @@ import type {
   SavePreference,
   StagedAttachment,
 } from "@armada/protocol";
-import type { ApproveDispatch, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
+import type { ApproveDispatch, FixMain, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
 import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
@@ -487,6 +487,13 @@ export class JobCommands {
   async parkJob(jobId: string): Promise<Outcome> {
     return this.act(jobId, this.pausing, "already_pausing", (port) =>
       ask(port, "POST", route(jobId, "park_job")),
+    );
+  }
+
+  /** Hand a repository's red main to a Job. One press at a time for a repository. */
+  async fixMain(fix: FixMain): Promise<Outcome> {
+    return this.act(`main-fix:${fix.root}`, this.deciding, "already_deciding", (port) =>
+      ask(port, "POST", "/merge_lines/fix", fix),
     );
   }
 

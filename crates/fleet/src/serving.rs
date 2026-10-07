@@ -923,9 +923,11 @@ where
         check: String,
     ) -> Result<api::LandOutput, Refusal> {
         let asked = (root.clone(), branch.clone(), check.clone());
-        let found = match branch == crate::main_hub::MAIN {
-            true => self.main_log(root, check).await,
-            false => crate::merge_lines::land_log(self, root, branch, check).await,
+        let on_main = format!("{}@", crate::main_hub::MAIN);
+        let found = match branch.strip_prefix(&on_main) {
+            Some(commit) => self.main_run_log(root, commit.to_string(), check).await,
+            None if branch == crate::main_hub::MAIN => self.main_log(root, check).await,
+            None => crate::merge_lines::land_log(self, root, branch, check).await,
         };
         found.ok_or_else(|| {
             let (root, branch, check) = asked;
