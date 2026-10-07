@@ -20,16 +20,16 @@ Pilot is the citable source for the mechanism: the `escape_hatch` tool, the hand
 
 ## Flow
 
-Open the Job in Bridge, hit Pilot, confirm an outcome in the modal, then work in the Claude Code session that opens on the Drone's worktree.
+Open the Job in Bridge, hit Pilot, confirm an outcome in the modal, then work in the Session that opens on the Job's worktree.
 
 | Step | What happens |
 | --- | --- |
 | 1. Hit Pilot | The job header's action group, left of Kill, on every status that offers it |
 | 2. Read the modal | States what is about to happen, then offers three outcomes plus Cancel |
 | 3. Choose an outcome | Take Over, Assist (disabled), or Restart Step |
-| 4. Session opens | Claude Code on the Drone's worktree, context preloaded, unrestricted toolset |
+| 4. Session opens | A Session on the Job's own worktree, handed over, with the handoff bundle as its first context and an unrestricted toolset |
 | 5. Work | Ordinary manual development. Fleet is not scheduling against this Job |
-| 6. Resolve | Depends on the outcome chosen. Evidence gates are unchanged |
+| 6. Resolve | One of three exits, from the Session's row for the Job or from Job detail: submit for verification, attest complete, or close as superseded. Evidence gates are unchanged unless the engineer attests |
 
 **Pilot lives in the job header's action group, left of Kill.** It is a job-level act — it hands over one worktree and stops the scheduler, neither of which is a property of the selected step — so it sits at job level and never moves between statuses. What changes is the fill: secondary on a running job, primary on an escalated one, at the same height in both. Emphasis comes from fill rather than size or position, so the target learned on a healthy job is the target under pressure.
 

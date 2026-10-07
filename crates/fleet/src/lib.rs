@@ -202,6 +202,7 @@ pub mod peer;
 pub mod peers;
 mod pending_evidence;
 pub mod permitting;
+mod piloting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
 mod plan_acts;
@@ -390,6 +391,7 @@ pub use mint::{Mint, UlidMint};
 pub use noticing::{Noticed, Noticing};
 pub use overruling::Overruling;
 pub use peer::{NotACaller, PeerOf};
+pub use piloting::{Hatch, Unpilotable};
 pub use places::{Asking, ChecksAtOnce, Place, Places, Room, OVERTAKEN_AT_MOST};
 pub use policy::{HeldBecause, Policies};
 pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};

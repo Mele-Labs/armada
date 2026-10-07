@@ -146,6 +146,8 @@ mod pending_evidence;
 mod permitting;
 mod phases;
 mod picking_up;
+mod piloting;
+mod piloting_exits;
 mod places;
 mod plan_person;
 mod plan_person_told;

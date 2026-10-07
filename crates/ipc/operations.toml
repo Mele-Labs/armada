@@ -1990,6 +1990,75 @@ Publishes `job.resumed` and writes one line in the Job's log.
 `agent_access` is `Helm only`, for `park_job`'s reason.
 """
 
+[operations.take_over]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person takes a Job over: its Drone ends where one is live, the Job goes to `piloted`, and the worktree is theirs"
+notes = """
+`POST /jobs/:job_id/take_over`, body `TakeOver` (`outcome`: `take_over` or `restart_step`; `session_id?`), or none for a take over with no Session named. Answers the Job's `JobSummary`, `piloted`, with `piloted` set. `docs/concepts/pilot.md`.
+
+**Assist is not an outcome**: it is deferred, so a body naming it does not decode (400). **`restart_step`** hands the worktree to a fresh Drone at the stopped step when the pilot is submitted, where `take_over` runs the step's gates.
+
+Fleet marks the Job, ends its Drone (`kill_drone`'s order: the process, then the step, then the Job) and moves it. Works from `running`, `escalated`, `awaiting_review`, `awaiting_repair` and `awaiting_attestation`. **A named Session holds the Job's slot and branch on the ledger**, with `detail.handed` reading `job <id>`, and the Job's own rows are given back. Fleet does not start the Session: the session host takes `get_handoff` and the worktree in it.
+
+Refused with a 409 and nothing changed: `fleet.not_pilotable` on a status with no edge to `piloted`; `fleet.already_piloted`; `fleet.pilot_busy` while another take over or a run of the Job's Checks is out; `fleet.no_step_to_restart` for `restart_step` where no step stopped. A Job at a gate with its worktree parked is refused `fleet.paused`, and one whose worktree is gone is told to redispatch.
+
+`agent_access` is `Helm only`, `restart_step`'s: Helm takes a Job over on a person's ask and never on its own reading, and asks first (`Destructive`: it ends a Drone).
+"""
+
+[operations.get_handoff]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "What a person, or a Session on their behalf, is handed when they take a Job over: the Job and its steps, every move and attempt, the Judge's refusals, the evidence, the declared plan against the worktree's changed files, the worktree and branch, and what the Drone said it was stuck on"
+notes = """
+`GET /jobs/:job_id/handoff`. Answers `HandoffBundle`. 409 `fleet.not_piloted` on a Job nobody took over. **The pilot's own record and not a reading of the Job as it is now**: it is still served after the pilot ended, so a retro can say what the person was handed.
+
+`narrative` (`trying_to`, `blocked_by`, `tried`) is the one field the Drone supplies, and is not Evidence. It is absent where the Drone never pulled the hatch, which is every take over today. `worktree.path` is a path on this machine, the one place Fleet puts one on the wire, because a Session has to be started in it.
+"""
+
+[operations.submit_for_verification]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person is done: the stopped step's gates run on the worktree as they would for a Drone, and a pass takes the Job from `piloted` to `running` with no Drone"
+notes = """
+`POST /jobs/:job_id/submit_for_verification`, no body. Answers the Job's `JobSummary`. Held for the whole run, as `rerun_checks` is.
+
+The same Checks, Judge and advance gate as a Drone's submission, on the Drone's evidence where it wrote any and otherwise on a claim Fleet words for the person. **A failing run leaves the Job `piloted`**, recorded as any run's is, since there is no Drone to hand it back to. A pass with steps left re-queues for admission, and a last step finishes the Job.
+
+409: `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.nothing_to_verify` where no step is stopped, at a gate or being worked, and `fleet.nothing_to_submit` where the step's evidence is writing its Drone writes and none was written.
+
+`agent_access` is `Helm only`, asked as `pushes to shared`: it moves the Job toward delivery.
+"""
+
+[operations.attest_complete]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person says the work is complete: the Job goes to `completed_success` recorded as attested, with no gate run, and is never drawn as verified"
+notes = """
+`POST /jobs/:job_id/attest_complete`, body `PilotNote` (`note?`) or none. Answers the Job's `JobSummary`, whose `piloted.exit` reads `attested`.
+
+**Refused `fleet.steps_not_advanced` while any step has not advanced**: `piloted -> completed_success` is guarded `every_step_advanced`, and attesting is a verdict on the work and not a way past a step. A pilot with steps still to run submits for verification. 409 `fleet.not_piloted` on a Job that is not piloted.
+
+`agent_access` is `Helm only`, asked as `pushes to shared`, for `approve_review`'s reason: a person is saying finished work is finished.
+"""
+
+[operations.close_as_superseded]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person's own work landed outside the Job: the Job goes to `superseded`, a terminal state that is neither failed nor killed, and a Job waiting on it is released with a warning"
+notes = """
+`POST /jobs/:job_id/close_as_superseded`, body `PilotNote` (`note?`) or none. Answers the Job's `JobSummary`, whose `piloted.exit` reads `superseded`.
+
+A Job depending on it unblocks at the next admission with the dependency released and not met, and its own log says so. 409 `fleet.not_piloted` on a Job that is not piloted.
+
+`agent_access` is `Helm only`, asked as `destructive`: the Job ends.
+"""
+
 [operations.kill_process]
 kind = "command"
 transport = "HTTP"

@@ -28,6 +28,7 @@
 
 import type { Settled } from "./detail";
 import type { FixesMain } from "./merge-lines";
+import type { Piloted } from "./piloting";
 import type { Requester } from "./requester";
 import type { TaskCounts } from "./work-plan";
 
@@ -216,6 +217,8 @@ export type JobSummary = {
   paused?: Paused;
   /** Its part in main's red: working on it, or the job that fixed it. Absent is none. Since 23.42. */
   fixes_main?: FixesMain;
+  /** Who took it over and how that ended. Absent is a job nobody piloted. Since 23.50. */
+  piloted?: Piloted;
 };
 
 /** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */

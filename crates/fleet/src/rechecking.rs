@@ -81,6 +81,17 @@ impl Unrecheckable {
     }
 }
 
+/// Where a ruling carries a Job out of, and the step move that opens the run.
+///
+/// **Two statuses, one body.** A re-run leaves `awaiting_repair` through the
+/// `stopped -> running` that is not a run; a person's submission leaves
+/// `piloted` through whichever entry the step's state admits, or none where it
+/// is already running.
+pub(crate) enum Leaving {
+    Repair(StepLevelTrigger),
+    Pilot(Option<StepTarget>),
+}
+
 /// Which Jobs have a re-run of their Checks out.
 ///
 /// **In memory and never written down**, for `crate::showing_again::Pressing`'s
@@ -260,8 +271,14 @@ where
         if matches!(ruling, Ruling::Failed { .. } | Ruling::HandedBack { .. }) {
             return self.load(job_id).await;
         }
-        self.carried_on(&ruling, job_id, step, stopped_by, &worktree)
-            .await
+        self.carried_on(
+            &ruling,
+            job_id,
+            step,
+            Leaving::Repair(stopped_by),
+            &worktree,
+        )
+        .await
     }
 
     /// Rule the gate on one submission with no live slot and no live Drone:
@@ -432,7 +449,8 @@ where
         Ok(ruling)
     }
 
-    /// Take the Job out of `awaiting_repair` and carry the ruling out.
+    /// Take the Job out of `awaiting_repair`, or out of `piloted` for a person's
+    /// submission, and carry the ruling out.
     ///
     /// **A pass with a step left re-queues, as an override does**, rather than
     /// going through `act_on`: that arm starts the next Drone in the slot, and a
@@ -443,12 +461,12 @@ where
     /// group's run is closed and committed as the gate's own pass does, the step
     /// stays `running` and the Job re-queues, so admission puts a Drone on the
     /// next group's first task.
-    async fn carried_on(
+    pub(crate) async fn carried_on(
         &self,
         ruling: &Ruling,
         job_id: &JobId,
         step: &StepId,
-        stopped_by: StepLevelTrigger,
+        leaving: Leaving,
         worktree: &Worktree,
     ) -> Result<Job, Adrift> {
         let slot = self.slot_for(job_id).await;
@@ -456,11 +474,26 @@ where
         let job = self.load(job_id).await?;
         // The Checks took minutes, and a person may have killed the Job or
         // taken it to Pilot meanwhile. Nothing is carried onto a Job that left.
-        if job.status() != JobStatus::AwaitingRepair {
-            return Err(Adrift::CannotRerunChecks {
-                job: job_id.clone(),
-                why: Unrecheckable::NotHeldForRepair {
-                    status: job.status(),
+        let (held, entering) = match leaving {
+            Leaving::Repair(stopped_by) => (
+                JobStatus::AwaitingRepair,
+                Some(StepTarget::Rechecking(stopped_by)),
+            ),
+            Leaving::Pilot(entering) => (JobStatus::Piloted, entering),
+        };
+        if job.status() != held {
+            return Err(match held {
+                JobStatus::Piloted => Adrift::CannotPilot {
+                    job: job_id.clone(),
+                    why: crate::piloting::Unpilotable::NotPiloted {
+                        status: job.status(),
+                    },
+                },
+                _ => Adrift::CannotRerunChecks {
+                    job: job_id.clone(),
+                    why: Unrecheckable::NotHeldForRepair {
+                        status: job.status(),
+                    },
                 },
             });
         }
@@ -476,9 +509,10 @@ where
         }
         let job = self.load(job_id).await?;
         let job = self.move_job(&job, Target::Running, Actor::Human).await?;
-        let job = self
-            .move_step_by(&job, step, StepTarget::Rechecking(stopped_by), Actor::Human)
-            .await?;
+        let job = match entering {
+            Some(to) => self.move_step_by(&job, step, to, Actor::Human).await?,
+            None => job,
+        };
         if let Ruling::Advanced { .. } = ruling {
             let job = match group_follows {
                 true => job,

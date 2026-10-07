@@ -457,7 +457,7 @@ fn promised(plans: &[store::DeclaredPlan], path: &str) -> Option<Vec<ipc::StepId
 /// The attempt goes across as its number: two entries naming one step are two
 /// runs of it, and without the ordinal they would read as one step promising
 /// two different things at once.
-fn declared(plan: &store::DeclaredPlan) -> ipc::DeclaredPlan {
+pub(crate) fn declared(plan: &store::DeclaredPlan) -> ipc::DeclaredPlan {
     ipc::DeclaredPlan {
         step_id: (&plan.step_id).into(),
         attempt: plan.attempt.number(),

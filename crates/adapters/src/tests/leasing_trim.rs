@@ -127,7 +127,7 @@ fn a_sweep_trims_the_main_checkout_and_a_job_worktree_and_leaves_a_building_one(
     let building = std::fs::File::options().write(true).open(&lock).unwrap();
     building.lock().unwrap();
 
-    sweep_repository(root, trim(), SystemTime::now());
+    sweep_repository(root, trim(), SystemTime::now(), &[]);
 
     for checkout in [root, job.as_path()] {
         assert!(!checkout.join("target/debug/deps/old-1.rlib").exists());
@@ -140,6 +140,27 @@ fn a_sweep_trims_the_main_checkout_and_a_job_worktree_and_leaves_a_building_one(
     );
 
     drop(building);
-    sweep_repository(root, trim(), SystemTime::now());
+    sweep_repository(root, trim(), SystemTime::now(), &[]);
     assert!(!agent.join("target/debug/deps/old-1.rlib").exists());
+}
+
+#[test]
+fn a_sweep_leaves_the_target_of_a_checkout_it_was_told_a_person_holds() {
+    use crate::leasing::sweep_repository;
+
+    let repo = a_repository();
+    let root = repo.root();
+    let piloted = root.join(".armada/worktrees/a-piloted-job");
+    let other = root.join(".armada/worktrees/another-job");
+    for checkout in [piloted.as_path(), other.as_path()] {
+        built(&checkout.join("target/debug/deps/old-1.rlib"), 10, 30);
+    }
+
+    sweep_repository(root, trim(), SystemTime::now(), &[piloted.clone()]);
+
+    assert!(
+        piloted.join("target/debug/deps/old-1.rlib").exists(),
+        "a person's build output is theirs"
+    );
+    assert!(!other.join("target/debug/deps/old-1.rlib").exists());
 }

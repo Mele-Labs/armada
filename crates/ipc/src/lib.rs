@@ -126,6 +126,8 @@ mod needs;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
 mod overlap;
+/// Taking a Job over and the bundle a person is handed. `docs/concepts/pilot.md`.
+mod piloting;
 /// A person's Bridge preferences, kept the way `limits` are kept. **A value
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
@@ -331,6 +333,10 @@ pub use merge_line::{
 };
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
+pub use piloting::{
+    DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
+    TakeOver,
+};
 pub use preferences::{Preferences, SavePreference};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,

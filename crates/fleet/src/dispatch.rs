@@ -921,6 +921,7 @@ where
         );
         // A client replaces its row with this one, so the counts ride along.
         summary.tasks = self.task_counts(job.id()).await?;
+        summary.piloted = self.piloted_on_row(&*self.store().lock().await, job);
         Ok(summary)
     }
 

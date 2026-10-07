@@ -30,6 +30,7 @@ mod commands;
 mod conversing;
 mod hosted_sessions;
 mod needs;
+mod piloting;
 mod pull_requests;
 mod queries;
 mod retros;
@@ -43,6 +44,7 @@ pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
 pub use needs::Needs;
+pub use piloting::Piloting;
 pub use pull_requests::PullRequests;
 pub use queries::{FramePart, FrameSpan, Queries};
 pub use retros::Retros;
@@ -100,6 +102,7 @@ pub trait Daemon:
     + HostedSessions
     + Needs
     + PullRequests
+    + Piloting
 {
 }
 
@@ -115,7 +118,8 @@ impl<
             + Sessions
             + HostedSessions
             + Needs
-            + PullRequests,
+            + PullRequests
+            + Piloting,
     > Daemon for D
 {
 }
