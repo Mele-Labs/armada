@@ -333,7 +333,11 @@ if $dry_run; then
   if $adopt; then
     if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
       printf '%s\n' "$adopted"
-      echo "--adopt: a working Drone would be adopted and the refusal skipped"
+      if [[ "$adopted" == *"Adopting every working Drone"* ]]; then
+        echo "--adopt: the working Drones above would be adopted and the refusal skipped"
+      else
+        echo "--adopt: no Drone is working, so there is nothing to skip"
+      fi
     else
       printf '%s\n' "$adopted"
       echo "with --adopt the restart would still refuse: the roster did not answer"

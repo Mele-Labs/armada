@@ -121,7 +121,12 @@ export function fleetPanelOf(
  * once at connect time. A `startedAt` that will not parse drops the row.
  */
 function rowsOf(connection: Connection, now: number): Figure[] | undefined {
-  if (connection.state !== "connected" && connection.state !== "connecting" && connection.state !== "unreachable") {
+  if (
+    connection.state !== "connected" &&
+    connection.state !== "connecting" &&
+    connection.state !== "starting" &&
+    connection.state !== "unreachable"
+  ) {
     return undefined;
   }
   const rows: Figure[] = [
@@ -145,6 +150,7 @@ function sentenceOf(connection: Connection, statement: Statement, now: number, r
     case "connected":
       return connection.skew === "fleet_ahead" ? versionsOf(connection) : undefined;
     case "connecting":
+    case "starting":
       return undefined;
     case "unreachable":
       return `alive, ${silenceOf(connection, now, readAt)}`;

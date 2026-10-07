@@ -11,7 +11,7 @@ export const s080FleetStarting: Scenario = {
   state: {
     ...NOTHING_YET,
     connection: {
-      state: "connecting",
+      state: "starting",
       fleet: {
         protocolVersion: { major: 13, minor: 50 },
         pid: 61372,
