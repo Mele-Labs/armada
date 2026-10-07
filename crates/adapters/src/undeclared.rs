@@ -1,4 +1,4 @@
-//! A branch that takes a number it never declared a need for is refused.
+//! A branch that takes a protocol minor it never declared a need for is refused.
 //! `#1059`: on 6 Oct 2026 a branch bumped the protocol from 23.33 to 23.35
 //! without declaring, took the number another branch held, and that branch
 //! renumbered. The owner's answer: the checks refuse it.
@@ -13,10 +13,11 @@
 //! file for it yet, since `.gitattributes` and `armada.yml` declare nothing of
 //! the kind and this repository is the only one that needs it.
 //!
-//! **A migration is appended where an entry of the list is on the branch and
-//! not on the base**, read as entries and not as a name pattern. **A minor
-//! changed is the two `minor` values differing**, unless `major` differs too:
-//! a major move is hand-made, outside needs, and resets the minor on purpose.
+//! **A migration is not watched.** Migrations are named, and two branches that
+//! each append one both apply (`docs/practices/store-migrations.md`), so there
+//! is no number to take. **A minor changed is the two `minor` values
+//! differing**, unless `major` differs too: a major move is hand-made, outside
+//! needs, and resets the minor on purpose.
 
 use std::path::Path;
 use std::process::Command;
@@ -26,8 +27,6 @@ use crate::needs::{clean_path, Needs};
 /// What counts as a change on a watched path.
 #[derive(Clone, Copy, Debug)]
 pub enum Change {
-    /// An entry in the list `MIGRATIONS` on the branch that the base lacks.
-    ListAppended,
     /// `minor` differs, `major` does not.
     MinorChanged,
 }
@@ -41,18 +40,11 @@ pub struct Watched {
 }
 
 /// This repository's watched paths: the only place they are written down.
-pub const WATCHED: &[Watched] = &[
-    Watched {
-        path: "crates/store/src/migrations.rs",
-        what: "a new migration",
-        change: Change::ListAppended,
-    },
-    Watched {
-        path: "protocol-version.toml",
-        what: "a minor",
-        change: Change::MinorChanged,
-    },
-];
+pub const WATCHED: &[Watched] = &[Watched {
+    path: "protocol-version.toml",
+    what: "a minor",
+    change: Change::MinorChanged,
+}];
 
 /// `Ok(None)` where the branch is in order, `Ok(Some(answer))` where it took a
 /// number it never declared, `Err` where git could not be read.
@@ -110,39 +102,11 @@ fn changed(repo: &Path, fork: &str, branch: &str, watched: &Watched) -> Result<b
         return Ok(false);
     }
     Ok(match watched.change {
-        Change::ListAppended => {
-            let held = entries(&before, "MIGRATIONS");
-            entries(&after, "MIGRATIONS")
-                .iter()
-                .any(|entry| !held.contains(entry))
-        }
         Change::MinorChanged => {
             number(&before, "major") == number(&after, "major")
                 && number(&before, "minor") != number(&after, "minor")
         }
     })
-}
-
-/// The entries of `pub const <name>: ... = &[ ... ];`, one per line, without
-/// comments or the trailing comma.
-fn entries(source: &str, name: &str) -> Vec<String> {
-    let mut inside = false;
-    let mut found = Vec::new();
-    for line in source.lines() {
-        let line = line.trim();
-        if !inside {
-            inside = line.contains(&format!("const {name}:")) && line.ends_with('[');
-        } else if line.starts_with("];") {
-            break;
-        } else {
-            let entry = line.split("//").next().unwrap_or("").trim();
-            let entry = entry.trim_end_matches(',').trim();
-            if !entry.is_empty() {
-                found.push(entry.to_string());
-            }
-        }
-    }
-    found
 }
 
 /// The integer a `key = 12` line gives, where the file has one.
