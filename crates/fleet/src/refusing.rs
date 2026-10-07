@@ -231,42 +231,42 @@ const UNPUSHED_DELIVERY: &str = "fleet.unpushed_delivery";
 /// The base branch is protected. **Its own code, and the whole reason the
 /// refusal kinds are not one**: what answers this is an administrator or a
 /// rule, and nothing a person does to the Job changes it.
-const MERGE_BRANCH_PROTECTED: &str = "fleet.merge_branch_protected";
+pub(crate) const MERGE_BRANCH_PROTECTED: &str = "fleet.merge_branch_protected";
 /// The branch and its base disagree. Its own code because the answer is on the
 /// branch — a `request_changes` that asks for a rebase, or a person resolving
 /// it — and never on the forge.
-const MERGE_CONFLICTED: &str = "fleet.merge_conflicted";
+pub(crate) const MERGE_CONFLICTED: &str = "fleet.merge_conflicted";
 /// A check the **forge** requires has not passed. Its own code because the
 /// answer is to wait or to fix that check, and because a client reading
 /// `CHECK_DID_NOT_PASS` would go looking at Armada's own Checks, which all
 /// passed or the Job would not be at a gate.
-const MERGE_CHECKS_NOT_PASSED: &str = "fleet.merge_checks_not_passed";
+pub(crate) const MERGE_CHECKS_NOT_PASSED: &str = "fleet.merge_checks_not_passed";
 /// The pull request is closed, gone, or was never there. Its own code because
 /// the Job is answerable and the pull request is not: what is left is an
 /// approval or a redispatch.
-const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
+pub(crate) const MERGE_NOT_OPEN: &str = "fleet.merge_not_open";
 /// `merge_by: push` found the base past the branch through every round of
 /// bringing it up and gating it again — `crate::pushing_onto_base`. Its own
 /// code because the answer is a quieter base, never the forge.
-const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
+pub(crate) const MERGE_BASE_MOVED: &str = "fleet.merge_base_moved";
 /// `merge_by: push` brought the branch up to a moved base and its Checks went
 /// red on the merge. Its own code because the answer is the branch's, and
 /// apart from [`MERGE_CHECKS_NOT_PASSED`] because these are Armada's Checks.
-const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
+pub(crate) const MERGE_GATE_FAILED: &str = "fleet.merge_gate_failed";
 /// A need ahead of this Job's on the same file has not landed, so Fleet did not
 /// press the merge. Its own code because the answer is to wait, or for a person
 /// to give the need back (`armada need --release`); nothing about the Job or the
 /// forge is wrong. A 409, under `forge` and `push` alike. `#1059`.
-const MERGE_WAITING_BEHIND: &str = "fleet.merge_waiting_behind";
+pub(crate) const MERGE_WAITING_BEHIND: &str = "fleet.merge_waiting_behind";
 /// Nothing on this machine could ask the forge. **A 500**, unlike the four
 /// above: nothing about the request is wrong and asking again is reasonable
 /// once whoever runs Fleet has signed in.
-const MERGE_NO_TOOL: &str = "fleet.merge_no_tool";
+pub(crate) const MERGE_NO_TOOL: &str = "fleet.merge_no_tool";
 /// The forge refused and said something this vocabulary has no name for. A 500
 /// for [`MERGE_NO_TOOL`]'s reason, and the sentence the forge printed is in the
 /// message — which is the honest answer where a guess would send a person to
 /// fix the wrong thing.
-const MERGE_REFUSED: &str = "fleet.merge_refused";
+pub(crate) const MERGE_REFUSED: &str = "fleet.merge_refused";
 /// A plain command outran Fleet's own bound on it. **A 500, and never a
 /// caller mistake** — asking again is reasonable, and the command that timed
 /// out may already have landed. `#712`.

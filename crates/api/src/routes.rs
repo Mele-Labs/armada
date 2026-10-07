@@ -137,6 +137,26 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
+        .route(
+            "/pull_requests/:repository/:number",
+            get(crate::pull_requests::get_pull_request::<D>),
+        )
+        .route(
+            "/pull_requests/:repository/:number/ready",
+            post(crate::pull_requests::ready_pull_request::<D>),
+        )
+        .route(
+            "/pull_requests/:repository/:number/merge",
+            post(crate::pull_requests::merge_pull_request_by_number::<D>),
+        )
+        .route(
+            "/pull_requests/:repository/:number/auto_merge",
+            post(crate::pull_requests::enable_auto_merge::<D>),
+        )
+        .route(
+            "/pull_request_reviews/:repository",
+            post(crate::pull_requests::review_pull_request::<D>),
+        )
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(

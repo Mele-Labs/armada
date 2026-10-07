@@ -83,6 +83,38 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 
 Both reads are on the agent's door, so a session can ask who else holds the branch it is about to take.
 
+## Acts on a pull request
+
+A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number, and is nobody's Job.
+
+| Operation | Does | Refuses |
+|---|---|---|
+| `get_pull_request` | Reads it: draft, open, merged or closed, auto-merge, the forge's checks (`pending`, `passed`, or `failed` with the failing names), title, branch, address | Where the forge would not answer |
+| `ready_pull_request` | Takes a draft out of draft | Anything that is not a draft |
+| `merge_pull_request_by_number` | Merges it | While the checks are running or failed, a draft, a closed one, and the forge's own refusals |
+| `enable_auto_merge` | Asks the forge to merge when the checks pass | Once they have passed or failed, a draft, a closed one |
+| `review_pull_request` | Drafts a Code Review Job against it, by number or address | A name that is neither, a Session the ledger never heard of |
+
+```
+ a person presses       Fleet                                  the forge
+ ───────────────        ──────────────────────────────────     ─────────
+ merge ───────────────▶ read state + checks ────────────────▶ gh pr view, gh pr checks
+                        checks not passed ─▶ refuse, no write
+                        passed ────────────────────────────▶ gh pr merge --merge
+                        read again, refresh every `pr` row   ◀─
+ ◀─ the new state       merged ─▶ row `spent`, closed ─▶ `given_back`
+```
+
+> **Rule.** Every write is read first, and a refusal Fleet can name is named before the forge is touched.
+> Why: a merge pressed while the checks run must reach nobody, and a count of what the forge was asked to write is the only proof it did not.
+
+> **Rule.** The ledger follows the forge through its own attach.
+> Why: a Session's `pr` row is what the harness reported, and `detail` (`state`, `auto_merge`, `checks`, `failing`, `title`, `branch`, `address`) is Fleet's reading of the same pull request, so one writer is not two.
+
+**The three writes are a person's ask, `pushes to shared`.** Helm asks first, as for `merge_pull_request`, and the operations are `Helm only`. Bridge's own buttons are the person's press and reach the routes directly. `get_pull_request` is open to any agent.
+
+**A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
+
 ## Not built
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.

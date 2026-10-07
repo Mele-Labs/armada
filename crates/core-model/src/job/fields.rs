@@ -44,6 +44,10 @@ pub enum Origin {
     StudioDispatched,
     /// Dispatched off a Studio, by Helm on the person's ask. #1362.
     StudioHelmDrafted,
+    /// Dispatched from a Session, by the person pressing Review on a pull
+    /// request it holds. Which Session is the ledger's: the `job` row that
+    /// Session holds.
+    SessionDispatched,
 }
 
 impl Origin {
@@ -56,6 +60,7 @@ impl Origin {
         Origin::DroneDrafted,
         Origin::StudioDispatched,
         Origin::StudioHelmDrafted,
+        Origin::SessionDispatched,
     ];
 
     pub fn as_wire(&self) -> &'static str {
@@ -68,6 +73,7 @@ impl Origin {
             Origin::DroneDrafted => "drone_drafted",
             Origin::StudioDispatched => "studio_dispatched",
             Origin::StudioHelmDrafted => "studio_helm_drafted",
+            Origin::SessionDispatched => "session_dispatched",
         }
     }
 
@@ -104,6 +110,7 @@ impl Origin {
             Origin::DroneDrafted => Some(TopLevelOrigin::DroneDrafted),
             Origin::StudioDispatched => Some(TopLevelOrigin::StudioDispatched),
             Origin::StudioHelmDrafted => Some(TopLevelOrigin::StudioHelmDrafted),
+            Origin::SessionDispatched => Some(TopLevelOrigin::SessionDispatched),
             Origin::SubDispatched => None,
         }
     }
@@ -134,6 +141,9 @@ pub enum TopLevelOrigin {
     /// than dispatched for [`HelmDrafted`](Self::HelmDrafted)'s reason — it
     /// still takes the person's approval. #1362.
     StudioHelmDrafted,
+    /// Dispatched from a Session by the person. Top-level, at the ordinary
+    /// gate.
+    SessionDispatched,
 }
 
 impl From<TopLevelOrigin> for Origin {
@@ -146,6 +156,7 @@ impl From<TopLevelOrigin> for Origin {
             TopLevelOrigin::DroneDrafted => Origin::DroneDrafted,
             TopLevelOrigin::StudioDispatched => Origin::StudioDispatched,
             TopLevelOrigin::StudioHelmDrafted => Origin::StudioHelmDrafted,
+            TopLevelOrigin::SessionDispatched => Origin::SessionDispatched,
         }
     }
 }

@@ -86,7 +86,7 @@ Helm may call any command it is offered once you ask it to, in this conversation
 | Class | What it is | What it looks like |
 |---|---|---|
 | Destructive | It removes or overwrites something that does not come back | `rm`, `git reset --hard`, `git branch -D`, `kill`, a truncating `>`, overwriting a file that exists, `kill_job`, `kill_drone`, `kill_one_drone`, `kill_process`, `delete_branch`, `edit_manifest`, `save_workflow` where the call says `overwrite` |
-| Pushes to shared | It sends code where other people read it | `git push`, `gh pr merge`, `cargo publish`, `scp`, `merge_pull_request`, `approve_dispatch` |
+| Pushes to shared | It sends code where other people read it | `git push`, `gh pr merge`, `cargo publish`, `scp`, `merge_pull_request`, `merge_pull_request_by_number`, `ready_pull_request`, `enable_auto_merge`, `approve_dispatch` |
 | Writes off this machine | It writes to something that is not this machine | `curl -X POST`, `gh issue create`, `kubectl apply`, `file_finding_issue`, `clone_repository` |
 
 **`save_workflow` is destructive only where it replaces a definition.** Fleet refuses a save that would replace one unless the call carries `overwrite`, so the word is the whole line: a first save is not put to you, and a save that replaces one is. Replacing a definition that a Job has already frozen does not move that Job.

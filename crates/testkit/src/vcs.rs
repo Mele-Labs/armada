@@ -43,6 +43,7 @@ mod commit;
 mod delivered;
 mod main_ci;
 mod merging;
+mod pull_requests;
 mod slots;
 
 use commit::Willing;
@@ -141,6 +142,8 @@ pub struct FakeVcs {
     /// holding this fake exists, so it is scripted through `&self` and a
     /// consuming builder could not express the case at all.
     merging: Mutex<Merging>,
+    /// What the forge says about one pull request and does when it is readied.
+    pull_requests: Mutex<pull_requests::PullRequests>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
     /// base that moves once and then holds still is two answers.
     pushes_in_turn: Mutex<VecDeque<Merging>>,
@@ -348,36 +351,6 @@ impl FakeVcs {
         let mut delivery = self.delivery.lock().expect("not poisoned");
         delivery.landed = landed;
         delivery.merged_at = Some(at.to_string());
-    }
-
-    /// Say what the forge says about the open pull request: who has looked at
-    /// it, what ran against it, what anybody wrote.
-    ///
-    /// `&self` for [`now_landed`](FakeVcs::now_landed)'s reason — nothing is
-    /// reviewed until the Job that opened the pull request has finished, by
-    /// which time the fake is inside a Fleet.
-    pub fn now_under_review(&self, under_review: UnderReview) {
-        self.delivery.lock().expect("not poisoned").under_review = under_review;
-    }
-
-    /// How many times the forge has been asked what is happening on an open
-    /// pull request. **Counted apart from the merge question**, because the two
-    /// ride one rotation and a test proving the sweep did not grow a second
-    /// loop is counting these against those.
-    pub fn times_asked_what_is_under_review(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::AskedWhatIsUnderReview { .. }))
-    }
-
-    /// Say what the forge answers for inline diff comments. `&self` for
-    /// [`now_under_review`](FakeVcs::now_under_review)'s reason.
-    pub fn now_inline_remarks(&self, remarks: Option<Vec<Remark>>) {
-        self.delivery.lock().expect("not poisoned").inline_remarks = remarks;
-    }
-
-    /// How many times the forge has been asked for inline comments — the
-    /// query the sweep makes once per turn on an open pull request.
-    pub fn times_asked_for_inline_remarks(&self) -> usize {
-        self.counted(|it| matches!(it, Delivered::AskedForInlineRemarks { .. }))
     }
 
     /// Say what the forge does when it is asked to merge.
@@ -762,7 +735,19 @@ impl Delivery for FakeVcs {
     }
 
     fn enable_auto_merge(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
-        commit::auto_merge(self, pull_request)
+        self.auto_merge_asked(pull_request)
+    }
+
+    fn pull_request_facts(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Option<adapter_traits::PullRequestFacts> {
+        self.pull_request_read(pull_request)
+    }
+
+    fn mark_ready(&self, _in_repo: &str, pull_request: &str) -> Result<(), String> {
+        self.ready_asked(pull_request)
     }
 
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
@@ -776,7 +761,10 @@ impl Delivery for FakeVcs {
                 pull_request: pull_request.to_string(),
             });
         match self.merging.lock().expect("not poisoned").clone() {
-            Merging::Takes => Ok(Merged::Taken),
+            Merging::Takes => {
+                self.pull_request_merged();
+                Ok(Merged::Taken)
+            }
             Merging::AlreadyMerged => Ok(Merged::AlreadyMerged),
             Merging::Refuses(why) => Err(why),
         }

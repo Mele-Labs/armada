@@ -862,6 +862,24 @@ pub trait Delivery {
     /// read that rather than a code.
     fn enable_auto_merge(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
 
+    /// What the forge says about one pull request, whoever opened it: draft or
+    /// open or merged or closed, its branch, whether auto-merge is asked for.
+    /// **`None` is the forge's silence**, for [`landed`](Delivery::landed)'s
+    /// reason. `in_repo` is the repository to run from.
+    fn pull_request_facts(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<crate::PullRequestFacts>;
+
+    /// Take a draft pull request out of draft.
+    ///
+    /// **A write to the forge, taken only from a person's ask**, like
+    /// [`merge`](Delivery::merge): it tells everyone watching the repository
+    /// that the work is ready to be read. The refusal is the forge's own
+    /// sentence, as [`enable_auto_merge`](Delivery::enable_auto_merge)'s is.
+    fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
+
     /// Land a Job's branch by making the `--no-ff` merge commit here and
     /// pushing the base, never forced — `merge_by: push`, and the same code
     /// `armada land` lands through.
