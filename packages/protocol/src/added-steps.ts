@@ -36,7 +36,7 @@ export type AddedStepRemoved = { id: string };
 
 export type AddedPlaced = "approval" | "running";
 
-export type AddedSkipReason = "not_in_this_repo" | "skill_not_run" | "drone_step_not_run";
+export type AddedSkipReason = "not_in_this_repo" | "skill_not_run" | "drone_step_not_run" | "by_owner";
 
 /** `said` is rendered and never matched on. */
 export type AddedSkip = { reason: AddedSkipReason; said: string };

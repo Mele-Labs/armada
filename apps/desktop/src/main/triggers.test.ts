@@ -99,3 +99,30 @@ it("hands a refusal back in Fleet's own words, so the branch can ask again", asy
     why: "not_connected",
   });
 });
+
+it("sends a rerun and a skip to the Job's own routes with the one name set", async () => {
+  const asked: { method: string; path: string; body: string }[] = [];
+  const port = await fleetAnswering(200, { state: "passed", released: true }, asked);
+  const commands = new TriggerCommands(() => port, new Picked());
+  expect(await commands.rerun("01JOB", { trigger: "deploy_qa" })).toEqual({ ok: true });
+  expect(await commands.skip("01JOB", { addition: "01ADD" })).toEqual({ ok: true });
+  expect(asked).toEqual([
+    { method: "POST", path: "/jobs/01JOB/rerun_trigger", body: '{"trigger":"deploy_qa"}' },
+    { method: "POST", path: "/jobs/01JOB/skip_trigger", body: '{"addition":"01ADD"}' },
+  ]);
+});
+
+it("hands a hold's refusal back in Fleet's own words", async () => {
+  const asked: { method: string; path: string; body: string }[] = [];
+  const port = await fleetAnswering(
+    409,
+    { code: "fleet.no_hold", message: "nothing holds this Job", run_id: "r", fields: {}, chain: [] },
+    asked,
+  );
+  const commands = new TriggerCommands(() => port, new Picked());
+  for (const answer of [await commands.rerun("01JOB", { trigger: "deploy_qa" }), await commands.skip("01JOB", { trigger: "deploy_qa" })]) {
+    expect(answer.ok).toBe(false);
+    expect(JSON.stringify(answer)).toContain("fleet.no_hold");
+  }
+  expect(await new TriggerCommands(() => null, new Picked()).rerun("01JOB", { trigger: "x" })).toEqual({ ok: false, why: "not_connected" });
+});

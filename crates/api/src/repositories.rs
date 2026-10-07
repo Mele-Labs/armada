@@ -226,3 +226,40 @@ pub(crate) async fn choose_trigger_fix<D: Authoring>(
         Err(refusal) => refused(refusal),
     }
 }
+
+/// Run a held Trigger's Command again. **409 and nothing moved** where nothing
+/// holds the Job under that name, where a repair is under way, where a fix
+/// waits on a choice, and where there is nothing Fleet can run. It may take as
+/// long as the Command takes: the daemon runs it as a task of its own, and
+/// Bridge sends `NO_WAIT`.
+pub(crate) async fn rerun_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let act: ipc::HoldAct = match ipc::decode("a held Trigger to rerun", &body) {
+        Ok(act) => act,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().rerun_trigger(job.id().clone(), act).await {
+        Ok(settled) => answer(StatusCode::OK, &settled, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Let a held Trigger go, skipped by the owner. **409 and nothing moved** where
+/// nothing holds the Job under that name, and where a repair is under way.
+pub(crate) async fn skip_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let act: ipc::HoldAct = match ipc::decode("a held Trigger to skip", &body) {
+        Ok(act) => act,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().skip_trigger(job.id().clone(), act).await {
+        Ok(settled) => answer(StatusCode::OK, &settled, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

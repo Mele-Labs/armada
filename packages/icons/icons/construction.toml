@@ -1,0 +1,7 @@
+[icons.construction]
+  means = "A barrier across a road, two posts under a striped bar"
+  group = "Trigger"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Trigger that holds its Job: a blocking Trigger failed, and the Job waits at the moment it fired until the owner reruns or skips it. Never a Job's status, a stop, a pause or a refusal."
+  notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`, for the owner to rule on. It sits on the node the Trigger fired at, and its tooltip names the Trigger and the moment. Refused: `circle-pause`, a paused Job; `pause`, Freeze dispatch; `octagon-alert`, stalled; `door-closed-locked`, a closed slot; `lock`, a step that cannot be skipped; `hand`, a Session's slot; `anchor`, a kept slot. A barrier is the one outline here that says a way is shut until somebody opens it."

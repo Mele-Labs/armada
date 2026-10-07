@@ -53,7 +53,7 @@ import { GamingHeld } from "./gaming-held";
 import type { Opens } from "./phases";
 import { addedNodeId, AddedSheets, useAddedSteps, withAddedSteps } from "./added-steps";
 import type { AddedBinding } from "./added-steps";
-import { withRepair, type ChooseTriggerFixCall } from "./repair-branch";
+import { withRepair, type ChooseTriggerFixCall, type HoldActCall } from "./repair-branch";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 import { pulseViewOf } from "./draft/pulse";
 import { holdingOf, lookOf } from "./mine";
@@ -160,6 +160,7 @@ export type WorkflowTabProps = {
   added?: AddedBinding;
   /** Where a failed Trigger's held fix goes. Absent draws the branch with no choice on it. */
   onChooseTriggerFix?: ChooseTriggerFixCall;
+  onHoldAct?: HoldActCall;
 };
 
 export function WorkflowTab({
@@ -197,6 +198,7 @@ export function WorkflowTab({
   pulse,
   added: addedBinding,
   onChooseTriggerFix,
+  onHoldAct,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
   // moves under them as the Job advances, and a panel that changed subject
@@ -318,7 +320,7 @@ export function WorkflowTab({
     ...(heldCommand === undefined ? {} : { held: heldCommand }),
   });
   // A failed Trigger with Self repair grows a branch off the step it fired at, over the run the added steps drew.
-  const { run, asking } = withRepair(whole.triggers, job.id, stepNodeId, withAddedSteps(added, whole, plain), onChooseTriggerFix);
+  const { run, asking } = withRepair(whole.triggers, job.id, stepNodeId, withAddedSteps(added, whole, plain), onChooseTriggerFix, whole.additions ?? [], onHoldAct);
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was

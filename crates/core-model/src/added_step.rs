@@ -112,6 +112,8 @@ pub enum NotRun {
     SkillNotRun { skill: String },
     /// A Drone step, which needs a gate Fleet does not have for it.
     DroneStepNotRun,
+    /// The owner skipped it while it held the Job.
+    ByOwner,
 }
 
 impl core::fmt::Display for NotRun {
@@ -124,6 +126,7 @@ impl core::fmt::Display for NotRun {
                 write!(f, "skipped: skill `{skill}` is not run yet")
             }
             NotRun::DroneStepNotRun => f.write_str("skipped: a Drone step is not run yet"),
+            NotRun::ByOwner => f.write_str("skipped by you while it held the Job"),
         }
     }
 }
@@ -170,11 +173,13 @@ impl Fired {
         }
     }
 
-    /// Ended. **Zero is the only pass**, as for a Trigger.
-    pub fn ended(self, exit_code: Option<i32>, at: Timestamp) -> Fired {
+    /// Ended. **Zero is the only pass**, as for a Trigger. A failure of one that
+    /// `blocks` is [`TriggerState::Held`].
+    pub fn ended(self, exit_code: Option<i32>, blocks: bool, at: Timestamp) -> Fired {
         Fired {
             state: match exit_code {
                 Some(0) => TriggerState::Passed,
+                _ if blocks => TriggerState::Held,
                 _ => TriggerState::Failed,
             },
             exit_code,
@@ -193,13 +198,26 @@ pub struct AddedStep {
     pub when: TriggerWhen,
     /// The step it hangs from. For [`TriggerWhen::PrOpened`], the delivering one.
     pub step: StepId,
-    /// Carried and **not acted on yet**, as a Trigger's are.
+    /// `block` is acted on. `repair` is carried and **not acted on yet**: an
+    /// added step that fails and blocks holds at once.
     pub on_failure: OnTriggerFailure,
     pub placed: Placed,
     pub added_at: Timestamp,
     /// The latest firing. A step run again fires it again.
     pub fired: Option<Fired>,
     pub kept: Option<Kept>,
+}
+
+impl AddedStep {
+    /// Whether this step holds its Job: it blocks and its latest firing failed
+    /// and was not settled.
+    pub fn holds_the_job(&self) -> bool {
+        self.on_failure.block
+            && self
+                .fired
+                .as_ref()
+                .is_some_and(|fired| fired.state == TriggerState::Held)
+    }
 }
 
 /// Why a place is not one an added step can go.

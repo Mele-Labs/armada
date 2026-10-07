@@ -348,6 +348,8 @@ pub mod terms;
 mod tooling;
 pub mod transcript;
 mod trigger_authoring;
+mod trigger_hold;
+mod trigger_hold_acts;
 mod trigger_wire;
 /// What a failed Trigger's repair decides, apart from the doing of it.
 pub mod trigger_repair;

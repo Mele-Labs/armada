@@ -13,7 +13,8 @@ export type TriggerScope = "repository" | "machine";
 
 export type TriggerRuns = { kind: "command"; name: string } | { kind: "skill"; name: string };
 
-export type TriggerSkipReason = "not_in_this_repo" | "skill_not_run";
+/** `by_owner`: it failed and held the Job, and the owner skipped it. Since 23.63. */
+export type TriggerSkipReason = "not_in_this_repo" | "skill_not_run" | "by_owner";
 
 /** Why a Trigger does not run. `said` is rendered and never matched on. */
 export type TriggerSkip = { reason: TriggerSkipReason; name: string; said: string };
@@ -102,7 +103,9 @@ export type TriggerFiringState =
   /** The Command is running again, on the repair branch or on the Job's. Since 23.60. */
   | "rerunning"
   /** The repair branch passes. Held for the owner's `choose_trigger_fix`. Since 23.60. */
-  | "fix_ready";
+  | "fix_ready"
+  /** Failed with `block` on, and the Job waits on it: `rerun_trigger` or `skip_trigger` lets it go. Since 23.63. */
+  | "held";
 
 /** Where a held fix goes: onto the Job's branch, or into a pull request of its own. */
 export type TriggerFixChoice = "this_branch" | "new_pr";
@@ -146,6 +149,8 @@ export type JobTrigger = {
   log_at?: string;
   /** Absent until a repair Drone has been put on it, and where `repair` is off. Since 23.60. */
   repair?: TriggerRepair;
+  /** The Trigger blocks, so a failure holds the Job. Absent where it does not. Since 23.63. */
+  blocks?: boolean;
 };
 
 /** `job.trigger_changed`: one row of the Job's Triggers, whole. */

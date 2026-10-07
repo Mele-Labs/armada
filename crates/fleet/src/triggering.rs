@@ -107,6 +107,13 @@ impl Planned {
         &self.trigger
     }
 
+    /// This Trigger with `block` off, where nothing is left to hold: it fires
+    /// and fails as a Trigger that does not block does.
+    pub(crate) fn cannot_hold(mut self) -> Planned {
+        self.trigger.on_failure.block = false;
+        self
+    }
+
     /// The command line to run, or `None` where nothing is to run.
     pub fn to_run(&self) -> Option<&str> {
         match &self.comes {
@@ -182,6 +189,18 @@ where
         step: &StepId,
         worktree: &Worktree,
     ) {
+        // A hold at this step's start that was let go is not fired again when
+        // the Job goes on to it: that would undo a skip, and rerun a pass.
+        if when == TriggerWhen::StepStarts {
+            let passed = self
+                .store()
+                .lock()
+                .await
+                .take_released_hold(job.id(), when, step);
+            if passed.unwrap_or(false) {
+                return;
+            }
+        }
         Box::pin(self.fire_frozen_triggers(job, when, step, worktree)).await;
         Box::pin(self.fire_additions(job, when, step, worktree)).await;
     }
@@ -204,7 +223,9 @@ where
         let Ok(served) = self.served_by(job) else {
             return;
         };
+        let holds = core_model::can_hold(job.workflow(), when, step);
         for one in plan(&frozen, when, step, served.manifest()) {
+            let one = if holds { one } else { one.cannot_hold() };
             Box::pin(self.fired(job, &one, worktree)).await;
         }
     }
@@ -259,7 +280,7 @@ where
     }
 
     /// `job.trigger_changed`, the row whole. One per state a firing reaches.
-    fn trigger_moved(&self, job: &Job, firing: &TriggerFiring) {
+    pub(crate) fn trigger_moved(&self, job: &Job, firing: &TriggerFiring) {
         self.publish(ipc::Event::JobTriggerChanged(ipc::JobTriggerChanged {
             job_id: ipc::JobId::from(job.id()),
             trigger: firing.into(),
@@ -283,7 +304,13 @@ where
         self.trigger_line_at(job, self.now(), level, said)
     }
 
-    fn trigger_line_at(&self, job: &Job, at: Timestamp, level: Level, said: &str) -> Envelope {
+    pub(crate) fn trigger_line_at(
+        &self,
+        job: &Job,
+        at: Timestamp,
+        level: Level,
+        said: &str,
+    ) -> Envelope {
         Envelope::new(
             at,
             level,
@@ -303,7 +330,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match firing.state {
-            TriggerState::Failed | TriggerState::Repairing => Level::Warn,
+            TriggerState::Failed | TriggerState::Repairing | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
         let said = match (&firing.skipped, firing.state) {

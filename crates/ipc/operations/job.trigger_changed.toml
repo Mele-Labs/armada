@@ -8,6 +8,8 @@ Protocol 23.58. `JobTriggerChanged`: `job_id`, `trigger` (a `JobTrigger`, the ro
 
 **A failed Trigger with `repair` on moves through `repairing`, `rerunning` and `fix_ready` (23.60)**, one message each time the repair writes its row, so the count above is two plus a few per repair try. `trigger.repair` carries the try, the repair branch, the files the fix changes, the owner's choice and the pull request it opened.
 
+**A Trigger that blocks moves through `held` (23.63)** where its Command failed and no repair is on, or the repair did not fix it, and `skipped` (reason `by_owner`) or `passed` where the owner let it go. `trigger.blocks` says which Triggers hold the Job, so `repairing` on one that blocks is told from one that does not.
+
 **Whole, and keyed by `name`, `when` and `step`**, with `started_at` telling a step run again apart. Nothing a Command printed rides along: `trigger.log_at` names the Job's log line, and `get_job_log` has it.
 
 **Effect on the unbounded-sink risk `docs/practices/protocol.md` names: slightly worse, and bounded.** At most two messages per firing, one to open and one to end, and a firing is a Trigger at a moment, a handful per step even for a person with many. The stream is the one bounded drop-oldest channel every Job shares, and this adds nothing to what a Drone produces. A Bridge that missed some re-reads `get_job`, which is where the rows are whole. `[broadcast-capacity]` is where the measured rate goes.

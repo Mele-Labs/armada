@@ -2,7 +2,7 @@
 // locating a repository, its always-allows and Kit. Out of `index.ts` for the gate's length.
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
-import type { ChooseTriggerFix, EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type { ChooseTriggerFix, EditManifest, HoldAct, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
 import type { AddingStep, RemovingStep } from "../shared/added-steps";
 import type { SavingWorkflow } from "../shared/workflows";
@@ -114,10 +114,16 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.removeTrigger, (event, removing: RemovingTrigger) =>
     connection()?.triggersFor(windowIdOf(event)).remove(removing),
   );
-  // Steps added to one Job: keyed by the Job, so neither goes through the pick.
-  ipc.handle(CHANNELS.addJobStep, (_event, adding: AddingStep) => connection()?.addedSteps.add(adding));
-  ipc.handle(CHANNELS.removeJobStep, (_event, removing: RemovingStep) => connection()?.addedSteps.remove(removing));
   ipc.handle(CHANNELS.chooseTriggerFix, (event, jobId: string, body: ChooseTriggerFix) =>
     connection()?.triggersFor(windowIdOf(event)).chooseFix(jobId, body),
   );
+  ipc.handle(CHANNELS.rerunTrigger, (event, jobId: string, body: HoldAct) =>
+    connection()?.triggersFor(windowIdOf(event)).rerun(jobId, body),
+  );
+  ipc.handle(CHANNELS.skipTrigger, (event, jobId: string, body: HoldAct) =>
+    connection()?.triggersFor(windowIdOf(event)).skip(jobId, body),
+  );
+  // Steps added to one Job: keyed by the Job, so neither goes through the pick.
+  ipc.handle(CHANNELS.addJobStep, (_event, adding: AddingStep) => connection()?.addedSteps.add(adding));
+  ipc.handle(CHANNELS.removeJobStep, (_event, removing: RemovingStep) => connection()?.addedSteps.remove(removing));
 }

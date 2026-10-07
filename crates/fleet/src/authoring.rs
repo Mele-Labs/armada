@@ -158,6 +158,22 @@ where
         self.fix_chosen(job_id, choose).await
     }
 
+    async fn rerun_trigger(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.hold_rerun(job_id, act).await
+    }
+
+    async fn skip_trigger(
+        &self,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.hold_skip(job_id, act).await
+    }
+
     async fn save_trigger(
         &self,
         asked: ipc::SaveTrigger,

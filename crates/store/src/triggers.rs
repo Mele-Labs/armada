@@ -62,6 +62,9 @@ impl Store {
                 TriggerResolution::Skipped(TriggerSkipped::SkillNotRun { skill }) => {
                     ("skill", skill, false)
                 }
+                // Never a resolution: only the owner's skip of a held firing
+                // writes it, and that is a firing's.
+                TriggerResolution::Skipped(TriggerSkipped::ByOwner) => ("skill", &String::new(), false),
             };
             tx.execute(
                 "INSERT INTO job_frozen_triggers (job_id, ordinal, name, moment, step_id, source,
@@ -163,6 +166,7 @@ impl Store {
             Some(TriggerSkipped::SkillNotRun { skill }) => {
                 (Some("skill_not_run"), Some(skill.as_str()))
             }
+            Some(TriggerSkipped::ByOwner) => (Some("by_owner"), None),
             None => (None, None),
         };
         self.conn
@@ -264,6 +268,90 @@ impl Store {
             .collect())
     }
 
+    /// Let go of, or take up again, a firing that held its Job: its state, the
+    /// way it ended, and whether the next entry to its moment must pass it by.
+    /// **`released` is set for `step_starts` only**: that is the one moment a
+    /// Job enters again after the hold, and re-firing it would undo the skip.
+    pub fn settle_hold(
+        &mut self,
+        id: i64,
+        after: &TriggerFiring,
+        released: bool,
+    ) -> Result<(), WriteError> {
+        let why = match &after.skipped {
+            Some(TriggerSkipped::ByOwner) => Some("by_owner"),
+            _ => None,
+        };
+        self.conn
+            .execute(
+                "UPDATE job_triggers SET state = ?2, exit_code = ?3, ended_at = ?4,
+                     skipped_why = COALESCE(?5, skipped_why), released = ?6
+                 WHERE firing_id = ?1",
+                rusqlite::params![
+                    id,
+                    after.state.as_wire(),
+                    after.exit_code,
+                    after.ended_at.as_ref().map(Timestamp::as_str),
+                    why,
+                    released,
+                ],
+            )
+            .map_err(fault("recording how a held trigger was settled"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Whether a hold at `(when, step)` was let go since the Job last entered
+    /// it, and **forget that**: the entry that asks is the one that passes it.
+    /// Triggers and added steps both.
+    pub fn take_released_hold(
+        &mut self,
+        job_id: &JobId,
+        when: TriggerWhen,
+        step: &StepId,
+    ) -> Result<bool, WriteError> {
+        let writing = fault("passing a released hold");
+        let args = (job_id.as_str(), when.as_wire(), step.as_str());
+        let triggers = self
+            .conn
+            .execute(
+                "UPDATE job_triggers SET released = 0
+                 WHERE job_id = ?1 AND moment = ?2 AND step_id = ?3 AND released = 1",
+                args,
+            )
+            .map_err(writing)
+            .map_err(WriteError::Database)?;
+        let additions = self
+            .conn
+            .execute(
+                "UPDATE job_additions SET released = 0
+                 WHERE job_id = ?1 AND moment = ?2 AND step_id = ?3 AND released = 1",
+                args,
+            )
+            .map_err(fault("passing a released hold"))
+            .map_err(WriteError::Database)?;
+        Ok(triggers + additions > 0)
+    }
+
+    /// The firings that hold this Job: the latest of each Trigger at its
+    /// moment, blocking, with its failure not settled.
+    pub fn holding_firings(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where(
+                "job_id = ?1 AND block_on_fail = 1
+                 AND state IN ('held', 'repairing', 'rerunning', 'fix_ready')
+                 AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                                   GROUP BY job_id, name, moment, step_id)",
+                &[&job_id.as_str()],
+            )?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
     /// Firings whose repair has not finished: `repairing`, or `rerunning` on
     /// either branch. What a restarted Fleet takes up again.
     pub fn unfinished_repairs(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
@@ -275,20 +363,58 @@ impl Store {
         self.firings_where("state = 'fix_ready' AND fix_choice IS NOT NULL", &[])
     }
 
-    /// What is waiting on a person: a fix with no choice, and a Trigger that
-    /// failed after a repair was tried. **Only the latest firing of a Trigger
+    /// What is waiting on a person: a fix with no choice, a Trigger that
+    /// failed after a repair was tried, and one that holds its Job. **Only the latest firing of a Trigger
     /// counts**, so a later pass clears it, and a Job whose disk was given back
     /// has none.
     pub fn repairs_waiting_on_a_person(
         &self,
     ) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
         self.firings_where(
-            "firing_id IN (SELECT MAX(firing_id) FROM job_triggers GROUP BY job_id, name)
+            "firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                            GROUP BY job_id, name, moment, step_id)
              AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
              AND ((state = 'failed' AND repair_tries > 0)
-                  OR (state = 'fix_ready' AND fix_choice IS NULL))",
+                  OR (state = 'fix_ready' AND fix_choice IS NULL)
+                  OR state = 'held')",
             &[],
         )
+    }
+
+    /// What on this Job waits on a person, by the rule
+    /// [`repairs_waiting_on_a_person`](Store::repairs_waiting_on_a_person) has
+    /// for the whole board: a hold, a fix with no choice, a failure after a
+    /// repair was tried.
+    pub fn alerting_firings(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where(
+                "job_id = ?1
+                 AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                                   GROUP BY job_id, name, moment, step_id)
+                 AND ((state = 'failed' AND repair_tries > 0)
+                      OR (state = 'fix_ready' AND fix_choice IS NULL)
+                      OR state = 'held')",
+                &[&job_id.as_str()],
+            )?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// Set the `released` mark on a firing a repair let go, for the next
+    /// entry to a `step_starts` moment to pass it by.
+    pub fn mark_hold_released(&mut self, id: i64) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_triggers SET released = 1 WHERE firing_id = ?1 AND moment = 'step_starts'",
+                (id,),
+            )
+            .map_err(fault("recording that a repair let a hold go"))
+            .map_err(WriteError::Database)?;
+        Ok(())
     }
 
     fn firings_where(
@@ -367,6 +493,7 @@ impl Store {
                     Some(TriggerSkipped::NotInThisRepo { command })
                 }
                 (Some("skill_not_run"), Some(skill)) => Some(TriggerSkipped::SkillNotRun { skill }),
+                (Some("by_owner"), _) => Some(TriggerSkipped::ByOwner),
                 (Some(other), _) => return Err(unknown(table, "skipped_why", other.to_string())),
             };
             let choice = match choice {

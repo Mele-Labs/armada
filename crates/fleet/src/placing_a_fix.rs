@@ -418,7 +418,7 @@ where
 
     /// Whether a Drone is working on this Job now, which is whether a merge
     /// onto its branch would land under it.
-    async fn job_is_working(&self, job: &JobId) -> bool {
+    pub(crate) async fn job_is_working(&self, job: &JobId) -> bool {
         match self.slot_of(job).await {
             Some(slot) => slot.lock().await.as_ref().is_some_and(|at| at.is(job)),
             None => false,

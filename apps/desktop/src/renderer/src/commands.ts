@@ -34,7 +34,7 @@ import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
 import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
-import type { EditManifest, SaveManifestFile, TriggerFixChoice } from "@armada/protocol";
+import type { EditManifest, HoldAct, SaveManifestFile, TriggerFixChoice } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
   AddTask,
@@ -416,6 +416,20 @@ export function useCommands(sending: Sending) {
    */
   async function chooseTriggerFix(jobId: string, trigger: string, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
     const answer = await window.armada.chooseTriggerFix(jobId, { trigger, choice });
+    if (!answer.ok) setOutcome(answer);
+    return { ok: answer.ok };
+  }
+
+  /** Run a held Trigger's Command again. A refusal goes to the command-failure pipeline. */
+  async function rerunTrigger(jobId: string, body: HoldAct): Promise<{ ok: boolean }> {
+    const answer = await window.armada.rerunTrigger(jobId, body);
+    if (!answer.ok) setOutcome(answer);
+    return { ok: answer.ok };
+  }
+
+  /** Let a held Trigger go. Same pipeline as `rerunTrigger`. */
+  async function skipTrigger(jobId: string, body: HoldAct): Promise<{ ok: boolean }> {
+    const answer = await window.armada.skipTrigger(jobId, body);
     if (!answer.ok) setOutcome(answer);
     return { ok: answer.ok };
   }
@@ -1083,6 +1097,8 @@ export function useCommands(sending: Sending) {
     takeUpRemarks,
     fixMain,
     chooseTriggerFix,
+    rerunTrigger,
+    skipTrigger,
     dismissFinding,
     rerunFailedChecks,
     investigateFailedChecks,

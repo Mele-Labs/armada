@@ -467,6 +467,9 @@ where
         step: &ResolvedStep,
         ruling: Ruling,
     ) -> Result<Ruling, Adrift> {
+        let ruling = self
+            .guarded_against_a_held_delivery(job_id, step, ruling)
+            .await?;
         if !step.delivers() {
             return Ok(ruling);
         }

@@ -159,6 +159,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::choose_trigger_fix::<D>),
         )
         .route(
+            "/jobs/:job_id/rerun_trigger",
+            post(crate::repositories::rerun_trigger::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_trigger",
+            post(crate::repositories::skip_trigger::<D>),
+        )
+        .route(
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )

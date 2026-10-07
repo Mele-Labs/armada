@@ -129,6 +129,7 @@ flowchart LR
   AR -->|interrupted| ESC
   ESC -->|redirect| R
   ESC -->|"restart / override"| Q
+  ESC -->|"a Trigger's hold let go"| Q
 
   R -->|escape_hatch| P["piloted"]
   AR -->|escape_hatch| P
@@ -210,6 +211,8 @@ decision is waiting to be overruled — neither is true when nothing is in
 dispute. It says what is owed rather than what went wrong, and it joins the
 three `awaiting_*` statuses because it carries their axis: waited on, by a
 person.
+
+**A Trigger's hold is not this.** `awaiting_repair` is a spent Check budget, and a Trigger is not a Check. A Trigger that blocks and failed is `escalated` on `trigger_held`, or the gate is held where it fired at `pr_opened`, and neither touches this status or the retry budget.
 
 **The Drone is stood down and the worktree is kept**, which is the bargain
 `awaiting_review` makes: a person's answer costs no fleet time. The Drone was
@@ -383,6 +386,8 @@ rather than on a step — the paragraph below. `unheard` has a Drone that cannot
 be told anything, and the restart stops the step it is on rather than looking
 for one already stopped. Neither reads the trigger to decide: what Fleet reads
 is what is standing in the slot.
+
+**`trigger_held` is a third, and it holds before a Drone.** A [Trigger](trigger.md) or added step that blocks failed at `step_starts` or `step_passes`, so no Drone is put on and the Job is `escalated` with that reason. It is Job-level: no step stopped and nothing was weighed. The way out is the owner's Rerun or Skip, or a repair that ends passed, and the Job takes `escalated -> queued` and admission starts the step it stopped before. A hold at `pr_opened` escalates nothing: the pull request is out, the Job works on to its gate, and the gate is held for a person, so an approval or a merge is refused with `fleet.trigger_holds` until it is let go.
 
 **Redirect is the exception, and `stalled` is why.** A redirect operates on the
 Job rather than on a step, so it does not need a stopped step to act on. `stalled` is the one trigger that

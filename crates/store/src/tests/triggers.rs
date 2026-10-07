@@ -100,7 +100,7 @@ fn a_firing_opens_running_and_is_settled_in_place() {
 
     let read = store.trigger_firings(&id).expect("read");
     assert_eq!(read[0], ended);
-    assert_eq!(read[0].state, TriggerState::Failed);
+    assert_eq!(read[0].state, TriggerState::Held, "it blocks, and it failed");
     assert_eq!(read[1].state, TriggerState::Skipped);
     assert_eq!(
         read[1].skipped,
@@ -211,4 +211,80 @@ fn a_repair_is_kept_on_the_firing_and_what_waits_on_a_person_is_listed() {
         .repairs_waiting_on_a_person()
         .expect("read")
         .is_empty());
+}
+
+#[test]
+fn a_hold_is_listed_until_it_is_settled_and_a_released_one_is_passed_by_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01HOLDING"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01HOLDING");
+    let at = |s: &str| Timestamp::from_rfc3339(format!("2026-10-07T09:00:{s}.000Z"));
+    let mut one = frozen(
+        "begin",
+        TriggerResolution::Command {
+            name: "deploy_qa".to_string(),
+            asks_first: false,
+        },
+    );
+    one.when = TriggerWhen::StepStarts;
+    let held = TriggerFiring::running(&one, at("01")).ended(Some(1), at("02"));
+    assert_eq!(held.state, TriggerState::Held);
+    store.open_firing(&id, &held).expect("opened");
+
+    let holding = store.holding_firings(&id).expect("read");
+    assert_eq!(holding.len(), 1);
+    assert_eq!(holding[0].1.state, TriggerState::Held);
+    assert_eq!(store.alerting_firings(&id).expect("read").len(), 1);
+
+    // A later firing of the same Trigger at the same place supersedes it.
+    let passed = TriggerFiring::running(&one, at("03")).ended(Some(0), at("04"));
+    store.open_firing(&id, &passed).expect("opened");
+    assert!(store.holding_firings(&id).expect("read").is_empty());
+}
+
+#[test]
+fn skipping_a_hold_keeps_who_and_the_next_entry_passes_it_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01SKIPPED"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01SKIPPED");
+    let at = |s: &str| Timestamp::from_rfc3339(format!("2026-10-07T09:00:{s}.000Z"));
+    let mut one = frozen(
+        "begin",
+        TriggerResolution::Command {
+            name: "deploy_qa".to_string(),
+            asks_first: false,
+        },
+    );
+    one.when = TriggerWhen::StepStarts;
+    let held = TriggerFiring::running(&one, at("01")).ended(Some(1), at("02"));
+    let firing = store.open_firing(&id, &held).expect("opened");
+
+    let skipped = held.skipped_by_the_owner(at("05"));
+    store.settle_hold(firing, &skipped, true).expect("settled");
+    drop(store);
+
+    let mut store = open(&dir);
+    let read = store.trigger_firings(&id).expect("read");
+    assert_eq!(read[0].state, TriggerState::Skipped);
+    assert_eq!(read[0].skipped, Some(TriggerSkipped::ByOwner));
+    assert!(store.holding_firings(&id).expect("read").is_empty());
+    let step = StepId::new("handoff");
+    assert!(store
+        .take_released_hold(&id, TriggerWhen::StepStarts, &step)
+        .expect("taken"));
+    assert!(
+        !store
+            .take_released_hold(&id, TriggerWhen::StepStarts, &step)
+            .expect("taken"),
+        "the entry that asked is the one that passed it"
+    );
+    assert!(!store
+        .take_released_hold(&id, TriggerWhen::StepPasses, &step)
+        .expect("taken"));
 }

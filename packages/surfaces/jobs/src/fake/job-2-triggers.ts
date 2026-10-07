@@ -39,6 +39,7 @@ const SAID: Record<JobTrigger["state"], string> = {
   repairing: "repairing",
   rerunning: "rerunning",
   fix_ready: "fix_ready",
+  held: "held",
 };
 
 /** The log's line for each firing that has one, after the notes already in the log. */

@@ -307,6 +307,7 @@ where
                 },
                 self.now(),
             ),
+            Comes::Skip(TriggerSkipped::ByOwner) => Fired::skipped(NotRun::ByOwner, self.now()),
         };
         self.addition_recorded(job, added, &opened).await;
         let Comes::Run { command } = comes else {
@@ -319,7 +320,9 @@ where
             verification::Exit::Code(code) => Some(*code),
             _ => None,
         };
-        let ended = opened.ended(code, self.now());
+        let holds =
+            added.on_failure.block && core_model::can_hold(job.workflow(), added.when, &added.step);
+        let ended = opened.ended(code, holds, self.now());
         self.addition_recorded(job, added, &ended).await;
         self.logged(
             job.id(),
@@ -328,7 +331,7 @@ where
     }
 
     /// Keep one firing's state and tell whoever is watching.
-    async fn addition_recorded(&self, job: &Job, added: &AddedStep, fired: &Fired) {
+    pub(crate) async fn addition_recorded(&self, job: &Job, added: &AddedStep, fired: &Fired) {
         let kept = self
             .store()
             .lock()
@@ -346,6 +349,29 @@ where
         self.addition_moved(job, &moved, false);
     }
 
+    /// An added step that held its Job was let go or run again: keep how it
+    /// stands, say so in the log and tell whoever is watching.
+    pub(crate) async fn addition_settled(
+        &self,
+        job: &Job,
+        added: &AddedStep,
+        fired: &Fired,
+        released: bool,
+    ) -> Result<(), Adrift> {
+        self.store()
+            .lock()
+            .await
+            .settle_addition_hold(job.id(), &added.id, fired, released)
+            .map_err(Adrift::Writing)?;
+        self.logged(job.id(), self.firing_of_addition(job, added, fired, None));
+        let moved = AddedStep {
+            fired: Some(fired.clone()),
+            ..added.clone()
+        };
+        self.addition_moved(job, &moved, false);
+        Ok(())
+    }
+
     /// One log line for each step placed at the approval press.
     pub(crate) fn additions_noted(&self, job: &Job, placed: &[AddedStep]) {
         for added in placed {
@@ -360,7 +386,7 @@ where
     }
 
     /// `job.addition_changed`, the row whole.
-    fn addition_moved(&self, job: &Job, added: &AddedStep, removed: bool) {
+    pub(crate) fn addition_moved(&self, job: &Job, added: &AddedStep, removed: bool) {
         self.publish(ipc::Event::JobAdditionChanged(ipc::JobAdditionChanged {
             job_id: ipc::JobId::from(job.id()),
             addition: added.into(),
@@ -452,7 +478,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match fired.state {
-            TriggerState::Failed => Level::Warn,
+            TriggerState::Failed | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
         let name = added.kind.text();

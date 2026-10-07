@@ -312,6 +312,13 @@ pub struct JobSummary {
     /// 23.50.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub piloted: Option<crate::Piloted>,
+    /// Why this Job's row carries the bell, and which Trigger it is about:
+    /// a Trigger holds the Job, a repair's fix waits on the owner's choice, or
+    /// a Trigger failed after its repair tries. Filled by Fleet off the store,
+    /// like [`tasks`](JobSummary::tasks). **Absent is a Job with none of them**,
+    /// and a Board draws no mark. Since 23.63.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alert: Option<crate::JobAlert>,
 }
 
 /// A Job's pause marker, as a row carries it.
@@ -404,6 +411,7 @@ impl JobSummary {
             // Filled by the caller that holds a store, for `tasks`' reason.
             fixes_main: None,
             piloted: None,
+            alert: None,
         }
     }
 }

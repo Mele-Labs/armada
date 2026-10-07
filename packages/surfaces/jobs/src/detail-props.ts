@@ -20,7 +20,7 @@
 
 import type { AddedBinding } from "./added-steps";
 import type { DetailTab } from "./detail-tabs";
-import type { ChooseTriggerFixCall } from "./repair-branch";
+import type { ChooseTriggerFixCall, HoldActCall } from "./repair-branch";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
 import type { WorkflowView } from "./workflow-view";
@@ -265,6 +265,8 @@ export type JobDetailProps = {
    * branch with no choice on it.
    */
   onChooseTriggerFix?: ChooseTriggerFixCall;
+  /** Rerun or skip a Trigger that holds the Job. The canvas, the stacked run and the Triggers list ask it. */
+  onHoldAct?: HoldActCall;
   /**
    * Which Job's diff the host should hold open, or `null` for none.
    *

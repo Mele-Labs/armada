@@ -11,6 +11,7 @@ import type { AddedStepsApi } from "../../../../shared/api/added-steps";
 import type { TriggersApi, TriggersState } from "../../../../shared/api/triggers";
 import { TRIGGERS_NOTHING_YET } from "../../../../shared/api/triggers";
 import type { Fleet, Slice } from "../fake-context";
+import { holdServed } from "../hold-fleet";
 import { repairServed } from "../repair-fleet";
 import { alsoOnTimePassing } from "../time-passes";
 import { triggersServed } from "../triggers-fleet";
@@ -23,7 +24,7 @@ function openOn(fleet: Fleet, jobId: string) {
   return watched.state === "read" && watched.jobId === jobId ? watched.detail : undefined;
 }
 
-function served(fleet: Fleet): Omit<TriggersApi, "chooseTriggerFix"> & AddedStepsApi {
+function served(fleet: Fleet): Omit<TriggersApi, "chooseTriggerFix" | "rerunTrigger" | "skipTrigger"> & AddedStepsApi {
   const triggers = triggersServed();
   alsoOnTimePassing(() => {
     const watched = fleet.state().watched;
@@ -60,5 +61,5 @@ function served(fleet: Fleet): Omit<TriggersApi, "chooseTriggerFix"> & AddedStep
 export const triggers: Slice<TriggersApi & AddedStepsApi, TriggersState> = {
   name: "triggers",
   state: TRIGGERS_NOTHING_YET,
-  api: (_scenario, fleet) => ({ ...served(fleet), ...repairServed(fleet) }),
+  api: (_scenario, fleet) => ({ ...served(fleet), ...repairServed(fleet), ...holdServed(fleet) }),
 };

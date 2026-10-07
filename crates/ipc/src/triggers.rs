@@ -63,6 +63,8 @@ pub enum TriggerSkipReason {
     NotInThisRepo,
     /// It names a skill, which is not run yet.
     SkillNotRun,
+    /// It failed and held the Job, and the owner skipped it. Since 23.63.
+    ByOwner,
 }
 
 /// A Trigger that will not run, and why.
@@ -88,10 +90,11 @@ pub struct TriggerSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step: Option<StepId>,
     pub runs: TriggerRuns,
-    /// The Job waits on a failure. **Carried and not acted on yet.**
+    /// The Job waits on a failure: it is held until the owner reruns the
+    /// Command or skips it, or a repair fixes it.
     #[serde(default)]
     pub block: bool,
-    /// A repair Drone is sent on a failure. **Carried and not acted on yet.**
+    /// A repair Drone is sent on a failure.
     #[serde(default)]
     pub repair: bool,
     /// The place this copy was read from.
@@ -242,6 +245,9 @@ pub enum TriggerFiringState {
     /// The repair branch passes. **Held for the owner's choice**, which
     /// `choose_trigger_fix` makes. Since 23.60.
     FixReady,
+    /// Failed with `block` on, and **the Job waits on it**: `rerun_trigger` or
+    /// `skip_trigger` lets it go. Since 23.63.
+    Held,
 }
 
 /// Where the owner has a repair's held fix go.
@@ -339,6 +345,11 @@ pub struct JobTrigger {
     /// off. Since 23.60.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repair: Option<TriggerRepair>,
+    /// The Trigger blocks, so a failure holds the Job. Left out where it does
+    /// not. It is what tells `repairing` on a Trigger that holds the Job from
+    /// one that does not. Since 23.63.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub blocks: bool,
 }
 
 /// `job.trigger_changed`: one of a Job's Triggers moved, carried whole so a
@@ -437,6 +448,7 @@ impl From<core_model::TriggerState> for TriggerFiringState {
             core_model::TriggerState::Repairing => TriggerFiringState::Repairing,
             core_model::TriggerState::Rerunning => TriggerFiringState::Rerunning,
             core_model::TriggerState::FixReady => TriggerFiringState::FixReady,
+            core_model::TriggerState::Held => TriggerFiringState::Held,
         }
     }
 }
@@ -450,6 +462,7 @@ impl From<&core_model::TriggerSkipped> for TriggerSkip {
             core_model::TriggerSkipped::SkillNotRun { skill } => {
                 (TriggerSkipReason::SkillNotRun, skill)
             }
+            core_model::TriggerSkipped::ByOwner => (TriggerSkipReason::ByOwner, &String::new()),
         };
         TriggerSkip {
             reason,
@@ -479,6 +492,7 @@ impl From<&core_model::TriggerFiring> for JobTrigger {
                 _ => Some(Instant::from(ended.unwrap_or(&firing.started_at))),
             },
             repair: (firing.repair.tries > 0).then(|| TriggerRepair::from(&firing.repair)),
+            blocks: firing.on_failure.block,
         }
     }
 }
@@ -498,6 +512,7 @@ impl From<&core_model::FrozenTrigger> for JobTrigger {
             ended_at: None,
             log_at: None,
             repair: None,
+            blocks: frozen.on_failure.block,
         }
     }
 }
