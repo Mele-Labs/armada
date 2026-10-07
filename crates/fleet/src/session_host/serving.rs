@@ -395,11 +395,7 @@ where
     /// repository's root before.
     pub(crate) fn directory_of(served: &Served, hosting: &KeptHosting) -> String {
         match hosting.lease_slot {
-            Some(slot) => format!(
-                "{}/{}/slot-{slot}",
-                served.root().trim_end_matches('/'),
-                adapter_traits::SLOT_ROOT
-            ),
+            Some(slot) => adapter_traits::slot_path(served.root(), slot),
             None => served.root().to_string(),
         }
     }
