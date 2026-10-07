@@ -245,6 +245,10 @@ fn detail(input: &ToolInput) -> CallDetail {
     if let (Some(to), Some(note)) = (&input.to, &input.note) {
         return CallDetail::of(&format!("to {to}: {note}"));
     }
+    // `SendMessage`: who it went to, then what it said.
+    if let (Some(to), Some(message)) = (&input.to, &input.message) {
+        return CallDetail::of(&format!("to {to}: {message}"));
+    }
     // `draft_fix`: which test the Drone said is broken on main. Both keys, so a
     // stray `test` on another tool leaves that tool's row alone. #999.
     if let (Some(check), Some(test)) = (&input.check, &input.test) {
@@ -549,6 +553,9 @@ struct ToolInput {
     /// `leave_note`: what it said. Carried because nothing else keeps a note
     /// once it has been delivered, so this row is the sender's record of it.
     note: Option<String>,
+    /// `SendMessage`: what one session said to another. Carried because
+    /// the receiving session's thread draws it, and nothing else shows it.
+    message: Option<String>,
     /// `draft_fix`: the Check a test failed under. #999.
     check: Option<String>,
     /// `draft_fix`: the test the Drone said is broken on main. With `check`,
@@ -605,4 +612,15 @@ struct RateLimitInfo {
     status: String,
     #[serde(rename = "rateLimitType", default)]
     rate_limit_type: String,
+}
+
+/// Who a `SendMessage` call went to and what it said, out of the detail
+/// [`detail`] composed for it. **Read here, beside the line that writes it**,
+/// so the two ends of that spelling cannot drift.
+pub fn sent_message<'a>(tool: &str, detail: &'a str) -> Option<(&'a str, &'a str)> {
+    if tool != "SendMessage" {
+        return None;
+    }
+    let (to, message) = detail.strip_prefix("to ")?.split_once(": ")?;
+    Some((to, message))
 }

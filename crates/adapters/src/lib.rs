@@ -47,6 +47,8 @@ mod commit;
 mod conversing;
 mod delivery;
 mod error;
+/// A session Bridge hosts: a live process, resumed by id. Since 23.47.
+mod hosted_session;
 /// The setup a person already has, read to be shown. `#1491`.
 mod existing_setup;
 mod filing;
@@ -95,6 +97,8 @@ pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
     CHANGES_THE_CHECKOUT,
 };
+pub use transcript::sent_message;
+pub use hosted_session::{reads_only, HostedLaunch, HostedRefused};
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
 pub use harness::{

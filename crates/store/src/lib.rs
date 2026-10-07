@@ -147,6 +147,8 @@ mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
+/// What a session Fleet hosts keeps beside its ledger row, and its thread.
+mod hosted_sessions;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
@@ -213,6 +215,7 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use hosted_sessions::KeptHosting;
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,
