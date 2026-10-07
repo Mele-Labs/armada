@@ -1,0 +1,11 @@
+{
+  "name": "armada-local",
+  "owner": { "name": "Armada" },
+  "plugins": [
+    {
+      "name": "armada",
+      "source": "./armada",
+      "description": "Tells a running Fleet which sessions you have open, and what each one holds."
+    }
+  ]
+}
