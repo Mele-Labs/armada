@@ -270,6 +270,51 @@ describe("the hub Fleet serves beside the line", () => {
     ]);
   });
 
+  test("each merged pull request carries the CI run on its merge commit, and a state this build does not know draws none", () => {
+    const commit = "c".repeat(40);
+    const merged = (number: number, main_run?: { state: string; failed?: string[] }) => ({
+      number,
+      title: "t",
+      branch: `b/${number}`,
+      url: `${PULL}${number}`,
+      merged_at: "2026-10-06T21:00:00Z",
+      commit,
+      ...(main_run === undefined ? {} : { main_run }),
+    });
+    const lines = hubbed({
+      merged: [merged(3, { state: "running" }), merged(2, { state: "failed", failed: ["ci", "lint"] }), merged(1, { state: "passed" }), merged(4, { state: "later" }), merged(5)],
+    });
+    const [view] = views(lines, null);
+    expect(view?.landed.map((row) => row.mainRun)).toEqual([
+      { state: "running", branch: `main@${commit}` },
+      { state: "failed", failed: ["ci", "lint"], branch: `main@${commit}` },
+      { state: "passed", branch: `main@${commit}` },
+      undefined,
+      undefined,
+    ]);
+  });
+
+  test("a red with newer commits running is held: it names them by their pull request, or by commit where none was named", () => {
+    const commit = "d".repeat(40);
+    const hub = hubOf({
+      main: {
+        state: "red",
+        commit,
+        read_at: "x",
+        red_commit: "a".repeat(40),
+        failed: [{ name: "ci", check: "test" }],
+        checking: [{ commit, pull_request: { number: 1852, url: `${PULL}1852` } }, { commit: "e".repeat(40) }],
+      },
+    });
+    expect(hub?.main).toEqual({
+      state: "red",
+      red: { check: "test" },
+      checking: [{ commit, number: 1852, url: `${PULL}1852` }, { commit: "e".repeat(40) }],
+    });
+    const plain = hubOf({ main: { state: "red", commit, read_at: "x", failed: [{ name: "ci", check: "test" }], checking: [] } });
+    expect(plain?.main).toEqual({ state: "red", red: { check: "test" } });
+  });
+
   test("the Jobs main's red can go back to are the Board's rows at their review or over, newest first", () => {
     const row = (id: string, status: string, branch?: string, ended_at?: string) =>
       ({ id, title: id, status, ...(branch === undefined ? {} : { branch }), ...(ended_at === undefined ? {} : { ended_at }) }) as JobSummary;

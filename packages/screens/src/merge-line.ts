@@ -6,7 +6,7 @@
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
 import type { HubPull, MainRed, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
-import type { HubMerged, JobSummary, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
+import type { HubMerged, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
 import { settledBadgeOf } from "./facts";
@@ -91,7 +91,14 @@ function mergedEntryOf(pull: HubMerged): MergeLineEntry {
     pr: { number: pull.number, url: pull.url },
     state: "landed",
     ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
+    ...(pull.commit === undefined || pull.main_run === undefined ? {} : mainRunOf(pull.main_run, pull.commit)),
   };
+}
+
+/** The CI run on the merge commit. A `state` this build does not know draws no mark. */
+function mainRunOf(run: MainRun, commit: string): Pick<MergeLineEntry, "mainRun"> {
+  if (run.state !== "passed" && run.state !== "running" && run.state !== "failed") return {};
+  return { mainRun: { state: run.state, ...(run.failed === undefined || run.failed.length === 0 ? {} : { failed: run.failed }), branch: `main@${commit}` } };
 }
 
 /** The statuses work can be sent back to: at its review, or over. */
@@ -107,7 +114,8 @@ function recentOf(jobs: readonly JobSummary[]): readonly RecentJob[] {
 
 /**
  * The hub as the panel draws it. **Main is drawn green or red and nothing else**: a commit still
- * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for.
+ * running, or one nothing ran on, has no mark rather than a state the panel has no glyph for. A red
+ * with newer commits running is held, and the panel draws it as such.
  */
 function hubOf(hub: WireHub, recent: readonly RecentJob[]): MergeLineHub {
   const main = mainOf(hub);
@@ -129,7 +137,11 @@ function mainOf({ main, fixing }: WireHub): MainState | undefined {
   if (main.state === "green") return { state: "green" };
   const red = main.state === "red" ? redOf(main) : undefined;
   if (red === undefined) return undefined;
-  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }) };
+  const checking = (main.checking ?? []).map((one) => ({
+    commit: one.commit,
+    ...(one.pull_request === undefined ? {} : { number: one.pull_request.number, ...(one.pull_request.url === undefined ? {} : { url: one.pull_request.url }) }),
+  }));
+  return { state: "red", red, ...(fixing === undefined ? {} : { taken: fixing }), ...(checking.length === 0 ? {} : { checking }) };
 }
 
 /** What failed: a Manifest Check where the CI job maps to one, otherwise the job's own name. */

@@ -39,6 +39,20 @@
   color: var(--status-completed-failed);
 }
 
+/* Held: a newer commit's CI is running, so the frame is the caution hue, not the failure's. */
+.armada-main-red[data-held] .armada-main-red__frame {
+  border-color: var(--notice-caution);
+}
+
+.armada-main-red[data-held] .armada-main-red__head {
+  background: var(--notice-caution-bg);
+  border-bottom-color: var(--notice-caution);
+}
+
+.armada-main-red[data-held] .armada-main-red__title {
+  color: var(--fg-default);
+}
+
 /* A label and its value to a row, the label set back. */
 .armada-main-red__rows {
   display: grid;

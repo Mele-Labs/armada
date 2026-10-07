@@ -438,3 +438,66 @@ export const MainNotKnown: Story = {
     await expect(within(row).queryByRole("img")).toBeNull();
   },
 };
+
+/**
+ * Each landed row shows the CI run on its merge commit, on main: running pulses, passed and failed
+ * are the marks an open pull request's `ci` takes, and nothing ran draws none. A failed run opens its
+ * first failed job's log under the commit's own address.
+ */
+export const LandedWithMainRuns: Story = {
+  name: "Recently landed, each merge's run on main",
+  args: {
+    line: [],
+    onOpenCheck: fn(),
+    landed: [
+      { branch: "fleet/flaky-asked-run-test", pr: { number: 1852, url: `${PULL}1852` }, state: "landed", merge: "563840023a", mainRun: { state: "running", branch: "main@563840023a" } },
+      { branch: "fleet/override-a-failed-check", pr: { number: 1847, url: `${PULL}1847` }, state: "landed", merge: "a9cf32442b", mainRun: { state: "passed", branch: "main@a9cf32442b" } },
+      { branch: "ci/preview-test-and-stranded", pr: { number: 1844, url: `${PULL}1844` }, state: "landed", merge: "e15b9c2c5d", mainRun: { state: "failed", failed: ["desktop_test"], branch: "main@e15b9c2c5d" } },
+      { branch: "docs/no-run", pr: { number: 1840, url: `${PULL}1840` }, state: "landed", merge: "0123456789" },
+    ],
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const landed = canvas.getByRole("list", { name: "Recently landed" });
+    await expect(within(landed).getByRole("img", { name: "ci running on main" })).toBeVisible();
+    await expect(within(landed).getByRole("img", { name: "ci passed on main" })).toBeVisible();
+    const none = within(landed).getByRole("listitem", { name: "docs/no-run, landed" });
+    await expect(within(none).queryByRole("img", { name: /on main$/ })).toBeNull();
+    await userEvent.click(within(landed).getByRole("button", { name: "ci failed on main, open its log" }));
+    await expect(args.onOpenCheck).toHaveBeenCalledWith("main@e15b9c2c5d", "desktop_test");
+  },
+};
+
+/** Main is red and a newer commit's run is going: the caution band with its line, the red's rows under it, no buttons. */
+export const MainHeld: Story = {
+  name: "Main red, held while checks run",
+  args: {
+    line: [],
+    onFix: fn(),
+    onOpenCheck: fn(),
+    hub: {
+      main: {
+        state: "red",
+        red: {
+          check: "screens_test",
+          test: "merge-line.test.ts > folds a line's failed Check onto the panel",
+          merge: { number: 1812, url: `${PULL}1812`, branch: "fleet/gate-policy-every-run" },
+        },
+        checking: [{ commit: "d".repeat(40), number: 1852, url: `${PULL}1852` }],
+      },
+      recent: [],
+      pulls: [],
+    },
+    landed: [
+      { branch: "fleet/flaky-asked-run-test", pr: { number: 1852, url: `${PULL}1852` }, state: "landed", merge: "dddddddddd", mainRun: { state: "running", branch: `main@${"d".repeat(40)}` } },
+    ],
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("img", { name: "Main is red, new checks are running" })).toBeVisible();
+    const band = canvas.getByRole("status", { name: "New checks are running on main" });
+    await expect(within(band).getByText(/New checks are running on main:/)).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Send back to a Job" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
+    await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");
+  },
+};
