@@ -10,8 +10,8 @@
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
 #
-# Knobs for tests, the same as the merge line's: `ARMADA_LAND_ARMADA` names the
-# `armada` to ask about slots and the line, and `ARMADA_PREVIEW_RESTART` the
+# Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
+# slots, and `ARMADA_PREVIEW_RESTART` the
 # restart script `--restart` runs.
 
 import argparse
@@ -62,17 +62,13 @@ def repo_root():
     return os.path.dirname(common.stdout.strip())
 
 
-def armada(root, *args, answered_by=None):
+def armada(root, *args):
     binary = os.environ.get("ARMADA_LAND_ARMADA") or "armada"
     try:
         done = subprocess.run([binary, *args], cwd=root, capture_output=True, text=True)
     except OSError as why:
         sys.exit(f"preview: cannot run `{binary}` to ask what is in flight: {why}")
-    # `land --status` exits with the state it found (8 with no branch named,
-    # 3 for a red), so its exit says nothing about whether it answered: its
-    # first line does. An `armada` that does not know the verb says so instead.
-    answered = answered_by in done.stdout if answered_by else done.returncode in (0, 3, 10)
-    if not answered:
+    if done.returncode != 0:
         sys.exit(f"preview: `{binary} {' '.join(args)}` said: "
                  f"{(done.stderr or done.stdout).strip()}")
     return done.stdout
@@ -126,11 +122,6 @@ def slots(root):
     return held
 
 
-def queued(root):
-    return [m.group(1) for line in armada(root, "land", "--status", answered_by="merge line:").splitlines()
-            if (m := re.match(r"^\s*\d+\.\s+(\S+)", line))]
-
-
 def base_of(root):
     """The newer of local `main` and `origin/main`, so a checkout that has not
     pulled still previews what has landed. Local `main` wins only where it is
@@ -158,10 +149,9 @@ def names(values):
 def in_flight(root, base, only, skip):
     """(branches oldest first, why each named one was left out, slots held)."""
     held = slots(root)
-    line = set(queued(root))
     live = {b for _, _, b, why in held if not why}
     stranded = {b: why for _, _, b, why in held if why and b not in live}
-    candidates = live | set(stranded) | line
+    candidates = live | set(stranded)
     notes = []
     chosen = []
     for branch in sorted(candidates):
@@ -172,7 +162,7 @@ def in_flight(root, base, only, skip):
             continue
         if branch in skip:
             notes.append(f"{branch}: skipped by --skip")
-        elif branch in stranded and branch not in line:
+        elif branch in stranded:
             notes.append(f"{branch}: {stranded[branch]}")
         elif only and branch not in only:
             continue
@@ -181,7 +171,7 @@ def in_flight(root, base, only, skip):
             chosen.append((int(oldest), branch))
     for name in sorted(only - {b for _, b in chosen}):
         if name not in skip:
-            notes.append(f"{name}: named by --only, but it is not ahead of main in a slot or the line")
+            notes.append(f"{name}: named by --only, but it is not ahead of main in a slot")
     return [b for _, b in sorted(chosen)], notes, held
 
 
@@ -311,7 +301,7 @@ def render(base, base_sha, head, rows, notes, warnings):
         width = max(len(r[0]) for r in rows)
         lines += [f"{b.ljust(width)}  {what}" + (f"  -> {sha}" if sha else "") for b, what, sha in rows]
     else:
-        lines.append("no branch is ahead of main in a slot or the line")
+        lines.append("no branch is ahead of main in a slot")
     lines += ["", f"preview head: {head}", ""]
     return "\n".join(lines)
 
