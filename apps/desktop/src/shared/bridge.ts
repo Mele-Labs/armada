@@ -35,6 +35,8 @@ import { REPORTS_CHANNELS, REPORTS_NOTHING_YET } from "./api/reports";
 import type { ReportsState } from "./api/reports";
 import { JOBS_CHANNELS, JOBS_NOTHING_YET } from "./api/jobs";
 import type { JobsState } from "./api/jobs";
+import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
+import type { SessionsState } from "./api/sessions";
 
 export type { Summons } from "./api/core";
 
@@ -96,7 +98,8 @@ export type BridgeState = CoreState &
   OverviewState &
   CleanupState &
   ReportsState &
-  JobsState;
+  JobsState &
+  SessionsState;
 
 /**
  * What Bridge holds before anything has answered.
@@ -118,6 +121,7 @@ export const NOTHING_YET: BridgeState = {
   ...CLEANUP_NOTHING_YET,
   ...REPORTS_NOTHING_YET,
   ...JOBS_NOTHING_YET,
+  ...SESSIONS_NOTHING_YET,
 };
 
 /** The channels the preload is allowed to name. There is no general `invoke`. */
@@ -133,4 +137,5 @@ export const CHANNELS = {
   ...CLEANUP_CHANNELS,
   ...REPORTS_CHANNELS,
   ...JOBS_CHANNELS,
+  ...SESSIONS_CHANNELS,
 } as const;

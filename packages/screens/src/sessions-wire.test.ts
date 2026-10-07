@@ -1,0 +1,226 @@
+import { describe, expect, it } from "vitest";
+
+import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
+import { job } from "./fixtures/build/base";
+import { attachmentsOfRecord, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import type { Beside } from "./sessions-wire";
+import { ownerOf, sessionsMatching } from "./draft/sessions";
+
+const AT = "2026-10-07T13:48:02Z";
+
+const held = (kind: string, target: string, detail: Record<string, string> = {}, state: Attachment["state"] = "standing", manifest = "armada"): Attachment => ({
+  kind,
+  manifest_id: manifest,
+  target,
+  state,
+  detail,
+  since: AT,
+  changed_at: AT,
+});
+
+const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord => ({
+  id,
+  harness: "a_harness",
+  origin: "bridge",
+  manifest_id: "armada",
+  cwd: "/repo",
+  state: "live",
+  started_at: AT,
+  last_seen_at: AT,
+  usage: {},
+  attachments: [],
+  hosted: { turn: { state: "idle" }, mode: "auto", running: false },
+  ...change,
+});
+
+const beside = (jobs: JobSummary[] = []): Beside => ({ jobs, picture: () => undefined, sketches: [], pending: [] });
+
+describe("the ledger", () => {
+  it("pairs a branch with the slot the session holds in the same repository", () => {
+    const attachments = attachmentsOfRecord(
+      record("a", { attachments: [held("slot", "2", {}, "standing", "storefront"), held("slot", "3"), held("branch", "fix/flaky-store")] }),
+      beside(),
+    );
+    expect(attachments).toContainEqual({ kind: "branch", name: "fix/flaky-store", slot: 3 });
+    expect(attachments).toContainEqual({ kind: "slot", slot: 3 });
+  });
+
+  it("leaves out what a session let go, and keeps a merged pull request as merged", () => {
+    const attachments = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("slot", "3", {}, "given_back"),
+          held("pr", "1847", { state: "merged", title: "Pin the clock", checks: "passed" }, "spent"),
+          held("pr", "1850", { title: "Closed one" }, "given_back"),
+        ],
+      }),
+      beside(),
+    );
+    expect(attachments).toEqual([
+      expect.objectContaining({ kind: "pull_request", number: 1847, state: "merged", title: "Pin the clock" }),
+    ]);
+  });
+
+  it("reads a pull request's detail: state, auto-merge, Checks and the names that failed", () => {
+    const [pr] = attachmentsOfRecord(
+      record("a", {
+        attachments: [
+          held("pr", "1843", { state: "draft", auto_merge: "true", checks: "failed", failing: "lint, store_test", title: "T", branch: "b", address: "https://x/pull/1843" }),
+        ],
+      }),
+      beside(),
+    );
+    expect(pr).toEqual({
+      kind: "pull_request",
+      number: 1843,
+      title: "T",
+      branch: "b",
+      address: "https://x/pull/1843",
+      state: "draft",
+      auto: true,
+      checks: { state: "failed", failing: "lint, store_test" },
+    });
+  });
+
+  it("reads a pull request nobody has read yet as open, with its Checks pending", () => {
+    const [pr] = attachmentsOfRecord(record("a", { attachments: [held("pr", "9")] }), beside());
+    expect(pr).toMatchObject({ number: 9, state: "open", checks: { state: "pending" }, title: "", address: "" });
+  });
+
+  it("reads a Job off the Board, and marks one the session was handed to look at", () => {
+    const board = [job("escalated", { id: "J1", handle: "55-cap-the-backoff", title: "Cap the backoff", branch: "fix/55" })];
+    const attachments = attachmentsOfRecord(
+      record("a", { attachments: [held("job", "J1", { looking: "true" }), held("job", "J-forgotten")] }),
+      beside(board),
+    );
+    expect(attachments).toEqual([{ kind: "job", id: "J1", number: 55, title: "Cap the backoff", state: "escalated", branch: "fix/55", looking: true }]);
+  });
+
+  it("takes a Job's number from its handle and its state from its status", () => {
+    expect(numberOf({ handle: "52-the-retry-loop" })).toBe(52);
+    expect(numberOf({ handle: "no-number" })).toBe(0);
+    expect(["queued", "running", "awaiting_review", "completed_success", "escalated", "piloted", "killed"].map(jobStateOf)).toEqual([
+      "running",
+      "running",
+      "review",
+      "landed",
+      "escalated",
+      "piloted",
+      "superseded",
+    ]);
+  });
+
+  it("keeps a subagent's report and says whether it is still running", () => {
+    const attachments = attachmentsOfRecord(
+      record("a", { attachments: [held("subagent", "x1", { task: "Read the CI history" }), held("subagent", "x2", { task: "Find clocks", report: "None." }, "spent")] }),
+      beside(),
+    );
+    expect(attachments).toEqual([
+      { kind: "subagent", id: "x1", task: "Read the CI history", state: "running" },
+      { kind: "subagent", id: "x2", task: "Find clocks", state: "done", report: "None." },
+    ]);
+  });
+
+  it("draws no row for a kind it has no screen for", () => {
+    expect(attachmentsOfRecord(record("a", { attachments: [held("need", "docs/x.md"), held("message", "to:s-1234")] }), beside())).toEqual([]);
+  });
+});
+
+describe("the thread", () => {
+  const rows: SessionRow[] = [
+    { kind: "message", id: "1", at: AT, from: { kind: "you" }, text: "hi", files: [{ id: "f1", name: "shot.png", media_type: "image/png" }, { id: "f2", name: "n.txt", media_type: "text/plain" }] },
+    { kind: "tool", id: "2", at: AT, text: "Bash git status" },
+    { kind: "lease", id: "3", at: AT, slot: 3, branch: "fix/x" },
+    { kind: "message", id: "4", at: AT, from: { kind: "session", id: "s-1", title: "Other" }, text: "your branch broke main" },
+    {
+      kind: "ask",
+      id: "5",
+      at: AT,
+      state: "allowed_once",
+      ask: { call: "c", manifest_id: "armada", asked_at: AT, tool: "Bash", detail: "git push", truncated: false, rule: "Bash(git push:*)", offers: ["allow_once"], holding_for_seconds: 60 },
+    },
+    {
+      kind: "ask",
+      id: "6",
+      at: AT,
+      state: "waiting",
+      ask: { call: "c2", manifest_id: "armada", asked_at: AT, tool: "Bash", detail: "git push -f", truncated: false, rule: "r", offers: ["refuse"], holding_for_seconds: 60 },
+    },
+  ];
+
+  it("draws a picture where one has been read and a chip where it has not", () => {
+    const drawn = rowsOfThread("a", rows, (_session, file) => (file === "f1" ? "blob:one" : undefined));
+    expect(drawn[0]).toMatchObject({ kind: "message", files: [{ id: "f1", name: "shot.png", src: "blob:one" }, { id: "f2", name: "n.txt" }] });
+    expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
+  });
+
+  it("names another session's message by sender, and keeps the first write as a row", () => {
+    const drawn = rowsOfThread("a", rows, () => undefined);
+    expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });
+    expect(drawn[3]).toMatchObject({ from: { kind: "session", id: "s-1", title: "Other" } });
+  });
+
+  it("says what an answered ask was decided and leaves a waiting one to the card under the thread", () => {
+    const drawn = rowsOfThread("a", rows, () => undefined);
+    expect(drawn.map((one) => one.id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(drawn[4]).toMatchObject({ kind: "tool", text: "git push: allowed once" });
+  });
+});
+
+describe("a session", () => {
+  it("carries its turn, ask, tuning and address", () => {
+    const session = sessionOfRecord(
+      record("01ABCDEFGHJKMNPQRSTVWXYZ00", {
+        title: "Fix it",
+        last_turn_at: "2026-10-07T13:50:09Z",
+        hosted: {
+          turn: { state: "working", woken_by: { id: "s-2", title: "Other" } },
+          model: "opus",
+          effort: "high",
+          mode: "plan",
+          running: true,
+          asked: { call: "c", manifest_id: "armada", asked_at: AT, tool: "Bash", detail: "git push", truncated: false, rule: "r", offers: ["allow_once", "refuse"], holding_for_seconds: 60 },
+        },
+      }),
+      undefined,
+      beside(),
+    );
+    expect(session).toMatchObject({
+      address: "s-01ABCDEF",
+      title: "Fix it",
+      turn: { state: "working", wokenBy: { id: "s-2", title: "Other" } },
+      asked: { command: "git push", call: "c", offers: ["allow_once", "refuse"] },
+      model: "opus",
+      effort: "high",
+      mode: "plan",
+    });
+    expect(session.lastTurn).toMatch(/^\d\d:\d\d$/);
+  });
+
+  it("is a blank one until it has been written to, titled or finished a turn, even before its thread is opened", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).blank).toBe(true);
+    expect(sessionOfRecord(record("a", { title: "Named" }), undefined, beside()).blank).toBe(false);
+    expect(sessionOfRecord(record("a", { attachments: [held("slot", "1")] }), undefined, beside()).blank).toBe(false);
+  });
+
+  it("marks a terminal session, which has no thread to write in", () => {
+    const { hosted: _hosted, ...rest } = record("t", { origin: "terminal" });
+    expect(sessionOfRecord(rest, undefined, beside())).toMatchObject({ terminal: true });
+  });
+
+  it("lists only the sessions still open, and who owns a branch is the one holding it across repositories", () => {
+    const sessions = sessionsOfRecords(
+      [
+        record("a", { title: "Mine", attachments: [held("branch", "fix/x"), held("slot", "3")] }),
+        record("b", { title: "Elsewhere", manifest_id: "storefront", attachments: [held("branch", "feat/y", {}, "standing", "storefront"), held("slot", "1", {}, "standing", "storefront")] }),
+        record("c", { title: "Closed", state: "ended", attachments: [held("branch", "old")] }),
+      ],
+      {},
+      () => beside(),
+    );
+    expect(sessions.map((one) => one.id)).toEqual(["a", "b"]);
+    expect(ownerOf(sessions, { kind: "branch", name: "feat/y" })?.id).toBe("b");
+    expect(ownerOf(sessions, { kind: "branch", name: "old" })).toBeUndefined();
+    expect(sessionsMatching(sessions, "feat/y").map((hit) => hit.session.id)).toEqual(["b"]);
+  });
+});

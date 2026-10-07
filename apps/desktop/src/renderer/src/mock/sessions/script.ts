@@ -296,7 +296,7 @@ export function sessionsStore(
       const dispatched = now.flatMap((one) =>
         one.attachments.flatMap((a): SessionTag[] =>
           a.kind === "job" && a.looking !== true && !taggableJobs.some((j) => j.id === a.id)
-            ? [{ kind: "job", id: a.id, title: `${a.number} ${a.title}`, job: { number: a.number, branch: a.branch, slot: a.slot, state: a.state === "escalated" ? "escalated" : "review" } }]
+            ? [{ kind: "job", id: a.id, title: `${a.number} ${a.title}`, job: { number: a.number, branch: a.branch, ...(a.slot === undefined ? {} : { slot: a.slot }), state: a.state === "escalated" ? "escalated" : "review" } }]
             : [],
         ),
       );
@@ -431,7 +431,7 @@ export function sessionsStore(
         const had = asked.get(id) ?? 0;
         const held = now.find((one) => one.id === id)?.attachments.find((a) => a.kind === "job" && a.looking === true);
         if (held?.kind === "job") {
-          const job = { kind: "job", id: held.id, title: held.title, job: { number: held.number, branch: held.branch, slot: held.slot, state: held.state } } as const;
+          const job = { kind: "job", id: held.id, title: held.title, job: { number: held.number, branch: held.branch, ...(held.slot === undefined ? {} : { slot: held.slot }), state: held.state } } as const;
           asked.set(id, had + 1);
           after(900, () => (had === 0 ? investigating(id, job) : redirecting(id, job)));
         }

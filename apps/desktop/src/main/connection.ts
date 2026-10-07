@@ -14,6 +14,7 @@
 // over. Only addresses moved off the file the gate measures.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
+import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead } from "@armada/protocol";
@@ -43,6 +44,7 @@ import { ReportsReader } from "./reports";
 import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
 import { FleetSocket, type BridgeStateFleet } from "./socket";
+import { SessionsHost } from "./sessions";
 import { StudioReads } from "./studios";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
@@ -160,6 +162,11 @@ export class FleetConnection {
   private readonly held = new HeldReader((held) => this.publish({ held }));
   /** A repository's Studios and the one open, where the Studios surface asked — `studios.ts`. */
   readonly studios: StudioReads = new StudioReads(
+    (change) => this.publish(change),
+    () => this.connected()?.port ?? null,
+  );
+  /** Every session on the machine and the threads a window opened — `sessions.ts`. */
+  readonly sessions: SessionsHost = new SessionsHost(
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
@@ -282,6 +289,7 @@ export class FleetConnection {
       questions: this.questions,
       helm: this.helm,
       studios: this.studios,
+      sessions: this.sessions,
       material: this.material,
       socket: this.socket,
       publish: (change) => this.publish(change),
@@ -388,6 +396,7 @@ export class FleetConnection {
       // A Studio moves when a person or Helm writes to it, and each write is on the stream — so
       // this is for a window that reloaded, not for a gap.
       await this.studios.again();
+      await this.sessions.again(fleet.port);
     }
     return this.current;
   }
@@ -413,6 +422,7 @@ export class FleetConnection {
     this.reports.close();
     this.held.close();
     this.studios.close();
+    this.sessions.close();
     for (const facades of this.windowFacades.values()) facades.overview.close();
     this.helm.close();
   }
@@ -553,6 +563,19 @@ export class FleetConnection {
 
   async rereadHeld(): Promise<void> {
     await this.jobReads.rereadHeld();
+  }
+
+  /**
+   * A blank session on the repository the calling window picked, as Dispatch names one. **On All, the
+   * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
+   * several: a session starts in a repository, and guessing one would put it somewhere unseen.
+   */
+  async startSession(picked: Picked, title?: string): Promise<SessionActed> {
+    const served = this.current.holds.repositories ?? [];
+    const repository = picked.repository ?? (served.length === 1 ? served[0] : undefined);
+    if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    if (repository.manifest === undefined) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
+    return await this.sessions.start({ manifest_id: repository.manifest.id, ...(title === undefined ? {} : { title }) });
   }
 
   private connected(): BridgeStateFleet | null {

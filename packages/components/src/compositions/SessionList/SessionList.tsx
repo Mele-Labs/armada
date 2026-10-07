@@ -19,6 +19,8 @@ import { SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
  */
 export type SessionRowView = {
   id: string;
+  /** What other sessions call it, drawn where the id would be on a Session with no title yet. */
+  address?: string;
   title?: string;
   state: SessionState;
   said: string;
@@ -66,11 +68,11 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart }: Session
           <h3 className="armada-session-list__eyebrow">{group.label}</h3>
           <ul className="armada-session-list__rows">
             {group.rows.map((row) => (
-              <li key={row.id} className="armada-session-list__row" aria-label={row.title ?? row.id}>
+              <li key={row.id} className="armada-session-list__row" aria-label={row.title ?? row.address ?? row.id}>
                 <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
                   <SessionMark state={row.state} said={row.said} />
                   <span className="armada-session-list__title">
-                    {row.title ?? <span className="armada-session-list__id">{row.id}</span>}
+                    {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                   </span>
                 </button>
                 <span className="armada-session-list__chips">

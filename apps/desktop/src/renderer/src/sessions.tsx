@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { GitMerge, PanelRightOpen } from "lucide-react";
 import {
+  Alert,
   Button,
   ChipOwnership,
   OpenInSession,
@@ -43,8 +44,9 @@ import type {
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
+import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -63,7 +65,7 @@ import type { HeldWorktrees } from "@armada/protocol";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
-import { useSessions, useSessionsDraft } from "./sessions-draft";
+import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -92,6 +94,7 @@ const pullRequestsOf = (session: Session) =>
 function summaryOf(session: Session): OwnerSummary {
   return {
     id: session.id,
+    ...(session.address === undefined ? {} : { address: session.address }),
     ...(session.title === undefined ? {} : { title: session.title }),
     ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
@@ -99,6 +102,12 @@ function summaryOf(session: Session): OwnerSummary {
     jobs: attachmentsOf(session, "job").filter((one) => one.looking !== true).map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
+}
+
+/** A Session just started, opened once its id is known. A start Fleet refused says why in `said` and opens nothing. */
+function opening(started: string | Promise<string | undefined>, onOpen: (id: string) => void): void {
+  if (typeof started === "string") onOpen(started);
+  else void started.then((id) => id !== undefined && onOpen(id));
 }
 
 /** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
@@ -118,11 +127,11 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
   const talk = useMemo<OpenInSessionValue | null>(() => {
     if (draft === undefined) return null;
     return {
-      targets: sessions.filter((one) => one.title !== undefined).map((one) => ({ id: one.id, title: one.title! })),
+      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true).map((one) => ({ id: one.id, title: one.title! })),
       open: (jobId, sessionId) => {
         const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
         if (tag === undefined) return;
-        if (sessionId === undefined) onOpen(draft.start(tag));
+        if (sessionId === undefined) opening(draft.start(tag), onOpen);
         else {
           const had = sessions.find((one) => one.id === sessionId)?.pendingTags ?? [];
           draft.setTags(sessionId, [...had, tag]);
@@ -133,7 +142,9 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
   }, [draft, sessions, onOpen]);
   const [asking, setAsking] = useState<string | null>(null);
   const pilot = useMemo<PilotValue | null>(() => {
-    if (draft === undefined) return null;
+    // Pilot is the mock's until Fleet serves it: with no act to take, no chip offers one.
+    if (draft?.pilot === undefined || draft.exit === undefined) return null;
+    const { exit } = draft;
     return {
       ask: setAsking,
       pilotedBy: (jobId) => {
@@ -143,7 +154,7 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
         }
         return undefined;
       },
-      exit: (jobId, exit) => draft.exit(jobId, exit),
+      exit: (jobId, way) => exit(jobId, way),
       open: onOpen,
     };
   }, [draft, sessions, onOpen]);
@@ -159,7 +170,7 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
             onCancel={() => setAsking(null)}
             onConfirm={(outcome) => {
               setAsking(null);
-              if (asking !== null && draft !== undefined) onOpen(draft.pilot(asking, outcome));
+              if (asking !== null && draft?.pilot !== undefined) onOpen(draft.pilot(asking, outcome));
             }}
           />
         </PilotAct.Provider>
@@ -190,6 +201,12 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Not started", has: (state) => state === "blank" },
 ];
 
+/** What Fleet refused the last act on a Session, in the words it gave. */
+function Refused() {
+  const said = useSessionsSaid();
+  return said === undefined || said === "" ? null : <Alert tone="escalated">{said}</Alert>;
+}
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
 export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
@@ -201,6 +218,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
     return {
       id: session.id,
+      ...(session.address === undefined ? {} : { address: session.address }),
       ...(session.title === undefined ? {} : { title: session.title }),
       state,
       said,
@@ -212,7 +230,12 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
-  return <SessionList groups={groups} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => onOpen(draft.start())} />;
+  return (
+    <>
+      <Refused />
+      <SessionList groups={groups} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
+    </>
+  );
 }
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
@@ -408,7 +431,7 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
                   ? { mark: { glyph: "done" as const, said: "Closed by your word, not verified" } }
                   : {}),
           ...(one.looking === true ? { looking: true } : {}),
-          slot: one.slot,
+          ...(one.slot === undefined ? {} : { slot: one.slot }),
           onOpen: () => goes.onOpenJob(one.id),
         };
       case "studio":
@@ -443,6 +466,16 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const { onWant } = held;
+  const { id } = session;
+  const watch = draft?.watch;
+  const refresh = draft?.refresh;
+  // A real Fleet reads a thread when it is opened and follows it from there.
+  useEffect(() => watch?.(id), [watch, id]);
+  // The Checks on a pull request are the forge's now, and the ledger holds what was last read.
+  const prs = attachmentsOf(session, "pull_request").map((one) => one.number).join(",");
+  useEffect(() => {
+    for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
+  }, [refresh, id, prs]);
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
     onWant(true);
@@ -469,26 +502,49 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         state={state}
         said={said}
         id={session.id}
+        {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
-        {...(narrow
+        {...(narrow || draft.close !== undefined
           ? {
               actions: (
-                <Tooltip label="Open what this Session holds">
-                  <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
-                    <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
-                  </Button>
-                </Tooltip>
+                <>
+                  {draft.close === undefined || session.terminal === true ? null : (
+                    <Tooltip label="End this Session and park its slot">
+                      <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
+                        Close
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {narrow ? (
+                    <Tooltip label="Open what this Session holds">
+                      <Button variant="ghost" size="sm" aria-label="Attachments" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen(true)}>
+                        <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                      </Button>
+                    </Tooltip>
+                  ) : null}
+                </>
               ),
             }
           : {})}
       >
         <div className="armada-session-frame__centre">
+          <Refused />
           <SessionThread
             rows={threadRowsOf(session)}
-            {...(session.asked === undefined ? {} : { asked: session.asked })}
-            onAnswer={() => draft.answer(session.id)}
+            {...(session.asked === undefined
+              ? {}
+              : {
+                  asked: {
+                    command: session.asked.command,
+                    ...(session.asked.offers === undefined
+                      ? {}
+                      : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                  },
+                })}
+            onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
             onOpenSession={onOpen}
           />
+          {session.terminal === true ? null : (
           <SessionComposer
             working={session.turn.state === "working"}
             mode={mode}
@@ -514,6 +570,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               setDrawn([]);
             }}
           />
+          )}
         </div>
         {narrow ? null : <SessionLedger entries={entries} />}
       </SessionFrame>
@@ -529,8 +586,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         onAct={(number, act) => {
           draft.act(session.id, number, act);
           // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
+          // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
           const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
-          if (act === "review" && address?.kind === "pull_request") void proposeRequest(address.address, []);
+          if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
         }}
       />
       <SketchSheet

@@ -158,6 +158,8 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
+import type { AnswerSessionAsk, PullRequestState, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
+import type { PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, Summons } from "./bridge";
@@ -210,6 +212,8 @@ type OldBridgeState = {
     helm: HelmThread;
     studios: StudiosRead;
     studio: StudioRead;
+    sessions: SessionsRead;
+    sessionThreads: Record<string, SessionRow[]>;
 };
 
 type OldBridgeApi = {
@@ -392,6 +396,14 @@ type OldBridgeApi = {
     startHelmFresh: () => Promise<Outcome>;
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
+    startSession: (title?: string) => Promise<SessionActed>;
+    sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
+    answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
+    tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+    closeSession: (sessionId: string) => Promise<SessionActed>;
+    watchSession: (sessionId: string) => Promise<void>;
+    readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+    pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
 const OLD_NOTHING_YET: OldBridgeState = {
@@ -439,6 +451,8 @@ const OLD_NOTHING_YET: OldBridgeState = {
     helm: { state: "none" },
     studios: { state: "none" },
     studio: { state: "none" },
+    sessions: { state: "none" },
+    sessionThreads: {},
 };
 
 const OLD_CHANNELS = {
@@ -615,6 +629,14 @@ const OLD_CHANNELS = {
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
+    startSession: "bridge:start-session",
+    sendSessionMessage: "bridge:send-session-message",
+    answerSessionAsk: "bridge:answer-session-ask",
+    tuneSession: "bridge:tune-session",
+    closeSession: "bridge:close-session",
+    watchSession: "bridge:watch-session",
+    readSessionFile: "bridge:read-session-file",
+    pressPullRequest: "bridge:press-pull-request",
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

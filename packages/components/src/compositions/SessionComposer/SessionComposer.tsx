@@ -22,7 +22,13 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * on the pad Dispatch draws on**, which the host opens, and comes back as a
  * chip.
  */
-export type ComposerFile = { id: string; name: string; src?: string };
+export type ComposerFile = {
+  id: string;
+  name: string;
+  src?: string;
+  /** What was picked, so a host that sends it has its bytes. A host that only draws a chip ignores it. */
+  file?: File;
+};
 
 /** Something `@` tags: another Session, a Job, a pull request or a branch. */
 export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string };
@@ -147,6 +153,7 @@ export function SessionComposer({
       ...picked.map((file) => ({
         id: `f${(counter.current += 1)}`,
         name: file.name === "" ? "Pasted file" : file.name,
+        file,
         ...(file.type.startsWith("image/") ? { src: URL.createObjectURL(file) } : {}),
       })),
     ]);

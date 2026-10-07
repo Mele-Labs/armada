@@ -1,10 +1,9 @@
-// What a moment holds of Sessions, before Fleet can serve any.
+// What the window holds of Sessions, and the acts on them.
 //
-// **Sessions have no read behind them**, so a mock scenario carries them and
-// hands them down here, as `drafted.tsx` does for the Arc milestone's boards.
-// The app's own mount provides none: `useSessionsDraft` is then `undefined`,
-// the rail row is left off and no chip is owned. That is the whole seam, and
-// it goes the day Fleet serves a Session.
+// **The seam between the screens and whatever serves Sessions.** A mock scenario carries them as
+// fixtures and hands them down here, as `drafted.tsx` does for the Arc milestone's boards; a real
+// Fleet's are `sessions-wired.tsx`, built over what main publishes. Where nothing serves them,
+// `useSessionsDraft` is `undefined`, the rail row is left off and no chip is owned.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -23,6 +22,12 @@ export function SessionsFrom({ held, children }: { held: SessionsDraft | undefin
 /** The Sessions this window was mounted holding and the acts on them, or `undefined` where none are served. */
 export function useSessionsDraft(): SessionsDraft | undefined {
   return useContext(Held);
+}
+
+/** What Fleet last refused a Session act, in words. Absent where nothing was refused, and in the mock. */
+export function useSessionsSaid(): string | undefined {
+  const held = useContext(Held);
+  return useSyncExternalStore(held?.subscribe ?? NEVER.subscribe, () => held?.said?.());
 }
 
 /** The Sessions as they stand, live. Empty where none are served. */

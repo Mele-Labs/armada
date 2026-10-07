@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import { SessionThread, type SessionThreadRow } from "./SessionThread";
 
@@ -55,5 +55,26 @@ export const Held: Story = {
   play: async ({ canvas, args }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Allow once" }));
     await expect(args.onAnswer).toHaveBeenCalled();
+  },
+};
+
+/** Fleet's own offers, in its order: each answer is named and hands its id back. */
+export const HeldWithFleetsOffers: Story = {
+  args: {
+    rows: ROWS,
+    asked: {
+      command: "git push origin fix/flaky-store",
+      offers: [
+        { id: "allow_once", label: "Allow once", means: "Runs it now. Nothing is written down." },
+        { id: "allow_and_remember", label: "Allow and remember", means: "Runs it now, and the rule goes into the repository's own agent settings." },
+        { id: "refuse", label: "Refuse", means: "The agent is told no." },
+      ],
+    },
+  },
+  play: async ({ canvas, args }) => {
+    const answers = within(canvas.getByRole("group", { name: "Answers" }));
+    await expect(answers.getAllByRole("button").map((one) => one.textContent)).toEqual(["Allow once", "Allow and remember", "Refuse"]);
+    await userEvent.click(answers.getByRole("button", { name: "Allow and remember" }));
+    await expect(args.onAnswer).toHaveBeenCalledWith("allow_and_remember");
   },
 };
