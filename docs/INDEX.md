@@ -219,6 +219,10 @@ approximations.
   — the wire the new Job is built against: each draft type's DTO, bump and
   source of truth, the owner's answers to the questions it raised, and the
   backend milestone in slices. Signed off by the owner, 2 Oct 2026.
+- [`spikes/023-does-a-user-installed-mod-load-in-a-drone.md`](spikes/023-does-a-user-installed-mod-load-in-a-drone.md)
+  — a mod installed in the operator's config ran inside a Drone launch, with
+  every plugin, skill and subagent beside it; `--setting-sources project,local`
+  stops it with the login untouched, measured across four flag sets.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

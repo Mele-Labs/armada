@@ -17,6 +17,7 @@ import type { MergeLines } from "./merge-lines";
 import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
+import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
 import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
@@ -89,7 +90,9 @@ export type Event =
   /** Helm took one act on a Studio, beside its `studio.changed`. Since 14.7. */
   | ({ kind: "studio.helm_acted" } & StudioHelmActed)
   | ({ kind: "helm.asking_to_run" } & HelmAskingToRun)
-  | ({ kind: "helm.call_answered" } & HelmCallAnswered);
+  | ({ kind: "helm.call_answered" } & HelmCallAnswered)
+  /** A session after any fact about it, whole. Since 23.43. */
+  | ({ kind: "session.changed" } & SessionRecord);
 
 /**
  * A Job exists that did not before, carrying the row whole.

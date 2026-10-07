@@ -29,6 +29,7 @@ use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::underway::ChecksUnderway;
 use crate::version::ProtocolVersion;
@@ -181,6 +182,10 @@ pub enum Event {
     // What became of one such ask, whoever ended it.
     #[serde(rename = "helm.call_answered")]
     HelmCallAnswered(HelmCallAnswered),
+    // A session after any fact about it, whole, so a client replaces the row it
+    // holds. `docs/concepts/session.md`.
+    #[serde(rename = "session.changed")]
+    SessionChanged(SessionRecord),
 }
 
 impl Event {

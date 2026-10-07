@@ -85,6 +85,7 @@ mod scoped;
 /// the gate rule reads.
 mod served;
 mod servers;
+mod sessions;
 mod sockets;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
@@ -101,7 +102,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, PermissionAnswer, Queries, Redirector, Refusal, Retros, Studios, Tools,
+    HelmReach, PermissionAnswer, Queries, Redirector, Refusal, Retros, Sessions, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

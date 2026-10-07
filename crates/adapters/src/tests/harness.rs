@@ -88,6 +88,11 @@ fn every_rendering_carries_the_strict_flag_and_the_file_together() {
             "the file that says which server, beside the flag that says only \
              that one: {args:?}"
         );
+        assert_eq!(
+            value_after(&args, "--setting-sources").as_deref(),
+            Some("project,local"),
+            "the operator's user settings carry their plugins and mods: {args:?}"
+        );
     }
 }
 
