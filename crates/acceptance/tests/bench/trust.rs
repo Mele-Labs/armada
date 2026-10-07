@@ -2,7 +2,7 @@
 //! review, and the review its Drone hands in over a diff this file wrote.
 
 use config::ResolvedWorkflow;
-use testkit::{handing_off, Gate, Sketch};
+use testkit::{Gate, Sketch, handing_off};
 use verification::{
     Area, Bucket, ChangedTest, Confidence, Finding, Proves, Review, Submission, TestChange,
     TestsInChange, Untested,

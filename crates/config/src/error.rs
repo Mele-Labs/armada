@@ -241,6 +241,11 @@ pub enum Fault {
     /// Reported on the second and naming the first, for
     /// [`Fault::DuplicateStepId`]'s reason: the fix is to look at both.
     TwoDeliveringSteps { first_at: usize },
+    /// **`draft_pr` on a step that does not deliver.** The key says how the
+    /// pull request the step opens is offered, and a step that opens none has
+    /// nothing for it to be about. Refused rather than carried and ignored, so
+    /// a workflow cannot read as drafting what it never opens.
+    DraftsNothing,
     /// **A step gating on every declared Check and naming one by hand.** The
     /// two spellings are one statement made twice: `every_manifest_check`
     /// already covers whatever `armada.yml` declares, so the named entry beside
@@ -464,6 +469,11 @@ impl fmt::Display for Fault {
                 f,
                 "is a second step that sends the work out, and steps[{first_at}] \
                  already does. A workflow delivers once"
+            ),
+            Fault::DraftsNothing => write!(
+                f,
+                "says how a pull request is offered, and this step opens none. Only the \
+                 step that declares `delivers: true` may carry it"
             ),
             Fault::NotAReturn { value, why } => write!(
                 f,

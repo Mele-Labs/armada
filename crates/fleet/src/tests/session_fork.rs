@@ -1,6 +1,6 @@
 //! A session forked from one that is ended or dead: the new one starts as a
 //! copy of the old conversation under its own id, and the two ledgers point at
-//! each other. Since 23.61. The stand-in process is `session_host`'s.
+//! each other. Since 23.69. The stand-in process is `session_host`'s.
 
 use std::sync::Arc;
 use std::time::Duration;

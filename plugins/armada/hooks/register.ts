@@ -247,6 +247,9 @@ async function look($: Dollar, id: string): Promise<void> {
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
+  // A Drone, a Judge call or a scout loads this mod too, since it reads the operator's user
+  // settings. Fleet marks those launches, and they are not sessions to list.
+  if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
   known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
@@ -303,7 +306,9 @@ async function seen($: Dollar, mode: string | undefined, effort: unknown): Promi
 async function current($: Dollar): Promise<[string, Known]> {
   const id = await $.session.id()
   if (!known.has(id)) await begin($, id)
-  return [id, known.get(id) as Known]
+  const one = known.get(id)
+  if (one === undefined) throw new Error('unreported session')
+  return [id, one]
 }
 
 async function afterBash($: Dollar, command: string, text: string): Promise<void> {
@@ -445,6 +450,7 @@ async function ended($: Dollar, id: string, reason: string): Promise<void> {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
+    if (await $.env.get('ARMADA_DRONE')) return started
     $.clock.every(ASK_EVERY_MS, () => submitHeld($).catch(() => undefined))
     void $.session
       .id()

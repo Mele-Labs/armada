@@ -88,6 +88,8 @@ where
         working: &mut Option<Working>,
     ) -> Result<(), Adrift> {
         let job_id = job.id().clone();
+        // A `step_passes` hold on the step before stands in front of this one.
+        self.stopped_for_a_hold(job).await?;
         // Read before the catch-up where the step already has a baseline, so
         // `marked` can tell what a rebase wrote from what the step did.
         let before_the_catch_up = self.read_before_catch_up(&job_id, step, &worktree).await;
@@ -128,6 +130,8 @@ where
         // asks this and answers no. `crate::landing` owns the rest, including
         // why a branch that would not go does not stop the step.
         Box::pin(self.fire_triggers(job, TriggerWhen::StepStarts, step, &worktree)).await;
+        // And so does a `step_starts` one that has just failed.
+        self.stopped_for_a_hold(job).await?;
         self.sent_out_on_entry(job, step, &worktree).await;
         // A step that proposes Jobs, starting again, proposes again: what its
         // last attempt proposed and nobody released goes first. `crate::waving`.

@@ -804,6 +804,22 @@ A false `auto_merge` result routes to Inbox > Job Reviews rather than merging.
 
 **`auto_merge` does not read an approval, and `always` means always.** Its three values are all about machines; a person approving on the forge is neither, and whether that becomes a fourth value or a policy of its own is undecided. A forge that requires a review refuses the merge, so branch protection is the backstop and it is the forge's.
 
+### How a pull request is offered
+
+**`pr_mode` says whether the pull requests of this repository open ready or as drafts**, where nothing more specific does.
+
+```yaml
+pr_mode: draft
+```
+
+| Value | What Fleet does |
+| --- | --- |
+| absent | Defers to this machine's draft preference, then ready |
+| `ready` | Opens ready, even on a machine that drafts |
+| `draft` | Opens as a draft |
+
+**A delivering step's `draft_pr` and a Job's own choice at approval both beat it.** It is read live at the approval and kept in the Job's landing, so a Job already approved keeps what it opened as. `landing.md`, *What the landing rule carries*.
+
 ### How work lands
 
 **`merge_by` says how Fleet lands a Job's work once a person or `auto_merge` has said it may.** `auto_merge` decides whether; this decides how.

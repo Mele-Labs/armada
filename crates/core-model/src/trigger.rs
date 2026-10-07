@@ -9,6 +9,7 @@
 //! default off.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::envelope::Timestamp;
 use crate::job::{StepId, WorkflowId};
@@ -221,6 +222,9 @@ pub enum TriggerSkipped {
     /// resolution**: a skill resolves to [`TriggerResolution::Skill`], and it
     /// is firing that finds nothing to run it with.
     SkillNotRun { skill: String },
+    /// **The owner skipped it** while it held the Job. It failed, and the
+    /// hold was let go without the Command passing.
+    ByOwner,
 }
 
 impl core::fmt::Display for TriggerSkipped {
@@ -232,6 +236,7 @@ impl core::fmt::Display for TriggerSkipped {
             TriggerSkipped::SkillNotRun { skill } => {
                 write!(f, "skipped: skill `{skill}` is not run yet")
             }
+            TriggerSkipped::ByOwner => f.write_str("skipped by you while it held the Job"),
         }
     }
 }
@@ -266,9 +271,35 @@ pub enum TriggerState {
     /// A destructive Command, held until the owner says it may run. **Nothing
     /// asks him yet**, so for now it stays here.
     AwaitingOwner,
+    /// Failed with `repair` on, and a repair Drone is working on a branch of
+    /// its own.
+    Repairing,
+    /// The Command ran again, on the repair branch or on the Job's, and the
+    /// state it settles to is the answer.
+    Rerunning,
+    /// The repair branch passes. **Held for the owner's choice**, which Fleet
+    /// never makes: [`FixChoice`].
+    FixReady,
+    /// Failed with `block` on, and **the Job waits on it**. The owner reruns
+    /// the Command or skips it. With `repair` also on this is where a repair
+    /// that did not fix it leaves the firing.
+    Held,
 }
 
 impl TriggerState {
+    /// Whether a firing of a Trigger with `block` on in this state holds the
+    /// Job: a failure nobody has settled. A repair under way is still one, so
+    /// the hold waits through it.
+    pub fn holds_a_blocking_job(self) -> bool {
+        matches!(
+            self,
+            TriggerState::Held
+                | TriggerState::Repairing
+                | TriggerState::Rerunning
+                | TriggerState::FixReady
+        )
+    }
+
     pub fn as_wire(self) -> &'static str {
         match self {
             TriggerState::Skipped => "skipped",
@@ -276,6 +307,10 @@ impl TriggerState {
             TriggerState::Passed => "passed",
             TriggerState::Failed => "failed",
             TriggerState::AwaitingOwner => "awaiting_owner",
+            TriggerState::Repairing => "repairing",
+            TriggerState::Rerunning => "rerunning",
+            TriggerState::FixReady => "fix_ready",
+            TriggerState::Held => "held",
         }
     }
 
@@ -286,11 +321,65 @@ impl TriggerState {
             TriggerState::Passed,
             TriggerState::Failed,
             TriggerState::AwaitingOwner,
+            TriggerState::Repairing,
+            TriggerState::Rerunning,
+            TriggerState::FixReady,
+            TriggerState::Held,
         ]
         .into_iter()
         .find(|state| state.as_wire() == value)
     }
 }
+
+/// Where the owner has the repair's fix go. **Fleet never chooses.**
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FixChoice {
+    /// Merged onto the Job's branch and pushed, so it lands on the Job's open
+    /// pull request.
+    ThisBranch,
+    /// The repair branch is pushed and opens a pull request of its own, against
+    /// the Job's target.
+    NewPr,
+}
+
+impl FixChoice {
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            FixChoice::ThisBranch => "this_branch",
+            FixChoice::NewPr => "new_pr",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<FixChoice> {
+        [FixChoice::ThisBranch, FixChoice::NewPr]
+            .into_iter()
+            .find(|choice| choice.as_wire() == value)
+    }
+}
+
+/// What a firing's repair has come to. Empty for a Trigger that never failed
+/// or has `repair` off.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RepairRecord {
+    /// Repair Drones put on it, at most [`REPAIR_TRIES`].
+    pub tries: u32,
+    /// The branch the repair Drone writes on, cut from the Job's.
+    pub branch: Option<String>,
+    /// What the owner chose, once he has.
+    pub choice: Option<FixChoice>,
+    /// The pull request opened for [`FixChoice::NewPr`].
+    pub pull_request: Option<String>,
+    /// The files the fix changes on the repair branch, repository-relative:
+    /// what the owner reads before he chooses. Set when the fix is held.
+    pub files: Vec<String>,
+    /// When the repair last settled: the failure's time for `failed`, and the
+    /// fix's for `fix_ready`.
+    pub settled_at: Option<Timestamp>,
+}
+
+/// Repair Drones one failed Trigger gets. Two, as the worktree's repair has,
+/// because the first can fail for a reason the second does not.
+pub const REPAIR_TRIES: u32 = 2;
 
 /// One firing of a [`FrozenTrigger`] at its moment. **A record and never a
 /// verdict**: nothing reads `state` to advance or fail a gate, and a failure
@@ -301,7 +390,7 @@ pub struct TriggerFiring {
     pub when: TriggerWhen,
     pub step: StepId,
     pub source: TriggerSource,
-    /// Carried from the Trigger and **not acted on yet**.
+    /// Carried from the Trigger. `repair` and `block` are both acted on.
     pub on_failure: OnTriggerFailure,
     pub state: TriggerState,
     /// Why, where `state` is [`TriggerState::Skipped`].
@@ -311,6 +400,7 @@ pub struct TriggerFiring {
     pub started_at: Timestamp,
     /// Absent while it runs, and while it waits on the owner.
     pub ended_at: Option<Timestamp>,
+    pub repair: RepairRecord,
 }
 
 impl TriggerFiring {
@@ -326,6 +416,7 @@ impl TriggerFiring {
             exit_code: None,
             started_at: at,
             ended_at: None,
+            repair: RepairRecord::default(),
         }
     }
 
@@ -345,17 +436,60 @@ impl TriggerFiring {
         TriggerFiring::of(trigger, TriggerState::AwaitingOwner, at)
     }
 
-    /// This firing, ended. **Zero is the only pass.**
+    /// This firing, ended. **Zero is the only pass.** A failure of a Trigger
+    /// with `repair` on is [`TriggerState::Repairing`] and not `Failed`, and
+    /// has no end: the repair is what settles it. One with `block` on and no
+    /// repair is [`TriggerState::Held`], which has an end and holds the Job.
     pub fn ended(self, exit_code: Option<i32>, at: Timestamp) -> TriggerFiring {
-        let state = match exit_code {
-            Some(0) => TriggerState::Passed,
-            _ => TriggerState::Failed,
+        let (state, ended_at) = match exit_code {
+            Some(0) => (TriggerState::Passed, Some(at)),
+            _ if self.on_failure.repair => (TriggerState::Repairing, None),
+            _ if self.on_failure.block => (TriggerState::Held, Some(at)),
+            _ => (TriggerState::Failed, Some(at)),
         };
         TriggerFiring {
             state,
             exit_code,
+            ended_at,
+            ..self
+        }
+    }
+}
+
+impl TriggerFiring {
+    /// Whether this firing holds its Job: it blocks, and its failure has not
+    /// been settled.
+    pub fn holds_the_job(&self) -> bool {
+        self.on_failure.block && self.state.holds_a_blocking_job()
+    }
+
+    /// Where a repair that came to `state` leaves a Trigger that blocks: a
+    /// failure it did not fix is still holding the Job, so it is `Held` and
+    /// not `Failed`.
+    pub fn settled_as(&self, state: TriggerState) -> TriggerState {
+        match state {
+            TriggerState::Failed if self.on_failure.block => TriggerState::Held,
+            other => other,
+        }
+    }
+
+    /// The owner let go of the hold without the Command passing.
+    pub fn skipped_by_the_owner(self, at: Timestamp) -> TriggerFiring {
+        TriggerFiring {
+            state: TriggerState::Skipped,
+            skipped: Some(TriggerSkipped::ByOwner),
             ended_at: Some(at),
             ..self
         }
+    }
+}
+
+/// Whether a failure at `(when, step)` can hold a Job of `workflow`. **Not the
+/// last step's `step_passes`**: no step comes after it for the hold to stand
+/// in front of, and what follows is the Job landing, which `pr_opened` holds.
+pub fn can_hold(workflow: &crate::job::FrozenWorkflow, when: TriggerWhen, step: &StepId) -> bool {
+    match when {
+        TriggerWhen::StepStarts | TriggerWhen::PrOpened => true,
+        TriggerWhen::StepPasses => workflow.after(step).is_some(),
     }
 }

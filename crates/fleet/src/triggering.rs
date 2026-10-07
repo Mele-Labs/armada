@@ -15,6 +15,7 @@ use core_model::{
 use verification::Exit;
 
 use crate::daemon::Fleet;
+use crate::trigger_repair::Waiting;
 
 /// Every Trigger of `resolved` that applies to this workflow, bound to each
 /// step it fires on. A `pr_opened` one is bound to the delivering step, and a
@@ -50,7 +51,7 @@ pub fn freeze(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Comes {
+pub(crate) enum Comes {
     Run { command: String },
     Skip(TriggerSkipped),
     AskTheOwner,
@@ -83,7 +84,7 @@ pub fn plan(
         .collect()
 }
 
-fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
+pub(crate) fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
     match resolution {
         TriggerResolution::Skipped(why) => Comes::Skip(why.clone()),
         TriggerResolution::Skill { name } => Comes::Skip(TriggerSkipped::SkillNotRun {
@@ -104,6 +105,13 @@ fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
 impl Planned {
     pub fn trigger(&self) -> &FrozenTrigger {
         &self.trigger
+    }
+
+    /// This Trigger with `block` off, where nothing is left to hold: it fires
+    /// and fails as a Trigger that does not block does.
+    pub(crate) fn cannot_hold(mut self) -> Planned {
+        self.trigger.on_failure.block = false;
+        self
     }
 
     /// The command line to run, or `None` where nothing is to run.
@@ -171,10 +179,33 @@ where
         }
     }
 
-    /// Fire the Job's frozen Triggers for `when` on `step`, in its worktree, and
-    /// record each. **Fails nothing**: every refusal in here is a line in the
+    /// Fire what runs at this moment: the Job's frozen Triggers, then the steps
+    /// added to it. **Fails nothing**: every refusal in here is a line in the
     /// Job's log and the Job carries on.
     pub(crate) async fn fire_triggers(
+        &self,
+        job: &Job,
+        when: TriggerWhen,
+        step: &StepId,
+        worktree: &Worktree,
+    ) {
+        // A hold at this step's start that was let go is not fired again when
+        // the Job goes on to it: that would undo a skip, and rerun a pass.
+        if when == TriggerWhen::StepStarts {
+            let passed = self
+                .store()
+                .lock()
+                .await
+                .take_released_hold(job.id(), when, step);
+            if passed.unwrap_or(false) {
+                return;
+            }
+        }
+        Box::pin(self.fire_frozen_triggers(job, when, step, worktree)).await;
+        Box::pin(self.fire_additions(job, when, step, worktree)).await;
+    }
+
+    async fn fire_frozen_triggers(
         &self,
         job: &Job,
         when: TriggerWhen,
@@ -192,7 +223,9 @@ where
         let Ok(served) = self.served_by(job) else {
             return;
         };
+        let holds = core_model::can_hold(job.workflow(), when, step);
         for one in plan(&frozen, when, step, served.manifest()) {
+            let one = if holds { one } else { one.cannot_hold() };
             Box::pin(self.fired(job, &one, worktree)).await;
         }
     }
@@ -224,10 +257,30 @@ where
         }
         self.logged(job.id(), self.firing_line(job, &ended, Some(&attempt)));
         self.trigger_moved(job, &ended);
+        // **Queued and not waited for**: the Job's step and status are where
+        // they were, and a repair Drone is put on by `repair_next`.
+        if let (TriggerState::Repairing, Some(firing), Some(command)) =
+            (ended.state, firing, one.to_run())
+        {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(Waiting {
+                    job: job.id().clone(),
+                    firing,
+                    trigger: ended.name.clone(),
+                    step: ended.step.clone(),
+                    command: command.to_string(),
+                    exit: ended.exit_code,
+                    stdout: attempt.output.stdout.clone(),
+                    stderr: attempt.output.stderr.clone(),
+                    record: core_model::RepairRecord::default(),
+                });
+        }
     }
 
     /// `job.trigger_changed`, the row whole. One per state a firing reaches.
-    fn trigger_moved(&self, job: &Job, firing: &TriggerFiring) {
+    pub(crate) fn trigger_moved(&self, job: &Job, firing: &TriggerFiring) {
         self.publish(ipc::Event::JobTriggerChanged(ipc::JobTriggerChanged {
             job_id: ipc::JobId::from(job.id()),
             trigger: firing.into(),
@@ -235,11 +288,29 @@ where
         }));
     }
 
-    fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
+    /// [`trigger_moved`](Fleet::trigger_moved) for a firing a repair has just
+    /// written, read back from its row so the event carries what the row holds.
+    pub(crate) async fn repair_moved(&self, job: &Job, firing_id: i64) {
+        let held = self.store().lock().await.firings_with_ids(job.id());
+        if let Some((_, firing)) = held
+            .ok()
+            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing_id))
+        {
+            self.trigger_moved(job, &firing);
+        }
+    }
+
+    pub(crate) fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
         self.trigger_line_at(job, self.now(), level, said)
     }
 
-    fn trigger_line_at(&self, job: &Job, at: Timestamp, level: Level, said: &str) -> Envelope {
+    pub(crate) fn trigger_line_at(
+        &self,
+        job: &Job,
+        at: Timestamp,
+        level: Level,
+        said: &str,
+    ) -> Envelope {
         Envelope::new(
             at,
             level,
@@ -259,7 +330,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match firing.state {
-            TriggerState::Failed => Level::Warn,
+            TriggerState::Failed | TriggerState::Repairing | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
         let said = match (&firing.skipped, firing.state) {

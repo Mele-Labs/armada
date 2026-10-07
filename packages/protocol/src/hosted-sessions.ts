@@ -29,7 +29,7 @@ export type StartSession = {
    */
   pilot?: { job_id: string; outcome: PilotOutcome };
   /**
-   * Start as a copy of an ended or dead session's conversation. Since 23.61. A new session with its own
+   * Start as a copy of an ended or dead session's conversation. Since 23.69. A new session with its own
    * id and ledger, holding none of the old one's. Refused 409 `fleet.session_fork_live` for a live one.
    */
   fork?: { session_id: string };

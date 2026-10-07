@@ -1,7 +1,7 @@
 //! What the fake forge and remote answer, scripted as one value.
 
 use adapter_traits::{
-    Base, BroughtUpToDate, KeptCurrent, Landing, Mergeable, Opened, Pushed, Remark,
+    Base, BranchMerged, BroughtUpToDate, KeptCurrent, Landing, Mergeable, Opened, Pushed, Remark,
     RepositoryStanding, Standing, UnderReview,
 };
 
@@ -63,6 +63,8 @@ pub struct Delivering {
     pub kept_current: KeptCurrent,
     /// What catching the repository up comes to.
     pub repository: RepositoryStanding,
+    /// What merging one local branch into another comes to.
+    pub branch_merge: BranchMerged,
 }
 
 impl Default for Delivering {
@@ -100,6 +102,7 @@ impl Default for Delivering {
                 onto: String::from("5b4ec82700000000000000000000000000000000"),
                 commits: 1,
             },
+            branch_merge: BranchMerged::Merged,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and

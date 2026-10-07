@@ -43,3 +43,13 @@
 .armada-workflow-canvas .armada-graph-canvas__aside {
   align-items: flex-end;
 }
+
+/* An inline control on a connector (the `+`, a repair's mark): the line runs through it, so it takes presses. */
+.armada-workflow-edge__add {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface-canvas);
+  pointer-events: all;
+}

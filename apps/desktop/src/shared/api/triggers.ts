@@ -1,6 +1,8 @@
 // Triggers.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
+import type { ChooseTriggerFix, HoldAct, Outcome } from "@armada/protocol";
+
 import type {
   ReadingTrigger,
   RemovingTrigger,
@@ -22,6 +24,18 @@ export type TriggersApi = {
   readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
   saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
   removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
+  /**
+   * Where a failed Trigger's held fix goes, onto the Job's branch or into a pull request of its own.
+   * Fleet never chooses, so this is the owner's. A refusal comes back as the outcome, in Fleet's
+   * own words, and leaves the firing as it was.
+   */
+  chooseTriggerFix: (jobId: string, body: ChooseTriggerFix) => Promise<Outcome>;
+  /**
+   * Run a held Trigger's Command again, or let it go. `body` names the Trigger or the added step,
+   * one of the two. A refusal comes back as the outcome, in Fleet's own words.
+   */
+  rerunTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
+  skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
 };
 
 export type TriggersState = Record<never, never>;
@@ -33,4 +47,7 @@ export const TRIGGERS_CHANNELS = {
   readTrigger: "bridge:read-trigger",
   saveTrigger: "bridge:save-trigger",
   removeTrigger: "bridge:remove-trigger",
+  chooseTriggerFix: "bridge:choose-trigger-fix",
+  rerunTrigger: "bridge:rerun-trigger",
+  skipTrigger: "bridge:skip-trigger",
 } as const;

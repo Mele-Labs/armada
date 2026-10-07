@@ -360,6 +360,21 @@ impl Environment {
         Ok(self)
     }
 
+    /// The variable that says this process runs unattended: a Drone, a Judge
+    /// call or a scout. The `armada` mod reads it and reports nothing, so the
+    /// Sessions list holds only the operator's own sessions.
+    pub const UNATTENDED: &'static str = "ARMADA_DRONE";
+
+    /// This environment with [`Environment::UNATTENDED`] set. Infallible: the
+    /// name is fixed, and one already held is left as it is.
+    pub fn unattended(mut self) -> Environment {
+        if !self.vars.iter().any(|(held, _)| held == Self::UNATTENDED) {
+            self.vars
+                .push((String::from(Self::UNATTENDED), String::from("1")));
+        }
+        self
+    }
+
     /// Every variable, in the order it was named.
     pub fn vars(&self) -> &[(String, String)] {
         &self.vars
@@ -516,6 +531,12 @@ impl Launch {
             directory: String::from(config.worktree().path()),
             environment: config.environment().clone(),
         }
+    }
+
+    /// Marked as running unattended, for the `armada` mod to read.
+    pub fn unattended(mut self) -> Launch {
+        self.environment = self.environment.unattended();
+        self
     }
 
     /// The harness's name for its permission wait, set to [`PERMISSION_WAIT`]

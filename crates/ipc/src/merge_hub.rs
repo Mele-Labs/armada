@@ -186,13 +186,13 @@ pub struct HubPullRequest {
     /// The Job that opened it. Absent for a person's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job: Option<HubJob>,
-    /// Where it stands in the merge queue, since 23.65. Absent where it is not
+    /// Where it stands in the merge queue, since 23.70. Absent where it is not
     /// in the queue and has no auto-merge waiting on its checks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue: Option<HubQueue>,
 }
 
-/// One pull request's place in the merge queue. Since 23.65.
+/// One pull request's place in the merge queue. Since 23.70.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HubQueue {
     pub state: HubQueueState,

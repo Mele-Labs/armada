@@ -238,3 +238,64 @@ async fn a_form_edit_naming_what_the_file_does_not_hold_is_refused_by_what_it_na
     assert_eq!(unknown.error().code, "fleet.manifest_edit_refused");
     assert_eq!(std::fs::read_to_string(&file).expect("reads"), KEPT);
 }
+
+/// **The repository's Draft default, set from the form and read by the next
+/// approval.** The edit writes `pr_mode` into the file and the declared keys
+/// carry it back; the running Fleet adopts it on a reread, as the watcher does,
+/// and the approval Bridge is shown starts on it.
+#[tokio::test]
+async fn set_pr_mode_writes_the_file_and_the_next_approval_starts_on_it() {
+    use api::Queries;
+    use crate::tests::daemon::a_proposal;
+
+    let home = TempDir::new();
+    // The id a proposal in the fixtures names, so the Job is this repository's.
+    let kept = KEPT.replace("id: edited", "id: 01FIXTUREMANIFEST");
+    let file = home.path().join("armada.yml");
+    std::fs::write(&file, &kept).expect("a Manifest to start from");
+    let (manifest, reloads) = Manifest::reloadable(&file).expect("the fixture loads");
+    let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
+    fittings.starting().manifest = manifest;
+    let fleet = crate::daemon::Fleet::assembled(fittings);
+    let job = fleet.propose(a_proposal("the reader")).await.expect("a Job");
+    let default = |served: ipc::JobDetail| served.pr_mode_default;
+    let before = Queries::get_job(&fleet, job.id().into()).await.expect("detail");
+    assert_eq!(default(before), Some(ipc::PrMode::from_wire("ready").unwrap()));
+
+    let opened = fleet.read_manifest_file(&fleet.first()).expect("opens");
+    assert_eq!(opened.declared.as_ref().expect("declared").pr_mode, None);
+    let edited = fleet
+        .edit_manifest_file(
+            EditManifest {
+                read: opened.text,
+                edits: vec![ManifestEdit::SetPrMode {
+                    pr_mode: Some(ipc::PrMode::from_wire("draft").unwrap()),
+                }],
+            },
+            &fleet.first(),
+        )
+        .expect("the edit lands");
+    assert!(std::fs::read_to_string(&file)
+        .expect("reads")
+        .ends_with("pr_mode: draft\n"));
+    assert_eq!(
+        edited.declared.expect("declared").pr_mode,
+        Some(ipc::PrMode::from_wire("draft").unwrap())
+    );
+
+    reloads.reread().expect("the file reads");
+    let after = Queries::get_job(&fleet, job.id().into()).await.expect("detail");
+    assert_eq!(default(after), Some(ipc::PrMode::from_wire("draft").unwrap()));
+
+    let cleared = fleet
+        .edit_manifest_file(
+            EditManifest {
+                read: edited.text,
+                edits: vec![ManifestEdit::SetPrMode { pr_mode: None }],
+            },
+            &fleet.first(),
+        )
+        .expect("the edit lands");
+    assert_eq!(cleared.declared.expect("declared").pr_mode, None);
+    assert_eq!(std::fs::read_to_string(&file).expect("reads"), kept);
+}

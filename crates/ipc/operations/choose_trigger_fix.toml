@@ -1,0 +1,18 @@
+[operations.choose_trigger_fix]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Say where a failed Trigger's held fix goes: onto the Job's branch, or into a pull request of its own"
+notes = """
+`POST /jobs/:job_id/choose_trigger_fix`, protocol 23.68. The body is `ChooseTriggerFix`: `trigger` (the Trigger's name; the latest firing of it that holds a fix is the one) and `choice` (`this_branch` or `new_pr`). The answer is a `TriggerFixChosen`: `state`, where the firing stands now, and `pull_request?` (`url` and `number?`) for `new_pr`.
+
+**Fleet never chooses.** A firing in `fix_ready` stays there until this is called, and stays there when the choice cannot be carried out, so another can be made. `this_branch` merges the repair branch onto the Job's, pushes it and runs the Command on it again: `passed`, or `failed` if it still fails. `new_pr` pushes the repair branch and opens a pull request against the Job's target: `passed`. `fix_ready` in the answer, with the choice on the firing's `repair`, is a `this_branch` kept until the Job's Drone has stopped working on its branch, or a worktree slot is free.
+
+**Refused four ways, each a 409 and each leaving the firing as it was:** `fleet.no_fix_waiting` where no firing of that Trigger is `fix_ready`; `fleet.fix_not_placed`, in the words of what could not be done (no remote, no tool for a pull request, the repair branch gone); `fleet.fix_conflicts` where the Job's branch moved and the fix no longer merges, naming the files; `fleet.fix_waiting` where every worktree slot is held. A Job Fleet does not hold is the usual 404.
+
+**It may take as long as the Command takes**, and the daemon runs it as a task of its own, so a client that stops waiting does not stop a merge halfway. Bridge sends `NO_WAIT`.
+
+Every state it passes through is a `job.trigger_changed`, carrying `trigger.repair`.
+
+`agent_access` is `Bridge only`: where a fix lands is the owner's choice, and the repair Drone that wrote it has no say.
+"""

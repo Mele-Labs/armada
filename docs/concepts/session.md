@@ -217,7 +217,7 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 ## A forked session
 
-A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.61) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
+A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.69) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
 
 | | |
 |---|---|
@@ -298,4 +298,4 @@ A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
 session's reported mod version with the installed one reads
 `Armada/mod/armada/.claude-plugin/plugin.json`.
 
-It loads in the person's own sessions only. A Drone, a Judge call and a scout are started with `--setting-sources project,local`, so a mod installed in a person's user settings never loads in one ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).
+It loads in a Drone, a Judge call and a scout too, since they read the person's user settings. Fleet starts each with `ARMADA_DRONE=1`; the mod reads it and reports nothing, so only the person's own sessions reach the ledger ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).

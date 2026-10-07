@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { WorkflowStepCard, type WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
 
 /**
@@ -21,6 +22,10 @@ export type WorkflowStackedRow = {
   depth?: 1 | 2;
   /** Where this step loops back to, in words, and its cap. */
   returns?: { toName: string; label: string };
+  /** Drawn under the card: what hangs off the step, such as a repair's branch, or the `+` that adds a step after it. */
+  trailing?: ReactNode;
+  /** Drawn over the card: the `+` that adds a step before the first. */
+  leading?: ReactNode;
 };
 
 export type WorkflowStackedProps = {
@@ -35,7 +40,9 @@ export function WorkflowStacked({ label, rows }: WorkflowStackedProps) {
       <ol className="armada-workflow-stacked__run" aria-label={label}>
         {rows.map((row) => (
           <li className="armada-workflow-stacked__row" data-depth={row.depth} key={row.id}>
+            {row.leading}
             <WorkflowStepCard {...row.card} />
+            {row.trailing}
             {row.returns === undefined ? null : (
               <p className="armada-workflow-stacked__returns">
                 back to {row.returns.toName} · {row.returns.label}
