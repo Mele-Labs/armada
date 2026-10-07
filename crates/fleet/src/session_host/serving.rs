@@ -28,7 +28,7 @@ const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
-const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
+pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// An attachment that would not decode, or is too large. A 422.
 const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 /// The agent's process would not start. A 500.
@@ -125,6 +125,13 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            let addressed = self.addressed(&sent.mentions).await?;
+            let kept = self.keep_uploads(&id, &sent.attachments)?;
+            let mut paths = kept.paths;
+            paths.extend(kept.picture_paths);
+            return self.send_to_terminal(&session, sent, addressed, paths).await;
+        }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
@@ -225,6 +232,9 @@ where
 
     async fn tune_session(&self, tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         let id = tuned.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            return self.tune_terminal(&session, tuned).await;
+        }
         let (session, mut hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
@@ -300,7 +310,18 @@ where
         self.published_hosted(&id).await
     }
 
-    async fn get_session(&self, id: SessionId) -> Result<SessionThread, Refusal> {
+    async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
+        if let Some(session) = self.terminal_session(id.as_str()).await? {
+            let rows = self.terminal_thread(&session).await?;
+            let record = {
+                let store = self.store().lock().await;
+                self.ledger_row(&store, &session)?
+            };
+            return Ok(SessionThread {
+                session: record,
+                rows,
+            });
+        }
         let (session, _) = self.session_and_hosting(id.as_str()).await?;
         let record = {
             let store = self.store().lock().await;
@@ -348,6 +369,10 @@ where
         })
     }
 
+    async fn take_held_messages(&self, ask: ipc::TakeHeld) -> Result<ipc::MessagesHeld, Refusal> {
+        self.held_for(ask).await
+    }
+
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
     }
@@ -360,6 +385,9 @@ pub(crate) struct Kept {
     pub pictures: Vec<(String, String)>,
     /// Where each file that is not a picture is kept.
     pub paths: Vec<String>,
+    /// Where each picture is kept, for a session that is told paths and not
+    /// pictures.
+    pub picture_paths: Vec<String>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -376,11 +404,11 @@ where
         Refusal::Unacceptable(WireError::raised(code, why, self.run_id()))
     }
 
-    fn hosted_fault(&self, code: &'static str, why: &str) -> Refusal {
+    pub(crate) fn hosted_fault(&self, code: &'static str, why: &str) -> Refusal {
         Refusal::Fault(WireError::raised(code, why, self.run_id()))
     }
 
-    fn closed(&self, id: &str) -> Refusal {
+    pub(crate) fn closed(&self, id: &str) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_CLOSED,
             format!("session {id} was closed, and a closed session takes nothing more"),
@@ -395,6 +423,15 @@ where
              stopped waiting",
             self.run_id(),
         ))
+    }
+
+    /// The ledger's row for `id` where a person runs it in a terminal and Fleet
+    /// hosts nothing of it.
+    async fn terminal_session(&self, id: &str) -> Result<Option<KeptSession>, Refusal> {
+        let store = self.store().lock().await;
+        let found = store.session(id).map_err(|why| self.ledger_fault(why))?;
+        let hosted = store.hosting(id).map_err(|why| self.ledger_fault(why))?;
+        Ok(found.filter(|one| one.origin == "terminal" && hosted.is_none()))
     }
 
     pub(crate) async fn session_and_hosting(
@@ -431,11 +468,12 @@ where
     }
 
     /// Store what a message carried, outside every worktree.
-    fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
+    pub(crate) fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
         let mut kept = Kept {
             files: Vec::new(),
             pictures: Vec::new(),
             paths: Vec::new(),
+            picture_paths: Vec::new(),
         };
         if uploads.is_empty() {
             return Ok(kept);
@@ -469,6 +507,7 @@ where
             if upload.media_type.starts_with("image/") {
                 kept.pictures
                     .push((upload.media_type.clone(), upload.data.clone()));
+                kept.picture_paths.push(path.to_string_lossy().into_owned());
             } else {
                 kept.paths.push(path.to_string_lossy().into_owned());
             }
@@ -483,7 +522,7 @@ where
 
     /// Each session a message names, with the address another session writes
     /// to where Fleet hosts it.
-    async fn addressed(
+    pub(crate) async fn addressed(
         &self,
         tags: &[ipc::SessionTag],
     ) -> Result<Vec<(ipc::SessionTag, Option<String>)>, Refusal> {

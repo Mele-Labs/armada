@@ -140,10 +140,46 @@ pub enum SessionFact {
     Measured {
         usage: SessionUsage,
     },
+    /// What the terminal runs on: its model, its effort, its permission mode
+    /// and the commands it lists. **A field left out is unchanged**, and an
+    /// empty `commands` is no new list. Since 23.53.
+    Tuned {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        effort: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<crate::hosted_sessions::SessionMode>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        commands: Vec<TerminalCommand>,
+    },
     TurnCompleted,
     Ended {
         reason: String,
     },
+}
+
+/// A command a terminal session lists, for `/` to offer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalCommand {
+    pub name: String,
+    #[serde(default)]
+    pub says: String,
+}
+
+/// What a terminal session runs on, as its mod last said. **Read-only for the
+/// mode**: the mods API cannot switch a live session's permission mode
+/// (spike 27). Since 23.53.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalFacts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::hosted_sessions::SessionMode>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<TerminalCommand>,
 }
 
 /// What a harness sends Fleet. `POST /sessions/report`.
@@ -205,6 +241,9 @@ pub struct SessionRecord {
     /// a harness reports. Since 23.49.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted: Option<crate::hosted_sessions::HostedFacts>,
+    /// What a session run in a terminal runs on, once its mod has said. Since 23.53.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<TerminalFacts>,
 }
 
 /// `list_sessions`: the most recently seen first.

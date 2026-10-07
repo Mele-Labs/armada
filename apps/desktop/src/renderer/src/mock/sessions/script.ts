@@ -22,7 +22,7 @@ const MODELS = ["haiku", "sonnet", "opus"];
 const EFFORTS = ["low", "medium", "high"];
 
 /** What `/` offers, as a terminal session lists them: skills first, then the commands. */
-const COMMANDS: readonly SessionCommand[] = [
+export const COMMANDS: readonly SessionCommand[] = [
   { name: "review", says: "Review the pull request" },
   { name: "simplify", says: "Simplify the changed code" },
   { name: "security-review", says: "Review the pending changes for security" },
@@ -411,10 +411,17 @@ export function sessionsStore(
           ],
           // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
           attachments: [...one.attachments, ...looking, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
-          turn: { state: "working" },
+          // A session in a terminal is not told to be working: Fleet reads its transcript and nothing else.
+          turn: one.terminal === true ? one.turn : { state: "working" },
         };
       });
-      if (id === MINE && !started) {
+      if (now.find((one) => one.id === id)?.terminal === true) {
+        // The terminal takes the message, and what it does shows in the thread a moment later.
+        after(900, () => {
+          addTo(id, [tool("Read crates/store/src/tests/ledger.rs:88"), said("Line 88. Waiting on the clock there instead of the sleep fixes it.")]);
+          finishOf(id, "14:09");
+        });
+      } else if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
       } else if (now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "job" && a.state === "piloted" && a.looking !== true)) {
