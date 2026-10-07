@@ -9,8 +9,8 @@
 use std::future::Future;
 
 use ipc::{
-    ManifestId, RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerRemoved, TriggerSaved,
-    WorkflowSaved,
+    ChooseTriggerFix, JobId, ManifestId, RemoveTrigger, SaveTrigger, SaveWorkflow,
+    TriggerFixChosen, TriggerRemoved, TriggerSaved, WorkflowSaved,
 };
 
 use crate::daemon::Refusal;
@@ -48,4 +48,21 @@ pub trait Authoring: Send + Sync + 'static {
         remove: RemoveTrigger,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<TriggerRemoved, Refusal>> + Send;
+
+    /// `choose_trigger_fix` — where a failed Trigger's held fix goes. **Fleet
+    /// never chooses**: a firing stays `fix_ready` until this is called, and
+    /// stays there when the choice cannot be carried out.
+    ///
+    /// **By `Arc`, for [`Commands::show_again`](super::Commands::show_again)'s
+    /// reason**: placing a fix merges, pushes and runs the Command again, and a
+    /// client that stops waiting must not stop it halfway.
+    ///
+    /// [`Refusal::IllegalMove`] where no firing of the Trigger is `fix_ready`,
+    /// where the fix could not be placed, where the Job's branch moved and the
+    /// fix conflicts, and where every worktree slot is held.
+    fn choose_trigger_fix(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        choose: ChooseTriggerFix,
+    ) -> impl Future<Output = Result<TriggerFixChosen, Refusal>> + Send;
 }

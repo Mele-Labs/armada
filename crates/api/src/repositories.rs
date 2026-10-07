@@ -8,6 +8,7 @@ use ipc::{AddRepository, CloneRepository};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Authoring, Commands, Queries};
+use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -198,6 +199,30 @@ pub(crate) async fn remove_trigger<D: Authoring>(
         .await
     {
         Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Where a failed Trigger's held fix goes. **409 and nothing moved** where no
+/// firing of the Trigger holds a fix, where the fix could not be placed, where
+/// it conflicts with the Job's branch as it now stands, and where every
+/// worktree slot is held. It may take as long as the Command takes: the daemon
+/// runs it as a task of its own, and Bridge sends `NO_WAIT`.
+pub(crate) async fn choose_trigger_fix<D: Authoring>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let chose: ipc::ChooseTriggerFix = match ipc::decode("a fix to place", &body) {
+        Ok(chose) => chose,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .shared()
+        .choose_trigger_fix(job.id().clone(), chose)
+        .await
+    {
+        Ok(chosen) => answer(StatusCode::OK, &chosen, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

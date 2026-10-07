@@ -61,6 +61,7 @@ where
                     &kept,
                     None,
                 );
+                self.repair_moved(&job, firing_id).await;
                 continue;
             }
             let Some(command) = self.command_of(&job, &firing).await else {

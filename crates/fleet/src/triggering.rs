@@ -256,6 +256,18 @@ where
         }));
     }
 
+    /// [`trigger_moved`](Fleet::trigger_moved) for a firing a repair has just
+    /// written, read back from its row so the event carries what the row holds.
+    pub(crate) async fn repair_moved(&self, job: &Job, firing_id: i64) {
+        let held = self.store().lock().await.firings_with_ids(job.id());
+        if let Some((_, firing)) = held
+            .ok()
+            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing_id))
+        {
+            self.trigger_moved(job, &firing);
+        }
+    }
+
     pub(crate) fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
         self.trigger_line_at(job, self.now(), level, said)
     }

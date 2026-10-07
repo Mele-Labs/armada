@@ -137,6 +137,7 @@ fn a_repair_is_kept_on_the_firing_and_what_waits_on_a_person_is_listed() {
     let mut repair = RepairRecord {
         tries: 1,
         branch: Some("armada/repair-1".to_string()),
+        files: vec!["src/a.rs".to_string(), "Cargo.toml".to_string()],
         settled_at: Some(at("03")),
         ..RepairRecord::default()
     };

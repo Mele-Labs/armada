@@ -90,6 +90,15 @@ where
         let came_to = self
             .tries_made(&job, &waiting, &worktree, &mut record)
             .await;
+        // What the fix changes, read while the branch is still checked out:
+        // the worktree is measured from the Job's branch it was cut from.
+        if matches!(came_to, Ok(AfterRerun::HoldTheFix)) {
+            record.files = self
+                .work()
+                .changed_files(&worktree)
+                .map(|changed| changed.paths())
+                .unwrap_or_default();
+        }
         // Committed before this, so parking keeps the branch and gives the bay back.
         let _ = self
             .vcs()
@@ -270,9 +279,12 @@ where
                 .lock()
                 .await
                 .settle_repair(waiting.firing, state, &record, at.as_ref());
-        if let Err(why) = kept {
-            let said = format!("a Trigger's repair could not be recorded: {why}");
-            self.logged(job.id(), self.trigger_line(job, Level::Warn, &said));
+        match kept {
+            Ok(()) => self.repair_moved(job, waiting.firing).await,
+            Err(why) => {
+                let said = format!("a Trigger's repair could not be recorded: {why}");
+                self.logged(job.id(), self.trigger_line(job, Level::Warn, &said));
+            }
         }
     }
 

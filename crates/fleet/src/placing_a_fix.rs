@@ -12,6 +12,9 @@
 
 use std::path::Path;
 
+use api::Refusal;
+use ipc::WireError;
+
 use adapter_traits::{
     AgentHarness, BranchMerged, Delivery, Opened, Review, SlotLeased, Vcs, WorkProduct, Worktree,
 };
@@ -69,6 +72,11 @@ pub struct FixChosen {
     /// The pull request opened, for [`FixChoice::NewPr`].
     pub pull_request: Option<String>,
 }
+
+const NO_FIX_WAITING: &str = "fleet.no_fix_waiting";
+const FIX_NOT_PLACED: &str = "fleet.fix_not_placed";
+const FIX_CONFLICTS: &str = "fleet.fix_conflicts";
+const FIX_WAITING: &str = "fleet.fix_waiting";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -154,6 +162,7 @@ where
                 .settle_repair(firing_id, TriggerState::FixReady, &kept, None)
                 .map_err(|why| refused(why.to_string()))?;
             let _ = self.vcs().park_slot(&pool, repair_slot, &holder);
+            self.repair_moved(&job, firing_id).await;
             return Ok(FixChosen {
                 state: TriggerState::FixReady,
                 pull_request: None,
@@ -198,6 +207,48 @@ where
             state,
             pull_request: record.pull_request,
         })
+    }
+
+    /// [`choose_trigger_fix`](Fleet::choose_trigger_fix) as the wire asks for
+    /// it. **Spawned and awaited**, as `show_again` is, so a client that stops
+    /// waiting leaves a merge it began to finish.
+    pub(crate) async fn fix_chosen(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choose: ipc::ChooseTriggerFix,
+    ) -> Result<ipc::TriggerFixChosen, Refusal> {
+        let fleet = std::sync::Arc::clone(&self);
+        let job = job_id.to_domain();
+        let placed = tokio::spawn(async move {
+            fleet
+                .choose_trigger_fix(&job, &choose.trigger, choose.choice.into())
+                .await
+        })
+        .await;
+        let said = |code: &'static str, said: String| {
+            Refusal::IllegalMove(WireError::raised(code, said, self.run_id()))
+        };
+        match placed {
+            Err(why) => Err(Refusal::Fault(WireError::raised(
+                "fleet.fix_not_placed",
+                format!("placing the fix stopped: {why}"),
+                self.run_id(),
+            ))),
+            Ok(Ok(chosen)) => Ok(ipc::TriggerFixChosen {
+                state: chosen.state.into(),
+                pull_request: chosen
+                    .pull_request
+                    .as_deref()
+                    .map(ipc::TriggerPullRequest::at),
+            }),
+            Ok(Err(FixNotChosen::NoSuchJob(why))) => Err(self.refusal(why)),
+            Ok(Err(why @ FixNotChosen::NothingWaiting { .. })) => {
+                Err(said(NO_FIX_WAITING, why.to_string()))
+            }
+            Ok(Err(why @ FixNotChosen::Refused(_))) => Err(said(FIX_NOT_PLACED, why.to_string())),
+            Ok(Err(why @ FixNotChosen::Waiting(_))) => Err(said(FIX_WAITING, why.to_string())),
+            Ok(Err(why @ FixNotChosen::Conflicts(_))) => Err(said(FIX_CONFLICTS, why.to_string())),
+        }
     }
 
     /// The command line the firing's Trigger runs now: asked of the frozen set
@@ -405,6 +456,7 @@ where
                 None,
             );
             if let Ok(job) = self.load(&job_id).await {
+                self.repair_moved(&job, firing_id).await;
                 let said = format!(
                     "the fix for `{}` could not be placed and waits on your choice again: {why}",
                     firing.name

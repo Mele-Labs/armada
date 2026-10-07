@@ -222,7 +222,8 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE job_triggers SET state = ?2, repair_tries = ?3, repair_branch = ?4,
-                     fix_choice = ?5, fix_pr = ?6, ended_at = ?7, repair_settled_at = ?8
+                     fix_choice = ?5, fix_pr = ?6, ended_at = ?7, repair_settled_at = ?8,
+                     fix_files = ?9
                  WHERE firing_id = ?1",
                 rusqlite::params![
                     id,
@@ -233,6 +234,7 @@ impl Store {
                     repair.pull_request,
                     ended_at.map(Timestamp::as_str),
                     repair.settled_at.as_ref().map(Timestamp::as_str),
+                    repair.files.join("\n"),
                 ],
             )
             .map_err(fault("recording a trigger's repair"))
@@ -300,7 +302,7 @@ impl Store {
                 "SELECT name, moment, step_id, source, state, skipped_why, skipped_name,
                      exit_code, block_on_fail, repair_on_fail, started_at, ended_at,
                      firing_id, repair_tries, repair_branch, fix_choice, fix_pr,
-                     repair_settled_at, job_id
+                     repair_settled_at, job_id, fix_files
                  FROM job_triggers WHERE {clause} ORDER BY firing_id"
             ))
             .map_err(fault("reading a job's trigger firings"))
@@ -327,6 +329,7 @@ impl Store {
                     row.get::<_, Option<String>>(16)?,
                     row.get::<_, Option<String>>(17)?,
                     row.get::<_, String>(18)?,
+                    row.get::<_, String>(19)?,
                 ))
             })
             .map_err(fault("reading a job's trigger firings"))
@@ -354,6 +357,7 @@ impl Store {
                 pull_request,
                 settled,
                 job,
+                files,
             ) = row
                 .map_err(fault("reading a job's trigger firings"))
                 .map_err(LoadJobError::Database)?;
@@ -394,6 +398,7 @@ impl Store {
                         choice,
                         pull_request,
                         settled_at: settled.map(Timestamp::from_rfc3339),
+                        files: files.lines().map(str::to_string).collect(),
                     },
                 },
             ));

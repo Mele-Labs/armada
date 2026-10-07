@@ -147,6 +147,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::remove_trigger::<D>),
         )
         .route(
+            "/jobs/:job_id/choose_trigger_fix",
+            post(crate::repositories::choose_trigger_fix::<D>),
+        )
+        .route(
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )

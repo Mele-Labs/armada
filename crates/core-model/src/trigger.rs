@@ -9,6 +9,7 @@
 //! default off.
 
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::envelope::Timestamp;
 use crate::job::{StepId, WorkflowId};
@@ -345,6 +346,9 @@ pub struct RepairRecord {
     pub choice: Option<FixChoice>,
     /// The pull request opened for [`FixChoice::NewPr`].
     pub pull_request: Option<String>,
+    /// The files the fix changes on the repair branch, repository-relative:
+    /// what the owner reads before he chooses. Set when the fix is held.
+    pub files: Vec<String>,
     /// When the repair last settled: the failure's time for `failed`, and the
     /// fix's for `fix_ready`.
     pub settled_at: Option<Timestamp>,

@@ -423,9 +423,10 @@ pub use studio_sketch::{
     SketchPictureDrawn, SketchPoint, SketchStroke,
 };
 pub use triggers::{
-    JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger,
-    TriggerDefinition, TriggerFiringState, TriggerLevel, TriggerList, TriggerMoment,
-    TriggerRemoved, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
+    ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
+    RemoveTrigger, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
+    TriggerFixChosen, TriggerLevel, TriggerList, TriggerMoment, TriggerPullRequest, TriggerRemoved,
+    TriggerRepair, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
     TriggerSummary,
 };
 pub use turn::{
