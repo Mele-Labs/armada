@@ -883,6 +883,12 @@ pub trait Queries: Send + Sync + 'static {
         async { Vec::new() }
     }
 
+    /// The Checks each served repository's Manifest declares, by root: what a
+    /// branch queued on its merge line will be gated on. **Empty by default.**
+    fn land_checks(&self) -> impl Future<Output = Vec<(String, Vec<String>)>> + Send {
+        async { Vec::new() }
+    }
+
     /// `observe_land_check` — one Check's log on a served repository's merge
     /// line, by the root, the branch and the Check.
     ///

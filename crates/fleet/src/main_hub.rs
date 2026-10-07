@@ -368,6 +368,20 @@ where
             })
     }
 
+    /// The Checks each served repository's Manifest declares, by root.
+    pub(crate) fn land_checks(&self) -> Vec<(String, Vec<String>)> {
+        self.repositories()
+            .served()
+            .iter()
+            .map(|served| {
+                (
+                    served.root().to_string(),
+                    served.manifest().checks_as_written().to_vec(),
+                )
+            })
+            .collect()
+    }
+
     /// Each served repository's hub, by root. A repository Fleet has read
     /// nothing for is left out.
     pub(crate) async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {
