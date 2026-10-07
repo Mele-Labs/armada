@@ -674,9 +674,8 @@ impl Delivery for FakeVcs {
         self.main_ci.merged(commit)
     }
 
-    fn merge_queue(&self, _in_repo: &str, _base: &str) -> Option<adapter_traits::MergeQueue> {
-        self.main_ci.merge_queue()
-    }
+    #[rustfmt::skip]
+    fn merge_queue(&self, _: &str, _: &str) -> Option<adapter_traits::MergeQueue> { self.main_ci.merge_queue() }
 
     fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
         self.main_ci.open_pulls()
