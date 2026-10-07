@@ -892,6 +892,25 @@ where
         Ok(self.served_named(manifest_id.as_ref())?.left_out().to_vec())
     }
 
+    async fn list_triggers(
+        &self,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerList, Refusal> {
+        Ok(self.list_triggers_of(&self.served_named(manifest_id.as_ref())?))
+    }
+
+    async fn get_trigger(
+        &self,
+        when: ipc::TriggerMoment,
+        step: Option<ipc::StepId>,
+        name: String,
+        level: Option<ipc::TriggerLevel>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerDefinition, Refusal> {
+        let served = self.served_named(manifest_id.as_ref())?;
+        self.get_trigger_of(&served, when, step, &name, level)
+    }
+
     /// Every Manifest this Fleet serves, the one it was started in first.
     async fn list_manifests(&self) -> Result<Vec<ManifestSummary>, Refusal> {
         let served = self.repositories().served();

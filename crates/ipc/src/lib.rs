@@ -187,6 +187,9 @@ mod studio;
 /// What `add_studio_node` carries: any content, a Picture staged rather than kept.
 mod studio_added;
 mod studio_sketch;
+/// The Triggers a repository runs, saving one, and what a Job did with each.
+/// Since 23.58.
+mod triggers;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
 /// Check's log is read over.
@@ -288,9 +291,10 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
-    HeldCommand, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TakeHeld, TuneSession,
+    HeldCommand, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState,
+    SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag, SessionThread, SessionTurn,
+    SessionUpload, SessionVoice, SessionVoiceNamed, StartSession, TagKind, TaggedJob, TakeHeld,
+    TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -417,6 +421,12 @@ pub use studio_added::{AddedContent, StudioNodeAdded};
 pub use studio_sketch::{
     EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
     SketchPictureDrawn, SketchPoint, SketchStroke,
+};
+pub use triggers::{
+    JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger,
+    TriggerDefinition, TriggerFiringState, TriggerLevel, TriggerList, TriggerMoment,
+    TriggerRemoved, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
+    TriggerSummary,
 };
 pub use turn::{
     BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
