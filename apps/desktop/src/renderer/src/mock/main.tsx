@@ -3,6 +3,7 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { annotatesWith } from "./annotating";
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -47,4 +48,4 @@ if (root !== null && picker !== null) {
 // The annotation layer (#1226), saving through this dev server's `annotationsServer`. Not in a
 // frame, and not inside `prototype-walked`'s stand-in window (`?walked`), whose own capture takes
 // ⌥⌘A there as main's walk window does.
-if (!framing && !query.has("walked")) void import("../annotate/mount").then(({ mount }) => mount());
+if (!framing && !query.has("walked") && !annotatesWith(scenario.name)) void import("../annotate/mount").then(({ mount }) => mount());

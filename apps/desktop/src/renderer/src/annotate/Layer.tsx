@@ -41,7 +41,7 @@ export function isToggle(event: Pick<globalThis.KeyboardEvent, "code" | "metaKey
 }
 
 /** Survives a reload, so pins are still drawn after one. Per window, not per machine. */
-const ON_KEY = "armada.annotate.on";
+export const ON_KEY = "armada.annotate.on";
 
 /** Pointer events the layer takes from the app while it is on, so a click annotates rather than acts. */
 const SWALLOWED = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"] as const;
@@ -63,7 +63,8 @@ const place = (box: Box): CSSProperties =>
 
 function inLayer(target: EventTarget | null): boolean {
   const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
-  return element?.closest("[data-armada-annotate]") != null;
+  // The mock's walk card (`WALK_UI`) is as much the layer's as its bar: a walk over the layer has to be able to go on.
+  return element?.closest("[data-armada-annotate], [data-walk-ui]") != null;
 }
 
 /** What the pointer is over, taking an SVG as the whole glyph rather than one path in it. */

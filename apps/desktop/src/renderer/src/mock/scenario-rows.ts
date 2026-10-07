@@ -26,3 +26,4 @@ export * from "./scenarios/main-checks-running";
 export * from "./scenarios/session-names";
 export * from "./scenarios/checks-gate-first-run";
 export * from "./scenarios/checks-gate-second-run";
+export * from "./scenarios/annotate-to-session";
