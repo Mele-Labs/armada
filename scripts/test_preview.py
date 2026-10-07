@@ -10,6 +10,7 @@ import http.server
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -27,11 +28,12 @@ case "$1 $2" in
 esac
 """
 
+LIST = "crates/store/src/migration_list.rs"
 MIGRATIONS = (
-    "pub const MIGRATIONS: &[&str] = &[\n"
-    "    V1,\n"
+    "pub(crate) const MIGRATIONS: &[Migration] = &[\n"
+    '    Migration::additive("schema.v1", V1),\n'
     "    // a spacer so two appends do not touch the same lines\n"
-    "    crate::x::V2,\n"
+    '    Migration::additive("x.v2", crate::x::V2),\n'
     "    // another\n"
     "    // another\n"
     "];\n"
@@ -56,7 +58,7 @@ class Preview(unittest.TestCase):
         self.git("config", "user.name", "t")
         self.git("config", "user.email", "t@example.com")
         self.write("a.txt", "one\ntwo\nthree\n")
-        self.write("crates/store/src/migrations.rs", MIGRATIONS)
+        self.write(LIST, MIGRATIONS)
         self.commit("main: start")
         self.slot_lines = []
 
@@ -148,16 +150,16 @@ class Preview(unittest.TestCase):
                                 capture_output=True, text=True).stdout
         self.assertNotIn("UU", status)
 
-    def test_a_migration_number_taken_twice_is_skipped_though_git_merges_it(self):
+    def test_a_migration_name_taken_twice_is_skipped_though_git_merges_it(self):
         base = MIGRATIONS
-        one = base.replace("    V1,\n", "    V1,\n    crate::p::V3,\n")
+        one = base.replace('("schema.v1", V1),\n', '("schema.v1", V1),\n    Migration::additive("p.same", crate::p::A),\n')
         two = base.replace("    // another\n    // another\n",
-                           "    // another\n    // another\n    crate::q::V3,\n")
-        self.branch("feat/m-first", {"crates/store/src/migrations.rs": one})
-        self.branch("feat/m-second", {"crates/store/src/migrations.rs": two})
+                           '    // another\n    // another\n    Migration::additive("p.same", crate::q::B),\n')
+        self.branch("feat/m-first", {LIST: one})
+        self.branch("feat/m-second", {LIST: two})
         self.hold("feat/m-first", "feat/m-second")
         said = self.run_preview()
-        self.assertRegex(said, r"feat/m-second\s+skipped \(migration V3 is already taken by feat/m-first\)")
+        self.assertRegex(said, r"feat/m-second\s+skipped \(migration p.same is already taken by feat/m-first\)")
         self.assertEqual(self.merged_in_order(), ["feat/m-first"])
         # Git alone would have merged both.
         probe = os.path.join(self.dir, "probe")
@@ -286,6 +288,36 @@ def roster_server(jobs):
     return server
 
 
+def entry(name, breaking=False, module="x"):
+    kind = "breaking" if breaking else "additive"
+    return f'    Migration::{kind}("{name}", crate::{module}::SQL),\n'
+
+
+def listing(*entries):
+    return "pub(crate) const MIGRATIONS: &[Migration] = &[\n" + "".join(entries) + "];\n"
+
+
+def run(cwd, *args):
+    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd,
+                          check=True, capture_output=True, text=True).stdout.strip()
+
+
+def scratch_root(base, main_list):
+    """A repository of its own holding a copy of `scripts/restart`, with
+    `origin/main` at `main_list`, so the guard never reads the real one."""
+    root = os.path.join(base, "root")
+    os.makedirs(os.path.join(root, "scripts"))
+    shutil.copy(RESTART, os.path.join(root, "scripts", "restart"))
+    run(root, "init", "-q", "-b", "main")
+    os.makedirs(os.path.join(root, os.path.dirname(LIST)))
+    with open(os.path.join(root, LIST), "w") as f:
+        f.write(main_list)
+    run(root, "add", ".")
+    run(root, "commit", "-q", "-m", "main")
+    run(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+    return os.path.join(root, "scripts", "restart")
+
+
 class RestartAdopt(unittest.TestCase):
     """`scripts/restart` under a scratch HOME against a stubbed roster. Never the real one."""
 
@@ -301,7 +333,7 @@ class RestartAdopt(unittest.TestCase):
         os.makedirs(os.path.join(self.tree, "crates", "store", "src"))
         os.makedirs(os.path.join(self.tree, "apps", "desktop"))
         open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
-        with open(os.path.join(self.tree, "crates", "store", "src", "migrations.rs"), "w") as f:
+        with open(os.path.join(self.tree, LIST), "w") as f:
             f.write(MIGRATIONS)
         # The build steps run before the late roster check; stubs keep them off.
         self.bin = os.path.join(self.dir, "bin")
@@ -321,7 +353,9 @@ class RestartAdopt(unittest.TestCase):
 
     def restart(self, *args):
         env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"])
-        done = subprocess.run([RESTART, "--from", self.tree, *args], env=env, capture_output=True, text=True)
+        script = scratch_root(self.dir, MIGRATIONS) if not hasattr(self, "script") else self.script
+        self.script = script
+        done = subprocess.run([script, "--from", self.tree, *args], env=env, capture_output=True, text=True)
         return done.returncode, done.stdout + done.stderr
 
     def test_a_working_drone_refuses_without_adopt(self):
@@ -379,6 +413,155 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("did not answer", said)
         code, said = self.restart("--adopt", "--dry-run")
         self.assertIn("would still refuse", said)
+
+
+class MigrationGuard(unittest.TestCase):
+    """The names guard of `scripts/restart --from`, as `--dry-run` runs it, under a
+    scratch HOME and a scratch root whose `origin/main` is the base. Never the real database."""
+
+    BASE = (entry("schema.v1", module="schema"), entry("x.v2"))
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.home = os.path.join(self.dir, "home")
+        self.support = os.path.join(self.home, "Library", "Application Support", "Armada")
+        os.makedirs(self.support)
+        self.script = scratch_root(self.dir, listing(*self.BASE))
+        self.tree = os.path.join(self.dir, "tree")
+        os.makedirs(os.path.join(self.tree, "crates", "armada"))
+        os.makedirs(os.path.join(self.tree, "apps", "desktop"))
+        open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
+        run(self.tree, "init", "-q", "-b", "main")
+        self.build(*self.BASE)
+        run(self.tree, "add", ".")
+        run(self.tree, "commit", "-q", "-m", "base")
+
+    def build(self, *entries):
+        """The build being previewed, on a branch of its own."""
+        path = os.path.join(self.tree, LIST)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(listing(*entries))
+
+    def on_branch(self, branch, *entries):
+        run(self.tree, "checkout", "-q", "-b", branch)
+        self.build(*entries)
+        run(self.tree, "commit", "-q", "-am", branch)
+
+    def database(self, rows=None, numbered=None):
+        db = os.path.join(self.support, "armada.db")
+        con = sqlite3.connect(db)
+        con.execute("CREATE TABLE armada_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        if numbered is not None:
+            con.execute("INSERT INTO armada_meta VALUES ('schema_version', ?)", (str(numbered),))
+        else:
+            con.execute("CREATE TABLE armada_migrations (name TEXT PRIMARY KEY, additive INTEGER NOT NULL)")
+            con.executemany("INSERT INTO armada_migrations VALUES (?, ?)", rows or [])
+        con.commit()
+        con.close()
+
+    def guard(self):
+        env = dict(os.environ, HOME=self.home)
+        done = subprocess.run([self.script, "--from", self.tree, "--dry-run"], env=env,
+                              capture_output=True, text=True)
+        return done.returncode, done.stdout + done.stderr
+
+    def test_a_build_with_nothing_unlanded_passes(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("Migration guard: 2 migrations listed, 2 applied", said)
+
+    def test_an_unlanded_breaking_migration_is_refused_naming_it_and_its_branch(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("fleet/rebuilds-a-table", *self.BASE, entry("y.rebuild", breaking=True))
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("y.rebuild from fleet/rebuilds-a-table", said)
+        self.assertIn("unlanded work", said)
+
+    def test_an_unlanded_additive_migration_is_allowed_and_said_to_be_safe(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        self.on_branch("fleet/step-baseline", *self.BASE, entry("step_baseline.survives_restart"))
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("unlanded and additive, so safe to go back from: step_baseline.survives_restart", said)
+
+    def test_an_unlanded_breaking_migration_the_database_already_has_applies_nothing_new(self):
+        self.database([("schema.v1", 1), ("x.v2", 1), ("y.rebuild", 0)])
+        self.on_branch("fleet/rebuilds-a-table", *self.BASE, entry("y.rebuild", breaking=True))
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+
+    def test_a_database_with_extra_additive_names_is_not_a_refusal(self):
+        self.database([("schema.v1", 1), ("x.v2", 1), ("step_baseline.survives_restart", 1)])
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("applied and not listed here, all additive: step_baseline.survives_restart", said)
+
+    def test_a_database_with_an_extra_breaking_name_is_refused(self):
+        self.database([("schema.v1", 1), ("x.v2", 1), ("z.rewrote", 0)])
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("breaking migrations", said)
+        self.assertIn("z.rewrote", said)
+
+    def test_a_numbered_database_converts_in_the_read(self):
+        self.database(numbered=2)
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("2 applied", said)
+
+    def test_a_numbered_database_past_the_old_list_is_refused(self):
+        self.database(numbered=114)
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("114", said)
+
+    def test_no_database_is_not_a_refusal(self):
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+
+    def test_a_database_with_a_live_wal_reads(self):
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        con = sqlite3.connect(os.path.join(self.support, "armada.db"))
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("INSERT INTO armada_migrations VALUES ('w.late', 1)")
+        con.commit()
+        self.addCleanup(con.close)
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("w.late", said)
+
+    def test_a_wal_with_no_shm_in_a_directory_that_cannot_be_written_reads_from_a_copy(self):
+        # The 6 Oct failure: `unable to open database file (14)` read-only, because a WAL
+        # with no usable -shm cannot be opened without creating one.
+        self.database([("schema.v1", 1), ("x.v2", 1)])
+        db = os.path.join(self.support, "armada.db")
+        con = sqlite3.connect(db)
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("INSERT INTO armada_migrations VALUES ('w.late', 1)")
+        con.commit()
+        shutil.copy(db, db + ".keep")
+        shutil.copy(db + "-wal", db + "-wal.keep")
+        con.close()
+        for suffix in ("", "-wal", "-shm"):
+            if os.path.exists(db + suffix):
+                os.remove(db + suffix)
+        shutil.move(db + ".keep", db)
+        shutil.move(db + "-wal.keep", db + "-wal")
+        os.chmod(self.support, 0o555)
+        self.addCleanup(os.chmod, self.support, 0o755)
+        code, said = self.guard()
+        self.assertEqual(code, 0, said)
+        self.assertIn("w.late", said)
+
+    def test_an_origin_main_that_cannot_be_read_is_refused_not_guessed(self):
+        run(os.path.dirname(os.path.dirname(self.script)), "update-ref", "-d", "refs/remotes/origin/main")
+        code, said = self.guard()
+        self.assertNotEqual(code, 0)
+        self.assertIn("origin/main", said)
 
 
 class PreviewAdopt(unittest.TestCase):
