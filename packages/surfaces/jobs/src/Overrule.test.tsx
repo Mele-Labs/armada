@@ -235,7 +235,7 @@ test("a failed Check is named on the button, the dialog and the reason", async (
 
   const dialog = page.getByRole("dialog", { name: "Overrule diff_nonempty on this step?" });
   await expect.element(dialog).toBeVisible();
-  await expect.element(dialog.getByText(/diff_nonempty failed on Implement\. Overruling says you know the work is done/)).toBeVisible();
+  await expect.element(dialog.getByText(/diff_nonempty failed on Implement\. The step advances, recorded as failed\./)).toBeVisible();
   expect(dialog.element().textContent).not.toMatch(/judge|verdict/i);
 
   const confirmed = dialog.getByRole("button", { name: "Overrule diff_nonempty" });

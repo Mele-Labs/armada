@@ -396,12 +396,8 @@ function checkOverruling(checks: string[]): Overruling {
     label,
     asks: `${label} on this step?`,
     field: "Why this step is done",
-    screen:
-      `${label}. ${named} failed and the retries are spent: you know the work is done, ` +
-      "and the step advances still recorded as failed.",
-    dialog: (step) =>
-      `${named} failed on ${step}. Overruling says you know the work is done. The step ` +
-      "advances still recorded as failed, so the failure stays on the record.",
+    screen: `${label}. The step advances, recorded as failed.`,
+    dialog: (step) => `${named} failed on ${step}. The step advances, recorded as failed.`,
   };
 }
 
