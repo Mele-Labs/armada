@@ -1108,8 +1108,7 @@ export function App({ draft }: AppProps = {}) {
                   onCursor={setCursor}
                   land={landing}
                   onLanded={() => setLanding(null)}
-                  onOpenLink={openProseLink}
-                  onFix={(fix) => void commands.fixMain(fix)}
+                  onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
