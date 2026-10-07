@@ -73,6 +73,7 @@ export function sessionsHidden(served: boolean): readonly string[] {
 }
 
 function stateOf(session: Session): { state: SessionState; said: string } {
+  if (session.dead !== undefined) return { state: "ended", said: session.dead === "ended" ? "Ended" : "Not listening" };
   if (session.turn.state === "working") {
     const by = session.turn.wokenBy;
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
@@ -127,7 +128,7 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
   const talk = useMemo<OpenInSessionValue | null>(() => {
     if (draft === undefined) return null;
     return {
-      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true).map((one) => ({ id: one.id, title: one.title! })),
+      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true && one.dead === undefined).map((one) => ({ id: one.id, title: one.title! })),
       open: (jobId, sessionId) => {
         const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
         if (tag === undefined) return;
@@ -222,6 +223,7 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
   { label: "Running", has: (state) => state === "working" },
   { label: "Not started", has: (state) => state === "blank" },
+  { label: "Ended", has: (state) => state === "ended" },
 ];
 
 /** What Fleet refused the last act on a Session, in the words it gave. */
@@ -401,9 +403,22 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => void, slot: (n: number) => void): LedgerEntry[] {
+function entriesOf(
+  session: Session,
+  goes: LedgerGoes,
+  read: (one: Reading) => void,
+  slot: (n: number) => void,
+  sessions: readonly Session[],
+  open: (id: string) => void,
+): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
+      case "forked_to":
+      case "forked_from": {
+        const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
+        const way = one.kind === "forked_to" ? "Forked to" : "Forked from";
+        return { key: `${one.kind}${one.id}`, kind: "fork", name: `${way} ${title}`, text: `${way} ${title}`, onOpen: () => open(one.id) };
+      }
       case "slot":
         return {
           key: `slot${one.slot}`,
@@ -519,6 +534,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(setReading) : setReading,
     narrow ? fold(setSlotOpen) : setSlotOpen,
+    sessions,
+    narrow ? fold(onOpen) : onOpen,
   );
   return (
     <>
@@ -529,11 +546,18 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
-        {...(narrow || draft.close !== undefined
+        {...(narrow || draft.close !== undefined || draft.fork !== undefined
           ? {
               actions: (
                 <>
-                  {draft.close === undefined || session.terminal === true ? null : (
+                  {draft.fork === undefined || session.dead === undefined ? null : (
+                    <Tooltip label="Start a new Session with this one's conversation">
+                      <Button variant="ghost" size="sm" onClick={() => opening(draft.fork!(session.id), onOpen)}>
+                        Fork
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
                         Close
@@ -570,33 +594,35 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
             onOpenSession={onOpen}
           />
-          <SessionComposer
-            modeLocked={session.terminal === true}
-            modeHidden={session.terminal === true && session.mode === undefined}
-            working={session.turn.state === "working"}
-            mode={mode}
-            onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-            model={session.model ?? null}
-            effort={session.effort ?? null}
-            models={draft.models}
-            efforts={draft.efforts}
-            onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-            compact={narrow}
-            taggable={[
-              ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
-              ...draft.taggable(),
-            ]}
-            tags={session.pendingTags ?? []}
-            onTags={(tags) => draft.setTags(session.id, tags)}
-            drawn={drawn.map(({ id, title }) => ({ id, title }))}
-            onDraw={() => setPadOpen(true)}
-            onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
-            onSend={(sent) => {
-              draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
-              setDrawn([]);
-            }}
-          />
+          {session.dead !== undefined ? null : (
+            <SessionComposer
+              modeLocked={session.terminal === true}
+              modeHidden={session.terminal === true && session.mode === undefined}
+              working={session.turn.state === "working"}
+              mode={mode}
+              onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+              model={session.model ?? null}
+              effort={session.effort ?? null}
+              models={draft.models}
+              efforts={draft.efforts}
+              onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+              commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+              compact={narrow}
+              taggable={[
+                ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
+                ...draft.taggable(),
+              ]}
+              tags={session.pendingTags ?? []}
+              onTags={(tags) => draft.setTags(session.id, tags)}
+              drawn={drawn.map(({ id, title }) => ({ id, title }))}
+              onDraw={() => setPadOpen(true)}
+              onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+              onSend={(sent) => {
+                draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
+                setDrawn([]);
+              }}
+            />
+          )}
         </div>
         {narrow ? null : <SessionLedger entries={entries} />}
       </SessionFrame>

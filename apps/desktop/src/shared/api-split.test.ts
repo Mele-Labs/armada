@@ -404,6 +404,7 @@ type OldBridgeApi = {
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
+    forkSession: (sessionId: string) => Promise<SessionActed>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -636,6 +637,7 @@ const OLD_CHANNELS = {
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",
+    forkSession: "bridge:fork-session",
     exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",

@@ -154,6 +154,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
       case "studio":
         out.push({ kind: "studio", id: one.target, title: detail["title"] ?? "Studio" });
         break;
+      case "forked_to":
+      case "forked_from":
+        out.push({ kind: one.kind, id: one.target });
+        break;
       case "subagent":
         out.push({
           kind: "subagent",
@@ -261,13 +265,17 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const model = hosted?.model ?? terminal?.model;
   const effort = hosted?.effort ?? terminal?.effort;
   const mode = hosted?.mode ?? terminal?.mode;
-  const attachments = attachmentsOfRecord(record, beside);
+  const ended = record.state === "ended";
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks.
+  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from");
+  const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
   return {
     id: record.id,
     address: addressOf(record.id),
     ...(record.title === undefined ? {} : { title: record.title }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
+    ...(dead === undefined ? {} : { dead }),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && record.title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
@@ -286,7 +294,16 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   };
 }
 
-/** The sessions the window draws: the ones still open, the person's own first. A closed session holds nothing, so it owns nothing. */
+/** How many ended sessions the window keeps, the most recently seen first: the ones a person is likely to fork. */
+export const ENDED_KEPT = 20;
+
+/**
+ * The sessions the window draws: the ones still open, and the last few that ended, which offer Fork
+ * and own nothing. Fleet lists most recently seen first, so the first `ENDED_KEPT` ended are the last.
+ */
 export function sessionsOfRecords(records: readonly SessionRecord[], threads: Readonly<Record<string, readonly WireRow[]>>, beside: (id: string) => Beside): Session[] {
-  return records.filter((one) => one.state === "live").map((one) => sessionOfRecord(one, threads[one.id], beside(one.id)));
+  let ended = 0;
+  return records
+    .filter((one) => one.state === "live" || ended++ < ENDED_KEPT)
+    .map((one) => sessionOfRecord(one, threads[one.id], beside(one.id)));
 }

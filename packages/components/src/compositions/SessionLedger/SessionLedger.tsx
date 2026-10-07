@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, Hand, Megaphone, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Hand, Megaphone, MoveRight, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -14,9 +14,10 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * **Every section is drawn from the start, dim, with an empty well under it and
  * no sentence in it**, so a blank Session's ledger shows what it will hold, and
  * each section fills in place when its first row arrives (the owner's choice
- * of 7 Oct 2026, on the empty ledger).
+ * of 7 Oct 2026, on the empty ledger). **The one exception is Forks**, drawn only
+ * where the Session has been forked or is a fork: most never are.
  */
-export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent";
+export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "fork";
 
 export type LedgerEntry = {
   key: string;
@@ -45,7 +46,11 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
+  { kind: "fork", label: "Forks", Glyph: MoveRight },
 ];
+
+/** Sections drawn only once they hold a row. */
+const ONLY_FILLED: readonly LedgerKind[] = ["fork"];
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   pending: ShieldEllipsis,
@@ -62,6 +67,7 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
       {SECTIONS.map(({ kind, label, Glyph }) => {
         const rows = entries.filter((one) => one.kind === kind);
+        if (rows.length === 0 && ONLY_FILLED.includes(kind)) return null;
         return (
           <section className="armada-session-ledger__group" key={kind} aria-label={label} data-empty={rows.length === 0 || undefined}>
             <h3 className="armada-session-ledger__eyebrow">{label}</h3>

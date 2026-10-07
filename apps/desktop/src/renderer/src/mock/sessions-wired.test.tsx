@@ -112,7 +112,7 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
 });
 
 test("Sessions wired: a terminal session opens to its ledger and takes a message, with its mode shown and not set", async () => {
-  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan" } })]);
+  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
   await onSessions();
   await userEvent.click(page.getByRole("button", { name: "Release notes script" }));

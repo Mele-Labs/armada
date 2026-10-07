@@ -53,6 +53,9 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
     if (!text(tune?.session_id) || !MODES.includes(tune.mode)) return unsent;
     return connection()?.sessions.tune(tune) ?? unsent;
   });
+  ipc.handle(CHANNELS.forkSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.fork(sessionId) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.closeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unsent,
   );

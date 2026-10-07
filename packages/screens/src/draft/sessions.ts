@@ -46,7 +46,9 @@ export type SessionAttachment =
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string };
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
+  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
+  | { kind: "forked_to" | "forked_from"; id: string };
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -135,6 +137,11 @@ export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
   address?: string;
+  /**
+   * Nothing more can be said to it: it `ended`, or it runs in a terminal whose mod has stopped asking
+   * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
+   */
+  dead?: "ended" | "quiet";
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
@@ -210,6 +217,11 @@ export type SessionsDraft = {
    * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
    */
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
+  /**
+   * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
+   * Absent where nothing serves it, and Fork is left off rather than drawn dead.
+   */
+  fork?: (id: string) => string | Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**

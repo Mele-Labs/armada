@@ -71,6 +71,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `subagent` | the agent's id | |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
+| `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
 
@@ -202,6 +203,25 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 `start_session` takes an optional `pilot` (`job_id`, `outcome`), and that one call is the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
 
 **Ending the pilot, or closing the Session while the Job is still piloted, hands the worktree back to the Job.** The Session's lease is cleared, so its next process starts in the repository and its next write leases a slot of its own. A close parks nothing in that case: the checkout is the Job's, not the Session's to commit.
+
+## A forked session
+
+A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.55) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
+
+| | |
+|---|---|
+| Dead | The ledger says `ended`, or it is a terminal session whose mod has not asked for ten seconds (`terminal.listening` is absent). A hosted session is dead only once it is closed |
+| Refused | A live session, 409 `fleet.session_fork_live`. An unknown id, 422 `fleet.no_such_session`. Nothing is written |
+| The fork | Its own id, ledger and slot. It takes the old title unless one is given, starts in the repository's main checkout, and leases a slot at its first write like any other session. It holds none of the old session's slot, branch or pull requests |
+| First process | Resumes the old id as a fork under the new one, so the conversation is copied and the new id is Fleet's. Once it has run, the session resumes by its own id |
+| Ledger | A `forked_from` row on the fork and a `forked_to` row on the old session, both `spent` |
+
+> **Rule.** Only an ended or dead session is forked.
+> Why: two live processes writing copies of one conversation is the thing Fork is not for, and a session that can still be spoken to needs no copy.
+
+**Bridge** keeps the last twenty ended sessions beside the live ones, under an Ended heading, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
+
+**A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a session whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal session reads dead until its mod's next ask, about two seconds.
 
 ## In Bridge
 
