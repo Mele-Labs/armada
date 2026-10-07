@@ -87,7 +87,9 @@ fn a_live_other_fleet() -> (u32, String) {
 
 #[tokio::test]
 async fn a_drone_marked_by_a_fleet_that_is_gone_is_found_and_ended() {
-    let mut drone = spawned(HOLDS_FOR_A_MINUTE, Some(&a_fleet_that_is_gone())).await;
+    let gone_mark = a_fleet_that_is_gone();
+    let mut drone = spawned(HOLDS_FOR_A_MINUTE, Some(&gone_mark)).await;
+    diagnose(&drone, &gone_mark);
     assert!(found(&drone));
     end(vec![drone.group()], Duration::from_millis(100), || vec![]);
     assert!(drone.is_gone_within(Duration::from_secs(5)).await);
@@ -166,4 +168,36 @@ fn a_mark_is_read_out_of_a_nul_separated_environment() {
     );
     assert_eq!(mark_in_environment(b"PATH=/bin\0HOME=/x\0"), None);
     assert_eq!(mark_in_environment(b"ARMADA_SPAWNED_BY=junk\0"), Some(None));
+}
+
+fn diagnose(drone: &Drone, mark: &str) {
+    let pid = drone.group().get();
+    let out = |c: &mut Plain| {
+        let o = c.output().expect("runs");
+        format!(
+            "status={:?} stdout={:?} stderr={:?}",
+            o.status,
+            String::from_utf8_lossy(&o.stdout),
+            String::from_utf8_lossy(&o.stderr)
+        )
+    };
+    eprintln!("DIAG mark={mark:?} pid={pid} me={}", std::process::id());
+    eprintln!(
+        "DIAG ps -ww -axo: {}",
+        out(Plain::new("ps").args(["ww", "-axo", "pid=,ppid=,pgid=,command="]))
+    );
+    eprintln!(
+        "DIAG ps -p: {}",
+        out(Plain::new("ps").args(["-o", "pid=,ppid=,pgid=,lstart=", "-p", &pid.to_string()]))
+    );
+    let env = std::fs::read(format!("/proc/{pid}/environ"));
+    eprintln!(
+        "DIAG environ err={:?} parsed={:?}",
+        env.as_ref().err(),
+        env.as_ref().ok().map(|e| mark_in_environment(e))
+    );
+    let by = mark.split(':').next().unwrap().parse::<u32>().unwrap();
+    eprintln!("DIAG holder_of({by})={:?}", holder_of(by));
+    eprintln!("DIAG holder_of(me)={:?}", holder_of(std::process::id()));
+    eprintln!("DIAG find={:?}", find(&[]));
 }
