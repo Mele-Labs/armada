@@ -1,0 +1,151 @@
+// A Drone held on a command it was not given asks on the Drone itself — its
+// card and row in the task's panel, the step's panel, and the Drones tab —
+// with Overview's box and its `answer_command`, not only under Needs you.
+
+import { describe, expect, test, vi } from "vitest";
+import { page } from "vitest/browser";
+
+import { ARC_JOB_ID } from "./fixtures/build/arc";
+import { HELD_CALL } from "./fixtures/build/arc-executing";
+
+import { entered, mount, unmountAfterEach } from "@armada/desktop/mock";
+
+unmountAfterEach();
+
+// Core and Jobs only: the surface's own members, and the scenario answers the rest.
+const SLICES = { slices: ["core", "jobs"] } as const;
+
+const T5 = "Draw what is running, in four lists";
+
+/** T5's panel, opened from its row on the Plan list. */
+async function taskPanel() {
+  await page.getByRole("tab", { name: /^Plan/ }).last().click();
+  await page.getByRole("tab", { name: "List" }).last().click();
+  await page.getByRole("listitem", { name: `T5 ${T5}` }).getByRole("button").click();
+  const panel = page.getByRole("dialog", { name: T5 });
+  await entered(panel);
+  return panel;
+}
+
+/** The radios are inputs under the controls they style. */
+function choose(name: string): void {
+  const radio = page.getByRole("radio", { name }).element() as HTMLElement;
+  radio.focus();
+  radio.click();
+}
+
+describe("a Drone held on a command", () => {
+  test("the task's Drone card asks, names the command, and its mark says it needs you", async () => {
+    mount("held/command", SLICES);
+    const panel = await taskPanel();
+    const card = panel.getByRole("group", { name: "Drone on T5" });
+    await expect.element(card).toHaveTextContent("pnpm add -D reselect@5.1.1");
+    await expect.element(card.getByRole("radio", { name: "Allow for this job" })).toBeInTheDocument();
+    await expect.element(card).toHaveTextContent("Needs you");
+    // Its row in the task's Drones carries the same mark.
+    await expect
+      .element(panel.getByRole("list", { name: "Drones on this task" }))
+      .toHaveTextContent("Needs you");
+  });
+
+  test("answering from the card sends the call Overview sends, and the ask clears", async () => {
+    const app = mount("held/command", SLICES);
+    const answerCommand = vi.spyOn(app.api, "answerCommand");
+    const panel = await taskPanel();
+    choose("Allow for this job");
+    await panel.getByRole("button", { name: "Send this answer" }).click();
+    await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+    expect(answerCommand).toHaveBeenCalledWith(ARC_JOB_ID, HELD_CALL, "allow_for_job", undefined, undefined);
+    await expect.poll(() => page.getByRole("radio", { name: "Allow for this job" }).query()).toBeNull();
+    await expect.element(panel.getByRole("group", { name: "Drone on T5" })).toHaveTextContent("Running");
+  });
+
+  test("the step's panel asks on the held Drone's row", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+    await page.getByRole("button", { name: /^Implement, /i }).last().click();
+    const drones = page.getByRole("region", { name: "Drones" });
+    await expect.element(drones).toHaveTextContent("Needs you");
+    await expect.element(drones).toHaveTextContent("pnpm add -D reselect@5.1.1");
+  });
+
+  test("the Drones tab marks the held row, and its sheet asks", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Drones/ }).last().click();
+    const table = page.getByRole("region", { name: "Drones on this Job" });
+    await expect.element(table).toHaveTextContent("Needs you");
+    await table.getByText("Drone on T5").first().click();
+    await expect.element(page.getByText("pnpm add -D reselect@5.1.1")).toBeVisible();
+  });
+
+  test("a Drone that is not held shows no ask and is running", async () => {
+    mount("arc/executing-sequential", SLICES);
+    const panel = await taskPanel();
+    expect(panel.getByRole("radio", { name: "Allow for this job" }).query()).toBeNull();
+    await expect.element(panel.getByRole("group", { name: "Drone on T5" })).not.toHaveTextContent("Needs you");
+  });
+
+  test("the plan graph's task and group cards say a command waits, and the task opens on the prompt", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    const task = page.getByRole("button", { name: new RegExp(`^${T5}, `) });
+    await expect.element(task).toHaveTextContent("Needs you");
+    await expect.element(page.getByRole("button", { name: /^Group 3, / })).toHaveTextContent("Needs you");
+    await task.click();
+    await expect
+      .element(page.getByRole("dialog", { name: T5 }).getByRole("radio", { name: "Allow for this job" }))
+      .toBeInTheDocument();
+  });
+
+  test("the Workflow tab's step card says it too, and a Job not held says nothing", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+    await expect.element(page.getByRole("button", { name: /^Implement, / }).last()).toHaveTextContent("Needs you");
+  });
+
+  test("the plan graph of a Job not held draws no such line", async () => {
+    mount("arc/executing-sequential", SLICES);
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).not.toHaveTextContent("Needs you");
+  });
+
+  test("the graph hangs a card beside the held task, and answering from it sends the same call and removes it", async () => {
+    const app = mount("held/command", SLICES);
+    const answerCommand = vi.spyOn(app.api, "answerCommand");
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    const ask = page.getByRole("group", { name: "Needs you" });
+    await expect.element(ask).toHaveTextContent("A Drone wants to run a command");
+    await expect.element(ask).toHaveTextContent("pnpm add -D reselect@5.1.1");
+    (ask.getByRole("radio", { name: "Allow for this job" }).element() as HTMLElement).click();
+    await ask.getByRole("button", { name: "Send this answer" }).click();
+    await expect.poll(() => answerCommand.mock.calls.length).toBe(1);
+    expect(answerCommand).toHaveBeenCalledWith(ARC_JOB_ID, HELD_CALL, "allow_for_job", undefined, undefined);
+    await expect.poll(() => page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+  });
+
+  test("the Workflow tab's canvas hangs it beside the held step", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Workflow/ }).last().click();
+    await expect
+      .element(page.getByRole("group", { name: "Needs you" }))
+      .toHaveTextContent("pnpm add -D reselect@5.1.1");
+  });
+
+  test("no card hangs on the canvas where nothing is held", async () => {
+    mount("arc/executing-sequential", SLICES);
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await expect.element(page.getByRole("button", { name: new RegExp(`^${T5}, `) })).toBeVisible();
+    expect(page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+  });
+
+  test("answering from the task's Drone card takes the canvas card beside it away too", async () => {
+    mount("held/command", SLICES);
+    await page.getByRole("tab", { name: /^Plan/ }).last().click();
+    await page.getByRole("button", { name: new RegExp(`^${T5}, `) }).click();
+    const panel = page.getByRole("dialog", { name: T5 });
+    await entered(panel);
+    (panel.getByRole("radio", { name: "Allow for this job" }).element() as HTMLElement).click();
+    await panel.getByRole("button", { name: "Send this answer" }).click();
+    await expect.poll(() => page.getByRole("group", { name: "Needs you" }).query()).toBeNull();
+  });
+});

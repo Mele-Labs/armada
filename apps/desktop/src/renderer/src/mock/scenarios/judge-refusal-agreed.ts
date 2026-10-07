@@ -3,7 +3,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { featureAfterAgreeing } from "../job-detail-refusal";
+import { featureAfterAgreeing } from "@armada/jobs/fake";
 
 export const s140RefusalAgreed: Scenario = holding("judge/refusal-agreed", "A Judge refusal agreed with, the step stopped", [featureAfterAgreeing()], {
   opens: featureAfterAgreeing().job.id,

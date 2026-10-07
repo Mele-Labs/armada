@@ -57,16 +57,19 @@ import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
 import { NOTHING_YET } from "../../../shared/bridge";
 import { connected } from "./moment";
-import { proposalFromAnIssue } from "./proposal-from-an-issue";
 import type { Scenario } from "./moment";
 import { SCRATCH } from "./setup-fake";
+import {
+  answeringTheHeldCommand,
+  evidenceRead,
+  fillingIn,
+  originsAndPanel,
+  proposalFromAnIssue,
+  retroFixtures,
+  walkedPrototype,
+  writingLogs,
+} from "@armada/jobs/fake";
 import { EVERY_KIND_NAME, EVERY_KIND_STUDIO, everyKind, untitled } from "@armada/studios/fake";
-import { retroFixtures } from "./job-3-retro";
-import { fillingIn } from "./proposer-fleet";
-import { evidenceRead, walkedPrototype } from "./prototype-fleet";
-import { originsAndPanel } from "./origins-and-panel";
-import { writingLogs } from "./check-logs-fleet";
-import { answeringTheHeldCommand } from "./held-fleet";
 import { gridHeld, slotsHeld } from "@armada/cleanup/fake";
 import { failingTurn, writingTheFailedLogs } from "./merge-line-turn";
 import { asRow, holding, servedFrom } from "./holding";

@@ -2,7 +2,7 @@
 
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
-import { featureUndecided } from "../job-detail-undecided";
+import { featureUndecided } from "@armada/jobs/fake";
 
 export const s150JudgeUndecided: Scenario = holding("judge/undecided", "The Judge did not answer, the step stopped", [featureUndecided()], {
   opens: featureUndecided().job.id,

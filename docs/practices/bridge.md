@@ -141,9 +141,9 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
-Cleanup, Overview, Helm, Setup and Manifest have moved both, and Settings its slice
-(it has no fleet); Jobs has moved its screens, their tests and its fixtures, and
-keeps its slice and fleet in desktop for now.
+Cleanup, Overview, Helm, Setup, Manifest and Jobs have moved both, and Settings its slice
+(it has no fleet). What stays in desktop is the composition: `scenario.ts`, the scenario rows,
+`holding.ts` and the Workflows and reports slices.
 
 A surface lives in its own package under the surfaces directory of `packages`,
 on a layer between `bridge-api` and the app. Two surfaces never import each
@@ -197,7 +197,7 @@ What it settled for the next surface:
   `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings, Helm, Setup and Manifest do.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings, Helm, Setup, Manifest and Jobs do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
@@ -247,6 +247,20 @@ What it settled for the next surface:
   and `mock/moment.ts` is the one place that fixes `D`. **A rule that guards a directory the
   move emptied must name where it went**: the main-process draft rule watches
   `packages/surfaces/jobs/src/draft` beside the screens'.
+- **Jobs then took its slice, its fake and 51 whole-app tests, in three commits.** `JobsApi` (82
+  members, 19 state fields) is `@armada/jobs/api`, and `jobsApi(scenario, fleet)` answers its 91
+  members over a `JobsFleet` handle, as `cleanupApi` does. **A moment that writes state is generic
+  and names what it writes**: `fillingIn`, `walkedPrototype`, `writingLogs`,
+  `answeringTheHeldCommand` and `originsAndPanel` each take `S` and `A` bounded by the fields and
+  members they touch (`FillingInState`, `WalkedPrototypeApi`, ...) and cast the handle to that,
+  so `walkedPrototype`'s `openCaptureWindow` (Studios') is spelled in its bound and Studios is
+  never imported. There is no `mock/jobs-fake.ts`: `scenario.ts` calls them on its own scenarios and the generics are inferred. **A scenario row stays in desktop**: `scenario-rows.ts` is a declared list file
+  (`list-files.md`) and each row is built with `holding`, so the rows import their fixtures from
+  `@armada/jobs/fake` and Jobs' `depends_on` names the list, `scenarios/**` and `holding.ts`.
+  **A fleet that answers another slice stays**: `workflows-fleet` answers `WorkflowsApi`, which is
+  still desktop's, and `main-red-hub` and `merge-line-turn` draw main going red and the merge line,
+  not a Job's detail. **A package test types what it touches**: `JobsApi` and `JobsState` from
+  `./api`, and `Mounted["api"]` where it spies a member another slice owns (`tap`).
 - **Typecheck is the surface's own Check**, declared in its `armada.yml`; the root
   script does not need to name it.
 
@@ -262,7 +276,7 @@ and the shared helper types beside it, never another slice.** Core's `state` and
 `subscribe` are generic in the whole state (`CoreApi<BridgeState>`) so Core need
 not name it. `shared/api-split.test.ts` holds the pre-split shapes and fails the
 typecheck if the composition drifts from them. A slice moves into its surface
-package as `/api`, as above; every surface but Jobs has. **A type another
+package as `/api`, as above; every surface with one has. **A type another
 package reads stays where they can reach it**: Overview's `overview-reads` (Settings and
 the wire types read it) and `recent` (`Row` reads it) stayed in screens.
 
