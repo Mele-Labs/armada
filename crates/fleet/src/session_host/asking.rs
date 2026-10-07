@@ -16,7 +16,7 @@ use ipc::{
 
 use super::serving::mode_of;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because, unanswered};
+use crate::helm::{answering, because_in_a_session, unanswered};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -48,7 +48,9 @@ where
         let mode = mode_of(&hosting.mode);
         let put_to_a_person = match mode {
             SessionMode::Ask | SessionMode::AcceptEdits => true,
-            SessionMode::Auto | SessionMode::Plan => because(&asking).is_some(),
+            SessionMode::Auto | SessionMode::Plan => {
+                because_in_a_session(&asking, &Self::directory_of(&served, &hosting)).is_some()
+            }
         };
         if !put_to_a_person {
             return Ok(RunOrNot::Allow {
