@@ -34,6 +34,7 @@ export type Step =
   | { hover: Target; say: string }
   /** Looked at, and then time passes: the scenario publishes its next moment as the walk moves on. */
   | { later: Target; say: string }
+  /** Typed into a field; words ending in a newline end with Enter. */
   | { type: string; into: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
   | { paste: Target; say: string }
@@ -335,8 +336,12 @@ export function act(step: Step, element: HTMLElement): void {
   else if ("later" in step) timePasses();
   else if ("press" in step) press(element);
   else if ("drag" in step) drag(element, step.by);
-  else if ("type" in step) fill(element, step.type);
-  else if ("paste" in step) pasteScreenshot(element);
+  else if ("type" in step) {
+    // Words ending in a newline are sent with Enter, as a field that saves on it is used.
+    fill(element, step.type.replace(/\n$/, ""));
+    // A beat later, so the field has drawn what was typed before the key reaches it.
+    if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), 50);
+  } else if ("paste" in step) pasteScreenshot(element);
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */

@@ -23,3 +23,4 @@ export * from "./scenarios/fleet-starting";
 export * from "./scenarios/main-goes-red";
 export * from "./scenarios/sessions";
 export * from "./scenarios/main-checks-running";
+export * from "./scenarios/session-names";

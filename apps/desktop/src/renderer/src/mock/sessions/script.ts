@@ -105,8 +105,10 @@ export function sessionsStore(
   board: BoardControl,
   /** The Board rows the dispatching moment adds. */
   dispatchedRows: readonly unknown[] = [],
+  /** Sessions open beside the usual ones. */
+  more: readonly Session[] = [],
 ): SessionsStore {
-  let now: readonly Session[] = others();
+  let now: readonly Session[] = [...others(), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
@@ -434,6 +436,7 @@ export function sessionsStore(
         }
       }
     },
+    rename: (id, title) => edit(id, (one) => ({ ...one, title })),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;
