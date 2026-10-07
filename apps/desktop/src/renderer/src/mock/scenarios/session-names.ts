@@ -6,7 +6,7 @@
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
 import type { Scenario } from "../moment";
-import { s200Sessions, sessionsOf } from "./sessions";
+import { s200Sessions } from "./sessions";
 
 const idle = { state: "idle" } as const;
 
@@ -55,5 +55,5 @@ export const s201SessionNames: Scenario = {
   ...s200Sessions,
   name: "session-names",
   says: "The Sessions list with the name over its ledger, and a Session renamed from its header",
-  draft: { sessions: (board) => sessionsOf(board, more) },
+  draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, more) },
 };

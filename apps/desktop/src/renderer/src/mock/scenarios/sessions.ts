@@ -87,10 +87,10 @@ export const s200Sessions: Scenario = {
       return new Promise(() => {});
     },
   }),
-  draft: { sessions: (board) => sessionsOf(board) },
+  draft: { sessions: sessionsOf },
 };
 
 /** The walk's Sessions store, with `more` Sessions open beside the usual ones. */
-export function sessionsOf(board: BoardControl, more: readonly Session[] = []) {
+function sessionsOf(board: BoardControl, more: readonly Session[] = []) {
   return sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(plain, 44, 1), state: "review" }, { ...dispatched(stuck, 55, 9), state: "escalated" }], board, [pin.job, sleeps.job], more);
 }
