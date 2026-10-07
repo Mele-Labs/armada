@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, GitBranch, GitPullRequest, KeyRound, Presentation, Shapes, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -37,7 +37,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
   { kind: "job", label: "Jobs", Glyph: Box },
   { kind: "studio", label: "Studios", Glyph: Presentation },
-  { kind: "sketch", label: "Sketches", Glyph: Shapes },
+  { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
 ];
 

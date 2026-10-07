@@ -4,15 +4,18 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { SessionComposer } from "./SessionComposer";
 
 /**
- * A Session's message box: Dispatch's model and effort pair, `/` for skills
- * and commands, `@` for the other Sessions, pasted or dropped pictures and
- * files, and a sketch shared from the person's own.
+ * A Session's message box, one box over one slim row: the permission mode,
+ * Dispatch's model and effort pair, attach and draw as glyphs with tooltips,
+ * and what is waiting to go in a strip that scrolls sideways. `/` opens the
+ * skills and commands, `@` the other Sessions.
  */
 const meta: Meta<typeof SessionComposer> = {
   title: "Compositions/Session composer",
   component: SessionComposer,
   args: {
     working: false,
+    mode: "auto",
+    onMode: fn(),
     model: null,
     effort: null,
     models: ["haiku", "sonnet", "opus"],
@@ -26,19 +29,9 @@ const meta: Meta<typeof SessionComposer> = {
       { id: "s2", title: "Release notes script" },
       { id: "s3", title: "Store migration spike" },
     ],
-    sketches: [
-      {
-        id: "k1",
-        title: "Store clock",
-        drawing: {
-          boxes: [
-            { id: "a", x: 0, y: 0, body: "wall clock" },
-            { id: "b", x: 320, y: 0, body: "store tests" },
-          ],
-          lines: [{ id: "l", from: "a", to: "b" }],
-        },
-      },
-    ],
+    drawn: [],
+    onDraw: fn(),
+    onRemoveDrawn: fn(),
     onSend: fn(),
   },
   decorators: [
@@ -53,10 +46,11 @@ export default meta;
 
 type Story = StoryObj<typeof SessionComposer>;
 
-/** Nothing typed and nothing attached: Send is off. */
+/** Nothing typed and nothing attached: Send is off. A Session runs in auto. */
 export const Blank: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
+    await expect(canvas.getByRole("combobox", { name: "Permission mode" })).toHaveValue("auto");
   },
 };
 
@@ -95,19 +89,22 @@ export const PastedPicture: Story = {
   },
 };
 
-/** A sketch is shared from the person's own. */
-export const SharedSketch: Story = {
-  play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Attach sketch" }));
-    await userEvent.click(await canvas.findByRole("option", { name: /Store clock/ }));
-    await expect(within(canvas.getByRole("group", { name: "Attached" })).getByText("Store clock")).toBeInTheDocument();
+/** A sketch drawn for the message waits as a chip, and the glyph opens the pad. */
+export const DrawnSketch: Story = {
+  args: { drawn: [{ id: "k1", title: "pin the clock" }] },
+  play: async ({ canvas, args }) => {
+    await expect(within(canvas.getByRole("group", { name: "Attached" })).getByText("pin the clock")).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Draw sketch" }));
+    await expect(args.onDraw).toHaveBeenCalled();
   },
 };
 
-/** Model and effort are Dispatch's pair, each with Auto. */
+/** Model and effort are Dispatch's pair, each with Auto, and the mode is a pick of four. */
 export const Tuned: Story = {
   play: async ({ canvas, args }) => {
     await userEvent.selectOptions(canvas.getByRole("combobox", { name: "Model" }), "opus");
     await expect(args.onTune).toHaveBeenCalledWith({ model: "opus", effort: null });
+    await userEvent.selectOptions(canvas.getByRole("combobox", { name: "Permission mode" }), "plan");
+    await expect(args.onMode).toHaveBeenCalledWith("plan");
   },
 };

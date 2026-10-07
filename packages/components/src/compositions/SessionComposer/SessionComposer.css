@@ -1,42 +1,35 @@
-/* A Session's message box. The typeahead and the sketch list borrow the
-   `@` mention popup's own rows (MentionPopover.css) and hang above their
-   anchor rather than under it, since the box sits at the foot of the window. */
+/* A Session's message box: one bordered box, the typing area over one slim row.
+   The typing area keeps its height whatever is waiting to be sent, because what
+   is waiting sits in the row, in a strip that scrolls sideways. The typeahead
+   borrows the `@` mention popup's own rows (MentionPopover.css) and hangs above
+   the box, which sits at the foot of the window. */
 
 .armada-session-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-session-composer__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.armada-session-composer__entry {
   position: relative;
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
+  flex-direction: column;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
 }
 
-.armada-session-composer__field {
-  flex: 1;
-  min-width: 0;
+.armada-session-composer:focus-within {
+  border-color: var(--edge-focus);
 }
 
-.armada-session-composer__offer,
-.armada-session-composer__sketches {
+/* The typing area is the box's own, so its own edge goes. */
+.armada-session-composer__field .armada-textarea {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.armada-session-composer__offer {
   top: auto;
   bottom: 100%;
   margin-top: 0;
   margin-bottom: var(--space-1);
-}
-
-.armada-session-composer__sketches {
-  right: auto;
-  width: calc(var(--space-12) * 6);
 }
 
 .armada-session-composer__name {
@@ -52,35 +45,42 @@
   line-height: var(--leading-xs);
 }
 
-.armada-session-composer__tools {
+/* The one slim row. The controls are compact and never wrap; the chips take
+   what is left and scroll. */
+.armada-session-composer__bar {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
-}
-
-.armada-session-composer__share {
-  position: relative;
-  display: inline-flex;
-}
-
-.armada-session-composer__sketch {
-  display: flex;
-  height: auto;
   align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
-.armada-session-composer__thumb {
-  display: inline-flex;
-  width: calc(var(--space-12) * 2);
-  height: calc(var(--space-12) * 1.25);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+.armada-session-composer__bar .armada-select-field {
+  flex: none;
 }
 
-.armada-session-composer__thumb > svg {
-  width: 100%;
-  height: 100%;
+.armada-session-composer__bar .armada-select {
+  height: var(--h-control-sm);
+  padding-block: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-composer__chips {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.armada-session-composer__chips > * {
+  flex: none;
+}
+
+/* What waits to be sent keeps its whole name, and the strip scrolls. */
+.armada-session-composer__chips .armada-attachment-chip {
+  max-width: none;
 }

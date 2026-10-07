@@ -13,7 +13,18 @@ export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
   | { kind: "slot"; slot: number }
   | { kind: "branch"; name: string; slot: number }
-  | { kind: "pull_request"; number: number; title: string; branch: string; address: string; checks: SessionChecks }
+  | {
+      kind: "pull_request";
+      number: number;
+      title: string;
+      branch: string;
+      address: string;
+      checks: SessionChecks;
+      /** A draft is not ready for review; a merged one has landed. */
+      state: SessionPullRequestState;
+      /** Merge once every Check passes, asked for while they were still running. */
+      auto: boolean;
+    }
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
   | { kind: "job"; id: string; number: number; title: string; state: SessionJobState; branch: string; slot: number }
   | { kind: "studio"; id: string; title: string }
@@ -29,13 +40,23 @@ export type SessionAttachment =
 export type SessionSketch = {
   boxes: readonly { id: string; x: number; y: number; body: string }[];
   lines: readonly { id: string; from: string; to: string }[];
+  /** Lines drawn by hand. Absent is none. */
+  strokes?: readonly { id: string; points: readonly { x: number; y: number }[] }[];
 };
 
-/** A sketch the person owns, on offer to share with a Session. */
-export type OwnSketch = { id: string; title: string; drawing: SessionSketch };
+/** A sketch drawn for a message, the one the pad was left holding. */
+export type DrawnSketch = { id: string; title: string; drawing: SessionSketch };
+
+/** The permission modes a Session runs in, as the terminal's are: ask, auto, accept edits, plan. */
+export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
 
 /** A file or picture sent with a message. `src` is a `blob:` address for a picture. */
 export type SentFile = { id: string; name: string; src?: string };
+
+export type SessionPullRequestState = "draft" | "open" | "merged";
+
+/** What a person can do to a pull request without leaving Bridge. */
+export type PullRequestAct = "ready" | "merge" | "auto_merge" | "review";
 
 export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
 
@@ -84,13 +105,16 @@ export type Session = {
   /** The model and effort the next turn runs on. Absent is Auto. */
   model?: string;
   effort?: string;
+  /** The permission mode. **A Session runs in auto**, so absent is auto. */
+  mode?: SessionMode;
 };
 
 /** What a message carries: its words, and what was attached to it. */
 export type SentMessage = {
   text: string;
   files: readonly SentFile[];
-  sketches: readonly string[];
+  /** Sketches drawn for this message. */
+  sketches: readonly DrawnSketch[];
   mentions: readonly string[];
 };
 
@@ -113,15 +137,15 @@ export type SessionsDraft = {
   start: () => string;
   /** A message from the person, with what they sent along. It takes a turn. */
   send: (id: string, sent: SentMessage) => void;
-  /** Sets the model and effort a Session's next turn runs on. `null` is Auto. */
-  tune: (id: string, tuning: { model: string | null; effort: string | null }) => void;
+  /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
+  tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
+  /** An act on one of a Session's pull requests. `review` dispatches a Job on the code review workflow against it. */
+  act: (id: string, number: number, act: PullRequestAct) => void;
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
-  /** The person's own sketches, from Dispatch and Studios, which a message can share. */
-  sketches: readonly OwnSketch[];
   /** Answers the permission a Session is held on. */
   answer: (id: string) => void;
 };

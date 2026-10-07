@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import type { OwnSketch, Session, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
 export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void };
@@ -36,36 +36,6 @@ const drawing = (boxes: [string, number, number, string][], lines: [string, stri
   lines: lines.map(([from, to], at) => ({ id: `l${at}`, from, to })),
 });
 
-/** The person's own sketches, from Dispatch and Studios. */
-const OWN_SKETCHES: readonly OwnSketch[] = [
-  {
-    id: "k1",
-    title: "Store clock",
-    drawing: drawing(
-      [
-        ["a", 0, 0, "wall clock"],
-        ["b", 320, 0, "pinned instant"],
-        ["c", 160, 140, "store tests"],
-      ],
-      [
-        ["a", "c"],
-        ["b", "c"],
-      ],
-    ),
-  },
-  {
-    id: "k2",
-    title: "Release notes flow",
-    drawing: drawing(
-      [
-        ["a", 0, 0, "merged PRs"],
-        ["b", 320, 0, "group by crate"],
-      ],
-      [["a", "b"]],
-    ),
-  },
-];
-
 /** The Sessions already open beside the walk's own. */
 function others(): Session[] {
   return [
@@ -78,7 +48,7 @@ function others(): Session[] {
       attachments: [
         { kind: "slot", slot: 5 },
         { kind: "branch", name: "rel/notes-script", slot: 5 },
-        { kind: "pull_request", number: 1847, title: "Release notes from merged pull requests", branch: "rel/notes-script", address: "https://example.com/pull/1847", checks: { state: "passed" } },
+        { kind: "pull_request", number: 1847, title: "Release notes from merged pull requests", branch: "rel/notes-script", address: "https://example.com/pull/1847", checks: { state: "passed" }, state: "open", auto: false },
       ],
     },
     {
@@ -90,6 +60,26 @@ function others(): Session[] {
       attachments: [
         { kind: "slot", slot: 7 },
         { kind: "branch", name: "spike/store-migrations", slot: 7 },
+        {
+          kind: "pull_request",
+          number: 1849,
+          title: "Apply named migrations in order",
+          branch: "spike/store-migrations",
+          address: "https://example.com/pull/1849",
+          checks: { state: "pending" },
+          state: "draft",
+          auto: false,
+        },
+        {
+          kind: "pull_request",
+          number: 1850,
+          title: "Record each migration once",
+          branch: "spike/store-migrations-record",
+          address: "https://example.com/pull/1850",
+          checks: { state: "pending" },
+          state: "open",
+          auto: false,
+        },
         { kind: "studio", id: "st1", title: "Migration shapes" },
       ],
     },
@@ -98,7 +88,7 @@ function others(): Session[] {
 
 export const MINE = "s7";
 
-export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): SessionsStore {
+export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob], review: DispatchedJob): SessionsStore {
   let now: readonly Session[] = others();
   let clock = 0;
   let rowId = 0;
@@ -201,7 +191,7 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
   };
 
   const opening = () => {
-    const pr = { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/flaky-store", address: "https://example.com/pull/1843" } as const;
+    const pr = { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/flaky-store", address: "https://example.com/pull/1843", state: "open", auto: false } as const;
     add([tool("gh pr create --base main"), said("Opened #1843.")], [{ ...pr, checks: { state: "pending" } }]);
     after(1400, () => {
       attach((a) => a.kind === "pull_request", { ...pr, checks: { state: "failed", failing: "store: 2 failed" } });
@@ -239,7 +229,6 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
     },
     send(id, sent) {
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.mentions.length === 0) return;
-      const shared = OWN_SKETCHES.filter((one) => sent.sketches.includes(one.id));
       const tagged = now.filter((one) => sent.mentions.includes(one.id)).map((one) => ({ id: one.id, title: one.title ?? one.id }));
       edit(id, (one) => ({
         ...one,
@@ -252,12 +241,12 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
             from: { kind: "you" },
             text: sent.text,
             ...(sent.files.length === 0 ? {} : { files: sent.files }),
-            ...(shared.length === 0 ? {} : { sketches: shared.map((k) => ({ id: k.id, title: k.title })) }),
+            ...(sent.sketches.length === 0 ? {} : { sketches: sent.sketches.map((k) => ({ id: k.id, title: k.title })) }),
             ...(tagged.length === 0 ? {} : { mentions: tagged }),
           })),
         ],
-        // A sketch shared with a Session is on its ledger, beside the ones the agent publishes.
-        attachments: [...one.attachments, ...shared.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
+        // A sketch drawn for a Session is on its ledger, beside the ones the agent publishes.
+        attachments: [...one.attachments, ...sent.sketches.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
         turn: { state: "working" },
       }));
       if (id === MINE && !started) {
@@ -270,12 +259,28 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
         const { model, effort, ...rest } = one;
         void model;
         void effort;
-        return { ...rest, ...(tuning.model === null ? {} : { model: tuning.model }), ...(tuning.effort === null ? {} : { effort: tuning.effort }) };
+        return { ...rest, mode: tuning.mode, ...(tuning.model === null ? {} : { model: tuning.model }), ...(tuning.effort === null ? {} : { effort: tuning.effort }) };
       }),
+    act(id, number, what) {
+      const change = (one: SessionAttachment): SessionAttachment => {
+        if (one.kind !== "pull_request" || one.number !== number) return one;
+        if (what === "ready") return { ...one, state: "open" };
+        if (what === "merge") return { ...one, state: "merged" };
+        if (what === "auto_merge") return { ...one, auto: true };
+        return one;
+      };
+      edit(id, (one) => ({
+        ...one,
+        attachments: [
+          ...one.attachments.map(change),
+          // Review is a Job on the code review workflow, and the Session holds it as it holds any it dispatched.
+          ...(what === "review" ? [{ kind: "job", ...review, title: `Code review of #${number}`, state: "running" } as const] : []),
+        ],
+      }));
+    },
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
-    sketches: OWN_SKETCHES,
     answer: (id) =>
       edit(id, (one) => {
         const { asked, ...rest } = one;

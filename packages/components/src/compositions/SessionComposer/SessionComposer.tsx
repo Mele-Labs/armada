@@ -1,37 +1,49 @@
 import { useId, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { Paperclip, PencilRuler, Send } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
 import { Textarea } from "../../primitives/Textarea/Textarea";
-import { AUTO } from "../DispatchSettings/TierModels";
-import { SketchPreview } from "../SketchPreview/SketchPreview";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * A Session's message box, with what a terminal session's has.
+ * A Session's message box, with what a terminal session's has, in **one box
+ * and one slim row under the typing area**. The row holds the permission mode,
+ * Dispatch's own model and effort pair, an act to attach a file and one to draw
+ * a sketch, then what is waiting to be sent in a single row that scrolls
+ * sideways, so nothing waiting ever takes room from the typing area.
  *
- * **Model and effort are Dispatch's own pair** — `Select` over the models Fleet
- * lists and `low`, `medium`, `high`, each with Auto, as a Drone's settings on
- * the approval canvas draw them. **`/` opens the skills and commands**, as in
- * a terminal session, and **`@` opens the other Sessions**, choosing one tags it with
- * a chip so the agent knows to talk to it. **A picture or file is pasted or
- * dropped in**, or attached, and sits as a chip until sent. **A sketch is
- * shared** from the person's own, the ones Dispatch and Studios hold.
+ * **`/` opens the skills and commands, and `@` opens the other Sessions**,
+ * choosing one tags it with a chip so the agent knows to talk to it. **A
+ * picture or file is pasted or dropped in**, or attached. **A sketch is drawn
+ * on the pad Dispatch draws on**, which the host opens, and comes back as a
+ * chip.
  */
 export type ComposerFile = { id: string; name: string; src?: string };
 
 export type SentFromComposer = {
   text: string;
   files: readonly ComposerFile[];
-  sketches: readonly string[];
   mentions: readonly string[];
 };
+
+/** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
+export type ComposerMode = "ask" | "auto" | "accept_edits" | "plan";
+
+const MODES: { id: ComposerMode; label: string; says: string }[] = [
+  { id: "ask", label: "Ask", says: "Asks before it edits or runs anything" },
+  { id: "auto", label: "Auto", says: "Runs on its own, and asks before a push or anything destructive" },
+  { id: "accept_edits", label: "Accept edits", says: "Edits files without asking, and asks before running a command" },
+  { id: "plan", label: "Plan", says: "Reads and plans, and changes nothing" },
+];
 
 export type SessionComposerProps = {
   /** A turn is running: Send is off. */
   working: boolean;
+  mode: ComposerMode;
+  onMode: (mode: ComposerMode) => void;
   model: string | null;
   effort: string | null;
   models: readonly string[];
@@ -41,15 +53,11 @@ export type SessionComposerProps = {
   commands: readonly { name: string; says: string }[];
   /** What `@` offers: every other Session. */
   sessions: readonly { id: string; title: string }[];
-  /** The person's own sketches, on offer to share. */
-  sketches: readonly {
-    id: string;
-    title: string;
-    drawing: {
-      boxes: readonly { id: string; x: number; y: number; body: string }[];
-      lines: readonly { id: string; from: string; to: string }[];
-    };
-  }[];
+  /** Sketches drawn for this message and waiting to go. */
+  drawn: readonly { id: string; title: string }[];
+  /** Opens the pad. */
+  onDraw: () => void;
+  onRemoveDrawn: (id: string) => void;
   onSend: (sent: SentFromComposer) => void;
 };
 
@@ -65,15 +73,27 @@ function tokenAt(text: string, caret: number): { trigger: "/" | "@"; query: stri
   return undefined;
 }
 
-export function SessionComposer({ working, model, effort, models, efforts, onTune, commands, sessions, sketches, onSend }: SessionComposerProps) {
+export function SessionComposer({
+  working,
+  mode,
+  onMode,
+  model,
+  effort,
+  models,
+  efforts,
+  onTune,
+  commands,
+  sessions,
+  drawn,
+  onDraw,
+  onRemoveDrawn,
+  onSend,
+}: SessionComposerProps) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [files, setFiles] = useState<ComposerFile[]>([]);
-  const [shared, setShared] = useState<string[]>([]);
   const [mentioned, setMentioned] = useState<string[]>([]);
   const [active, setActive] = useState(0);
-  const [offering, setOffering] = useState(false);
-  const field = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const counter = useRef(0);
   const listId = useId();
@@ -107,12 +127,14 @@ export function SessionComposer({ working, model, effort, models, efforts, onTun
     const after = text.slice(caret);
     if (token.trigger === "/") {
       setText(`/${item.id} ${after}`);
+      setCaret(item.id.length + 2);
     } else {
       setText(`${text.slice(0, token.from)}${after}`);
+      setCaret(token.from);
       setMentioned((was) => [...was, item.id]);
     }
+    // The press was on a row that took no focus (mousedown is prevented), so the box still has it.
     setActive(0);
-    field.current?.querySelector("textarea")?.focus();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -141,92 +163,87 @@ export function SessionComposer({ working, model, effort, models, efforts, onTun
     add([...event.dataTransfer.files]);
   };
 
+  const held = files.length + drawn.length + mentioned.length > 0;
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (working || (text.trim() === "" && files.length + shared.length + mentioned.length === 0)) return;
-    onSend({ text: text.trim(), files, sketches: shared, mentions: mentioned });
+    if (working || (text.trim() === "" && !held)) return;
+    onSend({ text: text.trim(), files, mentions: mentioned });
     setText("");
     setCaret(0);
     setFiles([]);
-    setShared([]);
     setMentioned([]);
   };
 
-  const held = files.length + shared.length + mentioned.length > 0;
+  const said = MODES.find((one) => one.id === mode)!.says;
   return (
     <form className="armada-session-composer" onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
-      {!held ? null : (
-        <div className="armada-session-composer__chips" role="group" aria-label="Attached">
-          {files.map((one) => (
-            <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
-          ))}
-          {shared.map((id) => (
-            <AttachmentChip key={id} filename={sketches.find((s) => s.id === id)?.title ?? id} from="Sketch" onRemove={() => setShared((was) => was.filter((s) => s !== id))} />
-          ))}
-          {mentioned.map((id) => (
-            <AttachmentChip key={id} filename={sessions.find((s) => s.id === id)?.title ?? id} from="Session" onRemove={() => setMentioned((was) => was.filter((s) => s !== id))} />
+      {!open ? null : (
+        <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Sessions"}>
+          {items.map((item, index) => (
+            <div
+              key={item.id}
+              role="option"
+              aria-selected={index === current}
+              className={index === current ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
+              onMouseEnter={() => setActive(index)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                choose(item);
+              }}
+            >
+              <span className="armada-session-composer__name">{item.name}</span>
+              {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
+            </div>
           ))}
         </div>
       )}
-      <div className="armada-session-composer__entry">
-        {!open ? null : (
-          <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Sessions"}>
-            {items.map((item, index) => (
-              <div
-                key={item.id}
-                role="option"
-                aria-selected={index === current}
-                className={index === current ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
-                onMouseEnter={() => setActive(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  choose(item);
-                }}
-              >
-                <span className="armada-session-composer__name">{item.name}</span>
-                {item.says === undefined ? null : <span className="armada-session-composer__says">{item.says}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="armada-session-composer__field" ref={field}>
-          <Textarea
-            aria-label="Message"
-            aria-controls={open ? listId : undefined}
-            rows={2}
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-              setCaret(event.target.selectionStart);
-              setActive(0);
-            }}
-            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-          />
-        </div>
-        <Button type="submit" variant="primary" size="sm" disabled={working || (text.trim() === "" && !held)}>
-          <Send size={12} strokeWidth={2} aria-hidden />
-          Send
-        </Button>
+      <div className="armada-session-composer__field">
+        <Textarea
+          aria-label="Message"
+          aria-controls={open ? listId : undefined}
+          rows={2}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            setCaret(event.target.selectionStart);
+            setActive(0);
+          }}
+          onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+        />
       </div>
-      <div className="armada-session-composer__tools">
-        <Select label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-          <option value="">{AUTO}</option>
-          {models.map((one) => (
-            <option key={one} value={one}>
-              {one}
-            </option>
-          ))}
-        </Select>
-        <Select label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-          <option value="">{AUTO}</option>
-          {efforts.map((one) => (
-            <option key={one} value={one}>
-              {one}
-            </option>
-          ))}
-        </Select>
+      <div className="armada-session-composer__bar">
+        <Tooltip label={said}>
+          <Select aria-label="Permission mode" value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
+            {MODES.map((one) => (
+              <option key={one.id} value={one.id}>
+                {one.label}
+              </option>
+            ))}
+          </Select>
+        </Tooltip>
+        <Tooltip label="The model the next turn runs on">
+          <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
+            <option value="">Model</option>
+            {models.map((one) => (
+              <option key={one} value={one}>
+                {one}
+              </option>
+            ))}
+          </Select>
+        </Tooltip>
+        <Tooltip label="The effort the next turn takes">
+          <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
+            <option value="">Effort</option>
+            {efforts.map((one) => (
+              <option key={one} value={one}>
+                {one}
+              </option>
+            ))}
+          </Select>
+        </Tooltip>
         <input
           ref={picker}
           type="file"
@@ -238,36 +255,31 @@ export function SessionComposer({ working, model, effort, models, efforts, onTun
             event.target.value = "";
           }}
         />
-        <Button type="button" variant="ghost" size="sm" onClick={() => picker.current?.click()}>
-          Attach file
-        </Button>
-        <span className="armada-session-composer__share">
-          <Button type="button" variant="ghost" size="sm" aria-expanded={offering} onClick={() => setOffering((was) => !was)}>
-            Attach sketch
+        <Tooltip label="Attach a file or a picture">
+          <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
+            <Paperclip size={16} strokeWidth={2} aria-hidden />
           </Button>
-          {!offering ? null : (
-            <div className="armada-mention armada-session-composer__sketches" role="listbox" aria-label="Your sketches">
-              {sketches.map((one) => (
-                <div
-                  key={one.id}
-                  role="option"
-                  aria-selected={shared.includes(one.id)}
-                  className="armada-mention__row armada-session-composer__sketch"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setShared((was) => (was.includes(one.id) ? was : [...was, one.id]));
-                    setOffering(false);
-                  }}
-                >
-                  <span className="armada-session-composer__thumb">
-                    <SketchPreview label={`Sketch ${one.title}`} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={[]} pictures={[]} />
-                  </span>
-                  <span className="armada-session-composer__name">{one.title}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </span>
+        </Tooltip>
+        <Tooltip label="Draw a sketch to send with the message">
+          <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
+            <PencilRuler size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+        <div className="armada-session-composer__chips" role="group" aria-label="Attached">
+          {files.map((one) => (
+            <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
+          ))}
+          {drawn.map((one) => (
+            <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
+          ))}
+          {mentioned.map((id) => (
+            <AttachmentChip key={id} filename={sessions.find((s) => s.id === id)?.title ?? id} from="Session" onRemove={() => setMentioned((was) => was.filter((s) => s !== id))} />
+          ))}
+        </div>
+        <Button type="submit" variant="primary" size="sm" disabled={working || (text.trim() === "" && !held)}>
+          <Send size={12} strokeWidth={2} aria-hidden />
+          Send
+        </Button>
       </div>
     </form>
   );

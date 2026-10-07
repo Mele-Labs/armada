@@ -425,3 +425,4 @@ export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
+export * from "./compositions/PullRequestActs/PullRequestActs";

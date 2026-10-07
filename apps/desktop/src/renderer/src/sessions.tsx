@@ -3,11 +3,14 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { GitMerge } from "lucide-react";
 import {
+  Button,
   ChipOwnership,
   Prose,
+  PullRequestActs,
   PullRequestCard,
   Sheet,
   SessionComposer,
@@ -15,7 +18,9 @@ import {
   SessionLedger,
   SessionList,
   SessionThread,
+  SketchPad,
   SketchPreview,
+  TileSheet,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -24,13 +29,33 @@ import type {
   OwnerSummary,
   SessionGroup,
   SessionRowView,
+  SketchBox,
+  SketchLine,
+  SketchPicture,
+  SketchStroke,
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAttachment, SessionMode } from "@armada/screens/src/draft/sessions";
+import {
+  isDrawn,
+  nextPictureId,
+  nextShapeId,
+  withBody,
+  withJoin,
+  withPicture,
+  withPlace,
+  withShape,
+  withStroke,
+  withoutLastStroke,
+  withoutShapes,
+} from "@armada/screens/src/draft/sketch";
+import type { Drawing } from "@armada/screens/src/draft/sketch";
+import type { HeldWorktrees } from "@armada/protocol";
 import { SURFACE, useAtFloor } from "@armada/shell";
 
+import { proposeRequest } from "./dispatch";
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -159,7 +184,34 @@ export type LedgerGoes = {
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent. */
-function Reading({ one, onClose, onOpenLink }: { one: SessionAttachment | undefined; onClose: () => void; onOpenLink: (address: string) => void }) {
+type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string };
+
+const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
+  open === undefined
+    ? undefined
+    : session.attachments.find((one) =>
+        open.kind === "pull_request"
+          ? one.kind === "pull_request" && one.number === open.number
+          : one.kind === open.kind && "id" in one && one.id === open.id,
+      );
+
+/** What is true of a pull request beyond its Checks, as bare facts. */
+const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
+  [one.state === "draft" ? "Draft" : undefined, one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
+    (fact): fact is string => fact !== undefined,
+  );
+
+function ReadingSheet({
+  one,
+  onClose,
+  onOpenLink,
+  onAct,
+}: {
+  one: SessionAttachment | undefined;
+  onClose: () => void;
+  onOpenLink: (address: string) => void;
+  onAct: (number: number, act: PullRequestAct) => void;
+}) {
   const floor = useAtFloor();
   const title =
     one === undefined
@@ -174,16 +226,24 @@ function Reading({ one, onClose, onOpenLink }: { one: SessionAttachment | undefi
   return (
     <Sheet kind="session-reading" open={one !== undefined && title !== ""} floating floor={floor} title={title} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       {one?.kind === "pull_request" ? (
-        <PullRequestCard
-          number={`#${one.number}`}
-          address={one.address}
-          title={one.title}
-          branch={one.branch}
-          checks={checksSaid(one.checks)}
-          onOpen={() => onOpenLink(one.address)}
-        />
+        <div className="armada-session-reading">
+          <PullRequestCard
+            number={`#${one.number}`}
+            address={one.address}
+            title={one.title}
+            branch={one.branch}
+            checks={checksSaid(one.checks)}
+            {...(one.state === "merged" ? { state: { status: "completed-success", icon: GitMerge, label: "Merged" } } : {})}
+            onOpen={() => onOpenLink(one.address)}
+          >
+            {factsOf(one).map((fact) => (
+              <span key={fact}>{fact}</span>
+            ))}
+          </PullRequestCard>
+          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} onAct={(act) => onAct(one.number, act)} />
+        </div>
       ) : one?.kind === "sketch" ? (
-        <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={[]} pictures={[]} />
+        <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
         one.report === undefined ? null : <Prose text={one.report} />
       ) : null}
@@ -191,13 +251,58 @@ function Reading({ one, onClose, onOpenLink }: { one: SessionAttachment | undefi
   );
 }
 
-function entriesOf(session: Session, goes: LedgerGoes, read: (one: SessionAttachment) => void): LedgerEntry[] {
+const BLANK: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
+
+/** The pad Dispatch draws on, in a sheet over the Session: what is drawn goes with the next message. */
+function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () => void; onAttach: (sketch: DrawnSketch) => void }) {
+  const floor = useAtFloor();
+  const [drawing, setDrawing] = useState<Drawing>(BLANK);
+  const attach = () => {
+    const words = drawing.shapes.map((one) => one.body.trim()).find((one) => one !== "");
+    onAttach({
+      id: `d${Date.now()}`,
+      title: words === undefined ? "Sketch" : words.slice(0, 32),
+      drawing: {
+        boxes: drawing.shapes.map(({ id, x, y, body }) => ({ id, x, y, body })),
+        lines: drawing.joins.map(({ id, from, to }) => ({ id, from, to })),
+        strokes: drawing.strokes.map(({ id, points }) => ({ id, points })),
+      },
+    });
+    setDrawing(BLANK);
+  };
+  return (
+    <Sheet kind="session-sketch" open={open} floating floor={floor} size="wide" title="Draw a sketch" closeLabel="Close" closeBinding="Esc" onClose={onClose}>
+      <div className="armada-session-reading">
+        <SketchPad
+          label="Sketch for the message"
+          boxes={drawing.shapes.map(({ id, x, y, body }): SketchBox => ({ id, x, y, body }))}
+          lines={drawing.joins.map(({ id, from, to }): SketchLine => ({ id, from, to }))}
+          strokes={drawing.strokes.map(({ id, points }): SketchStroke => ({ id, points }))}
+          pictures={drawing.pictures.map(({ id, x, y, width, height, src }): SketchPicture => ({ id, x, y, width, height, src }))}
+          onAdd={(at, body) => setDrawing((one) => withShape(one, { id: nextShapeId(one), x: at.x, y: at.y, body }))}
+          onPicture={(picture, at) => setDrawing((one) => withPicture(one, { id: nextPictureId(one), x: at.x, y: at.y, ...picture }))}
+          onBody={(id, body) => setDrawing((one) => withBody(one, id, body))}
+          onMove={(id, at) => setDrawing((one) => withPlace(one, id, at))}
+          onRemove={(ids) => setDrawing((one) => withoutShapes(one, ids))}
+          onJoin={(from, to) => setDrawing((one) => withJoin(one, from, to))}
+          onDraw={(points) => setDrawing((one) => withStroke(one, points))}
+          onUndo={() => setDrawing(withoutLastStroke)}
+        />
+        <Button variant="primary" size="sm" disabled={!isDrawn(drawing)} onClick={attach}>
+          Attach sketch
+        </Button>
+      </div>
+    </Sheet>
+  );
+}
+
+function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => void, slot: (n: number) => void): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "slot":
-        return { key: `slot${one.slot}`, kind: "slot", name: `Worktree slot ${one.slot}`, text: <code>{one.slot}</code>, onOpen: () => goes.onGoTo(SURFACE.worktrees) };
+        return { key: `slot${one.slot}`, kind: "slot", name: `Worktree slot ${one.slot}`, text: <code>{one.slot}</code>, onOpen: () => slot(one.slot) };
       case "branch":
-        return { key: one.name, kind: "branch", name: `Branch ${one.name}`, text: <code>{one.name}</code>, onOpen: () => goes.onGoTo(SURFACE.worktrees) };
+        return { key: one.name, kind: "branch", name: `Branch ${one.name}`, text: <code>{one.name}</code>, onOpen: () => slot(one.slot) };
       case "pull_request":
         return {
           key: String(one.number),
@@ -208,8 +313,8 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: SessionAttach
               <code>#{one.number}</code> {one.title}
             </>
           ),
-          mark: { glyph: one.checks.state, said: checksSaid(one.checks) },
-          onOpen: () => read(one),
+          mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
       case "job":
         return {
@@ -227,7 +332,7 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: SessionAttach
       case "studio":
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
       case "sketch":
-        return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read(one) };
+        return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read({ kind: "sketch", id: one.id }) };
       case "subagent":
         return {
           key: one.id,
@@ -235,19 +340,34 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: SessionAttach
           name: `Subagent ${one.task}, ${one.state}`,
           text: one.task,
           mark: { glyph: one.state, said: one.state === "running" ? "Running" : "Done" },
-          onOpen: () => read(one),
+          onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
   });
 }
 
+/** What Cleanup holds, read here for a slot's panel. */
+export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
+
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
-function SessionView({ session, goes, onOpen }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void }) {
+function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
-  const [reading, setReading] = useState<SessionAttachment | undefined>();
+  const floor = useAtFloor();
+  const [reading, setReading] = useState<Reading | undefined>();
+  const [slotOpen, setSlotOpen] = useState<number | undefined>();
+  const [padOpen, setPadOpen] = useState(false);
+  const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
+  const { onWant } = held;
+  // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
+  useEffect(() => {
+    onWant(true);
+    return () => onWant(false);
+  }, [onWant]);
   const { state, said } = stateOf(session);
   if (draft === undefined) return null;
+  const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
+  const mode: SessionMode = session.mode ?? "auto";
   return (
     <>
       <SessionFrame state={state} said={said} id={session.id} {...(session.title === undefined ? {} : { title: session.title })}>
@@ -260,33 +380,57 @@ function SessionView({ session, goes, onOpen }: { session: Session; goes: Ledger
           />
           <SessionComposer
             working={session.turn.state === "working"}
+            mode={mode}
+            onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
             model={session.model ?? null}
             effort={session.effort ?? null}
             models={draft.models}
             efforts={draft.efforts}
-            onTune={(tuning) => draft.tune(session.id, tuning)}
+            onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
             commands={draft.commands}
             sessions={sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one) => ({ id: one.id, title: one.title! }))}
-            sketches={draft.sketches}
-            onSend={(sent) =>
-              draft.send(session.id, { text: sent.text, files: sent.files, sketches: sent.sketches, mentions: sent.mentions })
-            }
+            drawn={drawn.map(({ id, title }) => ({ id, title }))}
+            onDraw={() => setPadOpen(true)}
+            onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+            onSend={(sent) => {
+              draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, mentions: sent.mentions });
+              setDrawn([]);
+            }}
           />
         </div>
-        <SessionLedger entries={entriesOf(session, goes, setReading)} />
+        <SessionLedger entries={entriesOf(session, goes, setReading, setSlotOpen)} />
       </SessionFrame>
-      <Reading one={reading} onClose={() => setReading(undefined)} onOpenLink={goes.onOpenLink} />
+      <ReadingSheet
+        one={readingOf(session, reading)}
+        onClose={() => setReading(undefined)}
+        onOpenLink={goes.onOpenLink}
+        onAct={(number, act) => {
+          draft.act(session.id, number, act);
+          // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
+          const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
+          if (act === "review" && address?.kind === "pull_request") void proposeRequest(address.address, []);
+        }}
+      />
+      <SketchSheet
+        open={padOpen}
+        onClose={() => setPadOpen(false)}
+        onAttach={(sketch) => {
+          setDrawn((was) => [...was, sketch]);
+          setPadOpen(false);
+        }}
+      />
+      {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
     </>
   );
 }
 
 /** The rail surface: the list, or the Session open on it. */
-export function SessionsSurface({ openId, onOpen, goes }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes }) {
+export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
   return (
     <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}
     </div>
   );
 }
