@@ -142,6 +142,8 @@ export type Session = {
    * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
    */
   dead?: "ended" | "quiet";
+  /** Ended more than a week ago: left off the list, found by search. */
+  older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
   /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */

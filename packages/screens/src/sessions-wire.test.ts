@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_KEPT, attachmentsOfRecord, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -293,11 +293,21 @@ describe("a session", () => {
     expect(sessionsMatching(sessions, "feat/y").map((hit) => hit.session.id)).toEqual(["b"]);
   });
 
-  it("keeps only the most recently seen of the sessions that ended, and every one still open", () => {
-    const ended = Array.from({ length: ENDED_KEPT + 3 }, (_, at) => record(`e${at}`, { state: "ended" }));
-    const sessions = sessionsOfRecords([record("a"), ...ended, record("z")], {}, () => beside());
-    expect(sessions.filter((one) => one.dead === "ended").map((one) => one.id)).toEqual(ended.slice(0, ENDED_KEPT).map((one) => one.id));
-    expect(sessions.filter((one) => one.dead === undefined).map((one) => one.id)).toEqual(["a", "z"]);
+  it("marks a session that ended more than a week ago, and leaves open ones and recent ones unmarked", () => {
+    const now = Date.parse(AT);
+    const day = 24 * 60 * 60 * 1000;
+    const ago = (days: number) => new Date(now - days * day).toISOString();
+    const sessions = sessionsOfRecords(
+      [
+        record("open", { last_seen_at: ago(30) }),
+        record("recent", { state: "ended", last_seen_at: ago(ENDED_LISTED_DAYS - 1) }),
+        record("old", { state: "ended", last_seen_at: ago(ENDED_LISTED_DAYS + 1) }),
+      ],
+      {},
+      () => beside(),
+      now,
+    );
+    expect(sessions.filter((one) => one.older === true).map((one) => one.id)).toEqual(["old"]);
   });
 });
 

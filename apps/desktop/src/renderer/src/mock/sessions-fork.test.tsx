@@ -31,7 +31,7 @@ const records = () => [
   hosted("01LIVEAAAAAAAAAAAAAAAAAAAA", { title: "A live hosted one" }),
   terminal("01LISTENINGAAAAAAAAAAAAAA", { title: "A terminal being listened to" }),
   terminal("01QUIETAAAAAAAAAAAAAAAAAA", { title: "A terminal gone quiet", terminal: {} }),
-  hosted(ENDED, { title: "One that ended", state: "ended" }),
+  hosted(ENDED, { title: "One that ended", state: "ended", last_seen_at: new Date().toISOString() }),
 ];
 
 const open = (title: string) => userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));

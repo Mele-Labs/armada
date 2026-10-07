@@ -238,7 +238,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   if (draft === undefined) return null;
-  const views: SessionRowView[] = sessionsMatching(sessions, query).map(({ session, matched }) => {
+  const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
     return {
@@ -659,7 +659,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state)).map((one) => one.id));
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true).map((one) => one.id));
 }
 
 /** Whether a key press belongs to a field, which j and k must leave alone. */

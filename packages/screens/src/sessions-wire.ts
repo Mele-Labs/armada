@@ -294,16 +294,23 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   };
 }
 
-/** How many ended sessions the window keeps, the most recently seen first: the ones a person is likely to fork. */
-export const ENDED_KEPT = 20;
+/** How long an ended session stays in the list after it was last seen. Older ones are found by search. */
+export const ENDED_LISTED_DAYS = 7;
 
 /**
- * The sessions the window draws: the ones still open, and the last few that ended, which offer Fork
- * and own nothing. Fleet lists most recently seen first, so the first `ENDED_KEPT` ended are the last.
+ * The sessions the window draws: the ones still open, and the ones that ended, which offer Fork and own
+ * nothing. An ended one last seen before `ENDED_LISTED_DAYS` ago is `older`: the list leaves it off and a
+ * search still finds it.
  */
-export function sessionsOfRecords(records: readonly SessionRecord[], threads: Readonly<Record<string, readonly WireRow[]>>, beside: (id: string) => Beside): Session[] {
-  let ended = 0;
-  return records
-    .filter((one) => one.state === "live" || ended++ < ENDED_KEPT)
-    .map((one) => sessionOfRecord(one, threads[one.id], beside(one.id)));
+export function sessionsOfRecords(
+  records: readonly SessionRecord[],
+  threads: Readonly<Record<string, readonly WireRow[]>>,
+  beside: (id: string) => Beside,
+  now: number = Date.now(),
+): Session[] {
+  const since = now - ENDED_LISTED_DAYS * 24 * 60 * 60 * 1000;
+  return records.map((one) => {
+    const session = sessionOfRecord(one, threads[one.id], beside(one.id));
+    return one.state === "ended" && Date.parse(one.last_seen_at) < since ? { ...session, older: true as const } : session;
+  });
 }
