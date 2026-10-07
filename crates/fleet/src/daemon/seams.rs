@@ -407,6 +407,12 @@ where
     pub(crate) fn turns(&self) -> &api::Turns {
         &self.turns
     }
+    pub(crate) fn peers(&self) -> &Arc<dyn crate::peer::PeerOf> {
+        &self.peers
+    }
+    pub(crate) fn hosts(&self) -> &crate::session_host::Hosts {
+        &self.sessions
+    }
     pub(crate) fn helm(&self) -> &crate::helm::Conversations {
         &self.helm
     }
