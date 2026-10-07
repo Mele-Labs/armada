@@ -88,15 +88,15 @@ fn the_recipe_opens_with_its_file_and_applies_nothing_again() {
 }
 
 #[test]
-fn the_recipe_opens_without_its_file_as_a_newer_additive_database() {
+fn the_converted_file_opens_with_every_name_known() {
     if !has_sqlite3() {
         return;
     }
     let dir = TempDir::new();
     numbered_114(&dir);
     assert!(convert(&dir).0);
-    let store = Store::open(&dir.db()).expect("main's build tolerates it");
-    assert_eq!(store.unknown_migrations(), [NAME]);
+    let store = Store::open(&dir.db()).expect("the step-baseline file is on main now");
+    assert!(store.unknown_migrations().is_empty());
 }
 
 #[test]

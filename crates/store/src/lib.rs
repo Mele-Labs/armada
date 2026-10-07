@@ -153,6 +153,9 @@ mod slot;
 mod slot_rescues;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
+/// What a step's worktree held when it began, kept so a restart measures the
+/// same step against the same start.
+mod step_baseline;
 /// Every Studio a repository keeps, with its nodes and edges. `#1285`.
 mod studio;
 /// Which Drone was put on which task, and what it handed in. Spike 022, 1b.

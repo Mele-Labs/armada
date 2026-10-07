@@ -252,7 +252,7 @@ where
         let worktree = self.surviving_worktree(&job)?;
         let submission = self.submitted_already(&job, step).await?;
         let ruling = self
-            .ruled_with_no_drone(&job, step, &worktree, &submission)
+            .ruled_with_no_drone(&job, step, &worktree, &submission, None)
             .await?;
         self.settled_by_the_rerun(job_id, step, &ruling).await?;
         self.noted_rechecked(job_id, step, &ruling);
@@ -272,12 +272,19 @@ where
     /// a submission the ordinary turn loop's `crate::settling::settle` will
     /// never be asked about, because neither has a Drone in a slot for it to
     /// find.
+    ///
+    /// **`entered_with` is the baseline kept from when the step began, and it is
+    /// the boot recovery's alone.** The worktree there is as the Drone left it,
+    /// so a reading taken now is comparable against it. A press on a stopped
+    /// step passes `None` and is decided on the stopped run's recorded
+    /// outcome, for the reason [`Began::AsRecorded`] gives.
     pub(crate) async fn ruled_with_no_drone(
         &self,
         job: &Job,
         step: &StepId,
         worktree: &Worktree,
         submission: &Submission,
+        entered_with: Option<&adapter_traits::Footprint>,
     ) -> Result<Ruling, Adrift> {
         let job_id = job.id();
         let Some(at) = AtStep::named(job.workflow(), step, worktree) else {
@@ -387,7 +394,7 @@ where
             declared.as_ref(),
             &Lifted::of(job),
             &held_off,
-            Began::AsRecorded(moved),
+            entered_with.map_or(Began::AsRecorded(moved), Began::At),
             &recorded,
             self.work(),
             self.budget(),
