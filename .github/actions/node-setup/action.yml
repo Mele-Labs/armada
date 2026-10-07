@@ -39,13 +39,23 @@ runs:
         key: pw2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
     # armada.yml's `browsers`, plus the system libraries a bare Linux runner lacks.
+    # apt-get can stall silently on a mirror and hold the job for its whole 45
+    # minutes (7 Oct 2026, runs 37670086831 and 37668154700; reruns passed), so
+    # apt gets network timeouts and the install gets 5 minutes a try, three tries.
     - name: Playwright browsers
       if: inputs.browsers == 'true'
       shell: bash
       run: |
-        deps=""
-        [ "$RUNNER_OS" = Linux ] && deps="--with-deps"
-        pnpm -C packages/components exec playwright install $deps chromium --only-shell
+        if [ "$RUNNER_OS" = Linux ]; then
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' \
+            | sudo tee /etc/apt/apt.conf.d/80-ci-timeouts >/dev/null
+          for try in 1 2 3; do
+            timeout -k 10 300 pnpm -C packages/components exec playwright install-deps chromium && break
+            [ "$try" = 3 ] && exit 1
+            echo "::warning::Playwright system deps failed or hung, try $try of 3"
+          done
+        fi
+        pnpm -C packages/components exec playwright install chromium --only-shell
 
     - name: Cache report
       shell: bash
