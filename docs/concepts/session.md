@@ -261,8 +261,17 @@ Not measured.
 ## Installing the Claude Code mod
 
 ```
-claude plugin marketplace add <this repository>/plugins
+claude plugin marketplace add "$HOME/Library/Application Support/Armada/mod"
 claude plugin install armada@armada-local
 ```
+
+**Fleet keeps its own copy of the mod** in that folder. `scripts/restart` copies
+`plugins/` into it from the tree it builds, so the mod is as new as the Fleet
+and a pull on the checkout changes nothing a session loads. After a restart,
+`/reload-plugins` in an open session picks the new copy up. The copy is made
+beside the folder and renamed over it, so a session never reads half of one.
+A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
+session's reported mod version with the installed one reads
+`Armada/mod/armada/.claude-plugin/plugin.json`.
 
 It loads in a Drone, a Judge call and a scout too, since they read the person's user settings. Fleet starts each with `ARMADA_DRONE=1`; the mod reads it and reports nothing, so only the person's own sessions reach the ledger ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).

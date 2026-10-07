@@ -120,6 +120,12 @@ checkout on `main` is fast-forwarded to `origin/main` first; the restart
 refuses if it cannot be. Two callers: an agent, through Bash, after a merge that touches
 Fleet or Bridge; and Bridge itself, through `#810`'s act.
 
+**It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
+own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
+`Armada/` touched). Sessions load the mod from there, so after a restart the
+owner runs `/reload-plugins` in an open session and pulls nothing. The one-time
+install is in `docs/concepts/session.md`, "Installing the Claude Code mod".
+
 **It refuses while a Drone is working**, naming the Job. Read off the live
 roster and each Drone's Job rather than a status count — an escalated Job
 keeps its Drone alive and idle, and a count derived from statuses would either

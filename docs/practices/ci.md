@@ -44,7 +44,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -84,6 +84,7 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | Every workspace key except the two desktop Checks below and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
+| `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `app_smoke` of `apps/desktop` | `macos-latest`, four shards, job `app_smoke_shard` | `vitest run --shard=N/4 --maxWorkers=2 --project 'smoke*'`, direct, since `armada check` takes no shard. `vitest.shard.ts` weighs the walks so the shards are even | node_modules, Playwright |
