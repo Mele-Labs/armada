@@ -101,7 +101,9 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPilot> {
         session: row.get(2)?,
         marked_run: row.get(3)?,
         marked_at: Timestamp::from_rfc3339(row.get::<_, String>(4)?),
-        piloted_at: row.get::<_, Option<String>>(5)?.map(Timestamp::from_rfc3339),
+        piloted_at: row
+            .get::<_, Option<String>>(5)?
+            .map(Timestamp::from_rfc3339),
         narrative: match said {
             [None, None, None] => None,
             [trying_to, blocked_by, tried] => Some(Narrative {
@@ -112,10 +114,11 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPilot> {
         },
         exit: match exit {
             None => None,
-            Some(text) => Some(
-                PilotExit::from_column(&text)
-                    .ok_or_else(|| unknown(9, format!("an exit {text} this build does not know")))?,
-            ),
+            Some(text) => {
+                Some(PilotExit::from_column(&text).ok_or_else(|| {
+                    unknown(9, format!("an exit {text} this build does not know"))
+                })?)
+            }
         },
         ended_at: row
             .get::<_, Option<String>>(10)?

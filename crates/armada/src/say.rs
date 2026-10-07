@@ -164,8 +164,10 @@ fn piloted_kept(cleaned: &Cleaned) {
     if cleaned.piloted.is_empty() {
         return;
     }
-    println!("
-these Jobs are piloted, so their worktrees were left alone:");
+    println!(
+        "
+these Jobs are piloted, so their worktrees were left alone:"
+    );
     for kept in &cleaned.piloted {
         println!("  {} — {}", kept.job_id, kept.title);
         println!("    {}", kept.path);

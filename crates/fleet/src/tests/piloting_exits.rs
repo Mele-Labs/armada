@@ -59,7 +59,11 @@ async fn submitting_runs_the_gates_and_the_job_leaves_piloted_with_no_drone() {
         .await
         .expect("the gates run");
 
-    assert_eq!(after.status(), JobStatus::Queued, "a step passed, one is left");
+    assert_eq!(
+        after.status(),
+        JobStatus::Queued,
+        "a step passed, one is left"
+    );
     assert_eq!(
         after.step(&StepId::new("implement")).map(|row| row.state()),
         Some(StepState::Advanced),
@@ -67,12 +71,16 @@ async fn submitting_runs_the_gates_and_the_job_leaves_piloted_with_no_drone() {
     );
     assert!(after.assigned_drone().is_none(), "no Drone is put on it");
     let row = fleet.summarised(&after).await.unwrap();
-    assert_eq!(row.piloted.and_then(|pilot| pilot.exit).as_deref(), Some("submitted"));
+    assert_eq!(
+        row.piloted.and_then(|pilot| pilot.exit).as_deref(),
+        Some("submitted")
+    );
     // The Session gives the worktree back and the Job holds it again.
     let store = fleet.store().lock().await;
     let held = store.attachments_of(&Holder::session("pilot-1")).unwrap();
     assert!(
-        held.iter().all(|row| row.state == AttachmentState::GivenBack),
+        held.iter()
+            .all(|row| row.state == AttachmentState::GivenBack),
         "{held:?}"
     );
     let job_rows = store.attachments_of(&Holder::job(id.as_str())).unwrap();
@@ -94,7 +102,11 @@ async fn a_submission_the_gates_refuse_leaves_the_job_piloted_and_the_pilot_stan
         .await
         .expect("the gates ran");
 
-    assert_eq!(after.status(), JobStatus::Piloted, "nothing changed in the worktree");
+    assert_eq!(
+        after.status(),
+        JobStatus::Piloted,
+        "nothing changed in the worktree"
+    );
     let row = fleet.summarised(&after).await.unwrap();
     assert!(
         row.piloted.is_some_and(|pilot| pilot.exit.is_none()),
@@ -124,7 +136,9 @@ async fn submitting_a_restart_step_hands_the_worktree_to_a_fresh_drone_at_the_st
 
     assert_eq!(queued.status(), JobStatus::Queued);
     assert_eq!(
-        queued.step(&StepId::new("implement")).map(|row| row.state()),
+        queued
+            .step(&StepId::new("implement"))
+            .map(|row| row.state()),
         Some(StepState::Stopped),
         "no gate ran: the step waits for its Drone as a restart leaves it"
     );
@@ -222,7 +236,10 @@ async fn closing_as_superseded_is_its_own_terminal_state_and_releases_a_dependan
 
     assert_eq!(closed.status(), JobStatus::Superseded);
     let row = fleet.summarised(&closed).await.unwrap();
-    assert_eq!(row.piloted.and_then(|pilot| pilot.exit).as_deref(), Some("superseded"));
+    assert_eq!(
+        row.piloted.and_then(|pilot| pilot.exit).as_deref(),
+        Some("superseded")
+    );
     admit(&fleet).await.unwrap();
     assert_eq!(
         fleet.load(dependant.id()).await.unwrap().status(),
@@ -238,3 +255,32 @@ async fn closing_as_superseded_is_its_own_terminal_state_and_releases_a_dependan
 }
 
 use crate::daemon::Fleet;
+
+#[tokio::test]
+async fn submitting_a_job_taken_from_a_gate_runs_the_gates_again_and_holds_it_at_the_gate() {
+    use crate::tests::reviewing::{a_fleet_reviewing_the_first_step, at_the_gate};
+
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet_reviewing_the_first_step(&home, changed()));
+    let id = at_the_gate(&fleet, &home).await;
+    fleet
+        .take_over(&id, PilotReason::TakeOver, None)
+        .await
+        .expect("taken over from the gate");
+
+    let after = Fleet::submit_for_verification(Arc::clone(&fleet), &id)
+        .await
+        .expect("the gates run");
+
+    assert_eq!(after.status(), JobStatus::AwaitingReview);
+    assert_eq!(
+        after.step(&StepId::new("implement")).map(|row| row.state()),
+        Some(StepState::AwaitingHuman),
+        "a person's own gate holds it again: submitting is not approving"
+    );
+    let row = fleet.summarised(&after).await.unwrap();
+    assert_eq!(
+        row.piloted.and_then(|pilot| pilot.exit).as_deref(),
+        Some("submitted")
+    );
+}

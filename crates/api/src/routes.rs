@@ -358,8 +358,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/raise_cost_cap", post(raise_cost_cap::<D>))
         .route("/jobs/:job_id/raise_turn_cap", post(raise_turn_cap::<D>))
         .route("/jobs/:job_id/kill_drone", post(kill_drone::<D>))
-        .route("/jobs/:job_id/take_over", post(crate::piloting::take_over::<D>))
-        .route("/jobs/:job_id/handoff", get(crate::piloting::get_handoff::<D>))
+        .route(
+            "/jobs/:job_id/take_over",
+            post(crate::piloting::take_over::<D>),
+        )
+        .route(
+            "/jobs/:job_id/handoff",
+            get(crate::piloting::get_handoff::<D>),
+        )
         .route(
             "/jobs/:job_id/submit_for_verification",
             post(crate::piloting::submit_for_verification::<D>),

@@ -24,7 +24,7 @@ use crate::tests::tools::submitted_by_the_one;
 
 type Fixture = crate::daemon::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
 
-const GRACE_SECONDS: u64 = 15 * 60;
+pub(super) const GRACE_SECONDS: u64 = 15 * 60;
 
 fn root(home: &TempDir) -> String {
     home.path().to_string_lossy().to_string()
@@ -32,7 +32,13 @@ fn root(home: &TempDir) -> String {
 
 /// A Fleet whose pool is `size` slots, the rest an agent's, over a Manifest
 /// saying `setup`.
-fn a_pool_of(home: &TempDir, size: u32, setup: &str, clock: &Arc<Held>, gate_on: &str) -> Fixture {
+pub(super) fn a_pool_of(
+    home: &TempDir,
+    size: u32,
+    setup: &str,
+    clock: &Arc<Held>,
+    gate_on: &str,
+) -> Fixture {
     a_bounded_pool_of(home, size, 4, setup, clock, gate_on)
 }
 
@@ -66,7 +72,11 @@ fn a_bounded_pool_of(
 }
 
 /// Three Jobs at a gate, a minute apart: the first is the oldest.
-async fn three_at_a_gate(fleet: &Fixture, home: &TempDir, clock: &Held) -> (JobId, JobId, JobId) {
+pub(super) async fn three_at_a_gate(
+    fleet: &Fixture,
+    home: &TempDir,
+    clock: &Held,
+) -> (JobId, JobId, JobId) {
     let first = at_the_gate(fleet, home).await;
     clock.on(60);
     let second = at_the_gate(fleet, home).await;
@@ -76,7 +86,7 @@ async fn three_at_a_gate(fleet: &Fixture, home: &TempDir, clock: &Held) -> (JobI
 }
 
 /// An approved Job with no slot to go to.
-async fn a_waiter(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+pub(super) async fn a_waiter(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
     let job = fleet.propose(a_proposal(title)).await.expect("proposed");
     worktree_directory(home, &job);
     fleet.approve(job.id()).await.expect("approved");

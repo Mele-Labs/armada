@@ -136,7 +136,11 @@ pub fn sweep_repository(
 ) -> Vec<(std::path::PathBuf, Trimmed)> {
     targets_of(root)
         .into_iter()
-        .filter(|target| !held.iter().any(|held| target.parent() == Some(held.as_path())))
+        .filter(|target| {
+            !held
+                .iter()
+                .any(|held| target.parent() == Some(held.as_path()))
+        })
         .map(|target| {
             let done = trim_target(&target, trim, now);
             (target, done)

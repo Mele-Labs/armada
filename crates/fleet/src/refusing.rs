@@ -448,8 +448,7 @@ where
             ),
             // Each says which in its own code, for a surface to tell apart.
             Adrift::CannotPilot { job, why } => Refusal::IllegalMove(
-                WireError::raised(why.code(), said, self.run_id())
-                    .about_job(ipc::JobId::from(job)),
+                WireError::raised(why.code(), said, self.run_id()).about_job(ipc::JobId::from(job)),
             ),
             // The two acts a re-run of the Checks refuses while it runs, and
             // a pause with them.

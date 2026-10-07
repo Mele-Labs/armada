@@ -271,8 +271,14 @@ where
         if matches!(ruling, Ruling::Failed { .. } | Ruling::HandedBack { .. }) {
             return self.load(job_id).await;
         }
-        self.carried_on(&ruling, job_id, step, Leaving::Repair(stopped_by), &worktree)
-            .await
+        self.carried_on(
+            &ruling,
+            job_id,
+            step,
+            Leaving::Repair(stopped_by),
+            &worktree,
+        )
+        .await
     }
 
     /// Rule the gate on one submission with no live slot and no live Drone:
@@ -469,7 +475,10 @@ where
         // The Checks took minutes, and a person may have killed the Job or
         // taken it to Pilot meanwhile. Nothing is carried onto a Job that left.
         let (held, entering) = match leaving {
-            Leaving::Repair(stopped_by) => (JobStatus::AwaitingRepair, Some(StepTarget::Rechecking(stopped_by))),
+            Leaving::Repair(stopped_by) => (
+                JobStatus::AwaitingRepair,
+                Some(StepTarget::Rechecking(stopped_by)),
+            ),
             Leaving::Pilot(entering) => (JobStatus::Piloted, entering),
         };
         if job.status() != held {

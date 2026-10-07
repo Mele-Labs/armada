@@ -439,11 +439,22 @@ fn forget_this_manifests_jobs(
 /// Where a piloted Job's checkout is: its slot where it holds one, and the path
 /// its handle derives otherwise.
 fn piloted_path(root: &Path, job: &core_model::Job) -> String {
-    let Ok(spec) = WorktreeSpec::for_job(&root.to_string_lossy(), &job.handle()) else {
+    let at = root.to_string_lossy();
+    // The handle first and the id where only that is on disk, as `give_back`
+    // reads a checkout cut before Jobs had handles.
+    let named = [job.handle(), job.id().as_str().to_string()]
+        .iter()
+        .filter_map(|name| WorktreeSpec::for_job(&at, name).ok())
+        .collect::<Vec<_>>();
+    let Some(spec) = named
+        .iter()
+        .find(|spec| Path::new(&spec.worktree_path()).exists())
+        .or_else(|| named.first())
+    else {
         return String::new();
     };
     match job.worktree_slot() {
-        Some(slot) => spec.in_slot(slot).worktree_path(),
+        Some(slot) => spec.clone().in_slot(slot).worktree_path(),
         None => spec.worktree_path(),
     }
 }

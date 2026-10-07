@@ -3218,6 +3218,22 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.pull_request_checks_passed`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
 
+## Protocol 23.49: taking a Job over
+
+`docs/concepts/pilot.md`. **Additive only**: five operations, the DTOs of `ipc::piloting`, one optional field on `JobSummary` and one migration. 23.47 is the session host's and 23.48 is the pull-request acts.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `take_over` (`POST /jobs/:job_id/take_over`) | `TakeOver`: `outcome` (`take_over` or `restart_step`), `session_id?`; or no body | Answers the Job's `JobSummary`, `piloted`. `Helm only`, asked as `destructive` |
+| `get_handoff` (`GET /jobs/:job_id/handoff`) | nothing | Answers `HandoffBundle`: the Job's detail, its history, its evidence, the declared plans and the worktree's changed files marked against them, the worktree path and branch, where it stopped and the Drone's `narrative?`. `agent_access` `Yes` |
+| `submit_for_verification` (`POST /jobs/:job_id/submit_for_verification`) | nothing | Held for the whole run. `Helm only`, `pushes to shared` |
+| `attest_complete` (`POST /jobs/:job_id/attest_complete`) | `PilotNote`: `note?`; or no body | `Helm only`, `pushes to shared` |
+| `close_as_superseded` (`POST /jobs/:job_id/close_as_superseded`) | `PilotNote`: `note?`; or no body | `Helm only`, `destructive` |
+
+**`JobSummary.piloted`** is `Piloted`: `reason`, `session_id?`, `since`, and `exit?`, `ended_at?`, `note?` once the pilot ended. Absent on a Job nobody piloted, and on every row from a Fleet before 23.49. **`exit` reads `attested` on a Job a person completed**, and a Bridge draws that apart from a Job that passed its gates. Assist is not an `outcome`: a body naming it does not decode.
+
+**Refusal codes**, all 409: `fleet.not_pilotable`, `fleet.already_piloted`, `fleet.not_piloted`, `fleet.pilot_busy`, `fleet.no_step_to_restart`, `fleet.nothing_to_verify`, `fleet.nothing_to_submit` and `fleet.steps_not_advanced`; and `fleet.paused` where the Job's worktree is parked. The migration adds `job_pilots`. Bridge's half is `packages/protocol/src/piloting.ts`, written by hand like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -6,9 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    ChangedFile, DeclaredPlan, Instant, JobDetail, JobEvidence, JobHistory, StepId,
-};
+use crate::{ChangedFile, DeclaredPlan, Instant, JobDetail, JobEvidence, JobHistory, StepId};
 
 /// What a person asked of the Job they are taking over.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

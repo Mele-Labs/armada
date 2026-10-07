@@ -85,8 +85,8 @@ async fn taking_over_a_running_job_ends_its_drone_stops_its_step_and_pilots_it()
 }
 
 #[tokio::test]
-async fn a_take_over_works_from_a_gate_and_from_an_escalation_and_restart_step_wants_a_stopped_step()
-{
+async fn a_take_over_works_from_a_gate_and_from_an_escalation_and_restart_step_wants_a_stopped_step(
+) {
     let home = TempDir::new();
     let fleet = a_fleet_reviewing_the_first_step(&home, changed());
     let gated = at_the_gate(&fleet, &home).await;
@@ -129,7 +129,10 @@ async fn a_take_over_works_from_a_gate_and_from_an_escalation_and_restart_step_w
     let fleet = a_fleet(&home, changed());
     let id = running(&fleet, &home, "an escalated one").await;
     fleet.kill_drone(&id).await.expect("its Drone ends");
-    assert_eq!(fleet.load(&id).await.unwrap().status(), JobStatus::Escalated);
+    assert_eq!(
+        fleet.load(&id).await.unwrap().status(),
+        JobStatus::Escalated
+    );
     let restarted = fleet
         .take_over(&id, PilotReason::RestartStep, None)
         .await
@@ -157,10 +160,7 @@ async fn each_refusal_is_a_409_with_its_own_code_and_moves_nothing() {
     };
 
     let proposed = fleet.propose(a_proposal("not yet approved")).await.unwrap();
-    refused(
-        act(proposed.id(), "take_over").await,
-        "fleet.not_pilotable",
-    );
+    refused(act(proposed.id(), "take_over").await, "fleet.not_pilotable");
 
     let id = running(&fleet, &home, "a working Job").await;
     for exit in [
@@ -198,7 +198,9 @@ async fn a_pull_of_the_hatch_on_a_job_nobody_marked_escalates_it_and_says_nothin
     assert_eq!(job.status(), JobStatus::Escalated);
     assert_eq!(
         fleet.last_reason(&id).await.unwrap(),
-        Some(TransitionReason::Escalation(EscalationTrigger::HatchUnbidden))
+        Some(TransitionReason::Escalation(
+            EscalationTrigger::HatchUnbidden
+        ))
     );
 }
 
@@ -233,10 +235,7 @@ async fn a_pull_on_a_marked_job_pilots_it_and_keeps_what_the_drone_said() {
         .expect("a marked pull");
 
     assert_eq!(answer, Hatch::Pulled);
-    assert_eq!(
-        fleet.load(&id).await.unwrap().status(),
-        JobStatus::Piloted
-    );
+    assert_eq!(fleet.load(&id).await.unwrap().status(), JobStatus::Piloted);
     let bundle = fleet
         .handoff_bundle(ipc::JobId::from(&id))
         .await
@@ -303,7 +302,11 @@ async fn the_bundle_is_served_once_a_job_is_piloted_and_not_before() {
     assert_eq!(stopped.trigger.as_deref(), Some("drone_killed"));
     let worktree = bundle.worktree.expect("where the person works");
     assert!(worktree.path.contains("slot-1"), "{}", worktree.path);
-    assert!(worktree.branch.starts_with("armada/"), "{}", worktree.branch);
+    assert!(
+        worktree.branch.starts_with("armada/"),
+        "{}",
+        worktree.branch
+    );
     assert!(bundle.narrative.is_none(), "no Drone said anything");
     assert!(
         !bundle.history.moves.is_empty(),
@@ -365,7 +368,10 @@ async fn a_piloted_job_takes_no_slot_leaves_the_scheduler_and_cannot_be_paused_o
     assert_eq!(job.status(), JobStatus::Piloted, "nothing moved it");
     assert!(fleet.working_on().await.is_empty(), "no Drone, no slot");
     assert!(job.assigned_drone().is_none());
-    let refusal = fleet.pause_job(&id).await.expect_err("not a Job Fleet may park");
+    let refusal = fleet
+        .pause_job(&id)
+        .await
+        .expect_err("not a Job Fleet may park");
     assert!(
         matches!(refusal, crate::adrift::Adrift::NotPausable { .. }),
         "auto-release reads the same refusal: {refusal:?}"
@@ -408,4 +414,36 @@ async fn a_reclaim_of_a_piloted_job_is_refused_and_says_why() {
         .await
         .expect("a person may still kill it");
     assert_eq!(moved.status(), JobStatus::Killed);
+}
+
+#[tokio::test]
+async fn auto_release_passes_over_a_piloted_job_that_would_otherwise_be_the_oldest_taken() {
+    use crate::tests::planted::Held;
+    use crate::tests::releasing::{a_pool_of, a_waiter, three_at_a_gate, GRACE_SECONDS};
+
+    let home = TempDir::new();
+    let clock = Arc::new(Held::started());
+    let fleet = a_pool_of(&home, 3, "", &clock, "implement");
+    let (first, second, _third) = three_at_a_gate(&fleet, &home, &clock).await;
+    fleet
+        .take_over(&first, PilotReason::TakeOver, None)
+        .await
+        .expect("the oldest is taken over");
+    let waiter = a_waiter(&fleet, &home, "the one that waits").await;
+
+    clock.on(GRACE_SECONDS);
+    let turned = fleet.turn().await.expect("a turn");
+
+    assert_eq!(
+        turned.released,
+        vec![second],
+        "the oldest is the person's, so the next is taken"
+    );
+    let piloted = fleet.load(&first).await.unwrap();
+    assert_eq!(piloted.status(), JobStatus::Piloted);
+    assert!(piloted.pause().is_none() && piloted.worktree_slot().is_some());
+    assert_eq!(
+        fleet.load(&waiter).await.unwrap().status(),
+        JobStatus::Queued
+    );
 }

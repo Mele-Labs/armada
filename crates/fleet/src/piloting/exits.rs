@@ -20,8 +20,8 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::gate::Ruling;
 use crate::piloting::Unpilotable;
-use crate::regating::came_to;
 use crate::rechecking::Leaving;
+use crate::regating::came_to;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -51,7 +51,9 @@ where
         let job = self.load(job_id).await?;
         let pilot = self.standing_pilot(&job).await?;
         let worktree = self.surviving_worktree(&job)?;
-        let reason = pilot.as_ref().map_or(PilotReason::TakeOver, |pilot| pilot.reason);
+        let reason = pilot
+            .as_ref()
+            .map_or(PilotReason::TakeOver, |pilot| pilot.reason);
         let this = Arc::clone(&self);
         let on = job_id.clone();
         let running = tokio::spawn(api::carrying(api::via(), async move {
@@ -75,11 +77,7 @@ where
     /// Refused while a step has not advanced: attesting is a verdict on the
     /// work and not a way past the steps, which is what `piloted ->
     /// completed_success`'s guard says.
-    pub async fn attest_complete(
-        &self,
-        job_id: &JobId,
-        note: Option<&str>,
-    ) -> Result<Job, Adrift> {
+    pub async fn attest_complete(&self, job_id: &JobId, note: Option<&str>) -> Result<Job, Adrift> {
         let Some(_held) = self.rechecking().take(job_id) else {
             return Err(refused(job_id, Unpilotable::Busy));
         };
@@ -98,7 +96,13 @@ where
             ));
         }
         let moved = self
-            .left_by(&job, pilot, PilotExit::Attested, note, Target::CompletedSuccess)
+            .left_by(
+                &job,
+                pilot,
+                PilotExit::Attested,
+                note,
+                Target::CompletedSuccess,
+            )
             .await?;
         self.noted_exit(&moved, PilotExit::Attested, note);
         Ok(moved)
@@ -237,7 +241,10 @@ where
         }
         let evidence_type = match self.declared_step(job, step)?.evidence_type() {
             None => EvidenceType::Diff,
-            Some(kind @ (EvidenceType::Diff | EvidenceType::FailingTest | EvidenceType::TestSuiteRun)) => kind,
+            Some(
+                kind
+                @ (EvidenceType::Diff | EvidenceType::FailingTest | EvidenceType::TestSuiteRun),
+            ) => kind,
             Some(_) => {
                 return Err(refused(
                     job.id(),

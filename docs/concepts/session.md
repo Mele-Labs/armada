@@ -71,6 +71,8 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
 
+**A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
+
 **State is one vocabulary for every kind.** `standing` is in force, `spent` is used and done with, and `given_back` was let go before it was used. A released slot and a spent need read the same way.
 
 ## What Fleet answers

@@ -35,19 +35,27 @@ pub enum Unpilotable {
     /// Another take over, or a run of this Job's Checks, is out.
     Busy,
     /// The status has no edge to `piloted`: queued, proposed, or over.
-    NotPilotable { status: JobStatus },
+    NotPilotable {
+        status: JobStatus,
+    },
     AlreadyPiloted,
     /// An exit was asked of a Job that is not piloted.
-    NotPiloted { status: JobStatus },
+    NotPiloted {
+        status: JobStatus,
+    },
     /// Restart Step names a step to hand a fresh Drone, and none stopped.
     NoStepToRestart,
     /// No step is stopped, held at a gate or being worked, so there are no
     /// gates to run.
     NothingToVerify,
     /// The step's evidence is written by its Drone, and none was written.
-    NothingToSubmit { step: StepId },
+    NothingToSubmit {
+        step: StepId,
+    },
     /// Attesting is a verdict on finished work, not a way past a step.
-    StepsNotAdvanced { step: StepId },
+    StepsNotAdvanced {
+        step: StepId,
+    },
 }
 
 impl Unpilotable {
