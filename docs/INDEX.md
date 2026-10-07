@@ -234,6 +234,9 @@ approximations.
 - [`spikes/026-does-a-message-from-another-session-wake-a-live-process.md`](spikes/026-does-a-message-from-another-session-wake-a-live-process.md)
   — `SendMessage` starts a turn in a live headless process that is idle, and what
   Fleet reads to draw it.
+- [`spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md`](spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md)
+  — the mod in a terminal session submits held text as the person's own prompt;
+  Fleet holds it until the mod polls.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
