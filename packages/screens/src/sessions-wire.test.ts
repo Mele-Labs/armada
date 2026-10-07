@@ -151,7 +151,7 @@ describe("the thread", () => {
   it("draws a picture where one has been read and a chip where it has not", () => {
     const drawn = rowsOfThread("a", rows, (_session, file) => (file === "f1" ? "blob:one" : undefined));
     expect(drawn[0]).toMatchObject({ kind: "message", files: [{ id: "f1", name: "shot.png", src: "blob:one" }, { id: "f2", name: "n.txt" }] });
-    expect((drawn[0] as { files: { src?: string }[] }).files[1]!.src).toBeUndefined();
+    expect(JSON.stringify(drawn[0]).match(/"src"/g)).toHaveLength(1);
   });
 
   it("names another session's message by sender, and keeps the first write as a row", () => {
