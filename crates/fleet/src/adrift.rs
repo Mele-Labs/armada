@@ -563,6 +563,11 @@ pub enum Adrift {
     /// A pause on a status that cannot hold one: only a Job with a worktree to
     /// give back and a place to come back to can pause.
     NotPausable { job: JobId, status: JobStatus },
+    /// Main's red could not be handed to a Job. `crate::main_fix`.
+    MainNotFixable {
+        root: String,
+        why: crate::main_fix::MainNotFixable,
+    },
     /// A pause on a Job that already is.
     AlreadyPaused { job: JobId },
     /// A resume on a Job that is not paused.

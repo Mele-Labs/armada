@@ -1,6 +1,7 @@
 use crate::{
-    decode, encode, HubJob, HubPullCi, HubPullRequest, Instant, JobId, MainCiState, MainFailedJob,
-    MainMerge, MainStanding, MergeLine, MergeLineHub,
+    decode, encode, FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi,
+    HubPullRequest, Instant, JobId, MainCiState, MainFailedJob, MainMerge, MainStanding, MergeLine,
+    MergeLineHub,
 };
 
 fn a_red_hub() -> MergeLineHub {
@@ -35,7 +36,20 @@ fn a_red_hub() -> MergeLineHub {
             ci: Some(HubPullCi::WaitingOnMain),
             job: None,
         }],
-        fixing: None,
+        merged: vec![HubMerged {
+            number: 1815,
+            title: "Theme tokens".to_string(),
+            branch: "nick/theme-tokens".to_string(),
+            url: "https://forge.invalid/pull/1815".to_string(),
+            author: Some("nick".to_string()),
+            merged_at: Instant::carried("2026-10-06T09:50:00Z"),
+            commit: Some("c".repeat(40)),
+            job: None,
+        }],
+        fixing: Some(HubJob {
+            id: JobId::carried("01FIX"),
+            title: "Fix test on main".to_string(),
+        }),
     }
 }
 
@@ -72,12 +86,20 @@ fn what_is_empty_is_left_out_and_never_sent_as_null() {
             merge: None,
         }),
         pull_requests: Vec::new(),
+        merged: Vec::new(),
         fixing: None,
     };
     let spelled = encode(&a_line(Some(green))).expect("plain data");
     assert!(!spelled.contains("null"), "{spelled}");
     assert!(spelled.contains(r#""state":"nothing_ran""#), "{spelled}");
-    for left_out in ["failed", "merge", "red_since", "pull_requests", "fixing"] {
+    for left_out in [
+        "failed",
+        "merge",
+        "red_since",
+        "pull_requests",
+        "fixing",
+        "merged",
+    ] {
         assert!(!spelled.contains(left_out), "{left_out} in {spelled}");
     }
     assert!(!encode(&a_line(None)).unwrap().contains("hub"));
@@ -92,4 +114,34 @@ fn a_line_from_a_fleet_before_the_hub_still_reads_and_a_newer_field_does_not_bre
         "hub":{"fixing":{"id":"01JOB","title":"x"},"since":"later"}}"#;
     let read: MergeLine = decode("a merge line", newer.as_bytes()).expect("reads");
     assert_eq!(read.hub.unwrap().fixing.unwrap().title, "x");
+}
+
+#[test]
+fn a_jobs_part_in_the_red_and_the_act_that_hands_it_over_survive_the_wire() {
+    let mark = FixesMain {
+        state: FixesMainState::Fixed,
+        check: "test".to_string(),
+        test: None,
+        merge: Some(1839),
+        fixed_in: Some(1841),
+    };
+    let spelled = encode(&mark).expect("plain data");
+    assert!(
+        spelled.contains(r#""state":"fixed""#) && !spelled.contains("test\":"),
+        "{spelled}"
+    );
+    assert_eq!(
+        decode::<FixesMain>("a mark", spelled.as_bytes()).unwrap(),
+        mark
+    );
+
+    let new = FixMain {
+        root: "/srv/shop".to_string(),
+        job: None,
+        brief: None,
+    };
+    assert_eq!(encode(&new).unwrap(), r#"{"root":"/srv/shop"}"#);
+    let back = r#"{"root":"/srv/shop","job":"01JOB","brief":"test fails on main."}"#;
+    let read: FixMain = decode("a fix", back.as_bytes()).expect("reads");
+    assert_eq!(read.job, Some(JobId::carried("01JOB")));
 }

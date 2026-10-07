@@ -58,9 +58,18 @@ fn a_green_ends_every_take_and_only_the_job_that_fixed_it_says_so() {
     store
         .end_main_fixes("/repos/armada", &ended, Some((&fixer.job, 1841)))
         .expect("ended");
-    let read = store.main_fix_of_job(&fixer.job).expect("reads").expect("a row");
-    assert_eq!((read.ended_at, read.fixed_in), (Some(ended.clone()), Some(1841)));
-    let read = store.main_fix_of_job(&other.job).expect("reads").expect("a row");
+    let read = store
+        .main_fix_of_job(&fixer.job)
+        .expect("reads")
+        .expect("a row");
+    assert_eq!(
+        (read.ended_at, read.fixed_in),
+        (Some(ended.clone()), Some(1841))
+    );
+    let read = store
+        .main_fix_of_job(&other.job)
+        .expect("reads")
+        .expect("a row");
     assert_eq!((read.ended_at, read.fixed_in), (Some(ended), None));
     assert!(!store.is_fixing_main(&fixer.job).expect("reads"));
 }

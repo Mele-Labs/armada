@@ -550,6 +550,16 @@ impl Commands for FakeDaemon {
     async fn park_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.pause_marked(&job_id, true)
     }
+    async fn fix_main(
+        self: std::sync::Arc<Self>,
+        fix: ipc::FixMain,
+    ) -> Result<JobSummary, Refusal> {
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.main_not_red",
+            format!("the fake has no red main at {}", fix.root),
+            crate::tests::shapes::run_id(),
+        )))
+    }
     async fn resume_job(self: std::sync::Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.pause_marked(&job_id, false)
     }

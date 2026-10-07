@@ -12,11 +12,11 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, CiState, Delivery, OpenPull, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, CiState, Delivery, OpenPull, RecentlyMerged, Vcs, WorkProduct};
 use core_model::JobId;
 use ipc::{
-    HubJob, HubPullCi, HubPullRequest, MainCiState, MainFailedJob, MainMerge, MainStanding,
-    MergeLineHub,
+    HubJob, HubMerged, HubPullCi, HubPullRequest, MainCiState, MainFailedJob, MainMerge,
+    MainStanding, MergeLineHub,
 };
 use store::{MainCi, MainState};
 
@@ -52,6 +52,17 @@ pub(crate) struct OpenPulled {
     pub(crate) job: Option<JobId>,
 }
 
+/// A recently merged pull request as last read, with the Job of ours that
+/// opened it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MergedPulled {
+    pub(crate) pull: RecentlyMerged,
+    pub(crate) job: Option<JobId>,
+}
+
+/// How many merged pull requests the hub carries.
+const MERGED_SHOWN: usize = 5;
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -85,6 +96,35 @@ where
             .lock()
             .await
             .pulls
+            .insert(served.root().to_string(), read);
+    }
+
+    /// The newest merged pull requests, **a second forge call on the same
+    /// visit**. A forge that will not answer keeps the last reading.
+    pub(crate) async fn notice_merged(&self, served: &Served) {
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return;
+        };
+        let listed = self
+            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                vcs.recently_merged_pull_requests(root, &base, MERGED_SHOWN)
+            })
+            .await;
+        let Some(listed) = listed else { return };
+        let read: Vec<MergedPulled> = {
+            let store = self.store().lock().await;
+            listed
+                .into_iter()
+                .map(|pull| MergedPulled {
+                    job: self.job_of_pull(&store, served, pull.number),
+                    pull,
+                })
+                .collect()
+        };
+        self.sweeping()
+            .lock()
+            .await
+            .merged
             .insert(served.root().to_string(), read);
     }
 
@@ -149,7 +189,10 @@ where
             .iter()
             .map(|served| served.root().to_string())
             .collect();
-        let pulls = self.sweeping().lock().await.pulls.clone();
+        let (pulls, merged) = {
+            let sweep = self.sweeping().lock().await;
+            (sweep.pulls.clone(), sweep.merged.clone())
+        };
         let store = self.store().lock().await;
         let titled = |job: &JobId| {
             store.load_job(job).ok().map(|found| HubJob {
@@ -161,7 +204,11 @@ where
             .into_iter()
             .filter_map(|root| {
                 let main = store.main_ci(&root).ok().flatten();
-                let hub = hub_of(main.as_ref(), pulls.get(&root), &titled)?;
+                let mut hub = hub_of(main.as_ref(), pulls.get(&root), merged.get(&root), &titled)?;
+                hub.fixing = main
+                    .as_ref()
+                    .and_then(|main| self.fixing_of(&store, main))
+                    .and_then(|job| titled(&job));
                 Some((root, hub))
             })
             .collect()
@@ -172,9 +219,10 @@ where
 pub(crate) fn hub_of(
     main: Option<&MainCi>,
     pulls: Option<&Vec<OpenPulled>>,
+    merged: Option<&Vec<MergedPulled>>,
     titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> Option<MergeLineHub> {
-    if main.is_none() && pulls.is_none() {
+    if main.is_none() && pulls.is_none() && merged.is_none() {
         return None;
     }
     // A red stays red until a green, so a fix still running does not clear it.
@@ -191,6 +239,9 @@ pub(crate) fn hub_of(
                     .map(|one| request(one, &failing_on_main, titled))
                     .collect()
             })
+            .unwrap_or_default(),
+        merged: merged
+            .map(|read| read.iter().map(|one| merged_of(one, titled)).collect())
             .unwrap_or_default(),
         fixing: None,
     })
@@ -253,6 +304,20 @@ fn request(
             CiState::Failed if !pull.failing.is_empty() && !own_failure => HubPullCi::WaitingOnMain,
             CiState::Failed => HubPullCi::Failed,
         }),
+        job: one.job.as_ref().and_then(titled),
+    }
+}
+
+fn merged_of(one: &MergedPulled, titled: &dyn Fn(&JobId) -> Option<HubJob>) -> HubMerged {
+    let pull = &one.pull;
+    HubMerged {
+        number: pull.number,
+        title: pull.title.as_written().to_string(),
+        branch: pull.branch.as_written().to_string(),
+        url: pull.url.as_written().to_string(),
+        author: pull.author.as_ref().map(|it| it.as_written().to_string()),
+        merged_at: ipc::Instant::carried(pull.merged_at.as_written()),
+        commit: pull.commit.as_ref().map(|it| it.as_written().to_string()),
         job: one.job.as_ref().and_then(titled),
     }
 }

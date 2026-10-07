@@ -69,7 +69,9 @@ pub use harness::{
 pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
-pub use main_ci::{CiRun, CiRuns, CiState, MergedPull, OpenPull, OpenPulls};
+pub use main_ci::{
+    CiRun, CiRuns, CiState, MergedPull, OpenPull, OpenPulls, RecentlyMerged, RecentlyMergedPulls,
+};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,

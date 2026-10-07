@@ -110,6 +110,10 @@ where
         Ok(ipc::ProposedPlan { jobs })
     }
 
+    async fn fix_main(self: Arc<Self>, fix: ipc::FixMain) -> Result<JobSummary, Refusal> {
+        self.fixed_main(fix).await
+    }
+
     /// Stop a proposal that is out. **Answers rather than refuses on a
     /// proposal that has gone** — see the trait's own note.
     ///

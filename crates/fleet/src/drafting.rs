@@ -64,6 +64,9 @@ pub(crate) enum StatedBy {
     /// fail. **`Actor::Fleet`, like the split**, for its reason: the scope was
     /// stated by the machine rather than typed. #999.
     TheFix { reported_by: core_model::JobId },
+    /// A Job carried on for main's red, by a person's press or by Fleet
+    /// itself where the Job's own pull request turned main red.
+    MainsRed { by: Actor },
 }
 
 impl StatedBy {
@@ -74,6 +77,7 @@ impl StatedBy {
             }
             StatedBy::APerson => Actor::Human,
             StatedBy::AHelmSession => Actor::Helm,
+            StatedBy::MainsRed { by } => *by,
         }
     }
 
@@ -90,7 +94,7 @@ impl StatedBy {
             } => core_model::CriterionOrigin::Issue,
             StatedBy::TheProposer { .. } => core_model::CriterionOrigin::Prompt,
             StatedBy::APerson | StatedBy::AHelmSession => core_model::CriterionOrigin::Person,
-            StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } => {
+            StatedBy::TheSplit { .. } | StatedBy::TheFix { .. } | StatedBy::MainsRed { .. } => {
                 core_model::CriterionOrigin::Unsaid
             }
         }
@@ -111,6 +115,9 @@ impl StatedBy {
                 "drafted by the Drone of {} for a test that failed on main when Fleet ran it",
                 reported_by.as_str()
             ),
+            StatedBy::MainsRed { .. } => {
+                String::from("carried on for main's red, with the facts Fleet read")
+            }
         }
     }
 }
@@ -344,7 +351,7 @@ where
 /// writer of this history now exists — `crate::widening` — and two spellings
 /// of one outcome would make "did this take" a comparison each reader wrote
 /// for itself.
-fn entry_zero(
+pub(crate) fn entry_zero(
     write_targets: Option<&WriteTargets>,
     atomic: bool,
     stated: StatedBy,

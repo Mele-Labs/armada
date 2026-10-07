@@ -503,6 +503,21 @@ pub(crate) async fn park_job<D: Commands>(
     }
 }
 
+/// Hand main's red to a Job: `Commands::fix_main`. The Job comes back.
+pub(crate) async fn fix_main<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let fix: ipc::FixMain = match ipc::decode("a fix for main", &body) {
+        Ok(fix) => fix,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().fix_main(fix).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Lift the pause: `Commands::resume_job`. The row comes back without `paused`,
 /// or with `resuming` set where every slot was held.
 pub(crate) async fn resume_job<D: Commands>(

@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use adapter_traits::{CiRun, CiRuns, FromOutside, MergedPull, OpenPulls};
+use adapter_traits::{CiRun, CiRuns, FromOutside, MergedPull, OpenPulls, RecentlyMergedPulls};
 
 #[derive(Debug, Default)]
 struct Script {
@@ -13,6 +13,8 @@ struct Script {
     logs: BTreeMap<String, String>,
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
+    recent: Option<RecentlyMergedPulls>,
+    asked_recent: usize,
     asked_head: usize,
     asked_runs: usize,
     asked_logs: usize,
@@ -52,6 +54,15 @@ impl MainCiScript {
     /// The open pull requests the forge lists; `None` is a forge that would not answer.
     pub fn pulls_are(&self, pulls: Option<OpenPulls>) {
         self.with(|it| it.pulls = pulls);
+    }
+
+    /// The recently merged pull requests the forge lists, newest first.
+    pub fn recently_merged_are(&self, recent: Option<RecentlyMergedPulls>) {
+        self.with(|it| it.recent = recent);
+    }
+
+    pub fn times_asked_for_the_recently_merged(&self) -> usize {
+        self.with(|it| it.asked_recent)
     }
 
     pub fn times_asked_for_the_pulls(&self) -> usize {
@@ -101,6 +112,15 @@ impl MainCiScript {
         self.with(|it| {
             it.asked_merged += 1;
             it.merged.get(commit).cloned()
+        })
+    }
+
+    pub(super) fn recently_merged(&self, limit: usize) -> Option<RecentlyMergedPulls> {
+        self.with(|it| {
+            it.asked_recent += 1;
+            it.recent
+                .clone()
+                .map(|list| list.into_iter().take(limit).collect())
         })
     }
 

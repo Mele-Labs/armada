@@ -124,6 +124,12 @@ pub(crate) const PAUSED: &str = "fleet.paused";
 /// A pause on a status that cannot hold one, or on a Job with no slot to park.
 /// A 409, and not [`NOT_RESUMABLE`]: the machine was never asked.
 const NOT_PAUSABLE: &str = "fleet.not_pausable";
+/// Main is not red, or a Job already has this red. A 409.
+const MAIN_NOT_RED: &str = "fleet.main_not_red";
+const MAIN_ALREADY_TAKEN: &str = "fleet.main_already_taken";
+/// A Job that cannot be sent back to, or a repository holding no workflow to
+/// dispatch a fix under. A 409.
+const CANNOT_FIX_MAIN: &str = "fleet.cannot_fix_main";
 /// A pause on a Job that already is. A 409, and its own code so Bridge can read
 /// a double press as the state it wanted rather than as a failure.
 const ALREADY_PAUSED: &str = "fleet.already_paused";
@@ -453,6 +459,21 @@ where
                     WireError::raised(NOT_PAUSABLE, said, self.run_id())
                         .about_job(ipc::JobId::from(job)),
                 )
+            }
+            Adrift::MainNotFixable { why, .. } => {
+                use crate::main_fix::MainNotFixable as Why;
+                let raised = |code| WireError::raised(code, said, self.run_id());
+                match why {
+                    Why::NotServed | Why::Blank => Refusal::Unacceptable(raised(NOT_SERVED)),
+                    Why::NotRed => Refusal::IllegalMove(raised(MAIN_NOT_RED)),
+                    Why::Taken(job) => Refusal::IllegalMove(
+                        raised(MAIN_ALREADY_TAKEN).about_job(ipc::JobId::from(job)),
+                    ),
+                    Why::NoWorkflow => Refusal::IllegalMove(raised(CANNOT_FIX_MAIN)),
+                    Why::CannotSendBack { job, .. } => Refusal::IllegalMove(
+                        raised(CANNOT_FIX_MAIN).about_job(ipc::JobId::from(job)),
+                    ),
+                }
             }
             Adrift::AlreadyPaused { job } => Refusal::IllegalMove(
                 WireError::raised(ALREADY_PAUSED, said, self.run_id())
