@@ -146,6 +146,8 @@ mod schema;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
+/// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
+mod session_ledger;
 /// Which pool slot a Job's worktree is.
 mod slot;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
@@ -207,6 +209,10 @@ pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
+pub use session_ledger::{
+    AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures, SessionSearch,
+    SessionState,
+};
 pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
