@@ -487,6 +487,19 @@ flowchart LR
 
 The full transition table — every legal edge, its trigger and its guard — is in `crates/core-model/domain/job-transitions.toml`.
 
+## When its pull request fails
+
+**A Job whose pull request or branch fails is sent back by Fleet, the way a red main is.** The triggers are `docs/concepts/fleet.md`, *Telling the owner of a pull request*. The notice carries the pull request, the failing checks with log addresses and a log's last lines.
+
+| The Job is | Fleet does |
+|---|---|
+| At its review gate | Sends the notice as a requested change, so the next Drone opens with it |
+| Ended (`completed_success`, `completed_failed`, `killed`) | Redispatches it as a new Job on a fresh branch from the base, `redispatched_from` naming the first, carrying the notice as Facts |
+| Working, or waiting on approval | Nothing yet. It is asked again at the next reading |
+| Rejected | Nothing |
+
+**Once for each pull request, commit and cause**, so one failure never sends a Job back twice. **A merge is only a note in the Job's log**, and no Drone is sent.
+
 ## Pausing a Job
 
 **A pause is a marker on the Job, not a status.** A person pauses a Job to kill

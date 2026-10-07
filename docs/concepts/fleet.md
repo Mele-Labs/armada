@@ -385,6 +385,24 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
+### Telling the owner of a pull request
+
+**Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, and where the merge queue holds it. The merged pull requests are the listing already read for the hub.
+
+| Happened | Fires when |
+|---|---|
+| Checks failed | The check that gates the pull request (`ci` where there is one, else every check) failed on the newest commit |
+| Conflicts | The forge says it cannot merge into the base |
+| Left the queue | It was in the merge queue at the last reading and is not now |
+| Unmergeable | The merge queue marks its entry unmergeable |
+| Merged | It merged in the last six hours |
+
+**A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said. Hung again, it is told like any failure.
+
+**Each notice is told once, and a restart does not repeat it.** The store keeps (pull request, commit, cause, recipient) and the merge queue's last reading. A new commit that fails is news; the same one read again is not. **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Session whose mod is not asking, a Job still working.
+
+**An owner is the Session the ledger says holds the pull request, else its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
