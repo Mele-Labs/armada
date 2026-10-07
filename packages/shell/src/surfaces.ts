@@ -28,6 +28,7 @@ import {
   Presentation,
   Settings as SettingsIcon,
   ShieldCheck,
+  SquareTerminal,
   Workflow,
 } from "lucide-react";
 
@@ -74,6 +75,8 @@ const RAIL = [
   "workflows",
   // The thirteenth, on the same terms: no digit moves and it takes none.
   "checks",
+  // The fourteenth, on the same terms: no digit moves and it takes none.
+  "sessions",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -91,6 +94,7 @@ export const SURFACE = {
   lessons: "lessons",
   workflows: "workflows",
   checks: "checks",
+  sessions: "sessions",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -216,6 +220,14 @@ export const SURFACES: readonly PaletteSurface[] = [
     // A sketch: `shield-check` is the registry's Check family. A Navigation glyph is the owner's to mint.
     icon: ShieldCheck,
   },
+  {
+    id: SURFACE.sessions,
+    label: "Sessions",
+    // Past the ninth, so no key; reached by the rail and by name.
+    shortcut: digitOf(SURFACE.sessions),
+    aliases: ["session", "new session"],
+    icon: SquareTerminal,
+  },
 ];
 
 /**
@@ -235,7 +247,7 @@ export const RAIL_PANELS = [
   {
     id: "work",
     label: "Work",
-    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks],
+    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions],
   },
   { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];

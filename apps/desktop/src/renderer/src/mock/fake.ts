@@ -15,6 +15,7 @@ import { unanswered } from "./moment";
 import type { Scenario } from "./moment";
 import { SLICES } from "./slices";
 import type { AnySlice } from "./slices";
+import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
 /** Which surfaces a fake answers for. Core is always among them. */
@@ -32,6 +33,14 @@ export type LiveDraft = {
  * (`moment.ts`' `draft`), and the preload has no such member to type it by.
  */
 const DRAFTS = new WeakMap<BridgeApi, LiveDraft>();
+
+/** The Sessions a window was mounted holding, by the api it talks to. */
+const SESSIONS = new WeakMap<BridgeApi, SessionsStore>();
+
+/** The Sessions `api`'s fake holds, where it holds any. `mount.tsx` hands them to the window. */
+export function heldSessions(api: BridgeApi): SessionsStore | undefined {
+  return SESSIONS.get(api);
+}
 
 /** The draft `api`'s fake holds, where `api` is one. `mount.tsx` draws from it. */
 export function liveDraft(api: BridgeApi): LiveDraft | undefined {
@@ -52,14 +61,37 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   const api = compose(kept, left, scenario, fleet);
   const fake = { ...api, ...scenario.behaves?.({ state: fleet.state, publish: fleet.publish }) };
   let passed = 0;
+  // What a Session may do to the Board: a Job's status moves on its row, on its detail and on the read a later open gets.
+  const board = {
+    add: (rows: readonly unknown[]) => {
+      const held = fleet.state().jobs;
+      fleet.publish({ jobs: [...held, ...(rows as typeof held).filter((row) => !held.some((one) => one.id === row.id))] } as Partial<BridgeState>);
+    },
+    setStatus: (jobId: string, status: string) => {
+      const now = fleet.state();
+      const watched = now.watched;
+      fleet.publish({
+        jobs: now.jobs.map((one) => (one.id === jobId ? { ...one, status, reason: undefined } : one)),
+        ...(watched.state === "read" && watched.jobId === jobId ? { watched: { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, status, reason: undefined } } } } : {}),
+      } as Partial<BridgeState>);
+      const read = scenario.reads[jobId];
+      if (read !== undefined) {
+        read.job = { ...read.job, status, reason: undefined } as typeof read.job;
+        if (read.watched.state === "read") read.watched = { ...read.watched, detail: { ...read.watched.detail, job: { ...read.watched.detail.job, status, reason: undefined } } } as typeof read.watched;
+      }
+    },
+  };
+  const sessions = scenario.draft?.sessions?.(board);
   onTimePassing(
-    scenario.later === undefined
+    scenario.later === undefined && sessions === undefined
       ? undefined
       : () => {
           const change = scenario.later?.[passed++];
           if (change !== undefined) fleet.publish(change);
+          sessions?.later();
         },
   );
+  if (sessions !== undefined) SESSIONS.set(fake, sessions);
   DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });
   return fake;
 }

@@ -10,7 +10,7 @@
 // hold one act and what it asks a person for before it sends. What stays here
 // is which of them a state offers. The words on every button are `copy.ts`'s.
 
-import { Button, HoldButton, SplitButton } from "@armada/components";
+import { Button, HoldButton, PilotButton, PilotExits, PilotedBy, SplitButton, usePilot } from "@armada/components";
 import type { SplitButtonItem } from "@armada/components";
 
 import { JOB_LIFECYCLE } from "@armada/components";
@@ -313,7 +313,10 @@ export function Acts({
   const held = lead?.held;
   // The accent says a person is waited on and nothing else does. A terminal
   // Job's control is quiet, because there is nobody it is waiting for.
-  const variant = job.status === "awaiting_approval" || life?.whoIsActing === "Person" ? "primary" : "secondary";
+  // Where Pilot is offered on an escalated Job it is the primary, so the acts beside it step down (issue 257).
+  const piloting = usePilot();
+  const pilotLeads = piloting !== null && job.status === "escalated";
+  const variant = !pilotLeads && (job.status === "awaiting_approval" || life?.whoIsActing === "Person") ? "primary" : "secondary";
   const busy = acting || stale || approving;
   // The act this header's own press sent, where one of these six is out —
   // `answer`, `set_model` and everything else `ActingAct` names belongs to a
@@ -369,6 +372,15 @@ export function Acts({
           onReport={onReport}
           onCopied={onCopied}
         />
+      ) : null}
+      {/* Pilot sits left of the acts that end the Job (issue 250). Once a Job is piloted the header says
+          which Session has it, and the three ways out are here as they are on that Session's ledger. */}
+      <PilotButton jobId={job.id} status={job.status} />
+      {job.status === "piloted" ? (
+        <>
+          <PilotedBy jobId={job.id} />
+          <PilotExits jobId={job.id} />
+        </>
       ) : null}
       {/* A split button with nothing in its menu is a button: a caret over an
           empty menu is a control that does not answer. */}

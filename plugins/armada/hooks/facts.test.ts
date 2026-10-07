@@ -5,6 +5,7 @@ import {
   isDispatch,
   jobIdsIn,
   mayMoveBranch,
+  needAct,
   micros,
   pullRequestsIn,
   senderOf,
@@ -62,4 +63,19 @@ test('a sender is the teammate where there is one and the kind where there is no
 test('cost goes out in millionths of a dollar', () => {
   expect(micros(1.25)).toBe(1_250_000)
   expect(micros(undefined)).toBeUndefined()
+})
+
+test('an armada need is read in its three forms and in no other', () => {
+  expect(needAct('armada need ./a.toml "a minor"')).toEqual({ act: 'declare', path: 'a.toml', what: 'a minor' })
+  expect(needAct("cd x && armada need a.toml 'two words'")).toEqual({
+    act: 'declare',
+    path: 'a.toml',
+    what: 'two words',
+  })
+  expect(needAct('armada need --took a.toml "23.5"')).toEqual({ act: 'took', path: 'a.toml', value: '23.5' })
+  expect(needAct('armada need --release a.toml')).toEqual({ act: 'release', path: 'a.toml' })
+  expect(needAct('armada need --status')).toBeUndefined()
+  expect(needAct('armada need a.toml')).toBeUndefined()
+  expect(needAct('echo armada need a.toml "x"')).toBeUndefined()
+  expect(needAct('armada land')).toBeUndefined()
 })

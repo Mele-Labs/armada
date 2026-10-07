@@ -183,12 +183,16 @@ where
         self.fix_begins(caller, &request, run, going).await?;
         let fleet = Arc::clone(self);
         let caller = caller.clone();
-        Ok(FixAnswer::Started(FixRunning(tokio::spawn(async move {
-            let ran = fleet.run_on_main(&request, &stop).await;
-            fleet
-                .fix_ends(&caller, &request, run, ran, &fix, &test)
-                .await
-        }))))
+        // A task-local does not cross the spawn; `fix_ends` needs this Drone's slot.
+        let crew = crate::crew::calling();
+        Ok(FixAnswer::Started(FixRunning(tokio::spawn(
+            crate::crew::as_caller(crew, async move {
+                let ran = fleet.run_on_main(&request, &stop).await;
+                fleet
+                    .fix_ends(&caller, &request, run, ran, &fix, &test)
+                    .await
+            }),
+        ))))
     }
 
     /// The Check the Drone named on its own part, and the command that runs

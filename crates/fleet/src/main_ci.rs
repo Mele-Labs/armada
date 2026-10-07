@@ -13,6 +13,9 @@
 //! does not end it. Nothing here acts: the change rides on the turn.
 
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::task::JoinHandle;
 
 use adapter_traits::{AgentHarness, CiRun, CiState, Delivery, Vcs, WorkProduct};
 use store::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -265,6 +268,13 @@ where
             .collect())
     }
 
+    /// Read main and act on what changed, outside any turn.
+    pub(crate) async fn read_main(&self) -> Result<(), Adrift> {
+        let changed = self.notice_main().await?;
+        self.main_acted_on(&changed).await;
+        Ok(())
+    }
+
     /// The repository to read this turn, and the base its Manifest names.
     async fn main_due(&self) -> Option<(Served, String)> {
         let now = self.now();
@@ -375,4 +385,34 @@ where
             job,
         })
     }
+}
+
+/// Read main beside the turn, every `tick`; the reading's own interval still
+/// gates it. **A turn waits behind each Job's Checks**, so a reading that rode
+/// only on the turn could be minutes late. Whoever reaches the interval first
+/// reads, and acts on what it read.
+pub fn keep_reading_main<H, V, W>(
+    fleet: Arc<Fleet<H, V, W>>,
+    tick: Duration,
+    adrift: impl Fn(Adrift) + Send + 'static,
+) -> JoinHandle<()>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(tick);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            if let Err(why) = fleet.read_main().await {
+                adrift(why);
+            }
+        }
+    })
 }

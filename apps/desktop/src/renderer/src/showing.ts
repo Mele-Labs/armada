@@ -17,6 +17,7 @@ export type Open = {
   learning: boolean;
   workflowing: boolean;
   checking: boolean;
+  sessioning: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -31,5 +32,6 @@ export function showingOf(open: Open): string {
   if (open.learning) return SURFACE.lessons;
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
+  if (open.sessioning) return SURFACE.sessions;
   return SURFACE.overview;
 }
