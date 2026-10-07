@@ -8,10 +8,27 @@ import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
 
 import { pace } from "@armada/jobs/fake";
+import { createElement } from "react";
+import type { ComponentType } from "react";
+import { createRoot } from "react-dom/client";
+
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { walkThrough } from "./walk";
 import type { Walk } from "./walk";
 import { WALKS } from "./walks";
+
+/** A walk's own stage, in place of the app, taken down when the test ends. */
+function stage(Stage: ComponentType): void {
+  const host = document.createElement("div");
+  host.id = "root";
+  document.body.append(host);
+  const root = createRoot(host);
+  root.render(createElement(Stage));
+  onTestFinished(() => {
+    root.unmount();
+    host.remove();
+  });
+}
 
 /**
  * What the window threw while the walk played. **Heard before the app hears
@@ -70,8 +87,12 @@ export function playWalks(part: number, of: number): void {
   for (const [name, script] of walksIn(part, of)) {
     test(`the walk ${name} plays to its last step`, async () => {
       const heard = thrown();
-      mount(script.scenario);
-      await onScreen();
+      if (script.stage === undefined) {
+        mount(script.scenario);
+        await onScreen();
+      } else {
+        stage(script.stage);
+      }
       await walkThrough(script.steps);
       expect(heard).toEqual([]);
       // A step waits for its target to settle, so a long walk outruns the default 15 s.

@@ -3,6 +3,9 @@
 // root of its own whose own host stays empty because what it draws goes into the app's
 // left column through a portal.
 
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+
 import { mountApp } from "./mount";
 import { mountPicker } from "./Picker";
 import { forgetHowItWasRead, meetEveryGuide } from "./remembered";
@@ -18,7 +21,9 @@ const asked = script?.scenario ?? query.get("scenario");
 // `?frame` draws the app alone, for Evidence to photograph: no picker over it.
 const framing = query.has("frame");
 const scenario = (asked === null ? undefined : scenarioNamed(asked)) ?? SCENARIOS[0]!;
-if (asked !== null && asked !== scenario.name) {
+// A walk with a stage of its own draws that window and not the app.
+const Stage = script?.stage;
+if (Stage === undefined && asked !== null && asked !== scenario.name) {
   console.warn(`no mock scenario named ${asked}; showing ${scenario.name}`);
 }
 
@@ -31,7 +36,8 @@ if (script !== undefined) {
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
 if (root !== null && picker !== null) {
-  mountApp(scenario, root);
+  if (Stage === undefined) mountApp(scenario, root);
+  else createRoot(root).render(<StrictMode><Stage /></StrictMode>);
   if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker);
   else if (walking !== null) mountNoWalk(walking, picker);
   else if (!framing) mountPicker(scenario.name, picker);
