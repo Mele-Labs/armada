@@ -24,10 +24,10 @@ use crate::tests::tools::submitted_by_the_one;
 
 /// The Trigger files a case plants, as the composition root would read them.
 #[derive(Default)]
-struct Files(Mutex<Vec<TriggerWritten>>);
+pub(super) struct Files(Mutex<Vec<TriggerWritten>>);
 
 impl Files {
-    fn say(&self, files: Vec<TriggerWritten>) {
+    pub(super) fn say(&self, files: Vec<TriggerWritten>) {
         *self.0.lock().unwrap_or_else(PoisonError::into_inner) = files;
     }
 }
@@ -53,21 +53,21 @@ impl Locating for Arc<Files> {
     fn serving(&self, _: &str) {}
 }
 
-fn machine(file: &str, text: &str) -> TriggerWritten {
+pub(super) fn machine(file: &str, text: &str) -> TriggerWritten {
     TriggerWritten::on_machine(
         Path::new("/home/user/.armada/machine/triggers").join(file),
         text.to_string(),
     )
 }
 
-fn deploys() -> TriggerWritten {
+pub(super) fn deploys() -> TriggerWritten {
     machine(
         "deploy.yml",
         "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\n",
     )
 }
 
-fn manifest(deploy_qa: Option<&str>) -> Manifest {
+pub(super) fn manifest(deploy_qa: Option<&str>) -> Manifest {
     let mut text = String::from("version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  fmt:\n    run: \"true\"\n  wipe:\n    run: \"true\"\n    destructive: true\n");
     if let Some(run) = deploy_qa {
         text.push_str(&format!("  deploy_qa:\n    run: \"{run}\"\n"));
@@ -89,7 +89,7 @@ fn a_fleet(
 }
 
 /// Approve, work the first step, and enter the delivering one.
-async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> JobId {
+pub(super) async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> JobId {
     let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
     worktree_directory(home, &job);
     dispatched(fleet, job.id()).await.unwrap();
@@ -98,7 +98,7 @@ async fn to_the_delivering_step(fleet: &Fixture, home: &TempDir) -> JobId {
     job.id().clone()
 }
 
-async fn firings(fleet: &Fixture, job: &JobId) -> Vec<(String, TriggerWhen, String, TriggerState)> {
+pub(super) async fn firings(fleet: &Fixture, job: &JobId) -> Vec<(String, TriggerWhen, String, TriggerState)> {
     let store = fleet.store().lock().await;
     store
         .trigger_firings(job)

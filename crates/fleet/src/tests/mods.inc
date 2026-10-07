@@ -225,6 +225,7 @@ mod taking_turns;
 mod terms;
 mod tools;
 mod transcript;
+mod trigger_repair;
 mod triggering;
 mod tuning;
 mod unattended;

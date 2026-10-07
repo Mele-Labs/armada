@@ -13,9 +13,9 @@
 use std::process::{Command, Output};
 
 use adapter_traits::{
-    Base, BaseOnTheRemote, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged, NotDelivered,
-    NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UncheckedHead,
-    UnderReview, WhatBecameOfIt,
+    Base, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged,
+    NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review,
+    UncheckedHead, UnderReview, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository};
@@ -118,6 +118,21 @@ impl Delivery for GitVcs {
                 files,
             },
         })
+    }
+
+    fn merge_branch(
+        &self,
+        worktree: &Worktree,
+        branch: &str,
+    ) -> Result<BranchMerged, NotDelivered> {
+        Ok(
+            match merging_in::merged_in(worktree, branch, OnConflict::PutItBack)? {
+                MergedIn::Clean { .. } => BranchMerged::Merged,
+                MergedIn::Conflicted { files } | MergedIn::PutBack { files } => {
+                    BranchMerged::PutBack { files }
+                }
+            },
+        )
     }
 
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {

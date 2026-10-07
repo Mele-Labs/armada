@@ -101,6 +101,35 @@ where
                 false => waiting.push(self.alerted(job, &summary).await?),
             }
         }
+        // **A Trigger whose repair failed is an alert and not a status**: the
+        // Job's status and step are where the Trigger found them. It joins
+        // `waiting`, unless the Job is already listed.
+        let failed = self
+            .store()
+            .lock()
+            .await
+            .repairs_that_failed()
+            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+        for (job_id, trigger) in failed {
+            let listed = |list: &[Alert]| {
+                list.iter()
+                    .any(|one| one.job_id.as_str() == job_id.as_str())
+            };
+            if listed(&blocked) || listed(&waiting) {
+                continue;
+            }
+            let Some(job) = loaded.jobs.iter().find(|job| job.id() == &job_id) else {
+                continue;
+            };
+            if !owned(job) {
+                continue;
+            }
+            let summary = self.summarised(job).await?;
+            let mut alert = self.alerted(job, &summary).await?;
+            alert.why = Some(crate::trigger_repair::alert(&trigger));
+            alert.since = None;
+            waiting.push(alert);
+        }
         Ok(AlertList { blocked, waiting })
     }
 

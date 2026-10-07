@@ -408,6 +408,32 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
 
+### A failed Trigger's repair
+
+**A Trigger with `repair` on that fails gets a repair Drone on a branch of its own, and the fix waits for the owner to place it.** This is not the worktree repair above: that one is read-only, holds no slot and runs inside the turn that found the fault. This one writes, builds and holds a slot, and the Job does not wait for it. `docs/concepts/trigger.md` has the Trigger side.
+
+```
+deploy fails ──> repairing ──> Drone on a branch cut from the Job's ──> rerunning on that branch
+                                                                          |
+                    passes: fix_ready, a slot given back, the owner chooses
+                    fails, try 1: another Drone on the same branch
+                    fails, try 2: failed, and an alert on the Job
+```
+
+| Choice | What Fleet does | Then |
+|---|---|---|
+| `this_branch` | Merges the repair branch into the Job's branch and pushes it, so the fix lands on the Job's open pull request | Runs the Command on the Job's branch: `passed`, or `failed` with an alert |
+| `new_pr` | Pushes the repair branch and opens a pull request from it against the Job's target | `passed`, with the pull request recorded on the firing |
+
+- **The brief** is the Trigger's name and command, the exit code and the output, and the instruction to make the command pass. The Drone writes, builds and runs the Manifest's non-destructive Commands. It does not commit, push or open anything: Fleet commits what it wrote and delivers.
+- **It holds a pool slot**, leased as a Job's is, on a branch cut from the Job's own. It writes and builds, and a build wants a slot's warm `target/`. The slot goes back when the fix is held or the repair ends, so a fix waiting on the owner holds no bay. Choosing leases a slot onto the repair branch again.
+- **Fleet never chooses.** `choose_trigger_fix(job, trigger, this_branch | new_pr)` is a Fleet method, and a choice that cannot be carried out (the pool is full, the Job's branch moved and the fix conflicts) leaves the firing `fix_ready`.
+- **Bounded at two tries**, and a try is a Drone and a rerun. The second Drone goes on the same branch and is told the rerun's output.
+- **Non-blocking.** The Job's status and step do not change, and Fleet works one repair at a time, off the Job's path.
+- **The alert is `list_alerts`.** A Job with a Trigger that failed after a repair was tried is listed in `waiting`, at the status it has. Its `why` names the Trigger and carries no transition reason, and its `since` is empty.
+
+**Not yet covered.** A Fleet that restarts forgets the queue and leaves a firing `repairing` with nothing working it. A repair that cannot lease a slot fails at once and does not wait for one. The alert does not clear. The repair Drone has one Check's budget. `fix_ready` is not in `list_alerts`, since the wire for these states and the act comes with `triggers/wire`. Merging onto the Job's branch can land under a Drone still working there, and git refuses an overlap with that Drone's uncommitted files.
+
 ## Worktree slots
 
 **A repository keeps a pool of permanent, warm worktrees and leases them out**,

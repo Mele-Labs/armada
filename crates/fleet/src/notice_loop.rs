@@ -70,3 +70,26 @@ where
         }
     })
 }
+
+/// Work the failed Triggers waiting for a repair Drone, one at a time, every
+/// `tick`. Apart from [`keep_noticing`] because a repair runs a Drone for as
+/// long as a Check's budget, and nothing waiting behind it should be a landing.
+pub fn keep_repairing<H, V, W>(fleet: Arc<Fleet<H, V, W>>, tick: Duration) -> JoinHandle<()>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(tick);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            while fleet.repair_next().await {}
+        }
+    })
+}

@@ -1,8 +1,8 @@
 //! Frozen Triggers and their firings survive a reopen, and freezing replaces.
 
 use core_model::{
-    FrozenTrigger, OnTriggerFailure, StepId, Timestamp, TriggerFiring, TriggerResolution,
-    TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
+    FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, StepId, Timestamp, TriggerFiring,
+    TriggerResolution, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
 };
 
 use crate::tests::{job_id, open, top_level, TempDir};
@@ -107,5 +107,59 @@ fn a_firing_opens_running_and_is_settled_in_place() {
         Some(TriggerSkipped::SkillNotRun {
             skill: "s".to_string()
         })
+    );
+}
+
+#[test]
+fn a_repair_is_kept_on_the_firing_and_a_failed_one_is_listed() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01REPAIR"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01REPAIR");
+    let at = |s: &str| Timestamp::from_rfc3339(format!("2026-10-07T09:00:{s}.000Z"));
+    let mut one = frozen(
+        "deploy",
+        TriggerResolution::Command {
+            name: "deploy_qa".to_string(),
+            asks_first: false,
+        },
+    );
+    one.on_failure.repair = true;
+    let running = TriggerFiring::running(&one, at("01"));
+    let row = store.open_firing(&id, &running).expect("opened");
+    let failed = running.ended(Some(1), at("02"));
+    assert_eq!(failed.state, TriggerState::Repairing);
+    store.settle_firing(row, &failed).expect("settled");
+
+    let mut repair = RepairRecord {
+        tries: 1,
+        branch: Some("armada/repair-1".to_string()),
+        ..RepairRecord::default()
+    };
+    store
+        .settle_repair(row, TriggerState::FixReady, &repair, None)
+        .expect("kept");
+    drop(store);
+    let mut store = open(&dir);
+    let read = store.firings_with_ids(&id).expect("read");
+    assert_eq!((read[0].0, read[0].1.state), (row, TriggerState::FixReady));
+    assert_eq!(read[0].1.repair, repair);
+    assert!(store.repairs_that_failed().expect("read").is_empty());
+
+    repair.choice = Some(FixChoice::NewPr);
+    repair.pull_request = Some("https://forge/pull/9".to_string());
+    store
+        .settle_repair(row, TriggerState::Passed, &repair, Some(&at("03")))
+        .expect("kept");
+    assert_eq!(store.trigger_firings(&id).expect("read")[0].repair, repair);
+
+    store
+        .settle_repair(row, TriggerState::Failed, &repair, Some(&at("04")))
+        .expect("kept");
+    assert_eq!(
+        store.repairs_that_failed().expect("read"),
+        [(id, "deploy".to_string())]
     );
 }

@@ -626,6 +626,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 PROVISIONAL_TURN_INTERVAL,
                 |why| eprintln!("a pull request or issue was not read: {why}"),
             );
+            // A failed Trigger with `repair` on is worked by a Drone off the
+            // Job's own path, so the Job carries on while it does.
+            fleet::notice_loop::keep_repairing(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL);
             // Each served repository's merge line, read off disk and published when it
             // moves: the process that wrote it tells Fleet nothing.
             fleet::merge_lines::keep_reading(

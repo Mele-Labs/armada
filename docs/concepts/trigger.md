@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, and Fleet firing a Command Trigger. Skills, `block`, `repair` and asking the owner are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, and `repair`. Skills, `block` and asking the owner about a destructive Command are not.
 
 ## What a Trigger is
 
@@ -61,10 +61,25 @@
 | `step_passes` | The step moves to `advanced`. An override is not a pass |
 | `pr_opened` | Right after the delivering step's entry opens the pull request. Not for a pull request found already open, and not for a Job that lands `local` |
 
-A Command runs in the Job's worktree under the Check budget, with no shell. What it prints goes to the Job's log and is never read. Each firing is a row in `job_triggers`: Trigger, level, moment, step, state, exit code and times. The states are `skipped`, `running`, `passed`, `failed` and `awaiting_owner`.
+A Command runs in the Job's worktree under the Check budget, with no shell. What it prints goes to the Job's log and is never read. Each firing is a row in `job_triggers`: Trigger, level, moment, step, state, exit code and times. The states are `skipped`, `running`, `passed`, `failed`, `awaiting_owner`, `repairing`, `rerunning` and `fix_ready`.
 
 > **Rule.** A failed Trigger changes neither the Job's status nor its step.
-> Why: a Trigger is not a Check. `block` and `repair` are carried in the record and nothing acts on them yet.
+> Why: a Trigger is not a Check. `block` is carried in the record and nothing acts on it yet.
+
+## A failed Trigger with `repair` on
+
+| State | Means |
+|---|---|
+| `repairing` | It failed, and a repair Drone is working on a branch cut from the Job's. This is where a failure with `repair` on stops, in place of `failed` |
+| `rerunning` | The Command is running again, on the repair branch or on the Job's |
+| `fix_ready` | The Command passes on the repair branch. **The owner chooses where the fix goes**, and Fleet never does |
+
+`this_branch` merges the fix onto the Job's branch and pushes it, so it lands on the Job's open pull request, and the Command runs again there. `new_pr` pushes the repair branch and opens a pull request of its own against the Job's target. Either ends `passed`, and `this_branch` ends `failed` if the Command still fails.
+
+> **Rule.** A repair is bounded at 2 tries. A Trigger that fails after both is `failed` for good and the Job gets an alert.
+> Why: a third repair is one that does not hold, as the worktree's is. The alert is the existing `list_alerts`, and the Job's status is where it was.
+
+The firing's row carries the tries, the repair branch, the choice and the pull request. `docs/concepts/fleet.md`, *A failed Trigger's repair*, has the mechanism.
 
 The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
 

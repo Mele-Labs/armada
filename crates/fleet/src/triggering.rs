@@ -15,6 +15,7 @@ use core_model::{
 use verification::Exit;
 
 use crate::daemon::Fleet;
+use crate::trigger_repair::Waiting;
 
 /// Every Trigger of `resolved` that applies to this workflow, bound to each
 /// step it fires on. A `pr_opened` one is bound to the delivering step, and a
@@ -222,9 +223,28 @@ where
             }
         }
         self.logged(job.id(), self.firing_line(job, &ended, Some(&attempt)));
+        // **Queued and not waited for**: the Job's step and status are where
+        // they were, and a repair Drone is put on by `repair_next`.
+        if let (TriggerState::Repairing, Some(firing), Some(command)) =
+            (ended.state, firing, one.to_run())
+        {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(Waiting {
+                    job: job.id().clone(),
+                    firing,
+                    trigger: ended.name.clone(),
+                    step: ended.step.clone(),
+                    command: command.to_string(),
+                    exit: ended.exit_code,
+                    stdout: attempt.output.stdout.clone(),
+                    stderr: attempt.output.stderr.clone(),
+                });
+        }
     }
 
-    fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
+    pub(crate) fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
         Envelope::new(
             self.now(),
             level,
@@ -244,7 +264,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match firing.state {
-            TriggerState::Failed => Level::Warn,
+            TriggerState::Failed | TriggerState::Repairing => Level::Warn,
             _ => Level::Info,
         };
         let said = match (&firing.skipped, firing.state) {
