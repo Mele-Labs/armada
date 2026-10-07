@@ -219,6 +219,68 @@ fn a_dead_holders_slot_is_reclaimed_only_once_its_tree_is_clean() {
     }
 }
 
+/// What a lease answers when the only slot is `slot`'s: stranded, or the slot.
+fn lease_over(pool: &Pool, slot: &Path) -> Result<(), String> {
+    match pool.try_lease("next", &here(), 0, &no_seed) {
+        Ok(Leased::Took(lease)) => {
+            assert_eq!(lease.path(), slot);
+            Ok(())
+        }
+        Ok(Leased::Full(Full { slots })) => match &slots[0].state {
+            SlotState::Stranded { why, .. } => Err(why.clone()),
+            other => panic!("the slot read {other:?}"),
+        },
+        Err(why) => panic!("{why:?}"),
+    }
+}
+
+#[test]
+fn a_dead_holders_slot_with_a_modified_tracked_file_stays_held() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "abandoned", &gone());
+    std::fs::write(slot.join(".gitignore"), "target/\n").unwrap();
+
+    let stranded = lease_over(&pool, &slot).expect_err("a slot with a modified file was taken");
+    assert!(stranded.contains(".gitignore"), "{stranded}");
+    assert_eq!(git(&slot, &["branch", "--show-current"]), "abandoned");
+    assert_eq!(
+        std::fs::read_to_string(slot.join(".gitignore")).unwrap(),
+        "target/\n"
+    );
+}
+
+#[test]
+fn a_dead_holders_slot_with_only_an_untracked_file_stays_held() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "abandoned", &gone());
+    std::fs::create_dir(slot.join("notes")).unwrap();
+    std::fs::write(slot.join("notes/plan.md"), "never added").unwrap();
+
+    lease_over(&pool, &slot).expect_err("a slot with an untracked file was taken");
+    assert!(slot.join("notes/plan.md").exists());
+    assert_eq!(git(&slot, &["branch", "--show-current"]), "abandoned");
+}
+
+#[test]
+fn a_dead_holders_clean_slot_with_its_commit_on_its_branch_is_taken_back() {
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = take(&pool, "abandoned", &gone());
+    commit_in(&slot, "committed.rs");
+
+    match pool.try_lease("next", &here(), 0, &no_seed) {
+        Ok(Leased::Took(lease)) => {
+            assert_eq!(lease.path(), slot);
+            assert_eq!(lease.reclaimed_from(), Some("abandoned"));
+        }
+        other => panic!("a clean slot was not taken back: {other:?}"),
+    }
+    assert_eq!(git(&slot, &["branch", "--show-current"]), "next");
+    assert!(!git(&repo.root(), &["rev-parse", "abandoned"]).is_empty());
+}
+
 #[test]
 fn a_branch_holding_unlanded_work_is_not_reset_by_a_lease() {
     let repo = a_repository();
