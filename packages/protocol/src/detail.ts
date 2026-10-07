@@ -21,6 +21,7 @@
 // The header rules there hold here: these are hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { AddedStep } from "./added-steps";
 import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
@@ -69,6 +70,8 @@ export type JobDetail = {
   walk_notes?: WalkNote[];
   /** The Triggers frozen onto this Job: pending, or fired and how each ended. Since 23.58. */
   triggers?: JobTrigger[];
+  /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.59. */
+  additions?: AddedStep[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */
@@ -267,6 +270,12 @@ export type JobDetail = {
   drone_cap?: number;
   /** How this Job lands, frozen at approval. Since 23.8. Absent lands as ever: from the base, into it, ready. */
   landing?: LandingRule;
+  /**
+   * What a Job still at its approval gate opens its pull request as when its approval says
+   * nothing: the workflow's delivering step, the repository, this machine, then ready. Since
+   * 23.57. Absent once `landing` is there, and on a Fleet before it.
+   */
+  pr_mode_default?: string;
   /** What the approval said in place of the repository's policies. Since 23.8. Absent is the repository deciding. */
   policy_overrides?: PolicyOverrides;
   /** When a person approved this Job. Since 23.8. */

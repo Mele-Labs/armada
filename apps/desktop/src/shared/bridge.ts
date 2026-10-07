@@ -21,6 +21,8 @@ import { MANIFEST_CHANNELS, MANIFEST_NOTHING_YET } from "./api/manifest";
 import type { ManifestState } from "./api/manifest";
 import { SETUP_CHANNELS, SETUP_NOTHING_YET } from "./api/setup";
 import type { SetupState } from "./api/setup";
+import { ADDED_STEPS_CHANNELS, ADDED_STEPS_NOTHING_YET } from "./api/added-steps";
+import type { AddedStepsState } from "./api/added-steps";
 import { TRIGGERS_CHANNELS, TRIGGERS_NOTHING_YET } from "./api/triggers";
 import type { TriggersState } from "./api/triggers";
 import { WORKFLOWS_CHANNELS, WORKFLOWS_NOTHING_YET } from "./api/workflows";
@@ -96,6 +98,7 @@ export type BridgeState = CoreState &
   SetupState &
   WorkflowsState &
   TriggersState &
+  AddedStepsState &
   HelmState &
   SettingsState &
   OverviewState &
@@ -119,6 +122,7 @@ export const NOTHING_YET: BridgeState = {
   ...SETUP_NOTHING_YET,
   ...WORKFLOWS_NOTHING_YET,
   ...TRIGGERS_NOTHING_YET,
+  ...ADDED_STEPS_NOTHING_YET,
   ...HELM_NOTHING_YET,
   ...SETTINGS_NOTHING_YET,
   ...OVERVIEW_NOTHING_YET,
@@ -136,6 +140,7 @@ export const CHANNELS = {
   ...SETUP_CHANNELS,
   ...WORKFLOWS_CHANNELS,
   ...TRIGGERS_CHANNELS,
+  ...ADDED_STEPS_CHANNELS,
   ...HELM_CHANNELS,
   ...SETTINGS_CHANNELS,
   ...OVERVIEW_CHANNELS,

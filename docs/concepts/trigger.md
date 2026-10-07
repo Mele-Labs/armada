@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, and the wire to Bridge. Skills, `block`, `repair`, asking the owner and Bridge's screens are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, and the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab. Skills, Drone steps, `block`, `repair`, asking the owner and the repair branch are not.
 
 ## What a Trigger is
 
@@ -70,7 +70,7 @@ The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. Th
 
 ## On the wire
 
-Protocol 23.58, the four operations and one event, `docs/practices/protocol.md`.
+Protocol 23.58, the four operations and one event, and 23.59, steps added to one Job. `docs/practices/protocol.md`.
 
 | Operation | What it does |
 |---|---|
@@ -78,6 +78,8 @@ Protocol 23.58, the four operations and one event, `docs/practices/protocol.md`.
 | `get_trigger` | One Trigger as YAML text, from any level that holds a copy |
 | `save_trigger`, `remove_trigger` | Write or delete a file in the repository's folder or this machine's |
 | `job.trigger_changed` | One of a Job's Triggers moved. `JobDetail.triggers` is the rows, with the pending ones |
+| `add_job_step`, `remove_job_step` | Add a step to a running Job, or take one off before it fires. An `approve_dispatch` carries the ones placed at the press |
+| `job.addition_changed` | One of a Job's added steps moved. `JobDetail.additions` is the rows, with the pending ones |
 
 > **Rule.** A save is checked with the loader's rules before anything is written.
 > Why: a Trigger that is saved is one that loads.
@@ -88,5 +90,41 @@ Protocol 23.58, the four operations and one event, `docs/practices/protocol.md`.
 > Why: Fleet reads a repository's files from the base branch. A save writes the checkout and answers `waits_for_main`, and a removal there waits the same way.
 
 Nothing is held, so a save is on the next `list_triggers`. A Job's log line for a firing is stamped with the firing's own end, which is what `JobTrigger.log_at` points at.
+
+## In Bridge
+
+| Where | What it draws |
+|---|---|
+| Workflows, beside the list | The Triggers that apply to every workflow, and an editor for one: When, Step, Applies to, Set in, Runs, and the two switches under If it fails |
+| A workflow's step | The Triggers that fire at it, one line a moment. The delivering step also carries the Draft PR switch, which is its `draft_pr` |
+| Settings, This machine | The Draft pull requests switch, which is `draft_pull_requests` |
+| A Job's Overview | Its Triggers, each with the state as a mark and the level that sets it. A firing's name opens its line in the Job's log through `log_at` |
+
+A copy a more specific level replaced is drawn struck through under the one that runs. A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped. The repository's own `pr_mode` is edited with `set_pr_mode` in `edit_manifest`, and `ManifestDeclared.pr_mode` carries it back, so Bridge can offer the repository's Draft default beside the machine's and the step's.
+
+## Steps added to one Job
+
+A person can add a step to one Job without writing a workflow. It lives in the Job's own record, `job_additions`, **beside the frozen workflow and never in it**, and it is that Job's alone unless he keeps it.
+
+| Kind | Runs | Becomes |
+|---|---|---|
+| Script | A Command named in `armada.yml`, by Fleet with no Drone | Fires as a command Trigger does |
+| Skill | A skill, by a Drone | Recorded `skipped`, as a skill Trigger is |
+| Drone step | A short brief, by a Drone | Recorded `skipped`, and says so |
+
+**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts`, and the gap after is `pr_opened`. After merge is deferred. Each carries `block` and `repair`, off unless set, carried and not acted on yet.
+
+| When it is added | Which gaps |
+|---|---|
+| At dispatch, in the approval | Every one: before the first step, between steps, and both sides of the pull request |
+| On a running Job | The step it is on and every one after. A gap behind is refused with `fleet.added_step_behind` |
+
+> **Rule.** A step added to a Job fires through the Trigger path and records on its own row.
+> Why: it has no level, so `job_triggers` would need a fourth one. The latest state is kept on the addition, and each firing is a line in the Job's log.
+
+> **Rule.** A Drone step is recorded `skipped` and not run.
+> Why: a step a Drone works needs a gate, and the frozen workflow's step rows are the only one Fleet has. A second gate model for one Job is not a step.
+
+**Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. A Script or a Skill can be kept and a Drone step cannot. A kept one applies from the next Job, as every saved Trigger does.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

@@ -50,6 +50,11 @@ pub struct ApproveDispatch {
     /// its workflow declares it. Since 23.20.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tuning: Option<Vec<StepTuning>>,
+    /// Steps added to this Job only, placed at the press and kept beside the
+    /// frozen workflow. **Left out keeps what was placed**; `[]` clears it.
+    /// Every place is ahead at the gate. Since 23.59.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additions: Option<Vec<crate::added_steps::AddStep>>,
 }
 
 /// What a person tuned on one step at the approval press, frozen with the Job
@@ -194,7 +199,9 @@ pub struct LandingChoice {
     /// Refused at `group`: one branch per Job is all Fleet runs.
     #[serde(default)]
     pub branching: LandingUnit,
-    /// `ready` or `draft`. Left out is `ready`.
+    /// `ready` or `draft`. Left out is the default: the delivering step's
+    /// `draft_pr`, the repository's `pr_mode`, this machine's preference, then
+    /// `ready`. `JobDetail.pr_mode_default` serves it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr_mode: Option<crate::PrMode>,
     #[serde(default)]

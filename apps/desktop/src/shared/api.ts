@@ -14,6 +14,7 @@ import type { CoreApi } from "./api/core";
 import type { StudiosApi } from "./api/studios";
 import type { ManifestApi } from "./api/manifest";
 import type { SetupApi } from "./api/setup";
+import type { AddedStepsApi } from "./api/added-steps";
 import type { TriggersApi } from "./api/triggers";
 import type { WorkflowsApi } from "./api/workflows";
 import type { HelmApi } from "./api/helm";
@@ -38,6 +39,7 @@ export type BridgeApi = CoreApi<BridgeState> &
   SetupApi &
   WorkflowsApi &
   TriggersApi &
+  AddedStepsApi &
   HelmApi &
   SettingsApi &
   OverviewApi &

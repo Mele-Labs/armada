@@ -10,6 +10,7 @@
 import type { CompleteChoice, ProposalCriterion, ProposalGateRow } from "@armada/components";
 import type { ProposalLandingValue, WorkflowChoice } from "@armada/components";
 import type {
+  AddedStep,
   ApproveDispatch,
   GateChoice,
   JobDetail as JobWhole,
@@ -39,6 +40,7 @@ import type { CompleteWhen, LandingRule } from "./draft/landing";
 import { gateReadingOf, gatesForSteps, proposalViewOf, unmeantOf } from "./draft/proposal";
 import type { GateView, ProposalView, RepositorySays, TierModels } from "./draft/proposal";
 import { absoluteOf } from "@armada/screens/src/duration";
+import { additionsOf } from "./added-reach";
 
 /**
  * Everything on the classifying screen a person may still move.
@@ -57,6 +59,8 @@ export type ProposalEdits = {
    * `draft/tuning.ts`, sent as `tuning`.
    */
   tuning?: ApprovalTuning;
+  /** Steps for this Job only, held until the press and sent as `additions`. Fleet's own ids replace the held ones. */
+  additions?: readonly AddedStep[];
 };
 
 /**
@@ -108,6 +112,7 @@ export function proposalEditsOfWhole(whole: JobWhole, machineCap: number | null)
       auto_merge: whole.landing?.auto_merge === true,
     },
     criteria: criterionViewsOf(whole),
+    additions: whole.additions ?? [],
   };
 }
 
@@ -158,6 +163,8 @@ export function approvalOf(
   if (landingMoved(landing, before.landing)) body.landing = landingChoiceOf(landing, branches);
   const tuning = tuningChoicesOf(edits, workflows);
   if (tuning.length > 0) body.tuning = tuning;
+  const additions = additionsOf(edits.additions ?? [], before.additions ?? []);
+  if (additions !== undefined) body.additions = additions;
   return Object.keys(body).length === 0 ? undefined : body;
 }
 

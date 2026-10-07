@@ -26,6 +26,8 @@
 pub mod admitting;
 pub mod adopting;
 pub mod adrift;
+/// Steps added to one Job, beside its frozen workflow.
+mod added_steps;
 /// What a person changes on a proposal, and the Job it leaves at the press.
 /// Spike 022, slice 4.
 /// Where an approved Job lands, set once after its approval. 23.22.
@@ -212,6 +214,7 @@ pub mod places;
 mod plan_acts;
 pub mod policy;
 pub mod ports;
+mod pr_mode;
 mod precedent;
 /// A person's Bridge preferences, `limits`'s shape one table over.
 mod preferences;

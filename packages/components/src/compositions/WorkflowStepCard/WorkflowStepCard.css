@@ -383,3 +383,9 @@ button.armada-wf-card:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* A step added to this Job alone: a dashed edge in the accent. */
+.armada-wf-card[data-added] {
+  border-style: dashed;
+  border-color: var(--accent);
+}

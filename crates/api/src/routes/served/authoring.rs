@@ -47,4 +47,15 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/triggers/remove",
     },
+    // Steps added to one Job. Since 23.59.
+    Route {
+        operation: "add_job_step",
+        method: "POST",
+        path: "/jobs/:job_id/add_job_step",
+    },
+    Route {
+        operation: "remove_job_step",
+        method: "POST",
+        path: "/jobs/:job_id/remove_job_step",
+    },
 ];

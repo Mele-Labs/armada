@@ -18,6 +18,7 @@
 // which is why that file already re-exports `ConfirmableAct`, `FoldedReads`
 // and `Render` from their own modules.
 
+import type { AddedBinding } from "./added-steps";
 import type { DetailTab } from "./detail-tabs";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
@@ -166,6 +167,8 @@ export type JobDetailProps = {
   /** Send the proposal back to the proposer with a note — `to_proposer`, since 23.25. */
   onToProposer?: (jobId: string, body: ToProposer) => Promise<Outcome>;
   onSetLandingTarget?: (jobId: string, target: string) => Promise<Outcome>;
+  /** Adding a step to this Job, removing one before it fires, and keeping one for every Job. Absent draws no `+`. */
+  added?: AddedBinding;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *

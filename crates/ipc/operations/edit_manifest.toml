@@ -11,4 +11,6 @@ notes = """
 **A file that moved under the edit is refused exactly as a save is.** `EditManifest.read` is required and whole, for `save_manifest_file`'s reasons. Fleet reads the disk before placing anything, so edits are never applied to text the form did not show, and writes through the same beside-and-rename `save`, which compares again at the write.
 
 `agent_access` is `Helm only`, `save_manifest_file`'s reason: this writes the tracked file that decides what every Job is gated on. A change to what Checks mean is still a person's, and Helm applies one only on that person's ask.
+
+**Since 23.59 `set_pr_mode` edits `pr_mode`**, the repository's Draft default: `{ "edit": "set_pr_mode", "pr_mode": "draft" | "ready" | null }`, `null` removing the key so the repository defers to this machine's. `ManifestDeclared.pr_mode?` carries it back, absent where the file defers. The next approval's `pr_mode_default` reads it once the running Fleet has read the file again.
 """

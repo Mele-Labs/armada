@@ -27,6 +27,7 @@
 
 extern crate alloc;
 
+mod added_step;
 mod envelope;
 mod job;
 /// Kit's MCP servers and the two tiers that reach a Drone. `docs/concepts/kit.md`.
@@ -44,7 +45,7 @@ pub use envelope::{
 };
 pub use job::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
-    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
+    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use job::{collisions, under};
 pub use job::{
@@ -91,6 +92,9 @@ pub use studio::{
     StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioGraph, StudioId, StudioName,
     StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, StudioPosition,
     StudioRelation, StudioRun, StudioRunKept, ToItself,
+};
+pub use added_step::{
+    behind, placeable, AddedKind, AddedStep, Behind, Fired, Kept, Misplaced, NotRun, Placed,
 };
 pub use trigger::{
     FrozenTrigger, OnTriggerFailure, Trigger, TriggerFiring, TriggerIdentity, TriggerResolution,

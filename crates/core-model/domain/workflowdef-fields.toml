@@ -100,6 +100,20 @@ Not inferred from the diff, which is what happened by accident before it existed
 """
 why = "Nothing in a workflow said whether its work is delivered at all, so a design document was opened for review like a code change and the only thing standing in the way was a `.gitignore` line."
 
+[fields.draft_pr]
+type = "bool"
+concern = "Structure"
+parent = "steps[]"
+purpose = "Whether the pull request this step opens is offered as a draft. Only the step with `delivers: true` may carry it. Absent defers to the repository's `pr_mode`, then the machine's."
+notes = """
+**A bool, because the two answers are the two ways a pull request is offered.** `true` opens it as a draft and `false` opens it ready, over a repository or machine that says the other. Absent is the step saying nothing, which is not `false`.
+
+**Refused on any step but the delivering one**, with `Fault::DraftsNothing` at the key. A step that opens no pull request has none for the word to be about, and a workflow that read as drafting what it never opens would be a setting nothing reads.
+
+**Second of five tiers**: the Job's own choice at approval beats it, and the repository's `pr_mode:` and this machine's preference sit beneath it. `core_model::PrModeTiers::resolve` is where the order is written. The value freezes onto the Job with the workflow.
+"""
+why = "A Job opened as a draft only when somebody remembered to choose it at approval, and a workflow whose pull requests are always parked for a person had nowhere to say so."
+
 [fields.default_gate_policy]
 type = "object"
 concern = "Retry and loops"

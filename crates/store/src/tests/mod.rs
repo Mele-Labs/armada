@@ -80,6 +80,7 @@ mod task_drones;
 mod timings;
 mod tmp;
 mod tracing;
+mod additions;
 mod triggers;
 mod walk_notes;
 mod waves;

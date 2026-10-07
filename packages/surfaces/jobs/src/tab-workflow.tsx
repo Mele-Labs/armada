@@ -51,6 +51,8 @@ import { heldByAFlag } from "./gaming";
 import { checksAgain } from "./gates";
 import { GamingHeld } from "./gaming-held";
 import type { Opens } from "./phases";
+import { addedNodeId, AddedSheets, useAddedSteps, withAddedSteps } from "./added-steps";
+import type { AddedBinding } from "./added-steps";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 import { pulseViewOf } from "./draft/pulse";
 import { holdingOf, lookOf } from "./mine";
@@ -153,6 +155,8 @@ export type WorkflowTabProps = {
    * person's.
    */
   opensStep?: string;
+  /** What adding a step to this Job asks of the window. Absent draws no `+`. */
+  added?: AddedBinding;
 };
 
 export function WorkflowTab({
@@ -188,6 +192,7 @@ export function WorkflowTab({
   trail,
   opensStep,
   pulse,
+  added: addedBinding,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
   // moves under them as the Job advances, and a panel that changed subject
@@ -206,6 +211,7 @@ export function WorkflowTab({
   // centred on one card is a run with its other steps off screen.
   const [following, setFollowing] = useState(false);
   const openStep = setOpen;
+  const added = useAddedSteps(job, whole, addedBinding, undefined);
   // Which step is open, told to the trail, so a jump out of it can come back
   // here with the same step open. Its id is the step's, which is what
   // `opensStep` lands on.
@@ -299,7 +305,7 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({
+  const plain = workflowRunOf({
     whole,
     groups,
     drones,
@@ -307,6 +313,7 @@ export function WorkflowTab({
     onOpen: openStep,
     ...(heldCommand === undefined ? {} : { held: heldCommand }),
   });
+  const run = withAddedSteps(added, whole, plain);
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was
@@ -493,6 +500,7 @@ export function WorkflowTab({
                   opensOn={run.opensOn}
                   hangsFromTop
                   runsDown
+                  reveals={added.reveal === null ? null : addedNodeId(added.reveal)}
                 />
               </div>
             </div>
@@ -502,6 +510,7 @@ export function WorkflowTab({
         </div>
 
         {layer}
+        <AddedSheets added={added} />
       </div>
     </div>
   );

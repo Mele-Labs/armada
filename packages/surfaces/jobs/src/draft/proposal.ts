@@ -151,7 +151,9 @@ export function proposalViewOf(detail: JobDetail, machineCap: number | null): Pr
     machine_cap: machineCap,
     // Absent is the Manifest's base, which is not a branch name to print.
     from_ref: detail.landing?.from_ref ?? null,
-    pr_mode: detail.landing?.pr_mode === "draft" ? "draft" : "ready",
+    // Before approval there is no landing, so it starts on what Fleet says the
+    // workflow, the repository and this machine come to.
+    pr_mode: (detail.landing?.pr_mode ?? detail.pr_mode_default) === "draft" ? "draft" : "ready",
   };
   if (detail.facts !== undefined) view.asked = detail.facts;
   if (detail.drone_cap !== undefined) view.drone_cap = detail.drone_cap;

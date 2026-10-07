@@ -57,6 +57,9 @@ import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
+import { withAddedAtGate } from "./approval-added";
+import { addedNodeId, AddedSheets, useAddedSteps } from "./added-steps";
+import type { AddedBinding } from "./added-steps";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -177,6 +180,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenTask?: (taskId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
   onOpenStudio?: OpenStudioFrom;
+  /** What adding a step to this Job asks of the window. Absent draws no `+`. */
+  added?: AddedBinding;
 };
 
 export function ApprovalCanvas({
@@ -189,6 +194,7 @@ export function ApprovalCanvas({
   onOpenGroup,
   onOpenTask,
   onOpenStudio,
+  added: addedBinding,
   whole,
   edits,
   onEdits,
@@ -200,6 +206,13 @@ export function ApprovalCanvas({
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const floor = useAtFloor();
+  // At the gate a step is held in the edits until the press; past it, Fleet's.
+  const added = useAddedSteps(
+    whole.job,
+    whole,
+    addedBinding,
+    onEdits === undefined ? undefined : { additions: edits.additions ?? [], onAdditions: (next) => onEdits({ ...edits, additions: next }) },
+  );
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
   const steps = stepsReadOf(proposal.gates, whole, declared, life !== undefined);
@@ -253,7 +266,9 @@ export function ApprovalCanvas({
   const about = openedStep?.about;
 
   const workflowName = workflow?.name ?? proposal.workflow_id;
-  const layout = layoutOf(nodes, edges, workflowName);
+  const plain = layoutOf(nodes, edges, workflowName);
+  // At the gate the workflow is the one picked, which may not be the one the Job opened on.
+  const { layout, extra } = withAddedAtGate(added, whole, nodes, plain, steps.find((one) => one.delivers)?.id);
   // At the gate the Work lane's head is the workflow picker: another workflow
   // rebuilds every gate and every step in the lane, and a step's tuning goes
   // with its step. Past the gate it is the name, read.
@@ -265,6 +280,8 @@ export function ApprovalCanvas({
           moved({
             proposal: proposalOnWorkflow(proposal, workflows, workflowId),
             tuning: { ...tuning, steps: tuningOf(picked).steps },
+            // A step added after a step the other workflow has not goes with it.
+            ...(added.rows.length === 0 ? {} : { additions: added.rows.filter((one) => picked.some((step) => step.step_id === one.step)) }),
           });
         };
   const choices = workflowChoicesOf(workflows, whole.job.owner_manifest_id);
@@ -472,16 +489,18 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed]}
+        nodes={[...backdrops, ...placed, ...extra]}
         edges={drawnEdges}
         label="Run"
         runsDown
         downOnly
         centred
         opensOn={[opensOnOf(nodes, layout.places)]}
+        reveals={added.reveal === null ? null : addedNodeId(added.reveal)}
       />
     </section>
     {panel}
+    <AddedSheets added={added} />
     </>
   );
 }
