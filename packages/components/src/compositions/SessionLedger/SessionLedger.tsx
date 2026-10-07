@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, NotebookText, PanelRightClose, PanelRightOpen, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -19,7 +19,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact";
 
-/** What an artifact is: a page published, a file written outside the code, or a Docs document. */
+/** What an artifact is: a page published, a file written outside the code, or a Doc. */
 export type ArtifactForm = "page" | "file" | "doc";
 
 export type LedgerEntry = {
@@ -57,7 +57,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
-  doc: { Glyph: NotebookText, said: "Docs document" },
+  doc: { Glyph: NotebookText, said: "Doc" },
 };
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
@@ -70,39 +70,9 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   piloted: Terminal,
 };
 
-export function SessionLedger({
-  entries,
-  folded = false,
-  minimized = false,
-  onMinimize,
-}: {
-  entries: readonly LedgerEntry[];
-  folded?: boolean;
-  /** Drawn as a slim rail with one press to open it again. Only where the ledger stands beside the thread. */
-  minimized?: boolean;
-  /** Present where the ledger may be minimized: the control draws, and says which way it goes. */
-  onMinimize?: (minimized: boolean) => void;
-}) {
-  if (minimized) {
-    return (
-      <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-minimized>
-        <Tooltip label="Show attachments">
-          <button type="button" className="armada-session-ledger__fold" aria-label="Show attachments" onClick={() => onMinimize?.(false)}>
-            <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
-          </button>
-        </Tooltip>
-      </aside>
-    );
-  }
+export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
-      {onMinimize === undefined || folded ? null : (
-        <Tooltip label="Minimize attachments">
-          <button type="button" className="armada-session-ledger__fold" aria-label="Minimize attachments" onClick={() => onMinimize(true)}>
-            <PanelRightClose size={16} strokeWidth={2} aria-hidden />
-          </button>
-        </Tooltip>
-      )}
       {entries.length === 0 ? <EmptyLedger /> : null}
       {SECTIONS.map(({ kind, label, Glyph }) => {
         const rows = entries.filter((one) => one.kind === kind);

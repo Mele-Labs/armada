@@ -226,8 +226,8 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
 | The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
-| Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `notebook-text`) and a tooltip naming it. A file opens through main, which opens only a path the session's own ledger names as a file it wrote |
-| The ledger beside the thread | Minimized to a slim rail by the control at its edge, and opened again by the rail; the choice is the window's, kept in its storage. Below the breakpoint the ledger is a sheet and does not minimize |
+| Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `notebook-text`) and a tooltip naming it (Published page, File written, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote |
+| The ledger beside the thread | Hidden by one button in the Session's header, which shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
 
 ## Not built

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { GitMerge, PanelRightOpen } from "lucide-react";
+import { GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
@@ -400,7 +400,7 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Docs document" } as const;
+const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Doc" } as const;
 
 function entriesOf(
   session: Session,
@@ -495,7 +495,7 @@ function entriesOf(
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
-/** Whether the ledger is a slim rail, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
+/** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
 function useMinimized(): [boolean, (minimized: boolean) => void] {
   const [minimized, set] = useState(() => {
     try {
@@ -569,8 +569,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
-        {...(narrow || draft.close !== undefined
-          ? {
+        {...{
               actions: (
                 <>
                   {draft.close === undefined || session.terminal === true ? null : (
@@ -586,11 +585,16 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                         <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
-                  ) : null}
+                  ) : (
+                    <Tooltip label={minimized ? "Show attachments" : "Hide attachments"}>
+                      <Button variant="ghost" size="sm" aria-label={minimized ? "Show attachments" : "Hide attachments"} aria-pressed={!minimized} onClick={() => minimize(!minimized)}>
+                        {minimized ? <PanelRightOpen size={16} strokeWidth={2} aria-hidden /> : <PanelRightClose size={16} strokeWidth={2} aria-hidden />}
+                      </Button>
+                    </Tooltip>
+                  )}
                 </>
               ),
-            }
-          : {})}
+            }}
       >
         <div className="armada-session-frame__centre">
           <Refused />
@@ -637,7 +641,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           />
           )}
         </div>
-        {narrow ? null : <SessionLedger entries={entries} minimized={minimized} onMinimize={minimize} />}
+        {narrow || minimized ? null : <SessionLedger entries={entries} />}
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>

@@ -1481,7 +1481,7 @@
   group = "Chrome"
   size = "16px"
   status = "Proposed"
-  reserved = "Opening a Session's ledger as a sheet where the window is too narrow to hold it beside the conversation. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  reserved = "The Session header's one button for its ledger: opens it as a sheet below `--layout-breakpoint`, and shows it again beside the thread above it once hidden. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
   notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. Below `--layout-breakpoint` the ledger leaves the Session's side and this is the press that brings it back, as the Helm dock folds."
 
 [[icons.search.usage]]
@@ -1543,5 +1543,5 @@
   group = "Chrome"
   size = "16px"
   status = "Proposed"
-  reserved = "Minimizing a Session's ledger beside its thread. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
-  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. The pair of `panel-right-open`, which brings the ledger back as a sheet below the breakpoint and as a rail above it."
+  reserved = "Hiding a Session's ledger from its header, above the breakpoint, so the thread takes the width. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. The owner chose a toggle in the header over a bar on the panel: this while the ledger is shown, `panel-right-open` once it is hidden, one button and no text. Below the breakpoint the same slot holds `panel-right-open` alone, opening the sheet."

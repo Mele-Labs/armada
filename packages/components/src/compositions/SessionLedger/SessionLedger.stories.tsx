@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { expect, fn, userEvent } from "storybook/test";
 
 import { SessionLedger, type LedgerEntry } from "./SessionLedger";
@@ -31,7 +30,7 @@ const ENTRIES: LedgerEntry[] = [
   { key: "a", kind: "subagent", name: "Subagent Read the CI history, running", text: "Read the CI history", mark: { glyph: "running", said: "Running" }, onOpen: open },
   { key: "ar1", kind: "artifact", artifact: "page", name: "Published page Store clock findings", text: "Store clock findings", onOpen: open },
   { key: "ar2", kind: "artifact", artifact: "file", name: "File written clock-trace.png", text: "clock-trace.png", onOpen: open },
-  { key: "ar3", kind: "artifact", artifact: "doc", name: "Docs document Flaky store write-up", text: "Flaky store write-up", onOpen: open },
+  { key: "ar3", kind: "artifact", artifact: "doc", name: "Doc Flaky store write-up", text: "Flaky store write-up", onOpen: open },
 ];
 
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
@@ -57,14 +56,14 @@ export const Some: Story = {
   },
 };
 
-/** A page, a file and a Docs document, each with its own glyph named by a tooltip. */
+/** A page, a file and a Doc, each with its own glyph named by a tooltip. */
 export const Artifacts: Story = {
   args: { entries: ENTRIES.filter((one) => one.kind === "artifact") },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Published page" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "File written" })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Docs document" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Doc" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open File written clock-trace.png" }));
     await expect(open).toHaveBeenCalled();
   },
@@ -75,22 +74,5 @@ export const Accumulated: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Open Job 52" }));
     await expect(open).toHaveBeenCalled();
-  },
-};
-
-function Minimizable(args: React.ComponentProps<typeof SessionLedger>) {
-  const [minimized, set] = useState(false);
-  return <SessionLedger {...args} minimized={minimized} onMinimize={set} />;
-}
-
-/** Minimized to a rail, and opened again by the one press on it. */
-export const Minimizing: Story = {
-  render: (args) => <Minimizable {...args} />,
-  args: { entries: ENTRIES },
-  play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Minimize attachments" }));
-    await expect(canvas.queryByRole("heading")).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Show attachments" }));
-    await expect(canvas.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
   },
 };

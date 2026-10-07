@@ -1,7 +1,7 @@
 // What a Session's ledger draws: only the sections that hold a row, a small picture when it holds
 // nothing, and the Artifacts a Session made. Over the `sessions` scenario with three more Sessions
 // open beside its own: one holding a branch and a pull request, a brand-new one, and one that
-// published a page, wrote a file and made a Docs document. The walk `session-ledger` plays it.
+// published a page, wrote a file and made a Doc. The walk `session-ledger` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 

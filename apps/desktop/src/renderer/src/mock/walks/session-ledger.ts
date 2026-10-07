@@ -1,5 +1,5 @@
 // The ledger of a Session: only the sections that hold a row, a small picture where it holds none,
-// and the Artifacts section with a page, a file and a Docs document. Over the `session-ledger`
+// and the Artifacts section with a page, a file and a Doc. Over the `session-ledger`
 // scenario. Told twice: wide, and below the breakpoint.
 
 import { button, inside, region, role, walk } from "../walk";
@@ -21,8 +21,8 @@ function steps(narrow: boolean): Step[] {
     ...(narrow
       ? []
       : [
-          { press: button("Minimize attachments"), say: "The ledger folds to a slim rail and the thread takes the width" },
-          { press: button("Show attachments"), say: "The rail opens it again" },
+          { press: button("Hide attachments"), say: "One button in the header hides the ledger and the thread takes the width" },
+          { press: button("Show attachments"), say: "The same button shows it again" },
         ]),
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that made three things" },
@@ -30,7 +30,7 @@ function steps(narrow: boolean): Step[] {
       { look: inside(ledger, role("heading", "Artifacts")), say: "Artifacts" },
       { look: inside(ledger, role("img", "Published page")), say: "A page it published, which opens at its address" },
       { look: inside(ledger, role("img", "File written")), say: "A file it wrote outside the code, which opens on this machine" },
-      { look: inside(ledger, role("img", "Docs document")), say: "A Docs document, which opens at its address" },
+      { look: inside(ledger, role("img", "Doc")), say: "A Doc, which opens at its address" },
     ]),
   ];
 }

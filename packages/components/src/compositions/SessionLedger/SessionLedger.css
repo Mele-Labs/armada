@@ -138,31 +138,3 @@ path.armada-session-ledger__picture-later {
   flex-basis: 100%;
   padding: 0 var(--space-3) var(--space-2);
 }
-
-/* The control that minimizes the ledger sits at its trailing edge; minimized, the ledger is a rail
-   just wide enough for the one press that opens it. */
-.armada-session-ledger__fold {
-  display: inline-flex;
-  align-self: flex-end;
-  padding: var(--space-1);
-  border: none;
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-
-.armada-session-ledger__fold:hover {
-  background: var(--bg-hover);
-  color: var(--fg-default);
-}
-
-.armada-session-ledger__fold:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
-
-.armada-session-ledger[data-minimized] {
-  width: auto;
-  padding: var(--space-2);
-}
