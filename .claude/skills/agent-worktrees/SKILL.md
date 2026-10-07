@@ -67,6 +67,13 @@ whose commits are not landed. A slot whose session ended without releasing is
 taken back by the next lease when it is clean and its commits are on its branch
 — otherwise it reads `stranded` in `--status` and stays held.
 
+**In a slot, stage named paths, never `git commit -a` or `git add -A`.** A slot
+can hold another session's uncommitted tracked edits, and `-a` commits them as
+yours. Confirmed 7 Oct 2026: a `commit -a` swept three half-built `crates/api`
+files into a pull request whose untracked fourth file stayed behind, so `api`
+did not compile, `ci` went red, and a fix commit and a message to the other
+session followed. Read `git status` first and `git add` each path you changed.
+
 **To free a slot with work half done**, commit it on the branch and release. The
 pool can also do the commit: a parked slot's work is committed with a `WIP:`
 message and the slot freed, with no push. `armada worktree lease --existing
