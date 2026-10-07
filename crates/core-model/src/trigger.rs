@@ -345,6 +345,9 @@ pub struct RepairRecord {
     pub choice: Option<FixChoice>,
     /// The pull request opened for [`FixChoice::NewPr`].
     pub pull_request: Option<String>,
+    /// When the repair last settled: the failure's time for `failed`, and the
+    /// fix's for `fix_ready`.
+    pub settled_at: Option<Timestamp>,
 }
 
 /// Repair Drones one failed Trigger gets. Two, as the worktree's repair has,

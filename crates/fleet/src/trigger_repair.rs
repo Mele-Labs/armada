@@ -8,7 +8,7 @@
 
 use std::collections::VecDeque;
 
-use core_model::{FixChoice, JobId, StepId, TriggerState, REPAIR_TRIES};
+use core_model::{FixChoice, JobId, RepairRecord, StepId, TriggerState, REPAIR_TRIES};
 
 /// What follows a rerun of the Trigger's command on the repair branch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,15 +85,19 @@ pub fn brief(
         Some(code) => format!("exited with code {code}"),
         None => String::from("did not exit on its own"),
     };
+    let printed = match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => {
+            String::from("It printed nothing, or its output was not kept: run it to see.")
+        }
+        _ => format!("stdout:\n{}\n\nstderr:\n{}", tail(stdout), tail(stderr)),
+    };
     format!(
         "REPAIR THE TRIGGER `{trigger}`\n\n\
          The Trigger `{trigger}` runs `{command}`, and it failed: it {exited}.\n\n\
-         stdout:\n{}\n\nstderr:\n{}\n\n\
+         {printed}\n\n\
          Make the command pass. Change what this branch needs changed, run `{command}` yourself \
          to check, and stop when it passes. Do not commit, push or open a pull request: Fleet \
-         does that.",
-        tail(stdout),
-        tail(stderr),
+         does that."
     )
 }
 
@@ -111,6 +115,11 @@ pub fn alert(trigger: &str) -> String {
     format!("`{trigger}` failed and {REPAIR_TRIES} repairs did not fix it")
 }
 
+/// Why a held fix is on the Job's alerts: it waits on the owner's choice.
+pub fn fix_waiting(trigger: &str) -> String {
+    format!("`{trigger}` has a fix waiting on your choice")
+}
+
 /// A failed firing waiting for a repair Drone. Held in memory: a Fleet that
 /// restarts forgets, and the firing stays `repairing` with nothing working it.
 #[derive(Debug, Clone)]
@@ -123,6 +132,8 @@ pub(crate) struct Waiting {
     pub exit: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    /// What the repair had come to, for one a restart took up again.
+    pub record: RepairRecord,
 }
 
 #[derive(Default)]

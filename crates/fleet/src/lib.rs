@@ -263,6 +263,8 @@ mod rehearsing;
 /// A parked Job paused by Fleet when work waits for a full pool.
 mod releasing;
 pub mod remarks;
+/// A Fleet that starts takes its Trigger repairs up again.
+mod repair_recovery;
 /// A failed Trigger's repair Drone, on a branch of its own.
 mod repairing;
 pub mod reporting;

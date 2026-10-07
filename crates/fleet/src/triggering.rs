@@ -240,6 +240,7 @@ where
                     exit: ended.exit_code,
                     stdout: attempt.output.stdout.clone(),
                     stderr: attempt.output.stderr.clone(),
+                    record: core_model::RepairRecord::default(),
                 });
         }
     }

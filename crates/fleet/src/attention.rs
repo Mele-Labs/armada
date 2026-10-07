@@ -101,23 +101,17 @@ where
                 false => waiting.push(self.alerted(job, &summary).await?),
             }
         }
-        // **A Trigger whose repair failed is an alert and not a status**: the
-        // Job's status and step are where the Trigger found them. It joins
-        // `waiting`, unless the Job is already listed.
-        let failed = self
+        // **A Trigger's repair that waits on a person is an alert and not a
+        // status**: the Job's status and step are where the Trigger found
+        // them. A fix with no choice, and a Trigger that failed after a repair
+        // was tried, join `waiting` and leave it when the firing does.
+        let repairs = self
             .store()
             .lock()
             .await
-            .repairs_that_failed()
+            .repairs_waiting_on_a_person()
             .map_err(|why| self.refusal(Adrift::Reading(why)))?;
-        for (job_id, trigger) in failed {
-            let listed = |list: &[Alert]| {
-                list.iter()
-                    .any(|one| one.job_id.as_str() == job_id.as_str())
-            };
-            if listed(&blocked) || listed(&waiting) {
-                continue;
-            }
+        for (job_id, _, firing) in repairs {
             let Some(job) = loaded.jobs.iter().find(|job| job.id() == &job_id) else {
                 continue;
             };
@@ -126,8 +120,13 @@ where
             }
             let summary = self.summarised(job).await?;
             let mut alert = self.alerted(job, &summary).await?;
-            alert.why = Some(crate::trigger_repair::alert(&trigger));
-            alert.since = None;
+            alert.why = Some(match firing.state {
+                core_model::TriggerState::FixReady => {
+                    crate::trigger_repair::fix_waiting(&firing.name)
+                }
+                _ => crate::trigger_repair::alert(&firing.name),
+            });
+            alert.since = firing.repair.settled_at.as_ref().map(Into::into);
             waiting.push(alert);
         }
         Ok(AlertList { blocked, waiting })

@@ -20,7 +20,8 @@ CREATE TABLE job_triggers_repairable (
     repair_tries   INTEGER NOT NULL DEFAULT 0,
     repair_branch  TEXT,
     fix_choice     TEXT CHECK (fix_choice IN ('this_branch', 'new_pr')),
-    fix_pr         TEXT
+    fix_pr         TEXT,
+    repair_settled_at TEXT
 ) STRICT;
 INSERT INTO job_triggers_repairable
     (firing_id, job_id, name, moment, step_id, source, state, skipped_why, skipped_name,

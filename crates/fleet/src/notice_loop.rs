@@ -85,11 +85,13 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     tokio::spawn(async move {
+        fleet.repairs_recovered().await;
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             ticker.tick().await;
             while fleet.repair_next().await {}
+            fleet.chosen_fixes_retried().await;
         }
     })
 }

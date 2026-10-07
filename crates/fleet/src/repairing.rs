@@ -22,6 +22,14 @@ use verification::Exit;
 use crate::daemon::Fleet;
 use crate::trigger_repair::{self, AfterRerun, Waiting};
 
+/// Why no slot was leased for a repair.
+enum Leasing {
+    /// Every slot is held. The repair waits for one.
+    Full,
+    /// Said in the words a person reads.
+    Not(String),
+}
+
 fn code_of(exit: &Exit) -> Option<i32> {
     match exit {
         Exit::Code(code) => Some(*code),
@@ -51,21 +59,31 @@ where
         let Some(waiting) = next else {
             return false;
         };
-        self.repaired(waiting).await;
-        true
+        self.repaired(waiting).await
     }
 
-    async fn repaired(&self, waiting: Waiting) {
+    /// `false` where every slot is taken: the repair goes to the back of the
+    /// queue and is asked again on a later turn, as a Job waits on a slot.
+    async fn repaired(&self, waiting: Waiting) -> bool {
         let Ok(job) = self.load(&waiting.job).await else {
-            return;
+            return true;
         };
-        let mut record = RepairRecord::default();
+        // An attempt a restart cut short is redone and not counted twice.
+        let mut record = waiting.record.clone();
+        record.tries = record.tries.saturating_sub(1);
         let held = match self.repair_slot_leased(&job, &waiting, &mut record).await {
             Ok(held) => held,
-            Err(why) => {
+            Err(Leasing::Full) => {
+                self.trigger_repairs()
+                    .lock()
+                    .expect("not poisoned")
+                    .push(waiting);
+                return false;
+            }
+            Err(Leasing::Not(why)) => {
                 self.repair_ended(&job, &waiting, TriggerState::Failed, &record, &why)
                     .await;
-                return;
+                return true;
             }
         };
         let (pool, slot, worktree) = held;
@@ -100,6 +118,7 @@ where
                     .await;
             }
         }
+        true
     }
 
     /// Lease a slot on a branch cut from the Job's, and make it ready to work in.
@@ -108,30 +127,37 @@ where
         job: &Job,
         waiting: &Waiting,
         record: &mut RepairRecord,
-    ) -> Result<(adapter_traits::SlotPool, u32, Worktree), String> {
-        let served = self.served_by(job).map_err(|why| why.to_string())?;
-        let from = job
-            .branch()
-            .ok_or_else(|| String::from("the Job has no branch to cut a repair from"))?;
+    ) -> Result<(adapter_traits::SlotPool, u32, Worktree), Leasing> {
+        let served = self
+            .served_by(job)
+            .map_err(|why| Leasing::Not(why.to_string()))?;
+        let from = job.branch().ok_or_else(|| {
+            Leasing::Not(String::from("the Job has no branch to cut a repair from"))
+        })?;
         let handle = format!("repair-{}-{}", job.handle(), waiting.firing);
-        let spec =
-            WorktreeSpec::for_job(served.root(), &handle).map_err(|why| format!("{why:?}"))?;
+        let spec = WorktreeSpec::for_job(served.root(), &handle)
+            .map_err(|why| Leasing::Not(format!("{why:?}")))?;
         self.cut_from().learn(&spec.branch(), from.as_str());
         let pool = crate::leasing::pool_cut_from(&served, Some(from));
         let holder = holder_of(job.id(), waiting.firing);
-        match self.vcs().lease_slot(&pool, &spec, &holder) {
+        // A repair a restart interrupted has its branch already.
+        let leased = match record.branch.clone() {
+            Some(branch) => self.vcs().lease_existing_slot(&pool, &branch, &holder),
+            None => self.vcs().lease_slot(&pool, &spec, &holder),
+        };
+        match leased {
             Ok(SlotLeased::Took { slot, worktree, .. }) => {
                 let worktree = self.based(&served, worktree);
                 record.branch = Some(worktree.branch().to_string());
                 self.prepared(job, &worktree)
                     .await
-                    .map_err(|why| why.to_string())?;
+                    .map_err(|why| Leasing::Not(why.to_string()))?;
                 Ok((pool, slot, worktree))
             }
-            Ok(SlotLeased::Full) => Err(String::from(
-                "every worktree slot is in use, so no repair Drone could be put on a branch",
-            )),
-            Err(why) => Err(format!("the repair branch could not be cut: {why}")),
+            Ok(SlotLeased::Full) => Err(Leasing::Full),
+            Err(why) => Err(Leasing::Not(format!(
+                "the repair branch could not be cut: {why}"
+            ))),
         }
     }
 
@@ -235,11 +261,15 @@ where
         ended: bool,
     ) {
         let at: Option<Timestamp> = ended.then(|| self.now());
+        let record = RepairRecord {
+            settled_at: Some(self.now()),
+            ..record.clone()
+        };
         let kept =
             self.store()
                 .lock()
                 .await
-                .settle_repair(waiting.firing, state, record, at.as_ref());
+                .settle_repair(waiting.firing, state, &record, at.as_ref());
         if let Err(why) = kept {
             let said = format!("a Trigger's repair could not be recorded: {why}");
             self.logged(job.id(), self.trigger_line(job, Level::Warn, &said));

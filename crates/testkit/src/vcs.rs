@@ -187,6 +187,8 @@ pub struct Delivering {
     pub kept_current: KeptCurrent,
     /// What catching the repository up comes to.
     pub repository: RepositoryStanding,
+    /// What merging one local branch into another comes to.
+    pub branch_merge: BranchMerged,
 }
 
 impl Default for Delivering {
@@ -224,6 +226,7 @@ impl Default for Delivering {
                 onto: String::from("5b4ec82700000000000000000000000000000000"),
                 commits: 1,
             },
+            branch_merge: BranchMerged::Merged,
             repository: RepositoryStanding::AlreadyHadIt {
                 base: String::from("main"),
                 // A commit-shaped string, because `#474` keys a proof by it and
@@ -539,7 +542,12 @@ impl Delivery for FakeVcs {
                 branch: branch.to_string(),
                 into: worktree.branch().to_string(),
             });
-        Ok(BranchMerged::Merged)
+        Ok(self
+            .delivery
+            .lock()
+            .expect("not poisoned")
+            .branch_merge
+            .clone())
     }
 
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {

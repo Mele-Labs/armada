@@ -222,7 +222,7 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE job_triggers SET state = ?2, repair_tries = ?3, repair_branch = ?4,
-                     fix_choice = ?5, fix_pr = ?6, ended_at = ?7
+                     fix_choice = ?5, fix_pr = ?6, ended_at = ?7, repair_settled_at = ?8
                  WHERE firing_id = ?1",
                 rusqlite::params![
                     id,
@@ -232,6 +232,7 @@ impl Store {
                     repair.choice.map(FixChoice::as_wire),
                     repair.pull_request,
                     ended_at.map(Timestamp::as_str),
+                    repair.settled_at.as_ref().map(Timestamp::as_str),
                 ],
             )
             .map_err(fault("recording a trigger's repair"))
@@ -254,18 +255,58 @@ impl Store {
         &self,
         job_id: &JobId,
     ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where("job_id = ?1", &[&job_id.as_str()])?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// Firings whose repair has not finished: `repairing`, or `rerunning` on
+    /// either branch. What a restarted Fleet takes up again.
+    pub fn unfinished_repairs(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where("state IN ('repairing', 'rerunning')", &[])
+    }
+
+    /// Fixes the owner chose a place for that have not been placed yet.
+    pub fn chosen_fixes(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where("state = 'fix_ready' AND fix_choice IS NOT NULL", &[])
+    }
+
+    /// What is waiting on a person: a fix with no choice, and a Trigger that
+    /// failed after a repair was tried. **Only the latest firing of a Trigger
+    /// counts**, so a later pass clears it, and a Job whose disk was given back
+    /// has none.
+    pub fn repairs_waiting_on_a_person(
+        &self,
+    ) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where(
+            "firing_id IN (SELECT MAX(firing_id) FROM job_triggers GROUP BY job_id, name)
+             AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
+             AND ((state = 'failed' AND repair_tries > 0)
+                  OR (state = 'fix_ready' AND fix_choice IS NULL))",
+            &[],
+        )
+    }
+
+    fn firings_where(
+        &self,
+        clause: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
         let mut statement = self
             .conn
-            .prepare(
+            .prepare(&format!(
                 "SELECT name, moment, step_id, source, state, skipped_why, skipped_name,
                      exit_code, block_on_fail, repair_on_fail, started_at, ended_at,
-                     firing_id, repair_tries, repair_branch, fix_choice, fix_pr
-                 FROM job_triggers WHERE job_id = ?1 ORDER BY firing_id",
-            )
+                     firing_id, repair_tries, repair_branch, fix_choice, fix_pr,
+                     repair_settled_at, job_id
+                 FROM job_triggers WHERE {clause} ORDER BY firing_id"
+            ))
             .map_err(fault("reading a job's trigger firings"))
             .map_err(LoadJobError::Database)?;
         let rows = statement
-            .query_map((job_id.as_str(),), |row| {
+            .query_map(params, |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -284,6 +325,8 @@ impl Store {
                     row.get::<_, Option<String>>(14)?,
                     row.get::<_, Option<String>>(15)?,
                     row.get::<_, Option<String>>(16)?,
+                    row.get::<_, Option<String>>(17)?,
+                    row.get::<_, String>(18)?,
                 ))
             })
             .map_err(fault("reading a job's trigger firings"))
@@ -309,6 +352,8 @@ impl Store {
                 branch,
                 choice,
                 pull_request,
+                settled,
+                job,
             ) = row
                 .map_err(fault("reading a job's trigger firings"))
                 .map_err(LoadJobError::Database)?;
@@ -328,6 +373,7 @@ impl Store {
                 ),
             };
             out.push((
+                JobId::carried(core_model::Ulid::carried(job)),
                 id,
                 TriggerFiring {
                     name,
@@ -347,35 +393,11 @@ impl Store {
                         branch,
                         choice,
                         pull_request,
+                        settled_at: settled.map(Timestamp::from_rfc3339),
                     },
                 },
             ));
         }
         Ok(out)
-    }
-
-    /// Every Trigger that failed after a repair was tried, as the Job and the
-    /// Trigger's name: what the Job's alert is made of.
-    pub fn repairs_that_failed(&self) -> Result<Vec<(JobId, String)>, LoadJobError> {
-        let mut statement = self
-            .conn
-            .prepare(
-                "SELECT DISTINCT job_id, name FROM job_triggers
-                 WHERE state = 'failed' AND repair_tries > 0 ORDER BY job_id, name",
-            )
-            .map_err(fault("reading the repairs that failed"))
-            .map_err(LoadJobError::Database)?;
-        let rows = statement
-            .query_map((), |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(fault("reading the repairs that failed"))
-            .map_err(LoadJobError::Database)?;
-        rows.map(|row| {
-            row.map(|(job, name)| (JobId::carried(core_model::Ulid::carried(job)), name))
-                .map_err(fault("reading the repairs that failed"))
-                .map_err(LoadJobError::Database)
-        })
-        .collect()
     }
 }

@@ -111,7 +111,7 @@ fn a_firing_opens_running_and_is_settled_in_place() {
 }
 
 #[test]
-fn a_repair_is_kept_on_the_firing_and_a_failed_one_is_listed() {
+fn a_repair_is_kept_on_the_firing_and_what_waits_on_a_person_is_listed() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store
@@ -132,10 +132,12 @@ fn a_repair_is_kept_on_the_firing_and_a_failed_one_is_listed() {
     let failed = running.ended(Some(1), at("02"));
     assert_eq!(failed.state, TriggerState::Repairing);
     store.settle_firing(row, &failed).expect("settled");
+    assert_eq!(store.unfinished_repairs().expect("read").len(), 1);
 
     let mut repair = RepairRecord {
         tries: 1,
         branch: Some("armada/repair-1".to_string()),
+        settled_at: Some(at("03")),
         ..RepairRecord::default()
     };
     store
@@ -146,20 +148,66 @@ fn a_repair_is_kept_on_the_firing_and_a_failed_one_is_listed() {
     let read = store.firings_with_ids(&id).expect("read");
     assert_eq!((read[0].0, read[0].1.state), (row, TriggerState::FixReady));
     assert_eq!(read[0].1.repair, repair);
-    assert!(store.repairs_that_failed().expect("read").is_empty());
+    assert!(store.unfinished_repairs().expect("read").is_empty());
+    let waiting = store.repairs_waiting_on_a_person().expect("read");
+    assert_eq!(waiting.len(), 1, "a fix with no choice waits on him");
 
     repair.choice = Some(FixChoice::NewPr);
+    store
+        .settle_repair(row, TriggerState::FixReady, &repair, None)
+        .expect("kept");
+    assert!(store
+        .repairs_waiting_on_a_person()
+        .expect("read")
+        .is_empty());
+    assert_eq!(store.chosen_fixes().expect("read").len(), 1);
+
     repair.pull_request = Some("https://forge/pull/9".to_string());
     store
-        .settle_repair(row, TriggerState::Passed, &repair, Some(&at("03")))
+        .settle_repair(row, TriggerState::Passed, &repair, Some(&at("04")))
         .expect("kept");
     assert_eq!(store.trigger_firings(&id).expect("read")[0].repair, repair);
 
     store
-        .settle_repair(row, TriggerState::Failed, &repair, Some(&at("04")))
+        .settle_repair(row, TriggerState::Failed, &repair, Some(&at("05")))
         .expect("kept");
-    assert_eq!(
-        store.repairs_that_failed().expect("read"),
-        [(id, "deploy".to_string())]
-    );
+    let waiting = store.repairs_waiting_on_a_person().expect("read");
+    assert_eq!(waiting.len(), 1);
+    assert_eq!(waiting[0].0, id);
+
+    // A later firing of the same Trigger that passes clears it.
+    let later = TriggerFiring::running(&one, at("06"));
+    let again = store.open_firing(&id, &later).expect("opened");
+    store
+        .settle_firing(again, &later.ended(Some(0), at("07")))
+        .expect("settled");
+    assert!(store
+        .repairs_waiting_on_a_person()
+        .expect("read")
+        .is_empty());
+
+    // So does giving the Job's disk back.
+    store
+        .settle_firing(
+            again,
+            &TriggerFiring::running(&one, at("08")).ended(Some(1), at("09")),
+        )
+        .expect("settled");
+    store
+        .settle_repair(
+            again,
+            TriggerState::Failed,
+            &RepairRecord {
+                tries: 2,
+                ..RepairRecord::default()
+            },
+            Some(&at("10")),
+        )
+        .expect("kept");
+    assert_eq!(store.repairs_waiting_on_a_person().expect("read").len(), 1);
+    store.retain_job(&id, &at("11")).expect("retained");
+    assert!(store
+        .repairs_waiting_on_a_person()
+        .expect("read")
+        .is_empty());
 }
