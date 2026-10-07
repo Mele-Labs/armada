@@ -253,3 +253,46 @@ test('a bare rename is read from the transcript Claude Code wrote the name to', 
 
   expect(facts(posts)).toContainEqual({ kind: 'titled', title: 'made up name', named: true })
 })
+
+const artifacts = (posts: Posted[]) =>
+  facts(posts).filter(fact => fact.kind === 'attached' && fact.attachment.kind === 'artifact')
+
+test('a page, a new document and a Docs document are told as artifacts, and a code edit is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  const page = 'https://claude.ai/artifact/p1'
+  on('tool.call', (_$, e) => {
+    if (e.tool === 'Artifact') return { result: {}, text: `Published ${page}` }
+    if (e.tool === 'Write') {
+      return { result: { type: String(e.file_path).endsWith('notes.md') ? 'update' : 'create' }, text: 'ok' }
+    }
+    return { result: {}, text: 'Created https://claude.ai/artifact/d1' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Artifact', file_path: '/repos/armada/spike.html', title: 'Spike' })
+  await $.tool.call({ tool: 'Write', file_path: '/repos/armada/docs/spike.md', content: 'x' })
+  await $.tool.call({ tool: 'Write', file_path: '/repos/armada/docs/notes.md', content: 'x' })
+  await $.tool.call({ tool: 'Write', file_path: '/repos/armada/src/clock.ts', content: 'x' })
+  await $.tool.call({
+    tool: 'mcp__claude_ai_Claude_Docs__batch',
+    container: { kind: 'project', create: { name: 'Write-up' } },
+    batch: [],
+  })
+  await clock.settle()
+
+  expect(artifacts(posts.slice(before)).map(fact => fact.attachment)).toEqual([
+    { kind: 'artifact', target: page, detail: { form: 'page', title: 'Spike' } },
+    {
+      kind: 'artifact',
+      target: '/repos/armada/docs/spike.md',
+      detail: { form: 'file', title: 'spike.md' },
+    },
+    {
+      kind: 'artifact',
+      target: 'https://claude.ai/artifact/d1',
+      detail: { form: 'doc', title: 'Write-up' },
+    },
+  ])
+})
