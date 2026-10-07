@@ -29,11 +29,11 @@ async fn a_run_whose_task_dies_clears_the_mark_and_tells_the_drone() {
     started(&fleet, &home).await;
     let (job, drone) = the_one_drone(&fleet).await.expect("a Drone at work");
 
+    clock.doom_the_run_spawned_next();
     let underway = fleet
         .run_checks(&job, ipc::mcp::ChecksAsk::everything(false))
         .await
         .expect("the run starts");
-    clock.doom_next_reading();
     let said = transcript(&fleet, &home, &job, &drone)
         .await
         .until(A_CHECK_RUN_HAS_LONG_ENOUGH, |said| {
