@@ -372,8 +372,10 @@ for the same reason — no Drone is owed, so nothing is waiting on the bound.
 **Where a step-level escalation pays off.** Only a step-level trigger reaches a
 step's `last_verdict`, so only a step-level escalation names the step that
 stopped — and naming it is what makes restarting or *that step* coherent. A
-Job-level escalation names no step to resume, which is why `interrupted` and
-`resource_exhausted` leave redispatch and Pilot as the only moves.
+Job-level escalation names no step to resume, which is why `resource_exhausted`
+leaves redispatch and Pilot as the only moves. `interrupted` is the exception: a
+restart leaves the step it stopped stopped, so Fleet restarts that step itself
+at the next boot, and a person's restart is accepted on it as well.
 
 **Two Job-level triggers answer that differently, and each for its own reason.**
 `stalled` has a Drone holding its session, and a redirect operates on the Job
