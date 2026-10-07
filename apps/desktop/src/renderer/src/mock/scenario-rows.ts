@@ -21,3 +21,4 @@ export * from "./scenarios/real-tiers-and-models";
 export * from "./scenarios/pausing-a-job";
 export * from "./scenarios/fleet-starting";
 export * from "./scenarios/main-goes-red";
+export * from "./scenarios/main-checks-running";

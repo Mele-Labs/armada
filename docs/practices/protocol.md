@@ -3166,6 +3166,14 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 **One store table, additive** (`main_fix.main_ci_fixes`): which Job took each red. No other record changed.
 
+## Protocol 23.44: a held red, and each merge's run on main
+
+Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest first) names the newer commits whose CI is still running while main is red, and `hub.main.red_commit` the commit the red was read at. Non-empty `checking` is a held red: `fix_main` refuses with `fleet.main_checks_running` and Fleet's own pickup waits. `hub.merged[].main_run` (`MainRun {state, failed?}`, `state` passed, running or failed) is the CI run on that merge commit on main itself. A failed job's log opens on `observe_land_check` under the branch `main@<commit>`, a new spelling of an existing free-text field.
+
+**Older peers:** a Bridge before 23.44 ignores the three fields and draws the red band with its buttons, which Fleet then refuses while held. `state` stays `red` rather than gaining a variant, because Bridge branches on it and a new variant would be a major. A Bridge at 23.44 against an older Fleet is refused as any minor ahead is.
+
+**One store column, additive** (`main_ci.red_commit`). Forge cost is in `docs/concepts/fleet.md`, *What Fleet knows about main's CI*.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -1,0 +1,57 @@
+// Main is red, and other work has landed on it with CI still running. The red is held until that run
+// ends: the band turns caution, says new checks are running on main and names the pull request, and
+// offers no way to hand the red to a Job, because the run may already have fixed it. Recently landed
+// shows each merge's own run on main, apart from the pull request's checks it passed before it merged.
+// A run that ends green clears the band; one that ends red on the same job brings the red back with
+// its buttons. Each `later` is time passing: the scenario publishes its next moment.
+
+import { button, dialog, inside, region, role, text, walk } from "../walk";
+
+const MERGE = region("Merge line");
+const RED = inside(MERGE, role("status", "Main is red"));
+const HELD = inside(MERGE, role("status", "New checks are running on main"));
+const LANDED = inside(MERGE, role("list", "Recently landed"));
+const LOG = dialog("Check log");
+
+export const mainChecksRunning = walk("main-checks-running", [
+  // Main is red at #1812, and nothing is running on top of it.
+  { look: RED, say: "Main is red: nothing newer is running, so the red band offers its two ways" },
+  { look: inside(RED, button("Dispatch a new Job")), say: "A new Job, or an earlier one, as before" },
+  { hover: inside(LANDED, role("img", "ci failed on main")), say: "Recently landed: the run on main for #1812's merge commit, failed, apart from its pull request's own checks" },
+  { press: inside(LANDED, button("ci failed on main, open its log")), say: "Its failed job's log opens from the row, as the band's does" },
+  { look: inside(LOG, text("AssertionError: expected 2 to be 1")), say: "That run's log, whole" },
+  { press: inside(LOG, button("Close")), say: "Put it away" },
+  { look: inside(LANDED, role("img", "ci passed on main")), say: "Older merges show their run passed" },
+
+  // #1852 merges and its run starts.
+  { later: RED, say: "#1852 merges, and CI starts on main" },
+  { look: HELD, say: "The band is caution: new checks are running on main, naming the pull request" },
+  { look: inside(HELD, role("link", "#1852")), say: "Its link opens the pull request" },
+  { look: inside(HELD, button("desktop_test")), say: "The red's rows stay under it: the Check, the test, the merge" },
+  { look: inside(HELD, role("link", "#1812")), say: "Broke in: the pull request that merged the red" },
+  { hover: inside(MERGE, role("img", "Main is red, new checks are running")), say: "The mark beside the heading is caution too" },
+  { look: inside(LANDED, role("img", "ci running on main")), say: "Recently landed shows #1852's run going, pulsing" },
+  { press: inside(HELD, button("desktop_test")), say: "The red's log still opens: it is the failed commit's run" },
+  { press: inside(LOG, button("Close")), say: "Put it away" },
+
+  // The run ends green.
+  { later: HELD, say: "The run finishes green" },
+  { look: inside(MERGE, role("img", "Main is green")), say: "The band clears: main is green, and nothing was handed to a Job" },
+  { look: inside(LANDED, role("img", "ci passed on main")), say: "#1852's run on main passed" },
+
+  // #1853 breaks main again, and #1854 merges on top of it.
+  { later: inside(MERGE, role("img", "Main is green")), say: "#1853 merges and breaks a different job" },
+  { look: RED, say: "A new red naming the newer merge, and its buttons" },
+  { look: inside(RED, role("link", "#1853")), say: "Broke in: #1853, not #1812" },
+  { later: RED, say: "#1854 merges and its run starts" },
+  { look: inside(HELD, role("link", "#1854")), say: "Held again, now naming #1854" },
+  { look: inside(HELD, role("link", "#1853")), say: "Under it the red is still #1853's" },
+  { look: inside(LANDED, role("img", "ci running on main")), say: "And its run on main is going" },
+
+  // The run ends red on the same job.
+  { later: HELD, say: "The run finishes red, on the job that was already failing" },
+  { look: RED, say: "The red band is back" },
+  { look: inside(RED, button("Dispatch a new Job")), say: "With its buttons" },
+  { look: inside(RED, role("link", "#1853")), say: "Still #1853's red" },
+  { look: inside(LANDED, role("img", "ci failed on main")), say: "#1854's run on main failed, with its log a press away" },
+]);
