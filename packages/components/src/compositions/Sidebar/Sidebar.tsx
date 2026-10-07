@@ -197,7 +197,7 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <nav
-      className="armada-sidebar armada-glass"
+      className="armada-sidebar"
       // **Named, because there is more than one.** The rail is two panels since
       // 28 Sep 2026, and two unlabelled navigation regions are one region said
       // twice. The name holds at the rail too, where the label is not drawn.

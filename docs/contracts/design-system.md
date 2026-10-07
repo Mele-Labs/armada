@@ -192,12 +192,18 @@ inner edge and a `--glass-blur` backdrop blur. The gradient, the highlight and
 the blur sit on a layer behind the card's content rather than on the card, so
 a tooltip or menu inside a card is never clipped by it. It
 replaces `--bg-raised` and `--border-subtle` on every panel that sits directly
-on the canvas: the left column's three panels, Overview's cards, Helm's dock,
+on the canvas: Overview's cards, Helm's dock,
 and every `Card` a surface draws on the canvas — Dispatch, Studios, Reports,
 Cleanup and Settings — each at `--radius-lg`. A `Card` inside a sheet, a
 dialog, a well or another card is not on the canvas: it stays flat, at
 `--radius-md`. A row, a well or an input inside a card stays flat on its
 Ground token.
+
+**The left column is flat.** Navigation, Stats and Fleet are `--bg-raised`
+under `--border-subtle`, at `--radius-lg`: no highlight line, no shadow, no
+gradient and no blur, and they do not take `armada-glass`. The owner ruled on
+7 Oct 2026, "Remove the bevels and make this a bit more flat", for the left
+column only. Every other panel on the canvas keeps the card.
 
 **The canvas** is `--bg-base` under two radial pools of light. `--accent-faint`
 sits in a 760 × 480px ellipse centred on the top leading corner.
@@ -930,7 +936,7 @@ control     a toggle in Work's head, and ⌘\, at any width above
 persistence width and collapsed state survive app restart
 ```
 
-**One panel style, shared by every one of them.** `--radius-lg` and the card
+**One panel style, shared by every one of them.** `--radius-lg` and the flat
 treatment under Depth, held apart by the column's own 16px gap (`--space-4`)
 rather than by margin on each panel. A panel's head is 40px
 (`--space-8` + `--space-2`), 12px horizontal padding (`--space-3`), and
