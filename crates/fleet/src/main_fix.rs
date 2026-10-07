@@ -46,6 +46,9 @@ pub enum MainNotFixable {
     NotServed,
     /// Main is not red, or Fleet has not read it.
     NotRed,
+    /// A newer commit's CI is still running on main, and may already have
+    /// fixed it.
+    ChecksRunning,
     /// A Job is already working on this red.
     Taken(JobId),
     /// The repository holds no workflow to dispatch a fix under.
@@ -61,6 +64,9 @@ impl std::fmt::Display for MainNotFixable {
         match self {
             MainNotFixable::NotServed => write!(out, "this Fleet does not serve that repository"),
             MainNotFixable::NotRed => write!(out, "main is not red"),
+            MainNotFixable::ChecksRunning => {
+                write!(out, "new checks are running on main, and may have fixed it")
+            }
             MainNotFixable::Taken(job) => {
                 write!(out, "{} is already working on this red", job.as_str())
             }
@@ -204,6 +210,9 @@ where
             .map_err(Adrift::Reading)?
             .filter(|main| main.red_at.is_some() && !main.failed.is_empty())
             .ok_or_else(|| refused(root, MainNotFixable::NotRed))?;
+        if main.held() {
+            return Err(refused(root, MainNotFixable::ChecksRunning));
+        }
         Ok((served, main))
     }
 
@@ -231,7 +240,7 @@ where
         let Some(job) = main.failed.first() else {
             return brief;
         };
-        let (commit, name) = (main.commit.clone(), job.name.clone());
+        let (commit, name) = (main.red_commit().to_string(), job.name.clone());
         let text = async {
             let runs = self
                 .forge_asked(served.root(), move |vcs: &V, root: &str| {
@@ -397,15 +406,19 @@ where
     pub(crate) async fn main_acted_on(&self, changes: &[MainChanged]) {
         for changed in changes {
             match changed.change {
-                MainChange::WentRed => self.pick_up(&changed.now).await,
+                MainChange::WentRed | MainChange::BackToRed => self.pick_up(&changed.now).await,
                 MainChange::WentGreen => self.fixed(&changed.now).await,
             }
         }
     }
 
-    /// Send a red back to the Job that caused it. **Once per red per Job**: the
+    /// Send a red back to the Job that caused it, **unless it is held**. **Once per red per Job**: the
     /// take is the guard, and a Job already on a red, any red, is left to it.
     async fn pick_up(&self, main: &MainCi) {
+        // A newer run may have fixed it: BackToRed picks it up when that run ends red.
+        if main.held() {
+            return;
+        }
         let Some(job) = main.merge.as_ref().and_then(|merge| merge.job.clone()) else {
             return;
         };

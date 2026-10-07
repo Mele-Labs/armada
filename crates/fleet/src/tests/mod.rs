@@ -120,6 +120,7 @@ mod linking;
 mod listener;
 mod log_rows;
 mod looping;
+mod main_checking;
 mod main_ci;
 mod main_fix;
 mod manifest_proposals;

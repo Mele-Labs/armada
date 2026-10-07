@@ -1166,7 +1166,7 @@ notes = """
 
 Either way the Job is recorded as having taken this red, so `hub.fixing` names it and its summary carries `fixes_main`. When main goes green that record says `fixed` with `fixed_in` for the Job whose pull request put it there.
 
-Refused with a 409 and nothing changed: `fleet.main_not_red` where main is not red for that repository or Fleet has read nothing of it, `fleet.main_already_taken` where a Job is already working on this red, `fleet.not_finished` on a `job` that is still working, and `fleet.no_workflow_fits` where the repository holds no `bug` workflow. 404 `fleet.no_such_job` on an unknown `job`, and 422 on a `root` Fleet does not serve or a blank `brief`.
+Refused with a 409 and nothing changed: `fleet.main_not_red` where main is not red for that repository or Fleet has read nothing of it, `fleet.main_checks_running` while a newer commit's CI is still running on main, which may already have fixed it (the hub's `main.checking` is then non-empty, since 23.44), `fleet.main_already_taken` where a Job is already working on this red, `fleet.not_finished` on a `job` that is still working, and `fleet.no_workflow_fits` where the repository holds no `bug` workflow. 404 `fleet.no_such_job` on an unknown `job`, and 422 on a `root` Fleet does not serve or a blank `brief`.
 
 `agent_access` is `No`: Fleet already hands a red to the Job that caused it by itself, and a person's choice of Job is a press.
 """

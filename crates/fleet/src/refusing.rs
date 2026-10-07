@@ -126,6 +126,8 @@ pub(crate) const PAUSED: &str = "fleet.paused";
 const NOT_PAUSABLE: &str = "fleet.not_pausable";
 /// Main is not red, or a Job already has this red. A 409.
 const MAIN_NOT_RED: &str = "fleet.main_not_red";
+/// A newer commit's CI is running on main, so a red is held and not handed to a Job. A 409.
+const MAIN_CHECKS_RUNNING: &str = "fleet.main_checks_running";
 const MAIN_ALREADY_TAKEN: &str = "fleet.main_already_taken";
 /// A Job that cannot be sent back to, or a repository holding no workflow to
 /// dispatch a fix under. A 409.
@@ -465,6 +467,7 @@ where
                 match why {
                     Why::NotServed | Why::Blank => Refusal::Unacceptable(raised(NOT_SERVED)),
                     Why::NotRed => Refusal::IllegalMove(raised(MAIN_NOT_RED)),
+                    Why::ChecksRunning => Refusal::IllegalMove(raised(MAIN_CHECKS_RUNNING)),
                     Why::Taken(job) => Refusal::IllegalMove(
                         raised(MAIN_ALREADY_TAKEN).about_job(ipc::JobId::from(job)),
                     ),

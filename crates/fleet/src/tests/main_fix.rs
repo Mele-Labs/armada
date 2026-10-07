@@ -39,7 +39,7 @@ fn bug() -> config::ResolvedWorkflow {
     config::ResolvedWorkflow::resolve(&def, &manifest()).expect("it resolves")
 }
 
-fn a_fleet_holding_bug(home: &TempDir, with_bug: bool) -> Fixture {
+pub(super) fn a_fleet_holding_bug(home: &TempDir, with_bug: bool) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = Noticing::every(Duration::ZERO);
     fittings.starting().manifest =
@@ -53,7 +53,7 @@ fn a_fleet_holding_bug(home: &TempDir, with_bug: bool) -> Fixture {
 }
 
 /// A Job that ran and delivered: the fake's pull request for it is number 1.
-async fn a_finished_job(fleet: &Fixture, home: &TempDir, title: &str) -> Job {
+pub(super) async fn a_finished_job(fleet: &Fixture, home: &TempDir, title: &str) -> Job {
     let job = fleet.propose(a_proposal(title)).await.unwrap();
     worktree_directory(home, &job);
     dispatched(fleet, job.id()).await.unwrap();
@@ -66,7 +66,7 @@ async fn a_finished_job(fleet: &Fixture, home: &TempDir, title: &str) -> Job {
     job
 }
 
-fn goes_red(fleet: &Fixture, pull: u64) {
+pub(super) fn goes_red(fleet: &Fixture, pull: u64) {
     let forge = &fleet.vcs().main_ci;
     forge.head_is(Some(ONE));
     forge.runs_on(ONE, vec![run("ci", "11", CiState::Failed)]);
@@ -74,11 +74,11 @@ fn goes_red(fleet: &Fixture, pull: u64) {
     forge.merged_by(ONE, merged(pull));
 }
 
-async fn root(fleet: &Fixture) -> String {
+pub(super) async fn root(fleet: &Fixture) -> String {
     fleet.repositories().served()[0].root().to_string()
 }
 
-async fn takes(fleet: &Fixture) -> Vec<store::MainFix> {
+pub(super) async fn takes(fleet: &Fixture) -> Vec<store::MainFix> {
     let main = kept(fleet).await.unwrap();
     let red_at = main.red_at.expect("a red");
     fleet
