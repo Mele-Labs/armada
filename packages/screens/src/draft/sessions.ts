@@ -49,7 +49,7 @@ export type SessionAttachment =
   | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
   /**
    * Something the Session made that a person would open: a page it published, a file it wrote outside
-   * the code, or a Claude Docs document. `id` is the address of a page or document, or the path of a file.
+   * the code, or a Docs document. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.
    */
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string };

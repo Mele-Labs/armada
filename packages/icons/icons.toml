@@ -1537,3 +1537,11 @@
   status = "Proposed"
   reserved = "A Claude Docs document a Session made or edited, on its ledger. Never a guide, which is `book-open`'s, and never a Studio Note, which is `sticky-note`."
   notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. A Docs document is kept and edited over time, which a bound notebook says and a loose sheet does not. Refused: `book-open`, the Guides surface's; `book-text`, a closed book that is `file` territory at 12px; `scroll-text`, a workflow; `notebook-pen`, banned from meaning edit."
+
+[icons.panel-right-close]
+  means = "A panel on the trailing edge with an arrow closing into it - a side column folded away"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Minimizing a Session's ledger beside its thread. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. The pair of `panel-right-open`, which brings the ledger back as a sheet below the breakpoint and as a rail above it."

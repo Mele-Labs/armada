@@ -154,7 +154,7 @@ path.armada-session-ledger__picture-later {
 
 .armada-session-ledger__fold:hover {
   background: var(--bg-hover);
-  color: var(--fg);
+  color: var(--fg-default);
 }
 
 .armada-session-ledger__fold:focus-visible {

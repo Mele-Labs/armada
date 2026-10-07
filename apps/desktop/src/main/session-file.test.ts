@@ -12,7 +12,7 @@ const record = {
   id: "S1",
   attachments: [
     { kind: "artifact", target: "/repo/docs/spike.md", state: "standing", detail: { form: "file" } },
-    { kind: "artifact", target: "https://claude.ai/artifact/p1", state: "standing", detail: { form: "page" } },
+    { kind: "artifact", target: "https://example.com/artifact/p1", state: "standing", detail: { form: "page" } },
   ],
 } as unknown as SessionRecord;
 
@@ -26,7 +26,7 @@ describe("opening a file a Session wrote", () => {
   it("refuses a path the ledger does not name, a page's address, and a session Bridge does not hold", async () => {
     const open = vi.fn(async (_path: string) => "");
     expect(await openSessionFile(record, "/etc/passwd", open)).toMatchObject({ ok: false, why: "not_addressable" });
-    expect(await openSessionFile(record, "https://claude.ai/artifact/p1", open)).toMatchObject({ ok: false });
+    expect(await openSessionFile(record, "https://example.com/artifact/p1", open)).toMatchObject({ ok: false });
     expect(await openSessionFile(undefined, "/repo/docs/spike.md", open)).toMatchObject({ ok: false });
     expect(open).not.toHaveBeenCalled();
   });

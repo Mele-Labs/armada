@@ -503,10 +503,10 @@ async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_a
         .await
         .unwrap();
     for fact in [
-        artifact("https://claude.ai/artifact/p1", "page", "Spike"),
+        artifact("https://example.com/artifact/p1", "page", "Spike"),
         artifact("/repo/docs/spike.md", "file", "spike.md"),
-        artifact("https://claude.ai/artifact/d1", "doc", "Write-up"),
-        artifact("https://claude.ai/artifact/d1", "doc", "Write-up"),
+        artifact("https://example.com/artifact/d1", "doc", "Write-up"),
+        artifact("https://example.com/artifact/d1", "doc", "Write-up"),
     ] {
         fleet.report_session(report("s1", fact)).await.unwrap();
     }
@@ -526,8 +526,8 @@ async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_a
         kept,
         [
             ("/repo/docs/spike.md", Some("file")),
-            ("https://claude.ai/artifact/d1", Some("doc")),
-            ("https://claude.ai/artifact/p1", Some("page")),
+            ("https://example.com/artifact/d1", Some("doc")),
+            ("https://example.com/artifact/p1", Some("page")),
         ]
     );
 }

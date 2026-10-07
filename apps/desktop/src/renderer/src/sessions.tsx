@@ -400,7 +400,7 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Claude Docs document" } as const;
+const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Docs document" } as const;
 
 function entriesOf(
   session: Session,

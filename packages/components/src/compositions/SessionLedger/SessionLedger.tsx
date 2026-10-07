@@ -19,7 +19,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact";
 
-/** What an artifact is: a page published, a file written outside the code, or a Claude Docs document. */
+/** What an artifact is: a page published, a file written outside the code, or a Docs document. */
 export type ArtifactForm = "page" | "file" | "doc";
 
 export type LedgerEntry = {
@@ -57,7 +57,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
-  doc: { Glyph: NotebookText, said: "Claude Docs document" },
+  doc: { Glyph: NotebookText, said: "Docs document" },
 };
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
