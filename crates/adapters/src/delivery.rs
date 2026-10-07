@@ -211,6 +211,14 @@ impl Delivery for GitVcs {
         crate::main_ci::open_pulls(in_repo)
     }
 
+    fn publish_status(
+        &self,
+        in_repo: &str,
+        status: &adapter_traits::CommitStatus,
+    ) -> Result<(), String> {
+        crate::main_ci::publish_status(in_repo, status)
+    }
+
     fn recently_merged_pull_requests(
         &self,
         in_repo: &str,

@@ -231,6 +231,8 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the Job is noticed landing. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
 
+**Fleet publishes the order on each pull request as the `needs` commit status.** Pending while a need ahead of the holder's on the same path has not merged, success otherwise. It rides the same sweep that lists open pull requests and is also sent when a need is declared, given back or spent; it is sent only when it changed. Fleet needs a token that may write commit statuses, and without one it logs and carries on.
+
 **Nothing expires by time.** A need that stalls holds every Job behind it, the cost the owner took. A person gives it back with `armada need --release <path>`, run from the branch; an act on a Job's detail that does the same is not built.
 
 **A task that is dropped does not give its need back.** A need is the Job's, not the task's, so it stands until the Job ends or a person releases it.

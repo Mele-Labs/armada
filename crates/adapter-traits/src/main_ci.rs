@@ -11,6 +11,7 @@
 //! `crate::under_review`'s reason: a job's name comes from a workflow file on
 //! whatever branch merged, and its log is whatever that code printed.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::FromOutside;
@@ -70,7 +71,28 @@ pub struct OpenPull {
     /// The login of whoever opened it, where the forge named one.
     pub author: Option<FromOutside>,
     pub ci: Option<CiState>,
+    /// The commit its branch is at, where the forge named one: what a status
+    /// is put on.
+    pub head: Option<String>,
     pub failing: Vec<FromOutside>,
+}
+
+/// What a status Fleet publishes on a commit says. **Two words, not the
+/// forge's four**: Fleet never fails a pull request on its own say, it makes
+/// one wait or lets it through.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StatusState {
+    Pending,
+    Success,
+}
+
+/// One status Fleet puts on a commit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommitStatus {
+    pub commit: String,
+    pub context: String,
+    pub state: StatusState,
+    pub description: String,
 }
 
 /// The open pull requests on a repository. `None` from the call that returns
