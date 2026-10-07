@@ -544,20 +544,16 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // races the Job moves below. `api::Reconciliation`.
     let reconciliation = api::Reconciliation::begun();
     let events = fleet.events();
-    let (failed, reconcile_failed) = tokio::sync::oneshot::channel::<()>();
-    // The loops that move Jobs start inside the task, after `reconcile`, and
+    // The loops that move Jobs start inside the boot, after `reconcile`, and
     // only then are commands let through.
-    let booting = tokio::spawn({
+    let boot = {
         let fleet = Arc::clone(&fleet);
         let events = events.clone();
         let reconciliation = reconciliation.clone();
         async move {
             let reconciled = match fleet.reconcile().await {
                 Ok(reconciled) => reconciled,
-                Err(why) => {
-                    let _ = failed.send(());
-                    return Err(why.to_string());
-                }
+                Err(why) => return Err(why.to_string()),
             };
             println!(
                 "reconciled: {} interrupted, {} restarted, {} adopted, {} repaired, {} unreadable, {} mended{}",
@@ -634,7 +630,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             reconciliation.finished();
             Ok(turning)
         }
-    });
+    };
     // Each minute's events by kind and Job, to be read against `BACKLOG`. #1759.
     let clock = SystemClock::new();
     api::tally_every(events.clone(), api::TALLY_EVERY, move |tally| {
@@ -655,24 +651,17 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             .reading(job_logs)
             .reconciling(&reconciliation),
     );
+    // The boot's clone is the only one left, so a boot that fails or is ended
+    // answers every command waiting on it. Kept here, a held command would
+    // block the graceful shutdown that the failure asks for.
+    drop(reconciliation);
     println!("serving {} on {bound}", api::SERVED.len());
 
     // **With connect info**, because a Drone's tool call is attributed by the
     // process on the other end of its connection and `ConnectInfo` is how that
     // peer reaches the handler. See `fleet::peer`.
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .with_graceful_shutdown(async {
-        tokio::select! {
-            _ = stop_requested() => {}
-            // A reconciliation that failed stops the server. One that finished
-            // drops its sender too, which is not a reason to stop.
-            Ok(()) = reconcile_failed => {}
-        }
-    })
-    .await?;
+    let turning =
+        crate::booting::serve_while_booting(listener, app, stop_requested(), boot).await?;
 
     // Between turns, letting the one in flight finish. A stop that returned
     // mid-turn could leave a step moved and its Job not — so this waits, and
@@ -680,13 +669,6 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     // whole Check budget and a terminal that has gone quiet reads as a wedge.
     // Stopped while still reconciling, the task is ended where it stands: what
     // it leaves half done is what a crash leaves, and the next boot repairs it.
-    let turning = match booting.is_finished() {
-        true => Some(booting.await??),
-        false => {
-            booting.abort();
-            None
-        }
-    };
     if let Some(turning) = turning {
         println!("stopping: letting the turn in flight finish");
         turning.stopped().await;
