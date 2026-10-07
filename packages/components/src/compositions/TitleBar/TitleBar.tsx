@@ -1,7 +1,7 @@
 import { Check, Menu, MessageSquare, Plus, Search, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
-import { FLEET_DOT_TONE, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
+import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { actionOf } from "../../actions";
@@ -169,7 +169,11 @@ export function TitleBar({
           // a drag region and a drag region swallows the pointer.
           title={fleetSaid(fleet.label)}
         >
-          <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[fleet.state]} aria-hidden />
+          {fleet.state === "starting" ? (
+            <FleetStarting className="armada-fleet-starting" />
+          ) : (
+            <span className="armada-title-bar__fleet-dot" data-tone={FLEET_DOT_TONE[fleet.state]} aria-hidden />
+          )}
         </span>
 
         {/* The narrow bar's one control: everything the row above carries, in

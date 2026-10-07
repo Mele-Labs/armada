@@ -16,6 +16,46 @@
   background: var(--fg-muted);
 }
 
+/* Fleet starting: the glyph where the dot would be, held to the dot's own
+   hover target. Neutral, since a live pid with no answer is none of the three
+   hues. A loop that says still working, and still under reduced motion. */
+.armada-fleet-panel__starting {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-fleet-starting {
+  flex: none;
+  color: var(--fg-muted);
+  /* Twice the pulse: no token loops slower (`--duration-decay` is a fade of
+     45s), and a second number would be a second clock. */
+  animation: armada-fleet-starting calc(var(--duration-pulse) * 2) ease-in-out infinite;
+}
+
+/* The Board's card: the mark, and the phrase under it. */
+.armada-fleet-starting-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-fleet-starting-phrase {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
+@keyframes armada-fleet-starting {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-fleet-starting {
+    animation: none;
+  }
+}
+
 .armada-fleet-panel__dot[data-tone="success"] {
   background: var(--status-completed-success);
 }
