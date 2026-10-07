@@ -274,7 +274,7 @@ pub enum SessionRow {
         text: String,
     },
     /// A command the person ran in the terminal, as typed: `/reload-plugins`,
-    /// with its arguments. Its output is not drawn. Since 23.54.
+    /// with its arguments. Its output is not drawn. Since 23.56.
     Command {
         id: String,
         at: Instant,
@@ -282,7 +282,7 @@ pub enum SessionRow {
     },
     /// The summary the agent's CLI wrote in place of a conversation it
     /// compacted. **Not the person's words**, and not the agent's either.
-    /// Since 23.54.
+    /// Since 23.56.
     Compaction {
         id: String,
         at: Instant,

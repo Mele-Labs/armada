@@ -3280,7 +3280,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
-## Protocol 23.54: a command and a compaction in a terminal session's thread
+## Protocol 23.56: a command and a compaction in a terminal session's thread
 
 `docs/concepts/session.md`, *A terminal session's thread*. **Additive only**: two row kinds and nothing else. 23.53 is the terminal session.
 
