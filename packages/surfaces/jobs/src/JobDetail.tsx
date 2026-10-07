@@ -112,7 +112,7 @@ function OneJob(props: JobDetailProps) {
   // above resets it with everything else.
   const opened = props.opening;
   const [tab, setTab] = useState<DetailTab>(
-    opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
+    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
   );
   // The step Workflow opens on, where the Record's or the Drones' reading sent
   // a person there. Cleared by the strip, so the next visit opens on nothing.
@@ -137,6 +137,11 @@ function OneJob(props: JobDetailProps) {
     setOpensCheck(undefined);
     setTab(to.tab);
   });
+  // Tells the caller where this is, and moves to the tab a later `opening` names.
+  useEffect(() => props.onTab?.(tab), [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (opened?.tab !== undefined && opened.tab !== tab) toTab(opened.tab);
+  }, [opened]); // eslint-disable-line react-hooks/exhaustive-deps
   const toTab = (next: DetailTab) => {
     trail.clear();
     setOpensRow(undefined);

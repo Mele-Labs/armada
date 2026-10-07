@@ -117,7 +117,7 @@ export const CHECK_OUTCOME: Readonly<Record<string, Rendering | undefined>> = {
   "signalled": { verb: "ended by a signal", icon: Unplug, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "timed_out": { verb: "outran its budget", icon: Clock, badgeStatus: "escalated", statusToken: "--status-escalated", hint: null },
   "never_ran": { verb: "never started", icon: ShieldMinus, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
-  "skipped": { verb: "not run", icon: ShieldOff, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "skipped": { verb: "skipped", icon: ShieldOff, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
 };
 
 /** `criterion_verdict_check`, keyed by the wire value. */
