@@ -1,10 +1,11 @@
 // Tells a running Fleet which sessions this machine has open and what each holds.
 // `docs/concepts/session.md`.
 //
-// **A session is reported as it happens and never read back.** No hook changes
-// what a session does or is told: each answers with what `next` returned and
-// lets its report go unawaited, so Fleet being down costs the session nothing
-// (`fleet.ts`). **No message text and no prompt leaves, apart from the first
+// **A session is reported as it happens and never read back**, with one
+// exception: a message a person sent it from Bridge, which Fleet holds until
+// this mod asks (`submitHeld`). No hook changes what a session does or is told:
+// each answers with what `next` returned and lets its report go unawaited, so
+// Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title.** A message is reported as who it went to
 // or came from, and how many.
 //
@@ -25,6 +26,9 @@ import {
   pullRequestsIn,
   senderOf,
   titleOf,
+  effortOf,
+  modeOf,
+  modelName,
   transcriptPath,
 } from './facts'
 import type { Door, Fact, Report } from './fleet'
@@ -33,11 +37,12 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+const ASK_EVERY_MS = 2000
 const SILENT_MS = 30_000
 const DOCS_ACTS = ['create', 'batch', 'update']
 const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
 
-type Dollar = Door & Pick<Engine, 'process' | 'session'>
+type Dollar = Door & Pick<Engine, 'command' | 'process' | 'prompt' | 'session'>
 
 type Known = {
   cwd: string
@@ -47,7 +52,10 @@ type Known = {
   needs: Map<string, Record<string, string>>
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
+  tuned?: Tuning
 }
+
+type Tuning = Extract<Fact, { kind: 'tuned' }>
 
 const known = new Map<string, Known>()
 let measuredAt = Number.NEGATIVE_INFINITY
@@ -59,6 +67,7 @@ function told(id: string, fact: Fact): Report {
 function everything(): Report[] {
   return [...known].flatMap(([id, one]) => [
     told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal' }),
+    ...(one.tuned === undefined ? [] : [told(id, one.tuned)]),
     ...(one.branch === undefined
       ? []
       : [told(id, { kind: 'attached', attachment: { kind: 'branch', target: one.branch } })]),
@@ -81,14 +90,20 @@ let silentUntil = 0
 let wasOut = false
 
 
-async function post($: Door, report: Report): Promise<boolean> {
+async function portOf($: Door): Promise<number | undefined> {
   const home = await $.env.get('HOME')
-  if (!home) return false
+  if (!home) return undefined
   const file = JSON.parse(await $.fs.read(`${home}/${RUNTIME_FILE}`)) as { port?: unknown }
   const port = file.port
   if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
-    return false
+    return undefined
   }
+  return port
+}
+
+async function post($: Door, report: Report): Promise<boolean> {
+  const port = await portOf($)
+  if (port === undefined) return false
   const sent = $.http.fetch(`http://127.0.0.1:${port}/sessions/report`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -111,6 +126,43 @@ async function deliver($: Door, report: Report): Promise<void> {
   } catch {
     silentUntil = now + SILENT_MS
     wasOut = true
+  }
+}
+
+// What a person sent this session from Bridge. Each is submitted as the
+// person's own prompt, which starts a turn when the session is idle and waits
+// for it when it is not (spike 27). One at a time, so they keep their order.
+let submitting: Promise<void> = Promise.resolve()
+
+async function submitHeld($: Dollar): Promise<void> {
+  if ((await $.clock.now()) < silentUntil) return
+  const port = await portOf($)
+  if (port === undefined) return
+  const id = await $.session.id()
+  const asked = await $.http.fetch(`http://127.0.0.1:${port}/sessions/held`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ session_id: id }),
+  })
+  if (!asked.ok) return
+  const held = JSON.parse(asked.text) as { messages?: unknown; commands?: unknown }
+  // A command is run as typed: the engine refuses a slash command submitted as text.
+  const commands = Array.isArray(held.commands) ? held.commands : []
+  for (const one of commands as { command?: unknown; args?: unknown }[]) {
+    if (typeof one.command !== 'string' || typeof one.args !== 'string') continue
+    const { command, args } = one
+    submitting = submitting
+      .then(() => $.command.run({ command, args }))
+      .then(() => tuned($, id, {}))
+      .catch(() => undefined)
+  }
+  if (!Array.isArray(held.messages)) return
+  for (const text of held.messages) {
+    if (typeof text !== 'string') continue
+    submitting = submitting
+      .then(() => $.prompt.submit({ text, asUser: true }))
+      .then(() => undefined)
+      .catch(() => undefined)
   }
 }
 
@@ -184,6 +236,51 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal' })
   void look($, id)
+  void tuned($, id, {}, true).catch(() => undefined)
+}
+
+/**
+ * What the terminal runs on, told when it changed: the model, and the effort and permission mode a
+ * hook input carries. The commands it lists go once, with the first. **The mode is only read**: the
+ * mods API cannot switch a live session's (spike 27).
+ */
+async function tuned(
+  $: Dollar,
+  id: string,
+  seen: { mode?: string; effort?: unknown },
+  withCommands = false,
+): Promise<void> {
+  const one = known.get(id)
+  if (one === undefined) return
+  const mode = modeOf(seen.mode)
+  const effort = effortOf(seen.effort)
+  const next: Tuning = {
+    kind: 'tuned',
+    model: modelName(await $.session.model()),
+    ...(effort === undefined ? {} : { effort }),
+    ...(mode === undefined ? {} : { mode }),
+  }
+  if (withCommands) {
+    next.commands = (await $.command.list()).map(c => ({ name: c.name, says: c.description }))
+  }
+  const before = one.tuned
+  const same =
+    before !== undefined &&
+    before.model === next.model &&
+    before.effort === (next.effort ?? before.effort) &&
+    before.mode === (next.mode ?? before.mode)
+  if (same && !withCommands) return
+  one.tuned = { ...before, ...next, commands: undefined }
+  say($, id, next)
+}
+
+async function seen($: Dollar, mode: string | undefined, effort: unknown): Promise<void> {
+  try {
+    const [id] = await current($)
+    await tuned($, id, { mode, effort })
+  } catch {
+    // What the terminal runs on is a nicety: nothing here is worth a session's turn.
+  }
 }
 
 /** The session's id, starting it first where it began without a `session.start`. */
@@ -334,6 +431,7 @@ async function ended($: Dollar, id: string, reason: string): Promise<void> {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
+    $.clock.every(ASK_EVERY_MS, () => submitHeld($).catch(() => undefined))
     void $.session
       .id()
       .then(id => begin($, id, e.cwd))
@@ -407,6 +505,19 @@ export const register: Register = on => {
   on('session.measure', async ($, e, next) => {
     const out = await next(e)
     void measured($, e.context.tokens, e.context.window, e.cost?.usd).catch(() => undefined)
+    return out
+  })
+
+  // The terminal's permission mode and effort are on the settings-hook inputs and nowhere else.
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    const out = await next(e)
+    void seen($, e.permission_mode, e.effort)
+    return out
+  })
+
+  on('classic.Stop', async ($, e, next) => {
+    const out = await next(e)
+    void seen($, e.permission_mode, e.effort)
     return out
   })
 

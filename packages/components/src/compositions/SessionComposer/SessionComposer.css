@@ -126,11 +126,33 @@
   pointer-events: none;
 }
 
-/* Never spill out of the box: what does not fit goes to a second line. */
+/* **Send never wraps.** The menus give up room first and truncate, the icon buttons hold, the chips
+   scroll in what is left, and Send stays on the row at the right. */
 .armada-session-composer__bar {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.armada-session-composer__bar > button {
+  flex: none;
+}
+
+.armada-session-composer__pick {
+  flex: 0 1 auto;
+  min-width: calc(var(--space-12) * 1.5);
+}
+
+.armada-session-composer__bar .armada-select-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.armada-session-composer__bar .armada-select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
 }
 
 .armada-session-composer__chips {
-  flex-basis: calc(var(--space-12) * 2);
+  flex: 1 1 0;
+  min-width: 0;
 }

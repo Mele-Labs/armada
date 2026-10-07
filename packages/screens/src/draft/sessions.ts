@@ -143,8 +143,10 @@ export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
   address?: string;
-  /** A session from a terminal: its ledger is real and there is no thread to read or write in. */
+  /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
+  /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
+  commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
   blank?: boolean;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */

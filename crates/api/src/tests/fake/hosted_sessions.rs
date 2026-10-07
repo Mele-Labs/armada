@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, SendSessionMessage, SessionGate, SessionId,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
     SessionRecord, SessionThread, StartSession, TuneSession,
 };
 
@@ -45,7 +45,7 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn get_session(&self, _id: SessionId) -> Result<SessionThread, Refusal> {
+    async fn get_session(self: Arc<Self>, _id: SessionId) -> Result<SessionThread, Refusal> {
         Err(nothing_hosted())
     }
 
@@ -55,5 +55,9 @@ impl HostedSessions for FakeDaemon {
 
     async fn gate_session_call(&self, _gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(GateAnswer::pass())
+    }
+
+    async fn take_held_messages(&self, _ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
+        Ok(MessagesHeld::default())
     }
 }

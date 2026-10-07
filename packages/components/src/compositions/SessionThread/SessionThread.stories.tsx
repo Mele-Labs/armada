@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import { SessionThread, type SessionThreadRow } from "./SessionThread";
@@ -46,6 +47,32 @@ export const FirstWriteAndASender: Story = {
     await expect(canvas.getByRole("region", { name: "Leased on first write" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open Session Release notes script" }));
     await expect(args.onOpenSession).toHaveBeenCalledWith("s2");
+  },
+};
+
+const LONG: SessionThreadRow[] = Array.from({ length: 40 }, (_, at): SessionThreadRow => ({ id: `m${at}`, at: "14:03:07", kind: "message", from: at % 2 === 0 ? "you" : "agent", text: `Message ${at + 1}` }));
+
+/** A long thread opens at its newest message, and a row that arrives keeps it there. */
+export const OpensAtTheNewest: Story = {
+  args: { rows: LONG, sessionId: "s1" },
+  render: (args) => {
+    const [rows, setRows] = useState(args.rows);
+    return (
+      <>
+        <button onClick={() => setRows((was) => [...was, { id: "last", at: "14:09:00", kind: "message", from: "agent", text: "Newest of all" }])}>Add a row</button>
+        <SessionThread {...args} rows={rows} />
+      </>
+    );
+  },
+  play: async ({ canvas }) => {
+    const region = canvas.getByRole("region", { name: "Thread" });
+    await expect(region.scrollTop + region.clientHeight).toBeGreaterThanOrEqual(region.scrollHeight - 2);
+    await userEvent.click(canvas.getByRole("button", { name: "Add a row" }));
+    await expect(canvas.getByText("Newest of all")).toBeVisible();
+    region.scrollTop = 0;
+    region.dispatchEvent(new Event("scroll"));
+    await userEvent.click(canvas.getByRole("button", { name: "Add a row" }));
+    await expect(region.scrollTop).toBe(0);
   },
 };
 
