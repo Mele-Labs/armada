@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from "react";
-import { SquareTerminal, Terminal } from "lucide-react";
+import { Check, SquareTerminal, Terminal } from "lucide-react";
 
+import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Dialog } from "../../primitives/Dialog/Dialog";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
@@ -29,6 +30,8 @@ export type PilotValue = {
   pilotedBy: (jobId: string) => { id: string; title: string; number: number } | undefined;
   exit: (jobId: string, exit: PilotExit) => void;
   open: (sessionId: string) => void;
+  /** What Fleet refused the last act in words, until the next one. Drawn under the exits. */
+  said?: string | undefined;
 };
 
 export const PilotAct = createContext<PilotValue | null>(null);
@@ -82,6 +85,23 @@ export function PilotedBy({ jobId, compact = false }: { jobId: string; compact?:
   );
 }
 
+/**
+ * A Job a person closed on their word: its gates did not run. **Drawn apart from a Job that passed**,
+ * which is the one thing an attestation must never read as. `compact` is the mark alone, for a Board
+ * row; `note` is what they said, in the tooltip.
+ */
+export function AttestedMark({ note, compact = false }: { note?: string | undefined; compact?: boolean }) {
+  const said = note === undefined || note === "" ? "Closed on a person's word. Its gates did not run" : `Closed on a person's word: ${note}. Its gates did not run`;
+  return (
+    <Tooltip label={said}>
+      <span className="armada-pilot-chip" data-compact={compact || undefined} role="img" aria-label="Attested, not verified">
+        <Check size={12} strokeWidth={2} aria-hidden />
+        {compact ? null : "Attested"}
+      </span>
+    </Tooltip>
+  );
+}
+
 const EXITS: { exit: PilotExit; label: string; says: string }[] = [
   { exit: "submit", label: "Submit for verification", says: "Runs this step's Checks and Judge on the worktree, as it would for a Drone" },
   { exit: "attest", label: "Attest complete", says: "Records the work as done by your word, not as verified" },
@@ -93,15 +113,22 @@ export function PilotExits({ jobId, compact = false }: { jobId: string; compact?
   const pilot = usePilot();
   if (pilot === null) return null;
   return (
-    <div className="armada-pilot-exits" role="group" aria-label="Ways out of the pilot" data-compact={compact || undefined}>
-      {EXITS.map(({ exit, label, says }) => (
-        <Tooltip key={exit} label={says}>
-          <Button size="sm" variant={exit === "submit" ? "primary" : "secondary"} onClick={() => pilot.exit(jobId, exit)}>
-            {label}
-          </Button>
-        </Tooltip>
-      ))}
-    </div>
+    <>
+      <div className="armada-pilot-exits" role="group" aria-label="Ways out of the pilot" data-compact={compact || undefined}>
+        {EXITS.map(({ exit, label, says }) => (
+          <Tooltip key={exit} label={says}>
+            <Button size="sm" variant={exit === "submit" ? "primary" : "secondary"} onClick={() => pilot.exit(jobId, exit)}>
+              {label}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+      {pilot.said === undefined || pilot.said === "" ? null : (
+        <div className="armada-pilot-said">
+          <Alert tone="escalated">{pilot.said}</Alert>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -109,11 +136,25 @@ export function PilotExits({ jobId, compact = false }: { jobId: string; compact?
  * The confirmation: what each outcome does to the Drone and to the worktree.
  * **Assist is drawn and off**, so the set does not change shape when it ships.
  */
-export function PilotConfirm({ open, title, onConfirm, onCancel }: { open: boolean; title: string; onConfirm: (outcome: PilotOutcome) => void; onCancel: () => void }) {
+export function PilotConfirm({
+  open,
+  title,
+  said,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  /** What Fleet refused, in words. The confirmation stays up under it, so the person sees why nothing opened. */
+  said?: string | undefined;
+  onConfirm: (outcome: PilotOutcome) => void;
+  onCancel: () => void;
+}) {
   const [outcome, setOutcome] = useState<PilotOutcome>("take_over");
   return (
     <Dialog open={open} title="Pilot this Job?" tone="neutral" confirmLabel="Pilot" cancelLabel="Cancel" onConfirm={() => onConfirm(outcome)} onCancel={onCancel}>
       <p className="armada-pilot-confirm__job">{title}</p>
+      {said === undefined || said === "" ? null : <Alert tone="escalated">{said}</Alert>}
       <RadioGroup label="What happens to it">
         <Radio name="pilot-outcome" checked={outcome === "take_over"} onChange={() => setOutcome("take_over")}>
           Take Over

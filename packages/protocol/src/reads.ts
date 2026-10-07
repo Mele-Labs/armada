@@ -427,6 +427,7 @@ export type Outcome =
   | { ok: false; why: "already_redirecting" }
   | { ok: false; why: "already_restarting" }
   | { ok: false; why: "already_pausing" }
+  | { ok: false; why: "already_piloting" }
   | { ok: false; why: "already_answering_lesson" }
   | { ok: false; why: "already_overruling" }
   | { ok: false; why: "already_rereading" }

@@ -10,7 +10,7 @@
 // hold one act and what it asks a person for before it sends. What stays here
 // is which of them a state offers. The words on every button are `copy.ts`'s.
 
-import { Button, HoldButton, PilotButton, PilotExits, PilotedBy, SplitButton, usePilot } from "@armada/components";
+import { AttestedMark, Button, HoldButton, PilotButton, PilotExits, PilotedBy, SplitButton, usePilot } from "@armada/components";
 import type { SplitButtonItem } from "@armada/components";
 
 import { JOB_LIFECYCLE } from "@armada/components";
@@ -382,6 +382,8 @@ export function Acts({
           <PilotExits jobId={job.id} />
         </>
       ) : null}
+      {/* A Job a person closed on their word says so, apart from one that passed its gates. */}
+      {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} /> : null}
       {/* A split button with nothing in its menu is a button: a caret over an
           empty menu is a control that does not answer. */}
       {/* A kill on the face is held rather than asked, alone or as a split

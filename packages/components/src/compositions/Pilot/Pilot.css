@@ -24,6 +24,10 @@
   flex-basis: 100%;
 }
 
+.armada-pilot-said {
+  flex-basis: 100%;
+}
+
 .armada-pilot-confirm__job {
   margin: 0 0 var(--space-3);
   font-weight: var(--weight-medium);

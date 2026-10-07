@@ -11,6 +11,7 @@ import type {
   Attachment,
   AttachmentState,
   HelmCallInFlight,
+  JobSummary,
   PullRequestState,
   SendSessionMessage,
   SessionRecord,
@@ -83,6 +84,8 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
 
 export type Calls = {
   started: number;
+  piloted: { jobId: string; outcome: string }[];
+  exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
   tuned: TuneSession[];
@@ -92,10 +95,14 @@ export type Calls = {
 };
 
 export class FakeSessionsFleet {
-  readonly calls: Calls = { started: 0, sent: [], answered: [], tuned: [], closed: [], pressed: [], watched: [] };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], closed: [], pressed: [], watched: [] };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
+  /** The Board's rows, which a take over and an exit change as Fleet does. */
+  private jobs: JobSummary[] = [];
+  /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
+  refuses: { code: string; message: string } | undefined;
   private minted = 0;
   private rowed = 0;
 
@@ -106,6 +113,7 @@ export class FakeSessionsFleet {
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
   scenario(base: Scenario): Scenario {
+    this.jobs = base.state.jobs;
     return {
       ...base,
       state: { ...base.state, sessions: { state: "read", sessions: this.records }, sessionThreads: {} },
@@ -117,6 +125,65 @@ export class FakeSessionsFleet {
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`);
             this.set([record, ...this.records]);
             return { ok: true, value: record };
+          },
+          pilotJob: async (jobId, outcome) => {
+            this.calls.piloted.push({ jobId, outcome });
+            const refused = this.refusal();
+            if (refused !== undefined) return refused;
+            const job = this.jobs.find((row) => row.id === jobId)!;
+            const id = `01PILOT${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
+            const number = Number(/^(\d+)-/.exec(job.handle)?.[1] ?? 0);
+            const record = hosted(id, {
+              title: job.title,
+              attachments: [
+                held("slot", "3", { handed: `job ${jobId}` }),
+                held("branch", job.branch ?? "", { handed: `job ${jobId}` }),
+                held("job", jobId),
+              ],
+            });
+            this.threads = {
+              ...this.threads,
+              [id]: [
+                {
+                  kind: "handoff",
+                  id: "handoff1",
+                  at: AT,
+                  job_id: jobId,
+                  number,
+                  title: job.title,
+                  reason: outcome,
+                  slot: 3,
+                  branch: job.branch ?? "",
+                  step: { id: "regression_verify", label: "Verify the fix" },
+                  attempts: 3,
+                  refusals: ["No test covers the retry cap, retry.rs:41"],
+                  plan: { declared: true, outside: ["crates/retry/src/loop.rs"] },
+                },
+              ],
+            };
+            this.setJobs(this.jobs.map((row) => (row.id === jobId ? { ...row, status: "piloted", piloted: { reason: outcome, session_id: id, since: AT } } : row)));
+            this.set([record, ...this.records]);
+            this.publishThreads();
+            return { ok: true, value: record };
+          },
+          exitPilot: async (jobId, exit, note) => {
+            this.calls.exited.push({ jobId, exit, ...(note === undefined ? {} : { note }) });
+            const refused = this.refusal();
+            if (refused !== undefined) return refused.outcome;
+            const how = { submit: ["queued", "submitted"], attest: ["completed_success", "attested"], supersede: ["superseded", "superseded"] }[exit] as [string, string];
+            this.setJobs(
+              this.jobs.map((row) =>
+                row.id === jobId ? { ...row, status: how[0], piloted: { ...row.piloted!, exit: how[1], ended_at: AT, ...(note === undefined ? {} : { note }) } } : row,
+              ),
+            );
+            // The Session gives the slot and branch back, as Fleet writes it.
+            this.set(
+              this.records.map((one) => ({
+                ...one,
+                attachments: one.attachments.map((a) => (a.detail?.["handed"] === `job ${jobId}` ? { ...a, state: "given_back" as const } : a)),
+              })),
+            );
+            return { ok: true };
           },
           sendSessionMessage: async (send) => {
             this.calls.sent.push(send);
@@ -170,6 +237,16 @@ export class FakeSessionsFleet {
         };
       },
     };
+  }
+
+  private refusal(): { ok: false; outcome: never } | undefined {
+    if (this.refuses === undefined) return undefined;
+    return { ok: false, outcome: { ok: false, why: "refused", error: this.refuses } as never };
+  }
+
+  private setJobs(jobs: JobSummary[]): void {
+    this.jobs = jobs;
+    this.fleet?.publish({ jobs });
   }
 
   private rowId(): string {

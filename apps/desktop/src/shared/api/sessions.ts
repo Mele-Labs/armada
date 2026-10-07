@@ -5,6 +5,7 @@ import type {
   AnswerSessionAsk,
   FrameRead,
   Outcome,
+  PilotOutcome,
   PullRequestState,
   ReviewDispatched,
   SendSessionMessage,
@@ -16,6 +17,9 @@ import type {
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
 
+/** The ways out of a pilot, as Fleet names the acts: submit for verification, attest complete, close as superseded. */
+export type PilotExit = "submit" | "attest" | "supersede";
+
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge" | "review";
 
@@ -26,6 +30,14 @@ export type SessionsApi = {
    * refusal in words where there are several.
    */
   startSession: (title?: string) => Promise<SessionActed>;
+  /**
+   * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
+   * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
+   * nothing changed.
+   */
+  pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
+  /** One of the three ways out of a pilot. `note` is the person's words on an attestation or a supersede. */
+  exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
   /** One of the offers on the ask the agent is held on. */
@@ -69,6 +81,8 @@ export const SESSIONS_NOTHING_YET: SessionsState = {
 
 export const SESSIONS_CHANNELS = {
   startSession: "bridge:start-session",
+  pilotJob: "bridge:pilot-job",
+  exitPilot: "bridge:exit-pilot",
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",
   tuneSession: "bridge:tune-session",

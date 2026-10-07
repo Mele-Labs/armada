@@ -8,14 +8,16 @@
 // it has read, and the last refusal in words.
 //
 // **Where Fleet serves something this build has no screen for, or none yet, the act is absent from
-// the draft and the screen leaves it off**: Pilot, and the `/` list, which Fleet's init line does not
-// carry to the wire today. Nothing here shows fixture data.
+// the draft and the screen leaves it off.** Nothing here shows fixture data. Pilot is one call, which
+// takes the Job over and starts the Session on its worktree, and the `/` list is what the agent's own
+// init line named.
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
 import type { SessionTag as WireTag } from "@armada/protocol";
+import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
@@ -174,6 +176,36 @@ export class WiredStore {
     }
   }
 
+  /** One call: the Job is taken over and a Session starts on its worktree. Resolves to the Session once the window holds it. */
+  private async piloting(jobId: string, outcome: "take_over" | "restart_step"): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.pilotJob(jobId, outcome);
+    if (!done.ok) return void this.say(done.outcome);
+    await this.held(done.value.id);
+    return done.value.id;
+  }
+
+  private async exiting(jobId: string, exit: "submit" | "attest" | "supersede"): Promise<void> {
+    this.say(undefined);
+    const done = await this.api.exitPilot(jobId, exit);
+    if (!done.ok) this.say(done);
+  }
+
+  private commandsFrom: readonly string[] | undefined;
+  private commandsAre: readonly SessionCommand[] = NONE;
+
+  /** What the agent said it has, from the first session Fleet gave a list for. It has no sentence for each, so none is drawn. */
+  private commandsRead(): readonly SessionCommand[] {
+    const read = this.inputs?.sessions;
+    const names = read?.state === "read" ? read.sessions.find((one) => (one.hosted?.commands?.length ?? 0) > 0)?.hosted?.commands : undefined;
+    if (names === undefined) return NONE;
+    if (names !== this.commandsFrom) {
+      this.commandsFrom = names;
+      this.commandsAre = names.map((name) => ({ name, says: "" }));
+    }
+    return this.commandsAre;
+  }
+
   private async acting(id: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<void> {
     this.say(undefined);
     const done = await this.api.pressPullRequest(id, number, act);
@@ -197,6 +229,8 @@ export class WiredStore {
     get: () => this.mapped,
     subscribe: this.subscribe,
     start: (tag) => this.starting(tag),
+    pilot: (jobId, outcome) => this.piloting(jobId, outcome),
+    exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     close: (id) => void this.plain(this.api.closeSession(id)),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
@@ -236,7 +270,9 @@ export class WiredStore {
       return store.inputs?.holds.models?.models ?? NONE;
     },
     efforts: EFFORTS,
-    commands: NONE,
+    get commands() {
+      return store.commandsRead();
+    },
     answer: (id: string, answer?: SessionAnswer) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;

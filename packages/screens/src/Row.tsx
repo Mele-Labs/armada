@@ -75,7 +75,7 @@
 // what it has is `current_step_id` — the id, in mono. The name is on the detail
 // one click away, where the rail draws it.
 
-import { Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, PilotedBy, pilotable, useOpenInSession, usePilot } from "@armada/components";
+import { AttestedMark, Button, FixingMainMark, JobRowStacked, PausedMark, SettlingMark, SplitButton, StepBar, PilotedBy, pilotable, useOpenInSession, usePilot } from "@armada/components";
 import type { JobRowField } from "@armada/components";
 import { ScrollText } from "lucide-react";
 
@@ -363,7 +363,7 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
-      {...(paused === undefined && fixes === undefined && job.status !== "piloted"
+      {...(paused === undefined && fixes === undefined && job.status !== "piloted" && job.piloted?.exit !== "attested"
         ? {}
         : {
             mark: (
@@ -371,6 +371,7 @@ export function Row({
                 {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
                 {paused === undefined ? null : <PausedMark said={paused} />}
                 {job.status === "piloted" ? <PilotedBy jobId={job.id} compact /> : null}
+                {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} compact /> : null}
               </>
             ),
           })}

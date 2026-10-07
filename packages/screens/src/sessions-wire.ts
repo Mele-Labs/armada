@@ -81,6 +81,16 @@ function standingOf(detail: Record<string, string>, spent: boolean): SessionPull
   return detail["state"] === "draft" ? "draft" : "open";
 }
 
+/**
+ * The Job a slot or branch came with, where the session was handed it by a take over. Fleet writes
+ * `detail.handed` as `job <id>`; a Job the Board no longer holds names nothing.
+ */
+function handedOf(detail: Record<string, string>, jobs: readonly JobSummary[]): { handed?: { job: number } } {
+  const id = /^job (.+)$/.exec(detail["handed"] ?? "")?.[1];
+  const job = id === undefined ? undefined : jobs.find((row) => row.id === id);
+  return job === undefined ? {} : { handed: { job: numberOf(job) } };
+}
+
 /** A pull request the ledger holds, with what Fleet last read of it. A merged one is `spent`; a closed one is let go. */
 function pullRequestOf(one: Attachment): SessionAttachment | undefined {
   if (one.state === "given_back") return undefined;
@@ -110,12 +120,12 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
     const detail = one.detail ?? {};
     switch (one.kind) {
       case "slot":
-        if (one.state === "standing") out.push({ kind: "slot", slot: Number(one.target) });
+        if (one.state === "standing") out.push({ kind: "slot", slot: Number(one.target), ...handedOf(detail, beside.jobs) });
         break;
       case "branch": {
         if (one.state !== "standing") break;
         const slot = slots.find((s) => s.manifest_id === one.manifest_id) ?? slots[0];
-        out.push({ kind: "branch", name: one.target, slot: slot === undefined ? 0 : Number(slot.target) });
+        out.push({ kind: "branch", name: one.target, slot: slot === undefined ? 0 : Number(slot.target), ...handedOf(detail, beside.jobs) });
         break;
       }
       case "pr": {
@@ -135,6 +145,9 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           state: jobStateOf(job.status),
           branch: job.branch ?? "",
           ...(detail["looking"] === "true" ? { looking: true as const } : {}),
+          // A person's word closed it. Said apart from a Job that passed its gates.
+          ...(job.piloted?.exit === "attested" ? { attested: true as const } : {}),
+          ...(job.status === "piloted" && job.piloted?.session_id !== record.id ? { pilotedElsewhere: true as const } : {}),
         });
         break;
       }
@@ -177,6 +190,13 @@ const SETTLED: Record<string, string> = {
   session_gone: "session ended",
 };
 
+/** What the Drone said it tried, a line to an item with any list marker taken off. */
+const linesOf = (text: string): string[] =>
+  text
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s+/, "").trim())
+    .filter((line) => line !== "");
+
 /** The thread, row by row. **A waiting ask is the card under the thread, so it is no row**; one answered is a line of what was decided. */
 export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"]): SessionRow[] {
   const out: SessionRow[] = [];
@@ -206,6 +226,23 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
+        break;
+      case "handoff":
+        out.push({
+          id: row.id,
+          at,
+          kind: "handoff",
+          job: { number: row.number, title: row.title },
+          slot: row.slot ?? 0,
+          branch: row.branch,
+          ...(row.step === undefined ? {} : { step: row.step }),
+          attempts: row.attempts,
+          refusals: row.refusals ?? [],
+          plan: { outside: row.plan.outside ?? [], unwritten: row.plan.unwritten ?? [] },
+          ...(row.narrative === undefined
+            ? {}
+            : { narrative: { trying_to: row.narrative.trying_to, blocked_by: row.narrative.blocked_by, tried: linesOf(row.narrative.tried) } }),
+        });
         break;
       case "ask":
         if (row.state !== "waiting") {

@@ -7,6 +7,7 @@
 // the row. Read `get_session` once and follow `session.row`.
 
 import type { HelmCallAnswer, HelmCallInFlight } from "./helm-calls";
+import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { SessionRecord } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -21,6 +22,12 @@ export type StartSession = {
   effort?: string;
   /** Absent is `auto`. */
   mode?: SessionMode;
+  /**
+   * Take a Job over and start the session on its worktree, in one call. Since 23.51. The session's
+   * repository is the Job's, so `manifest_id` is not read. Refused with the 409 `take_over` gives, and
+   * no session is made.
+   */
+  pilot?: { job_id: string; outcome: PilotOutcome };
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch";
@@ -79,6 +86,12 @@ export type HostedFacts = {
   mode: SessionMode;
   /** False after a quiet timeout: the next message resumes the session. */
   running: boolean;
+  /**
+   * The slash commands and skills the agent said it has, by name, for `/` to offer. Since 23.51.
+   * A session whose agent has not started is given the last one any session read; empty before any
+   * has, and after a Fleet restart until one starts.
+   */
+  commands?: string[];
 };
 
 /** Who said a row. Another session that wrote to this one is named. */
@@ -114,6 +127,37 @@ export type SessionRow =
   | { kind: "tool"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
+  /**
+   * What a piloted session starts with, first in its thread: the Job's worktree handed over and what
+   * Fleet knew when its Drone stopped, as the bundle's structured fields. Since 23.51.
+   */
+  | {
+      kind: "handoff";
+      id: string;
+      at: string;
+      job_id: string;
+      number: number;
+      title: string;
+      /** `take_over` or `restart_step`. */
+      reason: string;
+      slot?: number;
+      branch: string;
+      /** The step the Job stopped on. Absent where none did. */
+      step?: { id: string; label: string };
+      attempts: number;
+      /** What the Judge refused on that step, in its own words. */
+      refusals?: string[];
+      plan: {
+        /** False is no plan, and `outside` is then empty rather than everything. */
+        declared: boolean;
+        /** Files the worktree holds changed that the plan did not cover. */
+        outside?: string[];
+        /** Paths the plan named that nothing changed under. */
+        unwritten?: string[];
+      };
+      /** Absent where no Drone said what it was stuck on. */
+      narrative?: DroneNarrative;
+    }
   /** A call put to the person. Replaced as it is answered. */
   | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState };
 

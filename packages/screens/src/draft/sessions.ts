@@ -40,6 +40,8 @@ export type SessionAttachment =
       looking?: true;
       /** Closed by a person's word and not by its gates. */
       attested?: true;
+      /** The Job is piloted, but from another Session: this one's ledger offers no exit on it. Absent is this Session's own. */
+      pilotedElsewhere?: true;
     }
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
@@ -117,11 +119,11 @@ export type SessionRow =
       job: { number: number; title: string };
       slot: number;
       branch: string;
-      step: { id: string; label: string };
+      step?: { id: string; label: string };
       attempts: number;
       refusals: readonly string[];
-      plan: { declared: readonly string[]; actual: readonly string[] };
-      narrative: { trying_to: string; blocked_by: string; tried: readonly string[] };
+      plan: { outside: readonly string[]; unwritten: readonly string[] };
+      narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string };
@@ -199,11 +201,12 @@ export type SessionsDraft = {
   get: () => readonly Session[];
   subscribe: (onChange: () => void) => () => void;
   /**
-   * Takes a Job's worktree: starts a Session on it and returns the Session's id. **Absent on a real
-   * Fleet** until its half of Pilot lands, and then the acts are left off rather than drawn dead.
+   * Takes a Job's worktree: starts a Session on it and returns the Session's id. **A promise on a real
+   * Fleet**, one call that takes the Job over and starts the Session; one Fleet refused says why in
+   * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
    */
-  pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string;
-  /** One of the three ways out of a pilot. Absent with `pilot`. */
+  pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
+  /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
    * Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes.

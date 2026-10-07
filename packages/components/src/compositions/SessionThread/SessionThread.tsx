@@ -42,11 +42,14 @@ export type SessionThreadRow =
       job: { number: number; title: string };
       slot: number;
       branch: string;
-      step: { id: string; label: string };
+      /** Absent where the Job stopped on no step. */
+      step?: { id: string; label: string };
       attempts: number;
       refusals: readonly string[];
-      plan: { declared: readonly string[]; actual: readonly string[] };
-      narrative: { trying_to: string; blocked_by: string; tried: readonly string[] };
+      /** Files written that the plan did not cover, and paths it named that nothing changed under. */
+      plan: { outside: readonly string[]; unwritten: readonly string[] };
+      /** Absent where no Drone said what it was stuck on: a Job taken over from an escalation or a gate has none. */
+      narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
     };
 
 /** One answer an ask will take: what the press hands back, the word on it and what it commits to. */
@@ -90,10 +93,10 @@ function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" 
   );
 }
 
-/** What Fleet knew when a Job's Drone stopped, as the structured fields the handoff bundle has. */
+/** What Fleet knew when a Job's Drone stopped, as the structured fields the handoff bundle has. A field with nothing to say is left out. */
 function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> }) {
-  const extra = row.plan.actual.filter((one) => !row.plan.declared.includes(one));
-  const missing = row.plan.declared.filter((one) => !row.plan.actual.includes(one));
+  const { step, narrative } = row;
+  const planned = row.plan.outside.length + row.plan.unwritten.length > 0;
   return (
     <li className="armada-session-handoff" role="region" aria-label={`Handed over: Job ${row.job.number}`}>
       <div className="armada-session-handoff__head">
@@ -115,49 +118,65 @@ function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> 
         <span className="armada-session-lease__at">{row.at}</span>
       </div>
       <dl className="armada-session-handoff__fields">
-        <dt>Stopped on</dt>
-        <dd>
-          <code>{row.step.id}</code> {row.step.label}
-        </dd>
-        <dt>Attempts</dt>
-        <dd>
-          <code>{row.attempts}</code>
-        </dd>
-        <dt>Judge refused</dt>
-        <dd>
-          <ul>
-            {row.refusals.map((one) => (
-              <li key={one}>{one}</li>
-            ))}
-          </ul>
-        </dd>
-        <dt>Plan against diff</dt>
-        <dd>
-          <ul>
-            {extra.map((one) => (
-              <li key={one}>
-                <code>{one}</code> written, not declared
-              </li>
-            ))}
-            {missing.map((one) => (
-              <li key={one}>
-                <code>{one}</code> declared, not written
-              </li>
-            ))}
-          </ul>
-        </dd>
-        <dt>Trying to</dt>
-        <dd>{row.narrative.trying_to}</dd>
-        <dt>Blocked by</dt>
-        <dd>{row.narrative.blocked_by}</dd>
-        <dt>Tried</dt>
-        <dd>
-          <ol>
-            {row.narrative.tried.map((one) => (
-              <li key={one}>{one}</li>
-            ))}
-          </ol>
-        </dd>
+        {step === undefined ? null : (
+          <>
+            <dt>Stopped on</dt>
+            <dd>
+              <code>{step.id}</code> {step.label}
+            </dd>
+            <dt>Attempts</dt>
+            <dd>
+              <code>{row.attempts}</code>
+            </dd>
+          </>
+        )}
+        {row.refusals.length === 0 ? null : (
+          <>
+            <dt>Judge refused</dt>
+            <dd>
+              <ul>
+                {row.refusals.map((one) => (
+                  <li key={one}>{one}</li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+        {!planned ? null : (
+          <>
+            <dt>Plan against diff</dt>
+            <dd>
+              <ul>
+                {row.plan.outside.map((one) => (
+                  <li key={one}>
+                    <code>{one}</code> written, not declared
+                  </li>
+                ))}
+                {row.plan.unwritten.map((one) => (
+                  <li key={one}>
+                    <code>{one}</code> declared, not written
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+        {narrative === undefined ? null : (
+          <>
+            <dt>Trying to</dt>
+            <dd>{narrative.trying_to}</dd>
+            <dt>Blocked by</dt>
+            <dd>{narrative.blocked_by}</dd>
+            <dt>Tried</dt>
+            <dd>
+              <ol>
+                {narrative.tried.map((one) => (
+                  <li key={one}>{one}</li>
+                ))}
+              </ol>
+            </dd>
+          </>
+        )}
       </dl>
     </li>
   );

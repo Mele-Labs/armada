@@ -137,7 +137,7 @@ export function SessionComposer({
     token === undefined
       ? []
       : token.trigger === "/"
-        ? commands.filter((one) => one.name.toLowerCase().includes(token.query.toLowerCase())).map((one) => ({ id: one.name, name: `/${one.name}`, says: one.says }))
+        ? commands.filter((one) => one.name.toLowerCase().includes(token.query.toLowerCase())).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
         : TAG_KINDS.flatMap(({ kind }) =>
             taggable
               .filter((one) => one.kind === kind && !tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
