@@ -27,12 +27,30 @@ import { HOST, machinePath, read } from "./runtime-file";
 /** How long to wait before reading the runtime file again. */
 const RETRY_MS = 2000;
 
+/**
+ * How long a socket may sit without a first message before Bridge says so. A
+ * Fleet that is serving answers in milliseconds, so a Bridge opened against one
+ * that has been up for hours never gets past `connecting`.
+ */
+const ANSWER_GRACE_MS = 1500;
+
+/**
+ * How old a Fleet process may be and still be booting. **Measured once, 6 Oct
+ * 2026: one to two minutes** between the runtime file and `serving`, which is
+ * `reconcile` reading every Job the store holds. Five minutes leaves that room
+ * twice over; a Fleet older than this that does not answer is wedged, and
+ * `unreachable` is the reading that does not promise it will come.
+ */
+const BOOT_WINDOW_MS = 5 * 60_000;
+
 /** The one connection state that carries which Fleet Bridge is talking to. */
 export type BridgeStateFleet = Extract<Connection, { state: "connected" }>["fleet"];
 
 export type FleetSocketWiring = {
   home: string | undefined;
   now: () => number;
+  /** The two waits above, shortened where a test cannot spend minutes. */
+  timing?: { graceMs: number; bootMs: number };
   /** A connection state to settle, this instant. */
   settle: (connection: Connection) => void;
   /**
@@ -55,6 +73,8 @@ export class FleetSocket {
   private socket: WebSocket | null = null;
   private retry: ReturnType<typeof setTimeout> | null = null;
   private unreachableSince: number | null = null;
+  /** Fires when the open socket has said nothing for too long. */
+  private watch: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
 
   constructor(wiring: FleetSocketWiring) {
@@ -71,6 +91,7 @@ export class FleetSocket {
     this.stopped = true;
     if (this.retry !== null) clearTimeout(this.retry);
     this.retry = null;
+    this.unwatch();
     this.socket?.close();
     this.socket = null;
   }
@@ -155,14 +176,59 @@ export class FleetSocket {
     // back rather than a gap in a stream that never stopped.
     this.wiring.opened();
 
-    socket.on("message", (data: WebSocket.RawData) => this.wiring.arrived(String(data), fleet));
+    // **A refusal never reaches this.** Fleet binds its port before it writes
+    // the runtime file and serves only after `reconcile`, so in between the
+    // kernel accepts the connection and nothing answers it: no `error`, no
+    // `close`, and the socket would sit in `connecting` for as long as boot
+    // takes. The timer is what notices.
+    this.unwatch();
+    this.watch = setTimeout(() => this.unanswered(fleet), this.wiring.timing?.graceMs ?? ANSWER_GRACE_MS);
+
+    socket.on("message", (data: WebSocket.RawData) => {
+      this.unwatch();
+      this.wiring.arrived(String(data), fleet);
+    });
     socket.on("error", (cause: Error) => this.dropped(fleet, cause.message));
     socket.on("close", () => this.dropped(fleet, "the connection closed"));
+  }
+
+  /**
+   * The socket is open and has said nothing. A Fleet process younger than the
+   * boot window is starting; an older one is not answering. Either way the
+   * socket stays open, so a Fleet that does come up still connects.
+   */
+  private unanswered(fleet: BridgeStateFleet): void {
+    this.watch = null;
+    if (this.socket === null || this.stopped) return;
+    const bootMs = this.wiring.timing?.bootMs ?? BOOT_WINDOW_MS;
+    const now = this.wiring.now();
+    const born = Date.parse(fleet.startedAt);
+    const age = now - born;
+    // A start time that will not parse says nothing about age, so it cannot
+    // earn the starting view.
+    if (!Number.isNaN(born) && age < bootMs) {
+      this.wiring.settle({ state: "starting", fleet });
+      this.watch = setTimeout(() => this.unanswered(fleet), bootMs - age);
+      return;
+    }
+    if (this.unreachableSince === null) this.unreachableSince = now;
+    this.wiring.settle({
+      state: "unreachable",
+      fleet,
+      detail: "the socket has not answered",
+      sinceMs: this.unreachableSince,
+    });
+  }
+
+  private unwatch(): void {
+    if (this.watch !== null) clearTimeout(this.watch);
+    this.watch = null;
   }
 
   /** A drop says so. It never leaves stale state reading as live. */
   private dropped(fleet: BridgeStateFleet, detail: string): void {
     if (this.socket === null || this.stopped) return;
+    this.unwatch();
     this.socket.removeAllListeners();
     this.socket = null;
     if (this.unreachableSince === null) this.unreachableSince = this.wiring.now();

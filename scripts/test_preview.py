@@ -373,7 +373,7 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("drone-j1 (j1)", said)
         self.assertIn("drone-j2 (j2)", said)
         self.assertNotIn("j3", said)
-        self.assertIn("a working Drone would be adopted and the refusal skipped", said)
+        self.assertIn("the working Drones above would be adopted and the refusal skipped", said)
         for cost in ("cannot be redirected, poked or handed a verdict", "undercount", "`unheard`",
                      "servers stop when Fleet stops", "gate re-runs from scratch",
                      "a Drone that cannot be adopted is ended"):
@@ -384,6 +384,8 @@ class RestartAdopt(unittest.TestCase):
         code, said = self.restart("--adopt", "--dry-run")
         self.assertEqual(code, 0)
         self.assertNotIn("undercount", said)
+        self.assertNotIn("would be adopted", said)
+        self.assertIn("no Drone is working, so there is nothing to skip", said)
 
     def test_adopt_still_refuses_when_the_roster_does_not_answer(self):
         self.fleet({})

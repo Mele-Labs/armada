@@ -57,6 +57,8 @@ export type Wiring = {
   /** Every window open right now — `main/index.ts`'s own `BrowserWindow.getAllWindows()`. */
   windowIds: () => readonly number[];
   now: Clock;
+  /** `socket.ts`'s two waits, shortened where a test cannot spend minutes. */
+  timing?: { graceMs: number; bootMs: number };
 };
 
 export class FleetConnection {
@@ -180,6 +182,7 @@ export class FleetConnection {
     this.socket = new FleetSocket({
       home: wiring.home,
       now: wiring.now,
+      ...(wiring.timing === undefined ? {} : { timing: wiring.timing }),
       settle: (connection) => this.settle(connection),
       opened: () => {
         this.greeted = false;
