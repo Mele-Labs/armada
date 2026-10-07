@@ -218,15 +218,16 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Decided by the owner, 2 Oct 2026, built 5 Oct 2026 (#1059).** A need is a path and what is needed there, in the declarer's words: `crates/store/src/migrations.rs`, *a new migration*. No repository declares kinds up front, because the file is the resource. Overlap above stays a warning; a declared need is the part that is ordered. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md` has the reasoning.
 
-**One order, shared with `armada need`.** A need is a JSON file per branch and path under `armada-needs/` in the clone's common git directory, and a Job's branch is its identity. Fleet reads and writes those files through `adapters::needs`, which `armada need` uses too, so a Job and a session on its own branch see the same line and neither can be ahead of the other without having declared first. Nothing is in the store.
+**One order, shared with `armada need` and with sessions.** A need is a row of `ledger_attachments`, the session ledger's table (`docs/capabilities/needs.md`), kind `need`, held by the Job. Fleet writes it, and serves `armada need` from the same table, so a Job, a session that reported the need through the intake and a terminal on its own branch see the same line, and none can be ahead of another without having declared first. A terminal's holder is the Job whose branch it is, else the session standing on it, else the branch alone. The files under `armada-needs/` that this replaced are read once at Fleet's first start and left on disk.
 
 | | |
 |---|---|
-| **Declaring** | A Drone adds `needs` to `declare_scope`, the call that corrects its scope, or to a task of `record_plan` or `add_task`. A plan's task carries its needs by declaring them as the plan is kept; the file is the record, so nothing is added to a plan's task |
+| **Declaring** | A Drone adds `needs` to `declare_scope`, the call that corrects its scope, or to a task of `record_plan` or `add_task`. A plan's task carries its needs by declaring them as the plan is kept; the row is the record, so nothing is added to a plan's task |
 | **First goes first** | Declaring again records nothing. A Drone says what it took by calling again with `took` on the need |
 | **A later declarer is told** | Which branch is ahead and what it took, in the peer turn, **at once** rather than after the spacing, and in the next opening brief where no Drone is on the Job. `docs/contracts/agent-prompt.md`, *The peer turn* |
 | **Landing follows the order** | A press to merge is refused while a need ahead of the Job's on the same file stands, as `fleet.merge_waiting_behind`, naming what it waits behind. The sweep that merges for `auto_merge` asks again each rotation |
-| **Spent or given back** | When the Job reaches a terminal status: spent if it landed, given back if it was dropped, which is one removal. A branch deleted locally is given back by whatever reads next |
+| **Spent or given back** | When the Job reaches a terminal status: spent if it landed, given back if it was dropped, both written in `record`, the one place every terminal status passes. A need held by a branch alone is given back by whatever reads next after the branch is deleted |
+| **Its own slot and branch** | A Job holds them as rows too, written where Fleet leases the slot and records the branch, so `who_owns` names a Job that holds a slot and a Job that moves slots gives the old one back |
 
 **`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the Job is noticed landing. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
 

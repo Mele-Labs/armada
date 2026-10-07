@@ -1,22 +1,16 @@
 //! `armada need`: a branch says what it needs on a path, and is told who is
 //! ahead of it there. `docs/capabilities/needs.md`; the decision is
-//! `decisions/2026-10-02-a-plan-leases-its-numbers.md`. This is the half for
-//! agents working outside Fleet.
+//! `decisions/2026-10-02-a-plan-leases-its-numbers.md`. The half for agents
+//! working outside Fleet.
 //!
 //! **Fleet keeps the needs**, as rows on its session ledger, and this verb asks
-//! it: a Job and a session on one machine stand in one order because there is
-//! one table. **Where Fleet is not running this says so and does nothing else.**
-//! A list of its own, kept here, would be a second order that Fleet's merge never
-//! reads, which is what the files under `.git/armada-needs/` were.
+//! it, so a Job and a session share one order. **Where Fleet is not running this
+//! says so and does nothing else**: a list kept here would be a second order
+//! Fleet's merge never reads, which is what the old files were.
 //!
-//! **A need is a path and what is needed there, in the declarer's words**, and
-//! the repository declares no kinds up front: the file is the resource. First
-//! to declare goes first, and **nothing expires by time**: a stalled need is
-//! given back by a person, `--release`.
-//!
-//! **`armada land` still reads the files** ([`Needs`], re-exported for it). It is
-//! being retired for pull requests and is not moved onto the ledger, so a need
-//! declared through Fleet is not one it holds a branch behind.
+//! **`armada land` still reads those files** ([`Needs`], re-exported for it). It
+//! is being retired for pull requests and is not moved, so a need declared
+//! through Fleet is not one it holds a branch behind.
 
 use std::path::Path;
 

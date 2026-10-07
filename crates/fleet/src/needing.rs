@@ -3,20 +3,13 @@
 //!
 //! **A need is a row on the session ledger** (`ledger`), held by the Job as it
 //! holds its slot and its branch (`ledgering`). A session that declares through
-//! the intake, or a terminal through `armada need` (`served`), is a holder of the
-//! same table, so a Job and a session stand in ONE order and `armada need`'s
-//! answer, the peer turn and the merge refusal all read it.
-//!
-//! | Act | What it does to a need |
-//! |---|---|
-//! | `declare_scope`, `record_plan`, `add_task` carrying `needs` | Declares it, and tells this Job's Drone who is ahead |
-//! | A press to merge, under `forge` and under `push` alike | Refused while a need ahead stands, naming what it waits behind, and refused where the branch changes a watched path (`adapters::undeclared`) with no need declared |
-//! | The Job reaching a terminal status | Spends it where it landed, gives it back where it was dropped (`dispatch.rs`, `record`) |
-//!
-//! **Under `merge_by: forge` it is still Fleet that holds**, because it is
-//! Fleet that asks the forge to merge. A person pressing the forge's own button
-//! goes around it; nothing here sees that press. **Nothing expires by time**: a
-//! need that stalls is given back by a person, `armada need --release`.
+//! the intake and a terminal's `armada need` (`served`) hold rows of the same
+//! table, so all three stand in ONE order, and the peer turn, the merge refusal
+//! and `armada need`'s answer read it. `declare_scope`, `record_plan` and
+//! `add_task` declare; a merge is refused while a need ahead stands or a watched
+//! path changed undeclared; `record` spends or gives back at a terminal status.
+//! **Under `forge` it is still Fleet that holds**, since Fleet asks the forge to
+//! merge. **Nothing expires by time**: a person gives a stalled need back.
 
 mod converting;
 pub(crate) mod ledger;

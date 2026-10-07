@@ -876,8 +876,10 @@ the same path has landed or been given back, and `--status` says what it waits
 behind. A need is spent when its branch lands and given back when the branch no
 longer exists here. **Nothing expires by time**: a stalled need holds the
 branches behind it until a person runs `armada need --release <path>` from its
-branch, or deletes the branch. The state is under the git common directory, in
-`armada-needs/`. **`armada land preflight` refuses a branch that changes the
+branch, or deletes the branch. **The needs are Fleet's** (`docs/capabilities/needs.md`):
+`armada need` asks the running Fleet and says so where there is none. **The merge line
+still reads the old files** under the git common directory, in `armada-needs/`, so a
+need declared through Fleet does not hold a branch in it. **`armada land preflight` refuses a branch that changes the
 protocol minor with no need declared for that path**,
 and says to run `armada need <path> "<what>"`; a major change passes.
 

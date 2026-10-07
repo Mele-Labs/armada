@@ -11,8 +11,21 @@ when its merge fails and it renumbers. A need is how the second one hears, while
 it is still working, that the first is already ahead and what it took.
 
 This page is where the need moves once Jobs and Sessions share one ledger. What
-is built today, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
+is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 (*Declared needs*).
+
+## Where it stands
+
+| Part | State |
+| --- | --- |
+| The row, and the one order a Job and a Session share | Built, protocol 23.46 |
+| `armada need` asking Fleet (`act_on_need`, `list_needs`) | Built; where Fleet is not running it says so and records nothing |
+| A Job's own slot and branch as rows | Built |
+| Converting a clone's files | Built, read once at first start, files left on disk |
+| The required status on a pull request | Not built |
+| The `armada` mod reporting a need from a terminal Session | Not built |
+| A Bridge list, and giving a need back from Bridge | Not built |
+| `armada land` | Still reads the files, and is not moved: it is being retired for pull requests |
 
 ## What a person sees
 
@@ -38,7 +51,7 @@ or a pull request. The kind column is open text, so a need adds no migration.
 | `kind` | `need` |
 | `manifest_id` | The repository the path belongs to |
 | `target` | The file or resource, repository-relative: `protocol-version.toml` |
-| `detail` | `{what, took}`: the declarer's words (*a minor*), and what it chose (`23.41`), absent until chosen |
+| `detail` | `{what, took}`: the declarer's words (*a minor*), and what it chose (`23.41`), absent until chosen. Fleet adds `branch` where it declares for a branch, so the line that names who is ahead can say it |
 | `state` | `standing`, `spent` (the holder's work merged), or `given_back` (released, or the holder is gone) |
 | `since`, `changed_at` | When declared, and when the state last changed |
 
@@ -48,11 +61,16 @@ and repository, which is right for a slot and a branch and wrong here, because
 one Job may wait on a protocol minor and on a second path at once.
 
 **Reading it.** `who_owns` (`GET /sessions/owner?kind=need&target=&manifest_id=`)
-already returns standing holders first, so *who is ahead on this path* is that
-answer minus the asker. A Session declares through the intake
+returns standing holders first, so *who is ahead on this path* is that answer
+minus the asker. `list_needs` (`GET /needs`) is the same rows for one repository
+in the order they are served, each holder named as a person would. A Session declares through the intake
 (`POST /sessions/report`, fact `attached` with `{kind: need, target, detail}`),
 and gives one back or spends it with fact `settled`. A Job's needs are written by
 Fleet, from `declare_scope`, a plan's task and `add_task`, on the same table.
+**`armada need` names a branch and Fleet finds the holder**: the Job whose branch
+it is, else a Session standing on it, else the branch alone, held as a `session`
+row with the id `branch:<name>`. A need held by a branch alone is given back when
+git no longer has the branch.
 
 ## The rules, one for both holders
 
@@ -81,12 +99,13 @@ Fleet, from `declare_scope`, a plan's task and `add_task`, on the same table.
 
 **Converting what exists.** On the first start with the table, Fleet reads each
 clone's `armada-needs/` files into rows, with the branch name resolved to the Job
-or Session that owns it where the ledger knows one, then stops reading the files.
-Nothing is deleted until a person has seen the list in Bridge.
+that owns it where there is a live one, else held by the branch alone, in the
+order the clone had, then stops reading the files. A row of kind `needs_files`
+records that it was done. Nothing is deleted until a person has seen the list in
+Bridge. A repository added after Fleet started is converted on the next start.
 
 ## Not decided
 
 - Whether a need expires by time. It does not today.
-- Whether a Job's own slot and branch are written as rows in the same change. The ledger does not write them yet, so `who_owns` cannot name a Job that holds a slot; writing them with the Job's needs would close that.
 - What a repository without Fleet gets. It has no order and no status.
 - Whether the required status is Fleet's alone or also a repository workflow.

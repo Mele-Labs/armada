@@ -265,8 +265,13 @@ Two branches that each took the same protocol minor, and whichever landed
 second renumbered. (A migration no longer takes a number: it has a name,
 `docs/practices/store-migrations.md`.) `armada need <path> "<what>"` (#1059,
 `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`) is declared before
-the number is chosen. Each need is a file under `armada-needs/` in the git common
-directory, with its branch, path, what was said, what the branch took, and when.
+the number is chosen. **A need is a row on Fleet's session ledger** now
+(`docs/capabilities/needs.md`), with its holder, path, what was said, what was
+taken, and when; `armada need` asks Fleet and says so where Fleet is not running.
+**`armada land` still reads the old files** under `armada-needs/` in the git
+common directory, so a need declared through Fleet is not one its line holds a
+branch behind. That is left as it is: `armada land` is being retired for pull
+requests, and the pull request's status is Fleet's order (*Not built*, above).
 
 - **First to declare goes first.** The declarer is told which needs are ahead and
   what each took, and picks the value after. A branch that already changes the
@@ -275,9 +280,9 @@ directory, with its branch, path, what was said, what the branch took, and when.
   unspent need ahead of them; a held one stays queued with `waiting behind ...` in
   its outcome. A runner left with only held entries ends, and the next `land`,
   `--status` or `need --release` starts one that looks again.
-- **Spent on landing, given back when the branch is gone.** A landed branch's needs
-  are removed as it is reported landed; a need whose branch no longer exists
-  locally is removed the next time anything reads the needs.
+- **Spent on landing, given back when the branch is gone.** A Job landing spends
+  its needs and a Job dropped gives them back; a need held by a branch alone is
+  given back the next time anything reads the needs after the branch is deleted.
 - **Nothing expires by time.** Whether a stalled need should is open, so a person
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
@@ -294,14 +299,14 @@ directory, with its branch, path, what was said, what the branch took, and when.
   place another repository would name its own. Fleet answers with
   `fleet.merge_waiting_behind`; the sentence says which.
 
-This is the half for agents outside Fleet, and Fleet's half is the same files.
-A Job's branch is its identity, so a Drone declares through `declare_scope` or a
-plan's task and Fleet writes the need `armada need` would have written, through
-`adapters::needs`; Fleet's own press to merge reads the same line and refuses
-with `fleet.merge_waiting_behind` while a need ahead stands, under `forge` and
-`push` alike (`docs/concepts/fleet.md`, *Declared needs*). A Job reaching a
-terminal status spends or gives back what it held, so `armada land` stops
-holding a branch behind it. Nothing is added to the store or to a plan's task.
+This is the half for agents outside Fleet, and Fleet's half is the same table.
+A Drone declares through `declare_scope` or a plan's task and Fleet writes the
+row, holder the Job; a terminal's `armada need` is the same row held by the Job
+or session standing on its branch. Fleet's own press to merge reads the same
+order and refuses with `fleet.merge_waiting_behind` while a need ahead stands,
+under `forge` and `push` alike (`docs/concepts/fleet.md`, *Declared needs*). A
+Job reaching a terminal status spends or gives back what it held. Nothing is
+added to a plan's task.
 
 ## Where each part goes in Fleet
 
