@@ -42,6 +42,34 @@ export function ghAct(command: string): GhAct | undefined {
   return { act: hit[1] as GhAct['act'], number }
 }
 
+export type NeedAct =
+  | { act: 'declare'; path: string; what: string }
+  | { act: 'took'; path: string; value: string }
+  | { act: 'release'; path: string }
+
+/** The words of a shell command, quotes taken off. */
+function wordsOf(text: string): string[] {
+  return [...text.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)].map(
+    hit => hit[1]?.replace(/\\(.)/g, '$1') ?? hit[2] ?? hit[3],
+  )
+}
+
+/** The `armada need` a command runs, in the three forms that declare, take or give back. */
+export function needAct(command: string): NeedAct | undefined {
+  const hit = /(?:^|[;&|(])\s*armada\s+need\s+([^|;&\n]*)/.exec(command)
+  if (hit === null) return undefined
+  const rest = wordsOf(hit[1])
+  const path = (one: string) => one.replace(/^(\.\/)+/, '')
+  if (rest[0] === '--release' && rest.length === 2) return { act: 'release', path: path(rest[1]) }
+  if (rest[0] === '--took' && rest.length === 3) {
+    return { act: 'took', path: path(rest[1]), value: rest[2] }
+  }
+  if (rest.length === 2 && !rest[0].startsWith('-')) {
+    return { act: 'declare', path: path(rest[0]), what: rest[1] }
+  }
+  return undefined
+}
+
 const DISPATCH = /^mcp__armada-fleet__(propose_job|propose_from_request|approve_dispatch|redispatch_job)$/
 
 export function isDispatch(tool: string): boolean {

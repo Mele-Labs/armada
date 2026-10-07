@@ -23,7 +23,7 @@ is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 | A Job's own slot and branch as rows | Built |
 | Converting a clone's files | Built, read once at first start, files left on disk |
 | The required status on a pull request | Not built |
-| The `armada` mod reporting a need from a terminal Session | Not built |
+| The `armada` mod reporting a need from a terminal Session | Built: a declare, a took and a release, from the Bash command |
 | A Bridge list, and giving a need back from Bridge | Not built |
 | `armada land` | Still reads the files, and is not moved: it is being retired for pull requests |
 
@@ -95,7 +95,7 @@ git no longer has the branch.
 | `armada need` writes the files | `armada need` asks Fleet, from any session or machine |
 | A Job declares through `declare_scope`, `record_plan`, `add_task` | Unchanged for the Job; Fleet writes the ledger row |
 | `armada land` holds a branch behind its needs | The pull request's required status, published by Fleet |
-| A terminal Session cannot declare | The `armada` mod reports the need through the ledger channel |
+| A terminal Session cannot declare | The `armada` mod reports the need through the ledger channel (built) |
 
 **Converting what exists.** On the first start with the table, Fleet reads each
 clone's `armada-needs/` files into rows, with the branch name resolved to the Job

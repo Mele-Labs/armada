@@ -47,7 +47,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
-The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of the first, as a title.
+The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness. It sends no message text and no prompt apart from the first line of the first, as a title. A need is reported from the Bash command `armada need <path> "<what>"`, `--took` or `--release`, as the path, the words it was declared in and what it took, and from nothing else.
 
 ## What is kept
 

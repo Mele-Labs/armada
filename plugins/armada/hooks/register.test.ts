@@ -148,3 +148,84 @@ test('the end of a session is told before the process goes', async ($, on) => {
 
   expect(facts(posts).at(-1)).toEqual({ kind: 'ended', reason: 'prompt_input_exit' })
 })
+
+const ran = (command: string) => ({
+  result: { stdout: 'ok', stderr: '', interrupted: false },
+  text: 'ok',
+})
+
+const needs = (posts: Posted[]) =>
+  facts(posts).filter(fact => JSON.stringify(fact).includes('"need"'))
+
+test('declaring, taking and giving back a need are each reported as the session, and nothing else goes', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({
+    tool: 'Bash',
+    command: 'armada need ./protocol-version.toml "a minor, the secret plan"',
+  })
+  await $.tool.call({ tool: 'Bash', command: 'armada need --took protocol-version.toml "23.50"' })
+  await $.tool.call({ tool: 'Bash', command: 'armada need --release protocol-version.toml' })
+  await clock.settle()
+
+  const sent = posts.slice(before)
+  expect(sent.every(one => one.body.session_id === 'S1')).toBe(true)
+  expect(facts(sent)).toEqual([
+    {
+      kind: 'attached',
+      attachment: {
+        kind: 'need',
+        target: 'protocol-version.toml',
+        detail: { what: 'a minor, the secret plan' },
+      },
+    },
+    {
+      kind: 'attached',
+      attachment: {
+        kind: 'need',
+        target: 'protocol-version.toml',
+        detail: { what: 'a minor, the secret plan', took: '23.50' },
+      },
+    },
+    {
+      kind: 'settled',
+      attachment: { kind: 'need', target: 'protocol-version.toml' },
+      state: 'given_back',
+    },
+  ])
+})
+
+test('a took with no declaration this session is not reported, and a status or other command is not either', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'armada need --took a.toml "1"' })
+  await $.tool.call({ tool: 'Bash', command: 'armada need --status' })
+  await $.tool.call({ tool: 'Bash', command: 'echo armada need a.toml "x"' })
+  await clock.settle()
+
+  expect(needs(posts)).toEqual([])
+})
+
+test('a need declared while Fleet is down costs nothing and is told again when it answers', async ($, on) => {
+  let up = false
+  const { posts, attempts, clock } = world(on, { running: () => up })
+  on('tool.call', { tool: 'Bash' }, e => ran(e.command))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'armada need a.toml "a minor"' })
+  await clock.settle()
+  expect(posts).toEqual([])
+  expect(attempts.fetches).toBe(0)
+
+  up = true
+  await clock.advance(31_000)
+  await $.prompt.submit({ text: 'go on', origin: { kind: 'user' } } as never)
+  await clock.settle()
+  expect(needs(posts)).toEqual([
+    { kind: 'attached', attachment: { kind: 'need', target: 'a.toml', detail: { what: 'a minor' } } },
+  ])
+})
