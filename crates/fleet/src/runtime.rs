@@ -319,6 +319,16 @@ pub fn machine_path() -> Result<PathBuf, NoHome> {
         .join(FILE_NAME))
 }
 
+/// Where the installed copy of the `armada` mod is kept, under `home`: the folder the owner installs
+/// from, which `scripts/restart` fills.
+pub fn mod_dir(home: &str) -> PathBuf {
+    PathBuf::from(home)
+        .join("Library")
+        .join("Application Support")
+        .join("Armada")
+        .join("mod")
+}
+
 /// `HOME` is unset, so there is no machine directory to resolve.
 #[derive(Debug, PartialEq, Eq)]
 pub struct NoHome;

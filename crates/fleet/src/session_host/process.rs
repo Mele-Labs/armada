@@ -31,6 +31,8 @@ pub struct Start {
     pub session: String,
     /// Whether a process of this session has run before.
     pub resuming: bool,
+    /// The session whose conversation the first process starts as a copy of.
+    pub forking: Option<String>,
     /// What another session addresses this one by.
     pub name: String,
     pub model: Option<String>,
@@ -157,6 +159,10 @@ impl Processes for ProcessHost {
             start.readable.clone(),
         )
         .map_err(|why| why.to_string())?;
+        let hosted = match &start.forking {
+            Some(old) => hosted.forking(old).map_err(|why| why.to_string())?,
+            None => hosted,
+        };
         let launch = self
             .agent
             .render_hosted_session(&hosted)

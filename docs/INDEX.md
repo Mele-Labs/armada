@@ -237,6 +237,9 @@ approximations.
 - [`spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md`](spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md)
   — the mod in a terminal session submits held text as the person's own prompt;
   Fleet holds it until the mod polls.
+- [`spikes/028-can-a-session-be-forked-from-a-dead-one.md`](spikes/028-can-a-session-be-forked-from-a-dead-one.md)
+  — `--resume <old> --fork-session --session-id <new>` copies a conversation under
+  an id Fleet chooses, from any directory.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

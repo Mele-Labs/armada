@@ -24,7 +24,7 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
-const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub(super) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
@@ -77,6 +77,9 @@ where
         if let Some(from) = start.pilot.take() {
             return self.start_piloted(start, from).await;
         }
+        if let Some(from) = start.fork.take() {
+            return self.start_forked(start, from).await;
+        }
         let served = self.served_named(Some(&start.manifest_id))?;
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -102,6 +105,7 @@ where
                     ended_at: None,
                     end_reason: None,
                     figures: Default::default(),
+                    mod_version: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             store
@@ -114,6 +118,7 @@ where
                     ran: false,
                     lease_slot: None,
                     lease_branch: None,
+                    fork_of: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
@@ -658,6 +663,7 @@ where
             directory: directory.clone(),
             session: id.to_string(),
             resuming: hosting.ran,
+            forking: hosting.fork_of.clone(),
             name: address_of(id),
             model: hosting.model.clone(),
             effort: hosting.effort.clone(),

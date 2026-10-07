@@ -66,6 +66,26 @@ test("Sessions wired: a new Session starts on the picked repository, opens blank
   await expect.element(page.getByRole("region", { name: "Thread" }).getByText("Fix the flaky store test")).toBeVisible();
 });
 
+const toast = (headline: string) => page.getByText(headline, { exact: true }).first();
+
+test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is said in the thread", async () => {
+  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
+  fleet.refusesSend = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
+  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Ship it");
+  await userEvent.click(page.getByRole("button", { name: "Send" }));
+  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+  await expect.element(page.getByText("that session is not listening.")).not.toBeInTheDocument();
+
+  fleet.refusesSend = { code: "fleet.session_closed", message: "That Session is closed." };
+  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "Ship it again");
+  await userEvent.click(page.getByRole("button", { name: "Send" }));
+  await expect.element(toast("That Session is closed.")).toBeVisible();
+  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+});
+
 test("Sessions wired: rows stream into an open thread, and the first write is the ledger's slot beside its branch", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));
@@ -112,7 +132,7 @@ test("Sessions wired: mode, model and effort go to Fleet as the person set them"
 });
 
 test("Sessions wired: a terminal session opens to its ledger and takes a message, with its mode shown and not set", async () => {
-  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan" } })]);
+  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script", attachments: [held("branch", "release/notes")], terminal: { mode: "plan", listening: true } })]);
   mount(served(fleet));
   await onSessions();
   await userEvent.click(page.getByRole("button", { name: "Release notes script" }));
