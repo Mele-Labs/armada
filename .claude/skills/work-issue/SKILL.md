@@ -96,9 +96,10 @@ armada need --took protocol-version.toml "23.41"               # once chosen, af
 
 A need is a path and what is needed there, in your words, and the first to
 declare goes first. If something is ahead of you, pick the value after what it
-took. `armada land` then holds your branch until every need ahead of yours has
-landed, so you land in order and nothing is renumbered. Needs are unchanged
-for now: Fleet will publish them as a required check on the pull request later. Declaring is a no-op the
+took. Fleet keeps the needs, so `armada need` asks the running Fleet and says so
+where there is none. Its merge holds a Job behind every need ahead of its own, so
+you land in order and nothing is renumbered; a required status on the pull request
+is not built. Declaring is a no-op the
 second time. **If you had already written a number when you declared**, it says
 so: search comments and docs for the old number and change every mention.
 **`armada land preflight` and Fleet's merge refuse a branch that changes the

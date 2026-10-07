@@ -801,6 +801,7 @@ where
             .await
             .record_branch(&job)
             .map_err(Adrift::Writing)?;
+        self.job_holds_branch(&job).await;
         Ok(job)
     }
 

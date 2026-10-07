@@ -58,7 +58,7 @@ Two tables, in `crates/store`. The second is not the first's child.
 | `sessions` | A session: harness, origin, repository, directory, title, `live` or `ended`, when it started, was last seen and last finished a turn, the figures it last reported | `id`, the harness's own |
 | `ledger_attachments` | One thing a holder took or did | `holder_kind`, `holder_id`, `kind`, `manifest_id`, `target` |
 
-A holder is `{ kind: session | job, id }` and points at neither table, so a Job or a need can hold rows without a table of its own. A `kind` is open text:
+A holder is `{ kind: session | job, id }` and points at neither table, so a Job or a need can hold rows without a table of its own. **A Job's own slot and branch are rows held by the Job**, written where Fleet leases the slot and records the branch, so `who_owns` names a Job that holds a slot. A `kind` is open text:
 
 | `kind` | `target` | Held until |
 |---|---|---|
@@ -66,6 +66,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `branch` | the branch's name | the session checks out another or ends |
 | `pr` | the pull request's number | it merges (`spent`) or closes (`given_back`) |
 | `job` | the Job's id | nothing settles it yet |
+| `need` | the path, repository-relative | its holder's work merges (`spent`), or the holder is gone or releases it (`given_back`). Not exclusive: `docs/capabilities/needs.md` |
 | `subagent` | the agent's id | |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
@@ -83,8 +84,6 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 Both reads are on the agent's door, so a session can ask who else holds the branch it is about to take.
 
 ## Not built
-
-**A Job's own branch and slot are not rows on the ledger yet**, so `who_owns` does not name a Job that holds a slot. The holder is generic for the day they are.
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
 

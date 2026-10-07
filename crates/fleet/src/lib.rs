@@ -155,6 +155,7 @@ pub mod kit_allowlist;
 mod landing;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
+mod ledgering;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;

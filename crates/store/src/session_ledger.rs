@@ -102,6 +102,13 @@ pub struct Holder {
 }
 
 impl Holder {
+    pub fn job(id: impl Into<String>) -> Holder {
+        Holder {
+            kind: HolderKind::Job,
+            id: id.into(),
+        }
+    }
+
     pub fn session(id: impl Into<String>) -> Holder {
         Holder {
             kind: HolderKind::Session,
@@ -380,6 +387,62 @@ impl Store {
             }
         }
         Ok(kept)
+    }
+
+    /// The standing rows of `kind` in one repository, in the order they were
+    /// taken: `since`, then the holder's id. `target` narrows to one. **The
+    /// order a need is served in**, which `attachments_at` does not give: that
+    /// one answers who holds a thing now, this one who is waiting for it.
+    pub fn standing_in_order(
+        &self,
+        kind: &str,
+        manifest_id: &str,
+        target: Option<&str>,
+    ) -> Result<Vec<KeptAttachment>, WriteError> {
+        let doing = "reading the session ledger";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {ATTACHMENT_COLUMNS} FROM ledger_attachments
+                 WHERE kind = ?1 AND manifest_id = ?2 AND state = 'standing'
+                   AND (?3 IS NULL OR target = ?3)
+                 ORDER BY since, holder_id, target"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map(params![kind, manifest_id, target], kept_attachment)
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let mut kept = Vec::new();
+        for row in rows {
+            if let Some(row) = row.map_err(fault(doing)).map_err(WriteError::Database)? {
+                kept.push(row);
+            }
+        }
+        Ok(kept)
+    }
+
+    /// Move everything `holder` still holds, of `kind` or of every kind, to
+    /// `state`: a need spent where its Job landed, given back where it was
+    /// dropped. `true` where anything changed.
+    pub fn settle_held(
+        &mut self,
+        holder: &Holder,
+        kind: Option<&str>,
+        state: AttachmentState,
+        at: &str,
+    ) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE ledger_attachments SET state = ?5, changed_at = ?4
+                 WHERE holder_kind = ?1 AND holder_id = ?2 AND state = 'standing'
+                   AND (?3 IS NULL OR kind = ?3)",
+                params![holder.kind.as_text(), holder.id, kind, at, state.as_text()],
+            )
+            .map(|rows| rows > 0)
+            .map_err(fault("settling what a holder held"))
+            .map_err(WriteError::Database)
     }
 
     /// Take `attachment`: a new row, or the existing one made standing again

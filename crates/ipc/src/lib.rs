@@ -117,6 +117,9 @@ mod manifest_proposal;
 pub mod mcp;
 mod merge_hub;
 mod merge_line;
+/// `armada need`: a checkout says what it needs on a path, and Fleet answers from
+/// the session ledger. `docs/capabilities/needs.md`.
+mod needs;
 /// Where two Jobs claim the same paths. **A fact on the card, never a
 /// verdict** — nothing in it is readable as a refusal.
 mod overlap;
@@ -314,6 +317,7 @@ pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
     MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
+pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use preferences::{Preferences, SavePreference};
 pub use proposing::{
