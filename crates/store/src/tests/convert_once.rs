@@ -70,7 +70,6 @@ fn with_the_file() -> Vec<Migration> {
 #[test]
 fn the_recipe_opens_with_its_file_and_applies_nothing_again() {
     if !has_sqlite3() {
-        eprintln!("sqlite3 is not installed; skipped");
         return;
     }
     let dir = TempDir::new();

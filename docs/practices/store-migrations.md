@@ -60,8 +60,8 @@ once with Fleet stopped, records it under names: it copies the file to
 `<db>.before-names`, then in one transaction creates `armada_migrations`, records
 the 113 entries and `step_baseline.survives_restart`, and sets `schema_version`
 to 113. The step-baseline branch then adds
-`crates/store/migrations/20261006T2300Z-step_baseline.survives_restart.sql`
-instead of a list entry. Delete the script once that file is converted.
+`20261006T2300Z-step_baseline.survives_restart.sql` in the migrations
+directory instead of a list entry. Delete the script once that file is converted.
 
 ## Where it is checked
 
