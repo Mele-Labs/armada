@@ -252,6 +252,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
+      ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
@@ -442,6 +443,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
       case "job":
@@ -465,6 +467,7 @@ function entriesOf(
                   : {}),
           ...(one.looking === true ? { looking: true } : {}),
           ...(one.slot === undefined ? {} : { slot: one.slot }),
+          ...(one.state === "landed" || one.state === "superseded" ? { finished: true } : {}),
           onOpen: () => goes.onOpenJob(one.id),
         };
       case "studio":
@@ -487,6 +490,7 @@ function entriesOf(
           name: `Subagent ${one.task}, ${one.state}`,
           text: one.task,
           mark: { glyph: one.state, said: one.state === "running" ? "Running" : "Done" },
+          ...(one.state === "running" ? {} : { finished: true }),
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
@@ -571,6 +575,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         {...{
               actions: (
                 <>
@@ -616,7 +621,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             })}
       >
         <div className="armada-session-frame__centre">
-          <Refused />
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}

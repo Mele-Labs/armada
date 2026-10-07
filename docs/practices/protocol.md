@@ -3308,6 +3308,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
+## Protocol 23.62: a mod that is out of date
+
+`docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `report_session` | `SessionFact` `started.mod_version?`, `tuned.mod_version?` | The version of the `armada` mod reporting. Kept on the session's row, and a fact without one leaves it |
+| `session.changed`, `list_sessions`, `get_session` | `SessionRecord.mod_out_of_date?` | `true` for a terminal session whose mod is older than its repository's `plugins/armada/.claude-plugin/plugin.json`, or reported none. Absent otherwise |
+
+**An older Bridge ignores the field, and an older mod sends none**, so a session running one is marked as soon as Fleet and the repository carry a version.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

@@ -29,6 +29,7 @@ import {
   effortOf,
   modeOf,
   modelName,
+  MOD_VERSION,
   transcriptPath,
 } from './facts'
 import type { Door, Fact, Report } from './fleet'
@@ -48,7 +49,7 @@ type Known = {
   cwd: string
   title?: string
   branch?: string
-  prs: Map<string, string>
+  prs: Map<string, Record<string, string>>
   needs: Map<string, Record<string, string>>
   messages: Map<string, number>
   artifacts: Map<string, Record<string, string>>
@@ -66,7 +67,7 @@ function told(id: string, fact: Fact): Report {
 
 function everything(): Report[] {
   return [...known].flatMap(([id, one]) => [
-    told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal' }),
+    told(id, { kind: 'started', cwd: one.cwd, title: one.title, origin: 'terminal', mod_version: MOD_VERSION }),
     ...(one.tuned === undefined ? [] : [told(id, one.tuned)]),
     ...(one.branch === undefined
       ? []
@@ -74,8 +75,8 @@ function everything(): Report[] {
     ...[...one.needs].map(([path, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'need', target: path, detail } }),
     ),
-    ...[...one.prs].map(([number, url]) =>
-      told(id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail: { url } } }),
+    ...[...one.prs].map(([number, detail]) =>
+      told(id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } }),
     ),
     ...[...one.artifacts].map(([target, detail]) =>
       told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
@@ -197,16 +198,30 @@ async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
 }
 
 async function pullRequestOn($: Dollar, id: string, one: Known): Promise<void> {
-  const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state'], {
+  const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state,title,headRefName,isDraft'], {
     cwd: one.cwd,
     timeoutMs: 10_000,
   })
   if (ran.exitCode !== 0) return
-  const view = JSON.parse(ran.stdout) as { number?: number; url?: string; state?: string }
+  const view = JSON.parse(ran.stdout) as {
+    number?: number
+    url?: string
+    state?: string
+    title?: string
+    headRefName?: string
+    isDraft?: boolean
+  }
   if (typeof view.number !== 'number') return
   const number = String(view.number)
-  const detail = { url: view.url ?? '', state: (view.state ?? '').toLowerCase() }
-  one.prs.set(number, detail.url)
+  // The ledger names a pull request by its title, so a row told without one draws as a bare number.
+  const detail: Record<string, string> = {
+    url: view.url ?? '',
+    address: view.url ?? '',
+    state: view.isDraft === true && view.state === 'OPEN' ? 'draft' : (view.state ?? '').toLowerCase(),
+    ...(view.title === undefined ? {} : { title: view.title }),
+    ...(view.headRefName === undefined ? {} : { branch: view.headRefName }),
+  }
+  one.prs.set(number, detail)
   say($, id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail } })
   if (view.state === 'MERGED') settle($, id, 'pr', number, 'spent')
   if (view.state === 'CLOSED') settle($, id, 'pr', number, 'given_back')
@@ -237,7 +252,7 @@ async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   if (await $.env.get('ARMADA_DRONE')) return
   const where = cwd ?? (await $.session.cwd())
   known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
-  say($, id, { kind: 'started', cwd: where, origin: 'terminal' })
+  say($, id, { kind: 'started', cwd: where, origin: 'terminal', mod_version: MOD_VERSION })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
 }
@@ -265,6 +280,7 @@ async function tuned(
   }
   if (withCommands) {
     next.commands = (await $.command.list()).map(c => ({ name: c.name, says: c.description }))
+    next.mod_version = MOD_VERSION
   }
   const before = one.tuned
   const same =
@@ -273,7 +289,7 @@ async function tuned(
     before.effort === (next.effort ?? before.effort) &&
     before.mode === (next.mode ?? before.mode)
   if (same && !withCommands) return
-  one.tuned = { ...before, ...next, commands: undefined }
+  one.tuned = { ...before, ...next, commands: undefined, mod_version: undefined }
   say($, id, next)
 }
 
@@ -317,11 +333,9 @@ async function afterBash($: Dollar, command: string, text: string): Promise<void
   const act = ghAct(command)
   if (act?.act === 'create') {
     for (const pr of pullRequestsIn(text)) {
-      one.prs.set(pr.number, pr.url)
-      say($, id, {
-        kind: 'attached',
-        attachment: { kind: 'pr', target: pr.number, detail: { url: pr.url } },
-      })
+      const detail = { url: pr.url }
+      one.prs.set(pr.number, detail)
+      say($, id, { kind: 'attached', attachment: { kind: 'pr', target: pr.number, detail } })
     }
   }
   if (act?.act === 'merge' || act?.act === 'close') {

@@ -97,6 +97,14 @@ export type SessionComposerProps = {
   modeHidden?: boolean;
 };
 
+/** The commands a `/` query keeps: names that start with it first, then names that hold it. */
+function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
+  const wanted = query.toLowerCase();
+  const starts = commands.filter((one) => one.name.toLowerCase().startsWith(wanted));
+  const holds = commands.filter((one) => !one.name.toLowerCase().startsWith(wanted) && one.name.toLowerCase().includes(wanted));
+  return [...starts, ...holds];
+}
+
 type Item = { id: string; name: string; says?: string; tag?: ComposerTag };
 
 /** What the caret is in: a `/` at the start of the message, or an `@` at the start of a word. */
@@ -143,7 +151,7 @@ export function SessionComposer({
     token === undefined
       ? []
       : token.trigger === "/"
-        ? commands.filter((one) => one.name.toLowerCase().includes(token.query.toLowerCase())).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
+        ? matching(commands, token.query).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
         : TAG_KINDS.flatMap(({ kind }) =>
             taggable
               .filter((one) => one.kind === kind && !tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
@@ -348,6 +356,9 @@ function Row({ item, on, onHover, onChoose }: { item: Item; on: boolean; onHover
       role="option"
       aria-selected={on}
       className={on ? "armada-mention__row armada-mention__row--active" : "armada-mention__row"}
+      ref={(node) => {
+        if (on) node?.scrollIntoView?.({ block: "nearest" });
+      }}
       onMouseEnter={onHover}
       onMouseDown={(event) => {
         event.preventDefault();

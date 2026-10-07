@@ -105,6 +105,8 @@ export class FakeSessionsFleet {
   private jobs: JobSummary[] = [];
   /** Set to have the next take over, or the next exit, refused the way Fleet refuses: a 409 and nothing changed. */
   refuses: { code: string; message: string } | undefined;
+  /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
+  refusesSend: { code: string; message: string } | undefined;
   private minted = 0;
   private rowed = 0;
 
@@ -188,6 +190,7 @@ export class FakeSessionsFleet {
             return { ok: true };
           },
           sendSessionMessage: async (send) => {
+            if (this.refusesSend !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesSend } as never };
             this.calls.sent.push(send);
             this.row(send.session_id, { kind: "message", id: this.rowId(), at: AT, from: { kind: "you" }, text: send.text });
             return this.change(send.session_id, (one) => ({ ...one, hosted: { ...one.hosted!, turn: { state: "working" } } }));

@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
+import { MOD_VERSION } from './facts'
+
 // Fleet as the mod meets it: a runtime file naming a port, and whatever answers
 // there. The engine's own `$` calls are what the test answers.
 const RUNNING = '{"protocol_version":{"major":23,"minor":43},"pid":1,"port":4242,"started_at":"x"}'
@@ -10,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string> } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -43,6 +45,7 @@ function world(
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
+    if (options.pullRequest !== undefined) return { value: { exitCode: 0, stdout: options.pullRequest, stderr: '' } }
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
@@ -76,7 +79,7 @@ test('a session starting is told to Fleet with its directory and its branch', as
   expect(posts[0].url).toBe('http://127.0.0.1:4242/sessions/report')
   expect(posts[0].body.harness).toBe('claude_code')
   expect(posts[0].body.session_id).toBe('S1')
-  expect(posts[0].body.fact).toEqual({ kind: 'started', cwd: '/repos/armada', origin: 'terminal' })
+  expect(posts[0].body.fact).toEqual({ kind: 'started', cwd: '/repos/armada', origin: 'terminal', mod_version: MOD_VERSION })
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
     attachment: { kind: 'branch', target: 'fleet/session-ledger' },
@@ -106,6 +109,23 @@ test('a pull request a session opens is attached from the address gh printed', a
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
     attachment: { kind: 'pr', target: '1853', detail: { url: URL } },
+  })
+})
+
+test('a pull request read off the branch carries its title, branch and address', async ($, on) => {
+  const { posts, clock } = world(on, {
+    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock', isDraft: true }),
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: {
+      kind: 'pr',
+      target: '1853',
+      detail: { url: URL, address: URL, state: 'draft', title: 'Pin the store clock', branch: 'fix/store-clock' },
+    },
   })
 })
 
@@ -299,6 +319,7 @@ test('what the terminal runs on is told once with the commands it lists', async 
     kind: 'tuned',
     model: 'haiku',
     commands: [{ name: 'review', says: 'Review the pull request' }],
+    mod_version: MOD_VERSION,
   })
 })
 
