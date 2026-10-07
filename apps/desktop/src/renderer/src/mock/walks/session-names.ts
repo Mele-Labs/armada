@@ -1,4 +1,4 @@
-// The Sessions list with the name over its ledger, and a Session renamed from its header.
+// The Sessions list with the name over its ledger, and Sessions renamed from their headers, one of them untitled.
 // Over the `session-names` scenario, which holds two terminal Sessions beside the usual ones:
 // one whose first prompt opened with an agent message, and one holding six pull requests.
 // Told twice: wide, and below the breakpoint.
@@ -28,6 +28,11 @@ function steps(narrow: boolean): Step[] {
     { look: inside(frame, button("Ledger review, rename")), say: "A Session from a terminal is renamed the same way" },
     { press: rail("Sessions"), say: "Back to the list" },
     { look: inside(sessions, role("listitem", "Ledger review")), say: "The list has the new name" },
+    { look: inside(sessions, role("listitem", "s7")), say: "One Session has no name yet, so the list shows its address" },
+    { press: inside(inside(sessions, role("listitem", "s7")), button(/s7/)), say: "Opened" },
+    { press: inside(region("Session s7"), button("Rename")), say: "With no name to press, the header offers Rename as an icon" },
+    { type: "Spike notes\n", into: inside(region("Session s7"), role("textbox", "Session name")), say: "Typed, and Enter saves it" },
+    { look: inside(region("Session s7"), button("Spike notes, rename")), say: "An untitled Session is named from its header" },
   ];
 }
 

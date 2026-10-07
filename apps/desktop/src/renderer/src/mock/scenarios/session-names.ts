@@ -1,5 +1,5 @@
 // The Sessions list with a name over its ledger, and a Session renamed from its header. Over the
-// `sessions` scenario, with two more Sessions open beside its own: one from a terminal whose first
+// `sessions` scenario, with three more Sessions open beside its own: one without a title, one from a terminal whose first
 // prompt came wrapped in an agent message, and one holding six pull requests. The walk
 // `session-names` plays it.
 
@@ -51,6 +51,15 @@ const more: Session[] = [
       pull(1855, "passed"),
       pull(1856, "pending"),
     ],
+  },
+  {
+    id: "s7",
+    terminal: true,
+    turn: idle,
+    lastTurn: "12:40",
+    lastTurnAt: minutesAgo(5 * 24 * 60),
+    rows: [],
+    attachments: [{ kind: "branch", name: "spike/untitled", slot: 3 }],
   },
 ];
 

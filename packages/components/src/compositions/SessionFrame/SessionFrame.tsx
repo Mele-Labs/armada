@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CircleDashed, CircleDot, Eye, ShieldX, SquareTerminal } from "lucide-react";
+import { CircleDashed, CircleDot, Eye, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -61,6 +62,17 @@ export type SessionFrameProps = {
 function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: string) => void }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   if (onRename === undefined) return <span className="armada-session-frame__title">{title}</span>;
+  if (draft === undefined && title === undefined) {
+    return (
+      <span className="armada-session-frame__title">
+        <Tooltip label="Rename">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Rename" onClick={() => setDraft("")}>
+            <SquarePen size={16} strokeWidth={2} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      </span>
+    );
+  }
   if (draft === undefined) {
     return (
       <Tooltip label="Rename">
