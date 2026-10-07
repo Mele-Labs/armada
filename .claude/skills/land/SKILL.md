@@ -14,36 +14,46 @@ this session opened and pushed, named from what you did here. If you cannot name
 one, say so and stop. **Never merge a pull request this session did not open**
 unless he names its number.
 
-**Merge it with a merge commit, and let GitHub wait for `ci`:**
+**Put it in the merge queue.** `main` has one (#1920): GitHub tests each pull
+request on top of the ones ahead of it and merges it once `ci` passes there.
 
 ```
 gh pr merge <n> --merge --auto
 ```
 
-The repository allows merge commits and auto-merge only. `--squash`, `--rebase`
-and `--admin` are refused by `.claude/hooks/guard_merge.py`, as is a push to
-`main`. GitHub can refuse `--auto` for a pull request whose checks have already
-passed; then run `gh pr merge <n> --merge` itself, after the check below.
+It prints `! The merge strategy for main is set by the merge queue`, and
+`autoMergeRequest` can read null afterwards. Neither means it failed. Confirm
+with `gh api graphql -f query='{repository(owner:"Mele-Labs",name:"armada"){pullRequest(number:<n>){isInMergeQueue mergeQueueEntry{state position}}}}'`.
+A pull request whose own `ci` is still running gets auto-merge instead, and
+joins the queue when it passes. Confirmed 7 Oct 2026: #1905 looked unqueued
+and merged 40 minutes later from position 2.
 
-**Auto-merge takes the branch as it is when `ci` passes**, so nothing more may be
-pushed to it for that pull request. Before sending an agent back to a branch with
-auto-merge on, turn it off with `gh pr merge <n> --disable-auto`, or have the agent
+`--squash`, `--rebase` and `--admin` are refused by `.claude/hooks/guard_merge.py`,
+as is a push to `main`.
+
+**A queued pull request is tested as it stands**, so nothing more may be pushed to
+it. Before sending an agent back to its branch, take it out of the queue with the
+GraphQL `dequeuePullRequest` mutation (or `disablePullRequestAutoMerge`, if it
+is not queued yet), since the hook refuses `--disable-auto`. Or have the agent
 open a new pull request. Confirmed 7 Oct 2026: #1867 merged while its agent was
 still pushing the fix the owner was waiting for, and that fix needed #1883.
 
-**Then watch it until `gh pr view <n> --json state` says `MERGED`**, the way
-`work-issue` says to watch `ci`. A red run comes back to you: read
-`gh run view --log-failed`, fix on the same branch and push, and it merges when
-the new run passes. A conflict: merge `origin/main` in, never rebase, and push.
-Stop and tell him only where the failure is not yours to fix: the same failure on
-`main`, a decision that is his, or one that survives two fixes.
+**A stacked pull request waits.** One whose base is another pull request's
+branch merges into that branch. Queue it only after GitHub has retargeted it to
+`main`.
 
-**Before a hand merge (no `--auto`), the green must be for the pull request's
-current head.** Check `gh pr view <n> --json headRefOid` against the latest run's
-`headSha` for the branch, and that `mergeable` is `MERGEABLE`; GitHub says
-`UNKNOWN` for a few seconds, so wait. Confirmed 7 Oct 2026: a watcher reported
-green for #1844 from a run on the commit before a conflict, and the pull request
-was still `CONFLICTING` with 15 commits to catch up.
+**Then watch it until `gh pr view <n> --json state` says `MERGED`.** A queue run
+can take well over 30 minutes. Leaving the queue unmerged (`OPEN`,
+`isInMergeQueue` false) is the failure. Read the queue run with
+`gh run list -e merge_group` and `gh run view --log-failed`, fix on the same
+branch, push and queue it again. A conflict with what is ahead of it shows as
+`UNMERGEABLE`: merge `origin/main` in once that has landed, never rebase, push and
+requeue. Stop and tell him only where the failure is not yours to fix: the same
+failure on `main`, a decision that is his, or one that survives two fixes.
+
+**A queue run can die without failing a job.** Confirmed 7 Oct 2026, in a GitHub
+Actions outage: #1918's run ended `failure` with every job passed and no `ci`, so
+the queue waited on it. `gh run rerun <id>` of that run released it.
 
 **When it has merged, give back what this session cut:** `armada worktree
 release <slot path>` for a slot you leased, `git worktree remove` for a scratch
