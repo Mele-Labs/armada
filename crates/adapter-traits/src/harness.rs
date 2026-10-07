@@ -245,6 +245,25 @@ pub enum Grant {
     /// Keep the plan current: `add_task` and `update_task`. Granted on the
     /// steps that follow the plan, and nowhere else.
     WorkThePlan,
+    /// Repair the worktree itself. **Granted only to a repair Drone**, never
+    /// off a step, and each [`Repair`] is the whole of what that repair needs.
+    RepairTheWorktree(Repair),
+}
+
+/// One repair of a worktree or its environment, and the commands it grants.
+///
+/// **Closed, and each variant names its commands in `adapters`.** The only
+/// variant carrying a command is the one the repository itself declared as its
+/// bootstrap. None commits, moves a branch, resets or reaches a remote: Fleet
+/// commits, and nothing here can push.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Repair {
+    /// Stage or remove the paths a merge left unmerged: `git add`, `git rm`
+    /// and `git restore`, in the worktree.
+    TheIndex,
+    /// Run the repository's declared bootstrap command again, with whatever
+    /// flag it takes to force a reinstall. The string is the Manifest's `run`.
+    TheInstall(String),
 }
 
 /// What a Drone may call.

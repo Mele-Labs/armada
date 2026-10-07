@@ -180,8 +180,11 @@ reopens it rather than trusting a build nobody is running yet.
 `docs/concepts/fleet.md` (Daemon lifecycle, Restarting Fleet) specifies: the
 plist lives beside the runtime file, outside `~/Library/LaunchAgents` so it is
 never loaded at login, `KeepAlive={SuccessfulExit:false}` and
-`ThrottleInterval` 2 so a crash is a restart and not a page. `launchctl
-kickstart -k` is what moves an already-running Fleet onto the fresh build —
+`ThrottleInterval` 2 so a crash is a restart and not a page. An
+already-running Fleet is booted out and bootstrapped again from the plist just
+written, because `launchctl kickstart -k` keeps the definition launchd already
+holds and would ignore a changed program path or argument. The script reads the
+loaded program back and refuses if it is not the binary it installed. It is
 never a second `armada serve`, which is the "two Fleets" failure `armada-local`
 already warns about, this time from a script rather than a name.
 

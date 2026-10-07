@@ -802,7 +802,7 @@ where
         self.link_read_in(studio_id, read_in, by, within).await
     }
 
-    /// **The `Arc` is handed on**, for `Commands::start_checkout_run`'s
+    /// **The `Arc` is handed on**, for `Rehearsing::start_checkout_run`'s
     /// reason: the run outlives this request. `crate::studio_runs` has the
     /// order the two writes happen in and why.
     async fn start_studio_run(

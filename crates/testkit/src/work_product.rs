@@ -145,6 +145,9 @@ pub struct FakeWorkProduct {
     /// advance on its predecessor's scope note.
     moving: bool,
     readings: Mutex<usize>,
+    /// The index state a repair Drone clears: these paths read as unmerged
+    /// for as long as the flag file exists.
+    unmerged: Mutex<Option<(std::path::PathBuf, Vec<String>)>>,
 }
 
 impl FakeWorkProduct {
@@ -266,6 +269,19 @@ impl FakeWorkProduct {
         self
     }
 
+    /// The index holds these paths as unmerged until `flag` is gone.
+    ///
+    /// **The flag is a file because the one that clears it is a process.** A
+    /// repair Drone is a shell here, and what it can do to a fake is remove a
+    /// file: that stands in for `git add`.
+    pub fn unmerged_until_gone(&self, flag: &std::path::Path, paths: &[&str]) {
+        std::fs::write(flag, "unmerged").expect("the flag written");
+        *self.unmerged.lock().expect("not poisoned") = Some((
+            flag.to_path_buf(),
+            paths.iter().map(|path| path.to_string()).collect(),
+        ));
+    }
+
     /// The refusal lifts, and every reading after this one answers.
     ///
     /// **The transient cause, which nothing else here can express.** A worktree
@@ -380,6 +396,13 @@ impl WorkProduct for FakeWorkProduct {
                 })
                 .collect(),
         ))
+    }
+
+    fn unmerged_paths(&self, _worktree: &Worktree) -> Result<Vec<String>, Self::Error> {
+        Ok(match &*self.unmerged.lock().expect("not poisoned") {
+            Some((flag, paths)) if flag.exists() => paths.clone(),
+            _ => Vec::new(),
+        })
     }
 
     fn patch(&self, worktree: &Worktree) -> Result<Patch, Self::Error> {

@@ -104,6 +104,22 @@ where
                 return Err(cause);
             }
         };
+        // An index a Drone's resolution left unstaged is repaired before the
+        // next Drone is put on it; the paths this catch-up just conflicted are
+        // that Drone's to resolve and are left alone. `crate::healing`.
+        let conflicted = match &moved {
+            Some(TheBaseMoved::Conflicted { files, .. }) => files.clone(),
+            _ => Vec::new(),
+        };
+        if let Err(not) = self.index_healed(job, step, &worktree, &conflicted).await {
+            self.noted_not_healed(&job_id, step, &not);
+            self.stopped_before_a_drone(job, EscalationTrigger::NoWorktree)
+                .await?;
+            return Err(Adrift::NoWorktree {
+                job: job_id,
+                cause: Box::new(not),
+            });
+        }
         // **The branch goes out here, where the step it is declared on is being
         // entered.** After the catch-up, because a commit over a tree the
         // base was not merged into publishes work that conflicts; before
@@ -442,6 +458,22 @@ where
         brief: Prompt,
         task: Option<&PlanTask>,
     ) -> Result<DroneSpawnConfig, SpawnConfigRefused> {
+        let belt = self.toolbelt(job, step).await;
+        self.spawn_config_with(job, step, worktree, brief, task, belt)
+            .await
+    }
+
+    /// [`spawn_config`](Fleet::spawn_config) with the toolbelt handed in, for
+    /// the one Drone whose belt is not a step's: `crate::healing`'s repair.
+    pub(crate) async fn spawn_config_with(
+        &self,
+        job: &Job,
+        step: &StepId,
+        worktree: &Worktree,
+        brief: Prompt,
+        task: Option<&PlanTask>,
+        belt: Toolbelt,
+    ) -> Result<DroneSpawnConfig, SpawnConfigRefused> {
         let ports = self.port_env(job).await;
         // On the step that writes Armada's review, a person's review model beats their Job model. #903.
         let reviews = job
@@ -473,7 +505,7 @@ where
             )?,
             brief,
             self.mcp_config(job).await?,
-            self.toolbelt(job, step).await,
+            belt,
             environment(
                 HostPaths {
                     path: &self.host().path,

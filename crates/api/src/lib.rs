@@ -107,7 +107,7 @@ pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     HelmReach, HostedSessions, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
-    Redirector, Refusal, Retros, Sessions, StoredFile, Studios, Tools,
+    Redirector, Refusal, Rehearsing, Retros, Sessions, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

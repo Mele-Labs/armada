@@ -510,6 +510,12 @@ class RestartAdopt(unittest.TestCase):
                      "a Drone that cannot be adopted is ended"):
             self.assertEqual(said.count(cost), 1, cost)
 
+    def test_dry_run_says_fleet_is_booted_out_and_in_not_kickstarted(self):
+        self.fleet({"j1": "escalated"})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("out if it is loaded, then bootstrap it from", said)
+
     def test_adopt_with_no_drone_working_prints_no_costs(self):
         self.fleet({"j1": "escalated"})
         code, said = self.restart("--adopt", "--dry-run")

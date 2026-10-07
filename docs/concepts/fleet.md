@@ -310,7 +310,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Armada opens a pull request, and a merge Fleet did not perform is only ever knowable by asking.** The decision to merge stays a person's: `auto_merge` says what Fleet may carry out on its own, and under `never` nothing merges until a person asks for it — see [Manifest](manifest.md), *Auto-merge and review gate*. A merge asked of Fleet is Fleet's own act, so what merged is proved on the spot; a merge made on the forge is found on a later sweep.
 
-Fleet asks about **one** pull request per sweep and rotates, because the turn interval is 250ms and asking the forge is a process — an open pull request needs asking rarely and a merged one never again.
+Fleet asks about **one** pull request per sweep and rotates, because the turn interval is 250ms and asking the forge is a process — an open pull request needs asking rarely and a merged one never again. **The sweep runs on a loop of its own beside the turn**, not only on it: a turn waits behind each Job's Checks, which are minutes, and a landing told that late is told late. The interval gate is shared, so whichever reaches it first asks, and a Job owed news of the landing is told by that loop straight after.
 
 **An open one is asked a second question on that same turn**, and only an open one: who has reviewed it, what the forge's own checks report, and what anybody wrote on it. That is one more process per sweep on the turns that land on an open pull request, on the rotation that already exists rather than on a loop of its own — a second loop over the same set would double the cost of the same question and disagree with the first about a pull request that settled between them. The reading is therefore a whole rotation stale at worst: ten open at a minute apiece means an approval is seen up to ten minutes after it lands.
 
@@ -324,7 +324,7 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
 
-**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs.
+**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs. It rides the same loop beside the turn, with the same shared gate.
 
 **A person picks which comments a Drone should act on, and it is Fleet asking rather than a Drone.** Not every comment is a change request — some are questions, some are agreement, some are about something else — and a Drone handed all of them tries to satisfy all of them. So the comments are served when somebody asks for them, that person picks, and the ones they picked are written whole into a file in the Drone's worktree — no size a person's choice can be too large for, `#648`. **That is the road a note already travels**, entered a second time rather than built again: a pointer to the file goes onto the record where a person's typed note goes, the Job takes `awaiting_review -> queued`, and the same block reaches the Drone, naming the file, the count and who wrote them.
 
@@ -388,6 +388,23 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
 
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default. `ThrottleInterval` 2 brings that to 2.6 s.
+
+### Self-healing
+
+**A Job held up by its own worktree or environment is repaired by a Drone before a person is asked.** Two faults held Job 13 on 7 Oct 2026, and in both nothing was wrong with the work: a Drone is not allowed the commands that would put it right, and a person ran them by hand.
+
+| Found | Where | What the repair Drone is granted |
+|---|---|---|
+| The index holds a path as unmerged and its file carries no conflict marker — resolved, never staged, so the diff shows a mode change at most | Before a Drone is put on a worktree, and before the gate reads the diff. A path the catch-up has just reported conflicted is that Drone's work and is left alone | `git add`, `git rm`, `git restore`, and reading |
+| A failed Check printed that an install never finished (`failed to install correctly`) | After the gate's Checks, before the ruling is acted on | The repository's own declared bootstrap command, and reading. It is told to run it again with its forced-reinstall flag |
+
+**One mechanism.** A finding names what is wrong, a repair Drone is started on the worktree with a toolbelt of exactly that repair (`Grant::RepairTheWorktree`), and the Job carries on from where it was: the Drone about to be put on is put on, or the gate runs again. It holds no slot, takes no place under the concurrency cap and spends no retry. It runs inside the turn that found the fault, for at most one Check's budget, and what it last said is a line in the Job's log. No grant commits, resets, checks out or pushes: Fleet commits, and the deny that stops every other Drone staging is lifted only for a launch carrying the index repair.
+
+**Fleet decides whether it worked.** The index is read again. The install is answered by the Check that named it, run again by the gate. What the Drone says is a signal.
+
+**Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
+
+**Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
 
 ## Worktree slots
 

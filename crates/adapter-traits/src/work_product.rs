@@ -472,6 +472,19 @@ pub trait WorkProduct {
     /// never be handed a reading that did not happen and told it is the work.
     fn patch(&self, worktree: &Worktree) -> Result<Patch, Self::Error>;
 
+    /// The paths the index holds as unmerged: a merge or rebase left stages 1,
+    /// 2 and 3 for them and nothing has said which side won.
+    ///
+    /// **Not in the diff.** An unmerged path has no single entry to compare, so
+    /// a Drone's resolved file shows as a mode change at most, and a gate or a
+    /// Judge reading the diff sees a step that did nothing. Self-healing reads
+    /// this so that state is repaired before anything reads the diff.
+    ///
+    /// The default is empty, for an implementation with no index.
+    fn unmerged_paths(&self, _worktree: &Worktree) -> Result<Vec<String>, Self::Error> {
+        Ok(Vec::new())
+    }
+
     /// Which ref the two readings above were measured against.
     ///
     /// **A patch measured against the wrong thing is indistinguishable from a
