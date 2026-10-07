@@ -249,15 +249,6 @@ fn this_repositorys_test_runs_a_module_by_its_name() {
     }
 }
 
-/// **`format` only reads.** A `requires: [fmt]` once made it rewrite the tree
-/// and then pass on what it had just written; `armada.yml` says why.
-#[test]
-fn this_repositorys_format_check_formats_nothing_first() {
-    let manifest = config::Manifest::load(&repository().join("armada.yml")).expect("it reads");
-    let format = manifest.check("format").expect("`format` is a Check");
-    assert!(format.requires().is_empty());
-}
-
 /// **A Check takes the machine's slots**, waits while every one is held, and
 /// tells what it starts that it holds one, so a Check inside it does not wait
 /// on its own parent.
@@ -456,17 +447,15 @@ fn a_document_the_code_reads_runs_test() {
 }
 
 /// **The lockfile is what `--locked` resolves**, so a bump nothing else in the
-/// tree shows still builds and tests the workspace. It is not what `cargo fmt`
-/// reads, and `format` says so by leaving it out.
+/// tree shows still builds and tests the workspace.
 #[test]
 fn a_lockfile_bump_alone_still_builds_and_tests() {
     let hit = hits(&["Cargo.lock"]);
     assert!(hit.contains(&"build".to_string()), "{hit:?}");
     assert!(hit.contains(&"test".to_string()), "{hit:?}");
-    assert!(!hit.contains(&"format".to_string()), "{hit:?}");
 }
 
-/// Each pattern the three narrowed Checks name is there because the command
+/// Each pattern the two narrowed Checks name is there because the command
 /// reads it, and this is that claim as a test.
 #[test]
 fn what_the_narrowed_checks_read_still_selects_them() {
@@ -499,9 +488,6 @@ fn what_the_narrowed_checks_read_still_selects_them() {
     let unowned = hits(&["packages/tokens/x.css"]);
     assert!(unowned.contains(&"test".to_string()), "{unowned:?}");
     assert!(!unowned.contains(&"build".to_string()), "{unowned:?}");
-    for path in ["crates/ipc/build.rs", "xtask/src/main.rs", "Cargo.toml"] {
-        assert!(hits(&[path]).contains(&"format".to_string()), "{path}");
-    }
 }
 
 /// **`armada check` lowers a Check and never a Command.** `main` hands in the

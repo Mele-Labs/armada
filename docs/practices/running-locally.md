@@ -301,7 +301,7 @@ abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|
-| Resets `preview` | To local `main`, or `origin/main` where there is no local one, after a fetch |
+| Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
@@ -611,11 +611,9 @@ worked**, and a name in neither is refused by listing what is declared.
 **A Check's `requires` runs here too, before the Check does, for any Check
 that declares one.** A prerequisite that fails is reported as itself: the line
 names the Command and the line it ran, and says the Check never started.
-`format` declares none — it once did, and that meant `armada check format`
-rewrote your working tree and then read what it had just written, so it could
-never fail. `armada.yml` says why it does not any more. A failing `format`
-says `armada run fmt`, which is a step you take, not one the Check takes for
-you.
+A prerequisite is a Command a Check needs run first, and a Command that
+writes is a step to take on purpose: `armada run fmt` formats the tree, and no
+Check reads the result.
 
 **Prefer these over retyping the command they wrap.** The Check a person runs is
 the Check a Drone is measured by.
