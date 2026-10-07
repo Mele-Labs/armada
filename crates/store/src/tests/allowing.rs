@@ -31,7 +31,7 @@ fn a_job(store: &mut Store, id: &str) {
 fn version_forty_three(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 43 in");
     for migration in &MIGRATIONS[..43] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '43')",
@@ -73,15 +73,10 @@ fn a_job_written_at_the_previous_version_refuses_and_holds() {
     let dir = TempDir::new();
     version_forty_three(&dir, "01BEFOREASKING");
     let mut store = Store::open(&dir.db()).expect("a version 43 file opens and is migrated");
-    let recorded: String = store
-        .conn
-        .query_row(
-            "SELECT value FROM armada_meta WHERE key = ?1",
-            (SCHEMA_VERSION_KEY,),
-            |row| row.get(0),
-        )
-        .expect("a version");
-    assert_eq!(recorded, KNOWN_SCHEMA_VERSION.to_string());
+    assert_eq!(
+        super::migrate::recorded_version(&store),
+        KNOWN_SCHEMA_VERSION.to_string()
+    );
 
     let old = job_id("01BEFOREASKING");
     assert_eq!(

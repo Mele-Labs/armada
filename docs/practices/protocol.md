@@ -3164,7 +3164,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 **Older peers:** a Bridge before 23.42 ignores every field and draws no buttons, so nothing breaks; it draws the line's own `landed` list. A Bridge at 23.42 against an older Fleet is refused as any minor ahead is, so the buttons never reach a Fleet without the route. `FixesMain.state` is read as working for a value it does not know, so a new one is not a major.
 
-**One store table, additive** (V115, `main_ci_fixes`): which Job took each red. No other record changed.
+**One store table, additive** (`main_fix.main_ci_fixes`): which Job took each red. No other record changed.
 
 ## Open questions
 

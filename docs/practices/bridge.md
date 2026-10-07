@@ -280,6 +280,23 @@ package as `/api`, as above; every surface with one has. **A type another
 package reads stays where they can reach it**: Overview's `overview-reads` (Settings and
 the wire types read it) and `recent` (`Row` reads it) stayed in screens.
 
+### Desktop's own tests, split by whether they reach a surface
+
+`apps/desktop/vitest.config.ts` has four projects, and two Checks run them:
+
+| Project | Holds | Check |
+|---|---|---|
+| `smoke`, `smoke (browser)` | Every test under `mock/` (they mount `App` on the mock Fleet, which composes every surface), `annotate/Layer.test.tsx` (`openJobIn` from Jobs) and `left-column.test.ts` (Overview's readings) | `app_smoke` of `apps/desktop` |
+| `desktop`, `desktop (browser)` | The rest: `src/main`, `src/shared`, the renderer's own modules and five browser tests of them | `desktop_test` of `apps/desktop/unit` |
+
+**The line is what a test's imports reach, not what it is named for.** Bundling each file with esbuild on 6 Oct 2026 showed every `mock/` test reaching all eight surfaces, and the `desktop` project reaching a surface only as the types in each `api.ts`, which a bundler drops. **A new test goes to `desktop` unless it is under `mock/`**, so a test elsewhere that loads a surface runs on a surface change only if it is added to the `smoke` lists in `vitest.config.ts`.
+
+**`unit/` is a manifest of its own because `depends_on` is a manifest's.** `apps/desktop`'s lists every package, as its typecheck and build need, and nothing there narrows a Check's. `unit/armada.yml` lists what the `desktop` project reads, so a change to `packages/surfaces/studios/src` runs Studios and `app_smoke` and not it. The directory holds that file and a `package.json`, which Scan finds a workspace by, and its Check has no `runner:`: a Drone's narrowed run reads the paths the manifest owns, and it owns none of the tests.
+
+**`app_smoke` also runs on a change to `src/main`.** It lives in the manifest that owns `apps/desktop`, which `main` belongs to, and no test in it imports main.
+
+**`vitest.shard.ts` cuts a sharded run by weight.** Vitest slices by path hash, which put three of the four walks files in one shard. The weights are the measured seconds of the walks, `every-state` and `connection`.
+
 ## State and data flow
 
 Bridge talks to **one peer**, in the main process, to Armada API. That was
@@ -343,6 +360,7 @@ What the UI shows has to name the actual state, not paper over it with a spinner
 |---|---|---|
 | No runtime file | Fleet has never started, or its runtime file was cleaned up | "Fleet is not running" plus a way to start it |
 | Runtime file present, pid dead | Fleet crashed or was killed without cleanup | "Fleet is not running" (not "unreachable" — the pid check already told you which one this is) |
+| Runtime file present, pid alive, process under five minutes old, socket open and unanswered | Fleet binds its port and publishes the file before it reconciles and serves, so the kernel accepts a connection nothing answers yet | "Fleet is starting" — the mark, no next step. Past five minutes of the process's age it reads as the row below |
 | Runtime file present, pid alive, socket refuses or times out | Fleet is running but something between Bridge and it is broken | "Fleet is running and unreachable" — distinct copy, distinct next step, because restarting Fleet is the wrong fix here |
 | Connected, protocol versions match | Normal | Full UI |
 | Connected, minor version skew | Fleet is **ahead** by an additive-only bump | Full UI plus a persistent banner. Safe only in this direction: Fleet sends fields Bridge does not read. A Fleet **behind** is refused, because Bridge would read a field it never sends |

@@ -71,6 +71,13 @@ export function statementOf(connection: Connection, now: number, readAt: number 
         next: null,
       };
 
+    case "starting":
+      return {
+        headline: "Fleet is starting",
+        detail: `pid ${connection.fleet.pid} · port ${connection.fleet.port}`,
+        next: null,
+      };
+
     case "unreachable":
       return {
         headline: "Fleet unreachable",
@@ -169,7 +176,8 @@ type NotRunning = Extract<Connection, { state: "not_running" }>["absence"];
  *
  * Four of Bridge's seven connection states are none of the contract's three —
  * reading, connecting, a refused runtime file and a protocol Bridge does not
- * speak. They keep the neutral dot; `shortLabelOf` names each one instead.
+ * speak. Those keep the neutral dot and `shortLabelOf` names each one instead;
+ * `starting` is a Fleet booting, which draws a glyph in place of the dot.
  */
 export function fleetStateOf(connection: Connection): FleetState {
   switch (connection.state) {
@@ -177,6 +185,8 @@ export function fleetStateOf(connection: Connection): FleetState {
       return "running";
     case "not_running":
       return "not-running";
+    case "starting":
+      return "starting";
     case "unreachable":
       return "unreachable";
     default:
@@ -195,6 +205,7 @@ export const SHORT_LABEL: Record<Connection["state"], string> = {
   not_running: "Not running",
   runtime_file_refused: "Refused",
   connecting: "Connecting",
+  starting: "Starting",
   unreachable: "Unreachable",
   version_skew: "Version mismatch",
   connected: "Running",

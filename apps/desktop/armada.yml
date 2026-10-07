@@ -6,7 +6,9 @@ id: armada-desktop
 
 # What Bridge reads from elsewhere, repo-relative. Every package is bundled
 # into it, so any of them gates it. A hit runs every Check below, since none
-# declares a `when`.
+# declares a `when`. **That is why `desktop_test` is not here**: a `depends_on`
+# is the manifest's and not a Check's, so the tests that read no surface are in
+# `unit/armada.yml`, which lists only what they read.
 #
 # `crates/core-model/domain/**` and `protocol-version.toml`: codegen emits
 # TypeScript from them, so a change there is a change to compiled code.
@@ -37,10 +39,12 @@ checks:
     # and not in the bundle.
     run: pnpm build
 
-  desktop_test:
-    # Main's own state machines in node, against a `ws` server on a loopback
-    # port — nothing else here runs main (#324).
-    run: pnpm exec vitest run --maxWorkers=${width}
+  app_smoke:
+    # The tests that load a surface's code: every one under `mock/` mounts `App`
+    # on the mock Fleet, which composes every surface, and two more reach one
+    # surface directly. `vitest.config.ts` says which and why. The rest of
+    # Bridge's tests are `unit/`'s `desktop_test`, which a surface does not hit.
+    run: pnpm exec vitest run --maxWorkers=${width} --project smoke*
     # No `dir`: a Check here runs in this directory, and a Drone's narrowed run
     # puts `.` in the runner's `{dir}` and the paths relative to it in `{files}`.
     runner:
@@ -52,19 +56,18 @@ checks:
     # escaped, so an apostrophe, a quote or a bracket matches itself.
     #
     # **One worker, because `-t` still loads every file.** Vitest imports all
-    # 98 browser files to find the one test, about 650 modules each, and every
-    # request is an event on the one Playwright connection the running test's
-    # presses go through. Unbounded, the other workers' loading kept that test's
-    # first press from reaching the page for over three seconds: "reading an
-    # epic in" passed 3 runs in 10, and 4 in 10 at four workers. A failed file
+    # the project's browser files to find the one test, about 650 modules each,
+    # and every request is an event on the one Playwright connection the running
+    # test's presses go through. Unbounded, the other workers' loading kept that
+    # test's first press from reaching the page for over three seconds: "reading
+    # an epic in" passed 3 runs in 10, and 4 in 10 at four workers. A failed file
     # runs first the next time, in the thick of it, so one failure made the
     # next. At one worker nothing loads while the test runs: 5 in 5, and in
     # 12s rather than 20 to 30.
     one_test:
-      run: pnpm exec vitest run --maxWorkers=1 -t {}
-    # Lighter than the two browser suites, but still node processes against a
-    # real server: #1102.
-    places: 2
+      run: pnpm exec vitest run --maxWorkers=1 --project smoke* -t {}
+    # Chromium beside the other browser suites, as every surface's `test`: #1102.
+    places: 3
 
   # **The root's `test` no longer sees a Bridge change.** The root gates only
   # paths no workspace claims, and `components`, `screens` and this package

@@ -254,58 +254,208 @@ PY
   fi
 }
 
-# The newest migration `$1`'s store knows: how many entries `MIGRATIONS` lists,
-# which is what `KNOWN_SCHEMA_VERSION` is and what a migrated file records.
-# **A list this cannot read to the end is not guessed at.** A line that is not
-# a plain `V<n>` entry, or no list at all, ends the read with nothing printed.
-tree_migrations() {
-  python3 - "$1/crates/store/src/migrations.rs" <<'PY'
-import re, sys
+backups="$support/backups"
 
-try:
-    lines = open(sys.argv[1]).read().splitlines()
-except OSError:
-    sys.exit(0)
-inside, count = False, 0
-for line in lines:
-    text = line.strip()
-    if not inside:
-        inside = "pub const MIGRATIONS" in text
-    elif text == "];":
-        print(count if count else "")
+# The migration guard, for `--from`. **Names, never a count**: a migration is
+# a file in `crates/store/migrations/` (the 113 before files are named in
+# `legacy_migrations.rs`) with an additive or breaking flag, and the database
+# records the names it has applied in
+# `armada_migrations`. `docs/practices/store-migrations.md` has the rules.
+#
+# Two refusals, both before Fleet is touched:
+#   - the database has applied a breaking migration the build does not list,
+#     so that Fleet would refuse the file;
+#   - the build lists a breaking migration `origin/main` does not, which the
+#     database has not applied, so previewing it would migrate the real
+#     database with unlanded work. An additive one is allowed and said.
+#
+# **The database is read three times read-only, then from a copy.** On 6 Oct
+# `sqlite3 -readonly` answered "unable to open database file (14)" for as long
+# as launchd was crash-looping Fleet: a WAL file with no usable -shm cannot be
+# opened read-only. A copy of the three files is opened read-write in a scratch
+# directory, which recovers the WAL there and leaves the real files alone.
+# A file this cannot read at all is refused, not guessed at.
+#
+# Prints one line: `OK <what to say>` or `REFUSE <why>`.
+migration_guard() {
+  python3 - "$src" "$root" "$support/armada.db" <<'PY'
+import os, re, shutil, sqlite3, subprocess, sys, tempfile, time
+
+src, root, db = sys.argv[1:4]
+LEGACY_FILE = "crates/store/src/legacy_migrations.rs"
+OLD = "crates/store/src/migrations.rs"
+DIR = "crates/store/migrations"
+FILE_NAME = re.compile(r"\d{8}T\d{4}Z-([a-z0-9_]+\.[a-z0-9_.]+)\.sql")
+LEGACY = 113
+
+
+def names_in(text):
+    """[(name, breaking)] in list order, from the named list or the old numbered one.
+    An old entry has no flag, so it is breaking: nothing says otherwise."""
+    found = [(m.group(2), m.group(1) == "breaking")
+             for m in re.finditer(r'Migration::(additive|breaking)\("([^"]+)"', text)]
+    if found:
+        return found
+    inside = False
+    for line in text.splitlines():
+        t = line.strip()
+        if not inside:
+            inside = "pub const MIGRATIONS" in t
+        elif t == "];":
+            break
+        elif m := re.fullmatch(r"(?:crate::(\w+)::|(?:\w+::)*)V(\d+),", t):
+            found.append((f"{m.group(1) or 'schema'}.v{m.group(2)}", True))
+    return found
+
+
+def read(path):
+    try:
+        return open(os.path.join(src, path)).read()
+    except OSError:
+        return ""
+
+
+def git_show(path):
+    shown = subprocess.run(["git", "-C", root, "show", f"origin/main:{path}"], capture_output=True, text=True)
+    return shown.stdout if shown.returncode == 0 else ""
+
+
+def from_files(listing, text_of):
+    """[(name, breaking)] for the migration files in `listing`, by file name."""
+    found = []
+    for file in sorted(listing):
+        m = FILE_NAME.fullmatch(file)
+        if m:
+            head = []
+            for line in text_of(file).splitlines():
+                if line.strip() and not line.lstrip().startswith("--"):
+                    break
+                head.append(line.strip())
+            found.append((m.group(1), "-- breaking" in head))
+    return found
+
+
+def target_names():
+    legacy = names_in(read(LEGACY_FILE) or read(OLD))
+    if not legacy:
+        return []
+    try:
+        listing = os.listdir(os.path.join(src, DIR))
+    except OSError:
+        listing = []
+    return legacy + from_files(listing, lambda f: read(f"{DIR}/{f}"))
+
+
+def main_names():
+    legacy = names_in(git_show(LEGACY_FILE) or git_show(OLD))
+    if not legacy:
+        return None
+    tree = subprocess.run(["git", "-C", root, "ls-tree", "--name-only", "origin/main", DIR + "/"],
+                          capture_output=True, text=True).stdout.split()
+    return {n for n, _ in legacy} | {n for n, _ in from_files([os.path.basename(t) for t in tree], lambda f: "")}
+
+
+def query(path, mode):
+    con = sqlite3.connect(f"file:{path}?mode={mode}", uri=True, timeout=5)
+    try:
+        has = con.execute("SELECT count(*) FROM sqlite_master WHERE name = 'armada_migrations'").fetchone()[0]
+        if has:
+            return {n: bool(a) for n, a in con.execute("SELECT name, additive FROM armada_migrations")}
+        row = con.execute("SELECT value FROM armada_meta WHERE key = 'schema_version'").fetchone()
+        if row is None or not row[0].isdigit():
+            raise sqlite3.DatabaseError("armada_meta has no readable schema_version")
+        return int(row[0])
+    finally:
+        con.close()
+
+
+def live():
+    if not os.path.isfile(db):
+        return None
+    err = None
+    for attempt in range(3):
+        try:
+            return query(db, "ro")
+        except sqlite3.Error as e:
+            err = e
+            time.sleep(0.5)
+    scratch = tempfile.mkdtemp()
+    try:
+        for suffix in ("", "-wal", "-shm"):
+            if os.path.exists(db + suffix):
+                shutil.copy2(db + suffix, os.path.join(scratch, "armada.db" + suffix))
+        return query(os.path.join(scratch, "armada.db"), "rwc")
+    except (sqlite3.Error, OSError) as e:
+        print(f"REFUSE cannot read the applied migrations in {db} ({err}; from a copy: {e}), "
+              "so cannot tell what this build would apply to it")
         sys.exit(0)
-    elif text and not text.startswith("//"):
-        if not re.fullmatch(r"(?:\w+::)*V\d+,", text):
-            sys.exit(0)
-        count += 1
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def branch_of(name):
+    """The branch that added `name` to the build, where git can say."""
+    sha = subprocess.run(["git", "-C", src, "log", "--diff-filter=A", "--format=%H", "--", DIR],
+                         capture_output=True, text=True).stdout.split()
+    sha = [c for c in sha if name in subprocess.run(
+        ["git", "-C", src, "show", "--name-only", "--format=", c], capture_output=True, text=True).stdout]
+    if sha:
+        held = subprocess.run(["git", "-C", src, "for-each-ref", "--contains", sha[-1], "refs/heads",
+                               "--format=%(refname:short)"], capture_output=True, text=True).stdout.split()
+        held = [b for b in held if b not in ("main", "preview")]
+        if held:
+            return held[0]
+    return "a branch not on origin/main"
+
+
+target = target_names()
+if not target:
+    print(f"REFUSE cannot read the migrations in {src}/{LEGACY_FILE}, so cannot tell whether this build is older than the database")
+    sys.exit(0)
+target_names = {n for n, _ in target}
+applied = live()
+
+if isinstance(applied, int):
+    if applied > LEGACY:
+        print(f"REFUSE {db} records numbered version {applied}, past the {LEGACY} the numbered list held; that Fleet could not place it")
+        sys.exit(0)
+    applied = {n: True for n, _ in target[:applied]}
+elif applied is None:
+    applied = {}
+
+unknown_breaking = [n for n, additive in applied.items() if n not in target_names and not additive]
+if unknown_breaking:
+    print(f"REFUSE the database has applied breaking migrations {src}'s build does not list ({', '.join(unknown_breaking)}); that Fleet would refuse the file")
+    sys.exit(0)
+extra = [n for n in applied if n not in target_names]
+
+main_names_ = main_names()
+if main_names_ is None:
+    print(f"REFUSE cannot read the migrations on origin/main from {root} (git show origin/main:{LEGACY_FILE}), so cannot tell which are unlanded; fetch it and run again")
+    sys.exit(0)
+unlanded = [(n, b) for n, b in target if n not in main_names_]
+fresh = [(n, b) for n, b in unlanded if n not in applied]
+breaking = [n for n, b in fresh if b]
+if breaking:
+    where = "; ".join(f"{n} from {branch_of(n)}" for n in breaking)
+    print(f"REFUSE {src} brings breaking migrations origin/main does not have, which would migrate the real database with unlanded work, and a build of main could not open it afterwards: {where}")
+    sys.exit(0)
+said = [f"{len(target)} migrations listed, {len(applied)} applied"]
+if fresh:
+    said.append("unlanded and additive, so safe to go back from: " + ", ".join(n for n, _ in fresh))
+if extra:
+    said.append("applied and not listed here, all additive: " + ", ".join(extra))
+print("OK " + "; ".join(said))
 PY
 }
 
-# How many migrations the live database has applied, off `armada_meta` the way
-# `crates/store/src/open.rs` records it. Prints `none` when there is no file,
-# a number, or nothing when it cannot be read. Read-only.
-live_migrations() {
-  [[ -f "$support/armada.db" ]] || { echo none; return; }
-  sqlite3 -readonly "$support/armada.db" \
-    "SELECT value FROM armada_meta WHERE key = 'schema_version'" 2>/dev/null | grep -E '^[0-9]+$' || true
-}
-
-backups="$support/backups"
-guard_numbers() {
-  target_newest=$(tree_migrations "$src")
-  [[ -n "$target_newest" ]] \
-    || fail "refusing — cannot read the newest migration in $src/crates/store/src/migrations.rs, so cannot tell whether this build is older than the database"
-  live_applied=$(live_migrations)
-  [[ -n "$live_applied" ]] \
-    || fail "refusing — cannot read the schema version in $support/armada.db, so cannot tell whether this build is older than it"
-  if [[ "$live_applied" != none && "$target_newest" -lt "$live_applied" ]]; then
-    fail "refusing — $src's newest migration is $target_newest and the database has applied $live_applied; that Fleet would refuse the file as written by a newer Armada"
-  fi
-}
-
 if [[ -n "$from" ]]; then
-  guard_numbers
-  say "Migration guard: $src is at $target_newest, the database has applied ${live_applied/none/nothing (no file)}"
+  guarded=$(migration_guard)
+  case "$guarded" in
+    OK\ *) say "Migration guard: ${guarded#OK }" ;;
+    REFUSE\ *) fail "refusing — ${guarded#REFUSE }" ;;
+    *) fail "refusing — the migration guard answered nothing readable" ;;
+  esac
 fi
 
 if $dry_run; then
@@ -333,7 +483,11 @@ if $dry_run; then
   if $adopt; then
     if adopted=$( ( refuse_if_drone_working ) 2>&1 ); then
       printf '%s\n' "$adopted"
-      echo "--adopt: a working Drone would be adopted and the refusal skipped"
+      if [[ "$adopted" == *"Adopting every working Drone"* ]]; then
+        echo "--adopt: the working Drones above would be adopted and the refusal skipped"
+      else
+        echo "--adopt: no Drone is working, so there is nothing to skip"
+      fi
     else
       printf '%s\n' "$adopted"
       echo "with --adopt the restart would still refuse: the roster did not answer"

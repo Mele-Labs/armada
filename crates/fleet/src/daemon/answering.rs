@@ -43,7 +43,11 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// **The boot read, and the reconciliation.** Nothing runs until this has.
+    /// **The boot read, and the reconciliation.** No Job moves until this has,
+    /// and no command is answered until it has: `armada serve` runs it in a task
+    /// after the router is up, with reads and health answering meanwhile and
+    /// commands held by `api::Reconciliation`. It can be long, because a pending
+    /// ruling below re-runs the Job's gate.
     ///
     /// A Job the store says was `running` **is asked about** rather than
     /// assumed dead. `libc::setsid()` at every spawn is what lets a Drone

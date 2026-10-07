@@ -137,11 +137,11 @@ export const Unreachable: Story = {
   },
 };
 
-/** Neither of the three: a neutral dot, and the pid and port the runtime file named. */
-export const Connecting: Story = {
+/** A live pid that has not answered: the Armada mark breathing where the dot would be, and the pid and port the runtime file named. */
+export const Starting: Story = {
   args: {
-    state: "unknown",
-    label: "Connecting",
+    state: "starting",
+    label: "Starting",
     rows: [
       { label: "pid", value: "61372" },
       { label: "port", value: "40000" },

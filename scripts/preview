@@ -21,7 +21,9 @@ import subprocess
 import sys
 import time
 
-MIGRATIONS = "crates/store/src/migrations.rs"
+MIGRATIONS = "crates/store/migrations"
+# The numbered list a branch cut before names still carries.
+OLD_MIGRATIONS = "crates/store/src/migrations.rs"
 # `preview` itself and `main` are never in flight.
 NEVER = ("main", "preview")
 # What `git clean` keeps: the build directories, and the Bridge build stamp
@@ -128,12 +130,18 @@ def in_flight(root, base, only, skip):
 
 
 def migrations_in(cwd, rev):
-    """The V numbers `MIGRATIONS` lists at `rev`, in order."""
-    shown = git(cwd, "show", f"{rev}:{MIGRATIONS}", check=False)
-    if shown.returncode != 0:
-        return []
-    found, inside = [], False
-    for line in shown.stdout.splitlines():
+    """The migration names at `rev`, in order. A migration is a file in
+    `crates/store/migrations/`, so two branches that each add one merge; the
+    same name in two files is a collision git cannot see."""
+    found = []
+    listed = git(cwd, "ls-tree", "--name-only", f"{rev}:{MIGRATIONS}", check=False)
+    if listed.returncode == 0:
+        for file in sorted(listed.stdout.split()):
+            if m := re.fullmatch(r"\d{8}T\d{4}Z-([a-z0-9_]+\.[a-z0-9_.]+)\.sql", file):
+                found.append(m.group(1))
+    old = git(cwd, "show", f"{rev}:{OLD_MIGRATIONS}", check=False)
+    inside = False
+    for line in (old.stdout.splitlines() if old.returncode == 0 else []):
         if "pub const MIGRATIONS" in line:
             inside = True
         elif inside and line.strip() == "];":

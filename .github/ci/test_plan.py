@@ -8,7 +8,8 @@ KEYS = [
     "typecheck",
     "apps/desktop:typecheck",
     "apps/desktop:bridge_build",
-    "apps/desktop:desktop_test",
+    "apps/desktop:app_smoke",
+    "apps/desktop/unit:desktop_test",
     "apps/desktop:xtask_test",
     "packages/screens:screens_test",
     "packages/components:storybook",
@@ -25,10 +26,18 @@ class Planning(unittest.TestCase):
         self.assertIn("packages/surfaces/studios:test", keys)
         self.assertIn("apps/desktop:bridge_build", keys)
 
-    def test_the_desktop_tests_are_sharded_and_not_in_the_matrix(self):
+    def test_the_smoke_tests_are_sharded_and_not_in_the_matrix(self):
         answer = plan(KEYS)
-        self.assertIn("apps/desktop:desktop_test", answer["checks"])
-        self.assertNotIn("apps/desktop:desktop_test", [row["key"] for row in answer["matrix"]["include"]])
+        self.assertIn("apps/desktop:app_smoke", answer["checks"])
+        self.assertNotIn("apps/desktop:app_smoke", [row["key"] for row in answer["matrix"]["include"]])
+
+    def test_the_desktop_tests_that_read_no_surface_have_their_own_job_and_no_matrix_entry(self):
+        answer = plan(KEYS)
+        self.assertIn("apps/desktop/unit:desktop_test", answer["checks"])
+        self.assertNotIn("apps/desktop/unit:desktop_test", [row["key"] for row in answer["matrix"]["include"]])
+
+    def test_the_old_desktop_key_is_reported_not_skipped(self):
+        self.assertEqual(plan(["apps/desktop:desktop_test"])["unrun"], ["apps/desktop:desktop_test"])
 
     def test_the_xtask_tests_have_their_own_rust_job_and_no_matrix_entry(self):
         answer = plan(KEYS)
