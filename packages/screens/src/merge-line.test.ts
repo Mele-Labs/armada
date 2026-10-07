@@ -4,7 +4,7 @@
 // real `armada-land/` directory and holds equal to this file, so this is the other half of one
 // reading of the wire.
 
-import type { MergeLineHub, MergeLines } from "@armada/protocol";
+import type { JobSummary, MergeLineHub, MergeLines } from "@armada/protocol";
 import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
@@ -248,11 +248,40 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hubOf({ pull_requests: [] })).toEqual({ pulls: [], recent: [] });
   });
 
-  test("a line from a Fleet before the hub draws none, and the two ways to a Job are offered only when asked for", () => {
+  test("a line from a Fleet before the hub draws none and keeps its own landed rows", () => {
     const [none] = views({ lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [] }] }, null);
     expect(none && "hub" in none).toBe(false);
-    expect(none && "fixOffered" in none).toBe(false);
-    const offered = { lines: [{ ...hubbed({}).lines[0]!, fix_offered: { recent: [] } }] } as unknown as MergeLines;
-    expect(views(offered, null)[0]?.fixOffered).toBe(true);
+    const before = views(SERVED, null)[0];
+    expect(before?.landed.length).toBeGreaterThan(0);
+  });
+
+  test("the forge's merged pull requests take the Recently landed list, newest first, with the short merge commit", () => {
+    const commit = "c".repeat(40);
+    const lines = hubbed({
+      merged: [
+        { number: 1839, title: "Add it", branch: "armada/it", url: `${PULL}1839`, merged_at: "2026-10-06T21:00:00Z", commit },
+        { number: 1838, title: "Fix it", branch: "nick/fix", url: `${PULL}1838`, merged_at: "2026-10-06T20:00:00Z" },
+      ],
+    });
+    const [view] = views({ lines: [{ ...lines.lines[0]!, landed: SERVED.lines[0]!.landed }] }, null);
+    expect(view?.landed).toEqual([
+      { branch: "armada/it", pr: { number: 1839, url: `${PULL}1839` }, state: "landed", merge: "cccccccccc" },
+      { branch: "nick/fix", pr: { number: 1838, url: `${PULL}1838` }, state: "landed" },
+    ]);
+  });
+
+  test("the Jobs main's red can go back to are the Board's rows at their review or over, newest first", () => {
+    const row = (id: string, status: string, branch?: string, ended_at?: string) =>
+      ({ id, title: id, status, ...(branch === undefined ? {} : { branch }), ...(ended_at === undefined ? {} : { ended_at }) }) as JobSummary;
+    const jobs = [
+      row("01A", "running", "armada/a"),
+      row("01B", "completed_success", "armada/b", "2026-10-06T10:00:00Z"),
+      row("01C", "awaiting_review", "armada/c"),
+      row("01D", "killed", "armada/d", "2026-10-06T12:00:00Z"),
+      row("01E", "completed_success"),
+    ];
+    const lines = hubbed({ main: { state: "red", commit: COMMIT, read_at: "x", failed: [{ name: "ci", check: "test" }] } });
+    const [view] = mergeLineViews(lines, null, REPOSITORIES, jobs);
+    expect(view?.hub?.recent.map((one) => one.id)).toEqual(["01D", "01B", "01C"]);
   });
 });

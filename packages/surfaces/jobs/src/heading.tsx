@@ -22,7 +22,7 @@ import { Acts, type ConfirmableAct, type HeldAct } from "./Acts";
 import { factsOf } from "@armada/screens/src/facts";
 import type { ActAnswer, ActingAct } from "./pending";
 import { openPullRequest, type OpenPullRequest } from "@armada/screens/src/opening";
-import { fixesMainOf, fixesMainSaid } from "@armada/screens/src/main-red";
+import { fixesMainMark, fixesMainOf, fixesMainSaid } from "@armada/screens/src/main-red";
 import { pausedSaid } from "@armada/screens/src/pausing";
 import { leading, readingOf } from "@armada/screens/src/reading";
 import type { Render } from "./render";
@@ -125,7 +125,7 @@ export function headingOf({
           mark: (
             <>
               {fixesMainOf(job) === undefined ? null : (
-                <FixingMainMark state={fixesMainOf(job)!.state} said={fixesMainSaid(fixesMainOf(job)!)} />
+                <FixingMainMark state={fixesMainMark(fixesMainOf(job)!)} said={fixesMainSaid(fixesMainOf(job)!)} />
               )}
               {job.paused === undefined ? null : <PausedMark said={pausedSaid(job, now)!} />}
             </>

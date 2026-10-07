@@ -9,7 +9,7 @@ import type { ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
-import type { ApproveDispatch } from "@armada/protocol";
+import type { ApproveDispatch, FixMain } from "@armada/protocol";
 import type {
   Artifact,
   AlwaysAllowScope,
@@ -511,6 +511,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.parkJob, (_event, jobId: string) =>
     connection?.commands.parkJob(jobId),
   );
+  ipcMain.handle(CHANNELS.fixMain, (_event, fix: FixMain) => connection?.commands.fixMain(fix));
   ipcMain.handle(CHANNELS.resumeJob, (_event, jobId: string) =>
     connection?.commands.resumeJob(jobId),
   );

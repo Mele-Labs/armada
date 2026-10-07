@@ -27,6 +27,7 @@
 // too. Type-only both ways, so the cycle is erased before anything runs.
 
 import type { Settled } from "./detail";
+import type { FixesMain } from "./merge-lines";
 import type { Requester } from "./requester";
 import type { TaskCounts } from "./work-plan";
 
@@ -213,6 +214,8 @@ export type JobSummary = {
    * job that is not paused, and every row from a Fleet before 23.39.
    */
   paused?: Paused;
+  /** Its part in main's red: working on it, or the job that fixed it. Absent is none. Since 23.42. */
+  fixes_main?: FixesMain;
 };
 
 /** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */

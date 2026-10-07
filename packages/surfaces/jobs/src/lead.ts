@@ -576,7 +576,7 @@ export function leadOf(job: JobSummary, whole: JobWhole | null, now: number): Jo
   if (!over && fixes?.state === "fixing") {
     return {
       said: "Fixing main",
-      because: fixes.test === undefined ? `${fixes.check} · #${fixes.merge}` : `${fixes.test} · #${fixes.merge}`,
+      because: [fixes.test ?? fixes.check, fixes.merge === undefined ? undefined : `#${fixes.merge}`].filter(Boolean).join(" · "),
       tone: "completed-failed",
       act: "Read the log",
       opens: { mainLog: { check: fixes.check, branch: "main" } },

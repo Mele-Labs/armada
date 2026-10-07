@@ -7,7 +7,7 @@
 // renders its children straight through when nothing has thrown.
 
 import { useEffect, useState } from "react";
-import type { RepositorySummary } from "@armada/protocol";
+import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
@@ -36,6 +36,7 @@ export function Overview({
   land,
   onLanded,
   onOpenLink,
+  onFix,
 }: {
   state: BridgeState;
   now: number;
@@ -69,6 +70,8 @@ export function Overview({
   onLanded?: () => void;
   /** Hands an address to whatever opens addresses on this machine: the merge line's pull requests. */
   onOpenLink: (address: string) => void;
+  /** Hands main's red to a Job, from the merge line's band. */
+  onFix?: (fix: FixMain) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -149,7 +152,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} />
+        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} {...(onFix === undefined ? {} : { onFix })} />
       </div>
     </Boundary>
   );
