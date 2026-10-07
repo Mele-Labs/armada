@@ -1,20 +1,15 @@
 //! Telling the owner of a pull request what happened to it, so nobody has to ask a session to
 //! watch. `docs/concepts/fleet.md`, *Telling the owner of a pull request*.
 //!
-//! **Four things, each told once.** A required check failed on the newest commit, the pull
-//! request conflicts with the base, the merge queue dropped it or marked it unmergeable, or it
-//! merged. The key is (pull request, commit, cause, recipient) in the store, so a restart reads
-//! what was already told, and a failure is told again only for a commit that fails anew.
+//! **Each notice is told once.** The key is (pull request, commit, cause, recipient) in the
+//! store, so a restart reads what was already told and a failure is told again only for a commit
+//! that fails anew. **A job that hung is not a failure**: one cancelled after about the whole
+//! time a job is given is started again once, through the forge adapter, and nothing is said.
 //!
-//! **A job that hung is not a failure.** One that ended cancelled after about the whole time a
-//! job is given is started again once, through the forge adapter, and nothing is said. Hung a
-//! second time on the same commit, it is told like any other failure.
-//!
-//! **An owner is whoever the Sessions ledger says holds the pull request** (else its branch),
-//! and every Job whose pull request or branch it is. Both are told. A Session is sent a message
-//! from Fleet that wakes it. A Job at its review gate takes the failure as a requested change, an
-//! ended one is redispatched as the red-main path does, and a merge is a note in its log.
-//! **A recipient that cannot be told now is asked again next reading**, with nothing kept.
+//! A Session is sent a message from Fleet that wakes it. A Job at its review gate takes the
+//! failure as a requested change, an ended one is redispatched as the red-main path does, and a
+//! merge is a note in its log. **A recipient that cannot be told now is asked again next
+//! reading**, with nothing kept. Who owns a pull request is `crate::pull_owners`.
 
 use std::sync::Arc;
 
@@ -23,12 +18,12 @@ use adapter_traits::{
 };
 use core_model::{
     AcceptanceCriterion, Actor, Component, CriterionId, CriterionOrigin, CriterionSource, Envelope,
-    Facts, FieldValue, JobId, JobStatus, Level, Ulid,
+    Facts, FieldValue, JobId, JobStatus, Level,
 };
-use store::{AttachmentState, HolderKind};
 
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
+use crate::pull_owners::Owner;
 use crate::redispatch::Carrying;
 use crate::repositories::Served;
 use crate::resume::Redirection;
@@ -62,21 +57,6 @@ impl Cause {
             Cause::Dropped => "dropped",
             Cause::Unmergeable => "unmergeable",
             Cause::Merged => "merged",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum Owner {
-    Session(String),
-    Job(JobId),
-}
-
-impl Owner {
-    fn key(&self) -> String {
-        match self {
-            Owner::Session(id) => format!("session:{id}"),
-            Owner::Job(id) => format!("job:{}", id.as_str()),
         }
     }
 }
@@ -492,64 +472,5 @@ where
         };
         let _ = served;
         sent
-    }
-
-    /// Who holds a pull request: the Sessions the ledger says hold it (else its branch), and the
-    /// Jobs whose pull request or branch it is. `spent` also takes a Session whose hold was used
-    /// up by the merge.
-    async fn owners_of(
-        &self,
-        served: &Served,
-        number: u64,
-        branch: &str,
-        spent: bool,
-    ) -> Vec<Owner> {
-        let manifest = served.manifest().id().as_str().to_string();
-        let store = self.store().lock().await;
-        let held = |kind: &str, target: &str| {
-            store
-                .attachments_at(kind, target, Some(&manifest))
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|row| {
-                    row.state == AttachmentState::Standing
-                        || (spent && row.state == AttachmentState::Spent)
-                })
-                .map(|row| (row.holder.kind, row.holder.id))
-                .collect::<Vec<_>>()
-        };
-        let mut holders = held("pull_request", &number.to_string());
-        if !holders.iter().any(|(kind, _)| *kind == HolderKind::Session) {
-            holders.extend(held("branch", branch));
-        }
-        let mut owners = Vec::new();
-        let mut add = |owner: Owner| {
-            if !owners.contains(&owner) {
-                owners.push(owner);
-            }
-        };
-        for (kind, id) in holders {
-            match kind {
-                HolderKind::Session => {
-                    if store.session(&id).ok().flatten().is_some() {
-                        add(Owner::Session(id));
-                    }
-                }
-                HolderKind::Job => add(Owner::Job(JobId::carried(Ulid::carried(id)))),
-            }
-        }
-        let mine = |job: &JobId| {
-            self.served_by_id(job)
-                .is_ok_and(|it| it.root() == served.root())
-        };
-        if let Some(job) = self.job_of_pull(&store, served, number) {
-            add(Owner::Job(job));
-        }
-        for job in store.jobs_on_branch(branch).unwrap_or_default() {
-            if mine(&job) {
-                add(Owner::Job(job));
-            }
-        }
-        owners
     }
 }
