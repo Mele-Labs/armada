@@ -68,6 +68,15 @@ export type TuneSession = {
   mode: SessionMode;
 };
 
+/** `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53. */
+export type TakeHeld = { session_id: string };
+
+/** What a person sent a terminal session, oldest first, handed over once. Since 23.53. */
+/** A command a person chose in Bridge for a terminal session, run there as typed. Since 23.53. */
+export type HeldCommand = { command: string; args: string };
+
+export type MessagesHeld = { messages: string[]; commands?: HeldCommand[] };
+
 /** `POST /sessions/close`. */
 export type CloseSession = { session_id: string };
 

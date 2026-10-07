@@ -3,13 +3,17 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{Instant, SessionId, SessionRow, SessionRowChanged, SessionTag, TagKind, WireError};
+use api::Sessions;
+use ipc::{
+    AttachmentReport, Instant, SessionFact, SessionId, SessionReport, SessionRow, SessionRowChanged, SessionTag,
+    TagKind, WireError,
+};
 use serde::Serialize;
 
 use crate::daemon::Fleet;
 
 /// A row that would not encode or a thread that would not read.
-const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
+pub(super) const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -44,6 +48,25 @@ where
             session_id: SessionId::carried(session),
             row,
         }));
+    }
+
+    /// A document the session wrote goes on its ledger as an artifact. The
+    /// terminal mod tells the same fact from its own side; see `session.md`.
+    pub(crate) async fn artifact_written(&self, session: &str, path: String) {
+        let title = path.rsplit('/').next().unwrap_or(&path).to_string();
+        let _ = self
+            .report_session(SessionReport {
+                harness: String::from(adapters::HOSTED_HARNESS),
+                session_id: SessionId::carried(session),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport {
+                        kind: String::from("artifact"),
+                        target: path,
+                        detail: [("form".into(), "file".into()), ("title".into(), title)].into(),
+                    },
+                },
+            })
+            .await;
     }
 
     /// The thread, oldest first.

@@ -44,6 +44,9 @@ pub struct Detached {
     /// `crate::tests::tmp` holds the reason; a build that ships has no field.
     #[cfg(test)]
     directory: Option<std::path::PathBuf>,
+    /// A test's stand-in for another Fleet's mark, in place of this process's.
+    #[cfg(test)]
+    marked_by: Option<String>,
 }
 
 impl Detached {
@@ -63,7 +66,17 @@ impl Detached {
             command,
             #[cfg(test)]
             directory: None,
+            #[cfg(test)]
+            marked_by: None,
         }
+    }
+
+    /// Carry the mark of a Fleet that is not this process, so a test can spawn
+    /// a Drone whose Fleet is gone, or another live one's.
+    #[cfg(test)]
+    pub(crate) fn marked_by(mut self, mark: &str) -> Detached {
+        self.marked_by = Some(mark.to_string());
+        self
     }
 
     /// Everything a harness rendered, in one call.
@@ -147,6 +160,15 @@ impl Detached {
     /// group spawned inside it when it drops. A detached Drone outliving its
     /// Fleet is the point in a build that ships and a leak in a test.
     pub fn spawn(mut self) -> io::Result<Child> {
+        // After `in_environment` cleared and filled it, so no caller's
+        // environment can leave the mark out: `crate::orphans` reads it.
+        #[cfg(test)]
+        let mark = self.marked_by.take().or_else(crate::orphans::own_mark);
+        #[cfg(not(test))]
+        let mark = crate::orphans::own_mark();
+        if let Some(mark) = mark {
+            self.command.env(crate::orphans::MARK, mark);
+        }
         let child = self.command.spawn()?;
         #[cfg(test)]
         if let (Some(pid), Some(directory)) = (

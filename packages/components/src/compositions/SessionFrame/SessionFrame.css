@@ -1,6 +1,32 @@
 /* A Session open, in the glass panel (`Card`, glass.css) and not a frame of
    its own. A head row over a body of columns. */
 
+/* Two sibling panels with a gap, as the rail's cards are: the conversation, and the ledger. */
+.armada-session-panels {
+  display: flex;
+  flex: 1;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Helm's dock frame (`TheShell.css`: the glass, its wash, the head's edge), without the dock's margin,
+   and with the head and the ledger each taking their own padding. */
+.armada-session-panels > .armada-session-frame__aside {
+  position: relative;
+  isolation: isolate;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* The ledger takes its panel's surface and scrolls inside it. */
+.armada-session-frame__aside .armada-session-ledger {
+  flex: 1;
+  width: auto;
+  background: none;
+}
+
 .armada-session-frame {
   flex: 1;
   min-width: 0;

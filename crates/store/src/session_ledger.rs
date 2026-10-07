@@ -152,7 +152,7 @@ impl AttachmentState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptAttachment {
     pub holder: Holder,
-    /// Open: `slot`, `branch`, `pr`, `job`, `studio`, `subagent`, `message`, and
+    /// Open: `slot`, `branch`, `pr`, `job`, `studio`, `subagent`, `message`, `artifact`, and
     /// whatever a later holder needs.
     pub kind: String,
     /// The repository a slot or branch is of; empty where there is none.

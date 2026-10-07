@@ -3,5 +3,5 @@
   group = "Chrome"
   size = "16px"
   status = "Proposed"
-  reserved = "Opening a Session's ledger as a sheet where the window is too narrow to hold it beside the conversation. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  reserved = "A Session's button for its ledger: opens it as a sheet below `--layout-breakpoint`, and above it shows the ledger panel again from the conversation's header once hidden. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
   notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. Below `--layout-breakpoint` the ledger leaves the Session's side and this is the press that brings it back, as the Helm dock folds."

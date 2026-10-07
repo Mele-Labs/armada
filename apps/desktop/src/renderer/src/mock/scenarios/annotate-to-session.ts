@@ -29,11 +29,17 @@ function build(): Scenario {
     // A Fleet of its own for each window, so a walk told twice starts from the same two Sessions.
     behaves: (handle) => {
       const own = new FakeSessionsFleet(sessions()).scenario(board).behaves!(handle);
+      let refused = false;
       return {
         ...own,
         // A Session Fleet starts takes its title from the first message, so the fake names it here; and a
         // thread is held before the message lands in it, which a window opening the Session does later.
+        // The first start is refused with no message, as a Fleet that refused the owner's did.
         startSession: async (title) => {
+          if (!refused) {
+            refused = true;
+            return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.refused", message: "", run_id: "", fields: {}, chain: [] } } };
+          }
           const started = await own.startSession!(title);
           if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
           return started;

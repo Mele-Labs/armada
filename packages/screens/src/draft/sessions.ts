@@ -46,7 +46,15 @@ export type SessionAttachment =
   | { kind: "studio"; id: string; title: string }
   /** A sketch the agent published into the Session, or one the person shared with it. */
   | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string };
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string }
+  /**
+   * Something the Session made that a person would open: a page it published, a file it wrote outside
+   * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
+   * **A code edit is never one**; those are Branches and Pull requests.
+   */
+  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string };
+
+export type SessionArtifactForm = "page" | "file" | "doc";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -135,8 +143,10 @@ export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
   address?: string;
-  /** A session from a terminal: its ledger is real and there is no thread to read or write in. */
+  /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
+  /** The commands a terminal session lists, where its mod has said. A hosted one uses the draft's. */
+  commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
   blank?: boolean;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
@@ -221,6 +231,8 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
+  /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
+  openFile?: (id: string, path: string) => void;
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */

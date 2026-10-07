@@ -42,6 +42,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
+| `tuned` | `model?`, `effort?`, `mode?`, `commands?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
 | `ended` | `reason` | Ends it and gives back everything it still holds |
 
@@ -70,6 +71,17 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `subagent` | the agent's id | |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
+| `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file` or `doc`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
+
+**An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Three forms:
+
+| Form | What counts | The press opens |
+|---|---|---|
+| `page` | A page published with Claude Code's `Artifact` tool (a publish, not a list, read or asset upload) | the address, in the browser |
+| `file` | A file the `Write` tool **created** with a document extension: `md`, `mdx`, `txt`, `pdf`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `csv`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`. Not under `node_modules`, `.git`, `.claude`, `.armada`, `target`, `dist`, `build` or a temporary directory. `html` is left out, because a page's source appears as the page once published; configuration (`json`, `yaml`, `toml`) is not a document | the file, on this machine |
+| `doc` | A Claude Docs document made or edited (`mcp__claude_ai_Claude_Docs__create`, `batch`, `update`), by the address its answer carries or the document's id | the address, in the browser |
+
+The terminal mod tells all three (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells only files**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The two extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
 
@@ -214,7 +226,20 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
 | A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
 | A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off. A Job a person attested reads `piloted.exit`, and is marked apart from one that passed |
+| The ledger's sections | Only a kind that holds a row is drawn. A ledger with nothing on it draws one small picture and no words |
+| Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `notebook-text`) and a tooltip naming it (Published page, File written, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote |
+| The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
+
+## A terminal session's thread
+
+Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
+
+> **Rule.** The thread is drawn and never read as a claim. Nothing Fleet knows about a terminal session, its title, its Job or its state, comes from its rows.
+
+What is not drawn: the agent's reasoning, a tool's answer, a subagent's own turns, the CLI's bookkeeping and a message from another session.
+
+**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session asks `take_held_messages` every two seconds and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. A file or picture is saved by Fleet as for a hosted session and sent as `Attached file: <path>` in the text. The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer. A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27). **The permission mode is shown and not set**: nothing in the mods API switches a live session's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn. There is no Close in Bridge for a terminal session. The sent text shows in the thread when the transcript has it, which is when the turn starts.
 
 ## Not built
 
@@ -222,9 +247,10 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
 
-**A terminal session's messages are not drawn.** A hosted session's thread carries
-what another hosted session wrote to it; the mod reports a message from a
-terminal session as a count and never its text.
+**A message another session sent a terminal session is not drawn.** A hosted
+session's thread carries what another hosted session wrote to it; a terminal
+thread skips the line, and the mod reports the message as a count and never
+its text.
 
 **Hosted sessions in different permission modes may not wake each other.** The
 tool says a session in another mode holds a cross-session message for approval.

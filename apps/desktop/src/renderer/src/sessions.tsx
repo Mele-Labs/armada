@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { GitMerge, PanelRightOpen } from "lucide-react";
+import { GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
@@ -402,7 +402,15 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => void, slot: (n: number) => void): LedgerEntry[] {
+const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Doc" } as const;
+
+function entriesOf(
+  session: Session,
+  goes: LedgerGoes,
+  read: (one: Reading) => void,
+  slot: (n: number) => void,
+  openFile: (path: string) => void,
+): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "slot":
@@ -463,6 +471,15 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
       case "sketch":
         return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read({ kind: "sketch", id: one.id }) };
+      case "artifact":
+        return {
+          key: one.id,
+          kind: "artifact",
+          artifact: one.form,
+          name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
+          text: one.title,
+          onOpen: () => (one.form === "file" ? openFile(one.id) : goes.onOpenLink(one.id)),
+        };
       case "subagent":
         return {
           key: one.id,
@@ -480,6 +497,28 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
+/** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
+function useMinimized(): [boolean, (minimized: boolean) => void] {
+  const [minimized, set] = useState(() => {
+    try {
+      return localStorage.getItem("armada.session-ledger.minimized") === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    minimized,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem("armada.session-ledger.minimized", next ? "1" : "0");
+      } catch {
+        // Not kept: the ledger is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
 function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
@@ -490,6 +529,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [minimized, minimize] = useMinimized();
   const { onWant } = held;
   const { id } = session;
   const watch = draft?.watch;
@@ -509,7 +549,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const { state, said } = stateOf(session);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
-  const mode: SessionMode = session.mode ?? "auto";
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   // Folded below the breakpoint, a press on a row closes the ledger's sheet first, so what it opens is not drawn over it.
   const fold = <T extends unknown[]>(open: (...args: T) => void) => (...args: T) => {
     setLedgerOpen(false);
@@ -520,6 +560,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(setReading) : setReading,
     narrow ? fold(setSlotOpen) : setSlotOpen,
+    (path) => draft.openFile?.(id, path),
   );
   return (
     <>
@@ -530,8 +571,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
-        {...(narrow || draft.close !== undefined
-          ? {
+        {...{
               actions: (
                 <>
                   {draft.close === undefined || session.terminal === true ? null : (
@@ -547,15 +587,38 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                         <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
+                  ) : minimized ? (
+                    <Tooltip label="Show attachments">
+                      <Button variant="ghost" size="sm" aria-label="Show attachments" onClick={() => minimize(false)}>
+                        <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                      </Button>
+                    </Tooltip>
                   ) : null}
                 </>
               ),
-            }
-          : {})}
+            }}
+        {...(narrow || minimized
+          ? {}
+          : {
+              aside: (
+                <>
+                  <div className="armada-shell__dock-head">
+                    <h2 className="armada-shell__dock-title">Ledger</h2>
+                    <Tooltip label="Hide attachments">
+                      <Button variant="ghost" size="sm" aria-label="Hide attachments" onClick={() => minimize(true)}>
+                        <PanelRightClose size={16} strokeWidth={2} aria-hidden />
+                      </Button>
+                    </Tooltip>
+                  </div>
+                  <SessionLedger entries={entries} />
+                </>
+              ),
+            })}
       >
         <div className="armada-session-frame__centre">
           <Refused />
           <SessionThread
+            sessionId={session.id}
             rows={threadRowsOf(session)}
             {...(session.asked === undefined
               ? {}
@@ -570,8 +633,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
             onOpenSession={onOpen}
           />
-          {session.terminal === true ? null : (
           <SessionComposer
+            modeLocked={session.terminal === true}
+            modeHidden={session.terminal === true && session.mode === undefined}
             working={session.turn.state === "working"}
             mode={mode}
             onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
@@ -580,7 +644,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             models={draft.models}
             efforts={draft.efforts}
             onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={draft.commands}
+            commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
             compact={narrow}
             taggable={[
               ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
@@ -596,9 +660,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               setDrawn([]);
             }}
           />
-          )}
         </div>
-        {narrow ? null : <SessionLedger entries={entries} />}
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
