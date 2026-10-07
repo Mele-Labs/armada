@@ -36,7 +36,8 @@ to `main` are keyed by their own commit and never cancelled.
 ```
 changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
                   reads armada.yml     sorts keys    matrix                  ──> workspace key: one `workspace_check` matrix entry
-                  `when:` lists        fails on one                          ──> desktop_test of apps/desktop: the macOS shards
+                  `when:` lists        fails on one                          ──> app_smoke of apps/desktop: the macOS shards;
+                                                                                 desktop_test of apps/desktop/unit: one Linux job
                                        it cannot place
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
@@ -62,7 +63,7 @@ build of `armada` failing, is red, never an empty plan.
 |---|---|---|
 | `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
 | `needs` | Fleet's check says so | Not defined here. Reserved: Fleet publishes it |
-| `desktop_test` | The plan succeeded and no shard failed or was cancelled | A failed shard, a failed plan |
+| `desktop_test` | The plan succeeded and neither a smoke shard nor the unit job failed or was cancelled | A failed shard, a failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are named by their key.
 
@@ -77,11 +78,12 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `cargo fmt --all --check` | none |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
-| Every workspace key except the desktop tests and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
+| Every workspace key except the two desktop Checks below and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `desktop_test` of `apps/desktop` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
+| `app_smoke` of `apps/desktop` | `macos-latest`, four shards, job `app_smoke_shard` | `vitest run --shard=N/4 --maxWorkers=2 --project 'smoke*'`, direct, since `armada check` takes no shard. `vitest.shard.ts` weighs the walks so the shards are even | node_modules, Playwright |
+| `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`. Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
@@ -90,7 +92,9 @@ runs `armada check` so a workspace's own `armada.yml` is the command, and it use
 the binary the plan job built, uploaded as an artifact, so no matrix entry builds Rust.
 
 **`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
-reports on its own, so a red shard never blocks a change that `ci` passes.
+reports on its own, so a red smoke shard or a red unit job never blocks a change that `ci` passes.
+
+**A surface change runs `app_smoke` and not `desktop_test`.** `apps/desktop/unit/armada.yml` lists what its tests read, so a path under `packages/surfaces/<x>/src` other than `api.ts` does not hit it. `docs/practices/bridge.md` says what is in each and why they are two manifests.
 
 ## Foundations
 
@@ -157,7 +161,7 @@ setup before the step: restoring caches, installing, building `armada`.
 | `components_test` | 64 to 108 | |
 | `hooks_test` | 1 | |
 | `foundations`, whole job | 40 cold, 28 to 32 warm | Main's own run adds 8 when its reading is not cached. Setup and checkout are most of the rest |
-| `desktop_test` per shard | 68 to 275 | The slowest shard varied the most between runs |
+| `desktop_test` per shard (before the split) | 68 to 275 | The slowest shard varied the most between runs |
 
 **A whole `test` was not measured to completion.** It stopped at the first
 failure, which was a Linux-only test failing on `main`.

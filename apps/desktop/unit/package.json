@@ -1,0 +1,6 @@
+{
+  "name": "@armada/desktop-unit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Carries the manifest of Bridge's tests that read no surface. Its tests are in the parent's src."
+}
