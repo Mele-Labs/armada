@@ -138,7 +138,7 @@ import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
+import { useHistory } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
@@ -603,6 +603,12 @@ export function App({ draft }: AppProps = {}) {
   const { questions, asks } = useMemo(
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
+  );
+  // Back and forward are keys and nothing on screen — `history.ts`.
+  useHistory(
+    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, session: sessionOpen, studio: openStudio, studioNode },
+    (place) => { goTo(place.surface); setOpenJob(place.job); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
+    (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
   // Refresh is a key and a palette row, and nothing on screen.
   useRefreshKey(() => {
