@@ -154,3 +154,94 @@ fn a_transcript_is_found_by_id_under_any_project_directory() {
     assert!(find(&home, "nope").is_none());
     assert!(find(&home, "../abc-123").is_none());
 }
+
+/// **No markup reaches the thread.** A slash command is a row of its own, as
+/// typed, and its output, the caveat before it, a reminder and another
+/// session's hand-back are the CLI's and are not drawn.
+#[test]
+fn a_command_is_a_row_and_the_cli_s_own_markup_is_not_drawn() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "c1",
+            "",
+            r#""<command-name>/reload-plugins</command-name>\n<command-message>reload-plugins</command-message>\n<command-args></command-args>""#,
+        ),
+        line(
+            "user",
+            "c2",
+            r#""origin":{"kind":"human"},"#,
+            r#""<command-message>model</command-message>\n<command-name>/model</command-name>\n<command-args>opus</command-args>""#,
+        ),
+        line("user", "o1", "", r#""<local-command-stdout>Reloaded: 3 plugins</local-command-stdout>""#),
+        line("user", "o2", "", r#""<local-command-caveat>Caveat: run directly</local-command-caveat>""#),
+        line("user", "o3", r#""origin":{"kind":"human"},"#, r#""<system-reminder>named</system-reminder>""#),
+        line(
+            "user",
+            "o4",
+            "",
+            r#""Another Claude session sent a message:\n<agent-message from=\"x\">done</agent-message>""#,
+        ),
+        line("user", "o5", "", r#""<task-notification><task-id>1</task-id></task-notification>""#),
+        line("user", "b1", "", r#""<bash-input>git status</bash-input>""#),
+        line("user", "b2", "", r#""<bash-stdout>clean</bash-stdout><bash-stderr></bash-stderr>""#),
+        line("user", "p1", r#""origin":{"kind":"human"},"#, r#""<system-reminder>x</system-reminder>Hello""#),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    let drawn: Vec<(String, String)> = thread
+        .rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Command { id, text, .. } => (id.clone(), format!("command {text}")),
+            SessionRow::Message { id, text, .. } => (id.clone(), format!("message {text}")),
+            other => panic!("not drawn so: {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        drawn,
+        vec![
+            ("c1".into(), "command /reload-plugins".into()),
+            ("c2".into(), "command /model opus".into()),
+            ("b1".into(), "command ! git status".into()),
+            ("p1".into(), "message Hello".into()),
+        ]
+    );
+}
+
+/// The summary the CLI writes where it compacted is a user line that is not the
+/// person's, so it is a row of its own and never "You".
+#[test]
+fn a_compaction_summary_is_not_the_person() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "k1",
+            r#""isCompactSummary":true,"#,
+            r#""This session is being continued from a previous conversation.""#,
+        ),
+        line("user", "k2", r#""origin":{"kind":"human"},"#, r#""Carry on""#),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    assert!(matches!(
+        &thread.rows[0],
+        SessionRow::Compaction { id, text, .. } if id == "k1" && text.starts_with("This session")
+    ));
+    assert!(matches!(&thread.rows[1], SessionRow::Message { from: SessionVoice::You, .. }));
+    assert_eq!(thread.rows.len(), 2);
+}
+
+/// A hand-back between agents is flagged `isMeta` and arrives with a peer's
+/// origin; it is nobody's message in this thread.
+#[test]
+fn an_agent_to_agent_hand_back_is_not_drawn() {
+    let (_home, file) = written(&[
+        line(
+            "user",
+            "h1",
+            r#""isMeta":true,"origin":{"kind":"peer","name":"x"},"#,
+            r#""Another Claude session sent a message:\n<agent-message from=\"x\">report</agent-message>""#,
+        ),
+        line("user", "h2", r#""origin":{"kind":"peer","name":"x"},"#, r#""<agent-message from=\"x\">report</agent-message>""#),
+    ]);
+    assert!(read_from(&file, 0).expect("readable").rows.is_empty());
+}
