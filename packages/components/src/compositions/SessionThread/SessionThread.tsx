@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { Box, GitBranch, KeyRound, SquareTerminal } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -65,6 +66,8 @@ export type SessionThreadProps = {
   onAnswer: (answer?: string) => void;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
+  /** Which Session this is. A change of it opens the thread at its newest row again. */
+  sessionId?: string;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -241,10 +244,33 @@ function Row({ row, onOpenSession }: { row: SessionThreadRow; onOpenSession: (id
   );
 }
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession }: SessionThreadProps) {
+/** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
+const NEAR_END = 24;
+
+export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId }: SessionThreadProps) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
+  // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
+  // A person who scrolled up to read is not moved by a row that arrives.
+  useLayoutEffect(() => {
+    pinned.current = true;
+  }, [sessionId]);
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
+  }, [rows, sessionId]);
   return (
     <div className="armada-session-thread">
-      <div className="armada-session-thread__rows" role="region" aria-label="Thread">
+      <div
+        ref={scroller}
+        className="armada-session-thread__rows"
+        role="region"
+        aria-label="Thread"
+        onScroll={(event) => {
+          const one = event.currentTarget;
+          pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
+        }}
+      >
         <ol className="armada-helm-thread__rows">
           {rows.map((row) => (
             <Row key={row.id} row={row} onOpenSession={onOpenSession} />

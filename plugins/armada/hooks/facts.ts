@@ -122,3 +122,35 @@ export function senderOf(origin: { kind: string; teammate?: string }): string {
 export function micros(usd: number | undefined): number | undefined {
   return usd === undefined ? undefined : Math.round(usd * 1_000_000)
 }
+
+const MODELS = ['haiku', 'sonnet', 'opus']
+
+/** A model by the short name the person picks it by, and by its own id where it has no short one. */
+export function modelName(id: string): string {
+  return MODELS.find(one => id.includes(one)) ?? id
+}
+
+export type Mode = 'ask' | 'auto' | 'accept_edits' | 'plan'
+
+/** The terminal's permission mode in Armada's words, or nothing for one Armada has no word for. */
+export function modeOf(mode: string | undefined): Mode | undefined {
+  switch (mode) {
+    case 'default':
+      return 'ask'
+    case 'auto':
+      return 'auto'
+    case 'acceptEdits':
+      return 'accept_edits'
+    case 'plan':
+      return 'plan'
+    default:
+      return undefined
+  }
+}
+
+/** An effort level, whether the hook input carries the word or an object around it. */
+export function effortOf(effort: unknown): string | undefined {
+  if (typeof effort === 'string') return effort
+  const level = (effort as { level?: unknown } | null | undefined)?.level
+  return typeof level === 'string' ? level : undefined
+}

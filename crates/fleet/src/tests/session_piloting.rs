@@ -86,7 +86,7 @@ impl Rig {
     }
 
     async fn rows(&self, id: &SessionId) -> Vec<SessionRow> {
-        self.fleet.get_session(id.clone()).await.expect("read").rows
+        Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows
     }
 
     async fn worktree_of(&self, job: &JobId) -> String {
@@ -388,7 +388,7 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
     );
 
     let names = || async {
-        rig.fleet
+        Arc::clone(&rig.fleet)
             .get_session(id.clone())
             .await
             .unwrap()

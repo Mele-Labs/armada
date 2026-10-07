@@ -8,10 +8,16 @@ const URL = 'https://github.com/Mele-Labs/armada/pull/1853'
 
 type Posted = { url: string; body: any }
 
-function world(on: On, options: { running?: () => boolean; hangs?: boolean; transcript?: string } = {}) {
+function world(
+  on: On,
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string } = {},
+) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
+  const submitted: { text: string; asUser?: boolean }[] = []
+  const asked: unknown[] = []
+  const ran: { command: string; args?: string }[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user' })
   on('fs.read', (_$, e) => {
@@ -23,6 +29,13 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean; tran
   on('http.fetch', (_$, e) => {
     attempts.fetches += 1
     if (options.hangs) return new Promise(() => undefined)
+    // What the mod asks for, and not a report: kept apart so a count of reports holds.
+    if (e.url.endsWith('/sessions/held')) {
+      asked.push(JSON.parse(e.init?.body ?? '{}'))
+      const messages = options.held?.splice(0) ?? []
+      const commands = options.heldCommands?.splice(0) ?? []
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
+    }
     posts.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
   })
@@ -33,14 +46,23 @@ function world(on: On, options: { running?: () => boolean; hangs?: boolean; tran
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
+  on('session.model', () => ({ value: options.model?.() ?? 'claude-haiku-4-5-20251001' }))
+  on('command.list', () => ({ value: [{ name: 'review', description: 'Review the pull request', source: 'builtin' }] }))
+  on('command.run', (_$, e) => {
+    ran.push({ command: e.command, args: e.args })
+    options.onCommand?.()
+    return { value: {} }
+  })
   on('session.cwd', () => ({ value: '/repos/armada' }))
   // What the engine answers beneath the mod for the events a test raises.
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
-  on('prompt.submit', (_$, e) => ({ text: e.text }))
-  on('command.run', () => ({}))
+  on('prompt.submit', (_$, e) => {
+    submitted.push({ text: e.text, asUser: e.origin?.asUser })
+    return { text: e.text }
+  })
   on('turn.complete', () => ({ text: '' }))
-  return { posts, attempts, clock }
+  return { posts, attempts, clock, submitted, asked, ran }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -230,6 +252,62 @@ test('a need declared while Fleet is down costs nothing and is told again when i
   expect(needs(posts)).toEqual([
     { kind: 'attached', attachment: { kind: 'need', target: 'a.toml', detail: { what: 'a minor' } } },
   ])
+})
+
+test('what a person sent from Bridge is submitted as their own prompt, once, in order', async ($, on) => {
+  const { clock, submitted, asked } = world(on, { held: ['run the tests', 'then lint'] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(asked[0]).toEqual({ session_id: 'S1' })
+  expect(submitted).toEqual([
+    { text: 'run the tests', asUser: true },
+    { text: 'then lint', asUser: true },
+  ])
+  await clock.advance(2000)
+  await clock.settle()
+  expect(submitted).toHaveLength(2)
+})
+
+test('a Fleet that is not running is not asked, and nothing is submitted', async ($, on) => {
+  const { clock, submitted, asked } = world(on, { running: () => false, held: ['lost'] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(asked).toEqual([])
+  expect(submitted).toEqual([])
+})
+
+test('what the terminal runs on is told once with the commands it lists', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'tuned',
+    model: 'haiku',
+    commands: [{ name: 'review', says: 'Review the pull request' }],
+  })
+})
+
+test('a model chosen in Bridge is run as a command, and the new one is told', async ($, on) => {
+  let model = 'claude-haiku-4-5-20251001'
+  const { posts, clock, ran, submitted } = world(on, {
+    heldCommands: [{ command: 'model', args: 'sonnet' }],
+    model: () => model,
+    onCommand: () => {
+      model = 'claude-sonnet-5-5'
+    },
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(submitted).toEqual([])
+  expect(facts(posts)).toContainEqual({ kind: 'tuned', model: 'sonnet' })
+  expect(ran).toEqual([{ command: 'model', args: 'sonnet' }])
 })
 
 test('a rename in the terminal is told as the name, and the first prompt does not take it back', async ($, on) => {

@@ -32,5 +32,12 @@ export type Fact =
       state: 'spent' | 'given_back'
     }
   | { kind: 'measured'; usage: Usage }
+  | {
+      kind: 'tuned'
+      model?: string
+      effort?: string
+      mode?: 'ask' | 'auto' | 'accept_edits' | 'plan'
+      commands?: { name: string; says: string }[]
+    }
   | { kind: 'turn_completed' }
   | { kind: 'ended'; reason: string }
