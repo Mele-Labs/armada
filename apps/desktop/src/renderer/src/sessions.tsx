@@ -456,6 +456,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
       case "job":
@@ -479,6 +480,7 @@ function entriesOf(
                   : {}),
           ...(one.looking === true ? { looking: true } : {}),
           ...(one.slot === undefined ? {} : { slot: one.slot }),
+          ...(one.state === "landed" || one.state === "superseded" ? { finished: true } : {}),
           onOpen: () => goes.onOpenJob(one.id),
         };
       case "studio":
@@ -501,6 +503,7 @@ function entriesOf(
           name: `Subagent ${one.task}, ${one.state}`,
           text: one.task,
           mark: { glyph: one.state, said: one.state === "running" ? "Running" : "Done" },
+          ...(one.state === "running" ? {} : { finished: true }),
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
