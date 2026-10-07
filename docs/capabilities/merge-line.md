@@ -147,7 +147,7 @@ The line's first real turn on this repository merged `main` in, ran the gate and
 
 **A Check reruns when it covers what landed on `main`, or what the branch changed, or both.** Either side, not both: the pair most likely to break only in combination is a Rust change landing on the base against a branch's TypeScript, where the generated types meet, and asking for both sides skips exactly that.
 
-**Every Check in this repository declares `when:`, including `build`, `test` and `format`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
+**Every Check in this repository declares `when:`, including `build` and `test`.** They name what their commands read rather than what they are about — the workspace, the lockfile, `.cargo/`, `protocol-version.toml`, the shipped workflow definitions, `armada.yml` itself, and for `test` the Bridge tree that `xtask`'s own tests read and the documents code reads: `agent-prompt.md`, `design-system.md` and `docs/spikes/`. Any other change to the documents alone hits no Check at all.
 
 **File overlap alone would miss cross-file breakage.** A type changed in one crate breaks a caller in another file, and both sides still hit `test`.
 
@@ -194,7 +194,7 @@ the turn's paths (every member's, + what landed on main)
 ```
 
 - **`checks-runner` holds the one Cargo fact, and the Manifest the rest.** `crates/checks-runner/src/reach.rs` asks `cargo tree` what depends on what; `armada check --changed` spells the result through the Check's own `narrow`, read by `checks_runner::narrowed_over`.
-- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` (`format`'s) never narrows at all, since a file list leaves out what the command reads beside it, such as `rustfmt.toml`.
+- **The gate's reading is stricter than a Drone's.** A Drone's narrowed run drops a path it cannot name; here one such path runs the Check whole, and a verbatim `narrow` never narrows at all, since a file list leaves out what the command reads beside it, such as a config file.
 - **A file that is not Rust source runs it whole**, because the dependency graph says nothing about who reads it: `ipc`'s tests read `testkit`'s fixtures without depending on `testkit`.
 - **`xtask` is in every narrowed `test`**, written into the Manifest's `narrow.run`: its tests read the whole tree, so no change under `crates/` is outside their reach.
 - **`apps/` and `packages/` run `test` as xtask alone.** The Manifest declares them `outside`: paths `narrow.run` already reads, since xtask's tests are the only ones reading either tree. A change touching only them runs `narrow.run` with nothing appended; beside a crate, they add nothing to its `-p` values. Any other covered path `under` cannot name still runs it whole. Decided by the owner 4 Oct 2026, after Job 3's Bridge-only change ran every Rust test.

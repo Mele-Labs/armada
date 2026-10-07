@@ -108,7 +108,7 @@ usually right — it has just read the code and you were working from memory.
 
 | | |
 |---|---|
-| **The quick self-check** | what `work-issue` step 4 names, once per branch and one heavy run at a time. `format` is one of them wherever Rust changed — a merge that skipped it left `main` failing a declared Check on 2 Sep |
+| **The quick self-check** | what `work-issue` step 4 names, once per branch and one heavy run at a time |
 | The acceptance tests pass | where the change reaches what they read, by test name. **No failing test is merged**, a milestone's own included |
 | `verify-foundations` is no worse | against a baseline off `main`, not against zero — a `missing:` the branch added blocks |
 | `verify-docs` is green | where `docs/` or `operations.toml` changed |

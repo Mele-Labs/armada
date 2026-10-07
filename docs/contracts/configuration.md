@@ -194,8 +194,8 @@ gate behind a four-minute sleep and submitted nothing.
 **This is the second question about paths a Check answers, and `when` is the
 first.** `when` decides whether the Check runs at all, given what changed;
 `narrow` decides what it reads once it does. They are two keys because they are
-two answers: `format` covers every path in the repository and still narrows to
-the Rust ones, so one key could not carry both.
+two answers: a Check can cover every path in the repository and still narrow
+to the Rust ones, so one key could not carry both.
 
 **A Check that declares no `narrow` runs whole, and that is the default that
 must not move.** Most Checks have nothing narrower — a TypeScript project is

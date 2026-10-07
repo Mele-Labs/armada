@@ -42,7 +42,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`, `preview_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -76,7 +76,6 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 |---|---|---|---|
 | `build`, `test` | `ubuntu-latest` | `armada check <name> --changed`, whole on `main` and dispatch | rust-cache, cargo-nextest |
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
-| `format` | `ubuntu-latest` | `cargo fmt --all --check` | none |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
 | Every workspace key except the two desktop Checks below and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
@@ -154,7 +153,6 @@ setup before the step: restoring caches, installing, building `armada`.
 | `plan` | 70 to 90 for the whole job | Cold cache: 100. Mostly `cargo build -p armada` |
 | `build`, `test` | 0 to 55 | Narrowed to what the diff touched |
 | `acceptance` | 24 to 30 | Whole |
-| `format` | 2 to 4 | |
 | `typecheck` | 45 to 48 | |
 | `bridge_build` | 5 to 8 | |
 | `storybook` | 32 to 35 | |
