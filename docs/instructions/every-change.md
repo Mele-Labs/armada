@@ -16,7 +16,7 @@ out is what makes a change unfinished.
   `pnpm --filter @armada/desktop codegen` after a registry under
   `crates/core-model/domain/` or `protocol-version.toml` changes, and
   `cargo xtask verify-docs --write` for `docs/OPEN.md`.
-- **Rust is formatted** with `cargo fmt --all`, and the build adds no warning
+- **The build adds no warning**
   `main` does not have.
 - **What the change builds is reached.** A thing that exists and nothing
   calls, serves or draws is half-built, so wiring it to the place that uses it

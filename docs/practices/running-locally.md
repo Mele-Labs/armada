@@ -611,11 +611,9 @@ worked**, and a name in neither is refused by listing what is declared.
 **A Check's `requires` runs here too, before the Check does, for any Check
 that declares one.** A prerequisite that fails is reported as itself: the line
 names the Command and the line it ran, and says the Check never started.
-`format` declares none — it once did, and that meant `armada check format`
-rewrote your working tree and then read what it had just written, so it could
-never fail. `armada.yml` says why it does not any more. A failing `format`
-says `armada run fmt`, which is a step you take, not one the Check takes for
-you.
+A prerequisite is a Command a Check needs run first, and a Command that
+writes is a step to take on purpose: `armada run fmt` formats the tree, and no
+Check reads the result.
 
 **Prefer these over retyping the command they wrap.** The Check a person runs is
 the Check a Drone is measured by.

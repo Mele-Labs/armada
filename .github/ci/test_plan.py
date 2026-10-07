@@ -19,7 +19,7 @@ KEYS = [
 
 class Planning(unittest.TestCase):
     def test_a_root_name_keeps_its_static_job(self):
-        self.assertEqual(plan(["build", "format"])["checks"], ["build", "format"])
+        self.assertEqual(plan(["build", "typecheck"])["checks"], ["build", "typecheck"])
 
     def test_a_workspace_key_goes_to_the_matrix_with_its_key(self):
         keys = [row["key"] for row in plan(KEYS)["matrix"]["include"]]

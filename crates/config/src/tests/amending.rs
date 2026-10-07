@@ -68,7 +68,7 @@ const WHEN: &[&str] = &[
     "pnpm-workspace.yaml",
 ];
 
-fn format_narrowing(from: &[&str]) -> NewNarrowing {
+fn a_narrowing(from: &[&str]) -> NewNarrowing {
     NewNarrowing {
         run: "rustfmt --check --edition 2021".to_string(),
         each: "{}".to_string(),
@@ -104,8 +104,8 @@ fn forward() -> Vec<Edit> {
             ),
         ),
         check(
-            "format",
-            CheckEdit::Narrow(Some(format_narrowing(&["**/*.rs", "xtask/**/*.rs"]))),
+            "preview_test",
+            CheckEdit::Narrow(Some(a_narrowing(&["**/*.rs", "xtask/**/*.rs"]))),
         ),
         check(
             "lint",
@@ -168,10 +168,7 @@ fn back() -> Vec<Edit> {
         ),
         check("test", CheckEdit::Requires(Vec::new())),
         check("typecheck", CheckEdit::When(strings(WHEN))),
-        check(
-            "format",
-            CheckEdit::Narrow(Some(format_narrowing(&["**/*.rs"]))),
-        ),
+        check("preview_test", CheckEdit::Narrow(None)),
         check("lint", CheckEdit::Remove),
         command("seed", CommandEdit::Remove),
         command("fmt", CommandEdit::Destructive(false)),
@@ -381,15 +378,12 @@ checks:
 /// next section, set off by a blank, stays.
 #[test]
 fn removing_a_check_takes_the_comment_written_over_it() {
-    let edited = amended(OWN, &[check("format", CheckEdit::Remove)]);
+    let edited = amended(OWN, &[check("hooks_test", CheckEdit::Remove)]);
     let comment = line_of(
         OWN,
-        "  # `format`, not `fmt`: that name is a Command below and both registries",
+        "  # The Python suite for the hook that keeps agents landing through the merge",
     );
-    let next = line_of(
-        OWN,
-        "# Commands gate nothing — they are what a Drone is given to run.",
-    );
+    let next = line_of(OWN, "  preview_test:");
     assert_eq!(edited, without(OWN, comment - 1, next - 2));
 }
 
