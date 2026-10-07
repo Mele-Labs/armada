@@ -842,6 +842,14 @@ run. It stops and tells him only where the failure is not its to fix: the same
 failure on `main`, a decision that is his, or one that survives two fixes.
 `desktop_test` reports beside `ci` without gating it.
 
+**`ci` is not listed until the Checks it waits on finish**, so a `--watch` that
+ends, or a `grep '^ci'` over `gh pr checks`, can come back with nothing while
+the run is still going. Confirmed 7 Oct 2026: the same watch returned empty
+four times in one session, each costing a re-poll. Poll until the `ci` row
+exists and reads `pass` or `fail`:
+`until gh pr checks <n> | grep -E '^ci\s' | grep -qE 'pass|fail'; do sleep 20; done`,
+in the background.
+
 **A moved `main` is brought in by merging it**, never by rebasing.
 
 **Cleanup waits for the merge.** `gh pr view <branch> --json state` reads
