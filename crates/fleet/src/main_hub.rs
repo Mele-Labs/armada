@@ -66,6 +66,11 @@ pub(crate) struct MergedPulled {
 /// How many merged pull requests the hub carries.
 const MERGED_SHOWN: usize = 5;
 
+/// How many merged pull requests are listed to decide main's state from: **the
+/// newest finished commit decides**, and the newest few may all still be running.
+/// Their runs are read past [`MERGED_SHOWN`] only until one has finished.
+const DECIDING_WINDOW: usize = 30;
+
 /// How long a merge commit with no run on it is asked about again: the forge
 /// starts its workflows a moment after a merge.
 const RUN_MAY_START: Duration = Duration::from_secs(600);
@@ -144,7 +149,7 @@ where
         };
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
-                vcs.recently_merged_pull_requests(root, &base, MERGED_SHOWN)
+                vcs.recently_merged_pull_requests(root, &base, DECIDING_WINDOW)
             })
             .await;
         let Some(listed) = listed else { return };
@@ -170,7 +175,9 @@ where
     /// was read. **One `ci_runs_on` a commit, then again only while a job is
     /// unfinished** (or nothing ran yet and the merge is minutes old), and a
     /// settled reading is kept. A forge that will not answer keeps what was read.
-    /// At most [`MERGED_SHOWN`] + 1 asks the first visit, usually none after.
+    /// The head and the newest [`MERGED_SHOWN`] are always read; older merges
+    /// only while none of the newer has finished, up to [`DECIDING_WINDOW`]. Usually
+    /// none after the first visit.
     pub(crate) async fn notice_merged_runs(
         &self,
         served: &Served,
@@ -202,8 +209,16 @@ where
             }
         }
         let mut read = BTreeMap::new();
-        let mut candidates = Vec::new();
-        for (commit, merged_at) in asked {
+        let mut candidates: Vec<(String, Option<MergedRun>)> = Vec::new();
+        for (at, (commit, merged_at)) in asked.into_iter().enumerate() {
+            let decided = candidates.iter().any(|(_, run)| {
+                run.as_ref()
+                    .and_then(MergedRun::class)
+                    .is_some_and(|it| it != Reduced::Running)
+            });
+            if at > MERGED_SHOWN && decided {
+                break;
+            }
             if let Some(settled) = kept.get(&commit).filter(|it| it.settled) {
                 read.insert(commit.clone(), settled.clone());
                 candidates.push((commit, Some(settled.clone())));
@@ -428,6 +443,7 @@ pub(crate) fn hub_of(
         merged: merged
             .map(|read| {
                 read.iter()
+                    .take(MERGED_SHOWN)
                     .map(|one| merged_of(one, runs, titled))
                     .collect()
             })

@@ -348,3 +348,60 @@ async fn a_red_after_a_green_names_the_first_red_after_it_and_red_red_red_names_
     assert_eq!(main.merge.unwrap().number, 1871, "the first of the reds");
     assert_eq!(main.red_commit.as_deref(), Some(sha('c').as_str()));
 }
+
+#[tokio::test]
+async fn a_row_the_old_build_wrote_is_read_once_more_whatever_the_head() {
+    let home = TempDir::new();
+    {
+        let fleet = a_fleet_holding_bug(&home, false);
+        goes_red(&fleet, 1845);
+        fleet.turn().await.unwrap();
+        // What the build before this one left: a red with nothing decided and nothing unfinished.
+        let mut old = kept(&fleet).await.unwrap();
+        old.decided_commit = None;
+        old.newer_running = 0;
+        old.unfinished = 0;
+        fleet.store().lock().await.record_main_ci(&old).unwrap();
+    }
+    let fleet = a_fleet_holding_bug(&home, false);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    let turned = fleet.turn().await.unwrap();
+    assert_eq!(turned.main_changed[0].change, MainChange::WentGreen);
+    let main = kept(&fleet).await.unwrap();
+    assert_eq!(main.state, store::MainState::Green);
+    assert_eq!(main.decided_commit.as_deref(), Some(ONE));
+}
+
+#[tokio::test]
+async fn the_newest_finished_commit_decides_even_past_the_newest_six_all_running() {
+    let home = TempDir::new();
+    let fleet = a_fleet_holding_bug(&home, false);
+    goes_red(&fleet, 1845);
+    fleet.turn().await.unwrap();
+
+    // Seven running (the head among them), and the eighth newest finished green.
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(&sha('h')));
+    let merges: Vec<(u64, char, CiState)> = "hgfedcb"
+        .chars()
+        .zip((1876..=1882).rev())
+        .map(|(digit, number)| (number, digit, CiState::Pending))
+        .chain([(1874, 'a', CiState::Passed)])
+        .collect();
+    forge_lists(&fleet, &merges);
+    let turned = fleet.turn().await.unwrap();
+    assert_eq!(turned.main_changed[0].change, MainChange::WentGreen);
+    let hub = the_hub(&fleet).await;
+    let main = hub.main.unwrap();
+    assert_eq!(main.state, MainCiState::Green);
+    assert!(main.failed.is_empty() && main.red_commit.is_none());
+    assert_eq!(main.checking.len(), 7, "every newer run still going");
+    assert_eq!(hub.merged.len(), 5, "Recently landed keeps its five");
+
+    // Settled and running ones are cached: nothing but the running are asked again.
+    let before = forge.times_asked_for_runs();
+    fleet.turn().await.unwrap();
+    assert_eq!(forge.times_asked_for_runs(), before + 7);
+}

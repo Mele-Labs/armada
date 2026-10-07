@@ -86,10 +86,14 @@ where
             .await
             .main_ci(&root)
             .map_err(Adrift::Reading)?;
-        if before
-            .as_ref()
-            .is_some_and(|it| it.commit == head && it.base == base && it.unfinished == 0)
-        {
+        if before.as_ref().is_some_and(|it| {
+            // A row without `decided_commit` was written before main was decided from the
+            // newest finished commit, and is read once more.
+            it.commit == head
+                && it.base == base
+                && it.unfinished == 0
+                && it.decided_commit.is_some()
+        }) {
             return Ok(Vec::new());
         }
         if candidates.first().is_some_and(|(_, head)| head.is_none()) {
