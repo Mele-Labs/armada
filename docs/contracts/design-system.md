@@ -1420,6 +1420,12 @@ modifier, and a single-key binding would be suppressed inside a field anyway
 by the rule below. It is drawn on the Send button only while `⌘` is held, per
 `kbd` below.
 
+**`⌘[ ⌘]` are the one Global pair a focused field keeps.** In a field they are
+outdent and indent, which is what a person typing meant, so the press passes
+through to it. Everywhere else they step through the places visited: the
+surface, the open Job and its tab, the open Session, and the open Studio and
+its node.
+
 **Contextual — single-key, on the focused row or the open job.** This is
 what makes triage fast: move down the queue and act without reaching for
 a modifier.
