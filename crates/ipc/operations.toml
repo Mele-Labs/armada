@@ -2591,7 +2591,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person overrules the machine that stopped a step and the step advances, keeping what was ruled on the record"
 notes = """
-The fifth act that reaches an escalated Job, and the only one that lets the work
+The fifth act that reaches an escalated Job — and, since 2026-10-06, a Job held at `awaiting_repair` — and the only one that lets the work
 already done stand. `docs/concepts/job.md` has the other four and none of them is
 this: `approve_review` refuses anywhere but `awaiting_review` and a Job a gate
 refused is `escalated`; `restart_step` re-runs the step, which throws away
@@ -2616,11 +2616,19 @@ verdict exists — and the owner decided on 2026-10-05 that a person must be abl
 move a step the machine could not read: an engineer who deems the step did what it
 needs can advance it, and the record keeps `failed(gate_undecided)` beside
 `advanced`. That one takes no reason, as a gaming flag takes none, because there is
-no Judge opinion to learn from. The mechanical tier is unreachable by the check, and `build` failing is not a matter
-of opinion. It stopped being unreachable *by construction* when #208 landed: a
-Job whose gate-failure attempts are spent now holds at `awaiting_repair` with a
-stopped step, which is a step an act could land on. The refusal is the check
-alone now, and it is the check that has to hold.
+no Judge opinion to learn from. **A failed Check is overruled too, once its retries are spent** (owner, 2026-10-06:
+"I should be able to override things like this, not just judge checks. If I know
+the job has the work completed and it should move on I should be able to move it
+forward."). Any Check, `build` and `test` included. This reverses the position
+this row held since #208, that a failed Check is not a matter of opinion. The Job
+holds at `awaiting_repair` with a step stopped on `gate_failure`, the trigger a
+Judge refusal writes too, and the act lands there as it does beneath `escalated`:
+the step `stopped -> advanced`, the Job `awaiting_repair -> queued`, or finished
+where the step was the last. Nothing reads the Check runs and none is rewritten;
+`last_verdict` stays `failed(gate_failure)` and the Check's own failed run stays
+on the step. The body is still `{reason}` and the reason is still required,
+since the trigger is `gate_failure`. The closed `claim` set belongs to
+`file_report` and this act carries none.
 
 **Recorded as an override and never as a pass.** The step move is `stopped ->
 advanced` carrying the trigger it overruled, with the person as the actor, so
@@ -2647,7 +2655,7 @@ overruled step was the workflow's last, the work is committed, delivered and the
 Job recorded `completed_success`, exactly as `approve_review` ends one.
 
 **It asks for the next step's Drone rather than starting one.** The Job takes
-`escalated -> queued` and admission spawns when `settings.concurrency-cap` has
+`escalated -> queued` (`awaiting_repair -> queued` over a failed Check) and admission spawns when `settings.concurrency-cap` has
 room — the same edge `restart_step` takes and for the same reason: the cap
 bounds Drones, and an act that spawned for itself would let a person push Fleet
 past it. **It is never refused because the cap is spent.** The person's verdict
