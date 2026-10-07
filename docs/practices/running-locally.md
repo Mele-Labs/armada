@@ -326,6 +326,11 @@ with git alone, and a stub Fleet. CI runs it as `preview_test` when
 
 ## A Fleet of your own
 
+**This is not how the app is started.** Day to day that is
+`scripts/preview --restart`, which runs the latest `main` plus every in-flight
+branch. `scripts/restart` starts from `main` alone. A scratch Fleet is for wire
+data and recording Jobs.
+
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
 has its own home, its own store, a local clone of this repository with
 `.armada/workflows/` copied in, and a Drone that exits at once — so a Job it

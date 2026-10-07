@@ -16,6 +16,11 @@
 #   scripts/dev-fleet <scratch-dir>               an empty store
 #   scripts/dev-fleet <scratch-dir> --copy-store  a copy of the owner's store
 #
+# **This is not how the app is started.** Day to day that is
+# `scripts/preview --restart`, which runs the latest `main` plus every in-flight
+# branch; `scripts/restart` starts from `main` alone. This is a scratch Fleet,
+# for wire data and recording Jobs.
+#
 # It ends by running `armada serve`, so it holds the terminal until signalled.
 # Start it in the background and keep the handle. The port is in
 # `<scratch-dir>/home/user/Library/Application Support/Armada/fleet.json`.
