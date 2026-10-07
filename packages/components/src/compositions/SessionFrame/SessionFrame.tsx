@@ -108,7 +108,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, action
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>
-    {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside">{aside}</Card>}
+    {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
     </div>
   );
 }

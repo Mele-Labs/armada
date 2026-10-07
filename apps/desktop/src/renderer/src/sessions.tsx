@@ -600,8 +600,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           : {
               aside: (
                 <>
-                  <div className="armada-session-frame__aside-head">
-                    <h2>Ledger</h2>
+                  <div className="armada-shell__dock-head">
+                    <h2 className="armada-shell__dock-title">Ledger</h2>
                     <Tooltip label="Hide attachments">
                       <Button variant="ghost" size="sm" aria-label="Hide attachments" onClick={() => minimize(true)}>
                         <PanelRightClose size={16} strokeWidth={2} aria-hidden />
