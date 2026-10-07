@@ -95,3 +95,12 @@ test("a merge line Check is a row with the line's requester and the names its lo
   expect(one?.land).toEqual({ root: "/r", branch: "b", check: "test" });
   expect(checkRowOf(one!)).toMatchObject({ status: "failed", says: "timed out", by: "Merge line · b" });
 });
+
+test("reported rows and the merge line's Checks list with no run sheet to read", () => {
+  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "fix", attempt: 1 };
+  const reported = [
+    { ...base, source: "gate", name: "build", requester: { kind: "gate", job_id: "1", step: "fix", handle: "1-a-job" }, state: "passed", ended_at: "2026-10-06T14:01:00Z" },
+  ] as const;
+  const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
+  expect(checkEntriesOf(undefined, [ran("build", "2026-10-06T13:30:00Z")], [line], reported).map((one) => one.name)).toEqual(["build", "lint"]);
+});

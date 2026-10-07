@@ -186,15 +186,24 @@ const JOB_LOGS: Record<string, string[]> = {
 };
 
 export function checking(): Scenario {
-  const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
+  return checkingOver(READ, "checks", "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them");
+}
+
+/** The same Fleet with the run sheet never read: what the gate's and the Drones' Checks and the merge line's still draw. */
+export function checkingWithoutRunSheet(): Scenario {
+  return checkingOver({ state: "reading" }, "checks-without-run-sheet", "A repository whose run sheet has not been read, and the Checks Jobs and Drones reported anyway");
+}
+
+function checkingOver(read: CheckoutRunSheetRead, name: string, says: string): Scenario {
+  const base = manifesting({ sheet: read, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
   // The Job the gate's and the Drones' requesters open, with its steps and Drones, and one with a plan, which a task's requester opens.
   const jobs = holding("checks", "", [everyDroneHad(), ...executingSequential().fixtures]);
   return {
     ...base,
-    name: "checks",
+    name,
     state: { ...jobs.state, repository: base.state.repository, mergeLines: LINE },
     reads: jobs.reads,
-    says: "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them",
+    says,
     behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet), ...jobChecks(fleet) }),
   };
 }
