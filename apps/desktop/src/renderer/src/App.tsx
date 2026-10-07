@@ -138,6 +138,7 @@ import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
+import { useOpenSessionAsked } from "./open-session";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -504,6 +505,7 @@ export function App({ draft }: AppProps = {}) {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
+  useOpenSessionAsked(openSession); // The annotation layer's Start session.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);

@@ -26,10 +26,10 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string) => {
     const fleet = connection();
     if (fleet === null) return unsent;
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined);
   });
   ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
     text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,

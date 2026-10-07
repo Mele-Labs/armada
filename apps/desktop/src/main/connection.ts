@@ -41,7 +41,7 @@ import { KitCommands } from "./kit";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { RepositoryReads } from "./repositories";
-import { Picked, PickedByWindow } from "./picked";
+import { Picked, PickedByWindow, repositoryToStart } from "./picked";
 import { ReportsReader } from "./reports";
 import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
@@ -580,9 +580,8 @@ export class FleetConnection {
    * one repository Fleet serves** where there is exactly one, and a refusal in words where there are
    * several: a session starts in a repository, and guessing one would put it somewhere unseen.
    */
-  async startSession(picked: Picked, title?: string): Promise<SessionActed> {
-    const served = this.current.holds.repositories ?? [];
-    const repository = picked.repository ?? (served.length === 1 ? served[0] : undefined);
+  async startSession(picked: Picked, title?: string, root?: string): Promise<SessionActed> {
+    const repository = repositoryToStart(this.current.holds.repositories ?? [], picked, root);
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
     if (repository.manifest === undefined) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start({ manifest_id: repository.manifest.id, ...(title === undefined ? {} : { title }) });
