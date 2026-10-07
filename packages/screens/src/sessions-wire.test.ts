@@ -287,6 +287,22 @@ describe("a session", () => {
     expect(session.lastTurn).toMatch(/^\d\d:\d\d$/);
   });
 
+  it("carries the agent's questions on its ask", () => {
+    const questions = [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }] }];
+    const session = sessionOfRecord(
+      record("01ABCDEFGHJKMNPQRSTVWXYZ01", {
+        hosted: {
+          turn: { state: "working" },
+          running: true,
+          asked: { call: "c", manifest_id: "armada", asked_at: AT, tool: "AskUserQuestion", detail: "Which size?", truncated: false, rule: "AskUserQuestion", offers: ["allow_once", "refuse"], holding_for_seconds: 60, questions },
+        },
+      }),
+      undefined,
+      beside(),
+    );
+    expect(session.asked).toMatchObject({ command: "Which size?", call: "c", questions });
+  });
+
   it("is a blank one until it has been written to, titled or finished a turn, even before its thread is opened", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).blank).toBe(true);
     expect(sessionOfRecord(record("a", { title: "Named" }), undefined, beside()).blank).toBe(false);

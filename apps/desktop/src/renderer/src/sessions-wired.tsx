@@ -25,6 +25,7 @@ import type {
   Session,
   SessionAnswer,
   SessionAttachment,
+  SessionQuestionAnswer,
   SessionsDraft,
   SessionTag,
 } from "@armada/screens/src/draft/sessions";
@@ -275,10 +276,17 @@ export class WiredStore {
     get commands() {
       return store.commandsRead();
     },
-    answer: (id: string, answer?: SessionAnswer) => {
+    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;
-      void this.plain(this.api.answerSessionAsk({ session_id: id, call, answer: answer ?? "allow_once" }));
+      void this.plain(
+        this.api.answerSessionAsk({
+          session_id: id,
+          call,
+          answer: answer ?? "allow_once",
+          ...(answers === undefined ? {} : { answers }),
+        }),
+      );
     },
     };
   }

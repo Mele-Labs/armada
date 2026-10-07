@@ -122,6 +122,11 @@ where
                 "that call does not offer that answer",
                 self.run_id(),
             ))),
+            Err(NotAnswerable::Incomplete) => Err(Refusal::IllegalMove(WireError::raised(
+                HELM_ANSWER_NOT_OFFERED,
+                "that call asked questions, and each needs an answer",
+                self.run_id(),
+            ))),
         }
     }
 

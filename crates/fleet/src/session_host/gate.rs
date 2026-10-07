@@ -99,16 +99,16 @@ where
                 if own.is_none() {
                     return self.leased(&id, &served).await;
                 }
-                let hit = written_by(&command).into_iter().find_map(|path| {
-                    match lands(&path) {
+                let hit = written_by(&command)
+                    .into_iter()
+                    .find_map(|path| match lands(&path) {
                         Place::Main => Some(format!(
                             "That command writes {path} in the main checkout. This session writes \
                              in its own slot at {directory}: use the same path under it."
                         )),
                         Place::Slot(slot) if !held(slot) => Some(not_held(&path, slot)),
                         _ => None,
-                    }
-                });
+                    });
                 match hit {
                     Some(why) => GateAnswer::deny(why),
                     None => GateAnswer::pass(),

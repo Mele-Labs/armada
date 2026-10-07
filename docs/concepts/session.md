@@ -172,17 +172,26 @@ is the default and means what it means for Helm: everything runs except what is
 destructive, pushes code to a shared space or writes off this machine, which
 Fleet puts to the person on the session's own thread. The CLI's own auto mode is
 not reachable for a spawned session, so `auto` is `default` with that door.
-`ask` and `acceptEdits` put every call the person's settings do not cover.
+Inside the session's own slot, what it writes is its work and does not ask, and a
+redirect into `/dev/null` is not a truncation; `rm`, `git reset --hard`, `git push` and the like
+still do. `ask` and `acceptEdits` put every call the person's settings do not cover.
 [Spike 25](../spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md).
 A change applies from the next process: an idle one is ended at once, a running
 one when its turn is over.
+
+**A question is an ask too.** The agent's `AskUserQuestion` reaches the same door as any call, and
+in a hosted session nobody could answer it. Fleet now holds it whatever the mode and the thread
+draws it as a form: each question with its options, a multi-select where the agent said so, and
+*Other* for the person's own words. *Answer* hands back one entry per question, *Skip* tells the
+agent so. Fleet returns the tool's input with its `answers` map filled in, keyed by question text,
+a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 | Operation | Does |
 |---|---|
 | `start_session` | A row for one repository, with optional title, model, effort and mode |
 | `rename_session` | A person's name for a Session, hosted or in a terminal; stands until the next terminal `/rename` |
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
-| `answer_session_ask` | One of the offers on the ask the agent is held on |
+| `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks the slot, ends the row |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |

@@ -48,7 +48,12 @@ fn edit(tool: &str, path: &str) -> Option<Because> {
 
 #[test]
 fn a_read_a_search_and_the_ordinary_shell_run_unasked() {
-    let read = call("Read", Path { file_path: "/repo/src/lib.rs" });
+    let read = call(
+        "Read",
+        Path {
+            file_path: "/repo/src/lib.rs",
+        },
+    );
     assert_eq!(because_in_a_session(&read, SLOT), None);
     let grep = call("Grep", Pattern { pattern: "fn main" });
     assert_eq!(because_in_a_session(&grep, SLOT), None);
@@ -78,7 +83,12 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
     }
     assert_eq!(
         because_in_a_session(
-            &call("Edit", Path { file_path: "src/lib.rs" }),
+            &call(
+                "Edit",
+                Path {
+                    file_path: "src/lib.rs"
+                }
+            ),
             SLOT
         ),
         None,
@@ -91,9 +101,7 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
         "outside the slot, an overwrite keeps its card"
     );
     // A `..` is not read as inside, even under the directory's own prefix.
-    let under = |path: &str| {
-        because_in_a_session(&call("Edit", Path { file_path: path }), "/etc")
-    };
+    let under = |path: &str| because_in_a_session(&call("Edit", Path { file_path: path }), "/etc");
     assert_eq!(under("/etc/hosts"), None);
     assert_eq!(under("/etc/../etc/hosts"), Some(Because::Destructive));
 }
@@ -101,9 +109,15 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
 #[test]
 fn the_three_classes_still_ask() {
     assert_eq!(bash("rm -rf build"), Some(Because::Destructive));
-    assert_eq!(bash("cargo build && rm -rf target"), Some(Because::Destructive));
+    assert_eq!(
+        bash("cargo build && rm -rf target"),
+        Some(Because::Destructive)
+    );
     assert_eq!(bash("git reset --hard HEAD~1"), Some(Because::Destructive));
-    assert_eq!(bash("git checkout -- src/lib.rs"), Some(Because::Destructive));
+    assert_eq!(
+        bash("git checkout -- src/lib.rs"),
+        Some(Because::Destructive)
+    );
     assert_eq!(bash("echo hi > notes.txt"), Some(Because::Destructive));
     assert_eq!(bash("git push origin main"), Some(Because::PushesToShared));
     assert_eq!(bash("echo $(git push)"), Some(Because::PushesToShared));

@@ -39,7 +39,11 @@ async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
     rig.send(&id, "change a file").await;
     rig.stand_in.init(0);
     let first = rig
-        .gate(&id, "Edit", &format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root))
+        .gate(
+            &id,
+            "Edit",
+            &format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root),
+        )
         .await;
     assert!(denied(&first));
     rig.stand_in.finishes(0, "stopping");
@@ -77,7 +81,11 @@ async fn the_main_checkout_is_still_held_and_so_is_a_slot_somebody_else_holds() 
     let peers = Placing::nothing();
     let (rig, id) = in_its_slot(&peers).await;
     let main = rig
-        .gate(&id, "Edit", &format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root))
+        .gate(
+            &id,
+            "Edit",
+            &format!(r#"{{"file_path":"{}/src/lib.rs"}}"#, rig.root),
+        )
         .await;
     assert!(denied(&main));
     assert!(reason(&main).contains("main checkout"));
@@ -94,8 +102,12 @@ async fn the_main_checkout_is_still_held_and_so_is_a_slot_somebody_else_holds() 
     assert!(denied(&sideways), "a `..` out of the slot is the checkout");
     let own = adapter_traits::slot_path(&rig.root, 1);
     assert!(!denied(
-        &rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{own}/src/lib.rs"}}"#))
-            .await
+        &rig.gate(
+            &id,
+            "Edit",
+            &format!(r#"{{"file_path":"{own}/src/lib.rs"}}"#)
+        )
+        .await
     ));
     let parent = std::os::unix::process::parent_id();
     let other = lease(&rig, 5, parent, &started(parent));

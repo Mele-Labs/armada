@@ -6,7 +6,7 @@
 // `SessionRecord` with `origin: "bridge"` and `hosted` set; its thread is not on
 // the row. Read `get_session` once and follow `session.row`.
 
-import type { HelmCallAnswer, HelmCallInFlight } from "./helm-calls";
+import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { SessionRecord } from "./sessions";
 
@@ -58,6 +58,8 @@ export type AnswerSessionAsk = {
   call: string;
   answer: HelmCallAnswer;
   note?: string;
+  /** One entry per question, for an ask that carries some. Since protocol 23.66. */
+  answers?: QuestionAnswer[];
 };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */

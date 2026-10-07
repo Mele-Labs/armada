@@ -21,6 +21,7 @@ use super::address_of;
 use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, safe_name, UserLine};
 use crate::daemon::Fleet;
+use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
@@ -35,6 +36,9 @@ const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
+
+/// An answer to an ask with questions that leaves one unanswered. A 422.
+const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
 
 /// The most one attachment may be, decoded.
 const MOST_AN_ATTACHMENT: usize = 25 * 1024 * 1024;
@@ -225,8 +229,16 @@ where
                 call: said.call,
                 answer: said.answer,
                 note: said.note,
+                answers: said.answers,
             })
-            .map_err(|_| self.ask_not_waiting())?;
+            .map_err(|why| match why {
+                NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_INCOMPLETE,
+                    "that ask has questions, and each needs an answer",
+                    self.run_id(),
+                )),
+                _ => self.ask_not_waiting(),
+            })?;
         self.published_hosted(&id).await
     }
 

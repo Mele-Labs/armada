@@ -61,7 +61,11 @@ pub(super) fn place_of(path: &str, root: &str) -> Place {
 /// variable, a relative path and anything inside a script it runs are not seen.
 pub(super) fn written_by(line: &str) -> Vec<String> {
     let mut found = Vec::new();
-    for segment in line.replace("&&", ";").replace("||", ";").split([';', '|', '\n']) {
+    for segment in line
+        .replace("&&", ";")
+        .replace("||", ";")
+        .split([';', '|', '\n'])
+    {
         let words: Vec<String> = segment
             .split_whitespace()
             .map(|word| word.trim_matches(|c| c == '\'' || c == '"').to_string())
@@ -84,14 +88,19 @@ pub(super) fn written_by(line: &str) -> Vec<String> {
             "tee" | "cp" | "mv" | "install" | "ln" | "rsync" | "touch" | "mkdir" | "rm"
             | "rmdir" | "truncate" | "dd" | "chmod" => absolute(&mut found, &arguments),
             "sed" | "perl" | "gsed"
-                if arguments.iter().any(|word| word.starts_with("-i") || word.starts_with("-pi")) =>
+                if arguments
+                    .iter()
+                    .any(|word| word.starts_with("-i") || word.starts_with("-pi")) =>
             {
                 absolute(&mut found, &arguments)
             }
             "git" => {
                 let at = arguments.iter().position(|word| word.as_str() == "-C");
                 if let Some(path) = at.and_then(|at| arguments.get(at + 1)) {
-                    let subcommand = arguments.iter().skip(at.unwrap_or(0) + 2).find(|word| !word.starts_with('-'));
+                    let subcommand = arguments
+                        .iter()
+                        .skip(at.unwrap_or(0) + 2)
+                        .find(|word| !word.starts_with('-'));
                     if !subcommand.is_some_and(|word| GIT_READS.contains(&word.as_str())) {
                         found.push(path.to_string());
                     }
@@ -125,8 +134,12 @@ const GIT_READS: &[&str] = &[
 /// `>file`, `>> file`, `2>file`, `&>file`, and a `>` standing alone.
 fn redirects(words: &[String], found: &mut Vec<String>) {
     for (at, word) in words.iter().enumerate() {
-        let Some(arrow) = word.find('>') else { continue };
-        let after = word[arrow..].trim_start_matches('>').trim_start_matches('|');
+        let Some(arrow) = word.find('>') else {
+            continue;
+        };
+        let after = word[arrow..]
+            .trim_start_matches('>')
+            .trim_start_matches('|');
         let target = if after.is_empty() {
             words.get(at + 1).map(String::as_str).unwrap_or_default()
         } else {

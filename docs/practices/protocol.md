@@ -3308,6 +3308,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
+## Protocol 23.66: a Session's question answered
+
+`docs/concepts/session.md`, *A session Fleet hosts*. **Additive only**: optional fields on two existing DTOs.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `HelmCallInFlight.questions` (`hosted.asked`, `session.row` ask) | `AskedQuestion`: `question`, `header`, `multi_select`, `options` (`label`, `description`) | Present where the call is the agent's `AskUserQuestion`; absent for every other call. `offers` is `allow_once`, `refuse` and nothing else |
+| `answer_session_ask` (`POST /sessions/ask/answer`) | `answers?`: `QuestionAnswer` `question`, `chosen[]` | One entry per question. `allow_once` without every question answered is a 422 `fleet.session_answer_incomplete`. Free text is an entry in `chosen` |
+
+Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

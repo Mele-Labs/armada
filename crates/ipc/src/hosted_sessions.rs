@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::helm_call::{HelmCallAnswer, HelmCallInFlight};
+use crate::helm_call::{HelmCallAnswer, HelmCallInFlight, QuestionAnswer};
 use crate::ids::{Instant, JobId, ManifestId};
 use crate::piloting::{DroneNarrative, PilotOutcome};
 use crate::sessions::{SessionId, SessionRecord};
@@ -125,6 +125,9 @@ pub struct AnswerSessionAsk {
     pub answer: HelmCallAnswer,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// One entry per question, for an ask that carries some. Since 23.66.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<QuestionAnswer>,
 }
 
 /// `tune_session`: what the next turn runs on. An absent model or effort is the

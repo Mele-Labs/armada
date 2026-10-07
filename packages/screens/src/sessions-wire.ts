@@ -185,7 +185,12 @@ const tagOf = (tag: WireTag): SessionTag => ({
 });
 
 function askOf(ask: HelmCallInFlight): SessionAsk {
-  return { command: ask.detail === "" ? ask.tool : ask.detail, call: ask.call, offers: ask.offers };
+  return {
+    command: ask.detail === "" ? ask.tool : ask.detail,
+    call: ask.call,
+    offers: ask.offers,
+    ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
+  };
 }
 
 const SETTLED: Record<string, string> = {

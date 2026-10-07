@@ -46,12 +46,15 @@ where
         let (session, hosting) = self.session_and_hosting(id).await?;
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let mode = mode_of(&hosting.mode);
-        let put_to_a_person = match mode {
-            SessionMode::Ask | SessionMode::AcceptEdits => true,
-            SessionMode::Auto | SessionMode::Plan => {
-                because_in_a_session(&asking, &Self::directory_of(&served, &hosting)).is_some()
-            }
-        };
+        // A question is for the person whatever the mode: nothing else can
+        // answer it, and the agent is told what they chose.
+        let put_to_a_person = asking.tool_name == ipc::ASKS_A_QUESTION
+            || match mode {
+                SessionMode::Ask | SessionMode::AcceptEdits => true,
+                SessionMode::Auto | SessionMode::Plan => {
+                    because_in_a_session(&asking, &Self::directory_of(&served, &hosting)).is_some()
+                }
+            };
         if !put_to_a_person {
             return Ok(RunOrNot::Allow {
                 updated_input: asking.input,

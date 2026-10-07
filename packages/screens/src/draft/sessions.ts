@@ -205,7 +205,24 @@ export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse";
  * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it
  * will take, in the order to draw them. Absent on the mock's, which offers two.
  */
-export type SessionAsk = { command: string; call?: string; offers?: readonly SessionAnswer[] };
+export type SessionAsk = {
+  command: string;
+  call?: string;
+  offers?: readonly SessionAnswer[];
+  /** The agent's own questions, where the ask is it asking the person rather than for a permission. */
+  questions?: readonly SessionQuestion[];
+};
+
+/** One question the agent put to the person. */
+export type SessionQuestion = {
+  question: string;
+  header: string;
+  multi_select: boolean;
+  options: readonly { label: string; description: string }[];
+};
+
+/** What was chosen for one question: option labels, and the person's own words where they chose Other. */
+export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
@@ -259,7 +276,7 @@ export type SessionsDraft = {
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
   /** Answers the permission a Session is held on. The mock offers two and names none. */
-  answer: (id: string, answer?: SessionAnswer) => void;
+  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */

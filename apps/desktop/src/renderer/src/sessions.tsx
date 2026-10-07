@@ -625,12 +625,13 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               : {
                   asked: {
                     command: session.asked.command,
+                    ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                     ...(session.asked.offers === undefined
                       ? {}
                       : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
                   },
                 })}
-            onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
+            onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
             onOpenSession={onOpen}
           />
           <SessionComposer

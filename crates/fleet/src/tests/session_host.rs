@@ -699,6 +699,7 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
             call: call.into_inner().unwrap(),
             answer: HelmCallAnswer::Refuse,
             note: Some("not that".into()),
+            answers: Vec::new(),
         })
         .await
         .unwrap();
