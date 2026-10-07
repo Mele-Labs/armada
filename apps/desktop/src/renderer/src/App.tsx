@@ -23,7 +23,7 @@ import type { HelmContext, JobSummary, LandCheckAt } from "@armada/protocol";
 import { useDockAnswering } from "./dock-answering";
 import { chippedJobId, contextOf, cursorRowFor, dismissed, HelmDock, helmReplying, NO_CHIP, opened, screenOf } from "@armada/helm";
 import type { ChipState } from "@armada/helm";
-import { Button, firedRunsOf, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
+import { Button, firedHooksOf, GuidanceProvider, GuideCatalogue, ProseLinks } from "@armada/components";
 
 import { NOTHING_YET } from "../../shared/bridge";
 import type { BridgeState } from "../../shared/bridge";
@@ -743,7 +743,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary key={reading.id} region="the job detail" {...guarded}>
                 <JobDetail
                   job={reading}
-                  {...(firedRunsOf(reading.id) === undefined ? {} : { firedRuns: firedRunsOf(reading.id)! })}
+                  {...(firedHooksOf(reading.id) === undefined ? {} : { firedHooks: firedHooksOf(reading.id)! })}
                   {...(asked.opening?.jobId === reading.id ? { opening: asked.opening.to } : {})}
                   onTab={(tab) => onJobTab(reading.id, tab)}
                   // Every Job, not the picked repository's: a member dispatched

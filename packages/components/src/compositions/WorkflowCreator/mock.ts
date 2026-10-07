@@ -56,8 +56,8 @@ const MOCK_DEFINITIONS: Readonly<Record<string, Definition>> = {
         judge: "Does this diff do what the plan says, and nothing else?",
         gate: { ...none, checks: true, judge: true },
       }),
-      step("review", { evidence: "bundle", gate: { ...none, you: true } }),
-      step("deliver", { evidence: "", check: "pr_merged", gate: { ...none, repository: true } }),
+      step("tests", { evidence: "test_suite_run", check: "every_manifest_check", gate: { ...none, checks: true } }),
+      step("handoff", { evidence: "bundle", gate: { ...none, you: true } }),
     ],
   },
   "carried/bug": {

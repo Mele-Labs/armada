@@ -1,4 +1,4 @@
-/* Runs: the rows of a script or a skill that fires at a moment in a Job, drawn
+/* Hooks: the rows of a script or a skill that fires at a moment in a Job, drawn
    in the Workflow creator and on Job detail. A card under a filled band, as the
    creator's stage is; rows read like the workflow rows beside them.
 
@@ -6,7 +6,7 @@
    as the stage's; --fg-muted on a row over --bg-raised clears 4.5:1, and
    --fg-subtle on a shadowed row 4.58:1 at the lightest ground. */
 
-.armada-runs-card {
+.armada-hooks-card {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -19,7 +19,7 @@
   color: var(--fg-default);
 }
 
-.armada-runs-card__band {
+.armada-hooks-card__band {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -33,14 +33,14 @@
   text-transform: uppercase;
 }
 
-.armada-runs-card__body {
+.armada-hooks-card__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
 }
 
-.armada-runs {
+.armada-hooks {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -49,8 +49,8 @@
   list-style: none;
 }
 
-.armada-runs__row > button,
-.armada-runs__row--fired {
+.armada-hooks__row > button,
+.armada-hooks__row--fired {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -67,46 +67,46 @@
   text-align: start;
 }
 
-.armada-runs__row > button {
+.armada-hooks__row > button {
   cursor: pointer;
 }
 
-.armada-runs__row > button:hover {
+.armada-hooks__row > button:hover {
   background: var(--bg-hover);
 }
 
-.armada-runs__row > button:focus-visible {
+.armada-hooks__row > button:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
 
-.armada-runs__mark {
+.armada-hooks__mark {
   display: inline-flex;
   flex: none;
   align-items: center;
   color: var(--fg-muted);
 }
 
-.armada-runs__mark[data-hue="passed"] {
+.armada-hooks__mark[data-hue="passed"] {
   color: var(--run-passed);
 }
 
-.armada-runs__mark[data-hue="failed"] {
+.armada-hooks__mark[data-hue="failed"] {
   color: var(--run-failed);
 }
 
-.armada-runs__mark[data-hue="running"] {
+.armada-hooks__mark[data-hue="running"] {
   color: var(--run-running);
 }
 
-.armada-runs__fired {
+.armada-hooks__fired {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: var(--space-1);
 }
 
-.armada-runs__name {
+.armada-hooks__name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -114,7 +114,7 @@
   font-family: var(--font-mono);
 }
 
-.armada-runs__when {
+.armada-hooks__when {
   margin-left: auto;
   flex: none;
   color: var(--fg-muted);
@@ -124,30 +124,30 @@
 }
 
 /* Shadowed by a more specific place: quiet, the way a shadowed workflow is. */
-.armada-runs__row[data-state="overridden"] > button,
-.armada-runs__row[data-state="overridden"] .armada-runs__mark,
-.armada-runs__row[data-state="overridden"] .armada-runs__when {
+.armada-hooks__row[data-state="overridden"] > button,
+.armada-hooks__row[data-state="overridden"] .armada-hooks__mark,
+.armada-hooks__row[data-state="overridden"] .armada-hooks__when {
   color: var(--fg-subtle);
 }
 
-.armada-runs__row[data-state="overridden"] .armada-runs__name {
+.armada-hooks__row[data-state="overridden"] .armada-hooks__name {
   text-decoration: line-through;
 }
 
-.armada-runs__fact {
+.armada-hooks__fact {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
 }
 
-.armada-runs__fails {
+.armada-hooks__fails {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.armada-runs__eyebrow {
+.armada-hooks__eyebrow {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
@@ -158,13 +158,13 @@
 
 /* The repair Drone at work: circle-dot's inner dot, opacity and scale only, as
    the running badge does. The ring holds still, so no row shifts. */
-.armada-runs__mark[data-pulsing] > svg > circle + circle {
+.armada-hooks__mark[data-pulsing] > svg > circle + circle {
   transform-box: fill-box;
   transform-origin: center;
-  animation: armada-runs-pulse var(--duration-pulse) var(--ease) infinite;
+  animation: armada-hooks-pulse var(--duration-pulse) var(--ease) infinite;
 }
 
-@keyframes armada-runs-pulse {
+@keyframes armada-hooks-pulse {
   0%,
   100% {
     opacity: 1;
@@ -176,21 +176,40 @@
   }
 }
 
-/* A step's runs, and the acts that add one. */
-.armada-runs__section {
+/* A step's hooks, and the acts that add one. */
+.armada-hooks__section {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.armada-runs__acts {
+.armada-hooks__acts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-runs__mark[data-pulsing] > svg > circle + circle {
+  .armada-hooks__mark[data-pulsing] > svg > circle + circle {
     animation: none;
   }
+}
+
+/* The + between steps, and the acts on an added step. */
+.armada-hooks__add {
+  display: inline-flex;
+  align-items: center;
+}
+
+.armada-hooks__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-hooks__plus {
+  display: flex;
+  width: var(--w-workflow-node);
+  justify-content: center;
+  padding: var(--space-1) 0;
 }

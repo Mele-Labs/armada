@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Zap } from "lucide-react";
+import { Ban, Briefcase, Check, FileCheck, FolderGit2, MessageSquare, Package, Scale, ShieldCheck, Trash2, UserCheck, Webhook, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Alert } from "../../primitives/Alert/Alert";
@@ -34,16 +34,16 @@ import {
   type Step,
 } from "./def";
 import { writeDefinition } from "./json";
-import { RunFields, RunRows } from "../WorkflowRuns/WorkflowRuns";
+import { HookFields, HookRows } from "../WorkflowHooks/WorkflowHooks";
 import {
   DELIVERING,
   EVERY,
-  MOCK_RUNS,
-  resolveRuns,
-  type ResolvedRun,
-  type Run,
-  type RunWhen,
-} from "../WorkflowRuns/runs";
+  useHooks,
+  resolveHooks,
+  type ResolvedHook,
+  type Hook,
+  type HookWhen,
+} from "../WorkflowHooks/hooks";
 
 /**
  * The Workflow creator: the workflows Fleet resolved for this repository as a
@@ -128,7 +128,7 @@ export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
 }
 
 /** What the step is, a labelled line each: its evidence, then every way it advances. */
-export function detailsOf(step: Step, runs: readonly ResolvedRun[] = []): WorkflowStepDetail[] {
+export function detailsOf(step: Step, hooks: readonly ResolvedHook[] = []): WorkflowStepDetail[] {
   const g = step.gate;
   const rows: WorkflowStepDetail[] = step.evidence === "" ? [] : [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
   if (g.repository) rows.push({ icon: GATE.repository.icon, label: GATE.repository.said });
@@ -138,14 +138,14 @@ export function detailsOf(step: Step, runs: readonly ResolvedRun[] = []): Workfl
     if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
     if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
   }
-  // Runs fire at a moment, so each is a line of its own after how the step advances.
-  const fires = (when: RunWhen, label: string) => {
-    const named = runs.filter((one) => one.overriddenBy === undefined && one.when === when).map((one) => one.name);
-    if (named.length > 0) rows.push({ icon: Zap, label, value: named.join(", ") });
+  // Hooks fire at a moment, so each is a line of its own after how the step advances.
+  const fires = (when: HookWhen, label: string) => {
+    const named = hooks.filter((one) => one.overriddenBy === undefined && one.when === when).map((one) => one.name);
+    if (named.length > 0) rows.push({ icon: Webhook, label, value: named.join(", ") });
   };
   if (step.id === DELIVERING) fires("pr_opened", "PR opened");
-  fires("starts", "Runs on start");
-  fires("passes", "Runs on pass");
+  fires("starts", "Hooks on start");
+  fires("passes", "Hooks on pass");
   return rows;
 }
 
@@ -153,12 +153,12 @@ export function detailsOf(step: Step, runs: readonly ResolvedRun[] = []): Workfl
 const titleOf = (id: string, at: number) => (id === "" ? `Step ${at + 1}` : id.charAt(0).toUpperCase() + id.slice(1).replaceAll("_", " "));
 
 /** The definition as the canvas draws it: a spine down, and a back edge wherever a step sends work back. */
-function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, runsAt: (step: Step) => ResolvedRun[]) {
+function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, hooksAt: (step: Step) => ResolvedHook[]) {
   let y = 0;
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
     const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
-    const details = detailsOf(step, runsAt(step));
+    const details = detailsOf(step, hooksAt(step));
     const rows = details.length + needs.length + (back ? 1 : 0);
     const here = y;
     y += STEP_APART + BAND + (rows - 1) * ROW + 8;
@@ -202,11 +202,11 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
   const [open, setOpen] = useState<Open | null>(null);
   const [picked, setPicked] = useState<Entry | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
-  // Runs are a mock: held here while the creator is open, with nothing behind them.
-  const [runs, setRuns] = useState<readonly Run[]>(MOCK_RUNS);
-  const [runEdit, setRunEdit] = useState<string | null>(null);
+  // Hooks are a mock: held here while the creator is open, with nothing behind them.
+  const [hooks, setHooks] = useHooks();
+  const [hookEdit, setHookEdit] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Readonly<Record<string, boolean>>>({ feature: true });
-  const nextRun = useRef(100);
+  const nextHook = useRef(100);
   const asked = useRef(new Set<string>());
   const opening = useRef(0);
 
@@ -244,20 +244,20 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
     setOpen({ from: entry.key, def, standing: "draft", refusals: [], handed: false });
   }
 
-  // One overlay panel at a time: a step, the workflow's settings, or a run.
+  // One overlay panel at a time: a step, the workflow's settings, or a hook.
   const openPanel = useCallback((next: Panel) => {
-    setRunEdit(null);
+    setHookEdit(null);
     setPanel(next);
   }, []);
 
-  function addRun(init: Partial<Run>) {
-    const id = `r${++nextRun.current}`;
-    setRuns((was) => [
+  function addHook(init: Partial<Hook>) {
+    const id = `r${++nextHook.current}`;
+    setHooks((was) => [
       ...was,
       { id, place: "repository", applies: EVERY, when: "pr_opened", step: "", kind: "command", name: "smoke", block: false, repair: false, ...init },
     ]);
     setPanel(null);
-    setRunEdit(id);
+    setHookEdit(id);
   }
 
   function change(next: (def: Definition) => Definition) {
@@ -324,20 +324,20 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
             <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => void begin(entry)} />
           ))}
         </ul>
-        <section className="armada-runs-card" aria-label="Runs on every workflow">
-          <div className="armada-runs-card__band">Every workflow</div>
-          <div className="armada-runs-card__body">
-            <RunRows
-              runs={resolveRuns(runs).filter((one) => one.applies === EVERY)}
-              label="Runs on every workflow"
+        <section className="armada-hooks-card" aria-label="Hooks on every workflow">
+          <div className="armada-hooks-card__band">Every workflow</div>
+          <div className="armada-hooks-card__body">
+            <HookRows
+              hooks={resolveHooks(hooks).filter((one) => one.applies === EVERY)}
+              label="Hooks on every workflow"
               onOpen={(id) => {
                 setPanel(null);
-                setRunEdit(id);
+                setHookEdit(id);
               }}
             />
             <div>
-              <Button variant="secondary" onClick={() => addRun({})}>
-                Add run
+              <Button variant="secondary" onClick={() => addHook({})}>
+                Add hook
               </Button>
             </div>
           </div>
@@ -356,30 +356,30 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
           entries={entries}
           panel={panel}
           onPanel={openPanel}
-          runs={runs}
+          hooks={hooks}
           drafts={drafts}
           onDraft={(id, on) => setDrafts((was) => ({ ...was, [id]: on }))}
-          onAddRun={addRun}
-          onOpenRun={(id) => {
+          onAddHook={addHook}
+          onOpenHook={(id) => {
             setPanel(null);
-            setRunEdit(id);
+            setHookEdit(id);
           }}
           onChange={change}
           onSave={() => void save()}
           onDiscuss={onDiscuss === undefined ? undefined : discuss}
         />
       )}
-      {runs.find((one) => one.id === runEdit) === undefined ? null : (
-        <Sheet kind="workflow-edit" open floating title={runs.find((one) => one.id === runEdit)!.name} closeLabel="Close" closeBinding="Esc" onClose={() => setRunEdit(null)}>
+      {hooks.find((one) => one.id === hookEdit) === undefined ? null : (
+        <Sheet kind="workflow-edit" open floating title={hooks.find((one) => one.id === hookEdit)!.name} closeLabel="Close" closeBinding="Esc" onClose={() => setHookEdit(null)}>
           <div className="armada-wf-panel">
-            <RunFields
-              run={runs.find((one) => one.id === runEdit)!}
+            <HookFields
+              hook={hooks.find((one) => one.id === hookEdit)!}
               workflow={open === null || open.def.id === "" ? undefined : open.def.id}
               steps={open === null ? [] : open.def.steps.map((one) => one.id).filter((one) => one !== "")}
-              onChange={(next) => setRuns((was) => was.map((one) => (one.id === runEdit ? { ...one, ...next } : one)))}
+              onChange={(next) => setHooks((was) => was.map((one) => (one.id === hookEdit ? { ...one, ...next } : one)))}
               onRemove={() => {
-                setRuns((was) => was.filter((one) => one.id !== runEdit));
-                setRunEdit(null);
+                setHooks((was) => was.filter((one) => one.id !== hookEdit));
+                setHookEdit(null);
               }}
             />
           </div>
@@ -468,11 +468,11 @@ function Stage({
   entries,
   panel,
   onPanel,
-  runs,
+  hooks,
   drafts,
   onDraft,
-  onAddRun,
-  onOpenRun,
+  onAddHook,
+  onOpenHook,
   onChange,
   onSave,
   onDiscuss,
@@ -483,11 +483,11 @@ function Stage({
   entries: readonly Entry[];
   panel: Panel;
   onPanel: (panel: Panel) => void;
-  runs: readonly Run[];
+  hooks: readonly Hook[];
   drafts: Readonly<Record<string, boolean>>;
   onDraft: (workflow: string, on: boolean) => void;
-  onAddRun: (init: Partial<Run>) => void;
-  onOpenRun: (id: string) => void;
+  onAddHook: (init: Partial<Hook>) => void;
+  onOpenHook: (id: string) => void;
   onChange: (next: (def: Definition) => Definition) => void;
   onSave: () => void;
   onDiscuss: (() => void) | undefined;
@@ -520,14 +520,14 @@ function Stage({
     }, 120);
     return () => window.clearTimeout(land);
   }, [focus]);
-  // The runs that reach this workflow, and for a step the ones that fire at it.
-  const reaching = useMemo(() => resolveRuns(runs.filter((one) => one.applies === EVERY || one.applies === def.id)), [runs, def.id]);
-  const runsAt = useCallback(
+  // The hooks that reach this workflow, and for a step the ones that fire at it.
+  const reaching = useMemo(() => resolveHooks(hooks.filter((one) => one.applies === EVERY || one.applies === def.id)), [hooks, def.id]);
+  const hooksAt = useCallback(
     (step: Step) =>
       reaching.filter((one) => (one.when === "pr_opened" ? step.id === DELIVERING : one.step === step.id && step.id !== "")),
     [reaching],
   );
-  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, runsAt), [def, marked, panel, onPanel, runsAt]);
+  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, hooksAt), [def, marked, panel, onPanel, hooksAt]);
   const replaces = entries
     .filter((one) => one.id === def.id && one.leftOut === undefined && SOURCE_RANK[one.source] < SOURCE_RANK[def.scope === KIT ? "kit" : "repository"])
     .map((one) => PLACE[one.source].said);
@@ -629,13 +629,13 @@ function Stage({
                 at={panel}
                 steps={def.steps}
                 refused={marked.has(panel)}
-                runs={runsAt(def.steps[panel])}
+                hooks={hooksAt(def.steps[panel])}
                 draft={drafts[def.id] === true}
                 onDraft={(on) => onDraft(def.id, on)}
-                onAddRun={(when) =>
-                  onAddRun({ applies: def.id, when, step: when === "pr_opened" ? "" : def.steps[panel]!.id })
+                onAddHook={(when) =>
+                  onAddHook({ applies: def.id, when, step: when === "pr_opened" ? "" : def.steps[panel]!.id })
                 }
-                onOpenRun={onOpenRun}
+                onOpenHook={onOpenHook}
                 onChange={(next) =>
                   onChange((was) => ({ ...was, steps: was.steps.map((one, i) => (i === panel ? { ...one, ...next } : one)) }))
                 }
@@ -708,11 +708,11 @@ function StepFields({
   at,
   steps,
   refused,
-  runs,
+  hooks,
   draft,
   onDraft,
-  onAddRun,
-  onOpenRun,
+  onAddHook,
+  onOpenHook,
   onChange,
   onRemove,
 }: {
@@ -720,11 +720,11 @@ function StepFields({
   at: number;
   steps: readonly Step[];
   refused: boolean;
-  runs: readonly ResolvedRun[];
+  hooks: readonly ResolvedHook[];
   draft: boolean;
   onDraft: (on: boolean) => void;
-  onAddRun: (when: RunWhen) => void;
-  onOpenRun: (id: string) => void;
+  onAddHook: (when: HookWhen) => void;
+  onOpenHook: (id: string) => void;
   onChange: (next: Partial<Step>) => void;
   onRemove: () => void;
 }) {
@@ -808,20 +808,20 @@ function StepFields({
         </Switch>
       ) : null}
       {step.id === "" ? null : (
-        <div className="armada-runs__section">
-          <RunRows runs={runs} label={`Runs on ${step.id}`} onOpen={onOpenRun} />
-          <span className="armada-runs__acts">
+        <div className="armada-hooks__section">
+          <HookRows hooks={hooks} label={`Hooks on ${step.id}`} onOpen={onOpenHook} />
+          <span className="armada-hooks__acts">
             {step.id === DELIVERING ? (
-              <Button variant="secondary" onClick={() => onAddRun("pr_opened")}>
-                Add run on PR opened
+              <Button variant="secondary" onClick={() => onAddHook("pr_opened")}>
+                Add hook on PR opened
               </Button>
             ) : (
-              <Button variant="secondary" onClick={() => onAddRun("starts")}>
-                Add run on start
+              <Button variant="secondary" onClick={() => onAddHook("starts")}>
+                Add hook on start
               </Button>
             )}
-            <Button variant="secondary" onClick={() => onAddRun("passes")}>
-              Add run on pass
+            <Button variant="secondary" onClick={() => onAddHook("passes")}>
+              Add hook on pass
             </Button>
           </span>
         </div>

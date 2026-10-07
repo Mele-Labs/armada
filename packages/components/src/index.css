@@ -406,4 +406,4 @@
 }
 @import "./compositions/RunNode/RunNode.css";
 @import "./compositions/MainHead/MainHead.css";
-@import "./compositions/WorkflowRuns/WorkflowRuns.css";
+@import "./compositions/WorkflowHooks/WorkflowHooks.css";
