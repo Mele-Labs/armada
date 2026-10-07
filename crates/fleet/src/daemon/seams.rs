@@ -184,6 +184,9 @@ where
     pub(crate) fn fixing_on_main(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.fixing_on_main
     }
+    pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
+        &self.heals
+    }
 
     /// What the gate needs in order to ask the Judge.
     ///

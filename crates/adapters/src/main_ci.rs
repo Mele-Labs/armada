@@ -14,8 +14,8 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 
 use adapter_traits::{
-    CiRun, CiRuns, CiState, FromOutside, MergedPull, OpenPull, OpenPulls, RecentlyMerged,
-    RecentlyMergedPulls,
+    CiRun, CiRuns, CiState, CommitStatus, FromOutside, MergedPull, OpenPull, OpenPulls,
+    RecentlyMerged, RecentlyMergedPulls, StatusState,
 };
 
 use crate::delivery::{run_in, FORGE};
@@ -208,7 +208,8 @@ const OPEN_PULLS: &str = "\
     .[] | [(.number | tostring), (.title // \"\"), (.headRefName // \"\"), (.url // \"\"), \
     (.author.login // \"\"), \
     ([.statusCheckRollup[]? | [(.name // .context // \"\"), (.status // \"\"), \
-    (.conclusion // .state // \"\")] | join(\"\\u001f\")] | join(\"\\u001e\"))] | @tsv";
+    (.conclusion // .state // \"\")] | join(\"\\u001f\")] | join(\"\\u001e\")), \
+    (.headRefOid // \"\")] | @tsv";
 
 /// The check whose result is a pull request's `ci`, where it has one.
 const GATE: &str = "ci";
@@ -225,12 +226,51 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
             "--limit",
             "100",
             "--json",
-            "number,title,headRefName,url,author,statusCheckRollup",
+            "number,title,headRefName,url,author,statusCheckRollup,headRefOid",
             "--jq",
             OPEN_PULLS,
         ],
     )?;
     Some(said.lines().filter_map(open_pull_of_line).collect())
+}
+
+/// Put one commit status on `commit`: `gh api` fills `{owner}/{repo}` from the
+/// repository it runs in. **Only a commit and a context that cannot be read as an
+/// option**, so a word from a branch name never becomes a flag.
+pub(crate) fn publish_status(in_repo: &str, status: &CommitStatus) -> Result<(), String> {
+    let CommitStatus {
+        commit,
+        context,
+        state,
+        description,
+    } = status;
+    if !is_a_commit(commit.as_str()) || context.is_empty() || context.starts_with('-') {
+        return Err(format!("{commit} / {context} is not a status to publish"));
+    }
+    let state = match *state {
+        StatusState::Pending => "pending",
+        StatusState::Success => "success",
+    };
+    let route = format!("repos/{{owner}}/{{repo}}/statuses/{commit}");
+    let run = run_in(
+        in_repo,
+        FORGE,
+        &[
+            "api",
+            &route,
+            "-f",
+            &format!("state={state}"),
+            "-f",
+            &format!("context={context}"),
+            "-f",
+            &format!("description={description}"),
+        ],
+    )
+    .map_err(|why| why.to_string())?;
+    match run.status.success() {
+        true => Ok(()),
+        false => Err(crate::delivery::said(&run)),
+    }
 }
 
 const MERGED_PULLS: &str = "\
@@ -297,9 +337,9 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
     let branch = field.next().unwrap_or_default();
     let url = field.next().unwrap_or_default();
     let author = field.next().unwrap_or_default();
-    let checks: Vec<(String, CiState)> = field
-        .next()
-        .unwrap_or_default()
+    let rollup = field.next().unwrap_or_default();
+    let head = field.next().unwrap_or_default();
+    let checks: Vec<(String, CiState)> = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
         .map(|one| {
@@ -324,6 +364,7 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
         url: FromOutside::verbatim(as_written(url)),
         author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
         ci,
+        head: is_a_commit(head).then(|| head.to_string()),
         failing: checks
             .iter()
             .filter(|(_, state)| *state == CiState::Failed)
@@ -435,6 +476,36 @@ mod tests {
         assert!(!is_a_commit("main; rm -rf"));
         assert!(!is_a_commit(""));
     }
+
+    #[test]
+    fn a_pull_requests_head_is_kept_only_where_it_is_a_commit() {
+        let sha = "b".repeat(40);
+        let line = format!("12\tt\tb\tu\tnick\t\t{sha}");
+        assert_eq!(open_pull_of_line(&line).unwrap().head, Some(sha));
+        assert_eq!(
+            open_pull_of_line("12\tt\tb\tu\tnick\t\tnot").unwrap().head,
+            None
+        );
+        assert_eq!(open_pull_of_line("12\tt\tb\tu\tnick\t").unwrap().head, None);
+    }
+
+    #[test]
+    fn a_status_is_refused_for_a_commit_or_context_that_could_be_an_option() {
+        for (commit, context) in [
+            ("main", "needs"),
+            (&"a".repeat(40), "-f"),
+            (&"a".repeat(40), ""),
+        ] {
+            let status = CommitStatus {
+                commit: commit.to_string(),
+                context: context.to_string(),
+                state: StatusState::Success,
+                description: "x".to_string(),
+            };
+            assert!(publish_status(".", &status).is_err());
+        }
+    }
+
     #[test]
     fn a_pull_requests_ci_is_the_check_named_ci_where_there_is_one() {
         let line = "12\tAdd a cache\tarmada/cache\thttps://forge.invalid/pull/12\tnick\t\

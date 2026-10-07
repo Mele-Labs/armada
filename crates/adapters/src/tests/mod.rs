@@ -40,6 +40,7 @@ mod pull_request_facts;
 mod reading_in;
 mod reclaim;
 mod remembering;
+mod repairing;
 pub mod repo;
 mod rerunning;
 mod scouting;

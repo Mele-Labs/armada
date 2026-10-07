@@ -1,4 +1,4 @@
-// One Job, read whole, at seven destinations: Overview, Workflow, Plan, Record,
+// One Job, read whole, at eight destinations: Overview, Workflow, Plan, Record, Checks,
 // Drones, Pulse, Settings. Overview is the arrangement this screen has always had — the run as a
 // tree, the selected step in the inspector, its story in the order it happened
 // — and the other four are where the readings that used to compete for that one
@@ -34,6 +34,7 @@ import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
 import type { FollowedLog, JobDetail as JobWhole, ToProposer } from "@armada/protocol";
 import { openArtifact } from "@armada/screens/src/opening";
+import { ManifestChecks } from "./ManifestChecks";
 import { OverviewTab } from "./tab-overview";
 import { ProposalTab } from "./tab-proposal";
 import { FrozenAtApproval } from "./frozen-at-approval";
@@ -111,7 +112,7 @@ function OneJob(props: JobDetailProps) {
   // above resets it with everything else.
   const opened = props.opening;
   const [tab, setTab] = useState<DetailTab>(
-    opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
+    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
   );
   // The step Workflow opens on, where the Record's or the Drones' reading sent
   // a person there. Cleared by the strip, so the next visit opens on nothing.
@@ -136,6 +137,11 @@ function OneJob(props: JobDetailProps) {
     setOpensCheck(undefined);
     setTab(to.tab);
   });
+  // Tells the caller where this is, and moves to the tab a later `opening` names.
+  useEffect(() => props.onTab?.(tab), [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (opened?.tab !== undefined && opened.tab !== tab) toTab(opened.tab);
+  }, [opened]); // eslint-disable-line react-hooks/exhaustive-deps
   const toTab = (next: DetailTab) => {
     trail.clear();
     setOpensRow(undefined);
@@ -631,6 +637,34 @@ function OneJob(props: JobDetailProps) {
           onOpenRetro={() => setRetroOpen(true)}
           trail={trail.of("record")}
         />
+      ) : tab === "checks" ? (
+        props.checks === undefined ? null : (
+          <div className="armada-detail-tab">
+            <ManifestChecks
+              {...props.checks}
+              job={job.id}
+              floor={floor}
+              jobLabel={() => job.handle}
+              onOpenJob={(jobId, to) => {
+                // This Job's own step, Drone or task opens here; any other Job opens in its place.
+                if (jobId !== job.id) return props.onOpenJob?.(jobId);
+                if (to?.task !== undefined) {
+                  trail.push("checks");
+                  setOpensTask(to.task);
+                  setTab("plan");
+                } else if (to?.drone !== undefined) {
+                  trail.push("checks");
+                  setOpensDrone(to.drone);
+                  setTab("drones");
+                } else if (to?.step !== undefined) {
+                  trail.push("checks");
+                  setOpensStep(to.step);
+                  setTab("workflow");
+                }
+              }}
+            />
+          </div>
+        )
       ) : tab === "drones" ? (
         <DronesTab
           job={job}

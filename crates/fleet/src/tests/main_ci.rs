@@ -364,6 +364,7 @@ fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
         url: FromOutside::verbatim(format!("https://forge.invalid/armada/pull/{number}")),
         author: Some(FromOutside::verbatim("nick")),
         ci,
+        head: None,
         failing: failing
             .iter()
             .map(|name| FromOutside::verbatim(*name))

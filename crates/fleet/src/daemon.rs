@@ -200,6 +200,7 @@ pub struct Fleet<H, V, W> {
     /// The repositories whose checkout of main is running a Drone's one test,
     /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
+    heals: std::sync::Mutex<crate::healing::Heals>,
     /// Which seed is warming and which warm-up failed. Never written down, for
     /// `proving`'s reason; an `Arc` because the warm-up is spawned — `crate::seeding`.
     seeds: Arc<std::sync::Mutex<crate::seeding::Seeds>>,

@@ -4,7 +4,9 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use adapter_traits::{CiRun, CiRuns, FromOutside, MergedPull, OpenPulls, RecentlyMergedPulls};
+use adapter_traits::{
+    CiRun, CiRuns, CommitStatus, FromOutside, MergedPull, OpenPulls, RecentlyMergedPulls,
+};
 
 #[derive(Debug, Default)]
 struct Script {
@@ -20,6 +22,8 @@ struct Script {
     asked_logs: usize,
     asked_merged: usize,
     asked_pulls: usize,
+    statuses: Vec<CommitStatus>,
+    status_refused: Option<String>,
 }
 
 /// Unscripted is the forge's silence: no head, no runs, no log, no pull request, no listing.
@@ -59,6 +63,23 @@ impl MainCiScript {
     /// The recently merged pull requests the forge lists, newest first.
     pub fn recently_merged_are(&self, recent: Option<RecentlyMergedPulls>) {
         self.with(|it| it.recent = recent);
+    }
+
+    /// Every status published so far, in order.
+    pub fn statuses(&self) -> Vec<CommitStatus> {
+        self.with(|it| it.statuses.clone())
+    }
+
+    /// The forge refuses a status with this sentence, as it does with no token.
+    pub fn refuses_statuses(&self, said: Option<&str>) {
+        self.with(|it| it.status_refused = said.map(str::to_string));
+    }
+
+    pub(super) fn publish(&self, status: &CommitStatus) -> Result<(), String> {
+        self.with(|it| match &it.status_refused {
+            Some(said) => Err(said.clone()),
+            None => Ok(it.statuses.push(status.clone())),
+        })
     }
 
     pub fn times_asked_for_the_recently_merged(&self) -> usize {
