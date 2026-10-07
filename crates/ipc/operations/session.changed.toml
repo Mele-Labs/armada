@@ -1,0 +1,8 @@
+[operations."session.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One session after any fact about it, whole: what it is, where it stands and everything it holds"
+notes = """
+The row travels whole, as `studio.changed` does, so a client replaces what it holds. Published on a fact that changed something and not on one that repeated what the ledger already held. Since 23.43.
+"""

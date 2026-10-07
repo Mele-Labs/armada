@@ -1,0 +1,26 @@
+[operations.restart_step]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A fresh Drone on the surviving worktree, at the step that stopped"
+notes = """
+The second of the four acts that reach an escalated Job — `docs/concepts/job.md` has the table. The Drone is **gone**; the worktree, the branch and every earlier step's work survive, and a new Drone takes the step over where it stopped.
+
+**Not a redispatch.** A redispatch mints a replacement Job and re-runs every step from the approval gate. This resumes the one step, on the branch the earlier steps' work is already on. Where the worktree has been reclaimed there is nothing to resume onto, and it refuses and says the act being asked for is a redispatch.
+
+**Not a redirect.** A redirect keeps the work moving on what it already has; this ends an attempt and opens another. A restart mints a further `drone_id` under one `job_id`, which the log envelope already anticipates — and so does every step boundary, so the second id is no longer what tells a restart from an ordinary advance.
+
+**It resolves nothing again.** The toolset, the model and the environment come from the snapshot taken when the Job was created, and a restart reads that same snapshot — `docs/concepts/drone.md` has the rule and why it is a rule. A scope revision is the one act that re-resolves, because a person approved the new Manifest set; permissions intersect there, so a widened scope can only produce a narrower toolset than the Drone that asked for it.
+
+**It asks for a Drone; it does not start one.** The Job takes `escalated -> queued` and admission spawns when `settings.concurrency-cap` has room, which is the same shape `approve_review` and `request_changes` have. **It is never refused because the cap is spent** — the act lands, and the Job reads `waiting_on_resources` while it waits rather than the person being asked to press it again later. The step stays `stopped` until the Drone starts, because entering `running` is what the record counts as a run of a step.
+
+**The body is a note for the Drone this asks for, and the body is optional.** `{"note": "..."}` where a person has something to say and no body at all where they have not, which is what every restart sent before this and is what the act still sends when the field is left alone — restarting with nothing to say is exactly as cheap as it was. The words are not a reason for the restart and the record keeps none: what happens to them is that `redirect_waiting` holds them and the next Drone's opening brief is built from them, cleared there, which is the road `request_changes` already writes down. So this is a second entry onto that road and not a second road, and the block a Drone reads is `crossing::Redirected` either way.
+
+**A blank note is refused rather than sent**, for `redirect_drone`'s reason: a Drone told nothing at all opens with exactly the information that was not enough. Sending no body is a different act from sending an empty one, and only the second is a 422.
+
+**A second note is refused by quoting the first back**, which is `core_model::RedirectAlreadyWaiting` and not a rule invented here — a restart carrying a note onto a Job already holding an undelivered one would overwrite somebody's own instruction without saying so. A restart carrying *no* note over a held one is not that: it lands, and the note waiting goes into the Drone it asks for.
+
+Its refusals are answered at the moment it is asked, not deferred: a Drone still standing on the Job, a worktree already reclaimed, an exit the record has not taken down, or a note already waiting. Each is a question about now.
+
+`agent_access` is `Helm only`. It carries no Intervention Ladder rung, but the ladder no longer bounds Helm's reach on its own — Helm may restart a step the same way it may redirect or redispatch, when asked to.
+"""

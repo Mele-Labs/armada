@@ -186,16 +186,25 @@ const JOB_LOGS: Record<string, string[]> = {
 };
 
 export function checking(): Scenario {
-  const base = manifesting({ sheet: READ, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
+  return checkingOver(READ, "checks", "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them");
+}
+
+/** The same Fleet with the run sheet never read: what the gate's and the Drones' Checks and the merge line's still draw. */
+export function checkingWithoutRunSheet(): Scenario {
+  return checkingOver({ state: "reading" }, "checks-without-run-sheet", "A repository whose run sheet has not been read, and the Checks Jobs and Drones reported anyway");
+}
+
+function checkingOver(read: CheckoutRunSheetRead, name: string, says: string, reported: ManifestCheckRow[] = REPORTED, jobLogs: Record<string, string[]> = JOB_LOGS): Scenario {
+  const base = manifesting({ sheet: read, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
   // The Job the gate's and the Drones' requesters open, with its steps and Drones, and one with a plan, which a task's requester opens.
   const jobs = holding("checks", "", [everyDroneHad(), ...executingSequential().fixtures]);
   return {
     ...base,
-    name: "checks",
+    name,
     state: { ...jobs.state, repository: base.state.repository, mergeLines: LINE },
     reads: jobs.reads,
-    says: "A repository with Checks out, waiting and ended, who asked for each, and the logs behind them",
-    behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet), ...jobChecks(fleet) }),
+    says,
+    behaves: (fleet) => ({ ...base.behaves?.(fleet), ...printing(fleet), ...jobChecks(fleet, reported, jobLogs) }),
   };
 }
 
@@ -242,17 +251,17 @@ function printing(fleet: FleetHandle): Partial<BridgeApi> {
 }
 
 /** `list_manifest_checks`, and the Job's own Check logs: read whole, and followed on the running one. */
-function jobChecks(fleet: FleetHandle): Partial<BridgeApi> {
+function jobChecks(fleet: FleetHandle, reported: ManifestCheckRow[], logs: Record<string, string[]>): Partial<BridgeApi> {
   return {
-    readManifestChecks: async () => ({ ok: true, checks: { rows: REPORTED, total: REPORTED.length } }),
+    readManifestChecks: async () => ({ ok: true, checks: { rows: reported, total: reported.length } }),
     readCheckOutput: async (_jobId, kept) => {
-      const lines = JOB_LOGS[kept];
+      const lines = logs[kept];
       if (lines === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
       const output: CheckOutput = { attempt: 1, name: kept, path: `.armada/${kept}`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true };
       return { ok: true, output };
     },
     followCheckOutput: async (jobId, kept) => {
-      const lines = kept === null ? undefined : JOB_LOGS[kept];
+      const lines = kept === null ? undefined : logs[kept];
       if (jobId === null || kept === null || lines === undefined) {
         fleet.publish({ followed: { state: "none" } });
         return;
@@ -260,4 +269,111 @@ function jobChecks(fleet: FleetHandle): Partial<BridgeApi> {
       fleet.publish({ followed: { state: "following", jobId, kept, name: kept, attempt: 1, path: `.armada/${kept}`, fromLine: 1, lines } });
     },
   };
+}
+
+const SPLIT_BRANCH = "fleet/settings-reducer";
+const SPLIT_LINE = { kind: "merge_line", branch: SPLIT_BRANCH, job_id: JOB_ID, handle: JOB_HANDLE } as const;
+
+/** One of this Job's rows on `list_manifest_checks`; each says what is its own. */
+function onJob(row: Pick<ManifestCheckRow, "source" | "requester" | "step" | "name" | "state"> & Partial<ManifestCheckRow>): ManifestCheckRow {
+  return { job_id: JOB_ID, job_handle: JOB_HANDLE, job_title: "Split the settings reducer", attempt: 1, ...row };
+}
+
+/**
+ * The Checks of the Job `job-checks` opens, asked from its gate and from a Drone on a step. The
+ * rows of `REPORTED` that belong to another Job stay, so a narrowing has something to leave out.
+ */
+const JOB_CHECKS: ManifestCheckRow[] = [
+  onJob({
+    source: "asked_run",
+    requester: { kind: "drone_step", job_id: JOB_ID, step: "repro", drone_id: REPRO_DRONE, handle: JOB_HANDLE },
+    step: "repro",
+    attempt: 2,
+    name: "hooks_test",
+    state: "running",
+    started_at: "2026-10-06T14:20:10Z",
+    logs: [{ check: "hooks_test", kept: "repro.2.ask.hooks_test.log" }],
+    asked_run_id: 21,
+  }),
+  onJob({
+    source: "asked_run",
+    requester: { kind: "drone_step", job_id: JOB_ID, step: "repro", drone_id: REPRO_DRONE, handle: JOB_HANDLE },
+    step: "repro",
+    name: "format",
+    state: "failed",
+    started_at: "2026-10-06T14:05:00Z",
+    ended_at: "2026-10-06T14:05:09Z",
+    took_ms: 9_000,
+    logs: [{ check: "format", kept: "repro.1.ask.format.log" }],
+    asked_run_id: 20,
+  }),
+  onJob({
+    source: "gate",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
+    step: "root_cause",
+    attempt: 2,
+    name: "components_test",
+    state: "passed",
+    ended_at: "2026-10-06T13:23:10Z",
+    logs: [{ check: "components_test", kept: "root_cause.2.components_test.log" }],
+  }),
+  onJob({
+    source: "gate",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
+    step: "root_cause",
+    attempt: 2,
+    name: "docs_test",
+    state: "skipped",
+    ended_at: "2026-10-06T13:23:09Z",
+  }),
+  onJob({
+    source: "gate",
+    requester: { kind: "gate", job_id: JOB_ID, step: "root_cause", handle: JOB_HANDLE },
+    step: "root_cause",
+    name: "clippy",
+    state: "failed",
+    ended_at: "2026-10-06T12:58:40Z",
+    logs: [{ check: "clippy", kept: "root_cause.1.clippy.log" }],
+  }),
+  ...REPORTED.filter((row) => row.job_id === ARC_JOB_ID),
+];
+
+const JOB_CHECK_LOGS: Record<string, string[]> = {
+  ...JOB_LOGS,
+  "repro.2.ask.hooks_test.log": ["$ python3 -m unittest hooks", "test_dispatch (test_hooks.Hooks) ... ok"],
+  "repro.1.ask.format.log": ["$ cargo fmt --all --check", "Diff in crates/fleet/src/lib.rs:12:"],
+  "root_cause.1.clippy.log": ["$ tsc -b", "packages/screens/src/Row.tsx(88,7): error TS2322: Type 'string' is not assignable to type 'number'."],
+};
+
+/** The merge line's Checks for the Job's branch, one passed and one waiting. **Each names the Job**, which Fleet sends on a gate's and a Drone's requester and not yet on the line's. */
+const JOB_LINE: MergeLines = {
+  lines: [
+    {
+      root: repository().root,
+      line: [
+        {
+          branch: SPLIT_BRANCH,
+          place: 1,
+          state: "gating",
+          doing: "running its Checks",
+          checks: [
+            { name: "ipc_test", state: "passed", started_at: "2026-10-06T14:19:50Z", requester: SPLIT_LINE },
+            { name: "fleet_test", state: "waiting", requester: SPLIT_LINE },
+          ],
+        },
+      ],
+      off: [],
+      landed: [],
+      sent_back: [],
+    },
+  ],
+};
+
+/**
+ * `job-checks`: a Job open, with Checks in every state, asked from its gate, a Drone and the merge
+ * line. The Checks page holds them with another Job's and the checkout's own.
+ */
+export function jobChecking(): Scenario {
+  const one = checkingOver(READ, "job-checks", "A Job whose Checks are running, waiting, passed, failed and skipped, from three requesters", JOB_CHECKS, JOB_CHECK_LOGS);
+  return { ...one, opens: JOB_ID, state: { ...one.state, mergeLines: JOB_LINE } };
 }

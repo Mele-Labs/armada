@@ -252,8 +252,10 @@ function fill(element: HTMLElement, words: string): void {
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return;
   }
+  // Anything else is typed at as keys: each character goes to the element as a key press, for a page that listens for them.
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
-    throw new Error(`${element.tagName.toLowerCase()} is not a field a walk can type into`);
+    for (const key of words) element.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    return;
   }
   element.focus();
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), "value")?.set;

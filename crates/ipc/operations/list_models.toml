@@ -1,0 +1,10 @@
+[operations.list_models]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The models a Job may name, and the one it gets when it names none"
+notes = """
+Added with the model picker. `crates/config/settings.toml` carries two rows that should answer this — `kit-level-allowed-default-models-list` and `default-model-per-job-type` — and neither has a `default` value, so nothing configured names a model. The values served are the adapter's, which is the boundary allowed to know a vendor's spellings; that is a stand-in and the settings rows are the answer.
+
+Helm may reach it for the same reason it may reach the other queries: knowing what a model may be named is not choosing one.
+"""

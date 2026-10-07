@@ -24,6 +24,7 @@ mod needs;
 mod piloting;
 mod pull_requests;
 mod queries;
+mod rehearsing;
 mod retros;
 mod sessions;
 mod studios;

@@ -1,0 +1,13 @@
+[icons.folder-x]
+  means = "A folder with a cross - a slot directory that is not a checkout"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot nothing leases until a person removes it."
+
+[[icons.folder-x.usage]]
+  means = "A Job's worktree whose checkout is gone and whose record is all that is left"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. No directory stands, which is what the mark already says of a slot. Tooltip `Checkout gone`."

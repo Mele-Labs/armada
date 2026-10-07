@@ -14,7 +14,7 @@ use ipc::{NamedRun, StartCheckoutRun, StartRun};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::{Queries, Rehearsing};
 use crate::reference::Resolved;
 use crate::scoped::InCheckout;
 use crate::served::Served;
@@ -74,7 +74,7 @@ pub(crate) async fn observe_run<D: Queries>(
 }
 
 /// 202: the run is underway and has not finished — its end is `run.finished`.
-pub(crate) async fn start_run<D: Commands>(
+pub(crate) async fn start_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     job: Resolved,
     body: Bytes,
@@ -89,7 +89,7 @@ pub(crate) async fn start_run<D: Commands>(
     }
 }
 
-pub(crate) async fn stop_run<D: Commands>(
+pub(crate) async fn stop_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     job: Resolved,
     body: Bytes,
@@ -104,7 +104,7 @@ pub(crate) async fn stop_run<D: Commands>(
     }
 }
 
-pub(crate) async fn undo_run<D: Commands>(
+pub(crate) async fn undo_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     job: Resolved,
     body: Bytes,
@@ -214,7 +214,7 @@ pub(crate) async fn observe_checkout_run<D: Queries>(
 }
 
 /// 202: the run is underway and has not finished.
-pub(crate) async fn start_checkout_run<D: Commands>(
+pub(crate) async fn start_checkout_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     Query(scope): Query<InCheckout>,
     body: Bytes,
@@ -236,7 +236,7 @@ pub(crate) async fn start_checkout_run<D: Commands>(
 
 /// 202: the Verify is underway, its first step out. **The body is optional**:
 /// empty runs the root's Manifest, and `workspace` names one below it.
-pub(crate) async fn start_checkout_verify<D: Commands>(
+pub(crate) async fn start_checkout_verify<D: Rehearsing>(
     State(served): State<Served<D>>,
     Query(scope): Query<InCheckout>,
     body: Bytes,
@@ -261,7 +261,7 @@ pub(crate) async fn start_checkout_verify<D: Commands>(
     }
 }
 
-pub(crate) async fn stop_checkout_run<D: Commands>(
+pub(crate) async fn stop_checkout_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     Query(scope): Query<InCheckout>,
     body: Bytes,
@@ -281,7 +281,7 @@ pub(crate) async fn stop_checkout_run<D: Commands>(
     }
 }
 
-pub(crate) async fn undo_checkout_run<D: Commands>(
+pub(crate) async fn undo_checkout_run<D: Rehearsing>(
     State(served): State<Served<D>>,
     Query(scope): Query<InCheckout>,
     body: Bytes,

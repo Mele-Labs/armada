@@ -21,7 +21,7 @@
 //
 // # The bodies travel with the list, so the read is dropped on close
 //
-// `crates/ipc/operations.toml` states the cost: one rendered record per report,
+// `crates/ipc/operations/` states the cost: one rendered record per report,
 // all of them in one answer, because the record is the payload the sentence is
 // a finding about. That is affordable while the list is read deliberately and
 // dropped when it closes, and it is why this is asked for rather than held.

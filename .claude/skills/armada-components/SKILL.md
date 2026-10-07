@@ -17,7 +17,7 @@ no second drawing of it to reconcile against.
 | The spec | `docs/contracts/design-system.md` — `## Hard rules` and `## Component → token mapping` |
 | The rules broken most | `docs/contracts/iconography.md` — default to no icon, the two sizes, the contrast floor |
 | The tokens | `packages/tokens/src/*.css`. Read the comments; several carry the argument for a value |
-| The glyphs | `packages/icons/icons.toml` |
+| The glyphs | `packages/icons/icons/` |
 | The states a status can hold | `crates/core-model/domain/enum-verbs.toml` |
 | What a `play` asserts | `docs/practices/react.md`, under `Stories are the tests` |
 

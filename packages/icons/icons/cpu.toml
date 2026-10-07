@@ -1,0 +1,6 @@
+[icons.cpu]
+  means = "A square with radiating ticks — unique in the whole system at 12px"
+  group = "Queued reason"
+  size = "12px"
+  status = "Specified"
+  notes = "The square-with-radiating-ticks outline is unique in the system, which is what matters at 12px."

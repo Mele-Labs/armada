@@ -75,6 +75,14 @@ pub struct RailLine {
 pub fn the_contract_and_the_registry_agree_on_meaning(root: &Path) -> Report {
     let mut report = Report::new("the iconography contract says what the icon registry says");
 
+    let registry = match super::registry_text(root) {
+        Ok(text) => Some(text),
+        Err(_) => {
+            report.fail(format!("{REGISTRY} — the icon registry it is compared against"));
+            None
+        }
+    };
+
     let mut read = |rel: &str, what: &str| -> Option<String> {
         match fs::read_to_string(root.join(rel)) {
             Ok(text) => Some(text),
@@ -85,7 +93,6 @@ pub fn the_contract_and_the_registry_agree_on_meaning(root: &Path) -> Report {
         }
     };
     let contract = read(CONTRACT, "the contract this rule reads");
-    let registry = read(REGISTRY, "the icon registry it is compared against");
     let states = read(STATES, "the step states a rail value has to be one of");
     let verbs = read(VERBS, "the per-value glyph assignment");
     let (Some(contract), Some(registry), Some(states), Some(verbs)) =

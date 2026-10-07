@@ -1,0 +1,7 @@
+[icons.globe]
+  means = "A globe - a page published to the web"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A page a Session published to claude.ai, on its ledger. Never a network, a server or a link: `link` and `external-link` keep those."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. A published page lives at an address anyone can open, which is what a globe says and a file does not. Refused: `file-*`, evidence's; `external-link`, Chrome's press that leaves the app, which the row does but is not what the row is."

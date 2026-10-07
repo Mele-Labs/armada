@@ -183,7 +183,7 @@ export function Dialog({
                to say nothing is being destroyed, and a warning triangle said
                the opposite louder than the word neutral said it.
                `triangle-alert` is also Doctor's and reserved — see
-               `packages/icons/icons.toml`, which carries the rejected
+               `packages/icons/icons/`, which carries the rejected
                candidates and the one objection to expect. Every neutral
                confirm is the same moment: a fork, one way chosen, and nothing
                destroyed by choosing. */

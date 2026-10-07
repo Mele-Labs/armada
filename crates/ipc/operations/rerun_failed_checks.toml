@@ -1,0 +1,10 @@
+[operations.rerun_failed_checks]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Asks the forge to start a Job's pull request's failed CI runs again"
+notes = """
+**A write to the forge, taken only from a person's press**, like `merge_pull_request` (#905). `gh run rerun --failed` starts each failed run's failed jobs again and writes nothing on the pull request. It moves nothing on the Job, and what comes back is the Job as it stands.
+
+Refused with a 409 where the Job has no open pull request, and with a 409 carrying the forge's own words where it would not start them. `agent_access` is `Helm only`: a forge act is still a person's, taken only from their ask.
+"""

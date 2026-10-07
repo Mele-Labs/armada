@@ -1,0 +1,10 @@
+[operations.defer_on_studio]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Turn something raised on a node into a Deferral, against what it blocks, and answer with the Studio"
+notes = """
+**Only a person defers**, whatever Helm is asked — `docs/concepts/studio.md`, *Helm on a Studio* — so no agent is offered this. The Deferral is added Open, with a `produced` edge from the node it was raised on and, where `blocks` names one, an **accepted** `blocks` edge from the Deferral to what it holds up: the person drawing it is the one who accepts a relation, so there is nobody left to accept it afterwards.
+
+Raised on a Contradiction that is still Reported, it also ends that Contradiction as *Deferral* — one of its four outcomes. A Contradiction already ended is refused as `fleet.studio_contradiction_settled`. `blocks` naming the node the Deferral was raised on is refused as `fleet.studio_edge_to_itself`.
+"""

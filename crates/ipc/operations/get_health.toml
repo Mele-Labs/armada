@@ -1,0 +1,10 @@
+[operations.get_health]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "All Doctor probes"
+notes = """
+The one call that must work when Fleet is down. The probe count is not stated here; it is Doctor's, in docs/concepts/doctor.md.
+
+**Since 23.33 it says whether any workflow definition was left out**, as `workflows_left_out`, a boolean on the answer itself and not a probe. It is never a count: a rail warns that something is there to read, and `list_left_out_workflows` is where each reason is. True where any served repository left one out.
+"""

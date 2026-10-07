@@ -103,7 +103,7 @@ const READING_IN_UNBUILT = "Reading an address in is not built yet. Keep the lin
  *
  * **The noun is `STUDIO_NODE_KIND`'s; the glyph and the key are the
  * registry's**, read off `ACTION` as the palette reads them, so the rail and ⌘K
- * cannot draw two icons for one act. The glyphs are `packages/icons/icons.toml`,
+ * cannot draw two icons for one act. The glyphs are `packages/icons/icons/`,
  * group `Canvas rail`.
  */
 const ADD_BY_HAND: readonly ({ kind: StudioNodeByHandKind } & RailFace)[] = [

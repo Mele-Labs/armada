@@ -1,0 +1,10 @@
+[operations.list_sessions]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every agent session on the ledger, most recently seen first, with what each holds, narrowed by `q` and `state`"
+notes = """
+`GET /sessions?manifest_id=&q=&state=`. Since 23.43. `q` finds a session by its title, a branch name, a pull request number (`#12` or `12`, whole), a Job id (whole, or its start) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every session on the machine, a terminal session in no repository Fleet serves included.
+
+A session run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.
+"""

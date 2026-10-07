@@ -1,0 +1,7 @@
+[icons.scan-search]
+  means = "Corner brackets round a magnifier - a Scout reading a stranded slot"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A rescue Scout reading a stranded worktree slot, drawn pulsing while it reads. Never a search box or a filter, which is `search` and `filter`, and never a machine reading a request, which is `scan-line`."
+  notes = "Proposed 4 Oct 2026 for the live state of a rescue, on the walk `rescuingAStrandedSlot`. The frame says something is being read and the lens says by something looking for it, which is what a Scout does and `scan-line` (the Job proposer's read of a request) does not. It pulses at `--duration-pulse`, and holds still under reduced motion. Tooltip `Reading`."

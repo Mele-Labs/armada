@@ -1,0 +1,14 @@
+[operations.move_plan]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person moves one task, into any group, or one group, by the task or group it comes after, and answers with the plan it leaves"
+notes = """
+`POST /jobs/:job_id/plan/move`, spike 022 slice 2 (`#1685`). The body is `MovePlan`: `group`, and with `task` that task goes into `group` after the task `after` names, or first in it; without, `group` goes after the group `after` names, or first. **By `after`, never by index**: an index counted at the drag is stale the moment a Drone adds or drops a task. Kept under `store::PlanHand::Person`, and `job.plan_changed` is published with `actor` `human`.
+
+**Refused by name.** A 409 `fleet.task_in_flight` on a task, or a group holding one, that is working or handed in, since its group's run is still going; a 422 `fleet.no_such_group` on a group the plan does not hold, and `fleet.no_such_task` on a task, or an `after` outside the group it moves into.
+
+**A move putting a task before one it needs is taken** (`#1685`'s own rule): the plan's scope-intersection warning is what says so, not a refusal here.
+
+`agent_access` is `Helm only`, `add_task`'s reason.
+"""

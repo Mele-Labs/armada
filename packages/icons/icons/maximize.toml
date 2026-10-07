@@ -1,0 +1,7 @@
+[icons.maximize]
+  means = "Four corner brackets facing outward — the whole of a thing brought into its frame"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Fitting a canvas to what is on it. Never full screen, never a window control, and never expanding a panel or a row."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), when the owner moved the zoom pair and Fit out of the bottom-right corner and onto the rail. Fit was the word `Fit` in a text button, which a 32px square rail button cannot hold beside two signs — so the act needed a mark, and four disjoint corner brackets is the one silhouette nothing else in the set carries. The zoom pair beside it keeps `−` and `+`: those are signs rather than glyphs under rule 1, and minting `zoom-in` and `zoom-out` would put two magnifiers next to `search`, which is Chrome's. Refused: `scan`, the same four corners with a line through them, which reads as reading a code; `expand` and `fullscreen`, which promise the window control this reservation bans; `crosshair`, which says centre on a point rather than show the whole."

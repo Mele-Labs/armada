@@ -43,7 +43,53 @@ export type CheckEntry = {
   logs?: readonly ManifestCheckLog[];
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
   says?: string;
+  /** A gate that ended without measuring it (`skipped`, `never_ran`). Its status is `waiting`, so the filters read this. */
+  skipped?: true;
 };
+
+/** The filter row's choices, in the order it draws them. */
+export const CHECK_FILTERS = ["all", "active", "waiting", "completed", "passed", "failed", "skipped"] as const;
+export type CheckFilter = (typeof CHECK_FILTERS)[number];
+
+export const CHECK_FILTER_LABEL: Record<CheckFilter, string> = {
+  all: "All",
+  active: "Active",
+  waiting: "Waiting",
+  completed: "Completed",
+  passed: "Passed",
+  failed: "Failed",
+  skipped: "Skipped",
+};
+
+/**
+ * Whether a filter holds an entry. Active is running; Completed is every Check that ended, which
+ * is passed, failed and skipped, and a stopped run too. A skipped one is never Waiting, though its
+ * list mark is.
+ */
+export function heldBy(filter: CheckFilter, entry: CheckEntry): boolean {
+  const { status } = entry;
+  switch (filter) {
+    case "all":
+      return true;
+    case "active":
+      return status === "running";
+    case "waiting":
+      return status === "waiting" && entry.skipped !== true;
+    case "completed":
+      return status !== "running" && (status !== "waiting" || entry.skipped === true);
+    case "passed":
+      return status === "passed";
+    case "failed":
+      return status === "failed";
+    case "skipped":
+      return entry.skipped === true;
+  }
+}
+
+/** The Checks of one Job: a reported row by its `job_id`, any other by the Job its requester names. */
+export function ofJob(entries: readonly CheckEntry[], jobId: string): CheckEntry[] {
+  return entries.filter((entry) => (entry.job?.id ?? entry.requester.job_id) === jobId);
+}
 
 /** What each status says on hover, as the Check list's mark names it. */
 const SAYS: Record<CheckListStatus, string> = {
@@ -66,7 +112,9 @@ export function checkEntriesOf(
   reported: readonly ManifestCheckRow[] = [],
 ): CheckEntry[] {
   const land = landEntriesOf(lines);
-  if (sheet === undefined) return land;
+  // Reported rows and the line's own come off reads that do not need the sheet, so they stand without it.
+  const asked = reported.map(entryOfReported);
+  if (sheet === undefined) return byRequested([...land, ...asked]);
   const declared = new Set(sheet.checks.map((one) => one.name));
   const isCheck = (run: { name: string; workspace?: string }) => run.workspace === undefined && declared.has(run.name);
 
@@ -90,7 +138,7 @@ export function checkEntriesOf(
     }
   }
   const ended = [...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord);
-  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...reported.map(entryOfReported)]);
+  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...asked]);
 }
 
 /**
@@ -213,19 +261,20 @@ const ASKED_STATE: Record<string, { status: CheckListStatus; says?: string }> = 
 };
 
 /** A gate outcome on the marks a row has, said in the registry's own verb where it is not plain. */
-function gateStatus(outcome: string): { status: CheckListStatus; says?: string } {
+function gateStatus(outcome: string): { status: CheckListStatus; says?: string; skipped?: true } {
   if (outcome === "passed") return { status: "passed" };
   if (outcome === "failed") return { status: "failed" };
   const verb = CHECK_OUTCOME[outcome]?.verb ?? outcome;
   // Never started and not run are a Check that was not measured: neither a pass nor a failure.
   return outcome === "never_ran" || outcome === "skipped"
-    ? { status: "waiting", says: verb }
+    ? { status: "waiting", says: verb, skipped: true }
     : { status: "failed", says: verb };
 }
 
 /** One gate or asked-run row off the manifest-wide read, as a list entry. */
 export function entryOfReported(row: ManifestCheckRow): CheckEntry {
-  const held = row.source === "asked_run" ? (ASKED_STATE[row.state] ?? { status: "waiting" as const }) : gateStatus(row.state);
+  const held: { status: CheckListStatus; says?: string; skipped?: true } =
+    row.source === "asked_run" ? (ASKED_STATE[row.state] ?? { status: "waiting" as const }) : gateStatus(row.state);
   const key = row.asked_run_id !== undefined ? `run${row.asked_run_id}` : `${row.step}.${row.attempt}.${row.group ?? ""}.${row.name}`;
   return {
     id: `reported:${row.job_id}:${key}`,
@@ -236,6 +285,7 @@ export function entryOfReported(row: ManifestCheckRow): CheckEntry {
     job: { id: row.job_id, handle: row.job_handle },
     ...(row.logs === undefined || row.logs.length === 0 ? {} : { logs: row.logs }),
     ...(held.says === undefined ? {} : { says: held.says }),
+    ...(held.skipped === undefined ? {} : { skipped: true as const }),
     ...(row.started_at === undefined ? {} : { startedAt: row.started_at }),
     ...(row.ended_at === undefined ? {} : { finishedAt: row.ended_at }),
     ...(row.took_ms === undefined ? {} : { tookMs: row.took_ms }),

@@ -1,0 +1,10 @@
+[operations.decide_studio_edge]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Accept a proposed edge, or reject it, which removes it, and answer with the Studio"
+notes = """
+**Only a person accepts a relation**, whatever Helm's authority setting says, so no agent is offered this. An edge that is not proposed is refused as `fleet.studio_edge_not_proposed`.
+
+A rejected edge is removed rather than kept as rejected; nothing yet stops the same relation being proposed again.
+"""

@@ -15,6 +15,7 @@ export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => 
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
 
 const idle = { state: "idle" } as const;
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** The models Fleet lists, as `list_models` answers them, and the efforts a Drone's settings offer. */
 const MODELS = ["haiku", "sonnet", "opus"];
@@ -44,6 +45,7 @@ function others(): Session[] {
       title: "Release notes script",
       turn: idle,
       lastTurn: "13:48",
+      lastTurnAt: minutesAgo(4),
       rows: [{ id: "s2-1", at: "13:48:02", kind: "message", from: { kind: "agent" }, text: "The script reads the merged pull requests since the last tag." }],
       attachments: [
         { kind: "slot", slot: 5 },
@@ -56,6 +58,7 @@ function others(): Session[] {
       title: "Store migration spike",
       turn: idle,
       lastTurn: "12:20",
+      lastTurnAt: minutesAgo(135),
       rows: [{ id: "s3-1", at: "12:20:41", kind: "message", from: { kind: "agent" }, text: "Named migrations apply in order and each is recorded once." }],
       attachments: [
         { kind: "slot", slot: 7 },
@@ -143,7 +146,7 @@ export function sessionsStore(
   const addTo = (id: string, rows: SessionRow[], attachments: SessionAttachment[] = []) =>
     edit(id, (one) => ({ ...one, rows: [...one.rows, ...rows], attachments: [...one.attachments, ...attachments] }));
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
-  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp }));
+  const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp, lastTurnAt: new Date().toISOString() }));
   const finish = (stamp: string) => finishOf(MINE, stamp);
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));

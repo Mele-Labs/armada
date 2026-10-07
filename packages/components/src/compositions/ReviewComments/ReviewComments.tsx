@@ -56,7 +56,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  *
  * # No glyph
  *
- * `packages/icons/icons.toml` has no mark for a review comment. `message-*` is
+ * `packages/icons/icons/` has no mark for a review comment. `message-*` is
  * not in the registry and nothing else there means it, so this draws none —
  * a state with no glyph gets the words, never an invented mark.
  */

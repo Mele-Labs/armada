@@ -25,13 +25,13 @@ use crate::tests::daemon::{
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
 
 /// A Fleet that asks the forge on every turn. **`ZERO` and not a real
 /// interval**, for the reason `headroom`'s poll fixture uses it: the case is
 /// about what an ask comes to, and the one case about the interval plants its
 /// own.
-fn a_fleet_asking_every_turn(home: &TempDir) -> Fixture {
+pub(super) fn a_fleet_asking_every_turn(home: &TempDir) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = Noticing::every(Duration::ZERO);
     Fleet::assembled(fittings)
@@ -39,7 +39,7 @@ fn a_fleet_asking_every_turn(home: &TempDir) -> Fixture {
 
 /// Run the shipped two-step fixture workflow to the end, so the Job's branch is
 /// committed, pushed and opened for review.
-async fn a_finished_job(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
+pub(super) async fn a_finished_job(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
     let job = fleet
         .propose(a_proposal("fix the off-by-one in the log reader"))
         .await

@@ -1,0 +1,7 @@
+[icons.server]
+  means = "Two stacked units, each with a light — a machine that serves"
+  group = "Retro"
+  size = "12px"
+  status = "Specified"
+  reserved = "A retro item that got in Fleet's way, and nowhere else. Never a server a Studio's Run holds, never a host, a port or a process, and never a Job or Cleanup's held disk, which is `hard-drive`."
+  notes = "Minted 3 Oct 2026 with the Lessons page (`docs/concepts/retro.md`), for `who = fleet`: Armada itself cost the Job something. Fleet is the daemon that serves every Job, and two racked units is the drawing of one. **The objection to expect is `hard-drive`**, Cleanup's rail glyph, a single horizontal vessel with a light; this is two stacked, drawn at 12px in a list rather than at 16px in the rail, so rule 4's collision is across groups and sizes. Refused: `armada-mark`, whose reservation is absolute and keeps it out of a row; `cpu`, the queued reason's, whose row prizes it as unique at 12px; `settings` and `cog`, configuration; `box`, the Job in the Record's kind column. Tooltip: Fleet."

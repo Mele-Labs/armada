@@ -23,6 +23,7 @@ mod record;
 /// and followed the same way — `crate::servers`.
 pub(crate) mod records;
 mod running;
+mod served;
 mod shared;
 mod unrehearsable;
 /// Verify: setup and every Check once, as a sequence of checkout runs.

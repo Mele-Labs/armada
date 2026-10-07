@@ -1,0 +1,12 @@
+[operations.write_up_studio_node]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Write a Note, Cluster, Contradiction or Outline up as an Issue draft, and answer with the Studio"
+notes = """
+The draft is a node like any other, added Draft with a `produced` edge from what it was written up from. **Nothing is filed**: `docs/concepts/studio.md` makes an issue on a forge a person's own act, so no operation here reaches a forge and this one does not either.
+
+Any other kind is refused as `fleet.studio_not_writable_up` — an address is read in, a Finding is asked for, and a draft written up again would be a copy of itself. Written up from a Contradiction that is still Reported, it also ends that Contradiction as *Issue draft*; one already ended is `fleet.studio_contradiction_settled`.
+
+`agent_access` is `Helm only` because writing up is one of the two acts Helm may take on a person's ask. **It never dispatches**: "write it up" alone is a draft and nothing more, and `dispatch_studio_draft` is the separate act. From Helm it also publishes `studio.helm_acted`.
+"""

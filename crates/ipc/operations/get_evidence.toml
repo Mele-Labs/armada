@@ -1,0 +1,12 @@
+[operations.get_evidence]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Per-step Evidence bundles"
+notes = """
+The claims, without the bytes. Its own route beside `get_diff` rather than folded into it: evidence is a handful of sentences per step and a patch is however large the work is, so a surface wanting only the claims would otherwise fetch a megabyte to read four lines.
+
+A step that submitted none is absent from the list rather than present and blank, which is the shape the store already answers in — and it is what lets a reader tell a step that claimed nothing from one that has not claimed anything yet, since the step's state on `get_job` says which.
+
+It carries no `source`. A Drone marking its own evidence human-attested is impossible on both sides of the write, and a field on the wire is a field somebody eventually lets a Drone set.
+"""

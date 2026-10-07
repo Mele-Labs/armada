@@ -3,16 +3,16 @@
 **Kind:** spec. **Governs:** every badge state, plus navigation, actions and
 Doctor — lucide-react only, holding the shield-\*/file-\* reservation rule.
 
-Every icon in the app is named in `packages/icons/icons.toml`; this document
+Every icon in the app is named in `packages/icons/icons/`; this document
 carries the rules that put a glyph there and the reasoning behind each one.
-Hand this document to a design tool alongside `packages/icons/icons.toml` and
+Hand this document to a design tool alongside `packages/icons/icons/` and
 the parent [Design System](design-system.md) document, and no icon requires a
 judgment call.
 
-Each glyph is a table in `packages/icons/icons.toml`, keyed by its
+Each glyph is a table in `packages/icons/icons/`, keyed by its
 lucide-react name, carrying its meaning, group, size, status and reservation.
 This document carries the reasoning behind each choice and the rules that
-govern anything not yet in that file; `icons.toml` is the lookup that answers
+govern anything not yet in that file; `icons/` is the lookup that answers
 what a glyph already means and where it may not be reused.
 
 Resolves the Iconography open item. Supersedes the partial 10-icon table
@@ -103,7 +103,7 @@ never a loading state — where a hue would claim an activity that has not
 begun; `--fg-muted` was rejected for the same row because it is
 `retrying`'s colour, and `packages/tokens/src/status.css` keeps `not_started`
 one step dimmer than `retrying` on purpose. Full argument in
-`packages/icons/icons.toml`.
+`packages/icons/icons/`.
 
 **The third exception is a disabled control, added 2026-09-17.** A glyph that
 inherits a disabled control's text colour dims with that control's label, to
@@ -132,7 +132,7 @@ icon that sets its own colour.
 > value as `--fg-subtle` — the two separated at the 20 Aug legibility lift.
 
 **Version pinning.** lucide renamed a large batch of icons (`alert-triangle`
-→ `triangle-alert`, and similar). Names in `packages/icons/icons.toml` are
+→ `triangle-alert`, and similar). Names in `packages/icons/icons/` are
 lucide-react ≥ 0.400. Pin the version in `package.json`; do not float.
 
 ---
@@ -166,7 +166,7 @@ channel.
 
 ## Status badge icons
 
-The glyph and the reasoning for each status is in `packages/icons/icons.toml`,
+The glyph and the reasoning for each status is in `packages/icons/icons/`,
 group `Job state`. That file does not carry labels either — the verb belongs
 to the Armada Enum Verbs database and is not restated here. The icon agrees
 with the verb, not with the enum name, which is why the two are chosen
@@ -177,7 +177,7 @@ separately.
 Ordered as Job orders them, by who is acting and in what mode. Where statuses
 share a hue they are the same claim at different points in a Job's life, and
 the glyph carries which point. The full enum → icon → hue mapping is
-`packages/icons/icons.toml`, group `Job state`.
+`packages/icons/icons/`, group `Job state`.
 
 **Amber means a person is on it; grey means nobody is.** Every status where a
 person is waited on or working renders amber — `awaiting_approval`,
@@ -190,7 +190,7 @@ terminal box in amber; clock and lidded box in grey.
 point.** The hue is right — a request being read is Armada working, and the
 money is being spent while the row sits there — so the pair is this section's
 own rule met rather than an exception to it. The mark is `scan-line`, minted in
-`packages/icons/icons.toml` on 30 Sep 2026 (#1159) rather than borrowed:
+`packages/icons/icons/` on 30 Sep 2026 (#1159) rather than borrowed:
 four corner brackets with a rule across, the only outline in the badge set that
 is not a closed shape, against `circle-dot`'s two concentric circles. It means a
 machine reading something a person handed it, and its row says what it may never
@@ -202,7 +202,7 @@ be made to mean instead.
 a grey row. Where a reason is present its glyph replaces `clock` on the
 badge; where the reason is none, `clock` stands. The vocabulary belongs to
 Job and is not restated here. Categorically different outlines: diagonal
-chain, fringed square. The mapping is `packages/icons/icons.toml`, group
+chain, fringed square. The mapping is `packages/icons/icons/`, group
 `Queued reason`.
 
 ### `escalated`'s reasons — the same handover, one status over
@@ -217,7 +217,7 @@ list is handed a Job's status and nothing else about why it stopped
 (`packages/protocol/src/holding.ts`), so *an escalated Job renders its reason*
 was a rule that surface could not obey — it drew a blank where a status goes,
 and a blank cannot be told from a finished Job. The glyph is `megaphone`, in
-`packages/icons/icons.toml`, reserved to this status and held clear of `bell`
+`packages/icons/icons/`, reserved to this status and held clear of `bell`
 there: an alert is a condition on a Job rather than a status a Job holds, so
 the two populations do not share an outline.
 
@@ -226,7 +226,7 @@ the two populations do not share an outline.
 The hardest constraint here. Categorically different outlines: octagon,
 closed loop, page, shield, Y-split, broken plug, ascender-to-a-line. None
 depends on interior detail surviving 12px. The mapping is
-`packages/icons/icons.toml`, group `Escalation reason`.
+`packages/icons/icons/`, group `Escalation reason`.
 
 **The status's own cone and `awaiting_repair`'s spanner share that hue and
 differ from all of them**, which is rule 4 read across the whole orange set
@@ -272,7 +272,7 @@ Both problems in the brief are accepted as stated.
 - **A per-column split is not defensible.** Resolved to every badge, on
   redundant-encoding grounds above.
 - Two further changes were made beyond the two flagged: `lock` → `link` and
-  `git-fork` → `split`, each justified in `packages/icons/icons.toml`.
+  `git-fork` → `split`, each justified in `packages/icons/icons/`.
 
 ---
 
@@ -294,7 +294,7 @@ does not carry.
 
 The common rail values borrow their glyph from the Job badge one level down.
 The roster of what may be lent is `[conventions.step_activity_borrowing]` in
-`packages/icons/icons.toml`; the per-value assignment is `verbs.step_state`
+`packages/icons/icons/`; the per-value assignment is `verbs.step_state`
 in `crates/core-model/domain/enum-verbs.toml`; the values themselves are
 `crates/core-model/domain/step-states.toml`. This section is the reasoning.
 
@@ -336,7 +336,7 @@ wherever a caller supplies the step's ordinal, the number draws instead.
 Two values carry more than a borrowed glyph:
 
 - **`stopped`** takes `flag`, reserved to this state alone (see
-  `packages/icons/icons.toml`). It marks a position rather than a verdict —
+  `packages/icons/icons/`). It marks a position rather than a verdict —
   the verdict sits on the criterion rows beneath it and the reason on the
   badge above — so it stays `--fg-default` on a `--step-stopped-bg` row
   rather than taking a hue that would say the warning twice. `octagon-x` was
@@ -362,7 +362,7 @@ reads as a gate that failed to render rather than one that is absent.
 ### Judge criterion verdicts
 
 `met` and `not_met` take `circle-check` and `circle-x`; `gate_undecided`
-takes `circle-minus` — see `packages/icons/icons.toml`, group
+takes `circle-minus` — see `packages/icons/icons/`, group
 `Step and Verdict`.
 
 **The Judge owns `circle-*`, decided 2026-08-21.** Three families, one per
@@ -415,7 +415,7 @@ active item; in the collapsed rail it is the whole affordance.
 beside status colours that already mean something (teal beside running, pink
 beside failed), and colour in the column means where you are. Never
 status-coloured. The full mapping (Job Board, Alerts, Doctor, Manifest,
-Helm, Worktrees) is `packages/icons/icons.toml`, group
+Helm, Worktrees) is `packages/icons/icons/`, group
 `Navigation` — `eye` and `file-cog` are shared assignments, carried under
 their own primary groups with a `Navigation` usage entry.
 
@@ -443,7 +443,7 @@ opposites before their words are. Per the voice contract an action
 keeps its name through the flow, so the glyph must survive both the button
 and the resulting past-tense state. The full mapping (Approve, Reject,
 Dispatch, Kill, Redirect, Redispatch, Pilot, Freeze dispatch) is
-`packages/icons/icons.toml` — several of these glyphs are shared with a Job
+`packages/icons/icons/` — several of these glyphs are shared with a Job
 badge state (`check`, `ban`, `power`, `terminal`) under group `Job state`;
 the rest are under group `Action`.
 
@@ -490,7 +490,7 @@ and `circle-x`, which belong to the Judge. None of them is an argument against
 
 ### DAG / graph view
 
-`waypoints` at 16px is the view toggle — see `packages/icons/icons.toml`,
+`waypoints` at 16px is the view toggle — see `packages/icons/icons/`,
 group `Graph`. Nodes inside the graph reuse the badge icons at 12px — a
 graph node and a Job Board row showing the same job must show the same
 glyph.
@@ -499,7 +499,7 @@ glyph.
 
 **Every canvas draws one rail down its leading edge**, at 16px, each act named
 in a tooltip. The registry group is `Canvas rail` in
-`packages/icons/icons.toml`. It is one component mounted by every surface that
+`packages/icons/icons/`. It is one component mounted by every surface that
 takes `GraphCanvas` — the dispatch sketch pad, a Studio's whiteboard, a Job's
 workflow canvas and the Plan tab's graph — because the owner asked for it on
 each of them in one sitting, and a second rail would be the vocabulary split
@@ -607,7 +607,7 @@ never a Job ending and never a machine discarding anything.
 `--fg-muted` and never a status hue: the kind is the whole of what it says, and
 the Outcome column owns what the row came to. Two marks were already sanctioned
 — `file-check` for Evidence, `file-diff` for Files — and six were minted for
-the rest in a group of their own, `Record kind` in `packages/icons/icons.toml`:
+the rest in a group of their own, `Record kind` in `packages/icons/icons/`:
 
 ```
 job      box            the Job itself — created, started, moved, ended
@@ -642,7 +642,7 @@ text — see [Job Board](../concepts/job-board.md).
 `scroll-text`, settled 23 Sep 2026: a workflow is the one fact on the row
 that was authored before the Job existed, and a rolled sheet is the only
 silhouette in the set that depicts something written down in an order. The
-argument and what it refused are in `packages/icons/icons.toml`. The
+argument and what it refused are in `packages/icons/icons/`. The
 registry's entry for `layers` read `means = "convoy"` until 22 Sep 2026,
 which was a retired name for this same idea; it now says what the glyph
 depicts.
@@ -650,14 +650,14 @@ depicts.
 ### Chrome
 
 The full chrome mapping — expand/collapse, sort, filter, search, copy an id
-or path, open PR externally, dismiss dialog — is `packages/icons/icons.toml`,
+or path, open PR externally, dismiss dialog — is `packages/icons/icons/`,
 group `Chrome`.
 
 ### Git and config — detail views only
 
 Never in a Job Board row. Precedes a mono value at 12px, in `--fg-muted`.
 The full mapping (repository, workspace, branch, commit, pull request,
-Manifest) is `packages/icons/icons.toml`, group `Git and config`.
+Manifest) is `packages/icons/icons/`, group `Git and config`.
 
 ### Where the answer is no icon
 
@@ -680,7 +680,7 @@ reached for.
   human-figure family under its `actor=human` arm, because a person who wrote
   a criterion is its actor; that is the one place the two fields touch. An
   issue edited since Fleet read it adds `diff`, in the caution hue. Group
-  `Criterion origin` in `packages/icons/icons.toml`.
+  `Criterion origin` in `packages/icons/icons/`.
 - **Diff views.** The diff tokens and the `+`/`-` gutter do the whole job.
   No icon.
 - **Empty states.** No large centred icon, no illustration. The parent
@@ -738,7 +738,7 @@ triangle-alert Doctor only, plus generic warnings in toasts. A release on
                WITHDRAWN 25 Aug: the reservation holds whether or not the health
                grid draws it, and no other surface may adopt it as its own mark.
                This line said RELEASED until 10 Sep 2026, four days after the
-               withdrawal it was describing, and packages/icons/icons.toml has
+               withdrawal it was describing, and packages/icons/icons/ has
                carried the withdrawal the whole time
 minus          nothing checked this — a verdict-sheet row where no Judge and no
                Check beyond artifact_exists ruled — and a Plan region's
@@ -750,7 +750,7 @@ minus          nothing checked this — a verdict-sheet row where no Judge and n
 
 ## The rule for anything not listed
 
-**Listed means: has a table in `packages/icons/icons.toml`.** A glyph with
+**Listed means: has a table in `packages/icons/icons/`.** A glyph with
 no table has not been decided, whatever it looks like in a mockup.
 
 1. **Default to no icon.** If the label alone is unambiguous, ship the
@@ -816,12 +816,12 @@ permitted 12px beside badge text while its own reservation banned the mark
 from badges — the new floor removes that contradiction rather than resolving
 it.
 
-Its registry row is `packages/icons/icons.toml` under `armada-mark`. The full
+Its registry row is `packages/icons/icons/` under `armada-mark`. The full
 specification — construction, clear space, colour, the minimum size for each
 lockup, and what may never change — is `packages/brand/README.md`, which is
 also where every rendering of the mark is rebuilt.
 
-Its entry in `packages/icons/icons.toml` is Proposed, under the Brand group
+Its entry in `packages/icons/icons/` is Proposed, under the Brand group
 added 2026-08-24. Brand is a category of one and should stay that way — a
 second row in it means rule 2 has quietly stopped holding.
 
@@ -855,7 +855,7 @@ mark. A reservation with no current user is not a spare glyph; it is the reason
 `octagon-alert` was kept out of generic warnings.
 
 Step-level and criterion-verdict glyphs are settled as of 2026-08-21 — see
-Step activity above. `packages/icons/icons.toml` currently lists
+Step activity above. `packages/icons/icons/` currently lists
 `circle-check` as Proposed and `circle-x`/`shield-minus` as Specified; its
 status vocabulary (Specified, Proposed, Retired, Banned) has no analogue to
 "Decided", so the file and the settled-as-of-2026-08-21 claim do not fully

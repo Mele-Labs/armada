@@ -1,0 +1,8 @@
+[operations."server.starting"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A server was started, for a Job or for the main checkout: its `run` is going, or `serve` is up and `ready` has not passed"
+notes = """
+Carries the whole `ServerState` — the row `list_servers` answers — in each of the three `server.*` kinds, so a row is replaced rather than patched. **Lifecycle facts only**: a server's output is `observe_server`'s and never this stream's.
+"""

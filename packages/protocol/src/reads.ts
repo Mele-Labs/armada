@@ -555,7 +555,7 @@ export type TransportFault = {
  * And the two refusals are not the same thing. **The request being declined and
  * the call failing are different statuses because a person does different
  * things about them** — one is said again differently or hand-entered through
- * `proposeJob`, the other is simply asked again. `crates/ipc/operations.toml`
+ * `proposeJob`, the other is simply asked again. `crates/ipc/operations/`
  * is where that division is stated and `crates/fleet/src/refusing.rs` is where
  * the two codes are declared apart so a client can honour it.
  *

@@ -1,0 +1,14 @@
+[operations.observe_run]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One person's run from the run sheet — what its log holds, then what it prints next — on a socket of its own"
+notes = """
+**`observe_job`'s shape, one subject over**; `docs/practices/protocol.md`, *The run socket*, is the design. The subscription is opened before the log is read, the log is the history, and the lines that follow are relayed. A viewer that falls behind loses the oldest and is sent `missed` with the count, and `closed` says why it stopped. Each live line carries the byte offset past it, so a line the opening read sent is not sent twice.
+
+**Per run, not per Job's runs.** The sheet holds the id `start_run` answered with, a run has an end to close on, and a Job has one run out at a time — a per-Job channel would need `observe_job`'s hand-over between runs for a reader nobody has.
+
+Not `/events`, which carries only `run.finished`: output is the fastest thing a run makes, and on the one drop-oldest channel carrying every Job it would evict the state the Board is drawn from.
+
+`agent_access` is `No` for `observe_check_output`'s reason.
+"""

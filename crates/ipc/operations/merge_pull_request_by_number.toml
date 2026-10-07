@@ -1,0 +1,12 @@
+[operations.merge_pull_request_by_number]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person merges a pull request by repository and number, once the forge's checks have passed"
+notes = """
+`POST /pull_requests/:repository/:number/merge`. Since 23.48. **`merge_pull_request`'s sibling for a pull request that is nobody's Job**: that one is a Job's press at its gate and records the landing on the Job, and this one has no Job to record on, so it merges through the same forge call and answers the pull request afterwards. A Session's `pr` row is settled `spent`.
+
+**It refuses before it writes when the checks have not passed.** `fleet.merge_checks_not_passed` is a 409 for `pending` and for `failed` alike, with the failing names in the message; the answer to a pending one is `enable_auto_merge`. A draft is `fleet.pull_request_is_a_draft`. A merged one is answered as it stands, not refused: the work is where the press was trying to put it.
+
+The forge's own refusals keep the nine codes `merge_pull_request` has (`fleet.merge_branch_protected`, `fleet.merge_conflicted`, `fleet.merge_not_open`, `fleet.merge_no_tool`, `fleet.merge_refused` and the rest). **A need does not hold this press**: a need is declared by a branch and this names none. `pushes to shared`, so Helm asks first.
+"""

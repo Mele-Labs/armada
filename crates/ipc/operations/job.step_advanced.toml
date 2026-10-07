@@ -1,0 +1,5 @@
+[operations."job.step_advanced"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A workflow step passes its gate"

@@ -1,0 +1,12 @@
+[icons.search]
+  means = "search"
+  group = "Chrome"
+  size = "16px"
+  status = "Specified"
+
+[[icons.search.usage]]
+  means = "A Job a Session is looking at, in its ledger: tagged by the person and not dispatched from there"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`. The Job's own mark is its state, so this says what the Session is doing with it, in the tooltip and not in a word."

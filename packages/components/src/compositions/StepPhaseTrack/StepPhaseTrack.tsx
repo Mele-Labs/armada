@@ -13,7 +13,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * drew this track instead. **It is the card's one loop**, so a card carrying
  * one does not sweep (`design-system.md`, Motion); a person's part breathes too.
  *
- * Glyphs from `packages/icons/icons.toml`: `circle-dot`, `shield-ellipsis`,
+ * Glyphs from `packages/icons/icons/`: `circle-dot`, `shield-ellipsis`,
  * `scale` (both approved 3 Oct 2026), and `eye` for a person's turn.
  */
 export type StepPhase = "drone" | "checks" | "judge" | "waiting";

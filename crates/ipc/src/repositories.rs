@@ -1,6 +1,6 @@
 //! The repositories one Fleet serves, and adding one by folder or by URL —
 //! `list_repositories`, `add_repository` and `clone_repository` in
-//! `crates/ipc/operations.toml`.
+//! `crates/ipc/operations/`.
 //!
 //! **A repository is listed whether or not it has a Manifest yet.** Setup
 //! starts from a folder nobody wrote an `armada.yml` for, so `manifest` is

@@ -1,0 +1,7 @@
+[icons.panel-right-open]
+  means = "A panel on the trailing edge with an arrow opening out of it - a side column folded into a sheet"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A Session's button for its ledger: opens it as a sheet below `--layout-breakpoint`, and above it shows the ledger panel again from the conversation's header once hidden. Never the rail's own fold, which is `panel-left-close` and `panel-left-open`."
+  notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. Below `--layout-breakpoint` the ledger leaves the Session's side and this is the press that brings it back, as the Helm dock folds."

@@ -1,0 +1,7 @@
+[icons.files]
+  means = "Two sheets, one behind the other - files a Session wrote"
+  group = "Session"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A document, picture or PDF a Session wrote outside the code, on its ledger. Never evidence, which is the `file-*` family's, and never a code change, which is Branches and Pull requests."
+  notes = "Proposed 7 Oct 2026 for the walk `session-ledger`, for the owner to rule on. The name is not in the `file-*` family, so evidence's reservation is not crossed, and the stacked sheets read as things made and left on disk. Refused: `file-text` and `file-output`, evidence's; `image`, a kept frame's; `paperclip`, a file attached to a message."

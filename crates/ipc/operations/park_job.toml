@@ -1,0 +1,22 @@
+[operations.park_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Pauses a Job: its Drones end, its work is parked on its branch and its slot goes back to the pool"
+notes = """
+`POST /jobs/:job_id/park_job`, no body. Answers the Job's `JobSummary` with `paused` set (`by`, `at`, `resuming`). `docs/concepts/job.md`, *Pausing a Job*, has the model.
+
+**Named `park_job`, not `pause_job`.** `pause_job` above is a retired row for a hold on a healthy Drone, kept so a reader who finds no row can tell a refused call from one nobody thought of; `xtask`'s unserved-operation allowance names it, and giving it a route would delete the record that says why. The act here is the one Fleet's `pause_job` method does.
+
+**A pause is not a status.** A running Job goes `queued` and reads `queued_reason: paused`. A Job at a review gate, or held for repair or an escalation, keeps the status it reads at, so a paused Job at a review gate reads `awaiting_review` with `paused` beside it. The summary carries the marker next to the real status and never replaces it. A Job with a pause marker does not read `paused` in `queued_reason` while it waits for a slot after a resume.
+
+**What it keeps is the work.** The record, the steps and the review rows are untouched; the Drones, the process and the slot are what go. The work is committed to the Job's branch as a `WIP:` commit.
+
+Refused with a 409 and nothing changed: `fleet.not_pausable` on a status that cannot hold a pause (a terminal one, or one before work began) and on a Job holding no slot; `fleet.already_paused`; `fleet.checks_running` while its Checks run again, since the pause would take the worktree they read; `fleet.pause_refused` where the pool or git will not take the work, carrying which. One exception to "nothing changed": a running Job whose Drone had to end before the pool could refuse is left `escalated`, as `kill_drone` leaves one.
+
+**An act on a paused Job** (approve, request changes, restart, override) is refused `fleet.paused` and says to resume it first. Bridge turns that refusal into a confirm that offers `resume_job`. Kill works.
+
+Publishes `job.paused` and writes one line in the Job's log.
+
+`agent_access` is `Helm only`, `restart_step`'s: Helm pauses a Job on a person's ask and never on its own reading.
+"""

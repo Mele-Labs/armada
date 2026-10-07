@@ -522,6 +522,7 @@ if $dry_run; then
     echo "would take no snapshot — there is no database yet"
   fi
   echo "would write $plist: [$armada_bin, serve, $root]"
+  echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would write $bridge_plist: [$src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop"
   echo "Bridge would run $src/apps/desktop/out — the tree it builds, $src"
   [[ -x "$src/apps/desktop/node_modules/.bin/electron-vite" ]] \
@@ -642,7 +643,7 @@ fi
 # **Two Fleets is stopping a stray one by the pid the runtime file names, never
 # by name.** `scripts/dev` reasons about the same incident (Storybook, ports
 # 6006-6009) in `.claude/skills/armada-local/SKILL.md`. A Fleet already running
-# under *our own* launchd job is left alone here — `kickstart -k` below is what
+# under *our own* launchd job is left alone here — the bootout below is what
 # moves it, and stopping it first would only race launchd's own restart.
 mkdir -p "$support"
 already_ours=false
@@ -654,7 +655,7 @@ if launchctl print "$service" >/dev/null 2>&1; then
 fi
 
 if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null && ! $already_ours; then
-  say "Stopping the Fleet in $old_pid — not ours to kickstart"
+  say "Stopping the Fleet in $old_pid — not ours to boot out"
   kill -TERM "$old_pid"
   for _ in $(seq 40); do
     kill -0 "$old_pid" 2>/dev/null || break
@@ -693,25 +694,33 @@ PY
 chmod 644 "$plist"
 mkdir -p "$home/Library/Logs/Armada"
 
-# A fresh bootstrap already starts the job — `KeepAlive` fires the moment it
-# is loaded, regardless of `RunAtLoad` (fleet.md, Daemon lifecycle) — so a
-# `kickstart -k` right after would only kill and replace what bootstrap just
-# started. Kickstart is for the job that was already loaded.
+# **Boot the job out and back in; never kickstart it.** `kickstart -k` restarts
+# the definition launchd already holds and ignores the plist just written, so a
+# changed program path or argument was never loaded. A fresh bootstrap starts
+# the job on its own — `KeepAlive` fires the moment it is loaded, regardless of
+# `RunAtLoad` (fleet.md, Daemon lifecycle). Bootout is SIGTERM, which waits for
+# the turn in flight, so this refuses rather than bootstrap beside a Fleet that
+# has not let go.
+say "Booting $service out and back in from $plist"
 if launchctl print "$service" >/dev/null 2>&1; then
-  say "Kickstarting $service onto the new build"
-  launchctl kickstart -k "$service"
-else
-  say "Bootstrapping $service"
-  launchctl bootstrap "$domain" "$plist"
+  launchctl bootout "$service" 2>/dev/null || true
+  for _ in $(seq 40); do
+    launchctl print "$service" >/dev/null 2>&1 || break
+    sleep 0.25
+  done
+  if launchctl print "$service" >/dev/null 2>&1; then
+    fail "$service has not stopped yet — SIGTERM waits for its turn in flight; try again once it exits"
+  fi
+fi
+launchctl bootstrap "$domain" "$plist"
+loaded_program=$(launchctl print "$service" 2>/dev/null | sed -n 's/^[[:space:]]*program = //p')
+if [[ "$loaded_program" != "$armada_bin" ]]; then
+  fail "launchd loaded Fleet from ${loaded_program:-nowhere}, not $armada_bin — it would run the wrong build"
 fi
 
-# **Wait for a *fresh* runtime file, not merely a present one.** `kickstart -k`
-# does not go through Fleet's own shutdown — fleet.md measures it at 26ms, far
-# faster than a graceful exit — so it leaves the old runtime file exactly
-# where it was until the new process publishes over it. A loop that only
-# checks the file exists passes on the old file and can hand back the old
-# pid, which is the file the previous instance already left behind, atomic
-# rename or not.
+# **Wait for a *fresh* runtime file, not merely a present one.** A killed Fleet
+# can leave its runtime file where it was until the new process publishes over
+# it, so a loop that only checks the file exists can hand back the old pid.
 new_pid=""
 for _ in $(seq 80); do
   if [[ -f "$runtime" ]]; then

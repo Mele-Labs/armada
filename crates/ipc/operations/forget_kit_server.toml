@@ -1,0 +1,10 @@
+[operations.forget_kit_server]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take an MCP server out of Kit, and every Manifest's word about it with it"
+notes = """
+The body is `name`, exactly as `get_kit_servers` lists it, and the answer is what remains. Every Manifest's word about the server goes with it: a rule about a server Kit no longer holds is a rule about nothing, and leaving it would let a re-added name arrive already extended.
+
+**Read by the next spawn**, so nothing running is touched — a Drone spawned under the old document keeps it for the step it is on. Refused with a 409 where Kit holds no server of that name.
+"""

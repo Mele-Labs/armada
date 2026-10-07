@@ -1,0 +1,7 @@
+[icons.pencil]
+  means = "A held drawing instrument at an angle, tip to the lower leading corner — drawing by hand"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "The sketch pad's pen only. Never edit, never rename, and never compose — a pencil here means a line a person draws with the pointer, not a field they type in."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run), minted because the set held no drawing glyph at all: freehand is the sketch pad's alone, per docs/contracts/design-system.md hard rule 6, so nothing had needed one. The control is a mode and draws `aria-pressed`, which is why the reservation names edit and rename — a pencil that sometimes means *type here* and sometimes means *draw here* is the mixed-meaning failure rule 4 exists to stop, and Studios' own rename takes `square-pen` instead, minted for rename alone on 29 Sep 2026. Against the group it joins it collides with nothing: `square-plus` is a box with a cross in it, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with a peeled corner, `shapes` three overlapping figures. Refused: `pen-tool`, which draws a bezier handle and would promise a curve tool the pad does not have; `brush` and `highlighter`, whose loaded heads are interior detail rule 3 will not have at this size; `signature`, which sits beside `stamp`'s attestation and would read as a mark you make rather than a picture you draw."

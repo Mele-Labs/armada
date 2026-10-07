@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ShieldCheck, ShieldMinus, ShieldX, type LucideIcon } from "lucide-react";
+import { ChevronDown, ShieldCheck, ShieldMinus, ShieldOff, ShieldX, type LucideIcon } from "lucide-react";
 
 import { ConceptLabel } from "../../concepts";
 import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
@@ -23,13 +23,19 @@ import { StepBar, type StepBarPress, type TaskBarSegment } from "../StepBar/Step
  * of prose is the caller's.
  */
 
-/** What one Check at the boundary came to. Spelled as the wire spells it. */
-export type GroupBoundaryCheckReads = "not run" | "running" | "passed" | "failed";
+/**
+ * What one Check at the boundary came to. Spelled as the wire spells it.
+ * **`skipped` is neither of the verdicts**: the Check declares which paths it
+ * covers and the step touched none, so nothing was measured.
+ */
+export type GroupBoundaryCheckReads = "not run" | "running" | "passed" | "failed" | "skipped";
 
 export type GroupBoundaryCheck = {
   /** The Check's declared name — `screens_test`, `typecheck`. */
   name: string;
   reads: GroupBoundaryCheckReads;
+  /** Why it read as it did, said on hover — the paths a skipped Check covers. */
+  why?: string;
   /** What the Check was held to. Drawn under a Check that carries it, labelled `Expected`. */
   expected?: string;
   /** What it came back with. Drawn under a Check that carries it, labelled `Result`. */
@@ -77,18 +83,20 @@ export type GroupBoundaryProps = {
 /** A Check's reading, on the bar's own segment grammar. */
 const SEGMENT: Record<GroupBoundaryCheckReads, TaskBarSegment> = {
   "not run": "open",
+  skipped: "open",
   running: "working",
   passed: "done",
   failed: "failed",
 };
 
 /**
- * A Check's result mark — the `shield-*` family, `icons.toml`. `not run` is
+ * A Check's result mark — the `shield-*` family, `icons/`. `not run` is
  * `shield-minus`, Check's own not-reached. **Running takes none**: the registry
  * has no shield for it, and the bar's segment already says so.
  */
 const MARK: Partial<Record<GroupBoundaryCheckReads, LucideIcon>> = {
   "not run": ShieldMinus,
+  skipped: ShieldOff,
   passed: ShieldCheck,
   failed: ShieldX,
 };
@@ -111,6 +119,7 @@ function CheckRow({ check }: { check: GroupBoundaryCheck }) {
         says={check.reads}
         {...(check.reads === "passed" || check.reads === "failed" ? { tone: check.reads } : {})}
         label={`${check.name}, ${check.reads}`}
+        {...(check.why === undefined ? {} : { hint: check.why })}
         {...(check.onOpen === undefined ? {} : { onOpen: check.onOpen })}
       >
         {check.name}

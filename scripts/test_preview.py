@@ -9,6 +9,7 @@
 import http.server
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -191,6 +192,63 @@ class Preview(unittest.TestCase):
                                 capture_output=True, text=True).stdout
         self.assertNotIn("UU", status)
 
+    TOML = "protocol-version.toml"
+    MIRROR = "packages/protocol/src/generated/protocol-version.ts"
+
+    def versions(self, minor):
+        return {self.TOML: f"# header\nmajor = 23\nminor = {minor}\n",
+                self.MIRROR: "// GENERATED\n\nexport const PROTOCOL_VERSION = "
+                             f"{{ major: 23, minor: {minor} }};\n"}
+
+    def bump_branch(self, name, minor, edits=None):
+        self.branch(name, {**self.versions(minor), **(edits or {})})
+
+    def preview_version(self):
+        with open(os.path.join(self.wt, self.TOML)) as f:
+            toml = f.read()
+        with open(os.path.join(self.wt, self.MIRROR)) as f:
+            mirror = f.read()
+        minor = int(re.search(r"^minor = (\d+)", toml, re.M).group(1))
+        self.assertIn(f"{{ major: 23, minor: {minor} }}", mirror)
+        self.assertNotIn("<<<<<<<", toml + mirror)
+        return minor
+
+    def start_at_52(self):
+        for path, text in self.versions(52).items():
+            self.write(path, text)
+        self.commit("main: protocol 23.52")
+
+    def test_two_branches_that_each_bump_the_protocol_both_merge_on_the_previews_own(self):
+        self.start_at_52()
+        self.bump_branch("feat/p53", 53)
+        self.bump_branch("feat/p54", 54)
+        self.hold("feat/p53", "feat/p54")
+        said = self.run_preview()
+        self.assertEqual(self.merged_in_order(), ["feat/p53", "feat/p54"])
+        self.assertRegex(said, r"feat/p54\s+merged\s+-> \w+ \(protocol: preview's own 23\.55\)")
+        self.assertNotRegex(said, r"feat/p53.*preview's own")
+        self.assertEqual(self.preview_version(), 55)
+
+    def test_a_conflict_in_the_protocol_files_and_another_file_is_still_skipped(self):
+        self.start_at_52()
+        self.bump_branch("feat/p53", 53, {"a.txt": "one\nTWO-from-p53\nthree\n"})
+        self.bump_branch("feat/p54", 54, {"a.txt": "one\nTWO-from-p54\nthree\n"})
+        self.hold("feat/p53", "feat/p54")
+        said = self.run_preview()
+        self.assertRegex(said, r"feat/p54\s+skipped \(conflict: .*a\.txt")
+        self.assertNotIn("preview's own", said)
+        self.assertEqual(self.merged_in_order(), ["feat/p53"])
+        self.assertEqual(self.preview_version(), 53)
+
+    def test_a_branch_that_bumps_alone_keeps_its_own_number(self):
+        self.start_at_52()
+        self.bump_branch("feat/p53", 53)
+        self.hold("feat/p53")
+        said = self.run_preview()
+        self.assertEqual(self.merged_in_order(), ["feat/p53"])
+        self.assertNotIn("preview's own", said)
+        self.assertEqual(self.preview_version(), 53)
+
     def test_a_migration_name_taken_twice_is_skipped_though_git_merges_it(self):
         self.branch("feat/m-first", {f"{DIR}/20261007T0100Z-p.same.sql": "CREATE TABLE a (x TEXT);"})
         self.branch("feat/m-second", {f"{DIR}/20261007T0200Z-p.same.sql": "CREATE TABLE b (x TEXT);"})
@@ -264,6 +322,21 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "target", "warm")))
         self.assertTrue(os.path.exists(os.path.join(self.wt, "node_modules", "warm")))
         self.assertFalse(os.path.exists(os.path.join(self.wt, "stray.txt")))
+
+    def test_a_note_pinned_on_the_preview_survives_a_rebuild(self):
+        self.hold()
+        self.run_preview()
+        note = os.path.join(self.wt, ".armada", "annotations", "n1.json")
+        os.makedirs(os.path.dirname(note))
+        other = os.path.join(self.wt, ".armada", "other.log")
+        for path in (note, other):
+            with open(path, "w") as f:
+                f.write("x")
+        self.write("m.txt", "moved\n")
+        self.commit("main: moved")
+        self.run_preview()
+        self.assertTrue(os.path.exists(note))
+        self.assertFalse(os.path.exists(other))
 
     def test_restart_runs_the_restart_script_from_the_preview(self):
         self.branch("feat/r", {"r.txt": "r\n"})
@@ -494,6 +567,12 @@ class RestartAdopt(unittest.TestCase):
                      "servers stop when Fleet stops", "gate re-runs from scratch",
                      "a Drone that cannot be adopted is ended"):
             self.assertEqual(said.count(cost), 1, cost)
+
+    def test_dry_run_says_fleet_is_booted_out_and_in_not_kickstarted(self):
+        self.fleet({"j1": "escalated"})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("out if it is loaded, then bootstrap it from", said)
 
     def test_adopt_with_no_drone_working_prints_no_costs(self):
         self.fleet({"j1": "escalated"})

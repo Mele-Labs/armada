@@ -1,0 +1,14 @@
+[operations.kill_one_drone]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Stops one of a Job's live Drones by its id; the others go on. A Drone that is not live is refused with `fleet.drone_not_live`"
+notes = """
+**Spike 022, slice 5, #1666.** Under a Drone per task a Job may run several at once, so a stop addressed to the Job stops the wrong one. This names the Drone.
+
+**The Job's kept Drone is `kill_drone`**, step and all. One running beside it ends alone, the Job and the kept Drone go on, and its task goes back to `open` for the kept Drone to take; it is not started again beside it.
+
+**Refused, never redirected.** An id that is not one of the Job's live Drones is a 409 `fleet.drone_not_live` with the id on its own field: it has exited since the screen was drawn, or was never this Job's. `kill_process`'s rule for a pid.
+
+`agent_access` is `Helm only`, `kill_drone`'s reason.
+"""

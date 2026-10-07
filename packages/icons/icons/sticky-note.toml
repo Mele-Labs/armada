@@ -1,0 +1,7 @@
+[icons.sticky-note]
+  means = "A square with one corner peeled back — a note stuck on a board"
+  group = "Canvas rail"
+  size = "16px"
+  status = "Specified"
+  reserved = "Placing a Note node on a Studio's whiteboard only. Never a comment, never an annotation, and never the Note's own kept picture."
+  notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). A Studio is a whiteboard and a Note is what a person sticks on one, so this is the literal depiction rather than a metaphor — which is what P1 asks of a glyph that is not a proper noun. It does not answer `[record-kind-marks]`: that question is the Job ledger's Kind column, where every candidate was reserved to an *outcome*, and a Studio node kind is a different population with nothing reserved against it. Refused: `file-text`, since `file-*` is reserved to evidence throughout and a Note is not a submission; `message-square`, which is Helm's rail glyph and would say *a Drone said this* where a person wrote it; `notebook-pen`, a compound whose pen collides with `pencil` in the same rail; `pen-line`, which says writing rather than the thing written."

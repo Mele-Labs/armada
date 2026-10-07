@@ -38,7 +38,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // into `packages/` through a workspace symlink would not.
 //
 // **These carry the dark-bodied variant, not the accent one, and always have.**
-// `packages/icons/icons.toml` permits an accent fill on the `armada-mark` row —
+// `packages/icons/icons/` permits an accent fill on the `armada-mark` row —
 // "on the macOS app tile alone" — and permitted is all it is. Nothing took it up.
 const APP_ICONS = ['AppIcon.icns', 'AppIcon.png'] as const
 

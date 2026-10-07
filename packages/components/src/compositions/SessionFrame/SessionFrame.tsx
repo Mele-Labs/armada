@@ -13,7 +13,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
  * working is a Drone running, waiting is a Job at review, and failing is a
  * pull request's Checks red. `[conventions.session_state_borrowing]` in
- * `packages/icons/icons.toml` lends them.
+ * `packages/icons/icons/` lends them.
  */
 export type SessionState = "blank" | "working" | "waiting" | "failing";
 

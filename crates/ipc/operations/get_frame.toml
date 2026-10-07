@@ -1,0 +1,24 @@
+[operations.get_frame]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One frame a step's harness produced, as the file itself"
+notes = """
+**The only operation on this seam that does not answer JSON.** A frame has no window. `get_check_output` serves a tail and describes it — `from_line`, `total_lines`, `whole` — because half a log is still a log; half an image is not an image, it is a file nothing can draw. So there is no partial reading for an envelope to carry, and base64 would inflate the bytes by a third to say nothing the row did not already say. The response is the file, with a media type read off its own name and `nosniff` beside it.
+
+The split is `get_check_output`'s and made against the same measurement. `KeptFrame` — that there is a frame, what it is called, what it weighs, where it is — rides `StepDetail`, which is re-read on every event naming the open Job; a frame is hundreds of kilobytes and `/events` is one drop-oldest channel carrying every Job, so a payload that size would evict the state changes the Board is drawn from. The image is fetched once, by whoever opens one. **Nothing here is published and no event kind carries a frame.**
+
+**The id is two path segments and one name.** `get_check_output`'s `:kept` is a single file name, because `fleet::check_output` builds that name out of the row's key — step, attempt, ordinal — and it is unique within the Job by construction. A frame's name is the harness's own: the repository's spec chose it, and two steps of one Job may both have written `home.png`. What identifies a row is the run's directory in front of the name, so the route carries both and rejoins them into the `kept` the record composes.
+
+**The record is the allowlist**, which is what makes a caller-supplied value safe to open a file with. Fleet resolves the name against the frames it holds for that Job before anything is opened, so a name no row of this Job carries reaches no file at all, whatever it spells. A row whose file will not open answers the same refusal as a name that was never one — a frame's whole content is the image, so a row without it is nothing a caller can use, and a reclaimed `.armada/frames` is exactly that case.
+
+**Since 9.5 the run directory carries the side as well as the run.** From 9.5 a step's harness ran twice — the base checkout serving with the branch's own spec shooting, then the branch serving and shooting — and both wrote into the one directory `evidence.frames` names, so `implement.1/home.png` became `implement.1.base/home.png` and `implement.1.branch/home.png`. 10.0 switched the base run off: one run now, in the worktree, with its code kept. The side stays in the directory, which keeps the id two segments and keeps every row 9.5 wrote resolving; nothing rewrites a path.
+
+**Since 10.1 a person's press has run directories of its own**, `implement.again2.1.branch/home.png` beside the step's `implement.1.branch/home.png` — see `show_again`. The rows those name are the second list this resolves against, and the same allowlist rule holds for both.
+
+**Since 11.6 a video is answered a span at a time, and only a video.** `#615`: a recording cannot be held whole before it plays, so Bridge skipped one over twenty mebibytes and downloaded the rest before a frame of it drew. This route honours `Range` on a frame whose media type is a video — 206 with `Content-Range`, 416 naming the length where the span starts past the end — and ignores it on everything else, which is what a caller reads as *answer it whole*. The window above is unchanged for every other kind, and the reason is the same one: half a log is a log, half an image is not an image, and half a recording is the part you are watching.
+
+**A long span is windowed rather than honoured.** A player opens a recording by asking for everything from byte zero, so a read that obeyed would load the file this exists to stop loading. Fewer bytes than were asked for is a legal answer and the player asks again — which is what keeps the allocation bounded by the window and not by the capture's length.
+
+`agent_access` is `Yes` since `#697`, which is `#695`'s decision arriving: an agent that cannot see what its change drew has verified nothing. The door answers a frame as an MCP image block, and one over 64 KiB as this route rather than as fewer bytes — a truncated PNG is not a shorter PNG, which is the same argument this row makes about a window. **The door asks for no span**: an agent reads a frame whole or not at all, and a recording is not something a session watches.
+"""

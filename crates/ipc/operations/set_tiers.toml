@@ -1,0 +1,14 @@
+[operations.set_tiers]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Choose which model each tier of one Job's tasks runs on, replacing the map whole"
+notes = """
+`POST /jobs/:job_id/set_tiers`, spike 022 slice 3. A live setting on one Job, `set_model`'s kind, and the answer is the Job's summary. The body is `SetTiers`: `tiers`, a `TierModels` of `difficult?`, `medium?` and `easy?`. **A tier left out is Armada picking** (spike 022, answer 8), never `null`: a task at that tier runs as its step, or the Job, would, and its `JobDrone.model` says which. `JobDetail.tiers` reads the map back, absent where it names no tier.
+
+**Read at each task Drone's spawn**, in the order spike 022 chose: a person's pick on the task (`edit_task`), then this map for the task's tier, then the step's model, then the Job's. A Drone already running keeps its model. A Drone on no task never reads it.
+
+Refused with a 409, and nothing kept, where any model in the map is one `list_models` does not offer, as `set_model` refuses one.
+
+`agent_access` is `Helm only`, `set_model`'s reason. Slice 4 fills the map from the dispatch and the approval as well; this route is how a person moves it until then, and after.
+"""

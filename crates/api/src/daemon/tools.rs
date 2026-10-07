@@ -1,7 +1,7 @@
 //! The tools a working Drone calls, which are not operations and not Bridge's.
 //!
 //! **One of the three surfaces `Daemon` is composed of, and the one whose
-//! caller is a different peer.** `crates/ipc/operations.toml` holds no row for
+//! caller is a different peer.** `crates/ipc/operations/` holds no row for
 //! any of these: they come off the tool roster, they refuse through
 //! [`NotRecorded`] rather than a status code, and every one is bound to a Job
 //! the caller never names — [`Caller`] is the transport's word about the

@@ -1,0 +1,16 @@
+[operations.get_merge_lines]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The merge line `armada land` keeps in each served repository that has one: who is in line, in place order, the newest three that landed, and those sent back in the last three days"
+notes = """
+A reading of files another process writes. `armada land` keeps its queue and each branch's outcome under `armada-land/` in the clone's common git directory, and Fleet reads them with the same types (`adapters::land_state`). **It starts no runner and creates no directory** — `armada land --status` takes up a turn a killed runner left, and a daemon reading every repository it serves must not.
+
+**Each Check in `checks` says who asked and when it began**: `requester` is the merge line for the entry's branch, and `started_at` is the instant the runner set it `running`, absent while it waits and on a state file from before the field (since 23.40).
+
+**Each line carries a `hub` since 23.41**: Fleet's own reading of the forge, which is not a file another process writes. `hub.main` is where main's newest commit stands (`green`, `red`, `running`, `nothing_ran`), and for a red each failed CI job with the Manifest Check it maps to (absent is ordinary), its log address and the tests its log names (absent where none could be read), and the pull request that merged it with the Job of ours that opened it. `hub.pull_requests` is every open pull request with its `ci` (`passed`, `running`, `failed`, or `waiting_on_main` where it failed only on the jobs main is failing, `ci` absent where nothing ran). `hub.fixing` is the Job working on main's red (since 23.42). A red stays `red` while a fix is still running, until a commit passes everything.
+
+A repository nobody has run `armada land` in is left out rather than listed empty **unless Fleet has read its forge**, when it is listed with an empty line and its hub. A Fleet before 23.41 sends no `hub`, and a Bridge before it draws the empty line. `landed` is bounded at three and `sent_back` at three days, newest first, because outcomes are never pruned: one clone held 310 on 2 Oct 2026. `off`, the newest three of either, is what a Bridge before 23.1 draws.
+
+`agent_access` is `No`: an agent landing work runs `armada land --status` in the clone it stands in, and reads more there than this carries.
+"""

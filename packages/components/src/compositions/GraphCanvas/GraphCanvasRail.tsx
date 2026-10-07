@@ -34,7 +34,7 @@ export type GraphCanvasRailAct = {
   id: string;
   /** Sentence case, naming what the press does. The accessible name and the tooltip. */
   name: string;
-  /** From `packages/icons/icons.toml`, group `Canvas rail`. */
+  /** From `packages/icons/icons/`, group `Canvas rail`. */
   icon?: LucideIcon;
   /** The character the button draws where no glyph is right for it. */
   sign?: string;
@@ -158,7 +158,7 @@ export type GraphCanvasNodeBarProps = {
 export type GraphCanvasNodeActProps = {
   /** Sentence case, naming what the press does. The accessible name. */
   name: string;
-  /** From `packages/icons/icons.toml`. Absent draws the name. */
+  /** From `packages/icons/icons/`. Absent draws the name. */
   icon?: LucideIcon;
   /** Deleting. Drawn in the failure colour, and the caller draws it last. */
   danger?: boolean;

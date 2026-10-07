@@ -1,0 +1,6 @@
+[icons.arrow-up-to-line]
+  means = "An ascender meeting a hard horizontal line"
+  group = "Escalation reason"
+  size = "12px"
+  status = "Specified"
+  notes = "Added 2026-08-21 with the seventh escalation reason, loop_cap. An ascender meeting a hard horizontal line is literally the semantics: the loop rose until it met its ceiling. Two strokes, no interior detail, so it holds at 12px. Chosen against a loop glyph on purpose — see the page reasoning. Crosses hue groups with `arrow-up-down` (Chrome, sort), which rule 4 permits and which is a different glyph in a different column at a different size."

@@ -1,0 +1,7 @@
+[icons.download]
+  means = "An arrow entering an open tray \u2014 what is behind an address, brought in"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Reading a source into a Studio. Never a file written to disk, never an export, and never a fetch or a poll, which is `rotate-cw`."
+  notes = "Minted 2026-09-28 with the node bar's mint. Read in takes an address a Studio already holds and brings what is behind it in as nodes, so the arrow points into the surface rather than out of it. Against `arrow-up-to-line`, the Escalation reason: that is a bare ascender meeting a hard horizontal line and carries no vessel, this is an arrow entering one \u2014 and the two never appear together, a 12px badge in a Job row against a 16px control on a canvas, which is the cross-group collision the `link` row already argues the contract permits. Refused: `import`, whose box is interior detail at 16px; `book-open`, reserved to the Guides surface; `glasses`, which says *read* rather than *read in*; `scan-text`, which reads as reading a code, the objection that kept `scan` off Fit."

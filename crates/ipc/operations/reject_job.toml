@@ -1,0 +1,12 @@
+[operations.reject_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Hard stop"
+notes = """
+Reserved for hard stops only.
+
+**Terminal, and that is what makes it a hard stop.** `rejected` is a verdict on the work — the registry's own line is "approval denied, or `reject` at a human gate" — and no terminal has an outbound edge, so the Job is over and nothing further runs against its worktree. The act for work that is nearly right is `request_changes`, which keeps the Job and the worktree.
+
+Refused on a Job that is not at `awaiting_review`. `awaiting_approval -> rejected` is a legal edge and it belongs to `deny_dispatch`, which is a different act on a Job that has never run.
+"""

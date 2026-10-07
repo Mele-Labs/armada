@@ -1,0 +1,8 @@
+[operations.close_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Close a hosted session: end its process, give back the slot it holds and end its row"
+notes = """
+`POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the session's own branch and pushes nothing, so closing loses no work.
+"""

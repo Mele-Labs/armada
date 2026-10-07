@@ -1,0 +1,14 @@
+[operations.get_diff]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One Job's whole patch, with the file list beside it"
+notes = """
+The expensive half of the work product, and the one operation that spends it. `adapter-traits`' `WorkProduct` splits `changed_files` from `patch` because the bytes are large and most steps ask no semantic question, so a call returning both would pay for the patch on every gate. A person reading a diff to decide whether to take the work is the case those bytes are for, and this is the route that fetches them — not `get_job`, which is read on every open of a Job to draw a summary.
+
+Not `job.files_changed` either. That event is the cheap half, published while a Drone works and only while somebody is watching; it carries a name and a kind and deliberately never bytes, because a stream carrying diffs at Drone speed is what the event channel's bound exists to keep off it. This is request-response, asked for once, by a person who opened a review.
+
+`work` is absent where there was no worktree to read — a Job at the approval gate, or one whose worktree was reclaimed. An empty file list is a Drone that changed nothing, which is a different answer and fails a `diff_nonempty` check; one shape for both would report a Job that never ran as one that did nothing.
+
+`agent_access` is `Yes` since `#697`. This is the largest payload on the seam and the cost is real: a patch pulled into a session stays in it for the remainder. It is opened anyway, because an agent that cannot read a diff cannot check its own change, and the answer lives at the door instead — a tool answer is cut at 64 KiB and says where the whole is. The bound is visible where a refusal was not.
+"""

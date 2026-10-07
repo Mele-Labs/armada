@@ -4,7 +4,7 @@
 //! # Why this is not in the route table
 //!
 //! [`SERVED`](crate::SERVED) is the Fleet/Bridge inventory, checked against
-//! `crates/ipc/operations.toml` by the gate. **This is a different seam** — the
+//! `crates/ipc/operations/` by the gate. **This is a different seam** — the
 //! peer is a Drone that Fleet itself spawned, the vocabulary is MCP's, and the
 //! version negotiated is the MCP revision. A row here would claim Bridge can
 //! call it, and the rule comparing the two files would need an exception.

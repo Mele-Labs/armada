@@ -1,0 +1,7 @@
+[icons.ellipsis]
+  means = "Three dots in a row: there is more past what is drawn"
+  group = "Graph"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The run canvas's one card standing for a group's tasks past the fourth, its count on the tooltip. Never a menu or a row's more-actions."
+  notes = "Proposed 5 Oct 2026 on the prototype `tasksOffTheGroups`, for the owner to walk. Three dots are the silhouette people already read as more, and no glyph in the set says it."

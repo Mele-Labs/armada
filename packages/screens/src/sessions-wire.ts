@@ -279,7 +279,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
       hosted?.turn.state === "working"
         ? { state: "working", ...(hosted.turn.woken_by === undefined ? {} : { wokenBy: hosted.turn.woken_by }) }
         : { state: "idle" },
-    ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, "") }),
+    ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
     ...(hosted?.asked === undefined ? {} : { asked: askOf(hosted.asked) }),
     pendingTags: beside.pending,
     ...(hosted?.model === undefined ? {} : { model: hosted.model }),

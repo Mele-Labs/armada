@@ -1,0 +1,6 @@
+[icons.square-dashed]
+  means = "A square outline broken into dashes - a slot not made yet"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot the next lease makes. Never a step or a task not started, which is circle-dashed."

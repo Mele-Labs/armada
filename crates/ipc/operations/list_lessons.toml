@@ -1,0 +1,14 @@
+[operations.list_lessons]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every written retro's items across Jobs in one state, newest retro first, each with its Job, whose way it got in, where its fix lands, its title, what happened, the fix and the record rows that show it"
+notes = """
+Since 23.12. What the Lessons page lists. `?manifest_id=` narrows it to one repository's Jobs and absent is every repository served; `?most=` caps it, 200 where absent.
+
+**`?lands_in=` narrows it to where each fix lands**, since 23.15: `armada`, `kit` or `manifest`, and absent is all three. Any other value is a 400. An item kept before 23.15 carries no `lands_in` and is listed only where nothing narrows.
+
+**`?state=` narrows it to where each item stands with the person**, since 23.26: `open`, `agreed`, `accepted` or `discarded`, and absent is `open`. Any other value is a 400. A person's saved Kit items are `?state=accepted`. Every row carries its `id` and `state`, and `job_proposed` once agreeing proposed a Job for it. An item written since 23.26 carries `title`, `what` and `fix` beside `statement`; one kept before has `statement` alone.
+
+**Listing proposes nothing.** It is read. Each item's `evidence` names rows of its own Job's record, which `get_job_retro` serves, and a person's answer is `agree_lesson` or `disagree_lesson`.
+"""

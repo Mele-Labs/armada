@@ -9,6 +9,7 @@ import type { Scenario } from "../moment";
 import { s200Sessions } from "./sessions";
 
 const idle = { state: "idle" } as const;
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 const pull = (number: number, checks: "passed" | "pending" | "failed"): SessionAttachment => ({
   kind: "pull_request",
@@ -28,6 +29,7 @@ const more: Session[] = [
     title: "Review the ledger change",
     turn: idle,
     lastTurn: "14:02",
+    lastTurnAt: minutesAgo(31),
     rows: [],
     attachments: [{ kind: "branch", name: "review/ledger-change", slot: 1 }],
   },
@@ -37,6 +39,7 @@ const more: Session[] = [
     title: "Retire the sleeps",
     turn: idle,
     lastTurn: "13:15",
+    lastTurnAt: minutesAgo(3 * 24 * 60),
     rows: [],
     attachments: [
       { kind: "slot", slot: 2 },

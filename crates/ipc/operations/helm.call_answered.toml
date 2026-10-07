@@ -1,0 +1,10 @@
+[operations."helm.call_answered"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "What became of one held Helm call: allowed, allowed and remembered, refused, or nobody answered"
+notes = """
+**Helm's act as its own event type**, the rule `helm.changed_checkout` and `studio.helm_acted` already follow. Every answer is on the record — `docs/concepts/helm.md`, *Audit trail* — so a person who finds a command was run can see that they allowed it, and a person who finds one was not can see that the bound ran out.
+
+Published whoever ended the ask, including Fleet answering `deny` for a person who never came back. It repeats the tool, the detail and the rule, so the record reads without the `helm.asking_to_run` that preceded it.
+"""

@@ -18,7 +18,7 @@ mod studios;
 
 /// One operation, and where it is served.
 ///
-/// `operation` is the key in `crates/ipc/operations.toml`, spelled exactly as
+/// `operation` is the key in `crates/ipc/operations/`, spelled exactly as
 /// that file spells it, so comparing the two needs a set lookup and no mapping.
 #[derive(Clone, Copy)]
 pub struct Route {

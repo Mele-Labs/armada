@@ -1,0 +1,8 @@
+[operations.list_needs]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every standing need of one repository, by path and in the order they are served: who holds it, what was said and what was taken"
+notes = """
+`GET /needs?manifest_id=`. Since 23.46. `NeedList`: the same row `who_owns` answers for `kind=need`, with each holder named as a person would and every path in one answer, so a session asks what stands in its way once. A path's order is when each was declared, then the holder's id.
+"""
