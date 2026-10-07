@@ -28,23 +28,31 @@ is built today, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.m
 
 ## The row
 
-A need is one more kind of attachment on the session and Job ledger
-(`fleet/session-ledger`), under the same holder as a slot, a branch or a pull
-request.
+A need is a row in `ledger_attachments`, the table the session ledger keeps
+(`crates/store/src/session_ledger.rs`), under the same holder as a slot, a branch
+or a pull request. The kind column is open text, so a need adds no migration.
 
-| Field | Meaning |
+| Column | For a need |
 | --- | --- |
-| `holder` | `{kind: session or job, id}`, the same shape every ledger row has |
-| `path` | The file or resource, repository-relative: `protocol-version.toml` |
-| `what` | The declarer's own words: *a minor* |
-| `took` | What it chose, recorded once chosen: `23.41`. Optional until then |
-| `state` | `standing`, `spent`, or `given_back` |
-| `declared_at` | When it was declared. **The order is this, then the holder id** |
+| `holder_kind`, `holder_id` | `session` or `job`, and its id. A Job holds a need as a Job does a slot |
+| `kind` | `need` |
+| `manifest_id` | The repository the path belongs to |
+| `target` | The file or resource, repository-relative: `protocol-version.toml` |
+| `detail` | `{what, took}`: the declarer's words (*a minor*), and what it chose (`23.41`), absent until chosen |
+| `state` | `standing`, `spent` (the holder's work merged), or `given_back` (released, or the holder is gone) |
+| `since`, `changed_at` | When declared, and when the state last changed |
 
-`spent` is a need whose holder's work merged. `given_back` is one released by a
-person, or whose holder was dropped, ended or deleted its branch. A released slot
-and a spent need read the same way in the ledger on purpose: both are a lease with
-an explicit state, never a row that disappears.
+**The order is `since`, then the holder id.** A need is **not exclusive**: the
+ledger's exclusive attach gives back a holder's other standing rows of one kind
+and repository, which is right for a slot and a branch and wrong here, because
+one Job may wait on a protocol minor and on a second path at once.
+
+**Reading it.** `who_owns` (`GET /sessions/owner?kind=need&target=&manifest_id=`)
+already returns standing holders first, so *who is ahead on this path* is that
+answer minus the asker. A Session declares through the intake
+(`POST /sessions/report`, fact `attached` with `{kind: need, target, detail}`),
+and gives one back or spends it with fact `settled`. A Job's needs are written by
+Fleet, from `declare_scope`, a plan's task and `add_task`, on the same table.
 
 ## The rules, one for both holders
 
@@ -79,6 +87,6 @@ Nothing is deleted until a person has seen the list in Bridge.
 ## Not decided
 
 - Whether a need expires by time. It does not today.
-- The row and intake event shapes, which wait on the ledger landing.
+- Whether a Job's own slot and branch are written as rows in the same change. The ledger does not write them yet, so `who_owns` cannot name a Job that holds a slot; writing them with the Job's needs would close that.
 - What a repository without Fleet gets. It has no order and no status.
 - Whether the required status is Fleet's alone or also a repository workflow.
