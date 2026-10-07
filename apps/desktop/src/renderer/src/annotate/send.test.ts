@@ -146,12 +146,18 @@ describe("a note sent to a Session", () => {
   it("starts a Session named for the first note, then sends the request with the screenshot as an upload", async () => {
     const fleet = sessions();
     const answer = await sendToSession([item], null, sink(), fleet, AT);
-    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]));
+    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]), "/Users/user/armada");
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01NEW", title: "Can we add an illustration here?", at: AT.toISOString() } });
     const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ session_id: string; text: string; attachments: unknown[] }])[0];
     expect(message.session_id).toBe("01NEW");
     expect(message.text).toBe(requestOf(note()));
     expect(message.attachments).toEqual([{ name: "annotation-20260917-135315-tsfq.png", media_type: "image/png", data: "iVBORw==" }]);
+  });
+
+  it("starts nothing where there is no repository to start it on", async () => {
+    const fleet = sessions();
+    expect((await sendToSession([item], null, sink({ root: async () => null }), fleet, AT)).ok).toBe(false);
+    expect(fleet.startSession).not.toHaveBeenCalled();
   });
 
   it("sends to the Session picked without starting one, and without a screenshot where none can be taken", async () => {

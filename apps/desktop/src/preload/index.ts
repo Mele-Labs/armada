@@ -571,7 +571,7 @@ const api: BridgeApi = {
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
-  startSession: (title?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title),
+  startSession: (title?: string, root?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>

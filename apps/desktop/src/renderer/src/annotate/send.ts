@@ -80,8 +80,11 @@ export async function sendToSession(
 
   let into = target;
   if (into === null) {
+    // On the notes' repository, which the window's pick may not be: on All repositories it is none.
+    const root = await sink.root();
+    if (root === null) return { ok: false, saying: "No repository was found above Bridge, so there is nothing to start a Session on" };
     const title = titleOf(notes.map((one) => one.note));
-    const started = await fleet.startSession(title);
+    const started = await fleet.startSession(title, root);
     if (!started.ok) return { ok: false, saying: said(started.outcome) };
     into = { id: started.value.id, title: started.value.title ?? title };
   }
