@@ -52,9 +52,9 @@ fn what_the_person_typed_and_what_a_mod_submitted_for_them_are_both_theirs() {
         .rows
         .iter()
         .map(|row| match row {
-            SessionRow::Message {
-                id, from, text, ..
-            } => (id.clone(), matches!(from, SessionVoice::You), text.clone()),
+            SessionRow::Message { id, from, text, .. } => {
+                (id.clone(), matches!(from, SessionVoice::You), text.clone())
+            }
             other => panic!("not a message: {other:?}"),
         })
         .collect();
@@ -114,7 +114,9 @@ fn a_call_is_one_row_and_everything_that_is_not_the_conversation_is_left_out() {
     ]);
     let thread = read_from(&file, 0).expect("readable");
     assert_eq!(thread.rows.len(), 1, "{:?}", thread.rows);
-    assert!(matches!(&thread.rows[0], SessionRow::Tool { id, text, .. } if id == "a2" && text == "Bash ls"));
+    assert!(
+        matches!(&thread.rows[0], SessionRow::Tool { id, text, .. } if id == "a2" && text == "Bash ls")
+    );
 }
 
 /// **A tail starts where the last read stopped**, and a line still being written
@@ -173,19 +175,49 @@ fn a_command_is_a_row_and_the_cli_s_own_markup_is_not_drawn() {
             r#""origin":{"kind":"human"},"#,
             r#""<command-message>model</command-message>\n<command-name>/model</command-name>\n<command-args>opus</command-args>""#,
         ),
-        line("user", "o1", "", r#""<local-command-stdout>Reloaded: 3 plugins</local-command-stdout>""#),
-        line("user", "o2", "", r#""<local-command-caveat>Caveat: run directly</local-command-caveat>""#),
-        line("user", "o3", r#""origin":{"kind":"human"},"#, r#""<system-reminder>named</system-reminder>""#),
+        line(
+            "user",
+            "o1",
+            "",
+            r#""<local-command-stdout>Reloaded: 3 plugins</local-command-stdout>""#,
+        ),
+        line(
+            "user",
+            "o2",
+            "",
+            r#""<local-command-caveat>Caveat: run directly</local-command-caveat>""#,
+        ),
+        line(
+            "user",
+            "o3",
+            r#""origin":{"kind":"human"},"#,
+            r#""<system-reminder>named</system-reminder>""#,
+        ),
         line(
             "user",
             "o4",
             "",
             r#""Another Claude session sent a message:\n<agent-message from=\"x\">done</agent-message>""#,
         ),
-        line("user", "o5", "", r#""<task-notification><task-id>1</task-id></task-notification>""#),
+        line(
+            "user",
+            "o5",
+            "",
+            r#""<task-notification><task-id>1</task-id></task-notification>""#,
+        ),
         line("user", "b1", "", r#""<bash-input>git status</bash-input>""#),
-        line("user", "b2", "", r#""<bash-stdout>clean</bash-stdout><bash-stderr></bash-stderr>""#),
-        line("user", "p1", r#""origin":{"kind":"human"},"#, r#""<system-reminder>x</system-reminder>Hello""#),
+        line(
+            "user",
+            "b2",
+            "",
+            r#""<bash-stdout>clean</bash-stdout><bash-stderr></bash-stderr>""#,
+        ),
+        line(
+            "user",
+            "p1",
+            r#""origin":{"kind":"human"},"#,
+            r#""<system-reminder>x</system-reminder>Hello""#,
+        ),
     ]);
     let thread = read_from(&file, 0).expect("readable");
     let drawn: Vec<(String, String)> = thread
@@ -219,14 +251,25 @@ fn a_compaction_summary_is_not_the_person() {
             r#""isCompactSummary":true,"#,
             r#""This session is being continued from a previous conversation.""#,
         ),
-        line("user", "k2", r#""origin":{"kind":"human"},"#, r#""Carry on""#),
+        line(
+            "user",
+            "k2",
+            r#""origin":{"kind":"human"},"#,
+            r#""Carry on""#,
+        ),
     ]);
     let thread = read_from(&file, 0).expect("readable");
     assert!(matches!(
         &thread.rows[0],
         SessionRow::Compaction { id, text, .. } if id == "k1" && text.starts_with("This session")
     ));
-    assert!(matches!(&thread.rows[1], SessionRow::Message { from: SessionVoice::You, .. }));
+    assert!(matches!(
+        &thread.rows[1],
+        SessionRow::Message {
+            from: SessionVoice::You,
+            ..
+        }
+    ));
     assert_eq!(thread.rows.len(), 2);
 }
 
@@ -241,7 +284,12 @@ fn an_agent_to_agent_hand_back_is_not_drawn() {
             r#""isMeta":true,"origin":{"kind":"peer","name":"x"},"#,
             r#""Another Claude session sent a message:\n<agent-message from=\"x\">report</agent-message>""#,
         ),
-        line("user", "h2", r#""origin":{"kind":"peer","name":"x"},"#, r#""<agent-message from=\"x\">report</agent-message>""#),
+        line(
+            "user",
+            "h2",
+            r#""origin":{"kind":"peer","name":"x"},"#,
+            r#""<agent-message from=\"x\">report</agent-message>""#,
+        ),
     ]);
     assert!(read_from(&file, 0).expect("readable").rows.is_empty());
 }

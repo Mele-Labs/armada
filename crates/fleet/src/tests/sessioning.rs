@@ -519,7 +519,12 @@ async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_a
         .attachments
         .iter()
         .filter(|one| one.kind == "artifact")
-        .map(|one| (one.target.as_str(), one.detail.get("form").map(String::as_str)))
+        .map(|one| {
+            (
+                one.target.as_str(),
+                one.detail.get("form").map(String::as_str),
+            )
+        })
         .collect();
     kept.sort();
     assert_eq!(

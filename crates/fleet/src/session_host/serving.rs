@@ -130,7 +130,9 @@ where
             let kept = self.keep_uploads(&id, &sent.attachments)?;
             let mut paths = kept.paths;
             paths.extend(kept.picture_paths);
-            return self.send_to_terminal(&session, sent, addressed, paths).await;
+            return self
+                .send_to_terminal(&session, sent, addressed, paths)
+                .await;
         }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
@@ -468,7 +470,11 @@ where
     }
 
     /// Store what a message carried, outside every worktree.
-    pub(crate) fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
+    pub(crate) fn keep_uploads(
+        &self,
+        id: &str,
+        uploads: &[ipc::SessionUpload],
+    ) -> Result<Kept, Refusal> {
         let mut kept = Kept {
             files: Vec::new(),
             pictures: Vec::new(),

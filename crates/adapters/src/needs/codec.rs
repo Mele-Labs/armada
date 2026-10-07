@@ -32,11 +32,7 @@ impl std::fmt::Display for ReadStateError {
                 write!(out, "{} could not be read", path.display())
             }
             ReadStateError::Undecodable { path, .. } => {
-                write!(
-                    out,
-                    "{} is not a need file",
-                    path.display()
-                )
+                write!(out, "{} is not a need file", path.display())
             }
         }
     }

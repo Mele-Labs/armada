@@ -10,8 +10,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionThread, StartSession, TuneSession,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate,
+    SessionId, SessionRecord, SessionThread, StartSession, TakeHeld, TuneSession,
 };
 
 use crate::daemon::Refusal;
