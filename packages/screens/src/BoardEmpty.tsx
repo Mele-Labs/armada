@@ -1,7 +1,7 @@
 // What the Board says when it draws no row. Out of `Jobs.tsx`, which reached the 500 lines the gate
 // warns at when a fourth case joined these three: Fleet serving no repository yet.
 
-import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd, STARTING_PHRASES } from "@armada/components";
+import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd, STARTING_PHRASE } from "@armada/components";
 
 import { NOTHING_SERVED } from "./locate-reads";
 
@@ -63,7 +63,7 @@ export function BoardEmpty({
     return (
       <BoardEmptyState>
         <span role="img" aria-label="Starting" title={fleetSaid("Starting")}>
-          <FleetStarting className="armada-fleet-starting" size={32} phrase={STARTING_PHRASES[0]} />
+          <FleetStarting className="armada-fleet-starting" size={32} phrase={STARTING_PHRASE} />
         </span>
       </BoardEmptyState>
     );

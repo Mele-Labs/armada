@@ -94,11 +94,8 @@ export function FleetStarting({ className, size = 16, phrase }: { className: str
   );
 }
 
-/**
- * What the Board's card says under the mark while Fleet starts. Three on offer
- * until the owner picks one; the first is what draws.
- */
-export const STARTING_PHRASES = ["Armada activating", "Armada assembling", "Armada starting"] as const;
+/** What the Board's card says under the mark while Fleet starts. */
+export const STARTING_PHRASE = "Armada activating";
 
 export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
   // **The state is the head's dot; the body is what the head cannot carry** —

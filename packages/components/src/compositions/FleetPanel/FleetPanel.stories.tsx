@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { FleetPanel, FleetStarting, fleetSaid, STARTING_PHRASES } from "./FleetPanel";
+import { FleetPanel, fleetSaid } from "./FleetPanel";
 
 /**
  * Fleet — the left column's third panel, replacing the status bar's own
@@ -135,18 +135,6 @@ export const Unreachable: Story = {
     ]);
     await expect(canvas.getByText("alive, no answer for 20s · last read 4s ago")).toBeVisible();
   },
-};
-
-/** The three phrasings on offer under the mark on the Board's card; the first is what the mock draws. */
-export const StartingPhrases: Story = {
-  args: { state: "starting", label: "Starting", open: true },
-  render: () => (
-    <div style={{ display: "flex", gap: "var(--space-8)" }}>
-      {STARTING_PHRASES.map((phrase) => (
-        <FleetStarting key={phrase} className="armada-fleet-starting" size={32} phrase={phrase} />
-      ))}
-    </div>
-  ),
 };
 
 /** A live pid that has not answered: the Armada mark breathing where the dot would be, and the pid and port the runtime file named. */
