@@ -115,7 +115,16 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         let mut record = session_wire(session, &held);
         if session.origin == "terminal" {
-            record.terminal = self.hosts().terminals().facts_of(&session.id);
+            let terminals = self.hosts().terminals();
+            let listening =
+                session.state == store::SessionState::Live && terminals.listening(&session.id);
+            record.terminal = match (terminals.facts_of(&session.id), listening) {
+                (None, false) => None,
+                (facts, _) => Some(ipc::TerminalFacts {
+                    listening,
+                    ..facts.unwrap_or_default()
+                }),
+            };
         }
         if session.origin == "bridge" {
             record.hosted = self
@@ -284,6 +293,7 @@ where
                         effort,
                         mode,
                         commands,
+                        listening: false,
                     },
                 );
             }

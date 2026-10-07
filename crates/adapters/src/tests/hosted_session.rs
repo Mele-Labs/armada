@@ -78,6 +78,29 @@ fn the_next_process_resumes_by_the_same_id() {
     assert!(!args.iter().any(|arg| arg == "--session-id"));
 }
 
+const OLD: &str = "2c9e41d8-5b73-4f06-a1d2-8e7c0b3f9a64";
+
+#[test]
+fn a_fork_starts_from_the_old_conversation_under_its_own_id() {
+    let args = rendered(&launching(false, SessionMode::Auto).forking(OLD).expect("portable"));
+    assert_eq!(value_after(&args, "--resume").as_deref(), Some(OLD));
+    assert!(args.iter().any(|arg| arg == "--fork-session"));
+    assert_eq!(value_after(&args, "--session-id").as_deref(), Some(ID));
+}
+
+#[test]
+fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
+    let args = rendered(&launching(true, SessionMode::Auto).forking(OLD).expect("portable"));
+    assert_eq!(value_after(&args, "--resume").as_deref(), Some(ID));
+    assert!(!args.iter().any(|arg| arg == "--fork-session"));
+    assert!(!args.iter().any(|arg| arg == "--session-id"));
+}
+
+#[test]
+fn a_fork_of_something_that_would_be_read_as_a_flag_is_refused() {
+    assert!(launching(false, SessionMode::Auto).forking("--dangerous").is_err());
+}
+
 #[test]
 fn another_sessions_message_is_accepted_and_the_first_write_is_held_by_a_hook() {
     let args = rendered(&launching(false, SessionMode::Auto));

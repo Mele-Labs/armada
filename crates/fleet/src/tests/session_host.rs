@@ -150,6 +150,7 @@ impl Rig {
                 effort: None,
                 mode: None,
                 pilot: None,
+                fork: None,
             })
             .await
             .expect("started")
@@ -540,6 +541,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             effort: None,
             mode: None,
             pilot: None,
+            fork: None,
         })
         .await
         .unwrap()

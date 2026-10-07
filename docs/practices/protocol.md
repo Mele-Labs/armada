@@ -3280,6 +3280,16 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 **A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
+## Protocol 23.55: a session forked from an ended one
+
+`docs/concepts/session.md`, *A forked session*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`. **Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession.fork?`: `session_id` | Starts a session as a copy of an ended or dead one's conversation. 409 `fleet.session_fork_live` for a live one, 422 `fleet.no_such_session` for an unknown one. `manifest_id` is read as for any start |
+| `SessionRecord.terminal` | `listening?`: `true` while the session's mod has asked within ten seconds | Absent is not listening. A live terminal session that is not listening is dead for Fork. Published as `session.changed` when it flips, while a window has the thread open |
+| `SessionRecord.attachments` | kinds `forked_to` and `forked_from`, `target` the other session's id, `spent` | Open text as every kind is. **One migration**, `session_fork.hosted_fork_of`: `hosted_sessions.fork_of` |
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:
