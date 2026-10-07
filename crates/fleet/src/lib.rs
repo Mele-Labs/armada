@@ -209,6 +209,8 @@ pub mod permitting;
 mod piloting;
 /// The machine's places for Checks, one line for every Job and repository. #1063.
 pub mod places;
+/// The owner's choice of where a failed Trigger's held fix goes.
+mod placing_a_fix;
 mod plan_acts;
 pub mod policy;
 pub mod ports;
@@ -264,6 +266,10 @@ mod rehearsing;
 /// A parked Job paused by Fleet when work waits for a full pool.
 mod releasing;
 pub mod remarks;
+/// A Fleet that starts takes its Trigger repairs up again.
+mod repair_recovery;
+/// A failed Trigger's repair Drone, on a branch of its own.
+mod repairing;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;
@@ -341,6 +347,8 @@ mod tooling;
 pub mod transcript;
 mod trigger_authoring;
 mod trigger_wire;
+/// What a failed Trigger's repair decides, apart from the doing of it.
+pub mod trigger_repair;
 /// What a Job's Triggers come to at each moment, and where Fleet fires them.
 pub mod triggering;
 /// A step's tuning at the approval press. 23.20.

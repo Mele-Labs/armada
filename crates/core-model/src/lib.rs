@@ -93,6 +93,7 @@ pub use studio::{
     StudioRelation, StudioRun, StudioRunKept, ToItself,
 };
 pub use trigger::{
-    FrozenTrigger, OnTriggerFailure, Trigger, TriggerFiring, TriggerIdentity, TriggerResolution,
-    TriggerRuns, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
+    FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,
+    TriggerIdentity, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState,
+    TriggerWhen, REPAIR_TRIES,
 };

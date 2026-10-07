@@ -11,7 +11,7 @@
 //! | A Trigger naming a Command the repository does not declare is marked skipped, and the others stand | That a Command really runs in the Job's worktree under the Check budget. `fleet::tests::triggering` runs `true` and `false` there |
 //! | A file that will not parse is left out with its reason, and the others stand | That the three moments are where Fleet calls this from. `fleet::tests::triggering` drives a Job through each |
 //! | A machine `pr_opened` Trigger is frozen onto the delivering step of any workflow, runs its Command once and is recorded passed | That the frozen set is written at the approval and survives a restart. `store`'s own tests and `fleet::tests::triggering` |
-//! | A Command that exits non-zero is recorded failed and the Job stays where it was, step and status | That `block` and `repair` do anything. They are carried in the record and nothing acts on them |
+//! | A Command that exits non-zero is recorded failed, or `repairing` with `repair` on, and the Job stays where it was. A repair is told what failed, is bound at two tries, holds a passing fix for the owner, and each choice is a different delivery | `block`, which nothing acts on. A Drone on a branch, a push, a merge and the alert: `fleet::tests::trigger_repair` drives those with a fake Drone and `FakeVcs` |
 //! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run | That the owner is asked. Nothing asks him yet |
 //! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
@@ -21,9 +21,11 @@ use std::cell::RefCell;
 
 use config::{Manifest, TriggerCatalogue, TriggerWritten};
 use core_model::{
-    Job, JobStatus, PrMode, StepId, StepState, Timestamp, TriggerFiring, TriggerResolution, TriggerRuns,
-    TriggerSkipped, TriggerSource, TriggerState, TriggerWhen, Ulid, WorkflowId,
+    FixChoice, Job, JobStatus, PrMode, StepId, StepState, Timestamp, TriggerFiring,
+    TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen, Ulid,
+    WorkflowId,
 };
+use fleet::trigger_repair::{self, AfterRerun, Delivery};
 use fleet::triggering::{self, Planned};
 use testkit::{FakeJudge, FakeWorkProduct};
 use verification::{Exit, NeverRan};
@@ -531,4 +533,78 @@ fn draft_pr_is_the_delivering_steps_to_carry_and_is_refused_anywhere_else() {
         carried.delivering_step().and_then(|step| step.draft_pr()),
         Some(PrMode::Draft)
     );
+}
+
+const REPAIRING_DEPLOY: &str =
+    "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\non_failure:\n  repair: true\n";
+
+/// `deploy_qa` fails after the pull request opens, and the Trigger asked for a
+/// repair. Every step after is the repair's own, and none of them is the Job's.
+#[tokio::test]
+async fn a_failed_repairing_trigger_is_repaired_twice_at_most_and_the_fix_waits_for_the_owner() {
+    let run = a_job_entering_its_delivering_step().await;
+    let before = (run.job.status(), run.job.current_step_id().cloned());
+    let delivering = run.job.workflow().delivering_step().expect("one delivers");
+    let commands = Commands::exiting(Exit::Code(1));
+
+    let firings = fired(
+        &run.job,
+        vec![machine("deploy.yml", REPAIRING_DEPLOY)],
+        &manifest_text(DECLARING_DEPLOY),
+        TriggerWhen::PrOpened,
+        delivering.id(),
+        &commands,
+    );
+    let [failed] = firings.as_slice() else {
+        panic!("one Trigger, one firing: {firings:?}");
+    };
+    // Failed, but the repair is what settles it, so it is neither ended nor failed yet.
+    assert_eq!(failed.state, TriggerState::Repairing);
+    assert_eq!((failed.exit_code, failed.ended_at.clone()), (Some(1), None));
+
+    // The Drone is told what failed and what to do, and the first line is the
+    // one a harness keys on.
+    let told = trigger_repair::brief("deploy", "deploy-qa", Some(1), "booting", "no such host");
+    assert!(told.starts_with("REPAIR THE TRIGGER `deploy`"));
+    for said in [
+        "deploy-qa",
+        "code 1",
+        "booting",
+        "no such host",
+        "Make the command pass",
+    ] {
+        assert!(told.contains(said), "{said}: {told}");
+    }
+
+    // Two tries, and the second only where the first failed.
+    assert_eq!(AfterRerun::of(1, false), AfterRerun::TryAgain);
+    assert_eq!(AfterRerun::of(2, false), AfterRerun::GiveUp);
+    assert_eq!(AfterRerun::of(1, true).state(), TriggerState::FixReady);
+    assert_eq!(AfterRerun::of(2, true).state(), TriggerState::FixReady);
+    assert_eq!(AfterRerun::of(2, false).state(), TriggerState::Failed);
+    assert_eq!(core_model::REPAIR_TRIES, 2);
+
+    // The owner chooses, and the two choices are two deliveries. A new pull
+    // request is the end of it; the Job's own branch is run again first.
+    assert_eq!(Delivery::of(FixChoice::NewPr), Delivery::AsAPullRequest);
+    assert_eq!(
+        Delivery::of(FixChoice::NewPr).state_once_made(),
+        TriggerState::Passed
+    );
+    assert_eq!(
+        Delivery::of(FixChoice::ThisBranch),
+        Delivery::OntoTheJobsBranch
+    );
+    assert_eq!(
+        Delivery::of(FixChoice::ThisBranch).state_once_made(),
+        TriggerState::Rerunning
+    );
+    assert!(trigger_repair::alert("deploy").contains("deploy"));
+
+    // Non-blocking: nothing above reached the Job.
+    assert_eq!(
+        (run.job.status(), run.job.current_step_id().cloned()),
+        before
+    );
+    assert_eq!(run.job.status(), JobStatus::Running);
 }

@@ -228,6 +228,15 @@ pub enum TriggerFiringState {
     Failed,
     /// A destructive Command, held for the owner. **Nothing asks him yet.**
     AwaitingOwner,
+    /// Failed with `repair` on, and a repair Drone is working on a branch of
+    /// its own. Since 23.60.
+    Repairing,
+    /// The Command is running again, on the repair branch or on the Job's.
+    /// Since 23.60.
+    Rerunning,
+    /// The repair branch passes. **Held for the owner's choice**, which
+    /// `choose_trigger_fix` makes. Since 23.60.
+    FixReady,
 }
 
 /// One of a Job's Triggers: frozen at approval, and each firing of it. A step
@@ -308,6 +317,9 @@ impl From<core_model::TriggerState> for TriggerFiringState {
             core_model::TriggerState::Passed => TriggerFiringState::Passed,
             core_model::TriggerState::Failed => TriggerFiringState::Failed,
             core_model::TriggerState::AwaitingOwner => TriggerFiringState::AwaitingOwner,
+            core_model::TriggerState::Repairing => TriggerFiringState::Repairing,
+            core_model::TriggerState::Rerunning => TriggerFiringState::Rerunning,
+            core_model::TriggerState::FixReady => TriggerFiringState::FixReady,
         }
     }
 }

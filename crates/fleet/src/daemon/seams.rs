@@ -187,6 +187,9 @@ where
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
     }
+    pub(crate) fn trigger_repairs(&self) -> &std::sync::Mutex<crate::trigger_repair::Queue> {
+        &self.trigger_repairs
+    }
 
     /// What the gate needs in order to ask the Judge.
     ///
