@@ -1,0 +1,12 @@
+[operations.edit_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Save a proposal's title, facts or criteria without releasing it"
+notes = """
+`POST /jobs/:job_id/edit`, #1699's route, spike 022 slice 4. The body is `EditJob`: `title?`, `facts?`, `criteria?`, the fields `approve_dispatch` shares, in its shape (spike 022's bodies table; #1641's criteria win over a list of lines, which would mint new ids at every save and drop each criterion's source and origin). **Only the fields a person changed.** The answer is the Job's summary; `get_job` reads the rest back.
+
+**It does not release the Job.** Refused with 409 `fleet.proposal_frozen` on a Job not at `awaiting_approval`, and 422 on a body changing nothing, a blank title, or a criterion the Job does not hold. Criteria follow `approve_dispatch`'s rule. A new title renames the Job's log with its handle, as the proposer's title does.
+
+`agent_access` is `Helm only`, `approve_dispatch`'s reason: what a Job is held to is a person's to correct. #1699's wave panel (Edit this Job) reaches it in slice 6.
+"""

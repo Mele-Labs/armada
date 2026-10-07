@@ -1,0 +1,8 @@
+[operations.get_events_since]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "A count plus one line per event kind since the cursor, not the events themselves"
+notes = """
+Helm's substitute for the event stream, called at the start of each turn; Bridge does not use it, having the socket. Helm fetches detail through the other queries only where it bears on what was asked — the query is cheap, the tokens are not, and every returned event stays in the session for its remainder. Fleet waking the session was rejected: it would make Helm a second notification channel alongside Alerts.
+"""

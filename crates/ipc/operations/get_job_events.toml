@@ -1,0 +1,20 @@
+[operations.get_job_events]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One Job's whole transition history, oldest first — every status move, every step move, every Drone arriving and leaving"
+notes = """
+The audit trail, and the actor on every row is what makes it one: a move says whether a person, Helm or Fleet caused it, and nothing can reconstruct that afterwards.
+
+`job_events` is the store's source of truth rather than a side record, append-only by database trigger, and validated on the way out — the fold puts every row back through `Job::transition` and refuses a history the machine would not admit. So what this serves is already ordered and already trustworthy; the operation exists because the fold's output is the current Job and the sequence was discarded.
+
+**The rows are rendered and never replayed.** `crates/store/src/fold.rs` owns the machine and is the only thing that may put a recorded move back through `Job::transition`. A client that folded these would be a second machine, agreeing with the first until one of them changed.
+
+Not on `get_job`. A detail view is fetched to draw a summary, on every open of a Job; a history has no bound — it grows for as long as the Job lives, and a retried step is a row per attempt plus the moves around it. A field on `JobDetail` would make the common read pay for the rare one. The surface is folded away by default and one interaction from open, so it is fetched when it is asked for.
+
+Not the turn stream either. `observe_job` renders what a Drone said; this renders what Armada did. A Job that went wrong usually needs both, side by side rather than merged.
+
+Helm may reach it for the reason it may reach the other queries: reading what happened is not doing anything about it. What that costs is the tokens `get_events_since` names — a long history stays in the session for the rest of it — so it is asked about one Job rather than swept.
+
+**A row a request made carries `via`** since 23.12: `bridge`, `helm`, `door` or `http`, the door it came through. A person's act that came through any door but Bridge is signed `helm`, because an agent made the request and Fleet cannot see the person behind it. `docs/concepts/retro.md`.
+"""

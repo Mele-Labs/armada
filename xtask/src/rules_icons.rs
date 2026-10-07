@@ -7,7 +7,7 @@
 //! registry first.
 //!
 //! **No `toml` crate**, and the gate keeps no dependencies — so this is a line
-//! parser for the one shape `packages/icons/icons.toml` has: table headers,
+//! parser for the one shape `packages/icons/` has: table headers,
 //! `key = value`, `#` comments, no multi-line strings. That is not general
 //! TOML and does not try to be. A line it cannot read is reported as a line it
 //! cannot read, which is the honest failure for a hand-authored file: a
@@ -19,7 +19,15 @@ use std::path::Path;
 
 use crate::{files_with_ext, Report};
 
-const REGISTRY: &str = "packages/icons/icons.toml";
+/// One file a glyph, named for its lucide-react name, with its `usage` tables;
+/// `CONVENTIONS` holds the rules that name several. Read as one text.
+const REGISTRY: &str = "packages/icons/icons";
+const CONVENTIONS: &str = "packages/icons/conventions";
+
+/// The registry as the one text [`read_registry`] parses.
+pub fn registry_text(root: &Path) -> std::io::Result<String> {
+    crate::read_entry_dirs(root, &[REGISTRY, CONVENTIONS])
+}
 
 /// The statuses the registry's own header declares. Checked against that list
 /// rather than against the values in the file today, because `Retired` is a
@@ -101,7 +109,7 @@ struct Use {
 pub fn every_glyph_in_use_is_registered(root: &Path) -> Report {
     let mut report = Report::new("every glyph a surface uses is in the icon registry");
 
-    let Ok(text) = fs::read_to_string(root.join(REGISTRY)) else {
+    let Ok(text) = registry_text(root) else {
         report.fail(format!(
             "{REGISTRY} — the icon registry, which this rule checks against"
         ));

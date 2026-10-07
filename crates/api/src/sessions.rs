@@ -1,4 +1,4 @@
-//! `report_session`, `list_sessions` and `who_owns`. Since 23.43.
+//! `report_session`, `list_sessions` and `who_owns`. Since 23.43. `rename_session`, since 23.52.
 //! `docs/concepts/session.md`.
 
 use axum::body::Bytes;
@@ -21,6 +21,22 @@ pub(crate) async fn report_session<D: Sessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().report_session(report).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A person's name for a session. 200 with the row; 422 for a blank title or a
+/// session Fleet does not know.
+pub(crate) async fn rename_session<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let rename: ipc::RenameSession = match ipc::decode("a session rename", &body) {
+        Ok(rename) => rename,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().rename_session(rename).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

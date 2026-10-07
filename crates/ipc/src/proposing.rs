@@ -20,7 +20,7 @@
 //! vendor" are opposite decisions an elapsed count draws identically.
 //!
 //! What that costs, and the three bounds that hold it, are stated on
-//! `proposal.moved` in `crates/ipc/operations.toml`.
+//! `proposal.moved` in `crates/ipc/operations/`.
 //!
 //! [`JudgeInFlight`]: crate::JudgeInFlight
 

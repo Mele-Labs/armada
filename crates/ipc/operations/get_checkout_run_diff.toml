@@ -1,0 +1,18 @@
+[operations.get_checkout_run_diff]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What one checkout run changed, as a patch against the snapshot it took just before it"
+notes = """
+**`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still runs. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.
+
+**Against the run's own snapshot, never `HEAD`.** The main checkout holds a person's own uncommitted work, and a patch against `HEAD` would show all of it as the run's. Both trees are the ones the run kept — just before and just after — so an edit made since the run is not in it either. `against` says so on the wire.
+
+**A snapshot that is gone is a state, not a fallback.** `reading.state` is `gone` where no snapshot was taken or its ref is no longer in the repository; nothing stands in for it. The ref is let go when retention sweeps the run's record, and an Undo does not let it go.
+
+A read: it writes, stages and commits nothing. Refused while the run is still going, because there is no tree after it yet.
+
+`get_diff`'s split, for the same reason — the patch is the expensive half, so it is fetched by the one person who opened it rather than carried on `list_checkout_runs`.
+
+`agent_access` is `No`, and it differs from `get_diff`'s `Yes` on purpose: that route lets an agent check its own change, and the main checkout is the tree a Drone is confined out of. `start_checkout_run` is `Helm only`, so a Helm session can have made this one; it reads how the run ended and what it printed through `list_checkout_runs` and `get_checkout_run_output`, and the patch stays the person's to open, for the cost above (#1288).
+"""

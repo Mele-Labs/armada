@@ -1,0 +1,6 @@
+[icons.circle-dot]
+  means = "Two concentric circles"
+  group = "Job state"
+  size = "12px"
+  status = "Specified"
+  notes = "Two concentric primitives, maximum legibility at 12px. Reads live, and unlike play it does not read as a button."

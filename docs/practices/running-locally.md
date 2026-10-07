@@ -406,6 +406,11 @@ for. It needs `pnpm install` and nothing else, and it opens the page itself.
 Vite prints the address and reloads the page as you edit. Ctrl-C stops it, and
 nothing is left running or written.
 
+**A key the browser owns never reaches the mock.** Chrome takes `⌘[` and `⌘]`
+as its own Back and Forward before the page sees them, so the owner's walk of
+the history keys on 7 Oct 2026 did nothing there, while Electron binds neither.
+A binding like that is walked on the preview (`scripts/preview --restart`).
+
 **`?scenario=<name>` picks what the window shows**, and the picker at the foot
 of the left column switches by reloading onto another. An unknown name falls
 back to the first scenario and says so in the browser console.
@@ -452,8 +457,8 @@ no other edit. A builder needs its name added to `BUILDERS` in
 until it is. A moment added to `ARC_MOMENTS` and a Job added to `KIND_FIXTURES`
 are scenarios with no edit at all — both rosters are walked.
 **A row of its own** — one Job, already open, for a walk — is a file in
-`apps/desktop/src/renderer/src/mock/scenarios/` and one line in `mock/scenario-rows.ts`;
-`scenario.ts` is not edited, so two branches adding rows do not conflict.
+`apps/desktop/src/renderer/src/mock/scenarios/` and nothing else;
+`scenario.ts` reads the directory and is not edited, so two branches adding rows do not conflict.
 `docs/practices/list-files.md`.
 
 **A moment can hold no Job, or four.** The two dispatch moments are before any
@@ -670,7 +675,6 @@ answers on its own and no question reaches the Drone.
 | Not behind | Nothing at all, and nothing is announced |
 | Behind, and it replays | The Drone is told what moved, in its next turn |
 | Behind, and it conflicts | The conflict is handed to the Drone as work, every file named |
-| Behind, and the conflict is lines added to a declared list file | There is none: git keeps both (`.gitattributes`, [list files](list-files.md)) |
 
 **Uncommitted work is never destroyed by this.** Fleet commits only at the last
 step, so mid-Job the worktree is full of uncommitted changes; the rebase carries

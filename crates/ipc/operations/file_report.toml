@@ -1,0 +1,18 @@
+[operations.file_report]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Files a report on a Job that failed, carrying the person's reason and the Job's own record"
+notes = """
+**`failures` is what Armada thinks went wrong; a report is what you know went wrong.** Every other operation here answers *did this fail*. None answers *did this fail correctly*, and the two sets do not contain each other: a Job that failed perfectly by its own lights and was wrong is `escalated` with a real trigger on it, and nothing anywhere records that the refusal was wrong. Twice now the owner disagreeing out loud has been the entire detection mechanism.
+
+**The bundle is collection, not capture.** `get_job`, `get_job_events` and `get_evidence` already carry the record, so Fleet assembles this from operations that exist rather than capturing anything new. The one thing that does not exist until a person types it is `said` — why they think the machine was wrong — and it is required. A report that bundles the record and says nothing is the terminal-paste this exists to remove, automated.
+
+**`claim` is a closed set because a count may not read prose.** The first override in this repository carries the reason `probe`, sent to find out whether the route was served, and `job_events` is append-only so it says that for ever. An override with a useless reason is indistinguishable from a considered one, and a required non-blank field does not make a reason meaningful — so what the count reads is the value a person picked, and the sentence is what a person reads.
+
+**`agent_access` is `Helm only` now, over the strongest `No` in this file.** Filing on the owner's behalf without his sentence is the exact failure mode this paragraph names: the record is evidence and his reason is the finding. Nick's ruling grants this row anyway, on the reasoning that his own ask *is* the sentence — but that is this file's own argument read against itself, and it is named here rather than quietly resolved.
+
+Redaction happens on the way in. The record is rendered and scrubbed before it is stored, never at read time — scrubbing on the way out leaves a window the length of the file's life, and a store that has already written a credential cannot un-write it.
+
+It creates no Job and dispatches nothing. Filing comes first; dispatching is the existing flow pointed at what this produced, and a Drone cannot reach the issue tracker, so the record has to travel in a Job's facts either way.
+"""

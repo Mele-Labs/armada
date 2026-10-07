@@ -1,0 +1,12 @@
+[operations.redispatch_job]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Fresh Drone with corrective context"
+notes = """
+Intervention Ladder rung 2.
+
+**The link it writes is read from both ends.** The replacement carries `redispatched_from`, and `get_job` answers `replaced_by` on the Job that was replaced and `replaces` on the replacement — the one column read as a predicate and followed as a column, never a second one written here. Each carries a handle, because the id alone names nothing a person has read. #1439, #1474, and `docs/concepts/job.md`, *A redispatch is read from both ends*.
+
+**Two Jobs may name one predecessor and nothing refuses it.** A redispatch leaves an escalated Job `killed`, and `killed` is redispatchable, so pressing this twice on one Job mints two replacements. The reverse read answers with the newer. Whether the second press should be refused is not decided.
+"""

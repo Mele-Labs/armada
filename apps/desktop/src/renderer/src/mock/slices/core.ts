@@ -29,6 +29,7 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
       openServerLink: async () => ({ ok: false, why: "no_address" }),
       openLink: async () => ({ ok: true }),
       // A scenario opens its Job the way a pressed notification does — once, though `StrictMode` registers twice.
+      onHistory: () => () => undefined,
       onSummoned: (onGo) => {
         summoners.add(onGo);
         if (scenario.opens !== undefined && !summoned) {

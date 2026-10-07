@@ -712,7 +712,7 @@ fn each_plan_grant_puts_only_its_own_tools_on_the_list() {
 #[test]
 fn a_command_that_cannot_be_written_as_a_rule_may_still_be_run() {
     let harness = HeadlessAgent::at("/usr/local/bin/agent");
-    let reads = "sed -n '1,140' crates/ipc/operations.toml";
+    let reads = "sed -n '1,140' crates/ipc/operations/";
     assert!(
         matches!(
             harness.grantable(reads),

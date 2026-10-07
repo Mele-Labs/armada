@@ -1,0 +1,10 @@
+[operations.stop_scout]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Stop the scout reading for a Finding, and answer with the Studio as it stands"
+notes = """
+**The stop on a Gathering Finding's node.** The scout's process group is interrupted, which the agent CLI answers by ending its turn and reporting its cost — measured in spike 017, where a terminate left no cost at all. A scout still running after ten seconds has its group ended, and its Finding says `stopped` with no cost.
+
+The answer is the Studio before the Finding ends; the ended one, with no state, arrives on `studio.changed`. A node no scout is reading for is refused as `fleet.scout_not_running`. `Bridge only`: the stop is a press on a node, and no ask to Helm reaches it.
+"""

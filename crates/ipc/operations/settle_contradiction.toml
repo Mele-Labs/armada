@@ -1,0 +1,12 @@
+[operations.settle_contradiction]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "End a Contradiction as Not a problem, or as Resolved here with the answer kept on the node, and answer with the Studio"
+notes = """
+Two of the four outcomes in `docs/concepts/studio.md`'s table. **The other two are the rungs that make a node** — *Issue draft* is `write_up_studio_node` on the Contradiction and *Deferral* is `defer_on_studio` raised on it, each ending the Contradiction as it goes — so there is one way to make an Issue draft and one way to make a Deferral rather than two.
+
+`resolved_here` carries the answer and keeps it on the node, since a Contradiction settled with nothing written down is one nobody can reread; a blank answer is refused as `fleet.studio_node_blank`. `Bridge only` for both: deciding that two sources do not really disagree is a person's judgement, and it is the one act here that writes a conclusion onto the record.
+
+A node that is not a Contradiction is `fleet.studio_not_a_contradiction`, and one already ended is `fleet.studio_contradiction_settled` — a Contradiction ends once, so the node keeps the outcome that was acted on.
+"""

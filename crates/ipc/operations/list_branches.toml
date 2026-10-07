@@ -1,0 +1,10 @@
+[operations.list_branches]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The repository's local branches, the base first, for where a Job starts and lands"
+notes = """
+`GET /manifest/branches?manifest_id=`, #1605, spike 022 slice 4. `Branches`: `branches`, each a `BranchRow` of `name` and `base`, the base first and the rest by name. **Read through git** (`Vcs::branches`), not the floor Bridge composed from the Manifest's base and the worktrees it had seen, so the picker offers what the repository holds. The base is the one a worktree is cut from where nobody says otherwise, the Manifest's `base:` or what the adapter infers, and a declared base the repository lacks marks no branch rather than failing the list.
+
+422 on a repository this Fleet does not serve; a fault where git will not list. `approve_dispatch` refuses a landing branch this list does not hold.
+"""

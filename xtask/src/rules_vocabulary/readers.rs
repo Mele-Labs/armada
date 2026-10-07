@@ -18,7 +18,7 @@
 // Why the reverse direction is checked here and refused in `rules_icons`.
 //
 // `every_glyph_in_use_is_registered` deliberately does not fail on a registry
-// entry with no use, because `packages/icons/icons.toml` is authored ahead of
+// entry with no use, because `packages/icons/icons/` is authored ahead of
 // the surfaces on purpose — deciding before building is the file's whole job.
 //
 // A generated module is the opposite case. Nothing decides to emit a vocabulary

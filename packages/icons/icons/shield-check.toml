@@ -1,0 +1,21 @@
+[icons.shield-check]
+  means = "A pointed-base pentagon with a check inside"
+  group = "Step and Verdict"
+  size = "12px"
+  status = "Proposed"
+  notes = "Within the shield reservation — the family means gates and checks. Its counterpart shield-x is already spoken for as failed a check."
+
+  [[icons.shield-check.usage]]
+    means = "Checks, one of the ways a workflow step advances"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. The step's mechanical tier, in the family that already means gates and checks."
+
+  [[icons.shield-check.usage]]
+    means = "The Checks surface: its rail row and its palette entry"
+    group = "Navigation"
+    size = "16px"
+    status = "Specified"
+    reserved = "The Checks surface, at 16px in the rail. Never a Check's own passed result in a row, which is the 12px use above."
+    notes = "Chosen by the owner 6 Oct 2026 for the Checks rail row. The row names the family it lists, and the shield is already what a Check is. It meets its own 12px result mark only across sizes and hue groups, which the contract admits: this is a --fg-muted rail glyph, that one a status-hued badge mark."

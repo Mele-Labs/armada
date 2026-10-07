@@ -1,0 +1,10 @@
+[operations.remove_walk_note]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take back a walk note no Drone has been handed yet, and answer with every note left on the Job"
+notes = """
+`POST /jobs/:job_id/walk_notes/remove`, body `{"id": "..."}`. Since 23.18. The row goes and so does its kept frame. `agent_access` is `No`, for `capture_walk_note`'s reason.
+
+**A sent note stays**, refused as `fleet.walk_note_sent`, a 409: a Drone already worked against it, so it is part of the record of what the work was asked to be. An id the Job has no note by is `fleet.no_such_walk_note`, a 422, and a Job that has ended `fleet.walk_notes_job_ended`, a 409.
+"""

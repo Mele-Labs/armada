@@ -1,0 +1,12 @@
+[operations.observe_server]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One server's output — what its log holds, then what it prints next — on a socket of its own"
+notes = """
+**`observe_run`'s shape, one subject over**: the subscription first, then the log as history, then live lines; `missed` with a count where a viewer fell behind, and `closed` once the server has ended. A server that has ended opens too, with its whole log — which is how one that fell over is read.
+
+Not `/events`, which carries only a server's three lifecycle facts, for `observe_run`'s reason.
+
+`agent_access` is `No` for `observe_check_output`'s reason.
+"""

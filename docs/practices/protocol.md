@@ -405,7 +405,7 @@ place a per-Job subscription *is* right is the second socket, below.
 ### A kind exists when something produces it
 
 **An event kind that never fires reads as a stream that is working**, so a kind
-`crates/ipc/operations.toml` names is not stubbed until a record exists for it
+`crates/ipc/operations/` names is not stubbed until a record exists for it
 to carry. The kinds still waiting describe records this workspace has no type
 for.
 
@@ -501,7 +501,7 @@ for one that never comes back.
 ## The second socket: one Job's turns
 
 `GET /jobs/:job_id/observe` is a WebSocket upgrade, and it is the one query in
-`operations.toml` whose transport is the socket. It answers with the turns a
+`operations/` whose transport is the socket. It answers with the turns a
 Job's Drones have already taken and then continues with the ones that follow,
 so joining a Job already running takes one connection rather than a history
 call and a subscription that have to be stitched together.
@@ -1101,13 +1101,13 @@ port because a Drone reaches Fleet the same way Bridge does, and it shares
 nothing else: the peer is a process Fleet itself spawned, the vocabulary is
 MCP's rather than `ipc`'s DTOs, and the version negotiated is the MCP revision
 the client asks for rather than `protocol-version.toml`'s. So it is
-deliberately absent from `operations.toml` and from `SERVED`, and a row added
+deliberately absent from `operations/` and from `SERVED`, and a row added
 for either would claim Bridge can call it. It also means the rule below does
 not cover it: the address is written into a Drone's `mcp.json` from `api`'s own
 constant, and that shared value is what stands between a typo and a Drone that
 can never report.
 
-**The rule that reads `operations.toml` runs both ways now.** One direction
+**The rule that reads `operations/` runs both ways now.** One direction
 fails on a route serving a name the inventory does not have; the other fails on
 a name the inventory has and nothing serves. The second carries an allowance,
 and every entry in it states a reason the gate prints — a list of exemptions
@@ -1116,7 +1116,7 @@ remove.
 
 **A second route on the listener is not on this seam either, and it is this
 seam spoken differently.** `/agent/mcp` is the agent's door: an MCP client
-reaches it, and every tool on it is one row of `operations.toml` served at the
+reaches it, and every tool on it is one row of `operations/` served at the
 route `SERVED` already names, so there is no second implementation to drift.
 What it adds over the HTTP surface is a cap — a tool answer over 64 KiB is cut,
 says so, and names the route that serves it whole — and a scope: every answer
@@ -1625,7 +1625,7 @@ on a minor mismatch anyway; a Bridge *behind* a Fleet that sends `every_read_all
 string it has no wording for, in the record and nowhere a person is blocked by it.
 
 **Fleet decides what the set is, and the wire never carries it.** The rules written are derived
-from `operations.toml`'s own `kind = "query"` rows at the moment a person presses, so a Fleet whose
+from `operations/`'s own `kind = "query"` rows at the moment a person presses, so a Fleet whose
 inventory grew allows more than one that had not, and neither one has to tell Bridge which.
 
 ## Protocol 17.4: Fleet decides what Helm is asked about
@@ -1998,7 +1998,7 @@ spawned and when it left, and its turns and cost. Additive: a new DTO on a new r
 
 **`GET /drones` is the roster and loses a Drone the moment it exits.** This reads the Job's own
 history and the per-Drone spend rows instead, so a stopped Drone stays. The state rule, and why
-`killed` is told apart from `failed`, is the operation's note in `crates/ipc/operations.toml`.
+`killed` is told apart from `failed`, is the operation's note in `crates/ipc/operations/`.
 
 **`ended_at`, `turns` and `cost_micros` are left out where there is nothing**, never nought. A
 running Drone has no `ended_at`, and one still in its first invocation has no terminating line yet,
@@ -2043,7 +2043,7 @@ stale between the reading and the press meets the same refusal, and the answer i
 **A child is not the Drone.** Killing one ends it and what it started and moves nothing on the
 record; killing the Drone's own pid is `kill_drone`, and so is killing every process, plus the
 descendants that left the Drone's process group. The operations' notes in
-`crates/ipc/operations.toml` carry the whole rule.
+`crates/ipc/operations/` carry the whole rule.
 
 ## Protocol 21.6: a dispatched request is a Job, and the proposal names it
 
@@ -3267,6 +3267,17 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `SessionRecord.hosted` | `commands?`: names, slash commands then skills | Off the stream's `init` line. Empty before an agent has started anywhere, and after a Fleet restart |
 
 **A bundle that is the agent's first context is not a row.** Fleet renders it as prose and puts it ahead of the person's first message. A session closed or released from a pilot clears its own lease, so its next write leases a slot as any session's does. Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
+## Protocol 23.52: a session's name
+
+`docs/concepts/session.md`. **Additive only**: one operation and one optional field. 23.51 is a session started on a Job.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `rename_session` (`POST /sessions/rename`) | `RenameSession`: `session_id`, `title` | Answers the `SessionRecord` and publishes `session.changed` when the title changed. Refused with 422, nothing written, for a blank title or a session Fleet has no row for. Not offered to agents |
+| `report_session` | `SessionFact` `titled.named?` | `true` is a person's name from the terminal's `/rename`: it replaces the title. Absent, it is the first prompt's line, kept only where the session has no title |
+
+**A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown. Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
 ## Open questions
 

@@ -1,0 +1,7 @@
+[icons.file]
+  means = "A log — the plain page outline"
+  group = "Evidence"
+  size = "12px"
+  status = "Specified"
+  reserved = "The log row, and nothing else. It is the file-* family's unmarked member."
+  notes = "`docs/concepts/log-envelope.md` states the rule this row carries out: the file-* family is reserved to evidence, so the log row takes the plain page outline rather than a new glyph. The row was missing while three screens rendered a log line, so each left its mark channel empty rather than borrowing a glyph that means something else."

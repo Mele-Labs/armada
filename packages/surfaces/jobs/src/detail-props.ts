@@ -61,6 +61,7 @@ import type { FrameSrc, ReadFrame } from "./frames";
 import type { FoldedReads } from "@armada/screens/src/folded-reads";
 import type { OpenArtifact, OpenPullRequest } from "@armada/screens/src/opening";
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
+import type { ManifestChecksProps } from "./ManifestChecks";
 import type { ReadBrief } from "./pulse-brief";
 import type { AnswerLesson, ReadRetro } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "@armada/screens/src/plan-edits";
@@ -79,6 +80,8 @@ export type JobOpening = {
   drone?: string;
   /** The task to open on its panel in Plan. */
   task?: string;
+  /** The Record row to open on its tab, by the id the Record's own panel reports. */
+  row?: string;
   /** The tab to open on, or move an open Job to. It wins over a step, a Drone or a task's tab. */
   tab?: DetailTab;
 };
@@ -87,8 +90,12 @@ export type JobDetailProps = {
   job: JobSummary;
   /** Where to open, for the Job this names. Absent opens on the first tab, as a Board row does. */
   opening?: JobOpening;
-  /** Told the tab on show and at every change, so a caller can put a person back on it. */
-  onTab?: (tab: DetailTab) => void;
+  /**
+   * Told the tab on show and at every change, with what is open in it — the
+   * task, step, Drone or Record row, by the id its panel reports, or `null` —
+   * so a caller can put a person back on it. One report per place.
+   */
+  onWhere?: (tab: DetailTab, item: string | null) => void;
   /**
    * Every Job Bridge is holding, which is where the members of this one and
    * the wave it dispatched both come from: a row whose `dispatched_by` names
@@ -304,6 +311,11 @@ export type JobDetailProps = {
    * fetching.
    */
   onReadCheckOutput: ReadCheckOutput;
+  /**
+   * What the Checks page reads, for this Job's Checks tab to narrow to the Job. Absent draws the tab
+   * empty, as a caller with no Checks read would.
+   */
+  checks?: Omit<ManifestChecksProps, "job" | "floor" | "jobLabel" | "onOpenJob">;
   /** Read one kept brief, for Pulse's log panel. `onReadCheckOutput`'s shape one record over. */
   onReadBrief: ReadBrief;
   /** Read this Job's retro, for the Record's Retro sheet — on open and on focus. `retro.ts`. */

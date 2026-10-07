@@ -193,6 +193,19 @@ function createWindow(): BrowserWindow {
 
   window.on("ready-to-show", () => window.show());
 
+  // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
+  const step = (to: "back" | "forward"): void => {
+    if (!window.isDestroyed()) window.webContents.send(CHANNELS.history, to);
+  };
+  window.on("swipe", (_event, direction) => {
+    if (direction === "left") step("back");
+    else if (direction === "right") step("forward");
+  });
+  window.on("app-command", (_event, command) => {
+    if (command === "browser-backward") step("back");
+    else if (command === "browser-forward") step("forward");
+  });
+
   // The on-screen comments poll, #667: backgrounded or minimized stops the
   // 20 s timer, and any of these bringing a window back on screen resumes it.
   // `closed` is here rather than left to `window-all-closed`, because on

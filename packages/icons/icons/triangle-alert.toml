@@ -1,0 +1,14 @@
+[icons.triangle-alert]
+  means = "a check warns"
+  group = "Doctor"
+  size = "16px"
+  status = "Specified"
+  notes = "The one place triangle-alert lives, plus generic warnings in toasts."
+  reserved = "Reserved to Doctor. A release on the grounds that Doctor draws no glyphs was withdrawn 25 Aug 2026 — the reservation holds whether or not the health grid draws it. No other surface may adopt it as its own mark."
+
+[[icons.triangle-alert.usage]]
+  means = "The Unreadable row in a worktree's panel: version control would not say what is in the checkout"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Version control would not say`."

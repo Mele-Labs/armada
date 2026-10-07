@@ -1,0 +1,10 @@
+[operations.edit_studio_link]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Replace the line a person keeps beside an address with what they left, and answer with the Studio"
+notes = """
+**The address is not on this request.** `docs/concepts/studio.md` keeps an address node as its address, and `#1378` adds a line of a person's own beside it saying why it was kept — so what the node draws is that line over the address, and what is editable is the line. Nothing on this seam rewrites an address: a Link that pointed somewhere else would be a different Link.
+
+A blank `said` clears the line, which is how somebody takes back what they typed; it is not refused, because a node with no line is what pasting an address alone already makes. `Bridge only`, for the reason `edit_studio_draft` is: a person's own words are not Helm's to rewrite. **Every kind that keeps an address takes it** — a Link, an Issue, a Pull request and an Epic (`#1394`) — and any other is refused as `fleet.studio_not_a_link`.
+"""

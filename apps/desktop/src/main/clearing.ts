@@ -9,7 +9,7 @@
 //
 // # The two acts are two, and stay two
 //
-// `crates/ipc/operations.toml` splits them and argues the split on its
+// `crates/ipc/operations/` splits them and argues the split on its
 // `forget_job` row: one call with two unrelated things to fail at is worse than
 // two calls, and a person clearing a Board should not also have to think about
 // a directory. So neither one's outcome depends on the other and a caller

@@ -1,0 +1,7 @@
+[icons.flame]
+  means = "A flame - a slot with its build on disk"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A warm worktree slot: every setup.seed.paths entry is on disk in it. Never spend, urgency or a hot path."
+  paired_with = "snowflake"

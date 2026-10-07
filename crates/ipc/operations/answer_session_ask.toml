@@ -1,0 +1,8 @@
+[operations.answer_session_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer the call a hosted session is held on: allow once, allow and remember, or refuse"
+notes = """
+`POST /sessions/ask/answer`, body `AnswerSessionAsk`: `session_id`, the ask's `call`, one of its `offers` and a `note` on a refusal. Since 23.49. Answered with the `SessionRecord`. **A second table from Helm's**: the ask is on the session's thread and never in the dock, and `answer_helm_call` does not find it. A call nothing is waiting under is a 409.
+"""

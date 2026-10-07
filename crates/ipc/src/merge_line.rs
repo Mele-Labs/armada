@@ -1,5 +1,5 @@
 //! The merge line `armada land` keeps in each repository Fleet serves —
-//! `get_merge_lines` and `merge_lines.changed` in `crates/ipc/operations.toml`.
+//! `get_merge_lines` and `merge_lines.changed` in `crates/ipc/operations/`.
 //!
 //! **The queue is a reading of files another process writes**: the runner is
 //! `armada land`, and Fleet reads its `armada-land/` directory and starts

@@ -1,0 +1,7 @@
+[icons.ticket]
+  means = "A ticket stub, notched at both ends and perforated down its length"
+  group = "Criterion origin"
+  size = "12px"
+  status = "Specified"
+  reserved = "A criterion whose words were read out of an issue, on that criterion's origin line only. Never a Job, a request or a dispatch, never a pull request, which is `git-pull-request`, and never a place in a queue."
+  notes = "Minted 3 Oct 2026, the owner's pick from the glyph candidates (`hash` and `square-dot` refused). The forge's own issue mark is a ring around a dot, which is `circle-dot`, running's by reservation, so the issue is drawn as the thing it is called rather than the forge's picture of it. A notched stub is the only outline in the set with bites out of both short edges, so it holds at 12px. The issue's reference follows it on the line. Refused: `circle-dot` (running), `file-*` (evidence), `message-square` (Helm), `scroll-text` (a workflow)."

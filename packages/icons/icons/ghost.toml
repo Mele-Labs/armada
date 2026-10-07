@@ -1,0 +1,7 @@
+[icons.ghost]
+  means = "A ghost - a slot whose holder is gone and that still holds work"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A stranded worktree slot only. Never a Job's state."
+  notes = "The tooltip carries what it still holds, as armada worktree --status words it."

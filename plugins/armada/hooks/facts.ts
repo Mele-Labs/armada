@@ -3,15 +3,48 @@
 
 const TITLE_MOST = 80
 
-/** The first line of a prompt as a title, or nothing for a command or a blank. */
+// A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
+// contents are the harness's words, so the whole block goes; any other wrapper, such as
+// `<agent-message from="…">`, only loses its tag and the words inside are the person's.
+const MACHINE_BLOCK = /<((?:local-)?command-[\w-]+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g
+const WRAPPER_TAG = /<\/?[a-z]+(?:-[\w]+)+(?:\s[^>]*)?>/gi
+
+/** What is left of a prompt once the harness's own markup is taken off. */
+export function withoutMarkup(prompt: string): string {
+  return prompt.replace(MACHINE_BLOCK, '').replace(WRAPPER_TAG, '')
+}
+
+/** The first line of real text in a prompt as a title, or nothing for a command or a blank. */
 export function titleOf(prompt: string): string | undefined {
-  const line = prompt
+  const line = withoutMarkup(prompt)
     .split('\n')
     .map(one => one.trim())
     .find(one => one !== '')
   if (line === undefined || line.startsWith('/')) return undefined
   const flat = line.replace(/\s+/g, ' ')
   return flat.length > TITLE_MOST ? `${flat.slice(0, TITLE_MOST - 1)}…` : flat
+}
+
+/** The name a `/rename` gave, from a transcript: its last `custom-title` entry. */
+export function customTitleIn(transcript: string): string | undefined {
+  let found: string | undefined
+  for (const line of transcript.split('\n')) {
+    if (!line.includes('customTitle')) continue
+    try {
+      const entry = JSON.parse(line) as { type?: unknown; customTitle?: unknown }
+      if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
+        found = entry.customTitle.trim() || found
+      }
+    } catch {
+      // A line cut short at the end of a file being written.
+    }
+  }
+  return found === undefined ? undefined : found.replace(/\s+/g, ' ')
+}
+
+/** Where Claude Code keeps a session's transcript, under the directory it ran in. */
+export function transcriptPath(home: string, cwd: string, id: string): string {
+  return `${home}/.claude/projects/${cwd.replace(/[^a-zA-Z0-9]/g, '-')}/${id}.jsonl`
 }
 
 /** Whether a Bash command may have moved the branch or the directory. */

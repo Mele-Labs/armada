@@ -1,0 +1,32 @@
+[operations.stop_proposal]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Stops a Job proposer call that is still out"
+notes = """
+The only thing anybody may do to a proposal in flight, and it exists because the
+alternative is worse. A client that simply stopped waiting would leave the call
+running inside Fleet, spending, until its budget expired — so the control a person
+is offered has to reach the process, not just the socket.
+
+It names a proposal_id, which Fleet minted and published on proposal.moved. Nothing
+else on the wire identifies a call that has not finished: a proposal has no Job to
+hang off, which is exactly what separates it from a Judge call, and a stop naming
+the request's text would stop the wrong one the moment two people dispatch the same
+words.
+
+A proposal that has already finished answers stopped false, and that is a success
+rather than a 404. By the time somebody presses this the call may have just landed,
+and the Jobs are on the board either way — telling them their press failed would be
+telling them something that is not true about the only thing they care about.
+
+It is not on the Intervention Ladder. The Job the request was dispatched as, at
+`proposing`, is killed by it (#1714). Nothing else moves, and the request is still
+the killed Job's title, and the route answers it on the refusal's `request`
+field.
+
+agent_access is Helm only now. Helm proposes without a surface and has nobody
+waiting, so there is normally no wait of its own for it to abandon — but where a
+person asks Helm to stop a proposal call still out, that ask is the same act as
+their own press, and this is what carries it.
+"""

@@ -18,7 +18,7 @@ mod studios;
 
 /// One operation, and where it is served.
 ///
-/// `operation` is the key in `crates/ipc/operations.toml`, spelled exactly as
+/// `operation` is the key in `crates/ipc/operations/`, spelled exactly as
 /// that file spells it, so comparing the two needs a set lookup and no mapping.
 #[derive(Clone, Copy)]
 pub struct Route {
@@ -539,6 +539,11 @@ const ROUTES: &[Route] = &[
         operation: "who_owns",
         method: "GET",
         path: "/sessions/owner",
+    },
+    Route {
+        operation: "rename_session",
+        method: "POST",
+        path: "/sessions/rename",
     },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {

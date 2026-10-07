@@ -1,6 +1,6 @@
 //! What the stream Bridge draws the Board from carries.
 //!
-//! **The kinds are the dotted names `crates/ipc/operations.toml` keys them
+//! **The kinds are the dotted names `crates/ipc/operations/` keys them
 //! under**, so a rule can compare the two without a mapping in between. And
 //! nothing generates the DTO types from this crate yet, so these cases are
 //! what pin the spellings a TypeScript union mirrors by hand — a variant
@@ -55,7 +55,7 @@ fn a_transition_becomes_an_event_with_its_reason() {
     );
 }
 
-/// The kinds are the dotted names `operations.toml` keys them under, so a rule
+/// The kinds are the dotted names `operations/` keys them under, so a rule
 /// can compare the two without a mapping in between — and `branch` is absent
 /// rather than null on an exit, which is the rule the whole file holds.
 #[test]

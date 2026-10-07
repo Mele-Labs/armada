@@ -1,0 +1,16 @@
+[operations.get_check_output]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One Check's own output, read back into the app"
+notes = """
+**The other end of a path that opened nothing in Armada.** `CheckRun.output_path` has said where a Check's stdout and stderr were written since the record kept them, and Bridge hands that path to the operating system — so the one surface built to audit a suite that went green for the wrong reason could only send a person out of the app to do it. This is what a reader asks for, once, about the one Check they opened.
+
+The split is `get_call`'s, made against the same measurement. A Check's output is up to two 64 KiB streams; `get_job` is re-read on every event naming the open Job and `/events` is one drop-oldest channel carrying every Job, so a payload that size on either would evict what the Board is drawn from. The cheap fact — that there *is* an output, and where — rides the row, and the bytes are fetched.
+
+**The id is the file's own name and never a path the caller composed.** `:kept` is the last component of `output_path`, which `fleet::check_output` builds out of the row's key — step, attempt, ordinal — so it identifies exactly one recorded run of one Check inside one Job. Fleet resolves it against the rows it holds for that Job before it opens anything, which is what makes a caller-supplied value safe to read a file with: an id naming no row of this Job reaches no file at all, whatever it spells.
+
+**A window, and it says it is one.** The tail is served, for the reason `checks_runner` captures the tail: a test runner prints its failures last. `from_line` is the file's own numbering, `total_lines` is exact because the file is counted as it is read, and `whole` is stated rather than left to be inferred.
+
+`agent_access` is `Yes` since `#697`, and the context cost it was refused for is answered at the door rather than by this column. A tool answer is cut at 64 KiB and says so, naming this route for the rest — and this operation was already a window, which makes it the cheapest of the six to open. What the refusal cost was the larger number: an agent may `start_run` and could not read what the run printed, which is an agent that cannot verify its own work.
+"""

@@ -1,0 +1,8 @@
+[icons.panel-left-open]
+  means = "Bring the left column back — the same frame, the caret arriving"
+  group = "Chrome"
+  size = "16px"
+  status = "Specified"
+  paired_with = "panel-left-close"
+  reserved = "The collapsed half of the pair above, on Bridge's left column alone. Never a way in to a surface, which is a rail row, and never expand-in-place on a row of data."
+  notes = "Added with panel-left-close, for the same control in its other state. Two tables rather than one glyph and a tooltip: at the rail the button is the only chrome left in 48px, and a mark that reads the same collapsed as expanded makes a person press it to find out which way it goes."

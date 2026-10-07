@@ -1,0 +1,6 @@
+[icons.corner-up-right]
+  means = "Redirect"
+  group = "Action"
+  size = "16px"
+  status = "Specified"
+  notes = "Course correction into a live drone. Survives as: redirected."

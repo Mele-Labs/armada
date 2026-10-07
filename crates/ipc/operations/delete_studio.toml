@@ -1,0 +1,8 @@
+[operations.delete_studio]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Delete a Studio and every node and edge on it"
+notes = """
+The only way a Studio ends. **A person's act**, whatever Helm's authority setting says, so no agent is offered it. Publishes `studio.deleted`.
+"""

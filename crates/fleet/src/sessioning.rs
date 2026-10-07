@@ -220,9 +220,12 @@ where
                     changed = true;
                 }
             }
-            SessionFact::Titled { title } => {
-                changed |= session.title.as_deref() != Some(title.as_str());
-                session.title = Some(title);
+            // A name a person gave wins; the first prompt's line only fills a gap.
+            SessionFact::Titled { title, named } => {
+                if named || session.title.is_none() {
+                    changed |= session.title.as_deref() != Some(title.as_str());
+                    session.title = Some(title);
+                }
             }
             SessionFact::Attached { attachment } => {
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
@@ -283,6 +286,35 @@ where
 
         session.last_seen_at = now;
         store.keep_session(&session).map_err(fault)?;
+        let record = self.ledger_row(&store, &session)?;
+        drop(store);
+        if changed {
+            self.publish(ipc::Event::SessionChanged(record.clone()));
+        }
+        Ok(record)
+    }
+
+    async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
+        let title = rename
+            .title
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if title.is_empty() {
+            return Err(self.ledger_unnamed("a title"));
+        }
+        let mut store = self.store().lock().await;
+        let Some(mut session) = store
+            .session(rename.session_id.as_str())
+            .map_err(|why| self.ledger_fault(why))?
+        else {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        };
+        let changed = session.title.as_deref() != Some(title.as_str());
+        session.title = Some(title);
+        store
+            .keep_session(&session)
+            .map_err(|why| self.ledger_fault(why))?;
         let record = self.ledger_row(&store, &session)?;
         drop(store);
         if changed {

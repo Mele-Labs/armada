@@ -1,0 +1,16 @@
+[operations.observe_check_output]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "One running Check's log — what it has printed so far, then what it prints next"
+notes = """
+**`observe_job_log`'s shape, one file over.** A Check's stdout and stderr used to be read into memory and written down only after the Judge answered, so a Check that ran for four minutes had nothing to show for four minutes. The runner now appends each chunk to a file as it arrives, and this reads that file the way `observe_job_log` reads a Job's log: what is already there, then what is appended, a quarter-second behind.
+
+Not `get_check_output`. That reads a recorded log, which is finished, and is fetched once; this is a file still growing, and a request-response shape would need Bridge to poll it.
+
+**The live set is the allowlist.** `:kept` is the last component of a `CheckUnderway.output_path`, and Fleet resolves it against the Checks it is running for that Job before it opens anything — `get_check_output`'s rule, with the live set standing in for the rows. A name no running gate of this Job wrote reaches no file, whatever it spells.
+
+It ends with a sentence: `finished` once the Check has exited and every line it wrote has been sent. The recorded Check log is `get_check_output`'s from the ruling on.
+
+`agent_access` is `No` for `get_check_output`'s reason.
+"""

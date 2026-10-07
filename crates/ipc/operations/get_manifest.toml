@@ -1,0 +1,8 @@
+[operations.get_manifest]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Resolved config for a Manifest"
+notes = """
+The resolution chain across Kit, Machine and Manifest is not yet stated.
+"""

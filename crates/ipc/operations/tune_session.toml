@@ -1,0 +1,8 @@
+[operations.tune_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Set the model, effort and permission mode a hosted session's next turn runs on"
+notes = """
+`POST /sessions/tune`, body `TuneSession`. Since 23.49. A model or effort left out is the machine's own. A process that is running is ended once its turn is over, and the next message resumes the session with the new settings.
+"""

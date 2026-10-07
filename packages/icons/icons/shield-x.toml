@@ -1,0 +1,7 @@
+[icons.shield-x]
+  means = "A pointed-base pentagon with a cross inside"
+  group = "Escalation reason"
+  size = "12px"
+  status = "Specified"
+  reserved = "The shield-* family means gates and checks throughout."
+  notes = "The pointed-base pentagon is unique and strong small."

@@ -9,6 +9,7 @@ import type { FleetHandle as FleetHandleOf, Scenario as ScenarioOf } from "@arma
 import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
+import type { Session } from "@armada/screens/src/draft/sessions";
 import type { BoardControl, SessionsStore } from "./sessions/script";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -22,7 +23,8 @@ export { unanswered };
  * What a moment holds that Fleet cannot serve yet: the Arc milestone's draft, and Sessions.
  * **Sessions are built per window** (a factory), because a Session's turns are time in this window.
  */
-export type MockDraft = ArcDraft & { sessions?: (board: BoardControl) => SessionsStore };
+/** `more` is Sessions open beside the usual ones, for a scenario that wants others. */
+export type MockDraft = ArcDraft & { sessions?: (board: BoardControl, more?: readonly Session[]) => SessionsStore };
 
 export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;
 

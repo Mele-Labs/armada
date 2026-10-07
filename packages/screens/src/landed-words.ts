@@ -30,7 +30,7 @@ export const LANDED: Record<string, string | undefined> = {
 /**
  * The hue and glyph a settled pull request's badge takes (owner, 1 Oct 2026:
  * its state reads as a badge, the way the Job's does, and the two glyphs were
- * minted for it in `icons.toml`). **Merged is the landed hue**, the one the
+ * minted for it in `icons/`). **Merged is the landed hue**, the one the
  * Land board's edge already draws. **Closed without merging is neutral**:
  * nothing on the wire says why it closed, and a refusal's or a failure's hue
  * would say what nobody recorded.

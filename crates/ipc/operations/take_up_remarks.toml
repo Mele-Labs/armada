@@ -1,0 +1,20 @@
+[operations.take_up_remarks]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "The comments a person picked off the pull request reach a Drone. Nothing is written back onto the pull request"
+notes = """
+**A second entrance onto the note road, not a second road.** What it does to the Job is `request_changes`, called rather than restated: the words go onto the record as `redirect_waiting`, the Job takes `awaiting_review -> queued`, and the Drone re-admission puts back on the same step opens with them. The block a Drone reads is `crossing::Redirected` either way. What is different is only where the words came from.
+
+**Handles, and never the words.** The body carries `Remark::id` for each comment picked. Fleet reads the pull request again on the press and takes the text from the forge, so what a Drone is handed is the forge's and not a round trip through a client — and a comment edited between the choosing and the press is handed over as it now reads.
+
+**A comment that has already reached a Drone is refused, by name.** The forge has no memory of what Armada did, so a comment stays on the pull request reading the same forever; a Drone that ran and did not fully satisfy one must not meet it again as if it were new. `job_remarks_taken_up` is the record and `get_remarks` shows it, so a surface that offers one is offering a press that will be refused. That is `RedirectAlreadyWaiting`'s rule one scope wider, and a note already waiting refuses this too, quoted back the same way.
+
+**A comment the pull request no longer has refuses the whole press.** A person picked a set; acting on the part of it that survived, without saying so, is exactly the silent divergence the choice existed to prevent. What they get back is which handles are gone.
+
+**A chosen set that would not fit the room an opening brief leaves free is refused before anything moves.** `docs/spikes/014-how-much-room-does-a-brief-leave-for-comments.md` measures that room and the bound it justifies — on the whole rendered set, never on one comment, because five medium comments are the same problem as one long one. Nothing is truncated: `fleet::remarks::quoted` still writes whatever it is given, whole. What a person gets back is which of the comments to drop to fit, largest first.
+
+**Nothing is written back onto the pull request.** Armada's own record — `job_remarks_taken_up` — is what tells a comment already handed to a Drone apart from one nobody has touched; the forge never hears about a press.
+
+`agent_access` is `Helm only`. It carries no Intervention Ladder rung, but the ladder no longer bounds Helm's reach on its own — Helm may take up remarks the same way it may redirect a Drone, when asked to.
+"""

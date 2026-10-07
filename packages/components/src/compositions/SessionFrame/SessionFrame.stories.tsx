@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, fn } from "storybook/test";
 
 import { SessionFrame } from "./SessionFrame";
 
@@ -36,3 +36,20 @@ export const Waiting: Story = { args: { state: "waiting", said: "Waiting on you"
 
 /** A pull request's Checks are red. */
 export const Failing: Story = { args: { state: "failing", said: "Checks failed on #1843", title: "Flaky store test" } };
+
+/** The title is edited where it stands: a press opens it, Enter saves it and Esc keeps the old one. */
+export const Renamable: Story = {
+  args: { state: "waiting", said: "Waiting on you", title: "Flaky store test", onRename: fn() },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Flaky store test, rename" }));
+    await userEvent.keyboard("{Escape}");
+    await expect(args.onRename).not.toHaveBeenCalled();
+    await expect(canvas.getByRole("button", { name: "Flaky store test, rename" })).toBeInTheDocument();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Flaky store test, rename" }));
+    const field = canvas.getByRole("textbox", { name: "Session name" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "Store test, flaky on CI{Enter}");
+    await expect(args.onRename).toHaveBeenCalledWith("Store test, flaky on CI");
+  },
+};

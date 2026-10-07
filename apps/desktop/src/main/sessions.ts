@@ -15,6 +15,7 @@ import type {
   FrameRead,
   Outcome,
   PullRequestState,
+  RenameSession,
   ReviewDispatched,
   SendSessionMessage,
   SessionList,
@@ -33,7 +34,7 @@ type Publish = (change: Partial<BridgeState>) => void;
 
 const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
-/** Where each press on a pull request is served. `crates/ipc/operations.toml` is the authority. */
+/** Where each press on a pull request is served. `crates/ipc/operations/` is the authority. */
 const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = {
   ready: "ready",
   merge: "merge",
@@ -145,6 +146,10 @@ export class SessionsHost {
 
   async tune(tune: TuneSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/tune", tune);
+  }
+
+  async rename(rename: RenameSession): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/rename", rename);
   }
 
   async end(sessionId: string): Promise<SessionActed> {

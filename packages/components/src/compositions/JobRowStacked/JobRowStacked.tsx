@@ -66,7 +66,7 @@ export type JobRowField = {
    */
   mono?: boolean;
   /**
-   * A 12px glyph leading the field, from `packages/icons/icons.toml`.
+   * A 12px glyph leading the field, from `packages/icons/icons/`.
    */
   icon?: LucideIcon;
   /**

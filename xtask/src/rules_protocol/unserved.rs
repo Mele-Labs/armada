@@ -11,7 +11,6 @@
 //! reads the argument rather than the gap.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 use crate::Report;
@@ -57,7 +56,7 @@ const NOT_BUILT: &[(&str, &str)] = &[
 pub fn every_operation_the_inventory_names_is_served(root: &Path) -> Report {
     let mut report = Report::new("every operation the inventory names is served, or says why not");
 
-    let Ok(inventory) = fs::read_to_string(root.join(INVENTORY)) else {
+    let Ok(inventory) = crate::read_entry_dirs(root, &[INVENTORY]) else {
         report.fail(format!("{INVENTORY} — the operation inventory itself"));
         return report;
     };

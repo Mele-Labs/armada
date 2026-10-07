@@ -1,0 +1,7 @@
+[icons.package]
+  means = "A box with a seam across its lid and a tape strip — something that ships whole"
+  group = "Workflows"
+  size = "12px"
+  status = "Specified"
+  reserved = "A workflow Armada carries, compiled in. Never an export, a release or an install, and never Kit, which is `briefcase`."
+  notes = "Minted 5 Oct 2026 for the Workflow creator. A carried definition is the one the product ships with, and the tooltip says Ships with Armada. Against `archive`, the lidded box the badge set keeps as its own, this one has the seam and the strip, which hold at 12px. `briefcase`'s own row refused `package` as the Kit glyph for the same lidded-box reason, and this is a different thing, so the two do not meet."

@@ -233,6 +233,7 @@ export class WiredStore {
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     close: (id) => void this.plain(this.api.closeSession(id)),
+    rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     said: () => this.refusal,
     taggable: () => {

@@ -1,0 +1,16 @@
+[operations.list_left_out_workflows]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The Kit and carried workflow definitions Fleet runs without, each with why and what runs instead"
+notes = """
+#425. `config`'s catalogue leaves out a Kit or carried definition that will not parse, will not resolve against this repository, or shares an id with a sibling in its own place, and Fleet printed each only at start. A person who customised `bug` in Kit and picks `bug` in the composer was running Armada's without any way to find out.
+
+**A route of its own, not a field on `list_workflows`**, whose answer is a list: wrapping it in an object is a major bump. A repository's own definition is here as Kit's is (protocol 23.29): one that does not fit is set aside with its reason at start and on every re-read, and before 23.29 it refused Fleet's start.
+
+**Per repository**, named by `?manifest_id=` and the one Fleet started in where absent: whether a Kit or carried definition resolves depends on that repository's own Checks.
+
+`said` is the sentence Fleet prints, rendered and never matched on. `file` is absolute, on `ManifestSummary.path`'s ground: two processes on one machine agreeing where a file is.
+
+`agent_access` is `Yes` on `list_workflows`' terms: a Helm about to propose `bug` should be able to see that the `bug` it would get is not Kit's.
+"""

@@ -57,7 +57,7 @@ export type LedgerTone = "passed" | "failed" | "waiting" | "running";
  *
  * **`says` is the kind's own name**, which is what the tooltip carries and what
  * the mark alone cannot say. A kind the icon registry has no glyph for carries
- * no mark at all rather than a borrowed one — `packages/icons/icons.toml`,
+ * no mark at all rather than a borrowed one — `packages/icons/icons/`,
  * `[conventions.record_kind_mark]`.
  */
 export type JobLedgerMark = { glyph: ReactNode; says: string };
