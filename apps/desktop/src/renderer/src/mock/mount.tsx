@@ -13,7 +13,8 @@ import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { DraftedFrom } from "../drafted";
-import { fakeBridge, liveDraft } from "./fake";
+import { SessionsFrom } from "../sessions-draft";
+import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import type { Scenario } from "./scenario";
@@ -92,7 +93,9 @@ export function mountApp(
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+          <SessionsFrom held={heldSessions(api)}>
+            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+          </SessionsFrom>
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

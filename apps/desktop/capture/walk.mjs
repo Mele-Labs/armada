@@ -30,13 +30,14 @@ const DWELL_MS = 2_500;
 /** Longer than the walk's own five seconds for a target, so the walk is what says it stopped. */
 const STEP_TIMEOUT_MS = 30_000;
 
-const USAGE = "usage: pnpm -C apps/desktop walk <name> [--video] [--size 1440x900] [--url http://localhost:<port>]";
+const USAGE = "usage: pnpm -C apps/desktop walk <name> [--video] [--narrow] [--size 1440x900] [--url http://localhost:<port>]";
 
 function parse(argv) {
   const asked = { name: undefined, video: false, size: { width: 1440, height: 900 }, url: undefined };
   for (let at = 0; at < argv.length; at += 1) {
     const one = argv[at];
     if (one === "--video") asked.video = true;
+    else if (one === "--narrow") asked.narrow = true;
     else if (one === "--url") asked.url = argv[(at += 1)];
     else if (one === "--size") {
       const match = /^(\d+)x(\d+)$/.exec(argv[(at += 1)] ?? "");
@@ -46,6 +47,11 @@ function parse(argv) {
     else asked.name = one;
   }
   if (asked.name === undefined) throw new Error(USAGE);
+  // A walk told below the layout breakpoint is its own walk, `<name>-narrow`, in its own window.
+  if (asked.narrow) {
+    asked.name = `${asked.name}-narrow`;
+    if (!argv.includes("--size")) asked.size = { width: 900, height: 900 };
+  }
   return asked;
 }
 

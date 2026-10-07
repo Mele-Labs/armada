@@ -1,0 +1,128 @@
+/* A Session's ledger: a sunken column of sections, each an eyebrow over rows.
+   A section with nothing in it is dim, its heading at --fg-subtle over an
+   empty dashed well; its first row replaces the well in place. A row that has
+   just arrived steps down from the running tint, as a Job row's recent tint
+   does. Every row is one press, with a pointer and a hover. */
+
+.armada-session-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--w-dock);
+  min-height: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: auto;
+}
+
+.armada-session-ledger__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-ledger__eyebrow {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-ledger__group[data-empty] .armada-session-ledger__eyebrow {
+  color: var(--fg-subtle);
+}
+
+.armada-session-ledger__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The well: nothing in it, and a row's height so nothing moves when one lands. */
+.armada-session-ledger__group[data-empty] .armada-session-ledger__rows {
+  min-height: var(--h-row);
+  border: var(--border-width) dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.armada-session-ledger__row {
+  display: flex;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  animation: armada-session-arrive var(--duration-decay) var(--ease);
+}
+
+.armada-session-ledger__row:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+@keyframes armada-session-arrive {
+  from {
+    background-color: color-mix(in srgb, var(--status-running) var(--row-tint-recent), transparent);
+  }
+}
+
+.armada-session-ledger__open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-ledger__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-ledger__text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the ledger opens beside it: a pull request with its acts, or a sketch. */
+.armada-session-reading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+/* Folded into a sheet below the breakpoint: the sheet gives the width. */
+.armada-session-ledger[data-folded] {
+  width: auto;
+  min-height: 100%;
+  border-radius: 0;
+}
+
+/* A row that carries its own acts, as a piloted Job's three exits, wraps them under it. */
+.armada-session-ledger__row {
+  flex-wrap: wrap;
+}
+
+.armada-session-ledger__row > .armada-pilot-exits {
+  flex-basis: 100%;
+  padding: 0 var(--space-3) var(--space-2);
+}

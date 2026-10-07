@@ -364,3 +364,37 @@ async fn a_job_at_its_own_cap_starts_nothing_beside_its_kept_drone() {
         [TaskState::Working, TaskState::Open, TaskState::Open]
     );
 }
+
+/// A Drone beside the kept one asks for the step's Checks: the result is told
+/// to it, on its own slot, and the log says so. The run is spawned, and a
+/// task-local does not cross a spawn, so what it ended on was the kept Drone's.
+#[tokio::test]
+async fn a_run_a_crew_drone_asked_for_is_told_to_that_drone() {
+    use ipc::mcp::ChecksAsk;
+    let home = TempDir::new();
+    let (fleet, job) = at_implement(&home, FakeHarness::that_listens(), None).await;
+    let fleet = std::sync::Arc::new(fleet);
+    let extra = beside(&fleet, &job).pop().expect("T2's Drone");
+
+    let running = as_caller(
+        Some(extra.clone()),
+        fleet.run_checks(&job, ChecksAsk::everything(false)),
+    )
+    .await
+    .expect("the run starts");
+    let told = tokio::time::timeout(std::time::Duration::from_secs(10), running.finished())
+        .await
+        .expect("the run ends");
+    assert!(told.is_some(), "the result was never told to T2's Drone");
+
+    let handle = fleet.name_of(&job).expect("the Job has a handle");
+    let log = std::fs::read_to_string(crate::transcript::log_of(
+        &home.path().to_string_lossy(),
+        &handle,
+    ))
+    .expect("the Job's own log");
+    assert!(
+        log.contains("the Drone asked for the step's checks and they were run"),
+        "{log}"
+    );
+}

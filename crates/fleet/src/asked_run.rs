@@ -681,12 +681,17 @@ where
         self.noted_asked_started(&plan, &read, &named);
         let asked = self.asked_begins(&plan, &read, named, &began).await;
         let read_attempt = read.attempt;
+        // A task-local does not cross `tokio::spawn`: each task below is put
+        // back under this Drone, or `slot_of` takes the kept Drone's slot and
+        // the result is told to nobody.
+        let crew = crate::crew::calling();
         let fleet = Arc::clone(self);
         let caller = caller.clone();
         let plan = Arc::new(plan);
         let task = {
             let (fleet, caller, plan) = (Arc::clone(&fleet), caller.clone(), Arc::clone(&plan));
-            tokio::spawn(async move {
+            let crew = crew.clone();
+            tokio::spawn(crate::crew::as_caller(crew, async move {
                 let (heard, hearing) = tokio::sync::mpsc::unbounded_channel();
                 // A narrowed run's durations are its narrower commands', not the Checks'.
                 let showing = fleet.announcing_asked_run(
@@ -732,41 +737,44 @@ where
                             .await
                     }
                 }
-            })
+            }))
         };
         // **The mark's life is the run's.** A task that panics or is aborted
         // never reaches `asked_run_ends`, and nothing else would take the mark
         // off or tell the Drone: a part left "already running" for good.
-        Ok(ChecksRunning(tokio::spawn(async move {
-            match task.await {
-                Ok(ended) => ended,
-                Err(lost) => {
-                    let cause = ChecksReported::lost(lost.is_panic()).text().to_string();
-                    let said = ChecksReported::lost(lost.is_panic());
-                    let (heard, _) = tokio::sync::mpsc::unbounded_channel();
-                    let showing = fleet.announcing_asked_run(
-                        &plan.record,
-                        &plan.step,
-                        read_attempt,
-                        heard,
-                        false,
-                        plan.requester(),
-                    );
-                    fleet
-                        .asked_run_ends(
-                            &caller,
-                            &plan,
-                            run,
-                            Err(cause),
-                            showing,
-                            Some(said),
-                            asked,
-                            asked::Ending::Lost,
-                        )
-                        .await
+        Ok(ChecksRunning(tokio::spawn(crate::crew::as_caller(
+            crew,
+            async move {
+                match task.await {
+                    Ok(ended) => ended,
+                    Err(lost) => {
+                        let cause = ChecksReported::lost(lost.is_panic()).text().to_string();
+                        let said = ChecksReported::lost(lost.is_panic());
+                        let (heard, _) = tokio::sync::mpsc::unbounded_channel();
+                        let showing = fleet.announcing_asked_run(
+                            &plan.record,
+                            &plan.step,
+                            read_attempt,
+                            heard,
+                            false,
+                            plan.requester(),
+                        );
+                        fleet
+                            .asked_run_ends(
+                                &caller,
+                                &plan,
+                                run,
+                                Err(cause),
+                                showing,
+                                Some(said),
+                                asked,
+                                asked::Ending::Lost,
+                            )
+                            .await
+                    }
                 }
-            }
-        })))
+            },
+        ))))
     }
 
     /// Take the mark off, give the clocks back and tell the Drone — **only where
