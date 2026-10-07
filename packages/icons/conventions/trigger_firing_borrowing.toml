@@ -1,0 +1,7 @@
+[conventions.trigger_firing_borrowing]
+  glyphs = ["circle-dashed", "circle-dot", "eye", "check", "x", "minus"]
+  means = "A Trigger's firing state on a Job, borrowed from the step set"
+  group = "Trigger"
+  size = "12px"
+  status = "Specified"
+  notes = "A Trigger firing answers the question a step does one level down, so it takes the step glyphs rather than a second silhouette for one meaning: `circle-dashed` pending, `circle-dot` running (the inner dot pulses, nothing else moves), `check` passed, `x` failed, `eye` awaiting_owner. `eye` is the step's waiting glyph and the verb is waiting on you: a destructive Command is not run until he says so, and the Job carries on, so it is not the Job's own needs you. `minus` is skipped and carries its own usage row. Each mark has a tooltip naming the state, and skipped's carries the reason Fleet gave."

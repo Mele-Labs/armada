@@ -26,6 +26,8 @@ import type { ChecksUnderway } from "./underway";
 import type { QuestionInFlight } from "./waiting";
 import type { CommandInFlight } from "./commanding";
 import type { ProtocolVersion } from "./version";
+import type { JobAdditionChanged } from "./added-steps";
+import type { JobTriggerChanged } from "./triggers";
 import type { JobPlanChanged } from "./work-plan";
 
 /** One message from Fleet to a connected client. `crates/ipc/src/event.rs`. */
@@ -72,6 +74,9 @@ export type Event =
   | ({ kind: "job.resumed" } & JobResumed)
   /** A Job's plan was recorded or a task changed. Since 13.21. */
   | ({ kind: "job.plan_changed" } & JobPlanChanged)
+  /** One of a Job's Triggers moved, the row whole. Since 23.58. */
+  | ({ kind: "job.trigger_changed" } & JobTriggerChanged)
+  | ({ kind: "job.addition_changed" } & JobAdditionChanged)
   | ({ kind: "proposal.moved" } & ProposalMoved)
   | ({ kind: "manifest.reread" } & ManifestReading)
   /** The repositories Fleet serves changed; the list now, whole, as `list_repositories` answers. */

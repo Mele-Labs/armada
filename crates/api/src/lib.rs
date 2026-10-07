@@ -27,6 +27,7 @@
 /// A form's edits to `armada.yml`, as edits rather than as a file.
 /// Which door a request came through, named before a handler sees it.
 mod acting;
+mod added_steps;
 mod amending;
 mod answers;
 /// The four reads that narrow the Board rather than drawing it.

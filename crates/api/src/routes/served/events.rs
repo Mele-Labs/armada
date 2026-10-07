@@ -105,6 +105,18 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // One of a Job's Triggers moved, carried whole. Since 23.57.
+    Route {
+        operation: "job.trigger_changed",
+        method: "GET",
+        path: "/events",
+    },
+    // One of a Job's added steps moved, carried whole. Since 23.59.
+    Route {
+        operation: "job.addition_changed",
+        method: "GET",
+        path: "/events",
+    },
     // The one kind on this stream that names no Job. A proposal is the interval
     // before any exists, which is why it carries an id of its own.
     Route {

@@ -38,6 +38,8 @@ import { RehearsalConnection } from "./rehearsal";
 import { ManifestFileCommands } from "./editing";
 import { PlanEdits } from "./plan-edits";
 import { KitCommands } from "./kit";
+import { AddedStepCommands } from "./added-steps";
+import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { RepositoryReads } from "./repositories";
@@ -105,9 +107,12 @@ export class FleetConnection {
       repositoryAllows: RepositoryAllowsCommands;
       kit: KitCommands;
       workflows: WorkflowCommands;
+      triggers: TriggerCommands;
       overview: OverviewReads;
     }
   >();
+  /** Steps added to one Job — see `added-steps.ts`. Keyed by Job, so no window has its own. */
+  readonly addedSteps = new AddedStepCommands((): number | null => this.connected()?.port ?? null);
   /** A person's own add or drop of a task — see `plan-edits.ts`. */
   readonly planEdits: PlanEdits;
   /** What Fleet serves and which repository each window picked — see `repositories.ts`. */
@@ -331,6 +336,11 @@ export class FleetConnection {
     return this.facadesFor(windowId).workflows;
   }
 
+  /** This window's own Trigger reads and saves — see `windowFacades`. */
+  triggersFor(windowId: number): TriggerCommands {
+    return this.facadesFor(windowId).triggers;
+  }
+
   /** This window's own Overview reads — see `windowFacades`. */
   overviewFor(windowId: number): OverviewReads {
     return this.facadesFor(windowId).overview;
@@ -343,6 +353,7 @@ export class FleetConnection {
     repositoryAllows: RepositoryAllowsCommands;
     kit: KitCommands;
     workflows: WorkflowCommands;
+    triggers: TriggerCommands;
     overview: OverviewReads;
   } {
     let found = this.windowFacades.get(windowId);
@@ -354,6 +365,7 @@ export class FleetConnection {
         repositoryAllows: new RepositoryAllowsCommands(port, picked),
         kit: new KitCommands(port, picked),
         workflows: new WorkflowCommands(port, picked),
+        triggers: new TriggerCommands(port, picked),
         overview: new OverviewReads({
           publish: (change) => this.wiring.publishToWindow(windowId, change),
           picked,

@@ -135,6 +135,16 @@ import type {
   WorkflowSaveAnswer,
   WorkflowsRead,
 } from "./workflows";
+import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "./added-steps";
+import type {
+  ReadingTrigger,
+  RemovingTrigger,
+  SavingTrigger,
+  TriggerDefinitionRead,
+  TriggerRemoveAnswer,
+  TriggerSaveAnswer,
+  TriggersRead,
+} from "./triggers";
 import type {
   LocateAnswer,
 } from "@armada/screens/src/locate-reads";
@@ -321,6 +331,12 @@ type OldBridgeApi = {
     readWorkflows: () => Promise<WorkflowsRead>;
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
+    readTriggers: () => Promise<TriggersRead>;
+    readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
+    saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
+    removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
+    addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
+    removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -563,6 +579,12 @@ const OLD_CHANNELS = {
     readWorkflows: "bridge:read-workflows",
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
+    readTriggers: "bridge:read-triggers",
+    readTrigger: "bridge:read-trigger",
+    saveTrigger: "bridge:save-trigger",
+    removeTrigger: "bridge:remove-trigger",
+    addJobStep: "bridge:add-job-step",
+    removeJobStep: "bridge:remove-job-step",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",

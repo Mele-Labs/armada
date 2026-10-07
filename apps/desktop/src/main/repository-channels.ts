@@ -3,6 +3,8 @@
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
 import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
+import type { AddingStep, RemovingStep } from "../shared/added-steps";
 import type { SavingWorkflow } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 
@@ -101,4 +103,18 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   ipc.handle(CHANNELS.saveWorkflow, (event, saving: SavingWorkflow) =>
     connection()?.workflowsFor(windowIdOf(event)).save(saving.manifestId, saving.body),
   );
+  // Triggers: the list, one definition, a save and a removal.
+  ipc.handle(CHANNELS.readTriggers, (event) => connection()?.triggersFor(windowIdOf(event)).list());
+  ipc.handle(CHANNELS.readTrigger, (event, reading: ReadingTrigger) =>
+    connection()?.triggersFor(windowIdOf(event)).definition(reading),
+  );
+  ipc.handle(CHANNELS.saveTrigger, (event, saving: SavingTrigger) =>
+    connection()?.triggersFor(windowIdOf(event)).save(saving),
+  );
+  ipc.handle(CHANNELS.removeTrigger, (event, removing: RemovingTrigger) =>
+    connection()?.triggersFor(windowIdOf(event)).remove(removing),
+  );
+  // Steps added to one Job: keyed by the Job, so neither goes through the pick.
+  ipc.handle(CHANNELS.addJobStep, (_event, adding: AddingStep) => connection()?.addedSteps.add(adding));
+  ipc.handle(CHANNELS.removeJobStep, (_event, removing: RemovingStep) => connection()?.addedSteps.remove(removing));
 }

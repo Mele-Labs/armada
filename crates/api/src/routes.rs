@@ -134,6 +134,27 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::save_workflow::<D>),
         )
         .route(
+            "/jobs/:job_id/add_job_step",
+            post(crate::added_steps::add_job_step::<D>),
+        )
+        .route(
+            "/jobs/:job_id/remove_job_step",
+            post(crate::added_steps::remove_job_step::<D>),
+        )
+        .route("/triggers", get(crate::repositories::list_triggers::<D>))
+        .route(
+            "/triggers/definition",
+            get(crate::repositories::get_trigger::<D>),
+        )
+        .route(
+            "/triggers/save",
+            post(crate::repositories::save_trigger::<D>),
+        )
+        .route(
+            "/triggers/remove",
+            post(crate::repositories::remove_trigger::<D>),
+        )
+        .route(
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )

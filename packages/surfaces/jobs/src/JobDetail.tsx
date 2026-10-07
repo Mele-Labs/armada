@@ -32,7 +32,7 @@ import {
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
-import type { FollowedLog, JobDetail as JobWhole, ToProposer } from "@armada/protocol";
+import type { FollowedLog, JobDetail as JobWhole, JobTrigger, ToProposer } from "@armada/protocol";
 import { openArtifact } from "@armada/screens/src/opening";
 import { ManifestChecks } from "./ManifestChecks";
 import { OverviewTab } from "./tab-overview";
@@ -54,6 +54,7 @@ import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
 import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
+import { TriggerLogSheet } from "./trigger-log-sheet";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
 /** What `followed` reads as where the caller hands none in. `tab-overview.tsx`'s own. */
@@ -257,6 +258,8 @@ function OneJob(props: JobDetailProps) {
   // them is under**, so one press opens one panel whichever drew the strip,
   // and another Job opens with none.
   const [checkLog, setCheckLog] = useState<JobCheckLog | null>(null);
+  // The Trigger whose line in the Job's log is open.
+  const [triggerLog, setTriggerLog] = useState<JobTrigger | null>(null);
   // Whether this Job's retro is open over the Record. `docs/concepts/retro.md`.
   const [retroOpen, setRetroOpen] = useState(false);
   useEffect(() => setCheckLog(null), [job.id]);
@@ -458,6 +461,7 @@ function OneJob(props: JobDetailProps) {
             setTab("record");
           }}
           onOpenCheckLog={setCheckLog}
+          onOpenTriggerLog={setTriggerLog}
           {...(props.onOpenMainLog === undefined ? {} : { onOpenMainLog: props.onOpenMainLog })}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
@@ -769,6 +773,9 @@ function OneJob(props: JobDetailProps) {
           floor={floor}
           onClose={() => setCheckLog(null)}
         />
+      )}
+      {triggerLog === null ? null : (
+        <TriggerLogSheet trigger={triggerLog} jobId={job.id} journalled={props.journalled} floor={floor} onClose={() => setTriggerLog(null)} />
       )}
       {retroOpen ? (
         <JobRetroSheet

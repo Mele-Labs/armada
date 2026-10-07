@@ -4,4 +4,8 @@ import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { job2AtReview } from "@armada/jobs/fake";
 
-export const s020JobTwoAtReview: Scenario = holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id });
+const held = holding("real/job-2-at-review", job2AtReview().name, [job2AtReview()], { opens: job2AtReview().job.id });
+
+// The Job's own log is on a socket of its own, which the mock holds as published state: it is what
+// the Triggers' lines are found in.
+export const s020JobTwoAtReview: Scenario = { ...held, state: { ...held.state, journalled: job2AtReview().journalled } };

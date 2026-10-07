@@ -1105,6 +1105,7 @@ export function App({ draft }: AppProps = {}) {
                   live={live}
                   health={state.health}
                   onSave={commands.saveLimits}
+                  preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
                 />
               </Boundary>

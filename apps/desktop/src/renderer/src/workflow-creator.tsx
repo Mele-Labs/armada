@@ -9,13 +9,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { entriesOf, readDefinition, WORKFLOW_KIT, WorkflowCreator, writeDefinition } from "@armada/components";
-import type { WorkflowDefinitionDraft, WorkflowEntry, WorkflowRead, WorkflowSavedAnswer } from "@armada/components";
+import type {
+  TriggerOpened,
+  TriggerRemovedAnswer,
+  TriggersBinding,
+  TriggerSavedAnswer,
+  WorkflowDefinitionDraft,
+  WorkflowEntry,
+  WorkflowRead,
+  WorkflowSavedAnswer,
+} from "@armada/components";
+import type { TriggerSummary } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 import { said } from "@armada/screens/src/copy";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { askHelm, readWorkflowDefinition, readWorkflows, saveWorkflow } from "./commands";
+import {
+  askHelm,
+  readManifestFile,
+  readTrigger,
+  readTriggers,
+  readWorkflowDefinition,
+  readWorkflows,
+  removeTrigger,
+  saveTrigger,
+  saveWorkflow,
+} from "./commands";
 import { contextOf } from "@armada/helm";
 
 /** The rail mark on Workflows while Fleet has left a file out: a file that cannot run is not something to find by opening the surface. */
@@ -61,6 +81,21 @@ function Held({ current, manifests }: { current: string; manifests: { id: string
     void reread();
   }, [reread]);
 
+  // What Fleet runs at each moment, and the Commands the repository declares for a Trigger to name.
+  const [triggered, setTriggered] = useState<TriggerSummary[]>([]);
+  const [commands, setCommands] = useState<string[]>([]);
+  const rereadTriggers = useCallback(async () => {
+    const answer = await readTriggers();
+    if (answer.ok) setTriggered(answer.triggers);
+  }, []);
+  useEffect(() => {
+    void rereadTriggers();
+    void readManifestFile().then((answer) => {
+      if (!answer.ok) return;
+      setCommands((answer.file.declared?.commands ?? []).filter((one) => one.command.serve === undefined).map((one) => one.name));
+    });
+  }, [rereadTriggers]);
+
   const entries = useMemo(() => (read?.ok === true ? entriesOf(read.workflows, read.leftOut) : []), [read]);
 
   const onRead = useCallback(
@@ -96,8 +131,38 @@ function Held({ current, manifests }: { current: string; manifests: { id: string
     [reread],
   );
 
+  const binding: TriggersBinding = {
+    triggers: triggered,
+    commands,
+    onOpen: async (identity, level): Promise<TriggerOpened> => {
+      const answer = await readTrigger({ identity, ...(level === undefined ? {} : { level }) });
+      return answer.ok ? { ok: true, definition: answer.definition } : { ok: false, said: said(answer.outcome) };
+    },
+    onSave: async (scope, definition, overwrite): Promise<TriggerSavedAnswer> => {
+      const answer = await saveTrigger({ manifestId: null, body: { scope, definition, ...(overwrite ? { overwrite: true } : {}) } });
+      if (answer.ok) {
+        await rereadTriggers();
+        return { ok: true, saved: answer.saved };
+      }
+      const { outcome } = answer;
+      if (outcome.ok === false && outcome.why === "refused") {
+        return { ok: false, said: outcome.error.message, ...(outcome.error.code === "fleet.trigger_exists" ? { exists: true as const } : {}) };
+      }
+      return { ok: false, said: said(outcome) };
+    },
+    onRemove: async (scope, identity): Promise<TriggerRemovedAnswer> => {
+      const answer = await removeTrigger({ manifestId: null, body: { scope, ...identity } });
+      if (answer.ok) {
+        await rereadTriggers();
+        return { ok: true, removed: answer.removed };
+      }
+      return { ok: false, said: said(answer.outcome) };
+    },
+  };
+
   return (
     <WorkflowCreator
+      triggers={binding}
       repository={current}
       manifests={manifests}
       entries={entries}
