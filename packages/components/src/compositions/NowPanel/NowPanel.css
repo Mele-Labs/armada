@@ -1,0 +1,175 @@
+/* A Job's Now panel: a head band over sections, each a coloured band over
+   mono rows. State is carried by the frame: asks in the escalated hue, issues
+   in the failure hue, running in the running hue. A section is drawn only once
+   it holds a row, so an idle Job is the head alone. */
+
+.armada-now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--w-dock);
+  min-width: 0;
+  min-height: 0;
+  align-self: start;
+}
+
+.armada-now__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-now__title {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-now__group {
+  --now-hue: var(--status-running);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--now-hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--now-hue) var(--row-tint), var(--bg-raised));
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-now__group[data-tone="asks"] {
+  --now-hue: var(--status-escalated);
+}
+
+.armada-now__group[data-tone="issues"] {
+  --now-hue: var(--status-completed-failed);
+}
+
+.armada-now__band {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--now-hue);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-now__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-now__row,
+.armada-now__ask {
+  min-width: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-now__rows > :first-child {
+  border-top: none;
+}
+
+.armada-now__row:hover {
+  background: var(--bg-hover);
+}
+
+.armada-now__open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-now__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-now__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-now__line {
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+}
+
+.armada-now__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-now__mark[data-tone="asks"] {
+  color: var(--status-escalated);
+}
+
+.armada-now__mark[data-tone="issues"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-now__mark[data-state="running"] {
+  color: var(--status-running);
+}
+
+.armada-now__mark[data-state="passed"] {
+  color: var(--step-advanced);
+}
+
+.armada-now__mark[data-state="failed"] {
+  color: var(--step-failed);
+}
+
+/* The running mark breathes as Badge's does: only the inner dot moves. */
+.armada-now__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-now__mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}
+
+/* A Plan decision: the question over its radios, and the one act under them. */
+.armada-now__ask {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}

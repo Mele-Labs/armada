@@ -21,15 +21,17 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  NowPanel,
   PlanGroupStateMark,
   Prose,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowPanelProps, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
-import type { ReactNode } from "react";
+import { PanelRightOpen } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
 import { JobLead, type JobLeadProps } from "./JobLead";
@@ -122,7 +124,35 @@ export type OverviewBoardProps = {
    */
   reading?: boolean;
   onOpenTab: (tab: DetailTab) => void;
+  /**
+   * What the Now panel beside the canvas draws: what the Job asks, what is
+   * wrong, and what is running. **Absent draws no panel.** The panel hides from
+   * its own head and shows again from a button beside the cards.
+   */
+  now?: Omit<NowPanelProps, "onHide">;
 };
+
+/** Whether the Now panel is hidden, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
+function useNowHidden(): [boolean, (hidden: boolean) => void] {
+  const [hidden, set] = useState(() => {
+    try {
+      return localStorage.getItem("armada.job-now.hidden") === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    hidden,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem("armada.job-now.hidden", next ? "1" : "0");
+      } catch {
+        // Not kept: the panel is as it was left until the window closes.
+      }
+    },
+  ];
+}
 
 export function OverviewBoard({
   lead,
@@ -142,10 +172,11 @@ export function OverviewBoard({
   settings,
   reading = false,
   onOpenTab,
+  now,
 }: OverviewBoardProps) {
-  return (
-    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
-      <JobLead {...lead} waiting={waiting} />
+  const [hidden, hide] = useNowHidden();
+  const main = (
+    <>
       {approving}
       {approving === undefined ? run : null}
 
@@ -310,6 +341,27 @@ export function OverviewBoard({
         </>
         )}
       </div>
+    </>
+  );
+  return (
+    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
+      <JobLead {...lead} waiting={waiting} />
+      {now === undefined ? (
+        main
+      ) : (
+        <div className="armada-overview-board__with-now">
+          <div className="armada-overview-board__main">{main}</div>
+          {hidden ? (
+            <Tooltip label="Show now">
+              <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
+                <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          ) : (
+            <NowPanel {...now} onHide={() => hide(true)} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

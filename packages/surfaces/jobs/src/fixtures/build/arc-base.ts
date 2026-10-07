@@ -45,6 +45,7 @@ import type {
   TaskView,
   WaveView,
 } from "../../draft";
+import type { NowView } from "../../draft/now";
 import type { MergeLineView } from "@armada/screens/src/merge-line";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -120,6 +121,8 @@ export type ArcDraft = {
   members?: JobMembersView;
   /** The wave this Job dispatched, and which of its Jobs waits on which. */
   wave?: WaveView;
+  /** What the Now panel draws, by Job id. */
+  now?: Readonly<Record<string, NowView>>;
   /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
   mergeLine?: MergeLineView;
   /** What the Dashboard's calls carry beyond the Board, by Job id. */
