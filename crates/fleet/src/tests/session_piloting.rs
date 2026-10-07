@@ -180,6 +180,39 @@ async fn a_session_started_on_a_job_holds_its_worktree_with_the_handoff_first() 
 }
 
 #[tokio::test]
+async fn the_jobs_detail_carries_its_pilot_beside_the_boards_row() {
+    let rig = rig();
+    let job = rig.escalated().await;
+    let id = rig.pilot(&job).await.unwrap().id;
+
+    let piloted = rig
+        .fleet
+        .job_detail(ipc::JobId::from(&job))
+        .await
+        .expect("a detail")
+        .job
+        .piloted
+        .expect("the detail's own row says who is piloting");
+    assert_eq!(piloted.session_id.as_deref(), Some(id.as_str()));
+    assert_eq!(piloted.exit, None);
+
+    rig.fleet
+        .close_as_superseded(&job, Some("landed by hand"))
+        .await
+        .expect("closed");
+    let ended = rig
+        .fleet
+        .job_detail(ipc::JobId::from(&job))
+        .await
+        .unwrap()
+        .job
+        .piloted
+        .expect("and still says so once it ended, since that is how an attestation is told from a pass");
+    assert_eq!(ended.exit.as_deref(), Some("superseded"));
+    assert_eq!(ended.note.as_deref(), Some("landed by hand"));
+}
+
+#[tokio::test]
 async fn the_first_message_starts_the_agent_in_the_worktree_with_the_bundle_ahead_of_it() {
     let rig = rig();
     let job = rig.escalated().await;
