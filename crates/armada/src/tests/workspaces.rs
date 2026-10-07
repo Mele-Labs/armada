@@ -1,14 +1,12 @@
-//! `armada covers`, `armada check <dir>:<name>` and the merge line's setup,
+//! `armada covers` and `armada check <dir>:<name>`,
 //! over a scratch repository holding a root and workspaces `lib`, `a`, `b`
 //! (`a` and `b` depend on `lib`).
 
-use std::os::unix::fs::PermissionsExt as _;
 use std::time::Duration;
 
 use checks_runner::Priority;
 
 use crate::declared::{covering, execute, Asked, Reached, Registry};
-use crate::land::Env;
 use crate::tests::TempDir;
 
 const BUDGET: Duration = Duration::from_secs(30);
@@ -183,40 +181,4 @@ async fn a_key_for_a_workspace_that_is_not_there_is_not_declared() {
     .expect_err("no such workspace")
     .to_string();
     assert!(refused.contains("nope:test"), "{refused}");
-}
-
-/// The merge line's setup: the root's names once, then each gating workspace's
-/// own. A root Command a workspace names runs in the root, and not twice.
-#[test]
-fn the_merge_line_sets_up_the_root_once_then_each_gating_workspace() {
-    let dir = a_repository();
-    let log = dir.path().join("calls.log");
-    dir.write(
-        "stub",
-        &format!(
-            "#!/bin/sh\necho \"$PWD $*\" >> {}\n",
-            log.to_str().expect("a UTF-8 path")
-        ),
-    );
-    let stub = dir.path().join("stub");
-    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-    let logs = TempDir::new();
-
-    let mut env = Env::read();
-    env.armada = stub.to_str().expect("a UTF-8 path").to_string();
-    env.setup = vec!["bootstrap".to_string()];
-    let keys: Vec<String> = ["a:test", "a:lint", "b:lint"].map(String::from).to_vec();
-    crate::land::prepare::setup_for(dir.path(), &env, logs.path(), &keys).expect("sets up");
-
-    let root = dir.path().display();
-    let calls = std::fs::read_to_string(&log).expect("the stub ran");
-    assert_eq!(
-        calls.lines().collect::<Vec<_>>(),
-        [
-            format!("{root} run bootstrap"),
-            format!("{root} run a:gen"),
-            format!("{root} run rooted"),
-        ],
-        "b declares no setup, and the root's bootstrap is not run twice"
-    );
 }

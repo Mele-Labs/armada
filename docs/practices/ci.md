@@ -107,7 +107,7 @@ HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ─�
 HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
 ```
 
-**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, kept in step by hand with `crates/armada/src/land/gate.rs`, and its tests run in the job first.
+**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
 
 | Read | Why |
 |---|---|
@@ -191,7 +191,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
-| Retire `armada land` | `crates/armada/src/land/` |
 
 ## What `foundations` measured and what it did not
 

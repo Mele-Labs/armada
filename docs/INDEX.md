@@ -132,7 +132,7 @@ approximations.
   indexed in its own `INDEX.md`. The roadmap itself is GitHub issues; these hold
   the reasoning an issue body buries when it closes.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
-    turns onto `main`, `scripts/land` (being retired for pull requests and CI),
+    turns onto `main`, 
     `armada need` (numbers land in the order they were declared), and where each
     part goes in Fleet.
   - [`capabilities/needs.md`](capabilities/needs.md) — a Job or a Session says what
