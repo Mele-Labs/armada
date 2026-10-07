@@ -18,7 +18,7 @@
 // which is why that file already re-exports `ConfirmableAct`, `FoldedReads`
 // and `Render` from their own modules.
 
-import type { FiredHook } from "@armada/components";
+import type { FiredTrigger } from "@armada/components";
 
 import type { DetailTab } from "./detail-tabs";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
@@ -87,8 +87,8 @@ export type JobOpening = {
 
 export type JobDetailProps = {
   job: JobSummary;
-  /** Hooks that fired in this Job. A mock: nothing on the wire carries them. Absent draws no card. */
-  firedHooks?: readonly FiredHook[];
+  /** Triggers that fired in this Job. A mock: nothing on the wire carries them. Absent draws no card. */
+  firedTriggers?: readonly FiredTrigger[];
   /** Where to open, for the Job this names. Absent opens on the first tab, as a Board row does. */
   opening?: JobOpening;
   /** Told the tab on show and at every change, so a caller can put a person back on it. */

@@ -1,6 +1,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
 
@@ -72,6 +73,13 @@ export type DropdownMenuProps = {
    * a trigger with no label, and `aria-haspopup` says it opens a menu.
    */
   icon?: LucideIcon;
+  /**
+   * Draw the panel in a layer of its own on the page, over everything, placed
+   * from the trigger's box. For a menu whose trigger sits inside something
+   * that makes its own stacking context — a node on a canvas — where the panel
+   * would otherwise open behind the next node.
+   */
+  portal?: boolean;
 };
 
 export function DropdownMenu({
@@ -85,6 +93,7 @@ export function DropdownMenu({
   disabled = false,
   onSelect,
   icon: Glyph,
+  portal = false,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -118,6 +127,23 @@ export function DropdownMenu({
     layer.dataset.aligns = Math.abs(at.right - from.right) <= Math.abs(at.left - from.left) ? "end" : "start";
   }, [shown]);
 
+  // A portalled panel has no anchor to take its place from, so it is set from the trigger's box:
+  // below it with the trailing edges flush, above it where there is no room below.
+  useLayoutEffect(() => {
+    const layer = panel.current;
+    const anchor = trigger.current;
+    if (!portal || !shown || layer === null || anchor === null) return;
+    const from = anchor.getBoundingClientRect();
+    const own = layer.getBoundingClientRect();
+    const gap = 4;
+    const left = Math.max(gap, Math.min(from.right - own.width, window.innerWidth - own.width - gap));
+    const below = from.bottom + gap;
+    layer.style.left = `${left}px`;
+    layer.style.top = `${below + own.height > window.innerHeight ? Math.max(gap, from.top - gap - own.height) : below}px`;
+  }, [shown, portal]);
+
+  const layered = (node: ReactNode): ReactNode => (portal ? createPortal(node, document.body) : node);
+
   // **Focus goes into the menu as it opens**, onto its first item, so the
   // arrows and Enter work however it was opened — a press, or a key that is not
   // the trigger's, which left focus where it was (Run's `R`, the owner, 2 Oct
@@ -136,7 +162,8 @@ export function DropdownMenu({
       close.current(false);
     }
     function onDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) close.current(false);
+      const hit = event.target as Node;
+      if (!root.current?.contains(hit) && panel.current?.contains(hit) !== true) close.current(false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -185,8 +212,8 @@ export function DropdownMenu({
       )}
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
-      {shown ? (
-        <div ref={panel} className="armada-dropdown-menu__panel" role="menu" onKeyDown={moveFocus}>
+      {shown ? layered(
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || undefined} role="menu" onKeyDown={moveFocus}>
           {entries.map((entry) => {
             if (entry.kind === "separator") {
               return <div key={entry.id} className="armada-dropdown-menu__separator" role="separator" />;

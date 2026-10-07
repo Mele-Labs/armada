@@ -16,7 +16,7 @@ import {
   Button,
   DestinationCard,
   FigureList,
-  FiredHooks,
+  FiredTriggers,
   GroupShape,
   GUIDE_PLAN,
   GUIDE_PULSE,
@@ -28,7 +28,7 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { FiredHook, Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { FiredTrigger, Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import type { ReactNode } from "react";
 
@@ -98,8 +98,8 @@ export type OverviewBoardProps = {
    */
   run?: ReactNode;
   workflow?: OverviewWorkflow;
-  /** Hooks that fired in this Job, a mock. Absent draws no card. */
-  firedHooks?: readonly FiredHook[];
+  /** Triggers that fired in this Job, a mock. Absent draws no card. */
+  firedTriggers?: readonly FiredTrigger[];
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
   plan?: OverviewPlan;
@@ -133,7 +133,7 @@ export function OverviewBoard({
   approving,
   run,
   workflow,
-  firedHooks,
+  firedTriggers,
   workflowAbsent,
   plan,
   planAbsent,
@@ -152,9 +152,9 @@ export function OverviewBoard({
       <JobLead {...lead} waiting={waiting} />
       {approving}
       {approving === undefined ? run : null}
-      {firedHooks === undefined ? null : (
-        <DestinationCard label="Hooks">
-          <FiredHooks hooks={firedHooks} />
+      {firedTriggers === undefined ? null : (
+        <DestinationCard label="Triggers">
+          <FiredTriggers triggers={firedTriggers} />
         </DestinationCard>
       )}
 

@@ -34,16 +34,16 @@ import {
   type Step,
 } from "./def";
 import { writeDefinition } from "./json";
-import { HookFields, HookRows } from "../WorkflowHooks/WorkflowHooks";
+import { TriggerFields, TriggerRows } from "../WorkflowTriggers/WorkflowTriggers";
 import {
   DELIVERING,
   EVERY,
-  useHooks,
-  resolveHooks,
-  type ResolvedHook,
-  type Hook,
-  type HookWhen,
-} from "../WorkflowHooks/hooks";
+  useTriggers,
+  resolveTriggers,
+  type ResolvedTrigger,
+  type Trigger,
+  type TriggerWhen,
+} from "../WorkflowTriggers/triggers";
 
 /**
  * The Workflow creator: the workflows Fleet resolved for this repository as a
@@ -128,7 +128,7 @@ export function bandOf(step: Step, refused: boolean): WorkflowStepBand {
 }
 
 /** What the step is, a labelled line each: its evidence, then every way it advances. */
-export function detailsOf(step: Step, hooks: readonly ResolvedHook[] = []): WorkflowStepDetail[] {
+export function detailsOf(step: Step, triggers: readonly ResolvedTrigger[] = []): WorkflowStepDetail[] {
   const g = step.gate;
   const rows: WorkflowStepDetail[] = step.evidence === "" ? [] : [{ icon: FileCheck, label: "Evidence", value: step.evidence }];
   if (g.repository) rows.push({ icon: GATE.repository.icon, label: GATE.repository.said });
@@ -138,14 +138,14 @@ export function detailsOf(step: Step, hooks: readonly ResolvedHook[] = []): Work
     if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
     if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
   }
-  // Hooks fire at a moment, so each is a line of its own after how the step advances.
-  const fires = (when: HookWhen, label: string) => {
-    const named = hooks.filter((one) => one.overriddenBy === undefined && one.when === when).map((one) => one.name);
+  // Triggers fire at a moment, so each is a line of its own after how the step advances.
+  const fires = (when: TriggerWhen, label: string) => {
+    const named = triggers.filter((one) => one.overriddenBy === undefined && one.when === when).map((one) => one.name);
     if (named.length > 0) rows.push({ icon: Webhook, label, value: named.join(", ") });
   };
   if (step.id === DELIVERING) fires("pr_opened", "PR opened");
-  fires("starts", "Hooks on start");
-  fires("passes", "Hooks on pass");
+  fires("starts", "Triggers on start");
+  fires("passes", "Triggers on pass");
   return rows;
 }
 
@@ -153,12 +153,12 @@ export function detailsOf(step: Step, hooks: readonly ResolvedHook[] = []): Work
 const titleOf = (id: string, at: number) => (id === "" ? `Step ${at + 1}` : id.charAt(0).toUpperCase() + id.slice(1).replaceAll("_", " "));
 
 /** The definition as the canvas draws it: a spine down, and a back edge wherever a step sends work back. */
-function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, hooksAt: (step: Step) => ResolvedHook[]) {
+function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, triggersAt: (step: Step) => ResolvedTrigger[]) {
   let y = 0;
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
     const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
-    const details = detailsOf(step, hooksAt(step));
+    const details = detailsOf(step, triggersAt(step));
     const rows = details.length + needs.length + (back ? 1 : 0);
     const here = y;
     y += STEP_APART + BAND + (rows - 1) * ROW + 8;
@@ -202,11 +202,11 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
   const [open, setOpen] = useState<Open | null>(null);
   const [picked, setPicked] = useState<Entry | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
-  // Hooks are a mock: held here while the creator is open, with nothing behind them.
-  const [hooks, setHooks] = useHooks();
-  const [hookEdit, setHookEdit] = useState<string | null>(null);
+  // Triggers are a mock: held here while the creator is open, with nothing behind them.
+  const [triggers, setTriggers] = useTriggers();
+  const [triggerEdit, setTriggerEdit] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Readonly<Record<string, boolean>>>({ feature: true });
-  const nextHook = useRef(100);
+  const nextTrigger = useRef(100);
   const asked = useRef(new Set<string>());
   const opening = useRef(0);
 
@@ -244,20 +244,20 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
     setOpen({ from: entry.key, def, standing: "draft", refusals: [], handed: false });
   }
 
-  // One overlay panel at a time: a step, the workflow's settings, or a hook.
+  // One overlay panel at a time: a step, the workflow's settings, or a trigger.
   const openPanel = useCallback((next: Panel) => {
-    setHookEdit(null);
+    setTriggerEdit(null);
     setPanel(next);
   }, []);
 
-  function addHook(init: Partial<Hook>) {
-    const id = `r${++nextHook.current}`;
-    setHooks((was) => [
+  function addTrigger(init: Partial<Trigger>) {
+    const id = `r${++nextTrigger.current}`;
+    setTriggers((was) => [
       ...was,
       { id, place: "repository", applies: EVERY, when: "pr_opened", step: "", kind: "command", name: "smoke", block: false, repair: false, ...init },
     ]);
     setPanel(null);
-    setHookEdit(id);
+    setTriggerEdit(id);
   }
 
   function change(next: (def: Definition) => Definition) {
@@ -324,20 +324,20 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
             <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => void begin(entry)} />
           ))}
         </ul>
-        <section className="armada-hooks-card" aria-label="Hooks on every workflow">
-          <div className="armada-hooks-card__band">Every workflow</div>
-          <div className="armada-hooks-card__body">
-            <HookRows
-              hooks={resolveHooks(hooks).filter((one) => one.applies === EVERY)}
-              label="Hooks on every workflow"
+        <section className="armada-triggers-card" aria-label="Triggers on every workflow">
+          <div className="armada-triggers-card__band">Every workflow</div>
+          <div className="armada-triggers-card__body">
+            <TriggerRows
+              triggers={resolveTriggers(triggers).filter((one) => one.applies === EVERY)}
+              label="Triggers on every workflow"
               onOpen={(id) => {
                 setPanel(null);
-                setHookEdit(id);
+                setTriggerEdit(id);
               }}
             />
             <div>
-              <Button variant="secondary" onClick={() => addHook({})}>
-                Add hook
+              <Button variant="secondary" onClick={() => addTrigger({})}>
+                Add trigger
               </Button>
             </div>
           </div>
@@ -356,30 +356,30 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
           entries={entries}
           panel={panel}
           onPanel={openPanel}
-          hooks={hooks}
+          triggers={triggers}
           drafts={drafts}
           onDraft={(id, on) => setDrafts((was) => ({ ...was, [id]: on }))}
-          onAddHook={addHook}
-          onOpenHook={(id) => {
+          onAddTrigger={addTrigger}
+          onOpenTrigger={(id) => {
             setPanel(null);
-            setHookEdit(id);
+            setTriggerEdit(id);
           }}
           onChange={change}
           onSave={() => void save()}
           onDiscuss={onDiscuss === undefined ? undefined : discuss}
         />
       )}
-      {hooks.find((one) => one.id === hookEdit) === undefined ? null : (
-        <Sheet kind="workflow-edit" open floating title={hooks.find((one) => one.id === hookEdit)!.name} closeLabel="Close" closeBinding="Esc" onClose={() => setHookEdit(null)}>
+      {triggers.find((one) => one.id === triggerEdit) === undefined ? null : (
+        <Sheet kind="workflow-edit" open floating title={triggers.find((one) => one.id === triggerEdit)!.name} closeLabel="Close" closeBinding="Esc" onClose={() => setTriggerEdit(null)}>
           <div className="armada-wf-panel">
-            <HookFields
-              hook={hooks.find((one) => one.id === hookEdit)!}
+            <TriggerFields
+              trigger={triggers.find((one) => one.id === triggerEdit)!}
               workflow={open === null || open.def.id === "" ? undefined : open.def.id}
               steps={open === null ? [] : open.def.steps.map((one) => one.id).filter((one) => one !== "")}
-              onChange={(next) => setHooks((was) => was.map((one) => (one.id === hookEdit ? { ...one, ...next } : one)))}
+              onChange={(next) => setTriggers((was) => was.map((one) => (one.id === triggerEdit ? { ...one, ...next } : one)))}
               onRemove={() => {
-                setHooks((was) => was.filter((one) => one.id !== hookEdit));
-                setHookEdit(null);
+                setTriggers((was) => was.filter((one) => one.id !== triggerEdit));
+                setTriggerEdit(null);
               }}
             />
           </div>
@@ -468,11 +468,11 @@ function Stage({
   entries,
   panel,
   onPanel,
-  hooks,
+  triggers,
   drafts,
   onDraft,
-  onAddHook,
-  onOpenHook,
+  onAddTrigger,
+  onOpenTrigger,
   onChange,
   onSave,
   onDiscuss,
@@ -483,11 +483,11 @@ function Stage({
   entries: readonly Entry[];
   panel: Panel;
   onPanel: (panel: Panel) => void;
-  hooks: readonly Hook[];
+  triggers: readonly Trigger[];
   drafts: Readonly<Record<string, boolean>>;
   onDraft: (workflow: string, on: boolean) => void;
-  onAddHook: (init: Partial<Hook>) => void;
-  onOpenHook: (id: string) => void;
+  onAddTrigger: (init: Partial<Trigger>) => void;
+  onOpenTrigger: (id: string) => void;
   onChange: (next: (def: Definition) => Definition) => void;
   onSave: () => void;
   onDiscuss: (() => void) | undefined;
@@ -520,14 +520,14 @@ function Stage({
     }, 120);
     return () => window.clearTimeout(land);
   }, [focus]);
-  // The hooks that reach this workflow, and for a step the ones that fire at it.
-  const reaching = useMemo(() => resolveHooks(hooks.filter((one) => one.applies === EVERY || one.applies === def.id)), [hooks, def.id]);
-  const hooksAt = useCallback(
+  // The triggers that reach this workflow, and for a step the ones that fire at it.
+  const reaching = useMemo(() => resolveTriggers(triggers.filter((one) => one.applies === EVERY || one.applies === def.id)), [triggers, def.id]);
+  const triggersAt = useCallback(
     (step: Step) =>
       reaching.filter((one) => (one.when === "pr_opened" ? step.id === DELIVERING : one.step === step.id && step.id !== "")),
     [reaching],
   );
-  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, hooksAt), [def, marked, panel, onPanel, hooksAt]);
+  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, triggersAt), [def, marked, panel, onPanel, triggersAt]);
   const replaces = entries
     .filter((one) => one.id === def.id && one.leftOut === undefined && SOURCE_RANK[one.source] < SOURCE_RANK[def.scope === KIT ? "kit" : "repository"])
     .map((one) => PLACE[one.source].said);
@@ -629,13 +629,13 @@ function Stage({
                 at={panel}
                 steps={def.steps}
                 refused={marked.has(panel)}
-                hooks={hooksAt(def.steps[panel])}
+                triggers={triggersAt(def.steps[panel])}
                 draft={drafts[def.id] === true}
                 onDraft={(on) => onDraft(def.id, on)}
-                onAddHook={(when) =>
-                  onAddHook({ applies: def.id, when, step: when === "pr_opened" ? "" : def.steps[panel]!.id })
+                onAddTrigger={(when) =>
+                  onAddTrigger({ applies: def.id, when, step: when === "pr_opened" ? "" : def.steps[panel]!.id })
                 }
-                onOpenHook={onOpenHook}
+                onOpenTrigger={onOpenTrigger}
                 onChange={(next) =>
                   onChange((was) => ({ ...was, steps: was.steps.map((one, i) => (i === panel ? { ...one, ...next } : one)) }))
                 }
@@ -708,11 +708,11 @@ function StepFields({
   at,
   steps,
   refused,
-  hooks,
+  triggers,
   draft,
   onDraft,
-  onAddHook,
-  onOpenHook,
+  onAddTrigger,
+  onOpenTrigger,
   onChange,
   onRemove,
 }: {
@@ -720,11 +720,11 @@ function StepFields({
   at: number;
   steps: readonly Step[];
   refused: boolean;
-  hooks: readonly ResolvedHook[];
+  triggers: readonly ResolvedTrigger[];
   draft: boolean;
   onDraft: (on: boolean) => void;
-  onAddHook: (when: HookWhen) => void;
-  onOpenHook: (id: string) => void;
+  onAddTrigger: (when: TriggerWhen) => void;
+  onOpenTrigger: (id: string) => void;
   onChange: (next: Partial<Step>) => void;
   onRemove: () => void;
 }) {
@@ -808,20 +808,20 @@ function StepFields({
         </Switch>
       ) : null}
       {step.id === "" ? null : (
-        <div className="armada-hooks__section">
-          <HookRows hooks={hooks} label={`Hooks on ${step.id}`} onOpen={onOpenHook} />
-          <span className="armada-hooks__acts">
+        <div className="armada-triggers__section">
+          <TriggerRows triggers={triggers} label={`Triggers on ${step.id}`} onOpen={onOpenTrigger} />
+          <span className="armada-triggers__acts">
             {step.id === DELIVERING ? (
-              <Button variant="secondary" onClick={() => onAddHook("pr_opened")}>
-                Add hook on PR opened
+              <Button variant="secondary" onClick={() => onAddTrigger("pr_opened")}>
+                Add trigger on PR opened
               </Button>
             ) : (
-              <Button variant="secondary" onClick={() => onAddHook("starts")}>
-                Add hook on start
+              <Button variant="secondary" onClick={() => onAddTrigger("starts")}>
+                Add trigger on start
               </Button>
             )}
-            <Button variant="secondary" onClick={() => onAddHook("passes")}>
-              Add hook on pass
+            <Button variant="secondary" onClick={() => onAddTrigger("passes")}>
+              Add trigger on pass
             </Button>
           </span>
         </div>

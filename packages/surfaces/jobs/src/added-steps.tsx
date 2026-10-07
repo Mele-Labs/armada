@@ -1,23 +1,23 @@
 // Steps added to one Job from its workflow, a mock: a `+` after the step the Job
 // is on and after each step still to come, offering a Script, a Skill or a Drone
 // step. The canvas and the stacked run draw the same steps and the same `+`.
-// Nothing reaches Fleet; the steps live in `WorkflowHooks/hooks.ts`.
+// Nothing reaches Fleet; the steps live in `WorkflowTriggers/triggers.ts`.
 
 import {
   AddStep,
   Button,
   changeInserted,
-  HookFields,
-  hookFromInserted,
+  TriggerFields,
+  triggerFromInserted,
   insertedCard,
   InsertedFields,
   insertStep,
-  keepHook,
+  keepTrigger,
   removeInserted,
   Sheet,
   useInserted,
 } from "@armada/components";
-import type { Hook, Inserted, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Trigger, Inserted, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -37,14 +37,14 @@ export type AddedSteps = {
   inserted: readonly Inserted[];
   open: string | null;
   onOpen: (id: string | null) => void;
-  keeping: Hook | null;
-  onKeeping: (hook: Hook | null) => void;
+  keeping: Trigger | null;
+  onKeeping: (trigger: Trigger | null) => void;
 };
 
 export function useAddedSteps(jobId: string, workflow: string): AddedSteps {
   const inserted = useInserted(jobId);
   const [open, onOpen] = useState<string | null>(null);
-  const [keeping, onKeeping] = useState<Hook | null>(null);
+  const [keeping, onKeeping] = useState<Trigger | null>(null);
   return { jobId, workflow, inserted, open, onOpen, keeping, onKeeping };
 }
 
@@ -62,6 +62,8 @@ const chainAfter = (added: AddedSteps, anchor: string): Inserted[] => {
 /** Which steps may take one: the step the Job is on and every step after it. A step already done cannot. */
 function takers(whole: JobWhole): Set<string> {
   const steps = ordered(whole);
+  // Before the Job starts nothing is done, so every step takes one.
+  if (steps.every((step) => step.state === "not_started")) return new Set(steps.map((step) => step.step_id));
   const at = steps.findIndex((step) => step.step_id === whole.job.current_step_id);
   return new Set(at === -1 ? [] : steps.slice(at).map((step) => step.step_id));
 }
@@ -89,7 +91,7 @@ export function withAddedSteps(added: AddedSteps, whole: JobWhole, run: Workflow
     let previous = node.id;
     const lead = (to: string) => edges.push({ id: `${previous}>${to}`, source: previous, target: to, kind: "leads" });
     const place = (id: string, anchor: string, name: string) => {
-      nodes.push({ id: `add:${id}`, position: { x: node.position.x, y }, card: dummy, drawn: <div className="armada-hooks__plus">{addButton(anchor, name)}</div> });
+      nodes.push({ id: `add:${id}`, position: { x: node.position.x, y }, card: dummy, drawn: <div className="armada-triggers__plus">{addButton(anchor, name)}</div> });
       lead(`add:${id}`);
       previous = `add:${id}`;
       y += PLUS_HEIGHT;
@@ -131,13 +133,13 @@ export function AddedSheets({ added, whole }: { added: AddedSteps; whole: JobWho
   const one = added.inserted.find((other) => other.id === added.open);
   const steps = ordered(whole).map((step) => step.step_id);
   if (added.keeping !== null) {
-    const hook = added.keeping;
+    const trigger = added.keeping;
     return (
       <Sheet
         kind="workflow-edit"
         open
         floating
-        title={hook.name}
+        title={trigger.name}
         closeLabel="Close"
         closeBinding="Esc"
         onClose={() => added.onKeeping(null)}
@@ -145,8 +147,8 @@ export function AddedSheets({ added, whole }: { added: AddedSteps; whole: JobWho
           <Button
             variant="primary"
             onClick={() => {
-              keepHook(hook);
-              if (one !== undefined) changeInserted(added.jobId, one.id, { kept: hook.place });
+              keepTrigger(trigger);
+              if (one !== undefined) changeInserted(added.jobId, one.id, { kept: trigger.place });
               added.onKeeping(null);
             }}
           >
@@ -155,11 +157,11 @@ export function AddedSheets({ added, whole }: { added: AddedSteps; whole: JobWho
         }
       >
         <div className="armada-wf-panel">
-          <HookFields
-            hook={hook}
+          <TriggerFields
+            trigger={trigger}
             workflow={added.workflow}
             steps={steps}
-            onChange={(next) => added.onKeeping({ ...hook, ...next })}
+            onChange={(next) => added.onKeeping({ ...trigger, ...next })}
           />
         </div>
       </Sheet>
@@ -180,7 +182,7 @@ export function AddedSheets({ added, whole }: { added: AddedSteps; whole: JobWho
         <InsertedFields
           one={one}
           onChange={(next) => changeInserted(added.jobId, one.id, next)}
-          onKeep={() => added.onKeeping(hookFromInserted(one, added.workflow, rootOf(added, one)))}
+          onKeep={() => added.onKeeping(triggerFromInserted(one, added.workflow, rootOf(added, one)))}
           onRemove={() => {
             removeInserted(added.jobId, one.id);
             added.onOpen(null);

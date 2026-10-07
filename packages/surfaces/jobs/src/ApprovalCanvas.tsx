@@ -57,6 +57,8 @@ import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { layoutOf, narrowOf } from "./approval-layout";
+import { withAddedAtGate } from "./approval-added";
+import { AddedSheets, useAddedSteps } from "./added-steps";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -199,6 +201,7 @@ export function ApprovalCanvas({
   machineCap,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
+  const added = useAddedSteps(whole.job.id, whole.job.workflow_id);
   const floor = useAtFloor();
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
@@ -253,7 +256,9 @@ export function ApprovalCanvas({
   const about = openedStep?.about;
 
   const workflowName = workflow?.name ?? proposal.workflow_id;
-  const layout = layoutOf(nodes, edges, workflowName);
+  const plain = layoutOf(nodes, edges, workflowName);
+  // Before the Job starts every gap between two steps takes one.
+  const { layout, extra } = life === undefined ? withAddedAtGate(added, nodes, plain) : { layout: plain, extra: [] };
   // At the gate the Work lane's head is the workflow picker: another workflow
   // rebuilds every gate and every step in the lane, and a step's tuning goes
   // with its step. Past the gate it is the name, read.
@@ -472,7 +477,7 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed]}
+        nodes={[...backdrops, ...placed, ...extra]}
         edges={drawnEdges}
         label="Run"
         runsDown
@@ -482,6 +487,7 @@ export function ApprovalCanvas({
       />
     </section>
     {panel}
+    <AddedSheets added={added} whole={whole} />
     </>
   );
 }

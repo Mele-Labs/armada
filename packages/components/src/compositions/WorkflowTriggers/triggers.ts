@@ -1,21 +1,15 @@
-// What a hook is, as the mock draws it: a script or a skill that fires at a
-// moment in a Job. Nothing here reaches Fleet — the hooks are held by the
-// Workflow creator and Job detail share, seeded from `MOCK_HOOKS`. Delete with
+// What a trigger is, as the mock draws it: a script or a skill that fires at a
+// moment in a Job. Nothing here reaches Fleet — the triggers are held by the
+// Workflow creator and Job detail share, seeded from `MOCK_TRIGGERS`. Delete with
 // the mock.
 
 import { useSyncExternalStore } from "react";
 
 import type { Source } from "../WorkflowCreator/def";
 
-/**
- * The word for the thing attached, spelled once. The owner has not chosen
- * between Hook and Trigger, so every string that names it reads from here.
- */
-export const WORD = { one: "hook", One: "Hook", many: "hooks", Many: "Hooks" } as const;
-
 type Listener = () => void;
 
-/** A mock's shared state: read by the creator and by Job detail, so a hook kept in one is there in the other. */
+/** A mock's shared state: read by the creator and by Job detail, so a trigger kept in one is there in the other. */
 function store<T>(initial: T) {
   let value = initial;
   const listeners = new Set<Listener>();
@@ -33,30 +27,30 @@ function store<T>(initial: T) {
 }
 
 /** `pr_opened` is the delivering step starting. */
-export type HookWhen = "starts" | "passes" | "pr_opened";
+export type TriggerWhen = "starts" | "passes" | "pr_opened";
 
-export type HookKind = "command" | "skill";
+export type TriggerKind = "command" | "skill";
 
 /** `every` is every workflow; any other value is one workflow's id. */
 export const EVERY = "every";
 
-export type Hook = {
+export type Trigger = {
   id: string;
-  /** Where it is set. A hook set in a more specific place replaces the same hook set in a less specific one. */
+  /** Where it is set. A trigger set in a more specific place replaces the same trigger set in a less specific one. */
   place: Source;
   applies: string;
-  when: HookWhen;
-  /** The step a `starts` or `passes` hook names. Empty for `pr_opened`. */
+  when: TriggerWhen;
+  /** The step a `starts` or `passes` trigger names. Empty for `pr_opened`. */
   step: string;
-  kind: HookKind;
+  kind: TriggerKind;
   name: string;
   /** If it fails: the Job waits. */
   block: boolean;
-  /** If it fails: a repair Drone is dispatched, then the hook goes again. */
+  /** If it fails: a repair Drone is dispatched, then the trigger goes again. */
   repair: boolean;
 };
 
-export type ResolvedHook = Hook & { overriddenBy?: Source };
+export type ResolvedTrigger = Trigger & { overriddenBy?: Source };
 
 /** The Commands the repository's `armada.yml` names, and the Skills a Drone runs. */
 export const MOCK_COMMANDS = ["deploy_qa", "lint_docs", "smoke"] as const;
@@ -71,7 +65,7 @@ export const PLACE_DIR: Record<Source, string> = {
   repository: ".armada",
 };
 
-export const MOCK_HOOKS: readonly Hook[] = [
+export const MOCK_TRIGGERS: readonly Trigger[] = [
   { id: "r1", place: "kit", applies: EVERY, when: "pr_opened", step: "", kind: "command", name: "deploy_qa", block: false, repair: true },
   { id: "r2", place: "repository", applies: EVERY, when: "pr_opened", step: "", kind: "command", name: "deploy_qa", block: true, repair: false },
   { id: "r3", place: "repository", applies: EVERY, when: "passes", step: "implement", kind: "command", name: "lint_docs", block: false, repair: false },
@@ -84,49 +78,49 @@ export const MOCK_HOOKS: readonly Hook[] = [
  */
 const RANK: Record<Source, number> = { carried: 0, repository: 1, kit: 2 };
 
-const sameHook = (one: Hook) => `${one.when}|${one.step}|${one.name}`;
+const sameTrigger = (one: Trigger) => `${one.when}|${one.step}|${one.name}`;
 
-/** Each hook, and the place that answers for it instead where a more specific one does. */
-export function resolveHooks(hooks: readonly Hook[]): ResolvedHook[] {
-  return hooks.map((one) => {
-    const winner = hooks
-      .filter((other) => sameHook(other) === sameHook(one) && RANK[other.place] > RANK[one.place])
+/** Each trigger, and the place that answers for it instead where a more specific one does. */
+export function resolveTriggers(triggers: readonly Trigger[]): ResolvedTrigger[] {
+  return triggers.map((one) => {
+    const winner = triggers
+      .filter((other) => sameTrigger(other) === sameTrigger(one) && RANK[other.place] > RANK[one.place])
       .sort((a, b) => RANK[b.place] - RANK[a.place])[0];
     return winner === undefined ? one : { ...one, overriddenBy: winner.place };
   });
 }
 
 /** The moment, as a short phrase. */
-export function whenSaid(hook: Pick<Hook, "when" | "step">): string {
-  if (hook.when === "pr_opened") return "PR opened";
-  return `${hook.step === "" ? "a step" : hook.step} ${hook.when}`;
+export function whenSaid(trigger: Pick<Trigger, "when" | "step">): string {
+  if (trigger.when === "pr_opened") return "PR opened";
+  return `${trigger.step === "" ? "a step" : trigger.step} ${trigger.when}`;
 }
 
-/** A hook fired in a Job, as Job detail draws it. */
-export type FiredHook = {
+/** A trigger fired in a Job, as Job detail draws it. */
+export type FiredTrigger = {
   name: string;
   when: string;
   place: Source;
   state: "passed" | "repairing";
 };
 
-/** The Jobs the mock fired hooks on, by Job id. */
-const MOCK_FIRED: Readonly<Record<string, readonly FiredHook[]>> = {
+/** The Jobs the mock fired triggers on, by Job id. */
+const MOCK_FIRED: Readonly<Record<string, readonly FiredTrigger[]>> = {
   "01M3WJ4CVF0021ZQB9G8PQMAHM": [
     { name: "lint_docs", when: "implement passes", place: "repository", state: "passed" },
     { name: "deploy_qa", when: "PR opened", place: "kit", state: "repairing" },
   ],
 };
 
-export function firedHooksOf(jobId: string): readonly FiredHook[] | undefined {
+export function firedTriggersOf(jobId: string): readonly FiredTrigger[] | undefined {
   return MOCK_FIRED[jobId];
 }
 
-const hookStore = store<readonly Hook[]>(MOCK_HOOKS);
+const triggerStore = store<readonly Trigger[]>(MOCK_TRIGGERS);
 
-/** The saved hooks, and the way to change them. */
-export function useHooks() {
-  return [useSyncExternalStore(hookStore.subscribe, hookStore.get), hookStore.set] as const;
+/** The saved triggers, and the way to change them. */
+export function useTriggers() {
+  return [useSyncExternalStore(triggerStore.subscribe, triggerStore.get), triggerStore.set] as const;
 }
 
 /** A step added to one Job only: a script Fleet runs, a skill a Drone runs, or a Drone with a short brief. */
@@ -193,8 +187,8 @@ export function removeInserted(jobId: string, id: string) {
   }));
 }
 
-/** What keeping an added step for every Job starts from: a hook that fires when the step it follows passes. */
-export function hookFromInserted(one: Inserted, workflow: string, after: string): Hook {
+/** What keeping an added step for every Job starts from: a trigger that fires when the step it follows passes. */
+export function triggerFromInserted(one: Inserted, workflow: string, after: string): Trigger {
   return {
     id: `h-${one.id}`,
     place: "kit",
@@ -208,6 +202,6 @@ export function hookFromInserted(one: Inserted, workflow: string, after: string)
   };
 }
 
-export function keepHook(hook: Hook) {
-  hookStore.set((was) => [...was.filter((one) => one.id !== hook.id), hook]);
+export function keepTrigger(trigger: Trigger) {
+  triggerStore.set((was) => [...was.filter((one) => one.id !== trigger.id), trigger]);
 }
