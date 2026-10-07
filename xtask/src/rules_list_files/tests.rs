@@ -72,3 +72,11 @@ fn a_row_list_holds_one_export_a_row_and_nothing_that_builds_one() {
         "import { a } from \"./a\";\nexport * from \"./scenarios/a\";\nholding(\"x\", [a]),\n";
     assert_eq!(not_entries("scenario-rows.ts", mixed), vec![1, 3]);
 }
+
+#[test]
+fn a_migration_list_holds_entries_after_its_header() {
+    let list = "//! head\nuse x;\nconst L: &[M] = &[\n    // note\n    Migration::additive(\"a.b\", c::D),\n];\n";
+    assert!(not_entries("migration_list.rs", list).is_empty());
+    let stray = "const L: &[M] = &[\n    Migration::additive(\"a.b\", c::D),\n    helper(),\n];\n";
+    assert_eq!(not_entries("migration_list.rs", stray), vec![3]);
+}

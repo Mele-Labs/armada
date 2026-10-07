@@ -34,7 +34,7 @@ fn a_repository_is_remembered_once_in_the_order_it_was_added() {
 fn version_fifty_six(dir: &TempDir, job: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 56 in");
     for migration in &MIGRATIONS[..56] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '56')",

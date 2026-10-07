@@ -43,6 +43,8 @@ Each ends with the questions it found and did not answer.
 - [`practices/acceptance-tests.md`](practices/acceptance-tests.md) — the one
   test per milestone that stands for its claim: why it is written first, what
   reconciling one costs, and what M1's proves.
+- [`practices/store-migrations.md`](practices/store-migrations.md) — a migration
+  has a name, not a number; additive ones are safe to go back from
 - [`practices/list-files.md`](practices/list-files.md) — the files whose merges
   keep both sides, how one is declared in `.gitattributes`, which are not, and
   what union cannot do

@@ -66,7 +66,7 @@ fn a_job_that_does_not_exist_is_named_rather_than_defaulted() {
 fn version_forty_six(dir: &TempDir, id: &str) {
     let conn = Connection::open(dir.db()).expect("a file to put version 46 in");
     for migration in &MIGRATIONS[..46] {
-        conn.execute_batch(migration).expect("a migration");
+        conn.execute_batch(migration.sql).expect("a migration");
     }
     conn.execute(
         "INSERT INTO armada_meta (key, value) VALUES (?1, '46')",
@@ -93,15 +93,10 @@ fn a_job_written_at_the_previous_version_has_no_chosen_model() {
     let dir = TempDir::new();
     version_forty_six(&dir, "01BEFORECHOOSING");
     let mut store = Store::open(&dir.db()).expect("a version 46 file opens and is migrated");
-    let recorded: String = store
-        .conn
-        .query_row(
-            "SELECT value FROM armada_meta WHERE key = ?1",
-            (SCHEMA_VERSION_KEY,),
-            |row| row.get(0),
-        )
-        .expect("a version");
-    assert_eq!(recorded, KNOWN_SCHEMA_VERSION.to_string());
+    assert_eq!(
+        super::migrate::recorded_version(&store),
+        KNOWN_SCHEMA_VERSION.to_string()
+    );
 
     let old = job_id("01BEFORECHOOSING");
     assert_eq!(store.model_override(&old).expect("reads"), None);

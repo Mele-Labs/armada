@@ -88,9 +88,15 @@ pub enum OpenError {
         path: String,
         tables: usize,
     },
-    /// The file records more migrations than this build knows. A newer Armada
-    /// wrote it. Reading it with the older crate's assumptions is the quiet
-    /// corruption this refuses.
+    /// The file applied a breaking migration this build does not list. A newer
+    /// Armada rewrote something this build reads, and the older crate's
+    /// assumptions would misread it. An additive one is accepted instead.
+    BreakingMigrationsFromTheFuture {
+        path: String,
+        names: Vec<String>,
+    },
+    /// A file written by the numbered list records more than the list ever held,
+    /// so the conversion to names cannot say which entries it has.
     SchemaVersionFromTheFuture {
         path: String,
         found: u32,
@@ -327,6 +333,11 @@ display!(OpenError, |self, f| match self {
     OpenError::NotAnArmadaStore { path, tables } => write!(
         f,
         "{path} has {tables} tables and no armada_meta — it is not an Armada store"
+    ),
+    OpenError::BreakingMigrationsFromTheFuture { path, names } => write!(
+        f,
+        "{path} has applied breaking migrations this build does not know: {}",
+        names.join(", ")
     ),
     OpenError::SchemaVersionFromTheFuture { path, found, known } => write!(
         f,

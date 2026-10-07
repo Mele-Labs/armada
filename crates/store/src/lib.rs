@@ -80,8 +80,9 @@ mod manifest_snapshot;
 /// The merge line Fleet keeps for each repository it serves: entries, the turn,
 /// and the size a turn takes.
 mod merge_line;
-/// The migration list, and where a file stands against it. `V1`..`V16` stay in
-/// `schema`; this is only what had to move to keep that file under the gate.
+/// The migration list: names, SQL, and whether each is additive. A list file.
+mod migration_list;
+/// What a migration is, and the table recording which names a file has had.
 mod migrations;
 /// The model a person chose for a Job's later steps.
 mod model_override;
