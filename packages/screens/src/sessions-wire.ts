@@ -254,18 +254,31 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
   return out;
 }
 
+// The mod's `titleOf` rule (plugins/armada/hooks/facts.ts), applied on read so a title stored before
+// the mod stripped markup shows clean. A title that cleans to nothing is no title.
+const MACHINE_BLOCK = /<((?:local-)?command-[\w-]+|system-reminder)(?:\s[^>]*)?>[\s\S]*?(?:<\/\1>|$)/g;
+const WRAPPER_TAG = /<\/?[a-z]+(?:-[\w]+)+(?:\s[^>]*)?>/gi;
+
+/** A stored title without the harness's markup, flattened to one line; nothing where nothing is left. */
+export function cleanTitle(title: string | undefined): string | undefined {
+  if (title === undefined) return undefined;
+  const flat = title.replace(MACHINE_BLOCK, "").replace(WRAPPER_TAG, "").replace(/\s+/g, " ").trim();
+  return flat === "" ? undefined : flat;
+}
+
 /** A session, whole. `rows` are the thread where it was opened and none where it was not. */
 export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside): Session {
   const hosted = record.hosted;
+  const title = cleanTitle(record.title);
   const attachments = attachmentsOfRecord(record, beside);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
   return {
     id: record.id,
     address: addressOf(record.id),
-    ...(record.title === undefined ? {} : { title: record.title }),
+    ...(title === undefined ? {} : { title }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
-    blank: attachments.length === 0 && record.title === undefined && record.last_turn_at === undefined && thread.length === 0,
+    blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
     rows: thread,
     turn:

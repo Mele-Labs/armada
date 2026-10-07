@@ -31,10 +31,6 @@ const FLAKY: SessionRowView = {
   said: "Checks failed on #1843",
   slots: [3],
   pullRequests: [{ number: 1843, checks: "failed", said: "Checks failed: store: 2 failed" }],
-  jobs: [
-    { id: "J52", number: 52 },
-    { id: "J53", number: 53 },
-  ],
   lastTurn: "14:09",
 };
 const NOTES: SessionRowView = {
@@ -44,10 +40,9 @@ const NOTES: SessionRowView = {
   said: "Waiting on you",
   slots: [5],
   pullRequests: [{ number: 1847, checks: "passed", said: "Checks passed" }],
-  jobs: [],
   lastTurn: "13:48",
 };
-const LIVE: SessionRowView = { id: "s4", title: "Docs pass", state: "working", said: "Working", slots: [8], pullRequests: [], jobs: [] };
+const LIVE: SessionRowView = { id: "s4", title: "Docs pass", state: "working", said: "Working", slots: [8], pullRequests: [] };
 
 export const AtRest: Story = {
   args: {
@@ -71,26 +66,66 @@ export const Found: Story = {
   },
 };
 
-/** Many pull requests wrap on the ledger's own line; the title keeps the line above it. */
+const MANY = [1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850, 1851, 1852, 1853, 1854].map((number) => ({ number, checks: "passed" as const, said: "Checks passed" }));
+
+/** Many open pull requests stay on one line: the newest that fit, then a `…` that holds the rest. */
 export const Crowded: Story = {
+  args: { groups: [{ label: "Running", rows: [{ ...FLAKY, pullRequests: MANY }] }] },
+  decorators: [
+    (Story) => (
+      <div style={{ width: "calc(var(--space-12) * 7)" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("listitem", { name: "Flaky store test" });
+    const title = row.querySelector(".armada-session-list__title")!.getBoundingClientRect();
+    const line = row.querySelector(".armada-session-list__chips")!;
+    const ledger = line.getBoundingClientRect();
+    await expect(ledger.top).toBeGreaterThanOrEqual(title.bottom);
+    await expect(canvas.getByRole("img", { name: /^Also open:/ }).getBoundingClientRect().right).toBeLessThanOrEqual(ledger.right);
+    const more = canvas.getByRole("img", { name: /^Also open:/ });
+    await expect(more).toHaveTextContent("…");
+    // The newest is kept and the oldest is in the tooltip.
+    await expect(canvas.getByRole("img", { name: "Pull request #1854" })).toBeInTheDocument();
+    await expect(more.getAttribute("aria-label")).toContain("#1843");
+    await expect(more.getAttribute("aria-label")).not.toContain("#1854");
+  },
+};
+
+/** A merged pull request is off the row, so a row of merged ones has nothing open and no second line. */
+export const NothingOpen: Story = {
   args: {
     groups: [
       {
         label: "Running",
         rows: [
-          {
-            ...FLAKY,
-            pullRequests: [1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850].map((number) => ({ number, checks: "passed" as const, said: "Checks passed" })),
-          },
+          { ...LIVE, title: "All landed", slots: [], pullRequests: [{ number: 1801, checks: "passed", said: "Checks passed", state: "merged" }] },
+          { ...LIVE, id: "s9", title: "One open", pullRequests: [{ number: 1802, checks: "pending", said: "Checks running", state: "open" }, { number: 1803, checks: "passed", said: "Checks passed", state: "merged" }] },
         ],
       },
     ],
   },
   play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: "Pull request #1801" })).toBeNull();
+    await expect(canvas.queryByRole("img", { name: "Pull request #1803" })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Pull request #1802" })).toBeInTheDocument();
+    const row = canvas.getByRole("listitem", { name: "All landed" });
+    await expect(row.querySelector(".armada-session-list__chips")).toBeNull();
+    await expect(canvas.queryByRole("img", { name: /^Also open:/ })).toBeNull();
+  },
+};
+
+/** The time is on the title line, at its end. */
+export const TimeTopRight: Story = {
+  args: { now: Date.parse("2026-10-07T14:34:00Z"), groups: [{ label: "Running", rows: [{ ...FLAKY, lastTurn: "14:30", lastTurnAt: "2026-10-07T14:30:00Z" }] }] },
+  play: async ({ canvas }) => {
     const row = canvas.getByRole("listitem", { name: "Flaky store test" });
     const title = row.querySelector(".armada-session-list__title")!.getBoundingClientRect();
-    const ledger = row.querySelector(".armada-session-list__chips")!.getBoundingClientRect();
-    await expect(ledger.top).toBeGreaterThanOrEqual(title.bottom);
+    const time = canvas.getByLabelText("Last turn 14:30").getBoundingClientRect();
+    await expect(time.top).toBeLessThan(title.bottom);
+    await expect(time.left).toBeGreaterThan(title.right);
   },
 };
 

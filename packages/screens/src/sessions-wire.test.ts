@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { attachmentsOfRecord, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import { attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -232,6 +232,16 @@ describe("the thread", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn.map((one) => one.id)).toEqual(["1", "2", "3", "4", "5"]);
     expect(drawn[4]).toMatchObject({ kind: "tool", text: "git push: allowed once" });
+  });
+});
+
+describe("a stored title", () => {
+  it("loses the harness's markup, and a title that is only markup is no title", () => {
+    expect(cleanTitle('<agent-message from="a45d14071172cd311">Review the ledger change')).toBe("Review the ledger change");
+    expect(cleanTitle("<system-reminder>noise</system-reminder>Fix it")).toBe("Fix it");
+    expect(cleanTitle('<agent-message from="a45d14071172cd311">')).toBeUndefined();
+    expect(sessionOfRecord(record("a", { title: "<agent-message from=\"x\">" }), undefined, beside()).title).toBeUndefined();
+    expect(sessionOfRecord(record("a", { title: "<agent-message from=\"x\">Fix it" }), undefined, beside()).title).toBe("Fix it");
   });
 });
 
