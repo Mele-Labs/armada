@@ -67,8 +67,18 @@ fn a_drone_that_edits_one_file() -> FakeHarness {
 /// with T1 beside T2, and the turn after its plan step's gate taken: the turn
 /// that puts T1's Drone on and, room allowing, T2's beside it.
 async fn at_implement(home: &TempDir, harness: FakeHarness, cap: Option<u32>) -> (Fixture, JobId) {
+    at_implement_under(home, harness, cap, a_drone_per_task()).await
+}
+
+/// [`at_implement`], over a workflow of the caller's.
+async fn at_implement_under(
+    home: &TempDir,
+    harness: FakeHarness,
+    cap: Option<u32>,
+    workflow: config::ResolvedWorkflow,
+) -> (Fixture, JobId) {
     let mut fittings = fitted_with(home, FakeWorkProduct::changed(&["src/read.rs"]), harness);
-    fittings.starting().workflows = one(a_drone_per_task());
+    fittings.starting().workflows = one(workflow);
     fittings.concurrency = Concurrency::of(3);
     let fleet = Fleet::assembled(fittings);
     let job = fleet
@@ -396,5 +406,78 @@ async fn a_run_a_crew_drone_asked_for_is_told_to_that_drone() {
     assert!(
         log.contains("the Drone asked for the step's checks and they were run"),
         "{log}"
+    );
+}
+
+/// The per-task workflow, its `implement` step declaring its plan at step
+/// start and having its footprint watched.
+fn a_drone_per_task_watching_its_scope() -> config::ResolvedWorkflow {
+    let def = config::WorkflowDef::parse(
+        std::path::Path::new("fixture-per-task.yml"),
+        "version: 1\nworkflow_id: fixture-per-task\nname: fixture\n\
+         steps:\n  - id: plan\n    label: \"Plan the change\"\n    \
+         evidence: {submitted: {type: plan}}\n    mechanical_checks:\n      \
+         - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    \
+         advance_gate: auto\n  - id: implement\n    label: \"Implement\"\n    \
+         follows_plan: true\n    drone_per_task: true\n    \
+         declare_plan_at: step_start\n    evidence_scope:\n      \
+         context_source: drone_declared\n      scope_diff_check: true\n    \
+         evidence: {submitted: {type: diff}}\n    \
+         mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: false\n    \
+         advance_gate: auto\n  - id: handoff\n    label: \"Hand off\"\n    \
+         delivers: true\n    advance_gate: auto\n",
+        &config::Roster::offering_nothing(),
+    )
+    .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &crate::tests::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+/// A Drone beside the kept one edited outside what the kept Drone declared. The
+/// worktree is the Job's one, so the edit cannot be attributed to the kept
+/// Drone, and it must not be told it made it.
+#[tokio::test]
+async fn a_drift_a_crew_drone_may_have_made_is_not_told_to_the_kept_drone() {
+    let home = TempDir::new();
+    let watched = a_drone_per_task_watching_its_scope();
+    let (fleet, job) = at_implement_under(&home, FakeHarness::that_listens(), None, watched).await;
+    assert!(
+        !beside(&fleet, &job).is_empty(),
+        "a Drone beside the kept one"
+    );
+    fleet
+        .declare_scope(
+            &job,
+            &ipc::mcp::DeclareScope {
+                needs: Vec::new(),
+                context_paths: vec!["src/read.rs".to_string()],
+            },
+        )
+        .await
+        .expect("the kept Drone declares");
+    // T3's Drone writes a file the kept Drone never declared.
+    fleet
+        .work()
+        .wrote(&[("src/crew_wrote.rs", adapter_traits::Change::Added)]);
+    fleet
+        .turn()
+        .await
+        .expect("the first reading starts the clock");
+    let turned = fleet.turn().await.expect("the second confirms it");
+    assert!(turned.drifting().is_some(), "the drift is still seen");
+
+    let handle = fleet.name_of(&job).expect("the Job has a handle");
+    let log = std::fs::read_to_string(crate::transcript::log_of(
+        &home.path().to_string_lossy(),
+        &handle,
+    ))
+    .expect("the Job's own log");
+    let line = log
+        .lines()
+        .find(|line| line.contains("step edited outside its declared scope"))
+        .unwrap_or_else(|| panic!("the drift was not logged: {log}"));
+    assert!(
+        line.contains("\"told\":false"),
+        "the kept Drone was told of an edit it did not make: {line}"
     );
 }
