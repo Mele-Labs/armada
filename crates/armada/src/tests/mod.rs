@@ -26,6 +26,7 @@ mod mcp;
 mod need;
 mod reaching;
 mod setup;
+mod trigger_authoring;
 mod watching;
 mod workspace_setup;
 mod workspaces;

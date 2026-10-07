@@ -48,6 +48,7 @@ mod snapshot;
 mod standing;
 mod terminal_thread;
 mod transcript;
+mod trigger_files;
 mod undeclared;
 mod under_review;
 mod work_product;

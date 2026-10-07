@@ -29,7 +29,11 @@ const LISTS: &[(&str, &str)] = &[
 /// The keys of the top-level tables in `text`, a `[[...]]` sub-table not counted.
 fn tables(prefix: &str, text: &str) -> Vec<String> {
     text.lines()
-        .filter_map(|line| line.strip_prefix('[')?.strip_prefix(prefix)?.strip_prefix('.'))
+        .filter_map(|line| {
+            line.strip_prefix('[')?
+                .strip_prefix(prefix)?
+                .strip_prefix('.')
+        })
         .filter_map(|rest| rest.strip_suffix(']'))
         .filter(|key| !key.starts_with('['))
         .map(|key| key.trim_matches('"').to_string())

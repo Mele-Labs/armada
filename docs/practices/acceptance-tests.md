@@ -43,6 +43,7 @@ the gate asserts about it.
 | The new Job, spike 022 | A Job's plan is worked by a Drone per task, group by group, and I can see and act on each task, each group and each Drone | `crates/acceptance/tests/drone_per_task.rs` |
 | Workspaces | A change runs the Checks of the manifests it touches and of those that depend on what it touched, and no others | `crates/acceptance/tests/workspaces.rs` |
 | Auto-release | When other work waits for a worktree slot and the pool is full, Fleet frees one by pausing the parked Job that has waited longest, leaves alone one a person may be looking at, and gives nothing back on its own | `crates/acceptance/tests/auto_release.rs` |
+| Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

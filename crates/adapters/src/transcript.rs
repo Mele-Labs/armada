@@ -649,9 +649,17 @@ pub fn written_document(tool: &str, detail: &str, home: &str) -> Option<String> 
     ]
     .iter()
     .any(|extension| lower.ends_with(extension));
-    let scratch = ["/node_modules/", "/.git/", "/.claude/", "/.armada/", "/target/", "/dist/", "/build/"]
-        .iter()
-        .any(|part| path.contains(part))
+    let scratch = [
+        "/node_modules/",
+        "/.git/",
+        "/.claude/",
+        "/.armada/",
+        "/target/",
+        "/dist/",
+        "/build/",
+    ]
+    .iter()
+    .any(|part| path.contains(part))
         || ["/tmp/", "/private/tmp/", "/var/folders/"]
             .iter()
             .any(|root| path.starts_with(root));
