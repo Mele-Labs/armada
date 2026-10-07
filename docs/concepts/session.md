@@ -193,7 +193,25 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
 
+## In Bridge
+
+Bridge reads every live session from `list_sessions` once per connection and keeps it by `session.changed`, whole, so a chip anywhere asks the same list who owns its branch, slot, pull request or Job, across every repository. A thread is read with `get_session` when a window first opens it, then followed by `session.row`. The renderer reaches both through the draft seam (`SessionsDraft`): the mock fills it from fixtures and a real window from what main publishes, so a screen cannot tell which.
+
+> **Rule.** A session started in Bridge starts in the repository the window has picked, or the one repository Fleet serves.
+> Why: Dispatch names its repository the same way, and a session started somewhere the person is not looking is one they cannot find.
+
+| Bridge draws | From |
+|---|---|
+| The ledger's slot and branch as one pair | The `slot` and `branch` rows of one repository |
+| A pull request, its Checks and its acts | The `pr` row's `detail`; each press is one of the pull request operations above, and `read` brings the row current when a session is opened |
+| A Job | The `job` row, read against the Board for its title, number, state and branch. A Job the Board has forgotten is left off |
+| A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
+
 ## Not built
+
+**The `/` list is hidden in Bridge.** The harness lists its skills and commands in the `init` line of the stream, and Fleet does not carry them on the record. A `hosted.commands` field would.
+
+**Pilot is hidden in Bridge.** Taking over a Job and its three exits stay on the draft seam until Fleet serves them.
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
 

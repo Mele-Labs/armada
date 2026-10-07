@@ -24,7 +24,7 @@ const AT = "2026-10-07T13:48:02Z";
 
 const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord => ({
   id,
-  harness: "claude",
+  harness: "a_harness",
   origin: "bridge",
   manifest_id: "armada",
   cwd: "/repo",

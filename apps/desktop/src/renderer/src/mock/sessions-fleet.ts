@@ -33,7 +33,7 @@ export function held(kind: string, target: string, detail: Record<string, string
 export function hosted(id: string, change: Partial<SessionRecord> = {}): SessionRecord {
   return {
     id,
-    harness: "claude",
+    harness: "a_harness",
     origin: "bridge",
     manifest_id: "armada",
     cwd: "/Users/user/code/armada",
@@ -77,7 +77,7 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
     failing: "",
     title: "Fix the flaky store test",
     branch: "fix/flaky-store",
-    address: `https://github.com/Mele-Labs/armada/pull/${number}`,
+    address: `https://forge.example/pull/${number}`,
     ...(detail as Record<string, string>),
   });
 
@@ -149,7 +149,7 @@ export class FakeSessionsFleet {
           readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
-            if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://github.com/Mele-Labs/armada/pull/${number}`, session_id: sessionId } };
+            if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://forge.example/pull/${number}`, session_id: sessionId } };
             if (press === "merge") {
               const refused = this.merge(sessionId, number);
               if (refused !== undefined) return refused;

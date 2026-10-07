@@ -20,7 +20,7 @@ const held = (kind: string, target: string, detail: Record<string, string> = {},
 
 const record = (id: string, change: Partial<SessionRecord> = {}): SessionRecord => ({
   id,
-  harness: "claude",
+  harness: "a_harness",
   origin: "bridge",
   manifest_id: "armada",
   cwd: "/repo",

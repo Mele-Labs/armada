@@ -56,7 +56,7 @@ export function describeSketch(drawing: SessionSketch): string {
 async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined> {
   const probe = document.createElement("canvas").getContext("2d");
   if (probe === null) return undefined;
-  probe.font = "13px sans-serif";
+  probe.font = "small sans-serif";
   const boxes = drawing.boxes.map((box) => {
     const lines = wrapped(probe, box.body);
     return { ...box, lines, height: PAD * 2 + Math.max(lines.length, 1) * LINE };
@@ -75,7 +75,7 @@ async function pictureOf(drawing: SessionSketch): Promise<Uint8Array | undefined
   if (context === null) return undefined;
   context.fillStyle = "white";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  context.font = "13px sans-serif";
+  context.font = "small sans-serif";
   context.strokeStyle = "black";
   context.fillStyle = "black";
   context.lineWidth = 1.5;
