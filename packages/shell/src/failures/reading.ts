@@ -249,6 +249,7 @@ export function fleetFailure(
     // error instead of a silent fall-through to a generic message.
     case "reading":
     case "connecting":
+    case "starting":
     case "connected":
       return null;
   }
