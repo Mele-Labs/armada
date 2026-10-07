@@ -1,7 +1,7 @@
 // What the Board says when it draws no row. Out of `Jobs.tsx`, which reached the 500 lines the gate
 // warns at when a fourth case joined these three: Fleet serving no repository yet.
 
-import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd } from "@armada/components";
+import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd, STARTING_PHRASES } from "@armada/components";
 
 import { NOTHING_SERVED } from "./locate-reads";
 
@@ -58,12 +58,12 @@ export function BoardEmpty({
   // running is a fault Bridge cannot fix, and a filter that emptied
   // the list is neither — it is a control saying so.
   if (disconnected !== null && starting) {
-    // A Fleet that is coming up has nothing to be started: no sentence and no command, the one
-    // glyph the Fleet panel's head draws, named on hover.
+    // A Fleet that is coming up has nothing to be started: no command, the mark the Fleet
+    // panel's head draws and a phrase under it, named on hover.
     return (
       <BoardEmptyState>
         <span role="img" aria-label="Starting" title={fleetSaid("Starting")}>
-          <FleetStarting className="armada-fleet-starting" size={16} />
+          <FleetStarting className="armada-fleet-starting" size={32} phrase={STARTING_PHRASES[0]} />
         </span>
       </BoardEmptyState>
     );

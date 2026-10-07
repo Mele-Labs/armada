@@ -112,7 +112,7 @@ export const FleetUnknown: Story = {
   args: { ...FleetRunning.args, fleet: { state: "unknown", label: "Reading" } },
 };
 
-/** A live pid that has not answered yet: the `server` glyph breathing in the dot's place, `Starting` on hover. */
+/** A live pid that has not answered yet: the Armada mark breathing in the dot's place, `Starting` on hover. */
 export const FleetStarting: Story = {
   args: { ...FleetRunning.args, fleet: { state: "starting", label: "Starting" } },
 };

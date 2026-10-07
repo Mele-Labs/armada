@@ -7,8 +7,8 @@ const MARK = role("img", "Starting", { exact: true });
 const HEAD = inside(role("button", /^Fleet/), MARK);
 
 export const fleetStarting = walk("fleet/starting", [
-  { look: HEAD, say: "Fleet's head: the glyph breathes where the dot sits" },
+  { look: HEAD, say: "Fleet's head: the mark pulses where the dot sits" },
   { hover: HEAD, say: "Its name is the tooltip" },
   { look: text("61372"), say: "The pid the runtime file names" },
-  { look: MARK, say: "The board holds the glyph and nothing to run" },
+  { look: MARK, say: "The board holds the mark and a phrase, nothing to run" },
 ]);

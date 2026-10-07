@@ -1156,14 +1156,6 @@
   reserved = "A retro item that got in Fleet's way, and nowhere else. Never a server a Studio's Run holds, never a host, a port or a process, and never a Job or Cleanup's held disk, which is `hard-drive`."
   notes = "Minted 3 Oct 2026 with the Lessons page (`docs/concepts/retro.md`), for `who = fleet`: Armada itself cost the Job something. Fleet is the daemon that serves every Job, and two racked units is the drawing of one. **The objection to expect is `hard-drive`**, Cleanup's rail glyph, a single horizontal vessel with a light; this is two stacked, drawn at 12px in a list rather than at 16px in the rail, so rule 4's collision is across groups and sizes. Refused: `armada-mark`, whose reservation is absolute and keeps it out of a row; `cpu`, the queued reason's, whose row prizes it as unique at 12px; `settings` and `cog`, configuration; `box`, the Job in the Record's kind column. Tooltip: Fleet."
 
-  [[icons.server.usage]]
-    means = "Fleet's own process is up and has not answered yet"
-    group = "Fleet"
-    size = "12 and 16px"
-    status = "Proposed"
-    reserved = "Fleet's state while the runtime file names a held pid and `/health` has not answered, in place of the status dot, pulsing at `--duration-pulse` and still under reduced motion. Never a running Fleet, which is the dot, and never a Fleet that is not running."
-    notes = "Proposed 6 Oct 2026 on the walk `fleetStarting`. The one glyph in the registry that already draws Fleet, so a starting Fleet is named by its own drawing and no spinner is borrowed (`loader` and `loader-circle` are refused as progress indicators). It takes the Fleet panel's head, the title row's dot, the 48px rail and the Board's empty card. Tooltip: Fleet - Starting. **The owner decides whether the reservation above, `never a process`, yields to this.**"
-
 [icons.graduation-cap]
   means = "A mortarboard — a flat square cap on a band, a tassel off one corner"
   group = "Navigation"

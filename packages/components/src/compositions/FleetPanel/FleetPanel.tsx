@@ -1,4 +1,4 @@
-import { Server } from "lucide-react";
+import { ArmadaMark } from "@armada/brand";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { Panel } from "../Panel/Panel";
@@ -78,13 +78,27 @@ export const FLEET_DOT_TONE: Record<FleetState, "success" | "escalated" | "warn"
 /**
  * Fleet's own process is up and not answering yet: the runtime file names a pid
  * that is held, and nothing has come back on `/health`. A live process and no
- * answer are neither of the three hues, so it takes no hue — the `server` glyph
+ * answer are neither of the three hues, so it takes no hue — the Armada mark
  * breathing at `--duration-pulse`, and its tooltip is the word. Drawn in place
- * of the dot wherever the dot is drawn.
+ * of the dot wherever the dot is drawn. With a `phrase` it is the mark and the
+ * phrase under it, for where there is room: the Board's empty card.
  */
-export function FleetStarting({ className, size = 12 }: { className: string; size?: 12 | 16 }) {
-  return <Server size={size} strokeWidth={2} className={className} aria-hidden />;
+export function FleetStarting({ className, size = 16, phrase }: { className: string; size?: number; phrase?: string }) {
+  const mark = <ArmadaMark size={size} className={className} aria-hidden />;
+  if (phrase === undefined) return mark;
+  return (
+    <span className="armada-fleet-starting-lockup">
+      {mark}
+      <span className="armada-fleet-starting-phrase">{phrase}</span>
+    </span>
+  );
 }
+
+/**
+ * What the Board's card says under the mark while Fleet starts. Three on offer
+ * until the owner picks one; the first is what draws.
+ */
+export const STARTING_PHRASES = ["Armada activating", "Armada assembling", "Armada starting"] as const;
 
 export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
   // **The state is the head's dot; the body is what the head cannot carry** —

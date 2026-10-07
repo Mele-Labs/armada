@@ -30,6 +30,20 @@
   animation: armada-fleet-starting var(--duration-pulse) ease-in-out infinite;
 }
 
+/* The Board's card: the mark, and the phrase under it. */
+.armada-fleet-starting-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-fleet-starting-phrase {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+}
+
 @keyframes armada-fleet-starting {
   50% { opacity: 0.35; }
 }
