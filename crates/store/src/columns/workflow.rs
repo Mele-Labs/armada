@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use core_model::{
     AdvanceGate, ContextSource, Covers, CriterionId, DeclarePlanAt, Effort, EvidenceRef,
     EvidenceScope, EvidenceType, FrozenWorkflow, GamingCheck, GamingPattern, GateVerdict,
-    JudgeCheck, JudgeCriterion, ModelName, Narrowing, OnRefusal, PathPattern, Prerequisite,
+    JudgeCheck, JudgeCriterion, ModelName, Narrowing, OnRefusal, PathPattern, PrMode, Prerequisite,
     RepoPath, ResolvedCheck, ResolvedStep, StepId, StepPhase, Ulid, WorkflowId, WorkflowSource,
     ARTIFACT_EXISTS, DIFF_NONEMPTY, MANIFEST_CHECK, PLAN_RECORDED,
 };
@@ -97,6 +97,9 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             // and `read_workflow` puts that reading back rather than letting it
             // fall to `false` — see there.
             "delivers": step.delivers(),
+            // Null where the step states none, which is every step but the
+            // delivering one and every row frozen before the key existed.
+            "draft_pr": step.draft_pr().map(|mode| mode.as_wire()),
             // Written on every step, for `may_dispatch_jobs`' reason — and it
             // needs no `read_workflow`-style correction the way `delivers`
             // does: a row frozen before the key existed comes from a workflow
@@ -339,6 +342,7 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
     // deliver" from "nothing on this record could say", and the two need
     // opposite answers.
     .delivering(read_delivers(entry)?)
+    .drafting(read_draft_pr(entry)?)
     .gating_on_every_check(read_gates_on_every_check(entry)?)
     .looping(read_verdict_routing(entry)?, read_iteration_cap(entry)?)
     .quiet_after(read_patience(entry, "quiet_after_seconds")?)
@@ -348,6 +352,17 @@ fn read_step(entry: &Map<String, Value>) -> Result<ResolvedStep, Malformed> {
     .in_phase(read_phase(entry)?)
     .as_tuned(read_effort(entry)?, read_context(entry)?)
     .also_recording_the_plan(read_records_plan(entry)?))
+}
+
+/// How the step says its pull request is offered. **Absent and null defer.**
+fn read_draft_pr(entry: &Map<String, Value>) -> Result<Option<PrMode>, Malformed> {
+    match entry.get("draft_pr") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(word)) => PrMode::from_wire(word)
+            .map(Some)
+            .ok_or_else(|| format!("`draft_pr` holds `{word}`")),
+        Some(other) => Err(format!("`draft_pr` is {}", kind(other))),
+    }
 }
 
 /// Whether the step is walked by a person when it stops. **Absent and null read

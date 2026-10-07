@@ -354,6 +354,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         tiers: ipc::TierModels::default(),
         drone_cap: None,
         landing: None,
+        pr_mode_default: None,
         policy_overrides: None,
         approved_at: None,
         review_step: None,

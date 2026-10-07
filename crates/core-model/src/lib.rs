@@ -44,7 +44,7 @@ pub use envelope::{
 };
 pub use job::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
-    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
+    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use job::{collisions, under};
 pub use job::{

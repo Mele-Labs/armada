@@ -274,6 +274,12 @@ pub struct JobDetail {
     /// ready.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub landing: Option<crate::LandingRule>,
+    /// What a Job still at its approval gate opens its pull request as when its
+    /// approval says nothing: the workflow's delivering step, the repository,
+    /// this machine, then ready. **Since 23.57.** Absent once `landing` is
+    /// there, and on a Fleet before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr_mode_default: Option<crate::PrMode>,
     /// What this Job's approval said in place of the repository's policies.
     /// **Since 23.8**; holds for the life of the Job (spike 022, answer 4).
     /// Absent is the repository deciding at every gate.
@@ -789,6 +795,7 @@ impl JobDetail {
             // this by `fleet::serving`, as `tiers` is.
             drone_cap: None,
             landing: None,
+            pr_mode_default: None,
             policy_overrides: None,
             approved_at: None,
             review_step: None,
