@@ -133,6 +133,7 @@ mod model_per_task;
 mod modelling;
 mod needs;
 mod needs_served;
+mod needs_status;
 mod noticing;
 mod out_of_bounds;
 mod overlap;

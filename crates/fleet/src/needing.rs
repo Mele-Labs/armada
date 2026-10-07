@@ -14,6 +14,7 @@
 mod converting;
 pub(crate) mod ledger;
 mod served;
+pub(crate) mod status;
 
 use std::path::Path;
 
@@ -97,6 +98,7 @@ where
                 ),
             }
         }
+        self.needs_status_republished_for(job).await;
     }
 
     /// Refuse the merge while a need ahead of this Job's stands, naming what it
@@ -208,8 +210,9 @@ where
         let mut store = self.store().lock().await;
         let ended = ledger::ended(&mut store, &holder, state, &now)
             .and_then(|_| store.settle_held(&holder, Some("branch"), state, &now));
+        drop(store);
+        self.needs_status_republished_for(job.id()).await;
         if let Err(why) = ended {
-            drop(store);
             self.said_about_the_ledger(
                 job.id(),
                 Level::Warn,

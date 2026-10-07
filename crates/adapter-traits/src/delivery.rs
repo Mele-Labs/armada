@@ -803,6 +803,12 @@ pub trait Delivery {
     /// open.
     fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
 
+    /// Put a commit status under `context` on `commit`, replacing the one
+    /// there. **A write to the forge, and the one Fleet makes unprompted**: it
+    /// says whether a pull request's turn has come, `needs`. `Err` is the
+    /// forge's or the token's sentence; a caller logs it and carries on.
+    fn publish_status(&self, in_repo: &str, status: &crate::CommitStatus) -> Result<(), String>;
+
     /// The newest `limit` pull requests merged into `base`, newest first, in
     /// one forge call. `None` is the forge's silence.
     fn recently_merged_pull_requests(

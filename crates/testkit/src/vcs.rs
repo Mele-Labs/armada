@@ -31,8 +31,8 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
-    CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable, Landing, Mergeable,
-    Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark,
+    CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable, Landing,
+    Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark,
     RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
     Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
@@ -703,6 +703,10 @@ impl Delivery for FakeVcs {
 
     fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
         self.main_ci.open_pulls()
+    }
+
+    fn publish_status(&self, _: &str, status: &CommitStatus) -> Result<(), String> {
+        self.main_ci.publish(status)
     }
 
     fn recently_merged_pull_requests(

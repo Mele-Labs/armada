@@ -70,7 +70,8 @@ pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, MergedPull, OpenPull, OpenPulls, RecentlyMerged, RecentlyMergedPulls,
+    CiRun, CiRuns, CiState, CommitStatus, MergedPull, OpenPull, OpenPulls, RecentlyMerged,
+    RecentlyMergedPulls, StatusState,
 };
 pub use secret::Secret;
 pub use setup::{

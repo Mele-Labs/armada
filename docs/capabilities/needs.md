@@ -22,7 +22,7 @@ is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 | `armada need` asking Fleet (`act_on_need`, `list_needs`) | Built; where Fleet is not running it says so and records nothing |
 | A Job's own slot and branch as rows | Built |
 | Converting a clone's files | Built, read once at first start, files left on disk |
-| The required status on a pull request | Not built |
+| The `needs` status on a pull request | Built: Fleet publishes it, 23.46 unchanged. Making it required in the ruleset is the owner's and is not done |
 | The `armada` mod reporting a need from a terminal Session | Not built |
 | A Bridge list, and giving a need back from Bridge | Not built |
 | `armada land` | Still reads the files, and is not moved: it is being retired for pull requests |
@@ -35,8 +35,11 @@ is built, and why, is `merge-line.md` (*Needs*) and `docs/concepts/fleet.md`
 - **A Job or a Session that declares a need on something another holds is told
   at once**, as a message that wakes a Session and as the peer turn for a Job. It
   hears who is ahead and what that one took.
-- **A pull request waits its turn.** Its status reads pending while a need ahead
-  has not merged, and green when the turn is its own.
+- **A pull request waits its turn.** Fleet puts a commit status, context `needs`,
+  on the head of every open pull request in a repository it serves. It reads
+  pending while a need ahead has not merged, naming the path, who is ahead and
+  what that one took, and success when the turn is its own, a pull request with
+  no needs included.
 - **A stalled need is given back from Bridge**, not a terminal.
 
 ## The row
@@ -71,6 +74,15 @@ Fleet, from `declare_scope`, a plan's task and `add_task`, on the same table.
 it is, else a Session standing on it, else the branch alone, held as a `session`
 row with the id `branch:<name>`. A need held by a branch alone is given back when
 git no longer has the branch.
+
+**The status.** The pull request's branch is resolved to a holder the way
+`armada need` does it, and the status reads the same order `fleet.merge_waiting_behind`
+reads. It is published when a need is declared, given back or spent, and on the
+sweep that lists open pull requests, so a change nobody announced heals. It is
+sent only when its state or description differs from what Fleet last put on that
+commit. A forge or token that refuses is a line in the owning Job's log, once;
+nothing else fails. A pull request opened by a terminal session Fleet does not
+know about reads success, since no needs are known for it.
 
 ## The rules, one for both holders
 
@@ -109,3 +121,7 @@ Bridge. A repository added after Fleet started is converted on the next start.
 - Whether a need expires by time. It does not today.
 - What a repository without Fleet gets. It has no order and no status.
 - Whether the required status is Fleet's alone or also a repository workflow.
+- Making `needs` required. It needs Fleet running whenever a pull request is
+  open, a token that may write commit statuses, and the check to have been seen on
+  a real pull request first; until Fleet is up a required `needs` never reports
+  and the pull request cannot merge.
