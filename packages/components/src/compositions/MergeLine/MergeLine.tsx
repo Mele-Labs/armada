@@ -134,6 +134,8 @@ export type HubPull = {
   ci?: "passed" | "running" | "failed" | "waiting_on_main";
   /** The Job it came from. Absent for a person's. */
   job?: HubJob;
+  /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
+  queue?: { state: "waiting_for_ci" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
@@ -501,7 +503,7 @@ function Entry({
  * chip draws it everywhere (hover for the card, press to keep it), else the Job whose branch it
  * is. Nobody known draws nothing.
  */
-function EntryOwner({ entry, onOpenJob }: { entry: MergeLineEntry; onOpenJob?: (jobId: string) => void }) {
+function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch" | "pr" | "job">; onOpenJob?: (jobId: string) => void }) {
   const branch: OwnerChipRef = { kind: "branch", name: entry.branch };
   const pull: OwnerChipRef | undefined = entry.pr === undefined ? undefined : { kind: "pull_request", number: entry.pr.number };
   const byBranch = useChipOwner(branch);
@@ -544,6 +546,19 @@ const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | nul
   running: { reading: LAND_STATE.gating, says: "ci running" },
   failed: { reading: CHECK_OUTCOME.failed, says: "ci failed" },
   waiting_on_main: { reading: QUEUED_REASON.blocked_by_dependency, says: "ci red because main is" },
+};
+
+/**
+ * The merge queue's marks on an open pull request, which stand in for its `ci` mark once it has
+ * one: a pull request in the queue has passed `ci`. `waiting_for_ci` is auto-merge on and `ci` still
+ * running, before any entry.
+ */
+const QUEUE: Record<NonNullable<HubPull["queue"]>["state"], { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string; pulsing: boolean }> = {
+  waiting_for_ci: { reading: LAND_STATE.preparing, says: "Waiting for ci to join the merge queue", pulsing: true },
+  queued: { reading: LAND_STATE.waiting, says: "In the merge queue, waiting its turn", pulsing: false },
+  awaiting_checks: { reading: LAND_STATE.gating, says: "In the merge queue, running its checks", pulsing: true },
+  mergeable: { reading: LAND_STATE.merging, says: "In the merge queue, ready to merge", pulsing: true },
+  unmergeable: { reading: LAND_STATE.conflict, says: "In the merge queue, cannot merge", pulsing: false },
 };
 
 /**
@@ -597,21 +612,31 @@ function Pull({
   onOpenPullRequest: (url: string) => void;
   onOpenJob?: (jobId: string) => void;
 }) {
-  const mark = pull.ci === undefined ? undefined : CI[pull.ci];
+  const queued = pull.queue === undefined ? undefined : QUEUE[pull.queue.state];
+  const mark = queued ?? (pull.ci === undefined ? undefined : CI[pull.ci]);
   const Icon = mark?.reading?.icon ?? null;
+  const pulsing = queued === undefined ? pull.ci === "running" : queued.pulsing;
+  const state = queued === undefined ? (pull.ci === "running" ? "gating" : undefined) : pull.queue?.state === "waiting_for_ci" ? "preparing" : queued.pulsing ? "gating" : undefined;
   const said =
-    mark === undefined ? undefined : pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
+    mark === undefined ? undefined : queued === undefined && pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
+  const position = pull.queue?.position;
   return (
     <li className="armada-merge-line__row" aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}>
-      <span className="armada-merge-line__place" />
+      {position === undefined ? (
+        <span className="armada-merge-line__place" />
+      ) : (
+        <Tooltip label="Place in the merge queue" asChild>
+          <span className="armada-merge-line__place mono">#{position}</span>
+        </Tooltip>
+      )}
       {said === undefined ? (
         <span className="armada-merge-line__mark" />
       ) : (
         <Tooltip label={said} asChild>
           <span
             className="armada-merge-line__mark"
-            data-pulsing={pull.ci === "running" || undefined}
-            data-state={pull.ci === "running" ? "gating" : undefined}
+            data-pulsing={pulsing || undefined}
+            data-state={state}
             style={mark?.reading?.statusToken ? { color: `var(${mark.reading.statusToken})` } : undefined}
             role="img"
             aria-label={said}
@@ -635,15 +660,10 @@ function Pull({
         </Tooltip>
       </span>
       <span className="armada-merge-line__detail">
-        {pull.job === undefined ? null : onOpenJob === undefined ? (
-          <span>{pull.job.title}</span>
-        ) : (
-          <Tooltip label="Job">
-            <button type="button" className="armada-merge-line__job" onClick={() => onOpenJob(pull.job!.id)}>
-              {pull.job.title}
-            </button>
-          </Tooltip>
-        )}
+        <EntryOwner
+          entry={{ branch: pull.branch, pr: { number: pull.number, url: pull.url }, ...(pull.job === undefined ? {} : { job: pull.job }) }}
+          {...(onOpenJob === undefined ? {} : { onOpenJob })}
+        />
       </span>
     </li>
   );
