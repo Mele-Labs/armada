@@ -161,6 +161,9 @@ mod seeding;
 /// A Command that stays running, held by Fleet. **Lifecycle on `/events`,
 /// output on a socket of its own.**
 mod servers;
+/// The session ledger: what a harness reports of a session, and what Fleet
+/// answers. `docs/concepts/session.md`.
+mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
 mod showing;
@@ -363,6 +366,11 @@ pub use seeding::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
+};
+pub use sessions::{
+    Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
+    Ownership, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport,
+    SessionState, SessionUsage,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

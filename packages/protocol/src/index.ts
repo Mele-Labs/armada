@@ -58,6 +58,7 @@ export * from "./requester";
 export * from "./rehearsal";
 export * from "./scan";
 export * from "./servers";
+export * from "./sessions";
 export * from "./remarks";
 export * from "./report";
 export * from "./resources";

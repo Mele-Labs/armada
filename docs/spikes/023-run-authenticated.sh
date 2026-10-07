@@ -1,6 +1,6 @@
 #!/bin/bash
 # One authenticated turn with the Drone's environment and the real HOME, to see the flag leaves auth alone.
-P=/private/tmp/claude-501/-Users-nickmele-Development-armada/d42cb58b-6440-4cec-8ce4-49863613ae18/scratchpad/probe
+P=/path/to/probe
 cd $P/cwd
 echo '{"type":"user","message":{"role":"user","content":"Reply with the single word ok."}}' | perl -e 'alarm 90; exec @ARGV' env -i PATH="$PATH" HOME=$HOME LANG=en_US.UTF-8 TERM=dumb USER=$(id -un) \
   claude -p --input-format stream-json --output-format stream-json --verbose --model haiku --max-turns 1 \

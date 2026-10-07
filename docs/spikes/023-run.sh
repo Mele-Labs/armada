@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: run.sh <label> <extra claude args...>
-P=/private/tmp/claude-501/-Users-nickmele-Development-armada/d42cb58b-6440-4cec-8ce4-49863613ae18/scratchpad/probe
+P=/path/to/probe
 label=$1; shift
 rm -f $P/marker-*.txt
 cd $P/cwd

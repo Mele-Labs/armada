@@ -131,6 +131,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A session after any fact about it, whole.
+    Route {
+        operation: "session.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A Studio after a write, whole, and a Studio deleted.
     Route {
         operation: "studio.changed",

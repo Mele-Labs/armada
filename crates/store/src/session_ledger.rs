@@ -283,7 +283,10 @@ impl Store {
     }
 
     /// Sessions matching `search`, the most recently seen first.
-    pub fn find_sessions(&self, search: &SessionSearch<'_>) -> Result<Vec<KeptSession>, WriteError> {
+    pub fn find_sessions(
+        &self,
+        search: &SessionSearch<'_>,
+    ) -> Result<Vec<KeptSession>, WriteError> {
         let doing = "searching the session ledger";
         let text = search.text.map(str::trim).filter(|text| !text.is_empty());
         // A pull request or a slot is spelled `#12` or `slot-3` as often as `12`.

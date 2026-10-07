@@ -51,6 +51,8 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("search_files", &["q"]),
     ("get_events_since", &["since"]),
     ("list_lessons", &["lands_in", "state", "most"]),
+    ("list_sessions", &["q", "state"]),
+    ("who_owns", &["kind", "target"]),
 ];
 
 /// Every tool this door offers: the inventory's `agent_access` column, joined
@@ -119,6 +121,8 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "get_events_since",
     "list_drones",
     "list_worktrees",
+    "list_sessions",
+    "who_owns",
     "change_slot_pool",
     "rescue_slot",
     "list_servers",

@@ -12,7 +12,7 @@ use crate::{
 fn session(id: &str) -> KeptSession {
     KeptSession {
         id: id.into(),
-        harness: "claude_code".into(),
+        harness: "a_harness".into(),
         origin: "terminal".into(),
         manifest_id: Some("armada".into()),
         cwd: "/repos/armada".into(),
@@ -198,7 +198,10 @@ fn the_search_finds_a_session_by_pull_request_branch_job_slot_and_title() {
         ("right", "pr", "12"),
     ] {
         store
-            .attach(&attachment(Holder::session(holder), kind, target, "t1"), false)
+            .attach(
+                &attachment(Holder::session(holder), kind, target, "t1"),
+                false,
+            )
             .expect("taken");
     }
 

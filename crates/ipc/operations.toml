@@ -3618,3 +3618,53 @@ A slot a Job still holds after it ended, because the pool refused its release (`
 
 `Helm only` for `change_slot_pool`'s reason: it spends money and changes what this machine holds, and a person asks for it.
 """
+
+[operations.report_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A harness tells Fleet one fact about an agent session a person runs: it began, moved, took a branch or a pull request, measured, finished a turn or ended"
+notes = """
+`POST /sessions/report`, body `SessionReport`: the harness's name, the session's own id and one `fact`. Since 23.43. Answered with the whole `SessionRecord`.
+
+**Armada's own shape and no harness's.** A mod in a terminal session, a Bridge-hosted session and a script send the same body, so nothing past the adapter that sends it knows what a session runs in. Fleet stamps each fact on arrival, so no clock of the sender's is compared with its own.
+
+**Fleet resolves what the sender cannot.** `started` and `moved` carry only the directory; Fleet matches it to a served repository and to the pool slot it stands in, and a session moving out of a slot gives it back. A `branch` or `slot` attachment is exclusive per session; every other `kind` is kept as the open word it arrived as.
+
+**A fact is idempotent**: the same attachment reported twice changes nothing and publishes nothing. A session Fleet has never heard of is created by whatever fact arrives first, so a session already running when Fleet started is recorded from its next fact.
+
+`agent_access` is `No`: it is the harness that reports, never the agent inside it, and an agent that could write its own row could write another's.
+"""
+
+[operations.list_sessions]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every agent session on the ledger, most recently seen first, with what each holds, narrowed by `q` and `state`"
+notes = """
+`GET /sessions?manifest_id=&q=&state=`. Since 23.43. `q` finds a session by its title, a branch name, a pull request number (`#12` or `12`, whole), a Job id (whole, or its start) or a slot (`3` or `slot-3`). `state` is `live` or `ended`. `manifest_id` narrows to one repository's; absent, every session on the machine, a terminal session in no repository Fleet serves included.
+
+A session run in a terminal is a first-class row, the same shape a Bridge-hosted one will have.
+"""
+
+[operations.who_owns]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Who holds a branch, a pull request, a Job or a slot: every holder on the ledger, the ones still holding it first"
+notes = """
+`GET /sessions/owner?kind=&target=&manifest_id=`, `kind` one of `branch`, `pr`, `job` or `slot`. Since 23.43. A slot is its number and a branch its name, and both are of one repository, so `manifest_id` names which; absent, every repository's.
+
+**Every holder, not the one.** A session that let go still appears, with `given_back` or `spent`, beneath whoever holds it now, so an answer of one `standing` holder and an answer of none read differently from a session that only ended.
+
+**What the ledger holds is what sessions reported.** A Job's own branch and slot are not rows on it yet, so a Job holding a slot is not an answer here.
+"""
+
+[operations."session.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One session after any fact about it, whole: what it is, where it stands and everything it holds"
+notes = """
+The row travels whole, as `studio.changed` does, so a client replaces what it holds. Published on a fact that changed something and not on one that repeated what the ledger already held. Since 23.43.
+"""
