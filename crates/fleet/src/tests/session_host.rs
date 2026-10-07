@@ -579,3 +579,31 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
         [SessionRow::Ask { state: SessionAskState::Refused, .. }]
     ));
 }
+
+#[tokio::test]
+async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offers_the_permission_tool() {
+    use api::{Admitting, Conversations};
+
+    let rig = rig();
+    let id = rig.start().await;
+    let peer: std::net::SocketAddr = "127.0.0.1:50999".parse().unwrap();
+    let caller = api::Caller::at(peer);
+    assert!(rig.fleet.helm_at(caller).is_none(), "no process, no session");
+
+    rig.send(&id, "hello").await;
+    let reach = rig.fleet.helm_at(caller).expect("a hosted session's connection");
+    assert!(reach.is_a_hosted_session());
+    assert!(reach.may("ask_the_person"));
+    assert!(reach.may("list_sessions") && reach.may("who_owns"));
+    assert!(!reach.may("change_slot_pool"), "Helm's acts are not offered to it");
+
+    let asking: ipc::AskingToRun =
+        ipc::decode("an ask", br#"{"tool_name":"Bash","input":{"command":"ls"}}"#).unwrap();
+    let decided = rig
+        .fleet
+        .ask_the_person_at(asking, None, caller)
+        .await
+        .unwrap();
+    assert!(matches!(decided, ipc::RunOrNot::Allow { .. }));
+    assert!(rig.fleet.helm().asks().waiting().is_empty());
+}

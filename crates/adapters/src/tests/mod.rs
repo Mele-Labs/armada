@@ -15,6 +15,7 @@ mod ci_workflows;
 mod cloning;
 mod commit;
 mod conversing;
+mod hosted_session;
 mod delivery;
 mod edited;
 mod existing_setup;

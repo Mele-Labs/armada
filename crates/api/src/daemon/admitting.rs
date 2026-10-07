@@ -31,6 +31,7 @@ pub trait Admitting: Send + Sync + 'static {
 pub struct HelmReach {
     may: Vec<&'static str>,
     otherwise: &'static str,
+    session: bool,
 }
 
 impl HelmReach {
@@ -43,7 +44,30 @@ impl HelmReach {
                 .map(|row| row.operation)
                 .collect(),
             otherwise,
+            session: false,
         }
+    }
+
+    /// What a session Fleet hosts for Bridge may call: **what any agent of the
+    /// person's is offered, and the permission tool**, which is Helm's row in
+    /// the inventory and the one tool its own `--permission-prompt-tool` needs.
+    /// Its acts are the person's own and are never recorded as Helm's.
+    pub fn of_a_hosted_session() -> HelmReach {
+        let mut may: Vec<&'static str> = crate::door::offered()
+            .iter()
+            .map(|shape| shape.operation)
+            .collect();
+        may.push(ipc::door::ASKS_A_PERSON);
+        HelmReach {
+            may,
+            otherwise: "a session is offered what any agent of the person's is, and no more",
+            session: true,
+        }
+    }
+
+    /// Whether this is a hosted session's reach rather than Helm's.
+    pub fn is_a_hosted_session(&self) -> bool {
+        self.session
     }
 
     pub fn may(&self, operation: &str) -> bool {
