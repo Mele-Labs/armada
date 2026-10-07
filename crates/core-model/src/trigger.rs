@@ -10,6 +10,7 @@
 
 use alloc::string::String;
 
+use crate::envelope::Timestamp;
 use crate::job::{StepId, WorkflowId};
 
 /// The moment in a Job a Trigger runs at.
@@ -216,6 +217,10 @@ pub enum TriggerResolution {
 pub enum TriggerSkipped {
     /// It names a Command this repository's `armada.yml` does not declare.
     NotInThisRepo { command: String },
+    /// It names a skill, which a Drone runs and Fleet does not yet. **Never a
+    /// resolution**: a skill resolves to [`TriggerResolution::Skill`], and it
+    /// is firing that finds nothing to run it with.
+    SkillNotRun { skill: String },
 }
 
 impl core::fmt::Display for TriggerSkipped {
@@ -224,6 +229,133 @@ impl core::fmt::Display for TriggerSkipped {
             TriggerSkipped::NotInThisRepo { command } => {
                 write!(f, "skipped: `{command}` is not in this repo")
             }
+            TriggerSkipped::SkillNotRun { skill } => {
+                write!(f, "skipped: skill `{skill}` is not run yet")
+            }
+        }
+    }
+}
+
+/// One Trigger as it stood when the Job was approved, **bound to the step it
+/// fires on**. A Trigger with no step fires on every step, and freezing it
+/// writes one of these per step of the Job's workflow, so firing never asks the
+/// catalogue again and a file saved later changes nothing for this Job.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrozenTrigger {
+    pub name: String,
+    pub when: TriggerWhen,
+    /// The step it fires on. For [`TriggerWhen::PrOpened`] that is the
+    /// workflow's delivering step.
+    pub step: StepId,
+    pub source: TriggerSource,
+    pub resolution: TriggerResolution,
+    pub on_failure: OnTriggerFailure,
+}
+
+/// Where one firing stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TriggerState {
+    /// Marked and not run: [`TriggerSkipped`] says why.
+    Skipped,
+    Running,
+    /// Exited zero. A Trigger has no `expect_exit_code`, which is a Check's.
+    Passed,
+    /// Exited another way: a non-zero code, a signal, a timeout, or a program
+    /// that never started.
+    Failed,
+    /// A destructive Command, held until the owner says it may run. **Nothing
+    /// asks him yet**, so for now it stays here.
+    AwaitingOwner,
+}
+
+impl TriggerState {
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            TriggerState::Skipped => "skipped",
+            TriggerState::Running => "running",
+            TriggerState::Passed => "passed",
+            TriggerState::Failed => "failed",
+            TriggerState::AwaitingOwner => "awaiting_owner",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<TriggerState> {
+        [
+            TriggerState::Skipped,
+            TriggerState::Running,
+            TriggerState::Passed,
+            TriggerState::Failed,
+            TriggerState::AwaitingOwner,
+        ]
+        .into_iter()
+        .find(|state| state.as_wire() == value)
+    }
+}
+
+/// One firing of a [`FrozenTrigger`] at its moment. **A record and never a
+/// verdict**: nothing reads `state` to advance or fail a gate, and a failure
+/// is a line here and in the Job's log.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TriggerFiring {
+    pub name: String,
+    pub when: TriggerWhen,
+    pub step: StepId,
+    pub source: TriggerSource,
+    /// Carried from the Trigger and **not acted on yet**.
+    pub on_failure: OnTriggerFailure,
+    pub state: TriggerState,
+    /// Why, where `state` is [`TriggerState::Skipped`].
+    pub skipped: Option<TriggerSkipped>,
+    /// Absent for a signal, a timeout and a program that never started.
+    pub exit_code: Option<i32>,
+    pub started_at: Timestamp,
+    /// Absent while it runs, and while it waits on the owner.
+    pub ended_at: Option<Timestamp>,
+}
+
+impl TriggerFiring {
+    fn of(trigger: &FrozenTrigger, state: TriggerState, at: Timestamp) -> TriggerFiring {
+        TriggerFiring {
+            name: trigger.name.clone(),
+            when: trigger.when,
+            step: trigger.step.clone(),
+            source: trigger.source,
+            on_failure: trigger.on_failure,
+            state,
+            skipped: None,
+            exit_code: None,
+            started_at: at,
+            ended_at: None,
+        }
+    }
+
+    pub fn running(trigger: &FrozenTrigger, at: Timestamp) -> TriggerFiring {
+        TriggerFiring::of(trigger, TriggerState::Running, at)
+    }
+
+    pub fn skipped(trigger: &FrozenTrigger, why: TriggerSkipped, at: Timestamp) -> TriggerFiring {
+        TriggerFiring {
+            skipped: Some(why),
+            ended_at: Some(at.clone()),
+            ..TriggerFiring::of(trigger, TriggerState::Skipped, at)
+        }
+    }
+
+    pub fn awaiting_the_owner(trigger: &FrozenTrigger, at: Timestamp) -> TriggerFiring {
+        TriggerFiring::of(trigger, TriggerState::AwaitingOwner, at)
+    }
+
+    /// This firing, ended. **Zero is the only pass.**
+    pub fn ended(self, exit_code: Option<i32>, at: Timestamp) -> TriggerFiring {
+        let state = match exit_code {
+            Some(0) => TriggerState::Passed,
+            _ => TriggerState::Failed,
+        };
+        TriggerFiring {
+            state,
+            exit_code,
+            ended_at: Some(at),
+            ..self
         }
     }
 }

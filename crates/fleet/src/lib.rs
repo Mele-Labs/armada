@@ -335,6 +335,8 @@ pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;
+/// What a Job's Triggers come to at each moment, and where Fleet fires them.
+pub mod triggering;
 /// A step's tuning at the approval press. 23.20.
 pub mod tuned;
 pub mod turning;

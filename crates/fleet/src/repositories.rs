@@ -222,6 +222,12 @@ pub trait Locating: Send + Sync {
     /// Read the three places again, leniently: a definition that does not fit
     /// is set aside with its reason and the rest stand.
     fn workflows(&self, root: &Path, manifest: &Manifest, workspaces: &[Manifest]) -> Catalogued;
+    /// The Trigger files for the repository at `root`: its own `.armada/triggers/`
+    /// as `base` holds them, and this machine's. **None by default**, so a
+    /// locator that reads no files fires nothing.
+    fn triggers(&self, _root: &Path, _base: Option<&str>) -> Vec<config::TriggerWritten> {
+        Vec::new()
+    }
     /// Read `folder`. **No side effects**: Fleet may still refuse what comes back.
     fn located(&self, folder: &Path) -> Result<Located, NotLocated>;
     /// Fleet now serves the Manifest at `root`: watch it, and publish what a

@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model and the loader. Fleet does not fire one yet.
+**Built:** the model, the loader, the freeze at approval, and Fleet firing a Command Trigger. Skills, `block`, `repair` and asking the owner are not.
 
 ## What a Trigger is
 
@@ -19,7 +19,7 @@
 | `command` or `skill` | a name | One of the two |
 | `on_failure` | `block`, `repair` | Both default to false |
 
-**A Command is run by Fleet with no Drone, and a skill by a Drone.** Skills are modelled and not executed.
+**A Command is run by Fleet with no Drone, and a skill by a Drone.** Skills are modelled and not executed: one is recorded `skipped`.
 
 ## Where one is set
 
@@ -43,7 +43,7 @@
 |---|---|
 | Names a Command the repository declares | Runs |
 | Names a Command it does not declare | Skipped, marked on the Job |
-| The Command is `destructive` | Asks the owner before it runs. Not enforced yet |
+| The Command is `destructive` | Not run. Recorded `awaiting_owner`, and nothing asks him yet |
 | The file does not parse | Left out with its reason, the others stand |
 | Two files in one place share an identity | Both left out, named together |
 
@@ -52,5 +52,20 @@
 
 > **Rule.** Triggers freeze onto the Job at approval.
 > Why: the workflow does, so one saved later applies from the next Job.
+
+## When one fires
+
+| Moment | Where Fleet fires it |
+|---|---|
+| `step_starts` | The step's Drone is being put on, after the catch-up |
+| `step_passes` | The step moves to `advanced`. An override is not a pass |
+| `pr_opened` | Right after the delivering step's entry opens the pull request. Not for a pull request found already open, and not for a Job that lands `local` |
+
+A Command runs in the Job's worktree under the Check budget, with no shell. What it prints goes to the Job's log and is never read. Each firing is a row in `job_triggers`: Trigger, level, moment, step, state, exit code and times. The states are `skipped`, `running`, `passed`, `failed` and `awaiting_owner`.
+
+> **Rule.** A failed Trigger changes neither the Job's status nor its step.
+> Why: a Trigger is not a Check. `block` and `repair` are carried in the record and nothing acts on them yet.
+
+The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.
