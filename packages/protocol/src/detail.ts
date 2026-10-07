@@ -21,6 +21,7 @@
 // The header rules there hold here: these are hand-written, they drift the day
 // a field moves, and every closed set is left as `string`.
 
+import type { AddedStep } from "./added-steps";
 import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
@@ -69,6 +70,8 @@ export type JobDetail = {
   walk_notes?: WalkNote[];
   /** The Triggers frozen onto this Job: pending, or fired and how each ended. Since 23.58. */
   triggers?: JobTrigger[];
+  /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.59. */
+  additions?: AddedStep[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */

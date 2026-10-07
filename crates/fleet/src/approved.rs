@@ -209,6 +209,7 @@ where
                 })?;
         }
         let job = self.proposal_kept(&job, decided.edit.clone()).await?;
+        let mut placed = Vec::new();
         {
             let mut store = self.store().lock().await;
             if let Some(tiers) = &decided.tiers {
@@ -225,8 +226,14 @@ where
             store
                 .set_policy_overrides(job_id, &decided.overrides)
                 .map_err(Adrift::Writing)?;
+            if let Some(added) = &decided.additions {
+                placed = store
+                    .place_additions_at_approval(job_id, added, &self.now())
+                    .map_err(Adrift::Writing)?;
+            }
         }
         self.noted_as_left(&job, &decided, said);
+        self.additions_noted(&job, &placed);
         Ok(job)
     }
 

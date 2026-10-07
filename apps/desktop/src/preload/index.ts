@@ -56,6 +56,7 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
+import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -492,6 +493,10 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
   removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
     ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
+
+  addJobStep: (adding: AddingStep): Promise<AddStepAnswer> => ipcRenderer.invoke(CHANNELS.addJobStep, adding),
+  removeJobStep: (removing: RemovingStep): Promise<RemoveStepAnswer> =>
+    ipcRenderer.invoke(CHANNELS.removeJobStep, removing),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why

@@ -18,7 +18,7 @@ The system below enforces that principle mechanically wherever possible, and che
 
 Every workflow is a `WorkflowDef`: an ordered set of steps, and nothing else declares its shape.
 
-**The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
+**The resolved `WorkflowDef` is copied into the Job when the proposer answers, and freezes at the approval press** — the same treatment `acceptance_criteria[]` gets, and for the same reason: the yardstick must not move under the work. Until the press a person may pick another workflow or set each step's gate on the Job's own copy; after it nothing rewrites either (#1581). **A step added to one Job is not written into it**: it lives in the Job's own record beside the workflow, and the workflow stays what was approved ([Trigger](trigger.md), *Steps added to one Job*). A Manifest may shadow a built-in workflow, so `workflow_id` alone does not identify what was run.
 
 **The step with `delivers: true` may also carry `draft_pr`**, which says whether its pull request opens as a draft and is refused on any other step. It sits between the Job's own choice and the repository's `pr_mode`. [Landing](landing.md), *What the landing rule carries*.
 

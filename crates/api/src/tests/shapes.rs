@@ -293,6 +293,7 @@ pub fn manifest_declared() -> ipc::ManifestDeclared {
         quiet_after_seconds: None,
         poke_limit: None,
         exclude_paths: Vec::new(),
+        pr_mode: None,
     }
 }
 
@@ -389,6 +390,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         // The fake keeps no walk notes.
         walk_notes: Vec::new(),
         triggers: Vec::new(),
+        additions: Vec::new(),
     }
 }
 

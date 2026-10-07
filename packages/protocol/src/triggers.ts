@@ -1,6 +1,8 @@
 // Triggers: what a repository runs at a moment in a Job, saving one, and what a Job did with each.
 // Hand-mirrored from `crates/ipc/src/triggers.rs`. Since protocol 23.58.
 
+import type { KeptFrom } from "./added-steps";
+
 export type TriggerMoment = "step_starts" | "step_passes" | "pr_opened";
 
 /** Where a copy was read from, least specific first. A machine's replaces a repository's whole. */
@@ -56,7 +58,13 @@ export type TriggerDefinition = {
   overridden_by?: TriggerLevel;
 };
 
-export type SaveTrigger = { scope: TriggerScope; definition: string; overwrite?: boolean };
+export type SaveTrigger = {
+  scope: TriggerScope;
+  definition: string;
+  overwrite?: boolean;
+  /** Keeps a Job's added step for every Job: the definition is the Trigger drawn from it. Since 23.59. */
+  kept_from?: KeptFrom;
+};
 
 export type TriggerSaved = {
   name: string;
