@@ -553,6 +553,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         <div className="armada-session-frame__centre">
           <Refused />
           <SessionThread
+            sessionId={session.id}
             rows={threadRowsOf(session)}
             {...(session.asked === undefined
               ? {}
