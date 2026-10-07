@@ -71,23 +71,38 @@ export function mergeLineViews(
   const served = lines?.lines ?? [];
   const chosen = picked === null ? served : served.filter((one) => one.root === picked);
   const named = chosen.length > 1;
+  const owners = ownersOf(jobs);
+  const owned = (entry: MergeLineEntry): MergeLineEntry => {
+    const job = entry.job ?? owners.get(entry.branch);
+    return job === undefined ? entry : { ...entry, job };
+  };
   return chosen.map((one) => ({
     root: one.root,
     ...(named ? { name: nameOf(one.root, repositories) } : {}),
-    line: inOrder(one.line).map((row) => entryOf(row, (one as NoticedLine).notice?.kind === "main")),
+    line: inOrder(one.line).map((row) => owned(entryOf(row, (one as NoticedLine).notice?.kind === "main"))),
     // The forge's newest merged pull requests, where Fleet serves them; the queue's own outcome
     // files only from a Fleet before 23.42, or one whose forge said none.
-    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map(mergedEntryOf) : one.landed.map((row) => entryOf(row)),
-    sentBack: one.sent_back.map((row) => entryOf(row)),
+    landed: (one.hub?.merged ?? []).length > 0 ? one.hub!.merged!.map((pull) => owned(mergedEntryOf(pull))) : one.landed.map((row) => owned(entryOf(row))),
+    sentBack: one.sent_back.map((row) => owned(entryOf(row))),
     ...((one as NoticedLine).notice === undefined ? {} : { notice: (one as NoticedLine).notice }),
     ...(one.hub === undefined ? {} : { hub: hubOf(one.hub, recentOf(jobs)) }),
   }));
+}
+
+/** The Job each branch belongs to, from the Board's rows. The newest Job wins where two named one branch. */
+function ownersOf(jobs: readonly JobSummary[]): Map<string, { id: string; title: string }> {
+  const owners = new Map<string, { id: string; title: string }>();
+  for (const job of [...jobs].sort((a, b) => (a.ended_at ?? "\uffff").localeCompare(b.ended_at ?? "\uffff") || a.id.localeCompare(b.id))) {
+    if (job.branch !== undefined) owners.set(job.branch, { id: job.id, title: job.title });
+  }
+  return owners;
 }
 
 /** A pull request the forge lists as merged, as a landed row draws it. */
 function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
     branch: pull.branch,
+    ...(pull.job === undefined ? {} : { job: { id: pull.job.id, title: pull.job.title } }),
     pr: { number: pull.number, url: pull.url },
     state: "landed",
     ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),
