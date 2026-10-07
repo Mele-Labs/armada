@@ -186,6 +186,7 @@ pub mod mint;
 mod naming;
 /// What a Job says it needs on a file, and the order its landing takes. `#1059`.
 mod needing;
+pub mod notice_loop;
 pub mod noticing;
 /// Where two Jobs claim the same paths, worked out at read time. **A
 /// warning and nothing else** — no dispatch path reaches it.
