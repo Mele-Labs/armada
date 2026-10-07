@@ -281,18 +281,17 @@ scripts/preview --restart [--dry-run] [--adopt]   # then scripts/restart --from 
 **It merges every branch that is in flight on top of `main`, in a worktree of
 its own, so you can use work while agents are still landing it.** In flight is a
 local branch with commits ahead of `main` that a slot holds
-(`armada worktree --status`) or the merge line has queued
-(`armada land --status`). `main`, `preview` and remote-only branches are
+(`armada worktree --status`). `main`, `preview` and remote-only branches are
 ignored.
 
 **A branch held only by a stranded Job is left out, and named.** Stranded is a
 slot read as `kept` (the Job ended and could not give the slot back), or held by
 a Job that Fleet reports as killed, failed, rejected or superseded, or as
 running with no Drone. It comes back when the Job is restarted. A slot held by a
-live session, a Job waiting on a person, or a branch on the merge line keeps its
+live session or a Job waiting on a person keeps its
 branch in. Where Fleet does not answer, a Job's slot counts as live. An open
 pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
-`ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
+`ARMADA_LAND_ARMADA` names another `armada`.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
 every branch in it was green, and the reverse.
@@ -301,8 +300,7 @@ every branch in it was green, and the reverse.
 a warning and never touched.
 
 **A preview can hold a branch that never lands.** A branch is in it until it
-leaves its slot and the line, whether it merged, was withdrawn or was
-abandoned. Use it, and land from the branch.
+leaves its slot, whether it merged or was abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|
@@ -314,8 +312,7 @@ abandoned. Use it, and land from the branch.
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
-**The worktree is `.armada/preview/`, kept and reused** the way the merge line's
-`.armada/land/candidate` is: made on first use, reset and cleaned between runs
+**The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, reset and cleaned between runs
 with `target/`, `node_modules/` and Bridge's build output kept, so
 builds stay warm.
 
@@ -608,8 +605,8 @@ Check prints nothing while it runs, which reads as a hang and is not one.
 session and with Fleet, and says so once: `waiting for a Check slot: 4 of 4 in
 use`. `../concepts/manifest.md`, *How many Checks run at once*.
 
-**A Check runs at agent priority**, beneath the merge line's and Bridge's, so
-on a loaded machine it takes longer than the same Check run by `scripts/land`.
+**A Check runs at agent priority**, beneath Fleet's and Bridge's, so
+on a loaded machine it takes longer than the same Check run by CI.
 `ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
 `../concepts/manifest.md`, *At what priority a Check runs*.
 
@@ -623,9 +620,9 @@ apostrophes included. A name that matched several says how many ran, and one
 that matched nothing exits 1.
 
 **`armada check <name> --changed` runs it over what the paths on stdin reach**,
-the way the merge line does: `git diff --name-only main | armada check test
+the way CI does: `git diff --name-only main | armada check test
 --changed`. It adds no dependents of its own, so name every crate you want
-measured. *Landing a branch* below has the rules.
+measured.
 
 **A name in the wrong registry is refused with the verb that would have
 worked**, and a name in neither is refused by listing what is declared.
@@ -879,59 +876,22 @@ unchanged.
 (`protocol-version.toml`, "a minor"; a migration needs none, it has a name), says which branches are ahead and what they took, and the first to
 declare goes first. `armada need --took <path> "<value>"` records the value
 chosen, `--status` lists the needs by path, `--release <path>` gives one back.
-The merge line keeps a branch with a need queued until every need ahead of it on
-the same path has landed or been given back, and `--status` says what it waits
-behind. A need is spent when its branch lands and given back when the branch no
+A need is spent when its branch lands and given back when the branch no
 longer exists here. **Nothing expires by time**: a stalled need holds the
 branches behind it until a person runs `armada need --release <path>` from its
 branch, or deletes the branch. **The needs are Fleet's** (`docs/capabilities/needs.md`):
-`armada need` asks the running Fleet and says so where there is none. **The merge line
-still reads the old files** under the git common directory, in `armada-needs/`, so a
-need declared through Fleet does not hold a branch in it. **`armada land preflight` refuses a branch that changes the
-protocol minor with no need declared for that path**,
-and says to run `armada need <path> "<what>"`; a major change passes.
+`armada need` asks the running Fleet and says so where there is none.
 
-### The merge line is draining
+### What is left of the merge line
 
-`scripts/land` and `armada land` are being retired and are not for new work. The
-line takes nothing new; it finishes what is already queued, and goes at the
-cutover (`docs/practices/ci.md` lists what is owed). A branch already queued
-there is left alone. Its design is [Merge line](../capabilities/merge-line.md).
+`armada land` and `scripts/land` are gone. Fleet still reads the outcome files an
+earlier `armada land` left under `.git/armada-land/`, for the merge line Bridge
+draws.
 
-```sh
-scripts/land --status [<branch>]    # read a branch already queued
-scripts/land --withdraw [<branch>]  # out of the line; this branch by default
-```
-
-`--status` answers from disk in well under a second. Each outcome has an exit
-code.
-
-| Exit | Outcome | What to do |
-|---|---|---|
-| 0 | Landed, queued, or ready | Landed: remove your worktree with the printed commands |
-| 1 | Refused before joining | Read the line; usually commit or preflight |
-| 3 | Still in line | Poll again |
-| 10 | Still in line, and a Check has failed that `main` is green for | Read the named log and start the fix; do not push, the turn ends red |
-| 4 | Red | Read the named logs; fix on your branch, then preflight and land |
-| 5 | Conflict | Merge `origin/main` in, commit, preflight and land |
-| 7 | Stopped | Read the reason; nothing was merged unless it says so. A Check naming a command this machine does not have lands here, not in red |
-| 8 | Nothing known | This branch has never been queued from this clone |
-
-**Each turn's logs stay on disk for two weeks**, under
-`.git/armada-land/logs/<entry>/<turn>/` in the main checkout. `--status`
-prints the paths of the latest turn's files.
-
-**A change to the line needs `scripts/restart` before it is what runs.**
-`armada land` comes from the installed binary on `PATH`, not from the tree you
-are standing in. `ARMADA_LAND_ARMADA` names another `armada`, by absolute path.
-An `armada` that does not know the verb is refused with exit 9, naming
-`scripts/restart`.
-
-**What gates the line itself:** `armada check hooks_test` runs
-`.claude/hooks/test_guard_merge.py` against the hook. It is a Check in
-`armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs nothing
-built or signed in and takes under a second. `scripts/test_land.py` is no longer a
-Check: run it by hand with `python3 scripts/test_land.py` if you change the script.
+**What gates the hook that keeps a merge on that path:** `armada check
+hooks_test` runs `.claude/hooks/test_guard_merge.py` against it. It is a Check
+in `armada.yml`, so a Job touching `.claude/hooks/` runs it too; it needs
+nothing built or signed in and takes under a second.
 
 ## Clearing up
 

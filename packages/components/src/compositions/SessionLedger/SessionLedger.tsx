@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Check, CircleDot, Hand, Megaphone, MoveRight, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -8,16 +8,19 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * What a Session has accumulated, a section per kind and a row per thing.
  * **Every row is a press that opens what it names**: the slot on Cleanup, the
  * pull request in a sheet, the Job in its detail, the Studio on its whiteboard,
- * a sketch beside it. The ledger draws no surface of its own; the host says
- * where each press goes.
+ * a sketch beside it, a page or a document at its address, a file on the
+ * machine. The ledger draws no surface of its own; the host says where each
+ * press goes.
  *
- * **Every section is drawn from the start, dim, with an empty well under it and
- * no sentence in it**, so a blank Session's ledger shows what it will hold, and
- * each section fills in place when its first row arrives (the owner's choice
- * of 7 Oct 2026, on the empty ledger). **The one exception is Forks**, drawn only
- * where the Session has been forked or is a fork: most never are.
+ * **A section is drawn only when it holds a row.** A ledger with nothing in it
+ * draws one small picture and no words (the owner's choice of 7 Oct 2026, who
+ * first asked for every section dim and then took it back: once some filled,
+ * the empty ones only took room).
  */
-export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "fork";
+export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
+
+/** What an artifact is: a page published, a file written outside the code, or a Doc. */
+export type ArtifactForm = "page" | "file" | "doc";
 
 export type LedgerEntry = {
   key: string;
@@ -27,6 +30,8 @@ export type LedgerEntry = {
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
   mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted"; said: string };
+  /** Which of the three an `artifact` row is, and so its glyph and what its tooltip names. */
+  artifact?: ArtifactForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
   /** Came with a Job a person piloted: handed over, not leased. */
@@ -46,11 +51,15 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "studio", label: "Studios", Glyph: Presentation },
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
+  { kind: "artifact", label: "Artifacts", Glyph: Files },
   { kind: "fork", label: "Forks", Glyph: MoveRight },
 ];
 
-/** Sections drawn only once they hold a row. */
-const ONLY_FILLED: readonly LedgerKind[] = ["fork"];
+const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
+  page: { Glyph: Globe, said: "Published page" },
+  file: { Glyph: Files, said: "File written" },
+  doc: { Glyph: NotebookText, said: "Doc" },
+};
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
   pending: ShieldEllipsis,
@@ -65,19 +74,29 @@ const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
+      {entries.length === 0 ? <EmptyLedger /> : null}
       {SECTIONS.map(({ kind, label, Glyph }) => {
         const rows = entries.filter((one) => one.kind === kind);
-        if (rows.length === 0 && ONLY_FILLED.includes(kind)) return null;
+        if (rows.length === 0) return null;
         return (
-          <section className="armada-session-ledger__group" key={kind} aria-label={label} data-empty={rows.length === 0 || undefined}>
+          <section className="armada-session-ledger__group" key={kind} aria-label={label}>
             <h3 className="armada-session-ledger__eyebrow">{label}</h3>
             <ul className="armada-session-ledger__rows">
               {rows.map((row) => {
                 const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
+                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
-                      <Glyph size={12} strokeWidth={2} aria-hidden />
+                      {form === undefined ? (
+                        <Glyph size={12} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Tooltip label={form.said}>
+                          <span className="armada-session-mark" role="img" aria-label={form.said}>
+                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
                       <span className="armada-session-ledger__text">{row.text}</span>
                       {row.handed === undefined ? null : (
                         <Tooltip label={row.handed}>
@@ -121,5 +140,23 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
         );
       })}
     </aside>
+  );
+}
+
+/**
+ * A ledger with nothing on it: a small picture of one, in the border tokens, and no words under it.
+ * Three ruled rows, the last one dashed for what has not come yet. The merge line's empty picture
+ * is the precedent for an illustration, and the owner's the licence (`iconography.md`).
+ */
+function EmptyLedger() {
+  return (
+    <svg className="armada-session-ledger__picture" viewBox="0 0 96 40" role="img" aria-label="Nothing attached">
+      <circle className="armada-session-ledger__picture-place" cx="10" cy="8" r="3.5" />
+      <path d="M22 8 H84" />
+      <circle className="armada-session-ledger__picture-place" cx="10" cy="20" r="3.5" />
+      <path d="M22 20 H66" />
+      <circle className="armada-session-ledger__picture-place armada-session-ledger__picture-later" cx="10" cy="32" r="3.5" />
+      <path className="armada-session-ledger__picture-later" d="M22 32 H76" />
+    </svg>
   );
 }

@@ -113,7 +113,8 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
  * opens the slot's panel. A row Fleet or this build has no screen for is left out rather than guessed at.
  */
 export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, "jobs" | "sketches">): SessionAttachment[] {
-  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent");
+  // What a Session made stays on its ledger once it has ended, as a subagent's turn does.
+  const held = record.attachments.filter((one) => one.state !== "given_back" || one.kind === "subagent" || one.kind === "artifact");
   const slots = held.filter((one) => one.kind === "slot" && one.state === "standing");
   const out: SessionAttachment[] = [];
   for (const one of held) {
@@ -167,6 +168,12 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
           ...(detail["report"] === undefined ? {} : { report: detail["report"] }),
         });
         break;
+      case "artifact": {
+        const form = detail["form"];
+        if (form !== "page" && form !== "file" && form !== "doc") break;
+        out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
+        break;
+      }
       default:
         break;
     }

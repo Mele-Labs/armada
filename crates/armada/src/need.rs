@@ -8,17 +8,11 @@
 //! says so and does nothing else**: a list kept here would be a second order
 //! Fleet's merge never reads, which is what the old files were.
 //!
-//! **`armada land` still reads those files** ([`Needs`], re-exported for it). It
-//! is being retired for pull requests and is not moved, so a need declared
-//! through Fleet is not one it holds a branch behind.
-
 use std::path::Path;
 
-pub use adapters::needs::{waiting_text, Need, Needs};
 use fleet::runtime;
 use ipc::{NeedAct as Act, NeedAnswer, NeedCall, NeedLine, NeedList, WireError};
 
-use crate::land::git::checked;
 use crate::loopback::Loopback;
 
 /// Where Fleet serves the act and the read.
@@ -91,14 +85,23 @@ pub fn status_text(needs: &[NeedLine]) -> String {
 /// Whether the checkout at `cwd` differs from the base at `path`, committed or
 /// not. Unanswerable reads as no.
 pub(crate) fn changes(cwd: &Path, path: &str) -> bool {
-    let env = crate::land::Env::read();
-    let base = format!("{}/{}", env.remote, env.base);
-    let Ok(point) = crate::land::merge_base(cwd, "HEAD", &base) else {
+    let Some(point) = git(cwd, &["merge-base", "HEAD", "origin/main"]) else {
         return false;
     };
-    checked(cwd, &["diff", "--name-only", &point, "--", path])
-        .map(|out| !out.stdout.is_empty())
-        .unwrap_or(false)
+    git(cwd, &["diff", "--name-only", &point, "--", path]).is_some_and(|out| !out.is_empty())
+}
+
+/// What `git -C cwd <args>` printed, trimmed, or `None` where it failed.
+fn git(cwd: &Path, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(cwd)
+        .args(args)
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 /// The Fleet to ask, or the sentence saying there is not one.
@@ -141,7 +144,8 @@ pub fn run(cwd: &Path, act: crate::cli::NeedAct) -> Result<String, String> {
         let list: NeedList = asked(fleet.get(&path), "a need list")?;
         return Ok(status_text(&list.needs));
     }
-    let branch = crate::land::current_branch(cwd)
+    let branch = git(cwd, &["symbolic-ref", "--quiet", "--short", "HEAD"])
+        .filter(|name| !name.is_empty())
         .ok_or("no branch is checked out here, and a need belongs to a branch")?;
     let call = |act, path: &str, what: Option<&str>, value: Option<&str>| NeedCall {
         act,

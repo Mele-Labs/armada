@@ -5,9 +5,11 @@ workflow that runs this repository's Checks and `cargo xtask verify-foundations`
 GitHub, and with pull requests it replaces the local merge line. Why, and what was
 measured: `.claude/decisions/2026-10-06-ci-and-pull-requests-replace-the-merge-line.md`.
 The workflow reports and gates nothing itself: a ruleset on `main` that requires
-`ci` does the gating. The repository allows merge commits only, auto-merge is
-enabled, and the owner, as admin, bypasses the ruleset so the draining line still
-works.
+`ci` does the gating. The repository allows merge commits only and auto-merge is
+enabled. The same ruleset holds a merge queue: merge method MERGE, grouping
+ALLGREEN, up to five entries built and merged together, and 60 minutes for `ci`
+to answer a group. Set 7 Oct 2026; the free plan allows it on a public
+repository. The owner, as admin, bypasses the ruleset.
 
 ## What runs when
 
@@ -107,7 +109,7 @@ HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ─�
 HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
 ```
 
-**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, kept in step by hand with `crates/armada/src/land/gate.rs`, and its tests run in the job first.
+**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
 
 | Read | Why |
 |---|---|
@@ -190,8 +192,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 |---|---|
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
-| The merge queue setting | Repository settings |
-| Retire `armada land` | `crates/armada/src/land/` |
 
 ## What `foundations` measured and what it did not
 

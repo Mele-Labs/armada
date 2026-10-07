@@ -22,8 +22,7 @@ use adapters::{BranchGone, WorktreeGone};
 use crate::clean::{Cleaned, FileGone, Holding, RecordOutcome};
 use crate::declared::{Ended, Ran, Reached};
 
-/// How `armada check --changed` says what it narrowed to, and how
-/// `land::armada_cli::check` finds it in the output.
+/// How `armada check --changed` says what it narrowed to.
 pub const NARROWED_TO: &str = "  narrowed to ";
 
 /// What one Check or Command did: its output, then how it ended.

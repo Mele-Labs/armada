@@ -434,7 +434,6 @@ Decided 2 Oct 2026, with the machine at load 20 to 32 on 18 cores and most of it
 Rules that follow:
 
 - **`ARMADA_CHECK_PRIORITY=normal` turns it off.** Any other value, or none, lowers. Set it in the environment of `armada check`, or of Fleet for its Checks.
-- **The merge line sets it on every Check it runs**, explicitly rather than by inheritance, so `scripts/land` is never lowered by whoever called it.
 - **A Command run on its own is never lowered.** `armada run <name>` keeps normal priority; the same Command run as a Check's prerequisite takes that Check's.
 - **`ps -o pri,ni,pid,command` shows it** as priority 20 where normal work is 31. `ni` stays 0, because it is not `nice`.
 - **Utility, not `nice` and not background**, measured on the owner's M5 Pro with 24 busy loops saturating it, a four-worker job at normal priority timed beside each:

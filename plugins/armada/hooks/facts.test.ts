@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  artifactOf,
   effortOf,
   ghAct,
   modeOf,
@@ -119,4 +120,52 @@ test('a rename is read off the last custom-title entry of a transcript', () => {
   expect(transcriptPath('/home/user', '/repos/armada/.armada', 'S1')).toBe(
     '/home/user/.claude/projects/-repos-armada--armada/S1.jsonl',
   )
+})
+
+test('a published page is an artifact at the address it answered with, and a read of one is not', () => {
+  const url = 'https://claude.ai/artifact/abc123'
+  expect(artifactOf('Artifact', { file_path: '/w/spike-notes.html' }, `Published ${url}`, false)).toEqual({
+    form: 'page',
+    target: url,
+    title: 'spike-notes',
+  })
+  expect(artifactOf('Artifact', { url, file_path: '/w/a.html', title: 'Spike' }, 'ok', false)?.title).toBe('Spike')
+  expect(artifactOf('Artifact', { action: 'list' }, url, false)).toBeUndefined()
+  expect(artifactOf('Artifact', { action: 'read', url }, '<html>', false)).toBeUndefined()
+  expect(artifactOf('Artifact', { url, asset: true, file_path: '/w/a.png' }, 'ok', false)).toBeUndefined()
+  expect(artifactOf('Artifact', { file_path: '/w/a.html' }, 'refused', false)).toBeUndefined()
+})
+
+test('a new document, picture or pdf is an artifact, and code, an edit and scratch are not', () => {
+  const made = (path: string, created = true) => artifactOf('Write', { file_path: path }, 'ok', created)
+  expect(made('/repo/docs/spikes/clock.md')).toEqual({ form: 'file', target: '/repo/docs/spikes/clock.md', title: 'clock.md' })
+  expect(made('/repo/shots/ledger.PNG')?.form).toBe('file')
+  expect(made('/repo/out/report.pdf')?.form).toBe('file')
+  expect(made('/repo/docs/clock.md', false)).toBeUndefined()
+  expect(made('/repo/src/clock.ts')).toBeUndefined()
+  expect(made('/repo/page.html')).toBeUndefined()
+  expect(made('/repo/package.json')).toBeUndefined()
+  expect(made('/tmp/notes.md')).toBeUndefined()
+  expect(made('/repo/.claude/memory/notes.md')).toBeUndefined()
+  expect(made('/repo/node_modules/x/README.md')).toBeUndefined()
+  expect(artifactOf('Edit', { file_path: '/repo/docs/clock.md' }, 'ok', false)).toBeUndefined()
+})
+
+test('a Claude Docs document made or edited is an artifact, and reading one is not', () => {
+  const url = 'https://claude.ai/artifact/doc9'
+  const made = { container: { kind: 'project', create: { name: 'Spike write-up' } } }
+  expect(artifactOf('mcp__claude_ai_Claude_Docs__batch', made, `Created ${url}`, false)).toEqual({
+    form: 'doc',
+    target: url,
+    title: 'Spike write-up',
+  })
+  const edited = { ref: { object: 'node', id: 'n1' }, container: { kind: 'doc', id: 'doc9' }, payload: 'x' }
+  expect(artifactOf('mcp__claude_ai_Claude_Docs__update', edited, 'ok', false)).toEqual({
+    form: 'doc',
+    target: url,
+    title: undefined,
+  })
+  expect(artifactOf('mcp__claude_ai_Claude_Docs__read', edited, 'ok', false)).toBeUndefined()
+  expect(artifactOf('mcp__claude_ai_Claude_Docs__guide', {}, 'ok', false)).toBeUndefined()
+  expect(artifactOf('mcp__claude_ai_Claude_Docs__create', {}, 'no link', false)).toBeUndefined()
 })

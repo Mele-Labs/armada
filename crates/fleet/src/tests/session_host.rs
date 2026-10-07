@@ -445,6 +445,41 @@ async fn another_sessions_message_wakes_the_target_and_names_who() {
 }
 
 #[tokio::test]
+async fn a_document_a_hosted_session_writes_is_on_its_ledger_and_code_is_not() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "write it up").await;
+    rig.stand_in.init(0);
+    let call = |tool: &str, detail: &str| DroneEvent::Called {
+        tool: tool.into(),
+        call: "toolu_3".into(),
+        detail: CallDetail::of(detail),
+    };
+    rig.stand_in.says(
+        0,
+        vec![
+            call("Write", "/repo/docs/spikes/clock.md +30"),
+            call("Write", "/repo/src/clock.rs +10"),
+            call("Edit", "/repo/docs/index.md +2 -1"),
+        ],
+    );
+    eventually(|| async {
+        let listed = rig.fleet.list_sessions(None, None, None).await.unwrap();
+        listed.sessions[0].attachments.iter().any(|one| one.kind == "artifact")
+    })
+    .await;
+
+    let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
+    let kept: Vec<_> = listed[0]
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "artifact")
+        .map(|one| (one.target.as_str(), one.detail.get("form").map(String::as_str)))
+        .collect();
+    assert_eq!(kept, [("/repo/docs/spikes/clock.md", Some("file"))]);
+}
+
+#[tokio::test]
 async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     let rig = rig();
     let a = rig.start().await;

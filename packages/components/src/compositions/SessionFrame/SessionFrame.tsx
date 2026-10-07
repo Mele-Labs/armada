@@ -54,6 +54,8 @@ export type SessionFrameProps = {
   onRename?: (title: string) => void;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
+  /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
+  aside?: ReactNode;
   children: ReactNode;
 };
 
@@ -95,8 +97,9 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, actions, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, actions, aside, children }: SessionFrameProps) {
   return (
+    <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
       <header className="armada-session-frame__head">
         <SquareTerminal size={16} strokeWidth={2} aria-hidden />
@@ -107,5 +110,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, action
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>
+    {aside === undefined || aside === null ? null : <Card className="armada-session-frame__aside armada-shell__dock">{aside}</Card>}
+    </div>
   );
 }

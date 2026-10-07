@@ -3,6 +3,7 @@
 
 import type {
   AnswerSessionAsk,
+  Followed,
   FrameRead,
   Outcome,
   PilotOutcome,
@@ -62,6 +63,8 @@ export type SessionsApi = {
   watchSession: (sessionId: string) => Promise<void>;
   /** A picture or file a message carried, by the id its row gave. */
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+  /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
+  openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -100,5 +103,6 @@ export const SESSIONS_CHANNELS = {
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
+  openSessionFile: "bridge:open-session-file",
   pressPullRequest: "bridge:press-pull-request",
 } as const;

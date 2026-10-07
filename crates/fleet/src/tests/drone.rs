@@ -160,7 +160,7 @@ async fn the_drone_gets_the_environment_fleet_built_and_not_the_one_fleet_had() 
     assert!(said.contains("PATH=/usr/bin:/bin"), "{said}");
     assert!(said.contains("HOME=/Users/user"), "{said}");
 
-    // Exactly what Fleet named, and nothing else — bar the three a POSIX shell
+    // Exactly what Fleet named plus the mark `Detached::spawn` adds, bar the three a POSIX shell
     // sets for itself once it is already running. Those are not inherited and
     // are named here rather than counted around, because the child in this test
     // is a shell and a real Drone is not.
@@ -174,7 +174,7 @@ async fn the_drone_gets_the_environment_fleet_built_and_not_the_one_fleet_had() 
         .collect();
     assert_eq!(
         inherited,
-        BTreeSet::from(["TERM", "USER", "PATH", "LANG", "HOME"]),
+        BTreeSet::from(["TERM", "USER", "PATH", "LANG", "HOME", crate::orphans::MARK]),
         "something reached the Drone that Fleet did not name:\n{said}"
     );
 }

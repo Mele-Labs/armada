@@ -1,15 +1,10 @@
-//! What `armada need` prints from what Fleet answered, and `armada land`'s own
-//! hold, which still reads the files: two branches each declare a need on
-//! `migrations.rs`; ready first, the second waits in the line and says what it
-//! waits behind; once the first lands, the second may land; and a deleted
-//! branch's need blocks nobody. **Fleet's side, the ledger and the order a Job
-//! and a session share, is `fleet`'s `needs` tests.**
+//! What `armada need` prints from what Fleet answered. **Fleet's side, the
+//! ledger and the order a Job and a session share, is `fleet`'s `needs` tests.**
 
 use std::path::Path;
 use std::process::Command;
 
-use crate::land::{nonce, write_queue_entry, QueueEntry, StateDir};
-use crate::need::{declared_text, status_text, waiting_text, Needs};
+use crate::need::{declared_text, status_text};
 use crate::tests::TempDir;
 use ipc::{Holder, HolderKind, Instant, NeedAnswer, NeedLine};
 
@@ -41,79 +36,6 @@ fn a_repository_with(branches: &[&str]) -> TempDir {
         git(dir.path(), &["branch", branch]);
     }
     dir
-}
-
-fn in_line(state: &StateDir, branch: &str, place: i64) {
-    write_queue_entry(
-        state,
-        &QueueEntry {
-            branch: branch.to_string(),
-            pr: None,
-            head: "a".repeat(40),
-            tree: "b".repeat(40),
-            place,
-            worktree: "/tmp/somewhere".to_string(),
-            nonce: nonce(),
-        },
-    )
-    .expect("queued");
-}
-
-fn names(line: &[QueueEntry]) -> Vec<&str> {
-    line.iter().map(|entry| entry.branch.as_str()).collect()
-}
-
-#[test]
-fn the_second_declarer_is_told_who_is_ahead_and_waits_for_it_to_land() {
-    let repo = a_repository_with(&["first", "second"]);
-    let needs = Needs::of(repo.path()).expect("needs");
-    let state = StateDir::resolve(repo.path()).expect("state");
-
-    let one = needs
-        .declare("first", PATH, "a new migration")
-        .expect("declared");
-    assert!(one.ahead.is_empty());
-    needs.took("first", PATH, "V95").expect("took");
-
-    needs
-        .declare("second", PATH, "a new migration")
-        .expect("declared");
-
-    // The second is ready first, and the line holds it.
-    in_line(&state, "second", 1);
-    let held = crate::land::hold::unheld(&state, crate::land::queued(&state).expect("line"));
-    assert!(held.is_empty(), "{:?}", names(&held));
-    let said = waiting_text(&needs.behind("second"));
-    assert!(said.contains("waiting behind a new migration on"), "{said}");
-    assert!(said.contains("first") && said.contains("V95"), "{said}");
-
-    // The first is ready and goes; once it lands, the second may.
-    in_line(&state, "first", 2);
-    let line = crate::land::queued(&state).expect("line");
-    assert_eq!(names(&crate::land::hold::unheld(&state, line)), ["first"]);
-    needs.spend("first");
-    let line = crate::land::queued(&state).expect("line");
-    assert_eq!(
-        names(&crate::land::hold::unheld(&state, line)),
-        ["second", "first"]
-    );
-}
-
-#[test]
-fn a_deleted_branch_s_need_blocks_nobody() {
-    let repo = a_repository_with(&["gone", "waiting"]);
-    let needs = Needs::of(repo.path()).expect("needs");
-    needs
-        .declare("gone", PATH, "a new migration")
-        .expect("declared");
-    needs
-        .declare("waiting", PATH, "a new migration")
-        .expect("declared");
-    assert_eq!(needs.behind("waiting").len(), 1);
-
-    git(repo.path(), &["branch", "-D", "gone"]);
-    assert!(needs.behind("waiting").is_empty());
-    assert_eq!(needs.standing().len(), 1);
 }
 
 fn line(held_by: &str, what: &str, took: Option<&str>) -> NeedLine {

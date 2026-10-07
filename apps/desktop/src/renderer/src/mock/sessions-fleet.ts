@@ -235,6 +235,7 @@ export class FakeSessionsFleet {
             this.publishThreads();
           },
           readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
+          openSessionFile: async () => ({ ok: true }),
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
             if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://forge.example/pull/${number}`, session_id: sessionId } };
