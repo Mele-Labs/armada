@@ -22,7 +22,7 @@ import { failedCommand, guidanceOf, raisedFailure } from "./failing";
  * The toasts standing, oldest first. Each command answer that failed raises
  * one, and so does each throw no boundary saw; guidance replaces its own kind.
  */
-export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void } {
+export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (key: number) => void; tell: (sentence: string) => void } {
   const [raised, setRaised] = useState<Raised[]>([]);
   const next = useRef(0);
   const raise = useCallback((one: Omit<Raised, "key">) => {
@@ -40,7 +40,13 @@ export function useRaised(outcome: Outcome | null): { raised: Raised[]; lower: (
   }, [outcome, raise]);
   useEffect(() => watchUncaught((uncaught) => raise({ uncaught })), [raise]);
   const lower = useCallback((key: number) => setRaised((held) => held.filter((one) => one.key !== key)), []);
-  return { raised, lower };
+  // A sentence a surface with no command of its own has to say, raised as the refusal it is.
+  const tell = useCallback(
+    (message: string) =>
+      raise({ outcome: { ok: false, why: "refused", error: { code: "bridge.not_sent", message, run_id: "", fields: {}, chain: [] } } }),
+    [raise],
+  );
+  return { raised, lower, tell };
 }
 
 /** Whether a toast is guidance of the same kind as this answer. */

@@ -469,7 +469,8 @@ export function App({ draft }: AppProps = {}) {
   const live = state.connection.state === "connected";
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
-  const { raised, lower } = useRaised(commands.outcome);
+  const { raised, lower, tell } = useRaised(commands.outcome);
+  useTellAsked(tell); // The annotation layer's send that failed.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
@@ -507,7 +508,6 @@ export function App({ draft }: AppProps = {}) {
     setSessionOpen(id);
   }
   useOpenSessionAsked(openSession); // The annotation layer's Start session.
-  useTellAsked(setTelling); // The annotation layer's send that failed.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);

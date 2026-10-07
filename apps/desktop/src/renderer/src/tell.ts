@@ -1,4 +1,4 @@
-// A way for the annotation layer to put a sentence in the app's toast, as `open-session.ts` does
+// A way for the annotation layer to raise a failure toast with a sentence, as `open-session.ts` does
 // for opening a Session: a window event, because the layer must not import the app.
 
 import { useEffect } from "react";
