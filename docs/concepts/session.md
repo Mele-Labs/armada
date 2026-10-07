@@ -285,8 +285,17 @@ A mod loaded before the plugin was updated keeps running the old code until the 
 ## Installing the Claude Code mod
 
 ```
-claude plugin marketplace add <this repository>/plugins
+claude plugin marketplace add "$HOME/Library/Application Support/Armada/mod"
 claude plugin install armada@armada-local
 ```
+
+**Fleet keeps its own copy of the mod** in that folder. `scripts/restart` copies
+`plugins/` into it from the tree it builds, so the mod is as new as the Fleet
+and a pull on the checkout changes nothing a session loads. After a restart,
+`/reload-plugins` in an open session picks the new copy up. The copy is made
+beside the folder and renamed over it, so a session never reads half of one.
+A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
+session's reported mod version with the installed one reads
+`Armada/mod/armada/.claude-plugin/plugin.json`.
 
 It loads in the person's own sessions only. A Drone, a Judge call and a scout are started with `--setting-sources project,local`, so a mod installed in a person's user settings never loads in one ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).
