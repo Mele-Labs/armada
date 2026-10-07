@@ -1,7 +1,7 @@
 // Notes left with the annotation layer, sent to a Session. The bar offers Dispatch job, which
 // proposes the notes as a Job, and Start session, which sends them as the first message of a new
 // Session. Its caret lists every live Session, hosted or from a terminal. Told twice, wide and
-// below the breakpoint. The layer is the mock's own (`../annotating.tsx`), with a sink that sends.
+// below the breakpoint. A start Fleet refuses is a toast. The layer is the mock's own (`../annotating.tsx`), with a sink that sends.
 
 import { kit, NARROW } from "../sessions/walk-kit";
 import { button, inside, role, text, walk } from "../walk";
@@ -13,6 +13,8 @@ function steps(narrow: boolean): Step[] {
   return [
     { look: inside(bar, button("Dispatch job")), say: "The bar sends the notes as a Job" },
     { look: inside(bar, button("Start session")), say: "Or as a message to a Session" },
+    { press: inside(bar, button("Start session")), say: "A start Fleet refuses is a toast with its reason, and the notes stay unsent" },
+    { look: text("Session not started: Fleet refused it"), say: "Nothing is written on the bar" },
     { press: inside(bar, button("Send to a Session")), say: "The caret lists the live Sessions" },
     { look: role("menuitem", "Fix the flaky store test"), say: "One Bridge hosts" },
     { look: role("menuitem", "Release notes script"), say: "And one from a terminal" },

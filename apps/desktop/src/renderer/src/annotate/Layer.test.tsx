@@ -50,7 +50,7 @@ afterEach(async () => {
 });
 
 /** The layer already on, as it comes up after ⌥⌘A and a reload. */
-async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void): Promise<void> {
+async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void): Promise<void> {
   sessionStorage.setItem("armada.annotate.on", "1");
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
@@ -58,7 +58,7 @@ async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: str
   const root = createRoot(host);
   root.render(
     <StrictMode>
-      <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} />
+      <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} {...(tell === undefined ? {} : { tell })} />
     </StrictMode>,
   );
   mounted.push({ root, host });
@@ -403,14 +403,27 @@ test("the dropdown lists every live Session by title, and a pick sends to it", a
   expect(saved[0]!.sent).toEqual(expect.objectContaining({ sessionId: "01TERMINALBBBBBB", title: "Release notes script" }));
 });
 
-test("a Session Fleet refuses leaves the notes unsent and says why", async () => {
+test("a Session Fleet refuses leaves the notes unsent and tells why in a toast, not on the bar", async () => {
   const { fleet } = served(true);
   const held = sendable(batch());
   const opened = vi.fn();
-  await annotating(held, fleet, opened);
+  const told = vi.fn();
+  await annotating(held, fleet, opened, told);
   await page.getByRole("status").getByRole("button", { name: "Start session" }).click();
-  await expect.element(page.getByRole("status")).toHaveTextContent("Not sent: Fleet is not connected");
+  await vi.waitFor(() => expect(told).toHaveBeenCalledWith('Notes not sent to "first: what the owner said": Fleet is not connected. Nothing was sent.'));
+  expect(page.getByRole("status").element().textContent).not.toContain("Not sent");
   expect(opened).not.toHaveBeenCalled();
+  expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
+});
+
+test("a refusal with no copy of its own still tells what failed", async () => {
+  const { fleet } = served();
+  fleet.startSession.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.x", message: "" } } } as never);
+  const held = sendable(batch());
+  const told = vi.fn();
+  await annotating(held, fleet, undefined, told);
+  await page.getByRole("status").getByRole("button", { name: "Start session" }).click();
+  await vi.waitFor(() => expect(told).toHaveBeenCalledWith("Session not started: Fleet refused it"));
   expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
 });
 

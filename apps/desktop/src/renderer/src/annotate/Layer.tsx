@@ -18,6 +18,7 @@ import { openJobIn } from "@armada/jobs";
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, type Annotation, type Box } from "../../../shared/annotations";
 import { askToOpenSession } from "../open-session";
+import { askToTell } from "../tell";
 import { capture, locate } from "./capture";
 import { componentsOf, fiberOf } from "./fiber";
 import {
@@ -82,7 +83,7 @@ export type LayerFleet = Pick<
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
 
-export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void }) {
+export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
   const fleet: LayerFleet | undefined = given ?? window.armada;
   const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
@@ -248,7 +249,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
     try {
       const answer = await sendToFleet(note, box, sink, fleet, new Date());
       if (!answer.ok) {
-        setError(`Not sent: ${answer.saying}`);
+        tell(answer.saying);
         return false;
       }
       const next = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
@@ -285,7 +286,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { 
     try {
       const answer = await sendToSession(here.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
       if (!answer.ok) {
-        setError(`Not sent: ${answer.saying}`);
+        tell(answer.saying);
         return;
       }
       const sentNotes = here.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));

@@ -139,6 +139,7 @@ import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session";
+import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -506,6 +507,7 @@ export function App({ draft }: AppProps = {}) {
     setSessionOpen(id);
   }
   useOpenSessionAsked(openSession); // The annotation layer's Start session.
+  useTellAsked(setTelling); // The annotation layer's send that failed.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);
