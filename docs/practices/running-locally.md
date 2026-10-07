@@ -134,8 +134,9 @@ poked or handed a verdict; its recorded spend is an undercount; its Job shows as
 `unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
 dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
 is open, so a surviving Check group is not swept at boot); a Drone that cannot
-be adopted is ended. A Job whose Drone is gone resumes by itself: Fleet restarts its
-step at boot, once, unless its cap is spent (`docs/concepts/drone.md`). A roster that does not answer still refuses. Without
+be adopted is ended. A Job whose Drone is gone, or was ended, resumes by itself:
+Fleet restarts its step at boot, once, unless one of the stops in
+`docs/concepts/drone.md` holds. A roster that does not answer still refuses. Without
 `--adopt` the refusal is as above. It combines with `--from`, and
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
