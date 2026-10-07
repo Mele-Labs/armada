@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { JobSummary, Proposed } from "@armada/protocol";
 
 import { isAnnotation, requestOf, serializeAnnotation, type Annotation } from "../../../shared/annotations";
-import { sendToFleet, unsendable, type Proposer } from "./send";
+import { sendToFleet, sendToSession, titleOf, unsendable, type Proposer } from "./send";
 import type { Sink } from "./sink";
 
 function note(overrides: Partial<Annotation> = {}): Annotation {
@@ -127,5 +127,45 @@ describe("sending to Fleet", () => {
   it("is not offered where there is no Fleet behind the layer", () => {
     expect(unsendable(sink())).toBeNull();
     expect(unsendable(sink({ via: "dev server" }))).toMatch(/mock/);
+  });
+});
+
+describe("a note sent to a Session", () => {
+  const sessions = (answer: unknown = { ok: true, value: { id: "01NEW", title: undefined } }) => ({
+    startSession: vi.fn(async () => answer as never),
+    sendSessionMessage: vi.fn(async () => ({ ok: true, value: {} }) as never),
+  });
+  const item = { note: note(), box: note().box };
+
+  it("is kept with the Session's id and title, and still reads as a note", () => {
+    const sent = note({ sent: { sessionId: "01S", title: "Release notes", at: AT.toISOString() } });
+    expect(isAnnotation(sent)).toBe(true);
+    expect(isAnnotation({ ...note(), sent: { title: "x", at: AT.toISOString() } })).toBe(false);
+  });
+
+  it("starts a Session named for the first note, then sends the request with the screenshot as an upload", async () => {
+    const fleet = sessions();
+    const answer = await sendToSession([item], null, sink(), fleet, AT);
+    expect(fleet.startSession).toHaveBeenCalledWith(titleOf([note()]));
+    expect(answer).toEqual({ ok: true, sent: { sessionId: "01NEW", title: "Can we add an illustration here?", at: AT.toISOString() } });
+    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ session_id: string; text: string; attachments: unknown[] }])[0];
+    expect(message.session_id).toBe("01NEW");
+    expect(message.text).toBe(requestOf(note()));
+    expect(message.attachments).toEqual([{ name: "annotation-20260917-135315-tsfq.png", media_type: "image/png", data: "iVBORw==" }]);
+  });
+
+  it("sends to the Session picked without starting one, and without a screenshot where none can be taken", async () => {
+    const fleet = sessions();
+    const answer = await sendToSession([item], { id: "01T", title: "Release notes" }, sink({ capture: async () => null }), fleet, AT);
+    expect(fleet.startSession).not.toHaveBeenCalled();
+    expect(answer).toEqual({ ok: true, sent: { sessionId: "01T", title: "Release notes", at: AT.toISOString() } });
+    expect((fleet.sendSessionMessage.mock.calls[0] as unknown as [object])[0]).not.toHaveProperty("attachments");
+  });
+
+  it("says what Fleet said when it refuses, and marks nothing", async () => {
+    const refused = { ok: false, outcome: { ok: false, why: "not_connected" } };
+    expect(await sendToSession([item], null, sink(), sessions(refused), AT)).toEqual({ ok: false, saying: "Fleet is not connected. Nothing was sent." });
+    const fleet = { ...sessions(), sendSessionMessage: vi.fn(async () => refused as never) };
+    expect((await sendToSession([item], { id: "01T", title: "t" }, sink(), fleet, AT)).ok).toBe(false);
   });
 });

@@ -5,12 +5,12 @@
 
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import type { Annotation, AnnotationStatus } from "../../../shared/annotations";
 import "../styles/index.css";
-import { Layer } from "./Layer";
+import { Layer, type LayerFleet } from "./Layer";
 import type { Sink } from "./sink";
 
 /** The owner's window in the screenshot, and a short one. */
@@ -50,7 +50,7 @@ afterEach(async () => {
 });
 
 /** The layer already on, as it comes up after ⌥⌘A and a reload. */
-async function annotating(sink: Sink): Promise<void> {
+async function annotating(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void): Promise<void> {
   sessionStorage.setItem("armada.annotate.on", "1");
   const host = document.createElement("div");
   host.setAttribute("data-armada-annotate", "");
@@ -58,7 +58,7 @@ async function annotating(sink: Sink): Promise<void> {
   const root = createRoot(host);
   root.render(
     <StrictMode>
-      <Layer sink={sink} />
+      <Layer sink={sink} {...(fleet === undefined ? {} : { fleet })} {...(openSession === undefined ? {} : { openSession })} />
     </StrictMode>,
   );
   mounted.push({ root, host });
@@ -322,4 +322,101 @@ test("a note pressed to save twice while its save is out is saved once", async (
   answer();
   await expect.element(card).not.toBeInTheDocument();
   expect(saved).toHaveLength(1);
+});
+
+// The bar's two sends: a Job at the gate, and the notes as a message to a Session.
+
+const sendable = (notes: Annotation[]): Sink => ({ ...sinkOf(notes), via: "main", root: async () => "/Users/user/armada" });
+
+const record = (id: string, title: string | undefined, change: object = {}) =>
+  ({ id, title, state: "live", origin: "bridge", ...change }) as never;
+
+/** A Fleet serving three Sessions, one from a terminal and one ended, and answering every send. */
+function served(refuse = false) {
+  const sent: { session_id: string; text: string }[] = [];
+  const fleet = {
+    stageAttachment: vi.fn(async () => ({ path: "/tmp/x.png" })),
+    proposeFromRequest: vi.fn(async () => ({ ok: true, jobs: [{ id: "01JOB", handle: "9-the-note" }] }) as never),
+    startSession: vi.fn(async (title?: string) => ({ ok: true, value: record("01NEWSESSION0000", title) }) as never),
+    sendSessionMessage: vi.fn(async (send: { session_id: string; text: string }) => {
+      sent.push(send);
+      return refuse ? ({ ok: false, outcome: { ok: false, why: "not_connected" } } as never) : ({ ok: true, value: record(send.session_id, "x") } as never);
+    }),
+    state: vi.fn(async () => ({
+      sessions: {
+        state: "read",
+        sessions: [record("01HOSTEDAAAAAAAA", "Fix the flaky store test"), record("01TERMINALBBBBBB", "Release notes script", { origin: "terminal" }), record("01ENDEDCCCCCCCC", "Old one", { state: "ended" })],
+      },
+    }) as never),
+    subscribe: () => () => undefined,
+  } satisfies LayerFleet;
+  return { fleet, sent };
+}
+
+test("the bar offers Dispatch job and Start session in place of Send to Fleet", async () => {
+  await annotating(sendable(batch()), served().fleet);
+  const bar = page.getByRole("status");
+  await expect.element(bar.getByRole("button", { name: "Dispatch job" })).toBeVisible();
+  await expect.element(bar.getByRole("button", { name: "Start session" })).toBeVisible();
+  expect(bar.element().textContent).not.toContain("Send");
+});
+
+test("Dispatch job proposes the notes as a Job, as Send to Fleet did", async () => {
+  const { fleet } = served();
+  await annotating(sendable(batch()), fleet);
+  await page.getByRole("status").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  expect(fleet.startSession).not.toHaveBeenCalled();
+});
+
+test("Start session starts a Session with the notes as its first message, marks them sent and opens it", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(batch());
+  const opened = vi.fn();
+  await annotating(held, fleet, opened);
+  await page.getByRole("status").getByRole("button", { name: "Start session" }).click();
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
+  expect(fleet.startSession).toHaveBeenCalledTimes(1);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.session_id).toBe("01NEWSESSION0000");
+  expect(sent[0]!.text).toContain("first: what the owner said");
+  expect(sent[0]!.text).toContain("third: what the owner said");
+  const saved = (await held.list()).filter((one) => one.sent !== undefined);
+  expect(saved.map((one) => one.sent)).toEqual([expect.objectContaining({ sessionId: "01NEWSESSION0000" }), expect.objectContaining({ sessionId: "01NEWSESSION0000" })]);
+});
+
+test("the dropdown lists every live Session by title, and a pick sends to it", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(batch());
+  const opened = vi.fn();
+  await annotating(held, fleet, opened);
+  await page.getByRole("button", { name: "Send to a Session" }).click();
+  const menu = page.getByRole("menu", { name: "Send to a Session" });
+  await expect.element(menu.getByRole("menuitem", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(menu.getByRole("menuitem", { name: "Release notes script" })).toBeVisible();
+  await expect.element(menu.getByRole("menuitem", { name: "Old one" })).not.toBeInTheDocument();
+  await menu.getByRole("menuitem", { name: "Release notes script" }).click();
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01TERMINALBBBBBB"));
+  expect(fleet.startSession).not.toHaveBeenCalled();
+  expect(sent[0]!.session_id).toBe("01TERMINALBBBBBB");
+  const saved = (await held.list()).filter((one) => one.sent !== undefined);
+  expect(saved[0]!.sent).toEqual(expect.objectContaining({ sessionId: "01TERMINALBBBBBB", title: "Release notes script" }));
+});
+
+test("a Session Fleet refuses leaves the notes unsent and says why", async () => {
+  const { fleet } = served(true);
+  const held = sendable(batch());
+  const opened = vi.fn();
+  await annotating(held, fleet, opened);
+  await page.getByRole("status").getByRole("button", { name: "Start session" }).click();
+  await expect.element(page.getByRole("status")).toHaveTextContent("Not sent: Fleet is not connected");
+  expect(opened).not.toHaveBeenCalled();
+  expect((await held.list()).some((one) => one.sent !== undefined)).toBe(false);
+});
+
+test("a note sent to a Session says which, on its card", async () => {
+  const sent = note("sent", "open", "5", 15);
+  await annotating(sendable([{ ...sent, sent: { sessionId: "01HOSTEDAAAAAAAA", title: "Fix the flaky store test", at: sent.createdAt } }]), served().fleet);
+  await page.getByRole("button", { name: /sent as Fix the flaky store test/ }).click();
+  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Session Fix the flaky store test");
 });

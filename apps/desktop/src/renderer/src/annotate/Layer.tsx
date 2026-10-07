@@ -11,11 +11,13 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Button, KbdChord, Textarea } from "@armada/components";
+import { Button, KbdChord, SplitButton, Textarea } from "@armada/components";
 
 import { openJobIn } from "@armada/jobs";
 
-import { byCreation, type Annotation, type Box } from "../../../shared/annotations";
+import type { BridgeApi } from "../../../shared/api";
+import { byCreation, sentAs, type Annotation, type Box } from "../../../shared/annotations";
+import { askToOpenSession } from "../open-session";
 import { capture, locate } from "./capture";
 import { componentsOf, fiberOf } from "./fiber";
 import {
@@ -29,7 +31,7 @@ import {
   type Metrics,
   type Viewport,
 } from "./place";
-import { sendToFleet, unsendable } from "./send";
+import { sendToFleet, sendToSession, unsendable, type SessionTarget } from "./send";
 import type { Sink } from "./sink";
 import "./annotate.css";
 
@@ -70,7 +72,18 @@ function targetOf(target: EventTarget | null): Element | null {
   return target.closest("svg") ?? target;
 }
 
-export function Layer({ sink }: { sink: Sink }) {
+/** What the layer asks of Fleet's seam: the Job send, the Session send, and the Sessions that are live. */
+export type LayerFleet = Pick<
+  BridgeApi,
+  "stageAttachment" | "proposeFromRequest" | "startSession" | "sendSessionMessage" | "state" | "subscribe"
+>;
+
+/** What a Session without a title is called, as the Sessions list calls it. */
+const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
+
+export function Layer({ sink, fleet: given, openSession = askToOpenSession }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void }) {
+  const fleet: LayerFleet | undefined = given ?? window.armada;
+  const [live, setLive] = useState<SessionTarget[]>([]);
   const [on, setOn] = useState(() => sessionStorage.getItem(ON_KEY) === "1");
   const [notes, setNotes] = useState<Annotation[]>([]);
   const [hovered, setHovered] = useState<Element | null>(null);
@@ -122,6 +135,19 @@ export function Layer({ sink }: { sink: Sink }) {
     setError(null);
     sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
   }, [on, sink, fail]);
+
+  // Every live Session, hosted and terminal, as the dropdown offers them.
+  useEffect(() => {
+    if (!on || fleet === undefined) return;
+    const read = (state: Awaited<ReturnType<LayerFleet["state"]>>): void =>
+      setLive(
+        state.sessions.state === "read"
+          ? state.sessions.sessions.filter((one) => one.state === "live").map((one) => ({ id: one.id, title: titled(one) }))
+          : [],
+      );
+    void fleet.state().then(read, () => undefined);
+    return fleet.subscribe(read);
+  }, [on, fleet]);
 
   useEffect(() => {
     if (!on) return undefined;
@@ -217,8 +243,9 @@ export function Layer({ sink }: { sink: Sink }) {
   /** One note to Fleet. Written back with its Job only once Fleet took it. */
   async function send(note: Annotation): Promise<boolean> {
     const box = frames[note.id] ?? note.box;
+    if (fleet === undefined) return false;
     try {
-      const answer = await sendToFleet(note, box, sink, window.armada, new Date());
+      const answer = await sendToFleet(note, box, sink, fleet, new Date());
       if (!answer.ok) {
         setError(`Not sent: ${answer.saying}`);
         return false;
@@ -247,6 +274,29 @@ export function Layer({ sink }: { sink: Sink }) {
       if (!(await send(note))) break;
     }
     setSending(null);
+  }
+
+  /** Every open, unsent note on this screen as one message: to a Session started for them, or to `target`. */
+  async function sendHereToSession(target: SessionTarget | null): Promise<void> {
+    const here = notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null);
+    if (fleet === undefined) return;
+    setSending("here");
+    try {
+      const answer = await sendToSession(here.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
+      if (!answer.ok) {
+        setError(`Not sent: ${answer.saying}`);
+        return;
+      }
+      const sentNotes = here.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
+      for (const next of sentNotes) await sink.save(next);
+      setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
+      setError(null);
+      if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
+    } catch (cause) {
+      fail("Sending", cause);
+    } finally {
+      setSending(null);
+    }
   }
 
   async function remove(note: Annotation): Promise<void> {
@@ -315,7 +365,7 @@ export function Layer({ sink }: { sink: Sink }) {
             data-status={note.status}
             data-sent={note.sent === undefined ? undefined : ""}
             style={place(box)}
-            aria-label={`${where}${note.sent === undefined ? "" : `, sent as ${note.sent.handle}`}: ${note.text}`}
+            aria-label={`${where}${note.sent === undefined ? "" : `, sent as ${sentAs(note.sent)}`}: ${note.text}`}
             onClick={() => {
               setDraft(null);
               setDeleting(false);
@@ -357,7 +407,11 @@ export function Layer({ sink }: { sink: Sink }) {
           <Source note={openNote} />
           <p className="armada-annotate__text">{openNote.text}</p>
           {openNote.sent !== undefined && (
-            <p className="armada-annotate__meta">Sent to Fleet as {openNote.sent.handle}, waiting on approval on the Board</p>
+            <p className="armada-annotate__meta">
+              {"jobId" in openNote.sent
+                ? `Sent to Fleet as ${openNote.sent.handle}, waiting on approval on the Board`
+                : `Sent to Session ${openNote.sent.title}`}
+            </p>
           )}
           {openNote.sent === undefined && cannotSend !== null && <p className="armada-annotate__meta">{cannotSend}</p>}
           <div className="armada-annotate__actions">
@@ -401,9 +455,20 @@ export function Layer({ sink }: { sink: Sink }) {
           </Button>
         )}
         {cannotSend === null && sendableHere > 0 && (
-          <Button variant="secondary" size="sm" disabled={sending !== null} onClick={() => void sendHere()}>
-            {sending === "here" ? "Sending…" : `Send ${sendableHere} to Fleet`}
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" disabled={sending !== null} onClick={() => void sendHere()}>
+              {sending === "here" ? "Sending…" : "Dispatch job"}
+            </Button>
+            <SplitButton
+              size="sm"
+              menuLabel="Send to a Session"
+              disabled={sending !== null}
+              onAction={() => void sendHereToSession(null)}
+              items={live.map((one) => ({ label: one.title, onSelect: () => void sendHereToSession(one) }))}
+            >
+              Start session
+            </SplitButton>
+          </>
         )}
         {error !== null && <span className="armada-annotate__error">{error}</span>}
         <KbdChord keys={["⌥", "⌘", "A"]} aria-label="Option Command A turns annotating off" />
