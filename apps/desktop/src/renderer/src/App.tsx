@@ -188,7 +188,7 @@ export function App({ draft }: AppProps = {}) {
   // not a router: which Job is open, or none. The row is the control that sets
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
-  const asked = useAsked(openJob); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
+  const asked = useAsked(openJob, state, () => goTo(SURFACE.mergeLine)); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
   // The section a pressed notification asked for. **A token rather than a
   // call**: the press may have arrived over the composer or over a Job, so
   // Overview is not mounted yet, and it opens and scrolls to the section once
@@ -758,7 +758,7 @@ export function App({ draft }: AppProps = {}) {
                     if (owner !== undefined) setMainLog({ root: owner.root, ...at });
                   }}
                   onOpenStudio={openStudioFrom}
-                  onReadCheckOutput={readCheckOutput}
+                  onReadCheckOutput={readCheckOutput} checks={asked.host}
                   onReadBrief={readBrief}
                   onReadRetro={readRetro}
                   onAgreeLesson={agreeLesson}
