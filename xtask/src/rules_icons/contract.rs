@@ -78,7 +78,9 @@ pub fn the_contract_and_the_registry_agree_on_meaning(root: &Path) -> Report {
     let registry = match super::registry_text(root) {
         Ok(text) => Some(text),
         Err(_) => {
-            report.fail(format!("{REGISTRY} — the icon registry it is compared against"));
+            report.fail(format!(
+                "{REGISTRY} — the icon registry it is compared against"
+            ));
             None
         }
     };

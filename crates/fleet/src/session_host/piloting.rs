@@ -206,13 +206,8 @@ pub(crate) fn handoff_row(
     bundle: &HandoffBundle,
 ) -> SessionRow {
     let in_hand = bundle.stopped_on.as_ref().map(|stopped| &stopped.step_id);
-    let step = in_hand.and_then(|wanted| {
-        bundle
-            .job
-            .steps
-            .iter()
-            .find(|step| &step.step_id == wanted)
-    });
+    let step =
+        in_hand.and_then(|wanted| bundle.job.steps.iter().find(|step| &step.step_id == wanted));
     let refusals = step
         .map(|step| {
             step.judged
@@ -223,7 +218,13 @@ pub(crate) fn handoff_row(
         })
         .unwrap_or_default();
     let plan = in_hand
-        .and_then(|wanted| bundle.plans.iter().rev().find(|plan| &plan.step_id == wanted))
+        .and_then(|wanted| {
+            bundle
+                .plans
+                .iter()
+                .rev()
+                .find(|plan| &plan.step_id == wanted)
+        })
         .or_else(|| bundle.plans.last());
     HandoffRowParts {
         id,
@@ -269,7 +270,12 @@ impl HandoffRowParts<'_> {
             .map(|plan| {
                 plan.paths
                     .iter()
-                    .filter(|declared| !bundle.changed.iter().any(|file| covered(declared, &file.path)))
+                    .filter(|declared| {
+                        !bundle
+                            .changed
+                            .iter()
+                            .any(|file| covered(declared, &file.path))
+                    })
                     .cloned()
                     .collect()
             })
@@ -342,7 +348,8 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
         said.push_str(&format!(
             "\nIt stopped on step `{}`{}{}, after {} run(s).\n",
             stopped.step_id.as_str(),
-            step.map(|step| format!(" \"{}\"", step.label)).unwrap_or_default(),
+            step.map(|step| format!(" \"{}\"", step.label))
+                .unwrap_or_default(),
             stopped
                 .trigger
                 .as_ref()
@@ -402,8 +409,15 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
         }
     }
     if !bundle.changed.is_empty() {
-        let files: Vec<&str> = bundle.changed.iter().map(|file| file.path.as_str()).collect();
-        said.push_str(&format!("\nThe worktree holds changes to: {}.\n", files.join(", ")));
+        let files: Vec<&str> = bundle
+            .changed
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect();
+        said.push_str(&format!(
+            "\nThe worktree holds changes to: {}.\n",
+            files.join(", ")
+        ));
     }
     if let Some(narrative) = &bundle.narrative {
         said.push_str(&format!(

@@ -8,7 +8,10 @@
 
 use std::future::Future;
 
-use ipc::{ManifestId, SaveWorkflow, WorkflowSaved};
+use ipc::{
+    ManifestId, RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerRemoved, TriggerSaved,
+    WorkflowSaved,
+};
 
 use crate::daemon::Refusal;
 
@@ -27,4 +30,22 @@ pub trait Authoring: Send + Sync + 'static {
         save: SaveWorkflow,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<WorkflowSaved, Refusal>> + Send;
+
+    /// `save_trigger` — check one Trigger against the repository's Commands and
+    /// write it in the scope named. **Checked before anything is written**, with
+    /// the loader's rules. A repository's is refused for a Command it does not
+    /// declare; a machine's is not, since the same file is right in the next
+    /// repository, and the answer says where it would be skipped.
+    fn save_trigger(
+        &self,
+        save: SaveTrigger,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<TriggerSaved, Refusal>> + Send;
+
+    /// `remove_trigger` — delete the file in a scope that holds one identity.
+    fn remove_trigger(
+        &self,
+        remove: RemoveTrigger,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<TriggerRemoved, Refusal>> + Send;
 }
