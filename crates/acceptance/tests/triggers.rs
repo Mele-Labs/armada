@@ -10,13 +10,19 @@
 //! | A machine Trigger replaces the repository's of the same identity, whole | That Fleet fires one at its moment, and that the repository's are read from `main` and never the Job's branch. Fleet reads the files |
 //! | A Trigger naming a Command the repository does not declare is marked skipped, and the others stand | That a Trigger freezes onto the Job at approval |
 //! | A file that will not parse is left out with its reason, and the others stand | That a Trigger on a destructive Command asks first. The flag is carried and nothing enforces it |
+//! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
 use std::path::{Path, PathBuf};
 
+// The bench is shared with every other milestone's test and none uses all of it.
+#[allow(dead_code)]
+mod bench;
+
+use bench::plan::Planned;
 use config::{Manifest, TriggerCatalogue, TriggerWritten};
 use core_model::{
-    StepId, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerWhen, Ulid,
-    WorkflowId,
+    PrMode, StepId, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerWhen,
+    Ulid, WorkflowId,
 };
 
 const MANIFEST: &str = "version: 1\nid: armada\ncommands:\n  fmt:\n    run: cargo fmt\n  \
@@ -122,4 +128,144 @@ fn an_undeclared_command_is_skipped_and_a_malformed_file_is_left_out() {
     assert_eq!(left_out.source(), TriggerSource::Repository);
     let why = left_out.to_string();
     assert!(why.contains("`when`") && why.contains("whenever"), "{why}");
+}
+
+// ------------------------------------------------------ the draft default
+
+fn workflow_with(
+    delivering: &str,
+    supporting: &str,
+    manifest: &Manifest,
+) -> core_model::FrozenWorkflow {
+    let text = format!(
+        "version: 1\nworkflow_id: drafted\nname: drafted\nsteps:\n  \
+         - id: implement\n    label: Implement\n    evidence: {{submitted: {{type: diff}}}}\n    \
+         delivers: false\n    advance_gate: auto\n{supporting}  \
+         - id: land\n    label: Land\n    evidence: {{submitted: {{type: diff}}}}\n    \
+         delivers: true\n    advance_gate: auto\n{delivering}"
+    );
+    let def = config::WorkflowDef::parse(
+        Path::new("drafted.yml"),
+        &text,
+        &config::Roster::offering_nothing(),
+    )
+    .unwrap_or_else(|refused| panic!("the workflow did not load: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, manifest)
+        .expect("the workflow resolves")
+        .frozen()
+        .clone()
+}
+
+fn manifest_saying(pr_mode: Option<&str>) -> Manifest {
+    let line = pr_mode
+        .map(|mode| format!("pr_mode: {mode}\n"))
+        .unwrap_or_default();
+    Manifest::parse(
+        Path::new("armada.yml"),
+        &format!("version: 1\nid: armada\n{line}"),
+    )
+    .expect("the Manifest is well formed")
+}
+
+/// What a person's approval comes to, read where Fleet reads it.
+fn approved_as(
+    job_says: Option<&str>,
+    step_says: Option<&str>,
+    repository_says: Option<&str>,
+    machine_drafts: bool,
+) -> PrMode {
+    let manifest = manifest_saying(repository_says);
+    let step = step_says
+        .map(|value| format!("    draft_pr: {value}\n"))
+        .unwrap_or_default();
+    let planned = Planned::created_with("tidy the reader", workflow_with(&step, "", &manifest));
+    let body = match job_says {
+        Some(mode) => format!(
+            r#"{{"landing": {{"branching": "job", "pr_mode": "{mode}", "complete_when": "delivered"}}}}"#
+        ),
+        None => "{}".to_string(),
+    };
+    let body: ipc::ApproveDispatch =
+        ipc::decode("an approval body", body.as_bytes()).expect("Bridge's body decodes");
+    let machine = machine_drafts.then_some(PrMode::Draft);
+    let decided =
+        fleet::approving::decided_under(&planned.job, &body, None, manifest.pr_mode(), machine)
+            .expect("a proposal a person may approve");
+    // What the approval served Bridge to start on is what it then froze when
+    // the person left it alone.
+    if job_says.is_none() {
+        assert_eq!(
+            fleet::approving::pr_mode_default(planned.job.workflow(), manifest.pr_mode(), machine),
+            decided.landing.pr_mode
+        );
+    }
+    decided.landing.pr_mode
+}
+
+#[test]
+fn a_pull_request_opens_as_the_most_specific_default_says_and_the_jobs_own_choice_beats_them_all() {
+    use PrMode::{Draft, Ready};
+    // Nothing anywhere is ready, as every Job was before there was a default.
+    assert_eq!(approved_as(None, None, None, false), Ready);
+    // Each tier, alone, then over the one below it.
+    assert_eq!(approved_as(None, None, None, true), Draft, "the machine's");
+    assert_eq!(
+        approved_as(None, None, Some("draft"), false),
+        Draft,
+        "the repository's"
+    );
+    assert_eq!(
+        approved_as(None, None, Some("ready"), true),
+        Ready,
+        "the repository over the machine"
+    );
+    assert_eq!(approved_as(None, None, Some("draft"), true), Draft);
+    assert_eq!(
+        approved_as(None, Some("true"), None, false),
+        Draft,
+        "the step's"
+    );
+    assert_eq!(
+        approved_as(None, Some("false"), Some("draft"), true),
+        Ready,
+        "the step over the repository"
+    );
+    assert_eq!(
+        approved_as(None, Some("true"), Some("ready"), false),
+        Draft,
+        "the step over the repository"
+    );
+    // The Job's own choice, over every tier saying the other.
+    assert_eq!(
+        approved_as(Some("ready"), Some("true"), Some("draft"), true),
+        Ready
+    );
+    assert_eq!(
+        approved_as(Some("draft"), Some("false"), Some("ready"), false),
+        Draft
+    );
+}
+
+#[test]
+fn draft_pr_is_the_delivering_steps_to_carry_and_is_refused_anywhere_else() {
+    let manifest = manifest_saying(None);
+    let wrongly = "version: 1\nworkflow_id: drafted\nname: drafted\nsteps:\n  \
+                   - id: implement\n    label: Implement\n    evidence: {submitted: {type: diff}}\n    \
+                   delivers: false\n    advance_gate: auto\n    draft_pr: true\n";
+    let refused = config::WorkflowDef::parse(
+        Path::new("drafted.yml"),
+        wrongly,
+        &config::Roster::offering_nothing(),
+    )
+    .expect_err("a step that delivers nothing has no pull request to draft");
+    assert!(
+        refused.to_string().contains("steps[0].draft_pr"),
+        "the refusal names the key: {refused}"
+    );
+    // On the delivering step it loads, and what it says is carried.
+    let carried = workflow_with("    draft_pr: true\n", "", &manifest);
+    assert_eq!(
+        carried.delivering_step().and_then(|step| step.draft_pr()),
+        Some(PrMode::Draft)
+    );
 }

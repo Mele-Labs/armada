@@ -16,7 +16,8 @@
 use std::collections::BTreeMap;
 
 use core_model::{
-    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, StepId, StepPhase,
+    AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, PrMode, StepId,
+    StepPhase,
 };
 use serde_yaml_ng::Value;
 
@@ -38,6 +39,7 @@ const STEP_KEYS: &[&str] = &[
     "judge_checks",
     "advance_gate",
     "delivers",
+    "draft_pr",
     "evidence_scope",
     "declare_plan_at",
     "retry_limit",
@@ -120,6 +122,7 @@ pub struct Step {
     judge_checks: Vec<JudgeCheck>,
     advance_gate: AdvanceGate,
     delivers: bool,
+    draft_pr: Option<PrMode>,
     evidence_scope: Option<EvidenceScope>,
     retry_limit: u32,
     model: Option<ModelName>,
@@ -218,6 +221,13 @@ impl Step {
     /// than on the definition.
     pub fn delivers(&self) -> bool {
         self.delivers
+    }
+
+    /// How the pull request this step opens is offered, where the step says.
+    /// **`None` defers** to the repository's default, then the machine's.
+    /// Only a step that delivers may say it.
+    pub fn draft_pr(&self) -> Option<PrMode> {
+        self.draft_pr
     }
 
     /// What the step's evidence is scoped to. **`None` on a step that declared
@@ -450,6 +460,18 @@ pub(super) fn read(
     let delivers = table
         .required("delivers", out)
         .and_then(|value| yaml::flag(&delivers_key, value, out));
+    // **Only the step that opens the pull request may say how.** Anywhere else
+    // there is no pull request for the word to be about, so it is refused where
+    // it is written and not carried to be ignored.
+    let draft_key = table.at("draft_pr");
+    let draft_pr = table.optional("draft_pr").and_then(|value| {
+        yaml::flag(&draft_key, value, out)
+            .map(|draft| if draft { PrMode::Draft } else { PrMode::Ready })
+    });
+    let drafts_nothing = draft_pr.is_some() && delivers == Some(false);
+    if drafts_nothing {
+        out.push(Refusal::new(&draft_key, Fault::DraftsNothing));
+    }
     let gate_key = table.at("advance_gate");
     let advance_gate = table
         .required("advance_gate", out)
@@ -544,6 +566,7 @@ pub(super) fn read(
     table.close(STEP_KEYS, out);
     if disagrees
         || proposes_unanswered
+        || drafts_nothing
         || (judged && evidence_type.is_none())
         || (is_plan_step && !has_plan_recorded)
     {
@@ -565,6 +588,7 @@ pub(super) fn read(
         judge_checks,
         advance_gate: advance_gate?,
         delivers: delivers?,
+        draft_pr,
         evidence_scope,
         retry_limit: retry_limit?,
         model,

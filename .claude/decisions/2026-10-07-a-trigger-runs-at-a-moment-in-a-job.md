@@ -28,4 +28,4 @@ He wants a formatter run when a step passes, a script run when a pull request op
 
 **Cost he took:** a machine Trigger narrowed to one workflow still replaces a repository Trigger of the same identity that applied to all of them, because identity leaves the workflow out. A pull-request Trigger names no step, since the delivering step is the one that fires it.
 
-**Where it landed:** branch `triggers/model`, `core_model::Trigger` and `config::TriggerCatalogue`, with `crates/acceptance/tests/triggers.rs`. Fleet firing them, the wire, Bridge, repair, block and the Draft defaults are not built.
+**Where it landed:** branch `triggers/model`, `core_model::Trigger` and `config::TriggerCatalogue`, with `crates/acceptance/tests/triggers.rs`. Fleet firing them, the wire, Bridge, repair and block are not built. The Draft defaults landed on `triggers/draft-default`: a machine preference, the repository's `pr_mode` and the delivering step's `draft_pr`, under the Job's own choice at approval.

@@ -143,6 +143,7 @@ mod policy_gate;
 mod policy_resolved;
 mod ports;
 mod ports_dispatch;
+mod pr_mode_default;
 mod precedent;
 mod preferences;
 mod preparing;

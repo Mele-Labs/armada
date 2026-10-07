@@ -43,6 +43,31 @@ impl PrMode {
     }
 }
 
+/// Every place a pull request's mode may be said, named so that none is passed
+/// for another.
+///
+/// **The most specific wins**, and each tier states nothing by being `None`:
+/// the Job's own choice at approval, the delivering step's `draft_pr`, the
+/// repository's `pr_mode`, this machine's, and otherwise ready, which is what
+/// every Job did before there was a default.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PrModeTiers {
+    pub job: Option<PrMode>,
+    pub step: Option<PrMode>,
+    pub repository: Option<PrMode>,
+    pub machine: Option<PrMode>,
+}
+
+impl PrModeTiers {
+    pub fn resolve(&self) -> PrMode {
+        self.job
+            .or(self.step)
+            .or(self.repository)
+            .or(self.machine)
+            .unwrap_or_default()
+    }
+}
+
 /// What has to happen before a Job counts as finished. **Only the two Fleet
 /// honours**: `pr_merged` and `pr_opened` are refused at the approval (spike
 /// 022, `landing.ts`'s `COMPLETE_WHEN_SERVED`).

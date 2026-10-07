@@ -210,6 +210,7 @@ pub mod places;
 mod plan_acts;
 pub mod policy;
 pub mod ports;
+mod pr_mode;
 mod precedent;
 /// A person's Bridge preferences, `limits`'s shape one table over.
 mod preferences;

@@ -264,6 +264,12 @@ export type JobDetail = {
   drone_cap?: number;
   /** How this Job lands, frozen at approval. Since 23.8. Absent lands as ever: from the base, into it, ready. */
   landing?: LandingRule;
+  /**
+   * What a Job still at its approval gate opens its pull request as when its approval says
+   * nothing: the workflow's delivering step, the repository, this machine, then ready. Since
+   * 23.57. Absent once `landing` is there, and on a Fleet before it.
+   */
+  pr_mode_default?: string;
   /** What the approval said in place of the repository's policies. Since 23.8. Absent is the repository deciding. */
   policy_overrides?: PolicyOverrides;
   /** When a person approved this Job. Since 23.8. */
