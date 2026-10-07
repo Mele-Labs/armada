@@ -256,6 +256,7 @@ mod unattended;
 mod under_review;
 mod underway;
 mod verify_runs;
+mod waiting_checks;
 mod watching;
 mod wave_rounds;
 mod waves;

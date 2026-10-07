@@ -88,6 +88,48 @@ pub fn with_hubs(
     MergeLines { lines: folded }
 }
 
+/// A Job's branch, id and handle: what names the Job a branch on the line is.
+pub(crate) type JobBranch = (String, ipc::JobId, String);
+
+/// Every Job's branch, for [`naming_jobs`]. A Job with no worktree has none.
+pub(crate) async fn job_branches<D: Queries>(daemon: &D) -> Vec<JobBranch> {
+    daemon
+        .list_jobs(None)
+        .await
+        .map(|list| {
+            list.jobs
+                .into_iter()
+                .filter_map(|job| Some((job.branch?, job.id, job.handle)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Each Check's requester on a branch some Job owns, carrying that Job's id and
+/// handle, so a surface can narrow the line's Checks to the Job whose they are.
+/// A branch no Job owns stays as it was.
+pub(crate) fn naming_jobs(mut lines: MergeLines, jobs: &[JobBranch]) -> MergeLines {
+    for line in &mut lines.lines {
+        for row in line
+            .line
+            .iter_mut()
+            .chain(&mut line.sent_back)
+            .chain(&mut line.landed)
+            .chain(&mut line.off)
+        {
+            let Some((_, id, handle)) = jobs.iter().find(|(branch, ..)| *branch == row.branch)
+            else {
+                continue;
+            };
+            for check in &mut row.checks {
+                check.requester.job_id = Some(id.clone());
+                check.requester.handle = Some(handle.clone());
+            }
+        }
+    }
+    lines
+}
+
 /// The served roots, Manifest or none, in the order they were added.
 pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
@@ -101,13 +143,14 @@ pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
 pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     let roots = roots(daemon).await;
     let hubs = daemon.merge_hubs().await;
+    let jobs = job_branches(daemon).await;
     // What would not read is said by the reading loop, once, rather than per request.
     let now = SystemClock::new().instant();
     let held = roots.clone();
     let lines = tokio::task::spawn_blocking(move || read(&roots, &mut Found::new(), now).0)
         .await
         .unwrap_or_default();
-    with_hubs(lines, &held, hubs)
+    naming_jobs(with_hubs(lines, &held, hubs), &jobs)
 }
 
 /// `observe_land_check`: one Check's log on a served root's line, or `None`
@@ -197,6 +240,7 @@ where
             ticker.tick().await;
             let roots = roots(daemon.as_ref()).await;
             let hubs = daemon.merge_hubs().await;
+            let jobs = job_branches(daemon.as_ref()).await;
             let held = roots.clone();
             let at = SystemClock::new().instant();
             let Ok(((now, said), kept)) = tokio::task::spawn_blocking(move || {
@@ -207,7 +251,7 @@ where
             else {
                 return;
             };
-            let now = with_hubs(now, &held, hubs);
+            let now = naming_jobs(with_hubs(now, &held, hubs), &jobs);
             found = kept;
             said.iter()
                 .filter(|one| !failing.contains(one))

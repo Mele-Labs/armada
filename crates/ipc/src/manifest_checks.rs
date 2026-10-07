@@ -52,7 +52,11 @@ pub struct ManifestCheckRow {
     pub name: String,
     /// A gate row's outcome (`passed`, `failed`, `signalled`, `timed_out`,
     /// `never_ran`, `skipped`) or an asked run's state (`running`, `passed`,
-    /// `failed`, `stopped`, `lost`). Opaque strings.
+    /// `failed`, `stopped`, `lost`). **Since 23.52 also `waiting` on a gate row
+    /// and on an asked run**: a gate's Check not yet started, whatever it waits
+    /// for (an earlier Check, a prerequisite, a machine slot), and a Drone's run
+    /// not yet started. A gate Check's `running` is a row too, with `started_at`
+    /// and no `ended_at`. Opaque strings.
     pub state: String,
     /// When it started. **Absent on a gate row**, which records when its ruling
     /// was written and not when the Check began.

@@ -15,7 +15,7 @@
  * | `gate` | A Job's step gate | `job_id`, `step` |
  * | `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
  * | `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
- * | `merge_line` | The merge line, for one branch | `branch` |
+ * | `merge_line` | The merge line, for one branch | `branch`, and `job_id` with `handle` where a Job owns the branch. Since 23.52 |
  * | `outside` | Nothing in Armada: a person's press, a bare `armada check` | none |
  *
  * **`outside` is a value, and an absent requester reads as it** — a Fleet

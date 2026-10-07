@@ -42,6 +42,15 @@ test("each filter holds the states it names, and Completed holds passed, failed,
   expect(held("completed")).toEqual(["passed", "failed", "timed_out", "skipped", "never_ran", "stopped"]);
 });
 
+test("a gate row or a Drone's run Fleet reports waiting is Waiting, and a gate row running is Active", () => {
+  const held = (filter: (typeof CHECK_FILTERS)[number], source: string, state: string) => heldBy(filter, one(source, state));
+  for (const source of ["gate", "asked_run"]) {
+    expect(held("waiting", source, "waiting")).toBe(true);
+    expect(held("completed", source, "waiting")).toBe(false);
+  }
+  expect(held("active", "gate", "running")).toBe(true);
+});
+
 test("a Check asked for and not started is Waiting alone", () => {
   const waiting: CheckEntry = { id: "w", name: "w", status: "waiting", command: "", requester: { kind: "outside" } };
   expect(CHECK_FILTERS.filter((filter) => heldBy(filter, waiting))).toEqual(["all", "waiting"]);
