@@ -150,6 +150,14 @@ where
         self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
 
+    async fn choose_trigger_fix(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choose: ipc::ChooseTriggerFix,
+    ) -> Result<ipc::TriggerFixChosen, Refusal> {
+        self.fix_chosen(job_id, choose).await
+    }
+
     async fn save_trigger(
         &self,
         asked: ipc::SaveTrigger,

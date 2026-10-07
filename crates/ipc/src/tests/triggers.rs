@@ -3,8 +3,9 @@
 
 use crate::tests::{detail_of, job};
 use crate::{
-    decode, encode, Event, Instant, JobTrigger, JobTriggerChanged, SaveTrigger, StepId,
-    TriggerFiringState, TriggerLevel, TriggerMoment, TriggerSkip, TriggerSkipReason,
+    decode, encode, ChooseTriggerFix, Event, Instant, JobTrigger, JobTriggerChanged, SaveTrigger,
+    StepId, TriggerFiringState, TriggerFixChoice, TriggerFixChosen, TriggerLevel, TriggerMoment,
+    TriggerPullRequest, TriggerRepair, TriggerSkip, TriggerSkipReason,
 };
 
 fn a_failed_firing() -> JobTrigger {
@@ -19,7 +20,79 @@ fn a_failed_firing() -> JobTrigger {
         started_at: Some(Instant::carried("2026-10-07T10:00:00.000Z")),
         ended_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         log_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
+        repair: None,
     }
+}
+
+fn a_held_fix() -> JobTrigger {
+    JobTrigger {
+        state: TriggerFiringState::FixReady,
+        exit_code: Some(1),
+        ended_at: None,
+        repair: Some(TriggerRepair {
+            attempt: 2,
+            branch: Some("armada/repair-tidy-1".into()),
+            files: vec!["src/lib.rs".into(), "Cargo.toml".into()],
+            choice: None,
+            pull_request: None,
+        }),
+        ..a_failed_firing()
+    }
+}
+
+/// **The TypeScript side's fixture too**, as `FIRED` is.
+pub const FIX_READY: &str = r#"{"name":"tidy","when":"step_passes","step":"implement","level":"machine","state":"fix_ready","exit_code":1,"started_at":"2026-10-07T10:00:00.000Z","log_at":"2026-10-07T10:00:02.000Z","repair":{"attempt":2,"branch":"armada/repair-tidy-1","files":["src/lib.rs","Cargo.toml"]}}"#;
+
+#[test]
+fn a_held_fix_is_the_json_bridge_decodes() {
+    assert_eq!(encode(&a_held_fix()).expect("encodes"), FIX_READY);
+    let back: JobTrigger = decode("a trigger", FIX_READY.as_bytes()).expect("decodes");
+    assert_eq!(back, a_held_fix());
+}
+
+#[test]
+fn a_placed_fix_carries_the_choice_and_the_number_of_the_pull_request() {
+    let placed = JobTrigger {
+        state: TriggerFiringState::Passed,
+        repair: Some(TriggerRepair {
+            choice: Some(TriggerFixChoice::NewPr),
+            pull_request: Some(TriggerPullRequest::at("https://forge.test/o/r/pull/412")),
+            ..a_held_fix().repair.expect("a repair")
+        }),
+        ..a_held_fix()
+    };
+    let text = encode(&placed).expect("encodes");
+    assert!(
+        text.contains(
+            r#""choice":"new_pr","pull_request":{"url":"https://forge.test/o/r/pull/412","number":412}"#
+        ),
+        "{text}"
+    );
+    let back: JobTrigger = decode("a trigger", text.as_bytes()).expect("decodes");
+    assert_eq!(back, placed);
+    assert_eq!(
+        TriggerPullRequest::at("https://example.test/pr").number,
+        None
+    );
+}
+
+#[test]
+fn the_choice_is_a_body_and_the_answer_says_where_the_firing_stands() {
+    let body: ChooseTriggerFix =
+        decode("a choice", br#"{"trigger":"tidy","choice":"this_branch"}"#).expect("decodes");
+    assert_eq!(body.choice, TriggerFixChoice::ThisBranch);
+    let said = encode(&TriggerFixChosen {
+        state: TriggerFiringState::Rerunning,
+        pull_request: None,
+    })
+    .expect("encodes");
+    assert_eq!(said, r#"{"state":"rerunning"}"#);
+}
+
+#[test]
+fn a_fleet_before_the_repair_sends_no_repair_and_is_read_all_the_same() {
+    let back: JobTrigger = decode("a trigger", FIRED.as_bytes()).expect("decodes");
+    assert_eq!(back.repair, None);
 }
 
 /// **This string is the TypeScript side's fixture too**: `apps/desktop/src/main/
@@ -42,6 +115,7 @@ fn a_pending_one_has_no_times_and_a_skipped_one_says_why() {
         started_at: None,
         ended_at: None,
         log_at: None,
+        repair: None,
         ..a_failed_firing()
     };
     let text = encode(&pending).expect("encodes");

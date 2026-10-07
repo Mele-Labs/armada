@@ -84,4 +84,22 @@ impl Authoring for FakeDaemon {
     ) -> Result<ipc::AddedStepRemoved, Refusal> {
         Ok(ipc::AddedStepRemoved { id: remove.id })
     }
+
+    /// Refuses as Fleet does where nothing waits, which is all a daemon that
+    /// runs no Trigger can honestly say.
+    async fn choose_trigger_fix(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choose: ipc::ChooseTriggerFix,
+    ) -> Result<ipc::TriggerFixChosen, Refusal> {
+        let held = self.jobs.lock().expect("not poisoned");
+        if !held.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.no_fix_waiting",
+            format!("no fix for `{}` is waiting on a choice", choose.trigger),
+            crate::tests::shapes::run_id(),
+        )))
+    }
 }

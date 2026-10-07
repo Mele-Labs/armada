@@ -200,8 +200,8 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
-export { AddedFields, AddStep, addedCard, addedName, FiredTriggers, FiringMark, LevelMark, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
-export type { AddedKind, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export { AddedFields, AddStep, addedCard, addedName, endsInPr, FiredTriggers, FiringMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export type { AddedKind, RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
 export type {
   TriggerDraft,

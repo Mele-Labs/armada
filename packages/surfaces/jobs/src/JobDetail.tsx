@@ -10,7 +10,7 @@
 // `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
-import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
+import { JobDetailHeaderActions, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
@@ -399,7 +399,12 @@ function OneJob(props: JobDetailProps) {
 
   return (
     <div className="armada-screen__detail" ref={screen} {...{ [OPEN_JOB_ATTRIBUTE]: job.id }}>
-      <JobDetailHeaderActions {...heading} onCopied={props.onCopied} />
+      <JobDetailHeaderActions
+        {...heading}
+        // A fix held for him, or a repair that found none, is the Job's alert.
+        {...(whole === null || !triggerAlert(whole.triggers ?? []) ? {} : { mark: <>{heading.mark}<TriggerAlertMark /></> })}
+        onCopied={props.onCopied}
+      />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
@@ -483,6 +488,7 @@ function OneJob(props: JobDetailProps) {
                     machineCap={props.machineCap ?? null}
                     {...(props.added === undefined ? {} : { added: props.added })}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
+                    {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
                   />
                 ),
               }
@@ -498,6 +504,7 @@ function OneJob(props: JobDetailProps) {
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
+                      {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
                       onOpenJob={openJob}
                       {...(props.onSetLandingTarget === undefined
                         ? {}
@@ -574,6 +581,7 @@ function OneJob(props: JobDetailProps) {
           answered={props.answered}
           onRerun={props.onRerun}
           onRerunChecks={props.onRerunChecks}
+          {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).

@@ -17,3 +17,10 @@
   size = "12px"
   status = "Specified"
   notes = "Added 7 Oct 2026 with Triggers. A repository's Triggers are read from `main`, so a save answers `waits_for_main`; tooltip `Runs once it is on main`. `hourglass` is banned, and `clock` is queued's."
+
+[[icons.git-branch.usage]]
+  means = "The branch a failed Trigger's repair works on, off the Job's workflow"
+  group = "Trigger"
+  size = "12px"
+  status = "Specified"
+  notes = "Added 7 Oct 2026 with Self repair. Tooltip `Repair branch`. The same glyph marks a repository Trigger waiting for main; the repair branch is drawn as a node on a canvas, never in a row of marks, so the two do not meet."

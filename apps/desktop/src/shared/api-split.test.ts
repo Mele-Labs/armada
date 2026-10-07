@@ -20,6 +20,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  ChooseTriggerFix,
   ClearOutcome,
   AlwaysAllowScope,
   CommandAnswer,
@@ -337,6 +338,7 @@ type OldBridgeApi = {
     removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
     addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
     removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
+    chooseTriggerFix: (jobId: string, body: ChooseTriggerFix) => Promise<Outcome>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -585,6 +587,7 @@ const OLD_CHANNELS = {
     removeTrigger: "bridge:remove-trigger",
     addJobStep: "bridge:add-job-step",
     removeJobStep: "bridge:remove-job-step",
+    chooseTriggerFix: "bridge:choose-trigger-fix",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",

@@ -97,6 +97,7 @@ pub use added_step::{
     behind, placeable, AddedKind, AddedStep, Behind, Fired, Kept, Misplaced, NotRun, Placed,
 };
 pub use trigger::{
-    FrozenTrigger, OnTriggerFailure, Trigger, TriggerFiring, TriggerIdentity, TriggerResolution,
-    TriggerRuns, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
+    FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,
+    TriggerIdentity, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState,
+    TriggerWhen, REPAIR_TRIES,
 };

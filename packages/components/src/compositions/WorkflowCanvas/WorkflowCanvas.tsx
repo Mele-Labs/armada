@@ -82,7 +82,10 @@ export type WorkflowCanvasEdge = {
   via?: number;
   /** Enters the target's leading side rather than its top: one bend into a lane beside, not a loop over it. */
   intoSide?: boolean;
-  /** Drawn on the line itself, at its middle: the `+` that adds a step here. The line runs through it. */
+  /**
+   * An inline control, drawn on the line at its middle (the `+` that adds a step here). **The line
+   * runs through it** and still ends in its one arrowhead, at the next node, unless `plain`.
+   */
   add?: ReactNode;
   /** No arrowhead: a stub that ends at a `+` rather than at a step. */
   plain?: boolean;
@@ -136,7 +139,8 @@ export type WorkflowCanvasProps = {
   centred?: boolean;
   /**
    * A node to bring into view, panned to at the zoom the person has — a step
-   * just added. Changing it pans; nothing else does.
+   * just added, or a branch that now asks for an answer. Changing it pans;
+   * nothing else does.
    */
   reveals?: string | null;
   /**

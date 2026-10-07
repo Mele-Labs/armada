@@ -58,4 +58,10 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/remove_job_step",
     },
+    // A Job's own, so it is under the Job: where a failed Trigger's fix goes.
+    Route {
+        operation: "choose_trigger_fix",
+        method: "POST",
+        path: "/jobs/:job_id/choose_trigger_fix",
+    },
 ];

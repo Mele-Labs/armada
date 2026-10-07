@@ -44,7 +44,7 @@
   align-items: flex-end;
 }
 
-/* The + on a connector: the line runs through it, so it takes presses. */
+/* An inline control on a connector (the `+`, a repair's mark): the line runs through it, so it takes presses. */
 .armada-workflow-edge__add {
   position: absolute;
   display: inline-flex;

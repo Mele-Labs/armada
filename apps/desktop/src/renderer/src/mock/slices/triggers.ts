@@ -1,5 +1,6 @@
-// Triggers' members: the mock Fleet's four routes, answered from `triggers-fleet.ts`. Steps added to
-// one Job are here too, answered from `added-fleet.ts` as Fleet answers them, on the Job open.
+// Triggers' members: the mock Fleet's four routes, answered from `triggers-fleet.ts`, and a failed
+// Trigger's repair, answered from `repair-fleet.ts`. Steps added to one Job are here too, answered
+// from `added-fleet.ts` as Fleet answers them, on the Job open.
 // **A step is reached and ends when a walk's `later` says time has passed**, so what a walk looks
 // at is the same on every run.
 
@@ -10,6 +11,7 @@ import type { AddedStepsApi } from "../../../../shared/api/added-steps";
 import type { TriggersApi, TriggersState } from "../../../../shared/api/triggers";
 import { TRIGGERS_NOTHING_YET } from "../../../../shared/api/triggers";
 import type { Fleet, Slice } from "../fake-context";
+import { repairServed } from "../repair-fleet";
 import { alsoOnTimePassing } from "../time-passes";
 import { triggersServed } from "../triggers-fleet";
 
@@ -21,7 +23,7 @@ function openOn(fleet: Fleet, jobId: string) {
   return watched.state === "read" && watched.jobId === jobId ? watched.detail : undefined;
 }
 
-function served(fleet: Fleet): TriggersApi & AddedStepsApi {
+function served(fleet: Fleet): Omit<TriggersApi, "chooseTriggerFix"> & AddedStepsApi {
   const triggers = triggersServed();
   alsoOnTimePassing(() => {
     const watched = fleet.state().watched;
@@ -58,5 +60,5 @@ function served(fleet: Fleet): TriggersApi & AddedStepsApi {
 export const triggers: Slice<TriggersApi & AddedStepsApi, TriggersState> = {
   name: "triggers",
   state: TRIGGERS_NOTHING_YET,
-  api: (_scenario, fleet) => served(fleet),
+  api: (_scenario, fleet) => ({ ...served(fleet), ...repairServed(fleet) }),
 };

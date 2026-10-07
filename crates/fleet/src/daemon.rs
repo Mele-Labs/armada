@@ -201,6 +201,9 @@ pub struct Fleet<H, V, W> {
     /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
+    /// Failed Triggers waiting for a repair Drone. Never written down, for
+    /// `heals`' reason — `crate::trigger_repair`.
+    trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,
     /// Which seed is warming and which warm-up failed. Never written down, for
     /// `proving`'s reason; an `Arc` because the warm-up is spawned — `crate::seeding`.
     seeds: Arc<std::sync::Mutex<crate::seeding::Seeds>>,

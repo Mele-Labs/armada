@@ -20,6 +20,7 @@
 
 import type { AddedBinding } from "./added-steps";
 import type { DetailTab } from "./detail-tabs";
+import type { ChooseTriggerFixCall } from "./repair-branch";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
 import type { WorkflowView } from "./workflow-view";
@@ -258,6 +259,12 @@ export type JobDetailProps = {
    * the step's Shown chapter drew its control, and went with the story.
    */
   onShowAgain?: ShowAgainCall;
+  /**
+   * Say where a failed Trigger's held fix goes: onto the Job's branch, or into a pull request of its
+   * own. Fleet never chooses, so the branch the repair grows off the workflow asks. Absent draws the
+   * branch with no choice on it.
+   */
+  onChooseTriggerFix?: ChooseTriggerFixCall;
   /**
    * Which Job's diff the host should hold open, or `null` for none.
    *

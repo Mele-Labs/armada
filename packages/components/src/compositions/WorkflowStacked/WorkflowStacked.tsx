@@ -22,7 +22,7 @@ export type WorkflowStackedRow = {
   depth?: 1 | 2;
   /** Where this step loops back to, in words, and its cap. */
   returns?: { toName: string; label: string };
-  /** Drawn under the card: the `+` that adds a step after it. */
+  /** Drawn under the card: what hangs off the step, such as a repair's branch, or the `+` that adds a step after it. */
   trailing?: ReactNode;
   /** Drawn over the card: the `+` that adds a step before the first. */
   leading?: ReactNode;

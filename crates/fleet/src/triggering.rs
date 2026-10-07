@@ -15,6 +15,7 @@ use core_model::{
 use verification::Exit;
 
 use crate::daemon::Fleet;
+use crate::trigger_repair::Waiting;
 
 /// Every Trigger of `resolved` that applies to this workflow, bound to each
 /// step it fires on. A `pr_opened` one is bound to the delivering step, and a
@@ -235,6 +236,26 @@ where
         }
         self.logged(job.id(), self.firing_line(job, &ended, Some(&attempt)));
         self.trigger_moved(job, &ended);
+        // **Queued and not waited for**: the Job's step and status are where
+        // they were, and a repair Drone is put on by `repair_next`.
+        if let (TriggerState::Repairing, Some(firing), Some(command)) =
+            (ended.state, firing, one.to_run())
+        {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(Waiting {
+                    job: job.id().clone(),
+                    firing,
+                    trigger: ended.name.clone(),
+                    step: ended.step.clone(),
+                    command: command.to_string(),
+                    exit: ended.exit_code,
+                    stdout: attempt.output.stdout.clone(),
+                    stderr: attempt.output.stderr.clone(),
+                    record: core_model::RepairRecord::default(),
+                });
+        }
     }
 
     /// `job.trigger_changed`, the row whole. One per state a firing reaches.
@@ -244,6 +265,18 @@ where
             trigger: firing.into(),
             at: (&self.now()).into(),
         }));
+    }
+
+    /// [`trigger_moved`](Fleet::trigger_moved) for a firing a repair has just
+    /// written, read back from its row so the event carries what the row holds.
+    pub(crate) async fn repair_moved(&self, job: &Job, firing_id: i64) {
+        let held = self.store().lock().await.firings_with_ids(job.id());
+        if let Some((_, firing)) = held
+            .ok()
+            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing_id))
+        {
+            self.trigger_moved(job, &firing);
+        }
     }
 
     pub(crate) fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
@@ -270,7 +303,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match firing.state {
-            TriggerState::Failed => Level::Warn,
+            TriggerState::Failed | TriggerState::Repairing => Level::Warn,
             _ => Level::Info,
         };
         let said = match (&firing.skipped, firing.state) {

@@ -225,3 +225,61 @@
   justify-content: center;
   padding: var(--space-1) 0;
 }
+
+/* The branch a failed Trigger grows off the workflow, at a step's own width. */
+.armada-repair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: var(--w-workflow-node);
+  padding: var(--space-3);
+  border: var(--border-width) dashed var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-repair[data-phase="failed"] {
+  border-color: var(--run-failed);
+}
+
+.armada-repair--pr {
+  flex-direction: row;
+  align-items: center;
+  width: auto;
+  border-style: solid;
+}
+
+.armada-repair__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-repair__state {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.armada-repair__fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-repair__fix li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-repair__choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

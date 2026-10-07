@@ -233,6 +233,78 @@ pub enum TriggerFiringState {
     Failed,
     /// A destructive Command, held for the owner. **Nothing asks him yet.**
     AwaitingOwner,
+    /// Failed with `repair` on, and a repair Drone is working on a branch of
+    /// its own. Since 23.60.
+    Repairing,
+    /// The Command is running again, on the repair branch or on the Job's.
+    /// Since 23.60.
+    Rerunning,
+    /// The repair branch passes. **Held for the owner's choice**, which
+    /// `choose_trigger_fix` makes. Since 23.60.
+    FixReady,
+}
+
+/// Where the owner has a repair's held fix go.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TriggerFixChoice {
+    /// Merged onto the Job's branch and pushed, so it lands on the Job's open
+    /// pull request.
+    ThisBranch,
+    /// The repair branch opens a pull request of its own.
+    NewPr,
+}
+
+/// A pull request a repair opened.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriggerPullRequest {
+    pub url: String,
+    /// Read off the end of `url`. Absent where it does not end in one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<u32>,
+}
+
+/// What a failed Trigger's repair has come to. Present from the first repair
+/// Drone on. **Since 23.60.**
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriggerRepair {
+    /// Which try this is, 1 or 2. A client draws no count from it: it is how a
+    /// second Drone is told from the first.
+    pub attempt: u32,
+    /// The branch the repair Drone writes on, cut from the Job's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// The files the fix changes, repository-relative. Empty until the fix is
+    /// held.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
+    /// What the owner chose, once he has. A `this_branch` that had to wait for
+    /// the Job's Drone shows here with `state` still `fix_ready`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<TriggerFixChoice>,
+    /// For `new_pr`, once it is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<TriggerPullRequest>,
+}
+
+/// `choose_trigger_fix`'s body: which of a Job's Triggers holds a fix, and
+/// where it goes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChooseTriggerFix {
+    /// The Trigger's name. The latest firing of it that holds a fix is the one.
+    pub trigger: String,
+    pub choice: TriggerFixChoice,
+}
+
+/// What `choose_trigger_fix` came to. **`state` is where the firing stands
+/// now**: `passed` for a placed fix, `failed` where the Command still fails on
+/// the Job's branch, and `fix_ready` where the choice is kept until the Job's
+/// Drone is done or a worktree slot is free.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriggerFixChosen {
+    pub state: TriggerFiringState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request: Option<TriggerPullRequest>,
 }
 
 /// One of a Job's Triggers: frozen at approval, and each firing of it. A step
@@ -263,6 +335,10 @@ pub struct JobTrigger {
     /// written, which is when the firing ends.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_at: Option<Instant>,
+    /// Absent until a repair Drone has been put on it, and where `repair` is
+    /// off. Since 23.60.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair: Option<TriggerRepair>,
 }
 
 /// `job.trigger_changed`: one of a Job's Triggers moved, carried whole so a
@@ -305,6 +381,51 @@ impl From<core_model::TriggerSource> for TriggerLevel {
     }
 }
 
+impl From<core_model::FixChoice> for TriggerFixChoice {
+    fn from(choice: core_model::FixChoice) -> TriggerFixChoice {
+        match choice {
+            core_model::FixChoice::ThisBranch => TriggerFixChoice::ThisBranch,
+            core_model::FixChoice::NewPr => TriggerFixChoice::NewPr,
+        }
+    }
+}
+
+impl From<TriggerFixChoice> for core_model::FixChoice {
+    fn from(choice: TriggerFixChoice) -> core_model::FixChoice {
+        match choice {
+            TriggerFixChoice::ThisBranch => core_model::FixChoice::ThisBranch,
+            TriggerFixChoice::NewPr => core_model::FixChoice::NewPr,
+        }
+    }
+}
+
+impl TriggerPullRequest {
+    /// A pull request's address as Fleet recorded it.
+    pub fn at(url: &str) -> TriggerPullRequest {
+        let number = url
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .and_then(|last| last.parse().ok());
+        TriggerPullRequest {
+            url: url.to_string(),
+            number,
+        }
+    }
+}
+
+impl From<&core_model::RepairRecord> for TriggerRepair {
+    fn from(record: &core_model::RepairRecord) -> TriggerRepair {
+        TriggerRepair {
+            attempt: record.tries,
+            branch: record.branch.clone(),
+            files: record.files.clone(),
+            choice: record.choice.map(TriggerFixChoice::from),
+            pull_request: record.pull_request.as_deref().map(TriggerPullRequest::at),
+        }
+    }
+}
+
 impl From<core_model::TriggerState> for TriggerFiringState {
     fn from(state: core_model::TriggerState) -> TriggerFiringState {
         match state {
@@ -313,6 +434,9 @@ impl From<core_model::TriggerState> for TriggerFiringState {
             core_model::TriggerState::Passed => TriggerFiringState::Passed,
             core_model::TriggerState::Failed => TriggerFiringState::Failed,
             core_model::TriggerState::AwaitingOwner => TriggerFiringState::AwaitingOwner,
+            core_model::TriggerState::Repairing => TriggerFiringState::Repairing,
+            core_model::TriggerState::Rerunning => TriggerFiringState::Rerunning,
+            core_model::TriggerState::FixReady => TriggerFiringState::FixReady,
         }
     }
 }
@@ -354,6 +478,7 @@ impl From<&core_model::TriggerFiring> for JobTrigger {
                 core_model::TriggerState::Running => None,
                 _ => Some(Instant::from(ended.unwrap_or(&firing.started_at))),
             },
+            repair: (firing.repair.tries > 0).then(|| TriggerRepair::from(&firing.repair)),
         }
     }
 }
@@ -372,6 +497,7 @@ impl From<&core_model::FrozenTrigger> for JobTrigger {
             started_at: None,
             ended_at: None,
             log_at: None,
+            repair: None,
         }
     }
 }

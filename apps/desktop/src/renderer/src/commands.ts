@@ -34,7 +34,7 @@ import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
 import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
-import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import type { EditManifest, SaveManifestFile, TriggerFixChoice } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
   AddTask,
@@ -407,6 +407,17 @@ export function useCommands(sending: Sending) {
   async function fixMain(fix: FixMain): Promise<void> {
     const answer = await window.armada.fixMain(fix);
     if (!answer.ok) setOutcome(answer);
+  }
+
+  /**
+   * Where a failed Trigger's held fix goes. **A refusal goes to the pipeline every command failure
+   * uses**, in Fleet's own words; an accepted one says nothing, since the branch moves a beat later
+   * as `job.trigger_changed` re-reads the Job. The answer tells the branch whether to ask again.
+   */
+  async function chooseTriggerFix(jobId: string, trigger: string, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
+    const answer = await window.armada.chooseTriggerFix(jobId, { trigger, choice });
+    if (!answer.ok) setOutcome(answer);
+    return { ok: answer.ok };
   }
 
   /**
@@ -1071,6 +1082,7 @@ export function useCommands(sending: Sending) {
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,
     fixMain,
+    chooseTriggerFix,
     dismissFinding,
     rerunFailedChecks,
     investigateFailedChecks,

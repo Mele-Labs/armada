@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "Escalations interrupt, and the bell is the interrupt metaphor. Deliberately not octagon-alert, which belongs to stalled."
+
+[[icons.bell.usage]]
+  means = "A Job's alert from its Triggers: a fix held for the owner, or a repair that found none"
+  group = "Trigger"
+  size = "12px"
+  status = "Specified"
+  notes = "Added 7 Oct 2026 with Self repair, beside the status badge in the Job's header. Tooltip `Alert`. It is the mark `list_alerts` carries for the same Job, drawn from the Job's own Triggers, since the Job's status does not move."
