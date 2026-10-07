@@ -624,3 +624,39 @@ pub fn sent_message<'a>(tool: &str, detail: &'a str) -> Option<(&'a str, &'a str
     let (to, message) = detail.strip_prefix("to ")?.split_once(": ")?;
     Some((to, message))
 }
+
+#[derive(Deserialize)]
+struct InitLine {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    subtype: String,
+    #[serde(default)]
+    slash_commands: Vec<String>,
+    #[serde(default)]
+    skills: Vec<String>,
+}
+
+/// The commands a session's `init` line says the agent has: its slash commands,
+/// then its skills that are not among them, by name. **`None` on every line
+/// but that one**, so a caller may offer every line it hears. Read here and not
+/// in [`read`] because only a hosted session offers them, and a Drone's events
+/// are not the place to carry a list of seventy-five names.
+pub fn init_commands(line: &str) -> Option<Vec<String>> {
+    // Every line of a turn passes here, and only one is this one.
+    if !line.contains("\"slash_commands\"") {
+        return None;
+    }
+    let init: InitLine = ipc::decode("an init line", line.trim().as_bytes()).ok()?;
+    if init.kind != "system" || init.subtype != "init" {
+        return None;
+    }
+    let mut names = init.slash_commands;
+    for skill in init.skills {
+        if !names.contains(&skill) {
+            names.push(skill);
+        }
+    }
+    names.retain(|name| !name.trim().is_empty());
+    Some(names)
+}

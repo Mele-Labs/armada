@@ -356,6 +356,7 @@ where
             self.job_holds_slot(job, slot).await;
         }
         self.job_holds_branch(job).await;
+        self.left_the_worktree(session).await;
     }
 
     fn noted_piloted(&self, job: &Job, reason: PilotReason, session: Option<&str>) {

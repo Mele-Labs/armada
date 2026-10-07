@@ -73,7 +73,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
+    async fn start_session(&self, mut start: StartSession) -> Result<SessionRecord, Refusal> {
+        if let Some(from) = start.pilot.take() {
+            return self.start_piloted(start, from).await;
+        }
         let served = self.served_named(Some(&start.manifest_id))?;
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -152,6 +155,12 @@ where
             .await?;
 
         let mut turn = String::new();
+        if !hosting.ran {
+            if let Some(preface) = self.handoff_preface(&id).await {
+                turn.push_str(&preface);
+                turn.push_str("\n\nThe person's first message:\n\n");
+            }
+        }
         if let Some(line) = mention_line(&addressed) {
             turn.push_str(&line);
             turn.push_str("\n\n");
@@ -259,7 +268,11 @@ where
             state.turn = SessionTurn::Idle;
             state.moving = None;
         }
-        if let (Some(slot), Ok(served)) = (
+        if let Some(job) = self.piloted_job_of(&id).await {
+            // The worktree is the Job's, handed over: it goes back to it, and
+            // is not committed to anyone's branch on the way.
+            self.closed_while_piloting(&job).await;
+        } else if let (Some(slot), Ok(served)) = (
             hosting.lease_slot,
             self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))),
         ) {
@@ -267,7 +280,7 @@ where
             // branch and nothing is pushed, so closing loses no work.
             let _ = self
                 .vcs()
-                .park_slot(&crate::leasing::pool_of(&served), slot, &id);
+                .park_hosted_slot(&crate::leasing::pool_of(&served), slot, &id);
         }
         let now = self.now().as_str().to_string();
         {
@@ -554,6 +567,11 @@ where
             effort: hosting.effort,
             mode: mode_of(&hosting.mode),
             running: state.process.is_some(),
+            commands: if state.commands.is_empty() {
+                self.hosts().commands()
+            } else {
+                state.commands.clone()
+            },
         }))
     }
 

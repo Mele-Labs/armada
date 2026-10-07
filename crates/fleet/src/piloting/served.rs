@@ -20,10 +20,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// **The seam for the session host.** Once the Job is `piloted` and the
-    /// ledger rows are the Session's, a Session is started by handing
-    /// [`Fleet::handoff_bundle`] and the worktree inside it to the session
-    /// host's own start. Nothing here starts one.
+    /// **This route marks the Job and names the Session; it does not start
+    /// one.** `start_session` with a `pilot` does both in one call
+    /// (`session_host::piloting`), and is what Bridge uses.
     async fn take_over(
         self: Arc<Self>,
         job_id: JobId,

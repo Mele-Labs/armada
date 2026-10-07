@@ -10,6 +10,7 @@
 mod asking;
 mod gate;
 mod hearing;
+mod piloting;
 mod process;
 mod rows;
 mod serving;
@@ -38,6 +39,9 @@ pub struct Hosts {
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
     sweeping: AtomicBool,
+    /// The commands the last process to start said it had, for a session whose
+    /// own has not started. Since 23.51.
+    commands: Mutex<Vec<String>>,
 }
 
 impl Hosts {
@@ -49,7 +53,24 @@ impl Hosts {
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
             sweeping: AtomicBool::new(false),
+            commands: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Remember what a process said it has.
+    pub(crate) fn heard_commands(&self, names: Vec<String>) {
+        *self
+            .commands
+            .lock()
+            .expect("the commands are not held across a panic") = names;
+    }
+
+    /// The commands the last process said it had.
+    pub(crate) fn commands(&self) -> Vec<String> {
+        self.commands
+            .lock()
+            .expect("the commands are not held across a panic")
+            .clone()
     }
 
     pub fn quiet(&self) -> Duration {
@@ -141,6 +162,8 @@ pub(crate) struct State {
     /// Which process of the session is the live one, so the late word of one
     /// that was let go is not read as the new one's.
     pub generation: u64,
+    /// What this session's own process said it has. Empty until it starts.
+    pub commands: Vec<String>,
 }
 
 impl State {
@@ -156,6 +179,7 @@ impl State {
             restart_after_turn: false,
             directory: String::new(),
             generation: 0,
+            commands: Vec::new(),
         }
     }
 }

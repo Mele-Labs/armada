@@ -27,9 +27,9 @@ use crate::tests::tmp::TempDir;
 
 type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
-struct Standing {
-    sent: Mutex<Vec<String>>,
-    ended: AtomicBool,
+pub(super) struct Standing {
+    pub(super) sent: Mutex<Vec<String>>,
+    pub(super) ended: AtomicBool,
     pid: u32,
 }
 
@@ -46,11 +46,11 @@ impl Process for Standing {
 }
 
 #[derive(Default)]
-struct StandIn {
+pub(super) struct StandIn {
     started: Mutex<Vec<(Start, Sink, Arc<Standing>)>>,
 }
 
-struct Shared(Arc<StandIn>);
+pub(super) struct Shared(pub(super) Arc<StandIn>);
 
 impl Processes for Shared {
     fn start(&self, start: &Start, sink: Sink) -> Result<Arc<dyn Process>, String> {
@@ -66,7 +66,7 @@ impl Processes for Shared {
 }
 
 impl StandIn {
-    fn starts(&self) -> Vec<Start> {
+    pub(super) fn starts(&self) -> Vec<Start> {
         self.started
             .lock()
             .unwrap()
@@ -74,15 +74,18 @@ impl StandIn {
             .map(|one| one.0.clone())
             .collect()
     }
-    fn process(&self, index: usize) -> Arc<Standing> {
+    pub(super) fn process(&self, index: usize) -> Arc<Standing> {
         Arc::clone(&self.started.lock().unwrap()[index].2)
     }
-    fn says(&self, index: usize, events: Vec<DroneEvent>) {
+    pub(super) fn says(&self, index: usize, events: Vec<DroneEvent>) {
         let _ = self.started.lock().unwrap()[index]
             .1
             .send(Heard::Events(events));
     }
-    fn init(&self, index: usize) {
+    pub(super) fn hears(&self, index: usize, heard: Heard) {
+        let _ = self.started.lock().unwrap()[index].1.send(heard);
+    }
+    pub(super) fn init(&self, index: usize) {
         self.says(
             index,
             vec![DroneEvent::Started {
@@ -92,7 +95,7 @@ impl StandIn {
             }],
         );
     }
-    fn finishes(&self, index: usize, text: &str) {
+    pub(super) fn finishes(&self, index: usize, text: &str) {
         self.says(
             index,
             vec![
@@ -146,6 +149,7 @@ impl Rig {
                 model: None,
                 effort: None,
                 mode: None,
+                pilot: None,
             })
             .await
             .expect("started")
@@ -535,6 +539,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             model: None,
             effort: None,
             mode: None,
+            pilot: None,
         })
         .await
         .unwrap()

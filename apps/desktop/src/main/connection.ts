@@ -14,6 +14,7 @@
 // over. Only addresses moved off the file the gate measures.
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
+import type { PilotOutcome } from "@armada/protocol";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
@@ -22,6 +23,7 @@ import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
+import { PilotExits } from "./pilot-exits";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
@@ -176,6 +178,8 @@ export class FleetConnection {
    * nine of them would be nine places for the reasoning to go missing.
    */
   readonly commands: JobCommands;
+  /** The three ways out of a pilot — `pilot-exits.ts`. */
+  readonly pilotExits: PilotExits;
   /** One Job's work, reviewed, and the two collection-wide reads — see `job-reads.ts`. */
   private readonly jobReads: JobReads;
   /** `arrivals.ts`'s switch, and the exact slice of this object it may reach. */
@@ -258,6 +262,12 @@ export class FleetConnection {
       proposalOut: () => this.current.proposing,
       proposalJob: () => this.proposalJobId,
       rereadCapacity: (port) => readCapacity(port, (change) => this.publish(change)),
+    });
+    this.pilotExits = new PilotExits({
+      port,
+      fold: (job) => this.fold(job),
+      reread: (port) => reread(port, (change) => this.publish(change), this.wiring.now),
+      refresh: (port, jobId) => this.jobFocus.refresh(port, jobId),
     });
     this.jobReads = new JobReads({
       port,
@@ -576,6 +586,16 @@ export class FleetConnection {
     if (repository === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
     if (repository.manifest === undefined) return { ok: false, outcome: { ok: false, why: "not_set_up" } };
     return await this.sessions.start({ manifest_id: repository.manifest.id, ...(title === undefined ? {} : { title }) });
+  }
+
+  /**
+   * Takes a Job over and starts a Session on its worktree. **The repository is the Job's own**, read
+   * off the row main holds, so a window on another repository, or on All, takes over the same Job.
+   */
+  async pilotJob(jobId: string, outcome: PilotOutcome): Promise<SessionActed> {
+    const job = this.current.jobs.find((row) => row.id === jobId);
+    if (job === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    return await this.sessions.start({ manifest_id: job.owner_manifest_id, pilot: { job_id: jobId, outcome } });
   }
 
   private connected(): BridgeStateFleet | null {

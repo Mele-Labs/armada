@@ -158,8 +158,8 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PullRequestState, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
-import type { PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
+import type { AnswerSessionAsk, PilotOutcome, PullRequestState, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
+import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, Summons } from "./bridge";
@@ -397,6 +397,8 @@ type OldBridgeApi = {
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
     startSession: (title?: string) => Promise<SessionActed>;
+    pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
+    exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
@@ -630,6 +632,8 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
+    pilotJob: "bridge:pilot-job",
+    exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
     tuneSession: "bridge:tune-session",

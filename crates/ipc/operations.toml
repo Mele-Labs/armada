@@ -2000,7 +2000,7 @@ notes = """
 
 **Assist is not an outcome**: it is deferred, so a body naming it does not decode (400). **`restart_step`** hands the worktree to a fresh Drone at the stopped step when the pilot is submitted, where `take_over` runs the step's gates.
 
-Fleet marks the Job, ends its Drone (`kill_drone`'s order: the process, then the step, then the Job) and moves it. Works from `running`, `escalated`, `awaiting_review`, `awaiting_repair` and `awaiting_attestation`. **A named Session holds the Job's slot and branch on the ledger**, with `detail.handed` reading `job <id>`, and the Job's own rows are given back. Fleet does not start the Session: the session host takes `get_handoff` and the worktree in it.
+Fleet marks the Job, ends its Drone (`kill_drone`'s order: the process, then the step, then the Job) and moves it. Works from `running`, `escalated`, `awaiting_review`, `awaiting_repair` and `awaiting_attestation`. **A named Session holds the Job's slot and branch on the ledger**, with `detail.handed` reading `job <id>`, and the Job's own rows are given back. This route does not start the Session: `start_session` with a `pilot` does both in one call, and is how Bridge takes a Job over.
 
 Refused with a 409 and nothing changed: `fleet.not_pilotable` on a status with no edge to `piloted`; `fleet.already_piloted`; `fleet.pilot_busy` while another take over or a run of the Job's Checks is out; `fleet.no_step_to_restart` for `restart_step` where no step stopped. A Job at a gate with its worktree parked is refused `fleet.paused`, and one whose worktree is gone is told to redispatch.
 
@@ -3765,6 +3765,8 @@ agent_access = "No"
 description = "Start a session Fleet hosts for Bridge in one repository, with no slot and no branch until the agent writes"
 notes = """
 `POST /sessions/start`, body `StartSession`: `manifest_id`, and `title`, `model`, `effort` and `mode` where the person chose them. Since 23.49. Answered with the `SessionRecord`, `origin` `bridge`, `hosted` set. **No process starts**: the first message does. `mode` absent is `auto`.
+
+**`pilot` (`job_id`, `outcome`), since 23.51, takes the Job over and starts the session on its worktree.** `manifest_id` is not read: the repository is the Job's. The refusals are `take_over`'s (409, nothing written). The session holds the Job's slot and branch from the start and takes no lease on a first write, its thread opens with a `handoff` row, and the bundle as the agent reads it goes ahead of the person's first message.
 
 `agent_access` is `No` for all of the hosted-session commands: a session is the person's own conversation, and an agent that could start, tune or close one could drive another's.
 """

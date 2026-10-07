@@ -45,6 +45,9 @@ pub struct Start {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Heard {
     Events(Vec<DroneEvent>),
+    /// What the stream's `init` line said the agent has: slash commands and
+    /// skills, by name. Since 23.51.
+    Commands(Vec<String>),
     /// The process is gone, whoever ended it.
     Gone,
 }
@@ -194,6 +197,9 @@ impl Processes for ProcessHost {
                 tokio::select! {
                     line = reading.next_line() => match line {
                         Ok(Some(line)) => {
+                            if let Some(names) = adapters::init_commands(&line) {
+                                let _ = sink.send(Heard::Commands(names));
+                            }
                             let _ = sink.send(Heard::Events(agent.read(&line)));
                         }
                         _ => break,

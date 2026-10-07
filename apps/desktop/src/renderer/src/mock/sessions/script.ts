@@ -329,10 +329,7 @@ export function sessionsStore(
               step: { id: "regression_verify", label: "Verify the fix" },
               attempts: 3,
               refusals: ["No test covers the retry cap, retry.rs:41", "The lint Check still fails on the loop at retry.rs:41"],
-              plan: {
-                declared: ["crates/retry/src/lib.rs", "crates/retry/tests/backoff.rs"],
-                actual: ["crates/retry/src/lib.rs", "crates/retry/src/loop.rs"],
-              },
+              plan: { outside: ["crates/retry/src/loop.rs"], unwritten: ["crates/retry/tests/backoff.rs"] },
               narrative: {
                 trying_to: "Cap the retry backoff at five attempts",
                 blocked_by: "The lint Check fails on the loop at retry.rs:41",

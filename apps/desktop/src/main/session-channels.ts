@@ -7,7 +7,7 @@ import type { IpcMain } from "electron";
 
 import type { AnswerSessionAsk, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { PullRequestPress } from "../shared/api/sessions";
+import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
 
 type Hosts = {
@@ -19,6 +19,8 @@ type Hosts = {
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge", "review"];
 const ANSWERS = ["allow_once", "allow_and_remember", "refuse"];
 const MODES = ["ask", "auto", "accept_edits", "plan"];
+const OUTCOMES = ["take_over", "restart_step"];
+const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
@@ -29,6 +31,12 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
     if (fleet === null) return unsent;
     return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined);
   });
+  ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
+    text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.exitPilot, (_event, jobId: string, exit: PilotExit, note?: string) =>
+    text(jobId) && EXITS.includes(exit) ? (connection()?.pilotExits.exit(jobId, exit, typeof note === "string" && note.trim() !== "" ? note.trim() : undefined) ?? unsent.outcome) : unsent.outcome,
+  );
   ipc.handle(CHANNELS.sendSessionMessage, (_event, send: SendSessionMessage) => {
     if (!text(send?.session_id) || typeof send.text !== "string") return unsent;
     return connection()?.sessions.send(send) ?? unsent;

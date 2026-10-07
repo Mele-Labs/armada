@@ -346,6 +346,10 @@ where
             .await
             .map_err(|why| self.refusal(why))?;
         detail.job.tasks = plan.as_ref().map(|plan| plan.counts().into());
+        // The pilot is on this row too: a Job a person attested is told apart
+        // from one that passed by `piloted.exit`, and the detail's header draws
+        // from this row, not the Board's.
+        detail.job.piloted = self.piloted_on_row(&*self.store().lock().await, &job);
         let runs = self
             .group_runs_of(job.id())
             .await

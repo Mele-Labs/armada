@@ -25,8 +25,8 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
-import type { AnswerSessionAsk, PullRequestState, ReviewDispatched, SendSessionMessage, TuneSession } from "@armada/protocol";
-import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
+import type { AnswerSessionAsk, PilotOutcome, PullRequestState, ReviewDispatched, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -572,6 +572,8 @@ const api: BridgeApi = {
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
   startSession: (title?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title),
+  pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
+  exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
   sendSessionMessage: (send: SendSessionMessage): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>

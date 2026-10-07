@@ -78,3 +78,30 @@ export const HeldWithFleetsOffers: Story = {
     await expect(args.onAnswer).toHaveBeenCalledWith("allow_and_remember");
   },
 };
+
+/** A Job taken over from a gate or an escalation: no Drone said what it was stuck on, so the Drone's account is not drawn, and neither is any other group with nothing in it. */
+export const HandedOverWithNoAccount: Story = {
+  args: {
+    rows: [
+      {
+        id: "h1",
+        at: "14:03:07",
+        kind: "handoff",
+        job: { number: 55, title: "Cap the retry backoff" },
+        slot: 3,
+        branch: "fix/retry-backoff",
+        step: { id: "regression_verify", label: "Verify the fix" },
+        attempts: 3,
+        refusals: [],
+        plan: { outside: ["crates/retry/src/loop.rs"], unwritten: [] },
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const handoff = canvas.getByRole("region", { name: "Handed over: Job 55" });
+    await expect(within(handoff).getByText("Stopped on")).toBeInTheDocument();
+    await expect(within(handoff).getByText("written, not declared")).toBeInTheDocument();
+    await expect(within(handoff).queryByText("Judge refused")).toBeNull();
+    await expect(within(handoff).queryByText("Trying to")).toBeNull();
+  },
+};

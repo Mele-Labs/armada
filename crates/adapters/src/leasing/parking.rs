@@ -37,6 +37,18 @@ impl Pool {
     /// slot back. `holder` must hold it. A clean slot is only released. Nothing
     /// is pushed.
     pub fn park(&self, number: usize, holder: &Holder) -> Result<Parked, ParkRefused> {
+        self.park_named(number, holder, &holder.said())
+    }
+
+    /// [`park`](SlotPool::park), with the WIP commit naming `whose` work it
+    /// is where the holder's own name would say the wrong thing: a Session
+    /// holds its slot as a `Holder::Job` of its own id.
+    pub fn park_named(
+        &self,
+        number: usize,
+        holder: &Holder,
+        whose: &str,
+    ) -> Result<Parked, ParkRefused> {
         let slot = self.path_of(number);
         if !self.bays().contains(&number) || !slot.exists() {
             return Err(ParkRefused::NotASlot(slot));
@@ -63,10 +75,7 @@ impl Pool {
                 on,
             });
         }
-        let message = format!(
-            "WIP: uncommitted files of {}, saved to free slot-{number}",
-            holder.said()
-        );
+        let message = format!("WIP: uncommitted files of {whose}, saved to free slot-{number}");
         let committed = commit_all(&slot, &message).map_err(ParkRefused::Vcs)?;
         let released = self
             .give_back_locked(number, Some(holder))

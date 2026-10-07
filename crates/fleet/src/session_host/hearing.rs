@@ -56,6 +56,11 @@ where
                 }
                 let _ = self.published_hosted(id).await;
             }
+            Heard::Commands(names) => {
+                self.hosts().heard_commands(names.clone());
+                runtime.state().commands = names;
+                let _ = self.published_hosted(id).await;
+            }
             Heard::Events(events) => {
                 for event in events {
                     self.hear(id, &runtime, event).await;

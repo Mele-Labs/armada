@@ -1097,6 +1097,15 @@ impl Vcs for FakeVcs {
         self.slots.park(pool, slot, job_id)
     }
 
+    fn park_hosted_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session_id: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.slots.park(pool, slot, session_id)
+    }
+
     fn release_session_slot(
         &self,
         pool: &SlotPool,

@@ -141,23 +141,31 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
     };
   }, [draft, sessions, onOpen]);
   const [asking, setAsking] = useState<string | null>(null);
+  /** Which act Fleet's last refusal answered, so a take over's is said in its confirmation and an exit's under the exits, and neither under the other. */
+  const [last, setLast] = useState<"take" | "exit" | null>(null);
+  const [starting, setStarting] = useState(false);
+  const said = useSessionsSaid();
   const pilot = useMemo<PilotValue | null>(() => {
-    // Pilot is the mock's until Fleet serves it: with no act to take, no chip offers one.
+    // With nothing to take a Job over, no chip offers it.
     if (draft?.pilot === undefined || draft.exit === undefined) return null;
     const { exit } = draft;
     return {
       ask: setAsking,
       pilotedBy: (jobId) => {
         for (const one of sessions) {
-          const held = one.attachments.find((a) => a.kind === "job" && a.id === jobId && a.state === "piloted");
+          const held = one.attachments.find((a) => a.kind === "job" && a.id === jobId && a.state === "piloted" && a.pilotedElsewhere !== true);
           if (held?.kind === "job") return { id: one.id, title: one.title ?? one.id, number: held.number };
         }
         return undefined;
       },
-      exit: (jobId, way) => exit(jobId, way),
+      exit: (jobId, way) => {
+        setLast("exit");
+        exit(jobId, way);
+      },
       open: onOpen,
+      said: last === "exit" ? said : undefined,
     };
-  }, [draft, sessions, onOpen]);
+  }, [draft, sessions, onOpen, last, said]);
   const asked = asking === null || draft === undefined ? undefined : draft.taggable().find((one) => one.kind === "job" && one.id === asking);
   return (
     <ChipOwnership.Provider value={value}>
@@ -167,10 +175,25 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
           <PilotConfirm
             open={asked !== undefined}
             title={asked?.title ?? ""}
+            said={last === "take" ? said : undefined}
             onCancel={() => setAsking(null)}
             onConfirm={(outcome) => {
-              setAsking(null);
-              if (asking !== null && draft?.pilot !== undefined) onOpen(draft.pilot(asking, outcome));
+              if (asking === null || draft?.pilot === undefined || starting) return;
+              setLast("take");
+              const started = draft.pilot(asking, outcome);
+              // Fleet answers before the confirmation goes: a refusal is said in it, and nothing opens.
+              if (typeof started === "string") {
+                setAsking(null);
+                onOpen(started);
+                return;
+              }
+              setStarting(true);
+              void started.then((id) => {
+                setStarting(false);
+                if (id === undefined) return;
+                setAsking(null);
+                onOpen(id);
+              });
             }}
           />
         </PilotAct.Provider>
@@ -425,7 +448,7 @@ function entriesOf(session: Session, goes: LedgerGoes, read: (one: Reading) => v
             ? { mark: { glyph: "escalated" as const, said: "Needs you" } }
             : one.state === "running"
               ? { mark: { glyph: "running" as const, said: "Running" } }
-              : one.state === "piloted"
+              : one.state === "piloted" && one.pilotedElsewhere !== true
                 ? { mark: { glyph: "piloted" as const, said: "Piloted: its Drone is stopped and you are working it here" }, exits: <PilotExits jobId={one.id} compact /> }
                 : one.attested === true
                   ? { mark: { glyph: "done" as const, said: "Closed by your word, not verified" } }
