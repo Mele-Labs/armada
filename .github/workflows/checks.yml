@@ -284,6 +284,19 @@ jobs:
           name: preview_test
           cmd: python3 scripts/test_preview.py
 
+  sync_mod_test:
+    name: sync_mod_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'sync_mod_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: sync_mod_test
+          cmd: python3 scripts/test_sync_mod.py
+
   # macOS, because the smoke tests are the one Check that needs it, sharded four
   # ways to stay inside the runners the free plan gives at once. The shards are
   # cut by `vitest.shard.ts`, which weighs the walks, so they run about as long
@@ -479,6 +492,7 @@ jobs:
       - workspace_check
       - hooks_test
       - preview_test
+      - sync_mod_test
       - xtask_test
       - foundations
     runs-on: ubuntu-latest

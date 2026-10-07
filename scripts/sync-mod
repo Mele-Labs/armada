@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# Give Fleet its own copy of the Claude Code mod: `<tree>/plugins/` copied to
+# `$HOME/Library/Application Support/Armada/mod/`, the folder the owner's
+# `claude plugin marketplace add` points at. `scripts/restart` runs it with the
+# tree it just built, so the copy is as new as the Fleet that serves it and a
+# pull on the owner's checkout changes nothing a session loads.
+# `docs/concepts/session.md`, "Installing the Claude Code mod".
+#
+# **The mod folder is this one path, `$HOME/Library/Application Support/Armada/mod`.**
+# Whatever later compares a session's reported mod version with the installed
+# one reads `<that>/armada/.claude-plugin/plugin.json`.
+#
+# The copy is made beside the folder and renamed over it, so a session reading
+# the mod sees the old copy or the new one, never half of either. Nothing else
+# under Armada's support folder is touched. A source with no `plugins/` is a
+# warning and exit 0: a restart is not worth refusing over a mod.
+#
+#   scripts/sync-mod <tree>
+
+set -euo pipefail
+
+tree="${1:?usage: scripts/sync-mod <tree>}"
+home="${HOME:?HOME must be set}"
+support="$home/Library/Application Support/Armada"
+dest="$support/mod"
+source_dir="$tree/plugins"
+
+if [[ ! -f "$source_dir/.claude-plugin/marketplace.json" ]]; then
+  echo "sync-mod: warning: $source_dir has no .claude-plugin/marketplace.json — the mod copy in $dest is left as it was" >&2
+  exit 0
+fi
+
+mkdir -p "$support"
+staging=$(mktemp -d "$support/.mod-new.XXXXXX")
+old="$support/.mod-old.$$"
+trap 'rm -rf "$staging" "$old"' EXIT
+
+cp -R "$source_dir/." "$staging/"
+chmod 755 "$staging"
+
+# rename(2) cannot replace a non-empty directory, so the old copy steps aside
+# first. A session reading in the gap between the two renames finds no folder
+# for an instant; neither rename ever exposes a partial copy.
+if [[ -e "$dest" ]]; then
+  mv "$dest" "$old"
+fi
+mv "$staging" "$dest"
+echo "sync-mod: $dest is a copy of $source_dir" >&2
