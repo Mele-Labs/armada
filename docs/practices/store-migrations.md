@@ -52,6 +52,17 @@ A breaking migration is a deliberate act: declare it `breaking`, and it lands
 only after the migration it follows is on every build that must still open the
 file.
 
+## The one file at count 114
+
+A preview applied step-baseline's V115 before names existed, so one database
+records 114, which the conversion refuses. `scripts/convert-db-once <db>`, run
+once with Fleet stopped, records it under names: it copies the file to
+`<db>.before-names`, then in one transaction creates `armada_migrations`, records
+the 113 entries and `step_baseline.survives_restart`, and sets `schema_version`
+to 113. The step-baseline branch then adds
+`crates/store/migrations/20261006T2300Z-step_baseline.survives_restart.sql`
+instead of a list entry. Delete the script once that file is converted.
+
 ## Where it is checked
 
 `scripts/restart --from` (the preview) refuses to switch Fleet onto a build whose

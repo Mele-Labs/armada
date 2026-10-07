@@ -191,7 +191,7 @@ fn words(sql: &str) -> Vec<String> {
 /// What in `sql` makes it not additive, if anything: a drop, a rename, or a
 /// statement that rewrites rows. An `INSERT` only adds rows, and the event a
 /// trigger names (`BEFORE UPDATE`) and a foreign key's `ON DELETE` are not a rewrite.
-fn not_additive(sql: &str) -> Option<String> {
+pub(super) fn not_additive(sql: &str) -> Option<String> {
     let words = words(sql);
     words.iter().enumerate().find_map(|(at, word)| {
         let event = at > 0 && matches!(words[at - 1].as_str(), "BEFORE" | "AFTER" | "OF" | "ON");
