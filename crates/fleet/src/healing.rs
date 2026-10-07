@@ -208,7 +208,7 @@ where
 
     /// Start the repair Drone, read it until its turn ends, and end it. What it
     /// last said comes back for the log and is read as nothing else.
-    async fn repair_run(
+    pub(crate) async fn repair_run(
         &self,
         config: &adapter_traits::DroneSpawnConfig,
     ) -> Result<Option<String>, String> {

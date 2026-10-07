@@ -11,3 +11,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator. Two uses on one surface, each with its tooltip: the row's mark for a definition in `.armada/workflows`, and the gate's `Repository decides` line on a step. Both mean the repository, which is the row's own meaning."
+
+  [[icons.folder-git-2.usage]]
+    means = "A Trigger set in this repository"
+    group = "Trigger"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 7 Oct 2026 with Triggers on the Workflows surface. The level mark on a Trigger row and on a Job's fired Trigger, tooltip `This repository`: the same meaning it has on a workflow row."

@@ -69,6 +69,20 @@ export const Slash: Story = {
   },
 };
 
+/** Enter sends and clears the box; Shift+Enter breaks the line and sends nothing. */
+export const EnterSends: Story = {
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "first{Shift>}{Enter}{/Shift}second");
+    await expect(field).toHaveValue("first\nsecond");
+    await expect(args.onSend).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledTimes(1);
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "first\nsecond", files: [], tags: [] });
+    await expect(field).toHaveValue("");
+  },
+};
+
 /** `@` opens Jobs, pull requests, branches and the other Sessions, grouped, and choosing one tags it. */
 export const At: Story = {
   play: async ({ canvas, args }) => {

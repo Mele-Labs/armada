@@ -82,6 +82,13 @@ export type WorkflowCanvasEdge = {
   via?: number;
   /** Enters the target's leading side rather than its top: one bend into a lane beside, not a loop over it. */
   intoSide?: boolean;
+  /**
+   * An inline control, drawn on the line at its middle (the `+` that adds a step here). **The line
+   * runs through it** and still ends in its one arrowhead, at the next node, unless `plain`.
+   */
+  add?: ReactNode;
+  /** No arrowhead: a stub that ends at a `+` rather than at a step. */
+  plain?: boolean;
 };
 
 export type WorkflowCanvasProps = {
@@ -131,6 +138,12 @@ export type WorkflowCanvasProps = {
    */
   centred?: boolean;
   /**
+   * A node to bring into view, panned to at the zoom the person has — a step
+   * just added, or a branch that now asks for an answer. Changing it pans;
+   * nothing else does.
+   */
+  reveals?: string | null;
+  /**
    * Every forward edge leaves a node's bottom and enters the next one's top,
    * however far across it lies. A Job beside the one it waits on was joined
    * side to side and the line looped back round the card (the approval
@@ -140,7 +153,7 @@ export type WorkflowCanvasProps = {
 };
 
 type CanvasNode = Node<{ card: WorkflowStepCardProps; drawn?: ReactNode }, "workflow">;
-type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number }, "workflow">;
+type CanvasEdge = Edge<{ label?: string; returning: boolean; flowing: boolean; via?: number; add?: ReactNode }, "workflow">;
 
 function NodeView({ data }: NodeProps<CanvasNode>) {
   return (
@@ -186,6 +199,7 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
     ...(via === undefined ? {} : { centerX: via }),
   });
   const label = props.data?.label;
+  const add = props.data?.add;
   return (
     <>
       <BaseEdge
@@ -201,6 +215,16 @@ function EdgeView(props: EdgeProps<CanvasEdge>) {
             .trim() || undefined
         }
       />
+      {add === undefined ? null : (
+        <EdgeLabelRenderer>
+          <span
+            className="armada-workflow-edge__add nodrag nopan"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          >
+            {add}
+          </span>
+        </EdgeLabelRenderer>
+      )}
       {label === undefined ? null : (
         <EdgeLabelRenderer>
           <span
@@ -355,6 +379,29 @@ function FitsTheFrame({
   return null;
 }
 
+/** Pan to a step just added, once it has been measured. Its own id changing is the only thing that moves the view. */
+function Reveals({ node }: { node: string | null }) {
+  const flow = useReactFlow();
+  useEffect(() => {
+    if (node === null) return;
+    // The node arrives with the Job's next read and is measured after it is laid out, so ask again until it is there.
+    let tries = 0;
+    const look = window.setInterval(() => {
+      tries += 1;
+      const one = flow.getNode(node);
+      const { width = 0, height = 0 } = one?.measured ?? {};
+      if (one === undefined || width === 0) {
+        if (tries > 40) window.clearInterval(look);
+        return;
+      }
+      window.clearInterval(look);
+      void flow.setCenter(one.position.x + width / 2, one.position.y + height / 2, { zoom: flow.getZoom(), duration: 200 });
+    }, 80);
+    return () => window.clearInterval(look);
+  }, [flow, node]);
+  return null;
+}
+
 /**
  * Keep the running step in view as the run moves.
  *
@@ -384,6 +431,7 @@ export function WorkflowCanvas({
   runsDown = false,
   centred = false,
   downOnly = false,
+  reveals = null,
 }: WorkflowCanvasProps) {
   const nodes = useMemo<CanvasNode[]>(
     () =>
@@ -431,8 +479,9 @@ export function WorkflowCanvas({
         ...sides,
         type: "workflow" as const,
         ariaLabel: `${from} ${SAYS[edge.kind]} ${to}`,
-        markerEnd: { type: MarkerType.ArrowClosed },
+        ...(edge.plain === true ? {} : { markerEnd: { type: MarkerType.ArrowClosed } }),
         data: {
+          ...(edge.add === undefined ? {} : { add: edge.add }),
           returning,
           flowing: edge.flowing === true,
           ...(edge.via === undefined ? {} : { via: edge.via }),
@@ -481,6 +530,7 @@ export function WorkflowCanvas({
     >
       <FitsTheFrame options={fitViewOptions} opensOn={opensOn} following={following} hangsFromTop={hangsFromTop} centred={centred} />
       <Follows running={running} following={following} />
+      <Reveals node={reveals} />
     </GraphCanvas>
   );
 }

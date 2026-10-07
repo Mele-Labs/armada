@@ -14,7 +14,7 @@
 
 use adapter_traits::Footprint;
 use core_model::{DroneId, FrozenWorkflow, StepEvidence, StepId, Timestamp, Ulid};
-use fleet::{rule_on, AtStep, Clock, Keeping, Policies, Ruling};
+use fleet::{AtStep, Clock, Keeping, Policies, Ruling, rule_on};
 use verification::{Lifted, Request, Submission};
 
 use super::{Bench, Run};

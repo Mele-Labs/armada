@@ -25,7 +25,7 @@ use adapter_traits::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::harness::{HeadlessAgent, PROJECT_SETTINGS_ONLY};
+use crate::harness::HeadlessAgent;
 use crate::transcript::under_home;
 
 /// The tools a scout is given: reading a file, searching files, listing them.
@@ -103,7 +103,7 @@ impl Scouting {
 impl HeadlessAgent {
     /// One ask's process. The ask is not on it: it goes in on stdin.
     pub fn render_scout(&self, scouting: &Scouting) -> Result<Launch, ScoutRefused> {
-        let mut args: Vec<String> = vec![
+        let args: Vec<String> = vec![
             "-p".into(),
             "--input-format".into(),
             "stream-json".into(),
@@ -127,7 +127,6 @@ impl HeadlessAgent {
             // One ask, never resumed: nothing is left for a later session.
             "--no-session-persistence".into(),
         ];
-        args.extend(PROJECT_SETTINGS_ONLY.map(String::from));
         // `Launch`'s one constructor reads a spawn config, as a conversation's
         // does; only the directory and the environment are taken from it.
         let borrowed = DroneSpawnConfig::spawn_in(
@@ -138,7 +137,7 @@ impl HeadlessAgent {
             Toolbelt::evidence_only(),
             scouting.environment.clone(),
         );
-        Ok(Launch::rendered(&borrowed, self.program(), args))
+        Ok(Launch::rendered(&borrowed, self.program(), args).unattended())
     }
 
     /// What a call reached for, where it is a read a Finding lists: the call's

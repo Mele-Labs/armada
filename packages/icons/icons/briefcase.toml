@@ -19,3 +19,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator. Kit is where a definition goes that every repository on this machine should have, so the case is the row's mark and the scope's. The Navigation reservation to the Kit surface stands for 16px."
+
+  [[icons.briefcase.usage]]
+    means = "A Trigger set on this machine"
+    group = "Trigger"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 7 Oct 2026 with Triggers on the Workflows surface. The level mark, tooltip `This machine`: the same mark a Kit workflow wears, since a machine Trigger is the owner's alone and does not travel."

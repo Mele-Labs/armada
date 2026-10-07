@@ -95,6 +95,7 @@ where
         // refusal the other three answer with, because it is the same
         // question: `awaiting_review` or nothing.
         self.at_the_gate(&job)?;
+        self.refused_while_held(job_id).await?;
         let url = self.pull_request_of(job_id).await?;
         // **Before the forge is touched and before the line is joined**, under
         // `forge` and `push` alike: it is Fleet that presses either way. A need
@@ -236,7 +237,7 @@ where
         };
         // Before the policy and before `merged_by_policy`, so the sweep after a
         // freeze lifts still merges — and a press held by the freeze lands here.
-        if self.held_from_the_sweep(&job, url).await {
+        if self.held_from_the_sweep(&job, url).await || self.is_held(job_id).await {
             return;
         }
         let asked_for_it = job

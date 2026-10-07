@@ -129,6 +129,8 @@ export type WorkflowStepCardProps = {
   action?: string;
   /** Takes the accent edge on its leading side: the card sends work back. */
   returns?: boolean;
+  /** A step added to this Job alone: a dashed accent edge, so it reads apart from the workflow's own. */
+  added?: boolean;
 };
 
 export function WorkflowStepCard({
@@ -152,6 +154,7 @@ export function WorkflowStepCard({
   details = [],
   action,
   returns = false,
+  added = false,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -278,6 +281,7 @@ export function WorkflowStepCard({
     "data-kind": kind,
     "data-current": current || undefined,
     "data-working": working || undefined,
+    "data-added": added || undefined,
     ...(band === undefined
       ? {}
       : {

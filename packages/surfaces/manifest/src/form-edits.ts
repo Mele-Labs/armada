@@ -63,6 +63,7 @@ export function draftOf(declared: ManifestDeclared): ManifestFormDraft {
       env: port.env ?? "",
     })),
     freeze: declared.freeze === true,
+    draftPr: declared.pr_mode === "draft",
     autoMerge: declared.auto_merge.written,
     reviewGate: declared.review_gate.written,
     costCap:
@@ -214,6 +215,10 @@ export function editsOf(declared: ManifestDeclared, draft: ManifestFormDraft): M
   }
 
   if (draft.freeze !== (declared.freeze === true)) sets.push({ edit: "set_freeze", freeze: draft.freeze });
+  // Off removes the key and the machine's default holds; a file that says `ready` and is left alone stays.
+  if (draft.draftPr !== (declared.pr_mode === "draft")) {
+    sets.push({ edit: "set_pr_mode", pr_mode: draft.draftPr ? "draft" : null });
+  }
   if (draft.autoMerge !== declared.auto_merge.written) {
     sets.push({ edit: "set_auto_merge", auto_merge: draft.autoMerge });
   }
