@@ -21,4 +21,35 @@ impl Authoring for FakeDaemon {
             runs_from: None,
         })
     }
+
+    async fn save_trigger(
+        &self,
+        save: ipc::SaveTrigger,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::TriggerSaved, Refusal> {
+        Ok(ipc::TriggerSaved {
+            name: String::from("tidy"),
+            when: ipc::TriggerMoment::StepPasses,
+            step: None,
+            scope: save.scope,
+            file: String::from("tidy.yml"),
+            replaced: save.overwrite,
+            runs_from: None,
+            waits_for_main: false,
+            skipped: None,
+        })
+    }
+
+    async fn remove_trigger(
+        &self,
+        remove: ipc::RemoveTrigger,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::TriggerRemoved, Refusal> {
+        Ok(ipc::TriggerRemoved {
+            scope: remove.scope,
+            file: String::from("tidy.yml"),
+            runs_from: None,
+            waits_for_main: false,
+        })
+    }
 }

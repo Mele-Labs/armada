@@ -1,0 +1,12 @@
+[operations.remove_trigger]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Delete the file in one scope that holds a Trigger"
+notes = """
+`POST /triggers/remove`, protocol 23.58, with `?manifest_id=`. The body is `RemoveTrigger`: `scope`, `when`, `step?` and `name`. The answer is a `TriggerRemoved`: the file deleted, `runs_from` (the level whose copy of that identity runs now, where another holds one) and `waits_for_main`. 422 `fleet.no_such_trigger` where the scope holds no file for the identity; 500 `fleet.trigger_unwritable`.
+
+**A repository's removal waits for `main` as its save does**: the file is deleted from the checkout and the base branch still holds it, so `runs_from` stays `repository` and `waits_for_main` is true. Jobs already approved keep the Triggers frozen onto them.
+
+`agent_access` is `Bridge only`, `save_trigger`'s reason.
+"""

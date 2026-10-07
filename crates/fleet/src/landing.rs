@@ -119,6 +119,20 @@ where
                 if let Some(why) = delivered.unpushed_reason() {
                     self.noted_push_skipped(job, step, &why);
                 }
+                // Only a pull request opened just now. One found already open
+                // is a restart's, and its Triggers fired the first time.
+                if matches!(
+                    delivered.opened,
+                    Some(adapter_traits::Opened::PullRequest { .. })
+                ) {
+                    Box::pin(self.fire_triggers(
+                        job,
+                        core_model::TriggerWhen::PrOpened,
+                        step,
+                        worktree,
+                    ))
+                    .await;
+                }
             }
             Ok(None) => self.noted_not_sent(
                 job,

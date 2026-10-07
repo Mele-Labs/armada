@@ -170,7 +170,7 @@ Separate registries, not the same thing tagged two ways:
 | Registry | Purpose | Invoked by |
 | --- | --- | --- |
 | Checks | Mandatory — must pass to land or advance code | Fleet, as part of mechanical verification |
-| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, and you directly via Bridge |
+| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, Fleet for a [Trigger](trigger.md), and you directly via Bridge |
 | Evidence | Declares the harness — how this repo shows what a change did | Fleet, on a step whose evidence type is `visual` |
 | Ports | Names a port a workspace needs, so Armada can place it | Nothing invokes it — Fleet reads it at claim time |
 
@@ -803,6 +803,22 @@ A false `auto_merge` result routes to Inbox > Job Reviews rather than merging.
 **`checks-pass` is the forge's checks, not Armada's.** A Check named in `armada.yml` has already run at the gate the Job is holding at, and totalling the two would claim a gate had held that never ran. Only *every check passed* is a pass: a repository whose forge runs nothing has proved nothing, and a check that finished in a word Armada has no name for counts as not passed.
 
 **`auto_merge` does not read an approval, and `always` means always.** Its three values are all about machines; a person approving on the forge is neither, and whether that becomes a fourth value or a policy of its own is undecided. A forge that requires a review refuses the merge, so branch protection is the backstop and it is the forge's.
+
+### How a pull request is offered
+
+**`pr_mode` says whether the pull requests of this repository open ready or as drafts**, where nothing more specific does.
+
+```yaml
+pr_mode: draft
+```
+
+| Value | What Fleet does |
+| --- | --- |
+| absent | Defers to this machine's draft preference, then ready |
+| `ready` | Opens ready, even on a machine that drafts |
+| `draft` | Opens as a draft |
+
+**A delivering step's `draft_pr` and a Job's own choice at approval both beat it.** It is read live at the approval and kept in the Job's landing, so a Job already approved keeps what it opened as. `landing.md`, *What the landing rule carries*.
 
 ### How work lands
 

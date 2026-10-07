@@ -346,6 +346,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.refresh(fleet.port, event.job_id);
     return;
   }
+  if (event.kind === "job.trigger_changed") {
+    // **The open Job's detail is re-read and the Board is not touched**: a Trigger moves
+    // nothing on a row, and the row it carries is whole in `detail.triggers` after the read.
+    host.publish({ connection });
+    host.refresh(fleet.port, event.job_id);
+    return;
+  }
   if (event.kind === "proposal.moved") {
     // **This window's own, matched on the token it sent.** Fleet publishes
     // every proposal on one stream and two windows may be dispatching at
