@@ -9,6 +9,14 @@ description: Start a Fleet of your own for development — its own home, store a
 `docs/practices/running-locally.md` is what it prints. This file is when to
 reach for it, and what it will not do for you.
 
+**This is not how the app is started.** To run Armada, the owner's usual way is
+the preview: `scripts/preview --restart`, which merges every in-flight branch
+onto the latest `main` and moves his Fleet and Bridge onto it
+(`.claude/skills/preview-app/SKILL.md`). Starting from `main` alone is still
+there, as `scripts/restart`, for anyone who wants only what has landed
+(`.claude/skills/restart-app/SKILL.md`). A scratch Fleet is for reading wire
+data and recording Jobs, never for looking at the app.
+
 ## Why not the owner's, and why not a plain `armada serve`
 
 **The owner's Fleet is the owner's loop.** Stopping it strands the Jobs he is
