@@ -67,19 +67,38 @@ def segments(command: str) -> list[list[str]]:
     """The command split into the separate commands a shell would run.
 
     `cd x && git push origin main` is one string to the tool and two commands
-    to the shell, and only the second one is this hook's business.
+    to the shell, and only the second one is this hook's business. Split the
+    way the shell does: `main;` is `main` and a separator whether or not a
+    space sits between them, and a newline ends a command as `;` does. Left
+    glued, the destination read `main;` and `git push origin main;` walked
+    past the check.
+
+    A redirection is not a word of the command: `2>&1` and `> file` are
+    dropped, with the file they name, so they are never read as a pull
+    request or a branch.
     """
     try:
-        words = shlex.split(command, comments=True)
+        lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        lexer.commenters = "#"
+        words = list(lexer)
     except ValueError:
         # Unbalanced quotes: the shell would refuse it too.
         return []
     out: list[list[str]] = [[]]
-    for word in words:
-        if word in ("&&", "||", ";", "|", "&"):
+    i = 0
+    while i < len(words):
+        word = words[i]
+        if word and set(word) <= set(";&|"):
             out.append([])
+        elif word and set(word) <= set("<>&"):
+            # `2>&1`: the descriptor before the operator and the target after.
+            if out[-1] and out[-1][-1].isdigit() and len(out[-1][-1]) <= 2:
+                out[-1].pop()
+            i += 1
         else:
             out[-1].append(word)
+        i += 1
     return [s for s in out if s]
 
 
