@@ -47,6 +47,7 @@ mod scouting;
 mod snapshot;
 mod standing;
 mod transcript;
+mod trigger_files;
 mod undeclared;
 mod under_review;
 mod work_product;

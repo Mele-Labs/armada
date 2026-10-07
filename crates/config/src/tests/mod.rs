@@ -26,6 +26,7 @@ mod model;
 mod prerequisites;
 mod samples;
 mod scope;
+mod triggers;
 mod workflow;
 
 use std::path::{Path, PathBuf};

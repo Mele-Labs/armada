@@ -170,7 +170,7 @@ Separate registries, not the same thing tagged two ways:
 | Registry | Purpose | Invoked by |
 | --- | --- | --- |
 | Checks | Mandatory — must pass to land or advance code | Fleet, as part of mechanical verification |
-| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, and you directly via Bridge |
+| Commands | Optional, general-purpose — migrations, doc generation, builds, formatting, servers | A Drone during a Job, Fleet for a [Trigger](trigger.md), and you directly via Bridge |
 | Evidence | Declares the harness — how this repo shows what a change did | Fleet, on a step whose evidence type is `visual` |
 | Ports | Names a port a workspace needs, so Armada can place it | Nothing invokes it — Fleet reads it at claim time |
 
