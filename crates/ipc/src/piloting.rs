@@ -1,5 +1,5 @@
 //! Taking a Job over, and what a person is handed when they do.
-//! `docs/concepts/pilot.md`. Since 23.49.
+//! `docs/concepts/pilot.md`. Since 23.50.
 //!
 //! **Assist is not a variant.** It is deferred, so a request naming it does not
 //! decode, and nothing downstream has a branch for an outcome that cannot run.

@@ -22,6 +22,7 @@ mod filing;
 mod git_guard_gaps;
 mod harness;
 mod held_off;
+mod hosted_session;
 mod issue_lookup;
 mod judge;
 mod keeping_current;

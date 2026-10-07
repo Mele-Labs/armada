@@ -217,7 +217,7 @@ export type JobSummary = {
   paused?: Paused;
   /** Its part in main's red: working on it, or the job that fixed it. Absent is none. Since 23.42. */
   fixes_main?: FixesMain;
-  /** Who took it over and how that ended. Absent is a job nobody piloted. Since 23.49. */
+  /** Who took it over and how that ended. Absent is a job nobody piloted. Since 23.50. */
   piloted?: Piloted;
 };
 

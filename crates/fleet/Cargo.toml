@@ -46,6 +46,9 @@ serde = { version = "1", features = ["derive"] }
 # collision-free, which a cryptographic digest is regardless of the reason it
 # was written.
 sha1 = "0.10"
+# A hosted session's attachments arrive as base64 on the wire. Already in the
+# lockfile through the transport's own graph.
+base64 = "0.22"
 
 [dev-dependencies]
 # Fixtures and fakes. `testkit` never ships and nothing that ships depends on it.

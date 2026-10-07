@@ -309,7 +309,7 @@ pub struct JobSummary {
     pub fixes_main: Option<crate::FixesMain>,
     /// Who took it over and how that ended. Filled by Fleet off the store, like
     /// [`tasks`](JobSummary::tasks). Absent is a Job nobody has piloted. Since
-    /// 23.49.
+    /// 23.50.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub piloted: Option<crate::Piloted>,
 }

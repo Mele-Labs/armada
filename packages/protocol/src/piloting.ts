@@ -1,5 +1,5 @@
 // Taking a Job over, and the bundle a person is handed when they do.
-// `crates/ipc/src/piloting.rs`, `docs/concepts/pilot.md`. Since protocol 23.49.
+// `crates/ipc/src/piloting.rs`, `docs/concepts/pilot.md`. Since protocol 23.50.
 //
 // The header rules in `protocol.ts` hold here: hand-written, and every closed
 // set is left as `string`.

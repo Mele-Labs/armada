@@ -1,6 +1,6 @@
 # Session
 
-**What it is:** An agent session a person runs, in a terminal today and in Bridge later, kept as one row on a ledger so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot.
+**What it is:** An agent session a person runs, in a terminal or in Bridge, kept as one row on a ledger so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot.
 
 ---
 
@@ -16,8 +16,8 @@ You have five terminal sessions open across three repositories. One is in slot 3
 > **Rule.** A session is reported as it happens and is never read back from.
 > Why: the third attempt in [scope](../scope.md) was a conversation read as a claim. The ledger keeps what a session took and did, as structure, and nothing downstream reads a transcript.
 
-> **Rule.** Fleet never waits on a session and a session never waits on Fleet.
-> Why: a terminal session is the person's own, and Fleet being down, slow or gone must cost it nothing.
+> **Rule.** Fleet never waits on a session and a terminal session never waits on Fleet.
+> Why: a terminal session is the person's own, and Fleet being down, slow or gone must cost it nothing. A session Fleet hosts is Fleet's to run, so its write waits on Fleet's hook, and what the CLI does with a hook Fleet does not answer was not measured.
 
 A session is not [Helm](helm.md), which is Armada's own conversation with Fleet, and not a [Drone](drone.md), which Fleet starts, places in a worktree and gates. A session started by a person was none of those, and until the ledger Fleet could not see it.
 
@@ -85,6 +85,84 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 
 Both reads are on the agent's door, so a session can ask who else holds the branch it is about to take.
 
+## A session Fleet hosts
+
+A person can start a session from Bridge. Fleet runs it, keeps its thread, and
+puts it on the same ledger with `origin` `bridge`. It is not [Helm](helm.md),
+which is unchanged, and it is not a [Drone](drone.md): it is the person at work,
+in their own configuration.
+
+> **Rule.** A hosted session holds what the person's terminal holds: their
+> servers, plugins, skills and settings, with no `--strict-mcp-config` and no
+> `--setting-sources`.
+> Why: it is the person's own conversation, and the `armada` mod must load in it
+> so it reports through the ledger like any other. A hosted session is one row,
+> because Fleet keeps its `origin` when the mod reports its start and ignores the
+> mod reporting its end, which is a process stopping.
+
+> **Rule.** A hosted session starts with no slot and leases one on its first
+> write.
+> Why: most conversations never write, and a slot held by a conversation that
+> only reads is one a Job cannot have.
+
+```
+ start ─▶ a row: no process, no slot, no branch
+ message ─▶ a live process, `--session-id`, the message on its input
+ first write ─▶ a hook asks Fleet; Fleet leases a slot and cuts a branch, writes
+                both on the ledger, refuses the write and the turn ends; the
+                process is ended and resumed with the slot as its directory
+ later writes ─▶ held to the slot
+ quiet for a while ─▶ the process is ended; the next message resumes it
+ close ─▶ the slot is parked on its own branch, the row ends
+```
+
+**One live process while it is open**, unlike Helm's one per message, because
+another session's message wakes an idle one: `SendMessage` to a hosted session's
+address, `s-` and the first eight characters of its id, starts a turn in it. A
+turn that opens with no message of the person's outstanding is a wake, and the
+thread says whose. **A session whose process was ended is resumed by the
+message**, written for the sender, which is a hosted session Fleet can read the
+send of. `settings.session-quiet-timeout` is how long a process may sit idle.
+[Spike 26](../spikes/026-does-a-message-from-another-session-wake-a-live-process.md).
+
+**The lease is taken by a hook, and nothing writes the main checkout before it.**
+A write tool, or a shell line that is not a read, is refused until the session
+holds a slot; after it, a file tool naming a path in the main checkout is
+refused with the slot's path. A shell line is read by its words, so one Fleet
+does not recognise as a read leases first.
+[Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
+
+**The slot is held by the session's id as a Job's is held by its id**, so a
+restart of the process or of Fleet is not the session ending. It is given back
+on close by parking: what is in it is committed to the session's own branch and
+nothing is pushed.
+
+**The person sets the mode, the model and the effort** for each session. `auto`
+is the default and means what it means for Helm: everything runs except what is
+destructive, pushes code to a shared space or writes off this machine, which
+Fleet puts to the person on the session's own thread. The CLI's own auto mode is
+not reachable for a spawned session, so `auto` is `default` with that door.
+`ask` and `acceptEdits` put every call the person's settings do not cover.
+[Spike 25](../spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md).
+A change applies from the next process: an idle one is ended at once, a running
+one when its turn is over.
+
+| Operation | Does |
+|---|---|
+| `start_session` | A row for one repository, with optional title, model, effort and mode |
+| `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
+| `answer_session_ask` | One of the offers on the ask the agent is held on |
+| `tune_session` | Model, effort and mode |
+| `close_session` | Ends the process, parks the slot, ends the row |
+| `get_session`, `get_session_file` | The row with its thread, and what a message carried |
+| `session.row` | One row of the thread, appended or replaced by its id |
+
+**What a message names is one line Fleet adds for the agent** and the thread
+keeps the person's words. A thread's rows are the person's messages, the agent's,
+another session's, one line for each tool call, the lease, and each ask with
+where it stands. **An ask is the session's own**: it never appears in Helm's
+dock and `answer_helm_call` does not find it.
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number, and is nobody's Job.
@@ -121,7 +199,13 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 **A session that dies without ending stays `live`.** Its `last_seen_at` is what says it has gone quiet; nothing yet checks the process.
 
-**No Bridge surface.** The ledger is read through the two queries and the event.
+**A terminal session's messages are not drawn.** A hosted session's thread carries
+what another hosted session wrote to it; the mod reports a message from a
+terminal session as a count and never its text.
+
+**Hosted sessions in different permission modes may not wake each other.** The
+tool says a session in another mode holds a cross-session message for approval.
+Not measured.
 
 **A message names where it went and not which session**, because the harness does not say: a delivery says whether it came from a peer or a teammate, and never a session id.
 

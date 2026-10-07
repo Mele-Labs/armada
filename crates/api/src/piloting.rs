@@ -1,4 +1,4 @@
-//! `take_over`, `get_handoff` and the three exits. Since 23.49.
+//! `take_over`, `get_handoff` and the three exits. Since 23.50.
 //! `docs/concepts/pilot.md`.
 
 use axum::body::Bytes;

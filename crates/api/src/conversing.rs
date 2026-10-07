@@ -206,13 +206,16 @@ pub(crate) async fn ask_the_person<D: Conversations>(
     Query(scope): Query<InManifest>,
     body: Bytes,
 ) -> Response {
+    // **Placed by the connection**, as the door places a Helm session: a hosted
+    // session's ask goes to its own thread and not to Helm's dock.
+    let caller = crate::acting::asking().unwrap_or_else(crate::Caller::unplaceable);
     let asking: AskingToRun = match ipc::decode("a permission question", &body) {
         Ok(asking) => asking,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
         .daemon()
-        .ask_the_person(asking, scope.manifest())
+        .ask_the_person_at(asking, scope.manifest(), caller)
         .await
     {
         Ok(decided) => answer(StatusCode::OK, &decided, served.run_id()),

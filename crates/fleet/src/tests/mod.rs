@@ -217,6 +217,7 @@ mod server_rows;
 pub(crate) mod servers;
 mod serving;
 mod session;
+mod session_host;
 mod sessioning;
 mod settling;
 mod showing;

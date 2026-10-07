@@ -138,6 +138,8 @@ pub struct Fleet<H, V, W> {
     /// Every Helm conversation, one per repository, and the host that carries
     /// their messages. See [`crate::helm`].
     helm: crate::helm::Conversations,
+    /// The sessions Fleet hosts for Bridge. See [`crate::session_host`].
+    sessions: crate::session_host::Hosts,
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,

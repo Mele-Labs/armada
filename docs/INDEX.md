@@ -224,6 +224,17 @@ approximations.
   every plugin, skill and subagent beside it; `--setting-sources project,local`
   stops it with the login untouched, measured across four flag sets.
 
+- [`spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md`](spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md)
+  — the built-in worktree tool cannot run from a hosted session; ending the
+  process and resuming it with the slot as its directory does, and an `http`
+  hook is what holds a write until then.
+- [`spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md`](spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md)
+  — auto mode is still not in force for a spawned session on 2.1.292, so a hosted
+  session's `auto` is Fleet's three classes behind the door.
+- [`spikes/026-does-a-message-from-another-session-wake-a-live-process.md`](spikes/026-does-a-message-from-another-session-wake-a-live-process.md)
+  — `SendMessage` starts a turn in a live headless process that is idle, and what
+  Fleet reads to draw it.
+
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
 ## Carried out of v1

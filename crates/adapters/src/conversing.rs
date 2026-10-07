@@ -36,7 +36,7 @@ const THEIRS_TO_DECIDE: &str = "default";
 
 /// The door's own tool the CLI puts every uncovered call to. **Not shown to the
 /// model**, which spike 15 measured, so it adds nothing Helm can reach for.
-fn asks_a_person() -> String {
+pub(crate) fn asks_a_person() -> String {
     format!("mcp__{}__{}", ipc::door::SERVER, ipc::door::ASKS_A_PERSON)
 }
 

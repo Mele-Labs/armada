@@ -538,6 +538,47 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/sessions/owner",
     },
+    // A session Fleet hosts for Bridge. Since 23.49.
+    Route {
+        operation: "start_session",
+        method: "POST",
+        path: "/sessions/start",
+    },
+    Route {
+        operation: "send_session_message",
+        method: "POST",
+        path: "/sessions/message",
+    },
+    Route {
+        operation: "answer_session_ask",
+        method: "POST",
+        path: "/sessions/ask/answer",
+    },
+    Route {
+        operation: "tune_session",
+        method: "POST",
+        path: "/sessions/tune",
+    },
+    Route {
+        operation: "close_session",
+        method: "POST",
+        path: "/sessions/close",
+    },
+    Route {
+        operation: "get_session",
+        method: "GET",
+        path: "/sessions/one",
+    },
+    Route {
+        operation: "get_session_file",
+        method: "GET",
+        path: "/sessions/file",
+    },
+    Route {
+        operation: "gate_session_call",
+        method: "POST",
+        path: "/sessions/gate",
+    },
     Route {
         operation: "list_manifests",
         method: "GET",
