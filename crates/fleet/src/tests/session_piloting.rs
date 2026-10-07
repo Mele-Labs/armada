@@ -207,9 +207,7 @@ async fn the_jobs_detail_carries_its_pilot_beside_the_boards_row() {
         .unwrap()
         .job
         .piloted
-        .expect(
-            "and still says so once it ended, since that is how an attestation is told from a pass",
-        );
+        .expect("and still says so once it ended, since that is how an attestation is told from a pass");
     assert_eq!(ended.exit.as_deref(), Some("superseded"));
     assert_eq!(ended.note.as_deref(), Some("landed by hand"));
 }
@@ -293,13 +291,7 @@ async fn a_job_that_cannot_be_taken_over_makes_no_session() {
     };
     assert_eq!(why.code, "fleet.not_pilotable");
     assert!(
-        rig.fleet
-            .store()
-            .lock()
-            .await
-            .hostings()
-            .unwrap()
-            .is_empty(),
+        rig.fleet.store().lock().await.hostings().unwrap().is_empty(),
         "no session was written for a take over that did not happen"
     );
 }
@@ -329,7 +321,9 @@ async fn closing_the_session_gives_the_worktree_back_to_the_job_and_commits_noth
         "the worktree is the Job's, so it is not committed to a session's name"
     );
     let store = rig.fleet.store().lock().await;
-    let session = store.attachments_of(&Holder::session(id.as_str())).unwrap();
+    let session = store
+        .attachments_of(&Holder::session(id.as_str()))
+        .unwrap();
     assert!(session
         .iter()
         .filter(|one| one.kind == "slot" || one.kind == "branch")
