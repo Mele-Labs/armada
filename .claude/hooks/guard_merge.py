@@ -203,6 +203,9 @@ def pr_merge_refusal(words: list[str]) -> str | None:
     """
     if any(w in OTHER_METHODS for w in words):
         return "This merges a pull request another way than \"Create a merge commit\"."
+    # Turning auto-merge off merges nothing; it is how a branch is freed to push to again.
+    if "--disable-auto" in words:
+        return None
     if not any(w in ("--merge", "-m") for w in words):
         return "This merges a pull request without saying how; pass --merge."
     after = words[words.index("merge") + 1:] if "merge" in words else []
