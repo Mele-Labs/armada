@@ -61,6 +61,12 @@ base: main
 # for: `storybook` at 1m21s–2m42s and the story tests at up to 184s, measured
 # on 14 Sep 2026. They are `packages/components`' now.
 #
+# **`.github/**` is in every root `when` and in `depends_on` of `apps/desktop`
+# and `apps/desktop/unit`.** The workflow is what runs these Checks, so a change
+# to it has to run each shape of job it has: the static ones, the macOS shards,
+# the unit job and the matrix. Those two workspaces reach all of them; the
+# other workspaces would repeat the matrix job.
+#
 # **The Bridge's Checks are in `packages/components`, `packages/screens` and
 # `apps/desktop`, each in its own `armada.yml`**, and what is below is the
 # rest. A manifest gates a change that touches a path it owns or one its
@@ -100,6 +106,7 @@ checks:
     # `apps/**` and `packages/**` are deliberately absent: nothing outside a
     # test compiles them in, and `test` below says why it needs them.
     when:
+      - ".github/**"
       - "crates/**"
       - "xtask/**"
       - "Cargo.toml"
@@ -172,6 +179,7 @@ checks:
     # read `docs/spikes/`, and `xtask`'s studio rule reads the lexicon in
     # `design-system.md` from the real tree.
     when:
+      - ".github/**"
       - "crates/**"
       - "xtask/**"
       - "apps/**"
@@ -205,6 +213,7 @@ checks:
     # `config` embeds `.armada/workflows/`, and `ipc`'s build reads
     # `protocol-version.toml`.
     when:
+      - ".github/**"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -241,6 +250,7 @@ checks:
     # them into `packages/protocol`, so a change there is a change to compiled
     # code. A path under `apps/` is a workspace's, so none is named.
     when:
+      - ".github/**"
       - "packages/**"
       - "crates/core-model/domain/**"
       - "protocol-version.toml"
@@ -248,18 +258,17 @@ checks:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
 
-  # The Python suite for the hook that keeps agents landing through the merge
-  # line. `scripts/test_land.py`, the suite for the line's own script, is no
-  # longer a Check: it was the slowest one in every turn and the line it tests
-  # is being replaced by CI and pull requests.
+  # The Python suite for the hook that keeps agents landing through pull
+  # requests and `ci`.
   hooks_test:
     # What `.claude/hooks/guard_merge.py` refuses and what it lets through. A
-    # failure means either a merge to `main` can walk past the line, or — the
+    # failure means either a merge to `main` can walk past `ci`, or — the
     # half that costs more — an ordinary branch push is being refused and every
     # agent in the repository is stuck. It runs no git and no `gh`: a payload in,
     # a decision out, in under a second.
     run: python3 .claude/hooks/test_guard_merge.py
     when:
+      - ".github/**"
       - ".claude/hooks/**"
 
   preview_test:
@@ -269,6 +278,7 @@ checks:
     # merges the wrong branches or a restart refuses or adopts wrongly.
     run: python3 scripts/test_preview.py
     when:
+      - ".github/**"
       - "scripts/preview"
       - "scripts/restart"
       - "scripts/test_preview.py"

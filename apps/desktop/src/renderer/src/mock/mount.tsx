@@ -16,6 +16,7 @@ import { App } from "../App";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
+import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
@@ -111,5 +112,14 @@ export function mountApp(
       </Boundary>
     </StrictMode>,
   );
-  return { api, scenario: chosen, onScreen, unmount: () => root.unmount() };
+  const unlayer = mountAnnotating(chosen.name);
+  return {
+    api,
+    scenario: chosen,
+    onScreen,
+    unmount: () => {
+      unlayer();
+      root.unmount();
+    },
+  };
 }

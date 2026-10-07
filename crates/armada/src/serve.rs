@@ -627,7 +627,7 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 |why| eprintln!("a pull request or issue was not read: {why}"),
             );
             // Each served repository's merge line, read off disk and published when it
-            // moves: `armada land` is another process and tells Fleet nothing.
+            // moves: the process that wrote it tells Fleet nothing.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),

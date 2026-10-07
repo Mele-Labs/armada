@@ -12,6 +12,7 @@
 
 import type {
   AnswerSessionAsk,
+  Followed,
   FrameRead,
   Outcome,
   PullRequestState,
@@ -28,6 +29,7 @@ import type {
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
+import { openSessionFile } from "./session-file";
 import { ask, sessionFileOf } from "./request";
 
 type Publish = (change: Partial<BridgeState>) => void;
@@ -160,6 +162,11 @@ export class SessionsHost {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     return await sessionFileOf(port, sessionId, file);
+  }
+
+  /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */
+  async openFile(sessionId: string, path: string): Promise<Followed> {
+    return await openSessionFile(this.sessions?.find((one) => one.id === sessionId), path);
   }
 
   /**

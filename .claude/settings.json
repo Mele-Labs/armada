@@ -3,8 +3,6 @@
     "allow": [
       "Bash(git push)",
       "Bash(git push *)",
-      "Bash(scripts/land --status:*)",
-      "Bash(scripts/land preflight)",
       "Bash(armada *)"
     ]
   },
@@ -16,6 +14,15 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_write.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_agent.py\""
           }
         ]
       },

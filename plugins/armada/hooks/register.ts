@@ -15,6 +15,7 @@
 import type { Engine, Register } from 'claude-code'
 
 import {
+  artifactOf,
   customTitleIn,
   ghAct,
   isDispatch,
@@ -38,6 +39,7 @@ const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
 const ASK_EVERY_MS = 2000
 const SILENT_MS = 30_000
+const DOCS_ACTS = ['create', 'batch', 'update']
 const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
 
 type Dollar = Door & Pick<Engine, 'command' | 'process' | 'prompt' | 'session'>
@@ -49,6 +51,7 @@ type Known = {
   prs: Map<string, string>
   needs: Map<string, Record<string, string>>
   messages: Map<string, number>
+  artifacts: Map<string, Record<string, string>>
   tuned?: Tuning
 }
 
@@ -73,6 +76,9 @@ function everything(): Report[] {
     ),
     ...[...one.prs].map(([number, url]) =>
       told(id, { kind: 'attached', attachment: { kind: 'pr', target: number, detail: { url } } }),
+    ),
+    ...[...one.artifacts].map(([target, detail]) =>
+      told(id, { kind: 'attached', attachment: { kind: 'artifact', target, detail } }),
     ),
   ])
 }
@@ -227,7 +233,7 @@ async function look($: Dollar, id: string): Promise<void> {
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   const where = cwd ?? (await $.session.cwd())
-  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map() })
+  known.set(id, { cwd: where, prs: new Map(), needs: new Map(), messages: new Map(), artifacts: new Map() })
   say($, id, { kind: 'started', cwd: where, origin: 'terminal' })
   void look($, id)
   void tuned($, id, {}, true).catch(() => undefined)
@@ -347,6 +353,26 @@ async function spawned(
   say($, id, { kind: 'attached', attachment: { kind: 'subagent', target, detail } })
 }
 
+/**
+ * A page published, a document written or a Claude Docs document made: an artifact on the ledger.
+ * Only what a person would open. A code edit is not told.
+ */
+async function made(
+  $: Dollar,
+  tool: string,
+  input: Record<string, unknown>,
+  text: string,
+  created: boolean,
+): Promise<void> {
+  const artifact = artifactOf(tool, input, text, created)
+  if (artifact === undefined) return
+  const [id, one] = await current($)
+  const detail: Record<string, string> = { form: artifact.form }
+  if (artifact.title !== undefined) detail.title = artifact.title
+  one.artifacts.set(artifact.target, detail)
+  say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
+}
+
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
   const [id, one] = await current($)
   const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
@@ -438,6 +464,17 @@ export const register: Register = on => {
       const ran = await next(e)
       if (isDispatch(e.tool) && ran.deny === undefined && ran.isError !== true) {
         void dispatched($, name, ran.text ?? '').catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  for (const tool of ['Artifact', 'Write', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny === undefined && ran.isError !== true) {
+        const created = tool === 'Write' && (ran.result as { type?: string } | undefined)?.type === 'create'
+        void made($, tool, e as Record<string, unknown>, ran.text ?? '', created).catch(() => undefined)
       }
       return ran
     })

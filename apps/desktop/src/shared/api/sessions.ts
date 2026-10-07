@@ -3,6 +3,7 @@
 
 import type {
   AnswerSessionAsk,
+  Followed,
   FrameRead,
   Outcome,
   PilotOutcome,
@@ -28,9 +29,10 @@ export type SessionsApi = {
   /**
    * A blank session on the repository this window picked. **Main reads the pick**, so the renderer
    * never names a repository: the one repository Fleet serves where the window is on All, and a
-   * refusal in words where there are several.
+   * refusal in words where there are several. **`root` names the repository instead** of the pick: the
+   * annotation layer starts on the notes' own, whatever the window has picked.
    */
-  startSession: (title?: string) => Promise<SessionActed>;
+  startSession: (title?: string, root?: string) => Promise<SessionActed>;
   /**
    * Takes a Job over and starts a Session on its worktree, in one call. **Main names the repository from
    * the Job**, so the renderer sends a Job and what is to happen to it. A refusal is Fleet's own, with
@@ -56,6 +58,8 @@ export type SessionsApi = {
   watchSession: (sessionId: string) => Promise<void>;
   /** A picture or file a message carried, by the id its row gave. */
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+  /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
+  openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -93,5 +97,6 @@ export const SESSIONS_CHANNELS = {
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
+  openSessionFile: "bridge:open-session-file",
   pressPullRequest: "bridge:press-pull-request",
 } as const;

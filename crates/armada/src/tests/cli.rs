@@ -4,7 +4,7 @@
 //! line, so what is asserted here is mostly what the message names — the verbs
 //! that exist, the flag that was meant, the arguments that had nowhere to go.
 
-use crate::cli::{read, Fault, Verb};
+use crate::cli::{read, Fault, Usage, Verb};
 
 fn asked(line: &str) -> Result<Verb, crate::cli::Misread> {
     read(line.split_whitespace().map(str::to_string))
@@ -245,17 +245,7 @@ fn a_lease_with_no_branch_says_one_is_needed() {
 }
 
 #[test]
-fn withdraw_takes_this_branch_or_the_one_named() {
-    use crate::cli::LandAct;
-    assert_eq!(
-        asked("land --withdraw"),
-        Ok(Verb::Land(LandAct::Withdraw { branch: None }))
-    );
-    assert_eq!(
-        asked("land --withdraw fix/one"),
-        Ok(Verb::Land(LandAct::Withdraw {
-            branch: Some("fix/one".to_string())
-        }))
-    );
-    assert!(said("land --withdrw").contains("`--withdraw`"));
+fn land_is_not_a_verb() {
+    assert!(said("land").contains("land"));
+    assert!(!Usage.to_string().contains("armada land"));
 }

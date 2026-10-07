@@ -19,8 +19,6 @@ mod clean_slots;
 mod cli;
 mod declared;
 mod kit;
-mod land;
-mod land_heads_up;
 mod leasing;
 mod locating;
 mod loopback;

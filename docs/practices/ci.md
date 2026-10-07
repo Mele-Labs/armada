@@ -54,6 +54,8 @@ build of `armada` failing, is red, never an empty plan.
 
 **`.github/ci/plan.py` places every key, and fails the plan on one it cannot.** A key is run, or named in `EXCLUDED` with its reason, which the plan writes to the job summary. A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission. Its tests run in `foundations` with the others in `.github/ci/`.
 
+**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the matrix. `.github/**` is in each root `when` and in those two manifests' `depends_on`. The other workspaces would repeat the matrix job.
+
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
 `narrow` applies. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
@@ -105,7 +107,7 @@ HEAD (the merge GitHub tests) ──> generators ──> verify-foundations ─�
 HEAD^1 (main's tip) ─────────────> verify-foundations, cached per commit ──┴─> only what HEAD has more of is red
 ```
 
-**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, kept in step by hand with `crates/armada/src/land/gate.rs`, and its tests run in the job first.
+**Read as a delta, the way the merge line reads it** (`docs/capabilities/merge-line.md`, *How a `verify-foundations` run is read*). The reading is `.github/ci/foundations_delta.py`, and its tests run in the job first.
 
 | Read | Why |
 |---|---|
@@ -189,8 +191,6 @@ Every third-party action is pinned to a full commit SHA with its version beside 
 | Fleet publishes the `needs` check | Fleet |
 | The ruleset also requiring `needs`, and later `desktop_test` | Repository settings |
 | The merge queue setting | Repository settings |
-| Retire `armada land` | `crates/armada/src/land/` |
-| `.github/**` matches no `when:` in armada.yml, so a workflow change is exercised only by the plan job | `armada.yml` |
 
 ## What `foundations` measured and what it did not
 
