@@ -540,6 +540,11 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/sessions/owner",
     },
+    Route {
+        operation: "rename_session",
+        method: "POST",
+        path: "/sessions/rename",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",

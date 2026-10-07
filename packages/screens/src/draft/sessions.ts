@@ -217,6 +217,8 @@ export type SessionsDraft = {
   watch?: (id: string) => void;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
+  /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
+  rename?: (id: string, title: string) => void;
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */

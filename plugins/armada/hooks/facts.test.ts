@@ -9,7 +9,9 @@ import {
   micros,
   pullRequestsIn,
   senderOf,
+  customTitleIn,
   titleOf,
+  transcriptPath,
 } from './facts'
 
 test('a title is the first line of a prompt, cut, and never a command', () => {
@@ -78,4 +80,29 @@ test('an armada need is read in its three forms and in no other', () => {
   expect(needAct('armada need a.toml')).toBeUndefined()
   expect(needAct('echo armada need a.toml "x"')).toBeUndefined()
   expect(needAct('armada land')).toBeUndefined()
+})
+
+test('a title never shows the markup a harness wrapped a prompt in', () => {
+  expect(titleOf('<agent-message from="a45d14071172cd311">\nreview the ledger change\nthanks</agent-message>')).toBe(
+    'review the ledger change',
+  )
+  expect(titleOf('<system-reminder>\nnote this\n</system-reminder>\nfix the intake')).toBe('fix the intake')
+  expect(titleOf('<command-name>/compact</command-name>\n<command-args></command-args>')).toBeUndefined()
+  expect(titleOf('<local-command-stdout>done</local-command-stdout>')).toBeUndefined()
+  expect(titleOf('<agent-message from="a45d">\n</agent-message>')).toBeUndefined()
+  expect(titleOf('make the <div> wrap')).toBe('make the <div> wrap')
+})
+
+test('a rename is read off the last custom-title entry of a transcript', () => {
+  const lines = [
+    '{"type":"user","message":"hi"}',
+    '{"type":"custom-title","customTitle":"first name","sessionId":"S1"}',
+    '{"type":"custom-title","customTitle":"  second   name ","sessionId":"S1"}',
+    '{"type":"custom-title","customTi',
+  ].join('\n')
+  expect(customTitleIn(lines)).toBe('second name')
+  expect(customTitleIn('{"type":"user"}')).toBeUndefined()
+  expect(transcriptPath('/home/user', '/repos/armada/.armada', 'S1')).toBe(
+    '/home/user/.claude/projects/-repos-armada--armada/S1.jsonl',
+  )
 })
