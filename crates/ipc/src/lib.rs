@@ -290,11 +290,11 @@ pub use holding::{
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HostedFacts,
-    HeldCommand, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState,
-    SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag, SessionThread, SessionTurn,
-    SessionUpload, SessionVoice, SessionVoiceNamed, StartSession, TagKind, TaggedJob, TakeHeld,
-    TuneSession,
+    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HeldCommand,
+    HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState,
+    SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag, SessionThread,
+    SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession, TagKind, TaggedJob,
+    TakeHeld, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
