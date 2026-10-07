@@ -423,6 +423,42 @@ class RestartAdopt(unittest.TestCase):
         done = subprocess.run([script, "--from", self.tree, *args], env=env, capture_output=True, text=True)
         return done.returncode, done.stdout + done.stderr
 
+    def plain_restart(self, *args):
+        """`scripts/restart` with no `--from`, with a stub standing in for `scripts/preview`."""
+        script = scratch_root(self.dir, MIGRATIONS) if not hasattr(self, "script") else self.script
+        self.script = script
+        record = os.path.join(self.dir, "preview-args")
+        stub = os.path.join(self.dir, "preview")
+        with open(stub, "w") as f:
+            f.write(f'#!/bin/sh\necho "$@" > "{record}"\n')
+        os.chmod(stub, 0o755)
+        env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"],
+                   ARMADA_RESTART_PREVIEW=stub)
+        done = subprocess.run([script, *args], env=env, capture_output=True, text=True)
+        passed = None
+        if os.path.exists(record):
+            with open(record) as f:
+                passed = f.read().strip()
+        return done.returncode, passed, done.stdout + done.stderr
+
+    def test_a_plain_restart_while_the_preview_runs_refreshes_the_preview(self):
+        with open(os.path.join(self.support, "restart-source"), "w") as f:
+            f.write("/somewhere/.armada/preview\n")
+        code, passed, said = self.plain_restart("--dry-run", "--adopt")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(passed, "--restart --dry-run --adopt")
+
+    def test_main_leaves_the_preview(self):
+        with open(os.path.join(self.support, "restart-source"), "w") as f:
+            f.write("/somewhere/.armada/preview\n")
+        code, passed, said = self.plain_restart("--main", "--dry-run")
+        self.assertIsNone(passed, said)
+        self.assertIn("--dry-run is for --from", said)
+
+    def test_a_plain_restart_with_no_preview_running_does_not_run_the_preview(self):
+        code, passed, said = self.plain_restart("--dry-run")
+        self.assertIsNone(passed, said)
+
     def test_a_working_drone_refuses_without_adopt(self):
         self.fleet({"j1": "running", "j2": "escalated"})
         code, said = self.restart()
