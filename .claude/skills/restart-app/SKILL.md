@@ -23,11 +23,16 @@ needs it, reopens the window in front of him — the same reason
 `scripts/dev`. Leaving it off every allow list is what turns "an agent ran
 this" into a prompt he sees before it happens.
 
-**Fast-forward the checkout first.** Plain `scripts/restart` builds what is in
-the working tree, not what is on `origin/main`. On 17 Sep 2026 the checkout was four merges behind, so
-the restart faithfully rebuilt the old code and Fleet came back on the protocol
-version it started on — the one thing the restart was run to change. `git pull
---ff-only` before it, and read the version it prints at the end.
+**It builds the latest `main`.** A plain `scripts/restart` on `main`
+fast-forwards to `origin/main` first, and refuses if it cannot. On 17 Sep 2026
+the checkout was four merges behind, so the restart rebuilt the old code and
+Fleet came back on the protocol version it started on. Read the version it
+prints at the end.
+
+**While the preview runs, a plain restart refreshes the preview.** It runs
+`scripts/preview --restart` instead, so the owner stays on the preview, merged
+again onto the latest `main`. `scripts/restart --main` is the way back to `main`
+alone; run it only when he asks to leave the preview.
 
 **`--from <worktree>` builds from another tree and serves this one.** It is the
 preview's restart (`scripts/preview --restart`), so what it builds may include

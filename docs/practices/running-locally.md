@@ -115,8 +115,9 @@ and the next start replaces it, saying so.
 ## Restarting onto a new build
 
 **`scripts/restart` moves the running Fleet — and Bridge, once it needs to —
-onto whatever is in the working tree**, without the owner leaving Bridge for a
-terminal. Two callers: an agent, through Bash, after a merge that touches
+onto the latest `main`**, without the owner leaving Bridge for a terminal. A
+checkout on `main` is fast-forwarded to `origin/main` first; the restart
+refuses if it cannot be. Two callers: an agent, through Bash, after a merge that touches
 Fleet or Bridge; and Bridge itself, through `#810`'s act.
 
 **It refuses while a Drone is working**, naming the Job. Read off the live
@@ -263,7 +264,7 @@ only for `--from`.
 **A switch of source reopens Bridge.** The build stamp belongs to a tree, so
 moving between trees rebuilds and reopens Bridge whatever either stamp says.
 `Armada/restart-source` records which tree the open Bridge came from; only
-`--from` writes it and the next plain restart removes it.
+`--from` writes it and the next `scripts/restart --main` removes it.
 
 ## A preview of unlanded work
 
@@ -319,7 +320,13 @@ changes. Moving Fleet and Bridge is `--restart`, which cannot be combined with
 it. `--restart` runs `scripts/restart --from .armada/preview` from the main
 checkout, so Fleet keeps serving that repository, and `--dry-run` goes through
 to it. Everything in *Restarting onto another tree* applies, including the
-migration guard and the snapshot. To go back, run `scripts/restart` as before.
+migration guard and the snapshot.
+
+**A plain `scripts/restart` while the preview runs keeps the preview.** It
+sees `.armada/preview` in `Armada/restart-source` and runs
+`scripts/preview --restart` instead, passing `--dry-run` and `--adopt` through,
+so the preview is merged again onto the latest `main`. To go back to `main`
+alone, run `scripts/restart --main`.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
 with git alone, and a stub Fleet. CI runs it as `preview_test` when
@@ -329,7 +336,7 @@ with git alone, and a stub Fleet. CI runs it as `preview_test` when
 
 **This is not how the app is started.** Day to day that is
 `scripts/preview --restart`, which runs the latest `main` plus every in-flight
-branch. `scripts/restart` starts from `main` alone. A scratch Fleet is for wire
+branch. `scripts/restart --main` starts from `main` alone. A scratch Fleet is for wire
 data and recording Jobs.
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It

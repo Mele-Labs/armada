@@ -227,8 +227,8 @@ def merge_pass(root, only, skip):
     taken = {v: "main" for v in migrations_in(wt, "HEAD")}
     rows = []
     for branch in branches:
-        mb = out(wt, "merge-base", "HEAD", branch)
-        before = set(migrations_in(wt, mb))
+        # A branch that merged main can have several merge bases; one alone misses main's migrations.
+        before = {v for mb in out(wt, "merge-base", "--all", "HEAD", branch).split() for v in migrations_in(wt, mb)}
         added = [v for v in migrations_in(wt, branch) if v not in before]
         clash = [(v, taken[v]) for v in added if v in taken]
         if clash:

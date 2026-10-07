@@ -72,11 +72,36 @@ while [[ $# -gt 0 ]]; do
       adopt=true
       shift
       ;;
+    --main)
+      leave_preview=true
+      shift
+      ;;
     *)
-      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--dry-run] [--adopt]"
+      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--main] [--dry-run] [--adopt]"
       ;;
   esac
 done
+
+# **A plain restart while the preview runs refreshes the preview.** Rebuilding
+# from this checkout would quietly swap the owner's preview for `main` alone;
+# `scripts/preview --restart` re-merges onto the latest `main` and comes back
+# here with `--from`. `--main` is the way back to `main` alone.
+recorded_source=$(cat "$support/restart-source" 2>/dev/null || true)
+if [[ -z "$from" && "${leave_preview:-false}" == false && "$recorded_source" == */.armada/preview ]]; then
+  preview="${ARMADA_RESTART_PREVIEW:-$root/scripts/preview}"
+  say "The preview is running — refreshing it onto the latest main (scripts/restart --main leaves it)"
+  exec "$preview" --restart $($dry_run && echo --dry-run) $($adopt && echo --adopt)
+fi
+
+# **Plain restart builds the latest `main`, not whatever this checkout last
+# pulled.** On 17 Sep a checkout four merges behind was rebuilt faithfully and
+# Fleet came back on the protocol it started on. Only a checkout on `main` is
+# moved, and only forward.
+if [[ -z "$from" ]] && ! $dry_run && [[ "$(git -C "$root" branch --show-current 2>/dev/null)" == main ]]; then
+  say "Fast-forwarding main to origin/main"
+  git -C "$root" pull --ff-only --quiet origin main \
+    || fail "main cannot fast-forward to origin/main — it has diverged or a local change is in the way"
+fi
 
 src="$root"
 if [[ -n "$from" ]]; then
