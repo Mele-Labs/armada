@@ -354,7 +354,7 @@ const JOB_CHECK_LOGS: Record<string, string[]> = {
   "root_cause.1.clippy.log": ["$ tsc -b", "packages/screens/src/Row.tsx(88,7): error TS2322: Type 'string' is not assignable to type 'number'."],
 };
 
-/** The merge line's Checks for the Job's branch, one passed and one waiting. **Each names the Job**, as Fleet sends it since 23.52. */
+/** The merge line's Checks for the Job's branch, one passed and one waiting. **Each names the Job**, as Fleet sends it since 23.54. */
 const JOB_LINE: MergeLines = {
   lines: [
     {

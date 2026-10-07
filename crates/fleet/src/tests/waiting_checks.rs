@@ -1,6 +1,6 @@
 //! A Job's Checks reported while they wait: a gate Check behind another thing
 //! in its gate, one waiting for a machine slot, a Drone's run not yet started,
-//! and a merge-line Check naming the Job whose branch it is. Protocol 23.52.
+//! and a merge-line Check naming the Job whose branch it is. Protocol 23.54.
 //!
 //! Real commands and a real `flock`, for `tests::underway`'s reason. Every
 //! fake wait here ends when its test does.
