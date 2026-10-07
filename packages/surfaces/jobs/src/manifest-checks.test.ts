@@ -104,3 +104,18 @@ test("reported rows and the merge line's Checks list with no run sheet to read",
   const line = { root: "/r", line: [{ branch: "b", place: 1, state: "gating", checks: [{ name: "lint", state: "running", started_at: "2026-10-06T14:00:30Z", requester: { kind: "merge_line", branch: "b" } }] }], off: [], landed: [], sent_back: [] };
   expect(checkEntriesOf(undefined, [ran("build", "2026-10-06T13:30:00Z")], [line], reported).map((one) => one.name)).toEqual(["build", "lint"]);
 });
+
+// Job 13, 7 Oct 2026: Fleet served the gate's rows and the page drew none, because they were
+// kept behind the checkout's run sheet, which a window that has not read it yet does not hold.
+test("a Job's gate rows are listed before the checkout's run sheet has been read", () => {
+  const base = { job_id: "1", job_handle: "1-a-job", job_title: "A job", step: "implement", attempt: 2, group: "G1", source: "gate", requester: { kind: "gate", job_id: "1", step: "implement", handle: "1-a-job" } };
+  const reported = [
+    { ...base, name: "build", state: "skipped", ended_at: "2026-10-07T04:56:54Z" },
+    { ...base, name: "test", state: "passed", ended_at: "2026-10-07T04:56:54Z" },
+  ];
+  const rows = checkEntriesOf(undefined, [], [], reported).map((one) => checkRowOf(one, label));
+  // A skipped Check says the registry's word for it, `not run`, and is neither mark of a verdict.
+  expect(rows.map((one) => [one.name, one.says])).toEqual([["build", "not run"], ["test", "passed"]]);
+  expect(rows.map((one) => one.status)).not.toContain("failed");
+  expect(rows[0]?.status).not.toBe("passed");
+});
