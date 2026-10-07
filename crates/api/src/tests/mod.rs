@@ -25,6 +25,7 @@ mod mcp;
 mod observing;
 mod preferences;
 mod processes;
+mod reconciling;
 mod reference;
 mod retros;
 mod served;
