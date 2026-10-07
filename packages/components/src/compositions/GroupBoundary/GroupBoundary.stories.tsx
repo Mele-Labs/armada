@@ -159,3 +159,27 @@ export const OneFailed: Story = {
     await expect(canvas.queryByRole("region", { name: "Tests at this boundary" })).toBeNull();
   },
 };
+
+/**
+ * A Check the step touched no path of. **Neither verdict**: it reads
+ * `skipped`, carries the shield-off mark and says why on hover, and the strip
+ * is not red. Opens no log, for it ran none.
+ */
+export const OneSkipped: Story = {
+  args: {
+    checks: [
+      { name: "build", reads: "skipped", why: "no changed file is under paths no workspace owns" },
+      { name: "typecheck", reads: "passed", onOpen: fn() },
+    ],
+    verdictSays: "none failed",
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getAllByRole("button", { expanded: false })[0]!);
+    await expect(canvas.getByText("build").closest("[title]")).toHaveAttribute(
+      "title",
+      "no changed file is under paths no workspace owns",
+    );
+    await expect(canvas.queryByRole("button", { name: "build, skipped" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "typecheck, passed" })).toBeVisible();
+  },
+};

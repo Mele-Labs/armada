@@ -238,7 +238,12 @@ where
         if fresh.is_empty() {
             return None;
         }
-        let told = match Redeclaring::at(declared_step, &fresh) {
+        // **The worktree is the Job's one**, so with a Drone beside the kept
+        // one an edit outside the kept Drone's plan may be that Drone's. The
+        // log has the finding; nobody is told what nobody can be shown to have
+        // done.
+        let crewed = !self.slots().lock().await.crew_of(&job).is_empty();
+        let told = match Redeclaring::at(declared_step, &fresh).filter(|_| !crewed) {
             // `watches_live_edits` is true above, so this is always `Some`.
             // Matched rather than unwrapped: the switch belongs to the block
             // and a narrowing added there is this check going quiet, never a

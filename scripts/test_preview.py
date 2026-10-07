@@ -265,6 +265,21 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "node_modules", "warm")))
         self.assertFalse(os.path.exists(os.path.join(self.wt, "stray.txt")))
 
+    def test_a_note_pinned_on_the_preview_survives_a_rebuild(self):
+        self.hold()
+        self.run_preview()
+        note = os.path.join(self.wt, ".armada", "annotations", "n1.json")
+        os.makedirs(os.path.dirname(note))
+        other = os.path.join(self.wt, ".armada", "other.log")
+        for path in (note, other):
+            with open(path, "w") as f:
+                f.write("x")
+        self.write("m.txt", "moved\n")
+        self.commit("main: moved")
+        self.run_preview()
+        self.assertTrue(os.path.exists(note))
+        self.assertFalse(os.path.exists(other))
+
     def test_restart_runs_the_restart_script_from_the_preview(self):
         self.branch("feat/r", {"r.txt": "r\n"})
         self.hold("feat/r")
@@ -494,6 +509,12 @@ class RestartAdopt(unittest.TestCase):
                      "servers stop when Fleet stops", "gate re-runs from scratch",
                      "a Drone that cannot be adopted is ended"):
             self.assertEqual(said.count(cost), 1, cost)
+
+    def test_dry_run_says_fleet_is_booted_out_and_in_not_kickstarted(self):
+        self.fleet({"j1": "escalated"})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("out if it is loaded, then bootstrap it from", said)
 
     def test_adopt_with_no_drone_working_prints_no_costs(self):
         self.fleet({"j1": "escalated"})

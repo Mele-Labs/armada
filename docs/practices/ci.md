@@ -62,7 +62,7 @@ build of `armada` failing, is red, never an empty plan.
 | Name | Passes when | Failed by |
 |---|---|---|
 | `ci` | The plan succeeded and no Check job or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, a new failing foundations line |
-| `needs` | Fleet's check says so | Not defined here. Reserved: Fleet publishes it |
+| `needs` | Fleet's status says so: no standing need ahead of the pull request's on a path it shares | Not defined here. Fleet publishes it as a commit status, `docs/capabilities/needs.md`; not yet required |
 | `desktop_test` | The plan succeeded and neither a smoke shard nor the unit job failed or was cancelled | A failed shard, a failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are named by their key.

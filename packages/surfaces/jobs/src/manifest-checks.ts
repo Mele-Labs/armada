@@ -66,7 +66,9 @@ export function checkEntriesOf(
   reported: readonly ManifestCheckRow[] = [],
 ): CheckEntry[] {
   const land = landEntriesOf(lines);
-  if (sheet === undefined) return land;
+  // Reported rows and the line's own come off reads that do not need the sheet, so they stand without it.
+  const asked = reported.map(entryOfReported);
+  if (sheet === undefined) return byRequested([...land, ...asked]);
   const declared = new Set(sheet.checks.map((one) => one.name));
   const isCheck = (run: { name: string; workspace?: string }) => run.workspace === undefined && declared.has(run.name);
 
@@ -90,7 +92,7 @@ export function checkEntriesOf(
     }
   }
   const ended = [...finished.values()].filter((record) => !out.has(record.id)).map(entryOfRecord);
-  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...reported.map(entryOfReported)]);
+  return byRequested([...out.values(), ...waiting, ...land, ...ended, ...asked]);
 }
 
 /**

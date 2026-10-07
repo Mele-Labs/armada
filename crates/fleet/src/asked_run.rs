@@ -319,6 +319,8 @@ struct Readings {
     /// Which manifests the change reaches, **only where the repository has
     /// workspaces**; the one the gate reads.
     gated: Option<crate::gated::Gated>,
+    /// The Job's workflow with the gate's added manifests, where any were.
+    widened: Option<core_model::FrozenWorkflow>,
     ports: BTreeMap<String, u16>,
     port_env: Vec<(String, String)>,
     tasks: Option<TaskCounts>,
@@ -384,8 +386,12 @@ where
     ) -> Option<String> {
         let plan = self.asked_run_looks(caller, &ask).await.ok()?;
         let read = self.asked_run_reads(&plan, &ask).await.ok()?;
-        let declared = plan.record.workflow().step(&plan.step)?;
-        let checks = mid_step_named(&declared, ask.check.as_deref());
+        let declared = read
+            .widened
+            .as_ref()
+            .unwrap_or(plan.record.workflow())
+            .step(&plan.step)?;
+        let checks = mid_step_named(declared, ask.check.as_deref());
         let check = checks.first()?;
         // A bare string runs from the worktree root, not a workspace's directory.
         if !check.requires().is_empty() || !check.manifest_dir().is_empty() {
@@ -542,12 +548,46 @@ where
     ) -> Result<Readings, NotRun> {
         let narrow = ask.only_what_changed;
         let unread = |cause: String| NotRun::CouldNotRead { cause };
-        let Some(declared) = plan.record.workflow().step(&plan.step) else {
+        let served = self
+            .served_by(&plan.record)
+            .map_err(|cause| unread(cause.to_string()))?;
+        let workspaces = served.workspaces();
+        let gated = match workspaces.is_empty() {
+            true => None,
+            false => {
+                let changed = match ask.files.is_empty() {
+                    false => ask.files.clone(),
+                    true => self
+                        .work()
+                        .changed_files(&plan.worktree)
+                        .map_err(|cause| unread(cause.to_string()))?
+                        .paths(),
+                };
+                Some(crate::gated::Gated::of(
+                    served.manifest(),
+                    &workspaces,
+                    &changed,
+                ))
+            }
+        };
+        // The gate's own widening, so a Drone's run and the gate agree on
+        // which Checks exist. `crate::keeping_gates`.
+        let widened = self.gated_with_new_manifests(
+            plan.record.id(),
+            plan.record.workflow(),
+            &served,
+            gated.as_ref(),
+        );
+        let Some(declared) = widened
+            .as_ref()
+            .unwrap_or(plan.record.workflow())
+            .step(&plan.step)
+        else {
             return Err(NotRun::NoSuchStep {
                 step: plan.step.clone(),
             });
         };
-        let checks = mid_step_named(&declared, ask.check.as_deref());
+        let checks = mid_step_named(declared, ask.check.as_deref());
         // **Read unconditionally, not only where the step declares
         // `diff_nonempty`, and kept whole rather than folded to a bool.**
         // `crate::reuse` needs this same reading beside whatever the run
@@ -577,7 +617,13 @@ where
         // Check, so nothing measured this way reaches a gate as a pass. #1456.
         let touched: Vec<String> = match ask.files.is_empty() {
             false => ask.files.clone(),
-            true => match narrow || checks.iter().any(ResolvedCheck::needs_changed_paths) {
+            // **Where the repository has workspaces the paths are read for
+            // every run**: with none, a Check that declares no `when` reads an
+            // empty diff and is skipped as gating nothing.
+            true => match narrow
+                || gated.is_some()
+                || checks.iter().any(ResolvedCheck::needs_changed_paths)
+            {
                 false => Vec::new(),
                 true => self
                     .work()
@@ -589,28 +635,6 @@ where
         if narrow && touched.is_empty() {
             return Err(NotRun::NothingChanged);
         }
-        let served = self
-            .served_by(&plan.record)
-            .map_err(|cause| unread(cause.to_string()))?;
-        let workspaces = served.workspaces();
-        let gated = match workspaces.is_empty() {
-            true => None,
-            false => {
-                let changed = match ask.files.is_empty() {
-                    false => ask.files.clone(),
-                    true => self
-                        .work()
-                        .changed_files(&plan.worktree)
-                        .map_err(|cause| unread(cause.to_string()))?
-                        .paths(),
-                };
-                Some(crate::gated::Gated::of(
-                    served.manifest(),
-                    &workspaces,
-                    &changed,
-                ))
-            }
-        };
         let tasks = self
             .store()
             .lock()
@@ -632,6 +656,7 @@ where
             moved,
             touched,
             gated,
+            widened,
             ports: self.port_map(&plan.record).await,
             port_env: self.port_env(&plan.record).await,
             tasks,
@@ -878,7 +903,12 @@ where
         showing: &Announcing,
         hearing: UnboundedReceiver<Heard>,
     ) -> Result<(CheckReport, crate::reuse::KeptAskedRun), String> {
-        let Some(declared) = plan.record.workflow().step(&plan.step) else {
+        let Some(declared) = read
+            .widened
+            .as_ref()
+            .unwrap_or(plan.record.workflow())
+            .step(&plan.step)
+        else {
             return Err(format!(
                 "step `{}` is not in the workflow",
                 plan.step.as_str()
@@ -887,7 +917,7 @@ where
         // The gate's batch less what runs only there or before handoff (#849)
         // and less every Check but the one named, so the rows keep the step's
         // own order either way.
-        let checks = mid_step_named(&declared, read.only_check.as_deref());
+        let checks = mid_step_named(declared, read.only_check.as_deref());
         let mut observed = Vec::with_capacity(checks.len());
         let mut printed = Vec::new();
         let mut took = Vec::with_capacity(checks.len());

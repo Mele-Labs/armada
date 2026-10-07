@@ -231,6 +231,8 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **`merge_by: forge` and `merge_by: push` hold alike**, because it is Fleet's own press that asks the forge to merge under `forge`, and Fleet that merges under `push`. A person pressing the forge's own button bypasses it, and Fleet does not see that press: the work lands out of order, and the need is spent when the Job is noticed landing. Decided for the build, 5 Oct 2026; the owner's open question had been what a need means under `forge`.
 
+**Fleet publishes the order on each pull request as the `needs` commit status.** Pending while a need ahead of the holder's on the same path has not merged, success otherwise. It rides the same sweep that lists open pull requests and is also sent when a need is declared, given back or spent; it is sent only when it changed. Fleet needs a token that may write commit statuses, and without one it logs and carries on.
+
 **Nothing expires by time.** A need that stalls holds every Job behind it, the cost the owner took. A person gives it back with `armada need --release <path>`, run from the branch; an act on a Job's detail that does the same is not built.
 
 **A task that is dropped does not give its need back.** A need is the Job's, not the task's, so it stands until the Job ends or a person releases it.
@@ -308,7 +310,7 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Armada opens a pull request, and a merge Fleet did not perform is only ever knowable by asking.** The decision to merge stays a person's: `auto_merge` says what Fleet may carry out on its own, and under `never` nothing merges until a person asks for it — see [Manifest](manifest.md), *Auto-merge and review gate*. A merge asked of Fleet is Fleet's own act, so what merged is proved on the spot; a merge made on the forge is found on a later sweep.
 
-Fleet asks about **one** pull request per sweep and rotates, because the turn interval is 250ms and asking the forge is a process — an open pull request needs asking rarely and a merged one never again.
+Fleet asks about **one** pull request per sweep and rotates, because the turn interval is 250ms and asking the forge is a process — an open pull request needs asking rarely and a merged one never again. **The sweep runs on a loop of its own beside the turn**, not only on it: a turn waits behind each Job's Checks, which are minutes, and a landing told that late is told late. The interval gate is shared, so whichever reaches it first asks, and a Job owed news of the landing is told by that loop straight after.
 
 **An open one is asked a second question on that same turn**, and only an open one: who has reviewed it, what the forge's own checks report, and what anybody wrote on it. That is one more process per sweep on the turns that land on an open pull request, on the rotation that already exists rather than on a loop of its own — a second loop over the same set would double the cost of the same question and disagree with the first about a pull request that settled between them. The reading is therefore a whole rotation stale at worst: ten open at a minute apiece means an approval is seen up to ten minutes after it lands.
 
@@ -322,7 +324,7 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **How fresh a comment appears rides the same rotation named above, restated for this path.** A pull request is re-read once per sweep interval, and the rotation reaches one open pull request per interval — so with ten open at once and a sixty-second interval, a comment can sit for up to ten minutes before Fleet even reads it, and `job.remarks_changed` follows on that same sweep. That is not fast against a handful of concurrent Jobs and gets slower as more are open at once; whether the interval or the one-per-sweep shape should change to keep pace is the owner's call and is not made here — this only states the bound.
 
-**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs.
+**The issue a Job came from has a rotation of its own on the same interval** (spike 022, answer 5). Every Job in flight whose request linked an issue is asked about in turn, one issue read an interval whatever their number, so each is asked once every interval times how many there are. An edit after Fleet read the issue is kept, written into the Job's log once, and served as `origin_moved_at` on each criterion read from it; the Job keeps the words it froze. **A second cursor rather than a place in the pull requests' rotation**, so the pull requests' cadence above does not slow by the number of issue-linked Jobs. It rides the same loop beside the turn, with the same shared gate.
 
 **A person picks which comments a Drone should act on, and it is Fleet asking rather than a Drone.** Not every comment is a change request — some are questions, some are agreement, some are about something else — and a Drone handed all of them tries to satisfy all of them. So the comments are served when somebody asks for them, that person picks, and the ones they picked are written whole into a file in the Drone's worktree — no size a person's choice can be too large for, `#648`. **That is the road a note already travels**, entered a second time rather than built again: a pointer to the file goes onto the record where a person's typed note goes, the Job takes `awaiting_review -> queued`, and the same block reaches the Drone, naming the file, the count and who wrote them.
 
@@ -365,15 +367,15 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 | What Fleet asks | When |
 |---|---|
-| Where main stands on the forge | One ref lookup per repository per sweep interval, one repository a turn, rotating |
+| Where main stands on the forge | One ref lookup per repository per minute, one repository a reading, rotating. The reading has a loop of its own, so a Job's Checks never hold it up |
 | The jobs that ran on that commit | When the head has moved, and again while any job has not finished. A settled commit is not asked again |
 | A failed job's log, its last 256 KiB | Once per failed job per commit |
 | The pull request that merged the commit | Once per commit while this process lives, and only for a red |
-| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same interval and rotation |
-| The newest five pull requests merged into the base | One listing a visit, beside the open ones |
-| The CI run on each of those five merge commits | One ask a commit, then again only while a job is unfinished, or while nothing has run on a merge under ten minutes old; a settled run is kept in memory and not asked again. Five asks the first visit after a start, usually none after |
+| The repository's open pull requests, each with its `ci` | One listing a visit, the newest 100, on the same loop and rotation |
+| The pull requests merged into the base | One listing a visit, beside the open ones, the newest 30. Recently landed shows five |
+| The CI run on the head and the newest five merge commits, and on older ones only until one has finished | One ask a commit, then again only while a job is unfinished, or while nothing has run on a merge under ten minutes old; a settled run is kept in memory and not asked again. Five asks the first visit after a start, usually none after |
 
-**Main's state is the newest commit whose run has finished.** Fleet reads the run on the head and on each of the newest merged pull requests' commits, in first-parent order, and the first one that is red or green decides. Newer commits still running do not: a green on an intermediate commit clears a red even while later ones run, and says so as `checking` on a green. A red's failed jobs are the deciding commit's, and "Broke in" names the oldest red commit before the last green that failed what the deciding one fails. A commit nothing ran on proves nothing either way, and where nothing in the window has finished a known red is kept, held.
+**Main's state is the newest commit whose run has finished.** Fleet reads the run on the head and on each of the newest merged pull requests' commits, in first-parent order and back as far as the first one that has finished, and the first one that is red or green decides. Newer commits still running do not: a green on an intermediate commit clears a red even while later ones run, and says so as `checking` on a green. A red's failed jobs are the deciding commit's, and "Broke in" names the oldest red commit before the last green that failed what the deciding one fails. A commit nothing ran on proves nothing either way, and where nothing in the window has finished a known red is kept, held.
 
 **A red is held while a newer commit's CI is running.** A fix may already be in that run, so Fleet keeps the red's facts and the commit they were read at (`red_commit`), names the running commits and their pull requests (`checking`), refuses `fix_main` with `fleet.main_checks_running`, and does not pick the red up. When the run ends green everything clears. When it ends red on the jobs the red already had, the red is back and the pickup runs; on a job it did not have, it is a new red naming the newer merge.
 
@@ -386,6 +388,23 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
 
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default. `ThrottleInterval` 2 brings that to 2.6 s.
+
+### Self-healing
+
+**A Job held up by its own worktree or environment is repaired by a Drone before a person is asked.** Two faults held Job 13 on 7 Oct 2026, and in both nothing was wrong with the work: a Drone is not allowed the commands that would put it right, and a person ran them by hand.
+
+| Found | Where | What the repair Drone is granted |
+|---|---|---|
+| The index holds a path as unmerged and its file carries no conflict marker — resolved, never staged, so the diff shows a mode change at most | Before a Drone is put on a worktree, and before the gate reads the diff. A path the catch-up has just reported conflicted is that Drone's work and is left alone | `git add`, `git rm`, `git restore`, and reading |
+| A failed Check printed that an install never finished (`failed to install correctly`) | After the gate's Checks, before the ruling is acted on | The repository's own declared bootstrap command, and reading. It is told to run it again with its forced-reinstall flag |
+
+**One mechanism.** A finding names what is wrong, a repair Drone is started on the worktree with a toolbelt of exactly that repair (`Grant::RepairTheWorktree`), and the Job carries on from where it was: the Drone about to be put on is put on, or the gate runs again. It holds no slot, takes no place under the concurrency cap and spends no retry. It runs inside the turn that found the fault, for at most one Check's budget, and what it last said is a line in the Job's log. No grant commits, resets, checks out or pushes: Fleet commits, and the deny that stops every other Drone staging is lifted only for a launch carrying the index repair.
+
+**Fleet decides whether it worked.** The index is read again. The install is answered by the Check that named it, run again by the gate. What the Drone says is a signal.
+
+**Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
+
+**Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
 
 ## Worktree slots
 

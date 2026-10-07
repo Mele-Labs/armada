@@ -38,6 +38,7 @@ mod resolve;
 mod roster;
 mod runners;
 mod scope;
+mod widening;
 mod workflow;
 mod yaml;
 
@@ -62,6 +63,7 @@ pub use manifest::{
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;
 pub use runners::{detected, shipped, RunnerDescription};
+pub use widening::with_manifests_added;
 pub use workflow::{MechanicalCheck, Step, WorkflowDef};
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these

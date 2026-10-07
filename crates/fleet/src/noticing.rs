@@ -15,6 +15,8 @@
 //! minute apiece is each asked every ten minutes, and a merge leaves for good.
 //! The cost is one blocking call on the interval — `caught_up_onto`'s shape —
 //! and a second on the turns that find one open, in `crate::under_review`.
+//! A turn waits behind each Job's Checks, so `crate::notice_loop` asks beside it
+//! as well, on the same gate.
 //!
 //! # What a merge moves, and what it does not
 //!
@@ -139,6 +141,10 @@ pub(crate) struct Sweep {
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,
     /// Each repository's open pull requests as last listed, by root. `crate::main_hub`.
     pub(crate) pulls: BTreeMap<String, Vec<crate::main_hub::OpenPulled>>,
+    /// What `needs` was last put on each open pull request's commit, and the
+    /// ones the forge refused. `crate::needing::status`.
+    pub(crate) needs_published: crate::needing::status::Published,
+    pub(crate) needs_refused: std::collections::BTreeSet<String>,
     /// Each repository's newest merged pull requests as last listed, by root.
     pub(crate) merged: BTreeMap<String, Vec<crate::main_hub::MergedPulled>>,
     /// The CI run on main for each of those merge commits, by root and commit.

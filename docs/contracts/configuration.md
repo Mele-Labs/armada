@@ -139,6 +139,11 @@ daemon's console, and, since `#446`, on the wire as well, so a person running
 Bridge learns it too. And the live pair is resolved once per step and held for as
 long as the Drone is, so a save cannot move the terms a running step began under.
 
+**One addition at the gate:** a manifest that gates a Job's change and has no Check in the Job's
+frozen steps has its Checks added for that pass, from the manifests Fleet serves and never the Job's
+branch (`docs/concepts/manifest.md`, *Workspace gating*, 7 Oct 2026). A Check the Job did freeze is not
+re-read.
+
 **A save that will not parse changes nothing.** The last good configuration stays
 in force and the refusal is reported. A fleet that stopped because somebody
 mistyped a number would be worse than one that ignored the edit.

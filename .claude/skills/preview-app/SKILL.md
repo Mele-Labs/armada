@@ -43,5 +43,10 @@ a watch never restarts Fleet.
 if launchd loaded any other tree or Fleet reports a protocol other than the
 preview's `protocol-version.toml`. Read the `Bridge runs ...` line in the output.
 
+**A `libsqlite3-sys` compile error in the preview is a stale build script, not
+the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the
+restart again. The owner's Fleet stays up, because the build fails before Fleet
+is stopped. Confirmed twice on 6 and 7 Oct 2026.
+
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.

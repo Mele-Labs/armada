@@ -120,7 +120,7 @@ where
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let holder = ledger::holder_of_branch(&store, &manifest, branch).map_err(fault)?;
-        match call.act {
+        let answer = match call.act {
             NeedAct::Declare => {
                 let what = call.what.as_deref().map(str::trim).unwrap_or_default();
                 if what.is_empty() {
@@ -170,7 +170,12 @@ where
                     gave_back,
                 })
             }
+        };
+        drop(store);
+        if answer.is_ok() {
+            self.needs_status_published(&served).await;
         }
+        answer
     }
 
     async fn list_needs(&self, manifest_id: Option<ManifestId>) -> Result<NeedList, Refusal> {

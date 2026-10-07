@@ -23,7 +23,7 @@ reasoning, and for Fleet's own line, which is a product concern
 | Queue and turn | GitHub's merge queue |
 | Rerunning what `main` moved under | The `plan` job, through `armada covers`, as in *Choosing what reruns* |
 | `verify-foundations` on every turn | A `foundations` job, on the branch `ci-foundations` and not merged. Until it lands CI does not run it |
-| Needs | A required check Fleet will publish. Not built |
+| Needs | The `needs` status Fleet publishes on every open pull request (`docs/capabilities/needs.md`). Built; required in the ruleset: not yet |
 | Batching | The merge queue's own grouping |
 | Bridge's panel | A thin view of every open pull request and how Fleet knows them to connect, by needs and Job links. Not built |
 

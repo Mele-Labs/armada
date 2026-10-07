@@ -185,6 +185,12 @@ where
         // configuration failure against this Job rather than a verdict.
         let served = self.served_by(&job)?;
         let gated = self.gated_by_the_change(&served, &worktree);
+        let widened =
+            self.gated_with_new_manifests(&job_id, job.workflow(), &served, gated.as_ref());
+        let at = match &widened {
+            Some(workflow) => at.within(workflow),
+            None => at,
+        };
         let judging = self
             .judging(&job, &served)
             .map_err(|cause| Adrift::NotConfigurable {
@@ -287,34 +293,58 @@ where
             .unwrap_or_default();
         // What another Job's fix holds off this one, refused whatever wrote it. #1673.
         let held_off = self.held_off(&job_id).await.paths();
-        let ruling = rule_on(
-            at.on_attempt(attempt, spent)
-                .holding_handoff(at_group.is_some_and(|g| g.follows))
-                .over(gated.as_ref()),
-            request,
-            &landed.submission,
-            declared.as_ref(),
-            &Lifted::of(&job),
-            &held_off,
-            crate::gate::Began::at(entered_with.as_ref()),
-            &recorded,
-            self.work(),
-            self.budget(),
-            &self
-                .checks_room_for(&job, crate::places::Asking::Gate)
-                .await,
-            &judging,
-            &Keeping::of(served.records_root(), &job.handle()),
-            self.policies_for(&served, &job_id).await,
-            &announcing,
-            &ports,
-            &port_env,
-            refusal_policy,
-            &tolerated,
-            plan.as_ref(),
-            asked_run.as_ref(),
-        )
-        .await;
+        // A resolution nothing staged is repaired before the gate reads the
+        // diff, and an install a Check named is repaired and the gate run
+        // again. `crate::healing`.
+        let unstaged = self.index_healed(&job, &step, &worktree, &[]).await.err();
+        let mut reinstalled = false;
+        let ruling = match unstaged {
+            Some(not) => {
+                self.noted_not_healed(&job_id, &step, &not);
+                Ruling::CouldNotDecide {
+                    artifact: "the Job's index",
+                    cause: Box::new(not),
+                    checks: Vec::new(),
+                    output: Vec::new(),
+                    policies: self.policies_for(&served, &job_id).await,
+                }
+            }
+            None => loop {
+                let ruling = rule_on(
+                    at.on_attempt(attempt, spent)
+                        .holding_handoff(at_group.is_some_and(|g| g.follows))
+                        .over(gated.as_ref()),
+                    request,
+                    &landed.submission,
+                    declared.as_ref(),
+                    &Lifted::of(&job),
+                    &held_off,
+                    crate::gate::Began::at(entered_with.as_ref()),
+                    &recorded,
+                    self.work(),
+                    self.budget(),
+                    &self
+                        .checks_room_for(&job, crate::places::Asking::Gate)
+                        .await,
+                    &judging,
+                    &Keeping::of(served.records_root(), &job.handle()),
+                    self.policies_for(&served, &job_id).await,
+                    &announcing,
+                    &ports,
+                    &port_env,
+                    refusal_policy,
+                    &tolerated,
+                    plan.as_ref(),
+                    asked_run.as_ref(),
+                )
+                .await;
+                if !reinstalled && self.install_healed(&job, &step, &worktree, &ruling).await {
+                    reinstalled = true;
+                    continue;
+                }
+                break ruling;
+            },
+        };
         // **Before anything is recorded, and only for a delivering step.**
         // `#691`: `Ruling::Finished` on a delivering step whose own catch-up
         // conflicted is a step with no human gate at all carrying a Job to
