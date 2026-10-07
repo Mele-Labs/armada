@@ -81,7 +81,7 @@ const WALL_CLOCK: Duration = Duration::from_secs(1_500);
 struct Held {
     ticks: AtomicU64,
     pushed: AtomicU64,
-    doomed: std::sync::atomic::AtomicBool,
+    doomed_after: std::sync::Mutex<Option<tokio::task::Id>>,
 }
 
 impl Held {
@@ -89,13 +89,22 @@ impl Held {
         Held {
             ticks: AtomicU64::new(0),
             pushed: AtomicU64::new(0),
-            doomed: std::sync::atomic::AtomicBool::new(false),
+            doomed_after: std::sync::Mutex::new(None),
         }
     }
 
-    /// The next reading panics, once: a task that reads the clock dies there.
-    fn doom_next_reading(&self) {
-        self.doomed.store(true, Ordering::SeqCst);
+    /// The first reading by a task spawned after this call panics, once: the
+    /// run's task, which `run_checks` spawns, dies there.
+    ///
+    /// **Not "the next reading"**, which was whichever task read first: the
+    /// Drone's own tasks read this clock too, and under load one of them got
+    /// there before the run's, died in its place and left the run to finish
+    /// and report normally. Task ids only grow, so the probe's is a floor that
+    /// the Drone's tasks, already running, are under. Call it before
+    /// `run_checks`.
+    fn doom_the_run_spawned_next(&self) {
+        let floor = tokio::spawn(async {}).id();
+        *self.doomed_after.lock().expect("an unpoisoned lock") = Some(floor);
     }
 
     fn on(&self, seconds: u64) {
@@ -105,8 +114,13 @@ impl Held {
 
 impl Clock for Held {
     fn now(&self) -> Timestamp {
-        if self.doomed.swap(false, Ordering::SeqCst) {
-            panic!("the clock was doomed by the test");
+        if let Some(reading) = tokio::task::try_id() {
+            let mut doomed_after = self.doomed_after.lock().expect("an unpoisoned lock");
+            if doomed_after.is_some_and(|floor| reading > floor) {
+                *doomed_after = None;
+                drop(doomed_after);
+                panic!("the clock was doomed by the test");
+            }
         }
         let at = self.ticks.fetch_add(1, Ordering::SeqCst) + self.pushed.load(Ordering::SeqCst);
         Timestamp::from_rfc3339(format!(
