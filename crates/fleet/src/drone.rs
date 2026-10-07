@@ -58,9 +58,9 @@ pub struct HostPaths<'a> {
     /// **This is the confinement's known floor and it is written down as one.**
     /// Passing it is what lets the Drone authenticate at all; it is also what
     /// lets the CLI look in the operator's home. `--strict-mcp-config` bounds
-    /// MCP servers and nothing else; what bounds the rest is
-    /// `--setting-sources project,local`, which leaves their user settings, and
-    /// with them their plugins, mods, hooks and skills, unread (spike 023).
+    /// MCP servers and nothing else. The Drone reads their user settings, mod
+    /// included, by the owner's choice (spike 023); the mod stays quiet on
+    /// `ARMADA_DRONE`.
     pub home: &'a str,
 }
 

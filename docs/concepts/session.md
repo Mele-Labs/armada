@@ -265,4 +265,4 @@ claude plugin marketplace add <this repository>/plugins
 claude plugin install armada@armada-local
 ```
 
-It loads in the person's own sessions only. A Drone, a Judge call and a scout are started with `--setting-sources project,local`, so a mod installed in a person's user settings never loads in one ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).
+It loads in a Drone, a Judge call and a scout too, since they read the person's user settings. Fleet starts each with `ARMADA_DRONE=1`; the mod reads it and reports nothing, so only the person's own sessions reach the ledger ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).

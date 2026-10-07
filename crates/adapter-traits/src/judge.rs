@@ -162,6 +162,12 @@ impl JudgeCall {
         }
     }
 
+    /// Marked as running unattended, for the `armada` mod to read.
+    pub fn unattended(mut self) -> JudgeCall {
+        self.environment = self.environment.unattended();
+        self
+    }
+
     /// The checkout the call starts in, where it was given one to read.
     pub fn directory(&self) -> Option<&str> {
         self.directory.as_deref()

@@ -57,6 +57,19 @@ pub(super) fn rendered(toolbelt: Toolbelt) -> Vec<String> {
         .to_vec()
 }
 
+/// A Drone is marked unattended so the `armada` mod does not report it.
+#[test]
+fn a_drone_launch_carries_the_unattended_mark() {
+    let launch = HeadlessAgent::at("/usr/local/bin/agent")
+        .render(&config(Toolbelt::evidence_only()))
+        .expect("a legal configuration renders");
+    assert!(launch
+        .environment()
+        .vars()
+        .iter()
+        .any(|(n, v)| n == "ARMADA_DRONE" && v == "1"));
+}
+
 pub(super) fn value_after(args: &[String], flag: &str) -> Option<String> {
     args.iter()
         .position(|arg| arg == flag)
@@ -89,9 +102,9 @@ fn every_rendering_carries_the_strict_flag_and_the_file_together() {
              that one: {args:?}"
         );
         assert_eq!(
-            value_after(&args, "--setting-sources").as_deref(),
-            Some("project,local"),
-            "the operator's user settings carry their plugins and mods: {args:?}"
+            value_after(&args, "--setting-sources"),
+            None,
+            "a Drone reads the operator's user settings: {args:?}"
         );
     }
 }
@@ -280,7 +293,8 @@ fn nothing_readable_is_on_the_argument_list() {
 fn the_launch_takes_its_directory_and_environment_from_the_config() {
     // Not from the harness. An implementation has no parameter through which it
     // could put a Drone somewhere else or hand it something else — the one
-    // variable it adds is the permission wait, and that value is not its own.
+    // variables it adds are the unattended mark and the permission wait, and
+    // neither value is its own.
     let launch = HeadlessAgent::at("/usr/local/bin/agent")
         .render(&config(Toolbelt::evidence_only()))
         .expect("a legal configuration renders");
@@ -290,7 +304,7 @@ fn the_launch_takes_its_directory_and_environment_from_the_config() {
     let given = environment();
     let (from_the_config, added) = launch.environment().vars().split_at(given.vars().len());
     assert_eq!(from_the_config, given.vars());
-    assert_eq!(added.len(), 1, "one variable past the config's: {added:?}");
+    assert_eq!(added.len(), 2, "two variables past the config's: {added:?}");
 }
 
 /// Over HTTP the CLI abandons a tool call after about a minute unless told
