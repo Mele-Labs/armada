@@ -30,13 +30,34 @@ impl Holder {
         Holder::Job(id.to_string())
     }
 
-    /// The process that ran the shell this one was run from: an agent's
-    /// session, or the terminal a person typed in. The shell between the two
-    /// ends with the command, so it cannot be the holder.
+    /// The first process above this one that is not a shell: an agent's
+    /// session, or the terminal a person typed in. **Every shell between the
+    /// two ends with its command, not only the first**: a pipeline or `&&`
+    /// inside `$( )` runs the command under a subshell of the tool's own
+    /// shell, and holding for that shell read as gone once the call ended.
     pub fn the_caller() -> Option<Holder> {
-        let shell = std::os::unix::process::parent_id();
-        let caller = ps(shell, "ppid=")?.parse().ok()?;
-        Holder::of(caller)
+        Holder::above(std::os::unix::process::parent_id(), |pid| {
+            let parent = ps(pid, "ppid=")?.parse().ok()?;
+            Some((parent, ps(pid, "comm=")?))
+        })
+    }
+
+    /// The first process at or above `start` that is not a shell, where
+    /// `table` says each process's parent and command. `None` where the walk
+    /// reaches the system's own first process or a process it cannot read.
+    pub(crate) fn above(
+        start: u32,
+        table: impl Fn(u32) -> Option<(u32, String)>,
+    ) -> Option<Holder> {
+        let mut at = start;
+        while at > 1 {
+            let (parent, command) = table(at)?;
+            if !is_shell(&command) {
+                return Holder::of(at);
+            }
+            at = parent;
+        }
+        None
     }
 
     /// The process's pid; `None` for a Job.
@@ -86,6 +107,16 @@ impl Holder {
             started: started.to_string(),
         })
     }
+}
+
+/// Whether `command` (as `ps -o comm=` prints it, possibly a login shell's
+/// `-zsh`) is a shell, which ends with the command it ran.
+fn is_shell(command: &str) -> bool {
+    let name = command.rsplit('/').next().unwrap_or(command);
+    matches!(
+        name.trim_start_matches('-'),
+        "sh" | "bash" | "zsh" | "dash" | "ksh" | "fish"
+    )
 }
 
 /// One `ps` column for one pid; `None` where no such process is running.

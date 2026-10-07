@@ -214,23 +214,6 @@ jobs:
             export PATH="$PWD/target/debug:$PATH"
             armada check acceptance
 
-  format:
-    name: format
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'format')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/rust-setup
-        with:
-          key: format
-          cache: "false"
-      - uses: ./.github/actions/run-check
-        with:
-          name: format
-          cmd: cargo fmt --all --check
-
   typecheck:
     name: typecheck
     needs: plan
@@ -492,7 +475,6 @@ jobs:
       - build
       - test
       - acceptance
-      - format
       - typecheck
       - workspace_check
       - hooks_test

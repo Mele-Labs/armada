@@ -239,20 +239,20 @@ pub(crate) struct Working {
     /// Armada shipped that, and a step that wrote no code advanced on the scope
     /// note the step before it had committed.
     ///
-    /// `None` where Fleet never saw the step start, which the gate reads as
-    /// nothing known to have moved.
+    /// `None` where no baseline was ever kept for the step, which the gate
+    /// reads as nothing known to have moved.
     ///
     /// **A redirect does not clear it.** `resumed` restarts the chain and the
     /// step's clock; the step itself is carrying on, and re-reading here would
     /// discard the work it had already done as though some other step had done
     /// it.
     ///
-    /// It is not persisted. A Fleet that restarts mid-step reads a fresh
-    /// baseline when it puts a Drone back on the worktree, so the step is then
-    /// measured from where it was picked up rather than from where it began.
-    /// That fails closed — work already done stops counting toward the step
-    /// that did it — which is the direction an unknown baseline has to fail
-    /// in.
+    /// **It is the step's, not the slot's.** It is written to the store when the
+    /// step first begins and loaded by every later entry into it: a requeue, a
+    /// retry, a Fleet that restarted. A slot built for the same step again
+    /// holds the same baseline, so the work the step did before it was put back
+    /// keeps counting toward it. The one exception is a rebase on re-entry,
+    /// which reads the baseline again: `crate::dispatch::Fleet::marked`.
     entered_with: Option<Footprint>,
     /// When Fleet started running this step's Checks for the Drone, where it
     /// is doing so now. **`Some` is the whole of what "the clocks are
@@ -281,10 +281,10 @@ pub(crate) struct Working {
     /// step, or where a fresh asked run has not yet landed to replace one that
     /// no longer applies.
     ///
-    /// **In memory only, like `entered_with`, and for the same reason.** A
-    /// `Footprint` is comparable only within the process that read it, so a
-    /// column here would outlive the one thing that could ever tell it apart
-    /// from a stale reading — `#1014`.
+    /// **In memory only.** What an asked run found is true of the worktree at
+    /// the instant it ran, and a restart is the one thing that makes a kept
+    /// result impossible to tell from a stale one — `#1014`. Unlike
+    /// `entered_with`, it is not a fact about the step that outlives the Drone.
     asked_run_kept: Option<crate::reuse::KeptAskedRun>,
     /// What the step's latest asked run shows a person, held so its results stay
     /// on Job detail once it is over. Dropped, the view comes down. #1062.

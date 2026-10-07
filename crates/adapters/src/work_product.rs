@@ -21,15 +21,13 @@
 //! changed" because something could not be opened — that would turn a broken
 //! machine into a Drone that did no work.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{
     Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured, Patch,
     WorkProduct, Worktree,
 };
-use git2::{Delta, Diff, DiffOptions, Oid, Repository};
+use git2::{Delta, Diff, DiffOptions, ObjectType, Oid, Repository};
 
 use crate::error::ReadWorkProductError;
 use crate::worktree::GitVcs;
@@ -139,15 +137,14 @@ fn diff_of<'r>(
 /// start and every gate, and holding the contents of the work would put the
 /// whole diff in memory twice for a question whose answer is one bit.
 ///
-/// **Not `git`'s object id.** A blob id exists for what git has stored, and the
-/// interesting case here is the opposite one — a Drone's edit sitting in the
-/// working tree, unstaged, which is precisely what a step produces before it
-/// commits anything.
+/// **The blob id of the bytes, computed rather than looked up.** Nothing is
+/// written to the object database, so this works for what is only in the
+/// working tree — a Drone's edit, unstaged, which is precisely what a step
+/// produces before it commits anything.
 ///
-/// The hasher is `std`'s, so the value is stable within a process and promises
-/// nothing across builds. That is the whole of what
-/// [`Footprint::differs_from`] needs, and the type's own comment says a
-/// footprint is comparable only against another reading in the same process.
+/// It is the blob id and not `std`'s hasher because a step's baseline is kept in
+/// the store and compared after Fleet restarts, and `DefaultHasher` promises
+/// nothing across builds. A blob id is the same in every process.
 ///
 /// A path the diff named and the filesystem no longer has is a **deletion**,
 /// which is a change and reads as one rather than as a failure. Anything else
@@ -155,11 +152,12 @@ fn diff_of<'r>(
 /// [`ReadWorkProductError::ContentUnreadable`].
 fn held(root: &Path, named: &str, worktree: &str) -> Result<String, ReadWorkProductError> {
     match std::fs::read(root.join(named)) {
-        Ok(bytes) => {
-            let mut hasher = DefaultHasher::new();
-            bytes.hash(&mut hasher);
-            Ok(format!("{:016x}", hasher.finish()))
-        }
+        Ok(bytes) => Oid::hash_object(ObjectType::Blob, &bytes)
+            .map(|id| id.to_string())
+            .map_err(|cause| ReadWorkProductError::WorktreeUnreadable {
+                worktree: worktree.to_string(),
+                cause,
+            }),
         Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => Ok(String::from("gone")),
         Err(cause) => Err(ReadWorkProductError::ContentUnreadable {
             worktree: worktree.to_string(),

@@ -213,6 +213,20 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
+**Bridge runs that tree's own binary.** Its job launches
+`<tree>/apps/desktop/node_modules/.bin/electron-vite preview` from
+`<tree>/apps/desktop`, not `pnpm --filter`, and is booted out and back in
+because `launchctl kickstart -k` keeps the definition launchd already holds and
+ignores the new plist. The script reads the loaded working directory back,
+refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
+prints it too.
+
+**It checks the protocol it built.** `cargo` can call `ipc`'s build script fresh
+when `protocol-version.toml` changed (an older mtime, or a `target/` carried from
+another tree), and Fleet then reports the previous minor. The script touches the
+file when the last `ipc` build differs from it, and fails after Fleet is up if
+the version Fleet reports is not the file's.
+
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
 from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
@@ -597,11 +611,9 @@ worked**, and a name in neither is refused by listing what is declared.
 **A Check's `requires` runs here too, before the Check does, for any Check
 that declares one.** A prerequisite that fails is reported as itself: the line
 names the Command and the line it ran, and says the Check never started.
-`format` declares none — it once did, and that meant `armada check format`
-rewrote your working tree and then read what it had just written, so it could
-never fail. `armada.yml` says why it does not any more. A failing `format`
-says `armada run fmt`, which is a step you take, not one the Check takes for
-you.
+A prerequisite is a Command a Check needs run first, and a Command that
+writes is a step to take on purpose: `armada run fmt` formats the tree, and no
+Check reads the result.
 
 **Prefer these over retyping the command they wrap.** The Check a person runs is
 the Check a Drone is measured by.

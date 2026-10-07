@@ -361,10 +361,9 @@ and `xtask`. `docs/` is prose and isn't gated by it.
 It's not per-crate and not a `#![deny]` you'll find repeated anywhere — it's
 already on for everything in this workspace.
 
-**`cargo fmt --all --check` is a Check** and `clippy` is not. PR #199 merged
-nine unformatted files past both gates and both Judges because nothing here ran
-`fmt --check`; `armada.yml` declares it as `format`, named around the `fmt`
-Command beside it since a name in both registries is refused.
+**Neither `cargo fmt --all --check` nor `clippy` is a Check.** The owner
+removed the `format` Check on 7 Oct 2026 and reads none of this code; `fmt` stays
+a Command in `armada.yml`, so `armada run fmt` formats on purpose.
 
 Clippy cannot be a Check yet. `cargo clippy --workspace --all-targets` reports
 **19 warnings on `main` across 8 lints**, so the two obvious commands are a

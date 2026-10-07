@@ -1,10 +1,10 @@
 //! What a Drone's asked run found, kept so the gate can trust it instead of
 //! asking the same question of the same worktree twice. `#1014`.
 //!
-//! **In the slot, not the store.** A `Footprint` is comparable only within
-//! the process that read it, so a row surviving a restart would answer
-//! nothing a fresh reading could be checked against — `KeptAskedRun` dies with
-//! the `Working` that holds it, which makes that true by construction.
+//! **In the slot, not the store.** An asked run is true of the worktree at the
+//! instant it ran, so a row surviving a restart would be a result nothing
+//! could tell from a stale one — `KeptAskedRun` dies with the `Working` that
+//! holds it, which makes that true by construction.
 //!
 //! **A failed, skipped or narrowed Check is dropped at [`KeptAskedRun::of`],
 //! before [`trusted`] is ever asked.** A decision made once, folding the asked
