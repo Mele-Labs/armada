@@ -29,6 +29,9 @@ use crate::harness::HeadlessAgent;
 /// mod in a terminal session reports under, so the two are one harness.
 pub const HOSTED_HARNESS: &str = "claude_code";
 
+/// The same manifest as it lies in the installed copy of the mod, under its folder.
+pub const MOD_INSTALLED_MANIFEST: &str = "armada/.claude-plugin/plugin.json";
+
 /// Where a repository keeps the manifest of the `armada` mod its sessions load, which says the
 /// version the mod should be at.
 pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";

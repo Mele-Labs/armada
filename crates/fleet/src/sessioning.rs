@@ -469,7 +469,7 @@ fn mod_version_in(home: &str, root: &str) -> Option<String> {
     struct Manifest {
         version: Option<String>,
     }
-    let installed = crate::runtime::mod_dir(home).join("armada/.claude-plugin/plugin.json");
+    let installed = crate::runtime::mod_dir(home).join(adapters::MOD_INSTALLED_MANIFEST);
     let bytes = std::fs::read(installed)
         .or_else(|_| std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)))
         .ok()?;

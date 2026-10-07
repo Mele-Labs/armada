@@ -306,7 +306,7 @@ async fn the_installed_mod_is_compared_before_the_repositorys() {
     let repo = std::path::Path::new(&rig.root).join(adapters::MOD_MANIFEST);
     std::fs::create_dir_all(repo.parent().unwrap()).unwrap();
     std::fs::write(&repo, r#"{"name":"armada","version":"0.5.0"}"#).unwrap();
-    let installed = crate::runtime::mod_dir(rig._home.path().to_str().unwrap()).join("armada/.claude-plugin/plugin.json");
+    let installed = crate::runtime::mod_dir(rig._home.path().to_str().unwrap()).join(adapters::MOD_INSTALLED_MANIFEST);
     std::fs::create_dir_all(installed.parent().unwrap()).unwrap();
     std::fs::write(&installed, r#"{"name":"armada","version":"0.10.0"}"#).unwrap();
     rig.reports(SessionFact::Started {
