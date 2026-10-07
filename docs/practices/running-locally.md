@@ -134,8 +134,9 @@ poked or handed a verdict; its recorded spend is an undercount; its Job shows as
 `unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
 dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
 is open, so a surviving Check group is not swept at boot); a Drone that cannot
-be adopted is ended. A Job whose Drone is gone resumes by itself: Fleet restarts its
-step at boot, once, unless its cap is spent (`docs/concepts/drone.md`). A roster that does not answer still refuses. Without
+be adopted is ended. A Job whose Drone is gone, or was ended, resumes by itself:
+Fleet restarts its step at boot, once, unless one of the stops in
+`docs/concepts/drone.md` holds. A roster that does not answer still refuses. Without
 `--adopt` the refusal is as above. It combines with `--from`, and
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
@@ -213,6 +214,20 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
+**Bridge runs that tree's own binary.** Its job launches
+`<tree>/apps/desktop/node_modules/.bin/electron-vite preview` from
+`<tree>/apps/desktop`, not `pnpm --filter`, and is booted out and back in
+because `launchctl kickstart -k` keeps the definition launchd already holds and
+ignores the new plist. The script reads the loaded working directory back,
+refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
+prints it too.
+
+**It checks the protocol it built.** `cargo` can call `ipc`'s build script fresh
+when `protocol-version.toml` changed (an older mtime, or a `target/` carried from
+another tree), and Fleet then reports the previous minor. The script touches the
+file when the last `ipc` build differs from it, and fails after Fleet is up if
+the version Fleet reports is not the file's.
+
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
 from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
@@ -264,7 +279,15 @@ its own, so you can use work while agents are still landing it.** In flight is a
 local branch with commits ahead of `main` that a slot holds
 (`armada worktree --status`) or the merge line has queued
 (`armada land --status`). `main`, `preview` and remote-only branches are
-ignored. It needs git and an `armada` on `PATH`, builds nothing, and
+ignored.
+
+**A branch held only by a stranded Job is left out, and named.** Stranded is a
+slot read as `kept` (the Job ended and could not give the slot back), or held by
+a Job that Fleet reports as killed, failed, rejected or superseded, or as
+running with no Drone. It comes back when the Job is restarted. A slot held by a
+live session, a Job waiting on a person, or a branch on the merge line keeps its
+branch in. Where Fleet does not answer, a Job's slot counts as live. An open
+pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
 `ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
@@ -279,7 +302,7 @@ abandoned. Use it, and land from the branch.
 
 | Each run | |
 |---|---|
-| Resets `preview` | To local `main`, or `origin/main` where there is no local one, after a fetch |
+| Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved |
@@ -299,9 +322,15 @@ to it. Everything in *Restarting onto another tree* applies, including the
 migration guard and the snapshot. To go back, run `scripts/restart` as before.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
-with git alone. It is not part of the gate.
+with git alone, and a stub Fleet. CI runs it as `preview_test` when
+`scripts/preview` or `scripts/restart` changes.
 
 ## A Fleet of your own
+
+**This is not how the app is started.** Day to day that is
+`scripts/preview --restart`, which runs the latest `main` plus every in-flight
+branch. `scripts/restart` starts from `main` alone. A scratch Fleet is for wire
+data and recording Jobs.
 
 **`scripts/dev-fleet <scratch-dir>` starts a Fleet that cannot touch yours.** It
 has its own home, its own store, a local clone of this repository with
@@ -588,11 +617,9 @@ worked**, and a name in neither is refused by listing what is declared.
 **A Check's `requires` runs here too, before the Check does, for any Check
 that declares one.** A prerequisite that fails is reported as itself: the line
 names the Command and the line it ran, and says the Check never started.
-`format` declares none — it once did, and that meant `armada check format`
-rewrote your working tree and then read what it had just written, so it could
-never fail. `armada.yml` says why it does not any more. A failing `format`
-says `armada run fmt`, which is a step you take, not one the Check takes for
-you.
+A prerequisite is a Command a Check needs run first, and a Command that
+writes is a step to take on purpose: `armada run fmt` formats the tree, and no
+Check reads the result.
 
 **Prefer these over retyping the command they wrap.** The Check a person runs is
 the Check a Drone is measured by.
@@ -815,6 +842,14 @@ the same branch and pushes again; the pull request updates and it watches the ne
 run. It stops and tells him only where the failure is not its to fix: the same
 failure on `main`, a decision that is his, or one that survives two fixes.
 `desktop_test` reports beside `ci` without gating it.
+
+**`ci` is not listed until the Checks it waits on finish**, so a `--watch` that
+ends, or a `grep '^ci'` over `gh pr checks`, can come back with nothing while
+the run is still going. Confirmed 7 Oct 2026: the same watch returned empty
+four times in one session, each costing a re-poll. Poll until the `ci` row
+exists and reads `pass` or `fail`:
+`until gh pr checks <n> | grep -E '^ci\s' | grep -qE 'pass|fail'; do sleep 20; done`,
+in the background.
 
 **A moved `main` is brought in by merging it**, never by rebasing.
 

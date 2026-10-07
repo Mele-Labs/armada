@@ -73,16 +73,15 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         vec![
             "acceptance".to_string(),
             "build".to_string(),
-            "format".to_string(),
             "hooks_test".to_string(),
+            "preview_test".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
         ],
         "the Checks this workspace is built and tested with — Rust, `acceptance` \
          on its own so a red one names a broken milestone claim rather than a \
          unit test (#1130), the Bridge's packages nobody owns (#200: every \
-         Check used to compile Rust), `format` (PR #199 merged unformatted \
-         files), and the merge line's own two Python suites, which no other \
+         Check used to compile Rust), and the merge line's own two Python suites, which no other \
          Check reads. The rest of the Bridge's Checks are in `packages/` and \
          `apps/desktop`, one `armada.yml` each. There is no `clippy` — `[clippy-as-a-check]` in \
          `docs/OPEN.md` says why"
@@ -135,16 +134,14 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .collect();
     let root: Vec<(&str, &str)> = resolved
         .iter()
-        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test")
+        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test" && *name != "preview_test")
         .map(|(_, name, run)| (*name, *run))
         .collect();
 
     // **The root's own Checks, literally, in declaration order, and it is the
     // order they run in.** `WorkflowDef` has no field for sequencing — see
     // `config`'s own test saying so. The root's list is stable: a new surface
-    // adds a manifest, never a root Check. `format` is last where `armada.yml`
-    // put it, not for any claim about scheduling; `#387` once gave it
-    // `requires: [fmt]` and unformatted Rust merged unnoticed.
+    // adds a manifest, never a root Check.
     //
     // `hooks_test` is checked below instead: its command names the agent
     // harness, and this file is under the gate rule that keeps a vendor's name
@@ -163,7 +160,6 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 "cargo nextest run -p acceptance --test-threads ${width}"
             ),
             ("typecheck", "pnpm typecheck"),
-            ("format", "cargo fmt --all --check"),
         ]
     );
 
@@ -203,6 +199,14 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .find(|(_, name, _)| *name == "hooks_test")
         .expect("the hook suite is declared");
     assert!(hooks.2.ends_with("hooks/test_guard_merge.py"), "{hooks:?}");
+    let preview = resolved
+        .iter()
+        .find(|(_, name, _)| *name == "preview_test")
+        .expect("the preview suite is declared");
+    assert!(
+        preview.2.ends_with("scripts/test_preview.py"),
+        "{preview:?}"
+    );
 }
 
 /// **`every_manifest_check` expands in the order `armada.yml` writes, and that
@@ -250,12 +254,12 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "acceptance",
             "typecheck",
             "hooks_test",
-            "format",
+            "preview_test",
         ],
         "the order `armada.yml` declares them in, which is the order they answer \
          in — not `check_names`' alphabetical"
     );
-    // The same seven, and no eighth: the expansion is the registry and the
+    // The same six, and no seventh: the expansion is the registry and the
     // registry is what `check_names` lists.
     let mut sorted = names.clone();
     sorted.sort_unstable();

@@ -15,7 +15,7 @@ import { Button, type ButtonAnswer, Dialog, GAMING_PATTERN, GamingFlags, Textare
 
 import { flagsOf } from "./gaming";
 import { openKept, type Opens } from "./phases";
-import { onwards, OVERRULING, type Overrule } from "./recovery";
+import { onwards, overrulingOf, type Overrule } from "./recovery";
 
 /**
  * What the rows under it are, said once over them rather than once on each.
@@ -98,7 +98,7 @@ export function OverruleControl({
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const words = OVERRULING[overrule.trigger];
+  const words = overrulingOf(overrule);
   // Only a flag has these, and a step can trip more than one pattern. Read
   // rather than counted: what was cited is the whole value of a flag, exactly
   // as a citation is the whole value of a refusal.
@@ -181,7 +181,8 @@ export function OverruleControl({
         <p>
           {`${onwards(overrule)} Your reason is written to this job's log and stays there — the ` +
             "log is append-only, and nothing takes an override back. It is not sent to the drone, " +
-            "which did nothing wrong and is told only that the step was accepted."}
+            (overrule.checks === undefined ? "which did nothing wrong and is " : "which is ") +
+            "told only that the step was accepted."}
         </p>
       </Dialog>
     </>

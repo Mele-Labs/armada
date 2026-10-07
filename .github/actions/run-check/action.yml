@@ -1,6 +1,7 @@
 # Runs one Check's command, prints the machine it ran on, writes the Check's own
 # wall time to the job summary, and fails the job with the command's exit code.
-# `$WIDTH` is the runner's core count, which armada.yml calls `${width}`.
+# `$WIDTH` is the runner's core count, which armada.yml calls `${width}`;
+# `ARMADA_SOLE_TENANT` makes `armada check` resolve `${width}` to it too.
 name: run-check
 inputs:
   name:
@@ -17,7 +18,7 @@ runs:
         CMD: ${{ inputs.cmd }}
       run: |
         WIDTH=$(getconf _NPROCESSORS_ONLN)
-        export WIDTH ARMADA_CHECK_WIDTH=$WIDTH
+        export WIDTH ARMADA_CHECK_WIDTH=$WIDTH ARMADA_SOLE_TENANT=1
         if [ "$RUNNER_OS" = macOS ]; then
           echo "MACHINE $NAME cores=$WIDTH memsize=$(sysctl -n hw.memsize)"
         else

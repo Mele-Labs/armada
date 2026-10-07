@@ -37,12 +37,15 @@ with `git reset --keep`). After any restart run `git -C <slot> branch
 `armada worktree lease --existing <branch>`. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
-**A lease taken in one tool call can read free when the call ends**, because the
-holder is the shell that ran it. Confirmed 6 Oct 2026, twice in one session:
-`--status` said `holder is gone after 0m` on slots just leased, and another
-session was given each, with an agent's uncommitted work landing on its branch.
-Take the lease and do the work that needs the slot in one background task, and
-commit before it ends; a branch with its commits is safe whoever has the slot.
+**A lease taken in one tool call could read free when the call ended**, because
+the holder was a shell that ran it: `$(armada worktree lease x | tail -1)` runs
+the command under a subshell of the tool's own shell. Confirmed 6 Oct 2026,
+twice in one session: `--status` said `holder is gone after 0m` on slots just
+leased, and another session was given each, with an agent's uncommitted work
+landing on its branch. The holder is now the first process above the command
+that is not a shell, so the agent's session holds it. A lease taken by an
+older binary still has the old holder: commit before a call ends, because a
+branch with its commits is safe whoever has the slot.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A
@@ -63,6 +66,13 @@ optional and an unmerged branch releases. It detaches the slot and leaves its
 whose commits are not landed. A slot whose session ended without releasing is
 taken back by the next lease when it is clean and its commits are on its branch
 — otherwise it reads `stranded` in `--status` and stays held.
+
+**In a slot, stage named paths, never `git commit -a` or `git add -A`.** A slot
+can hold another session's uncommitted tracked edits, and `-a` commits them as
+yours. Confirmed 7 Oct 2026: a `commit -a` swept three half-built `crates/api`
+files into a pull request whose untracked fourth file stayed behind, so `api`
+did not compile, `ci` went red, and a fix commit and a message to the other
+session followed. Read `git status` first and `git add` each path you changed.
 
 **To free a slot with work half done**, commit it on the branch and release. The
 pool can also do the commit: a parked slot's work is committed with a `WIP:`

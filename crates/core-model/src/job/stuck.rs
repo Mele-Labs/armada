@@ -321,14 +321,17 @@ impl Stuck {
                 // work that is meant to be sitting in it, and a gate re-run
                 // reads the same artifacts the first reading could not.
                 //
-                // **`checks_passed` is also what keeps a Check unoverrulable
-                // beneath `awaiting_repair`.** Both statuses can hold a step
-                // stopped on `gate_failure` — a Judge wrote it there and a
-                // mechanical Check wrote it here — and the trigger cannot tell
-                // them apart. The store can: nothing that failed a Check
-                // reaches this arm, so #208 widened the status test above and
-                // needed no rule of its own to keep the override out.
-                if trigger.overrulable() && standing.checks_passed && standing.worktree_on_disk {
+                // **`checks_passed` does not gate the override.** Both statuses
+                // can hold a step stopped on `gate_failure` — a Judge wrote it
+                // beneath `escalated` and a mechanical Check wrote it beneath
+                // `awaiting_repair` — and a person may move either one on. On
+                // 2026-10-06 the owner reversed #208's rule that a failed Check
+                // cannot be overruled, `build` and `test` included: the work
+                // may be done while a Check is wrong about it. The record still
+                // says `failed(gate_failure)` beside `advanced`. Not while the
+                // Checks run again: that reading owns the worktree.
+                if trigger.overrulable() && standing.worktree_on_disk && !standing.checks_rerunning
+                {
                     recourse.push(Recourse::OverrideVerdict);
                 }
                 if trigger.trigger() == EscalationTrigger::GateUndecided

@@ -26,7 +26,7 @@ Every number below was measured on macOS 27.0 / 26A5406e, launchd 7.0.0.
 - **Fleet crashes — signal or non-zero exit.** launchd restarts it automatically. Doctor's row flips fail → pass with no user action. **There is no cap and no backoff curve** — a flat `ThrottleInterval`, forever.
 - **Fleet is wedged — alive, not answering.** `launchctl kickstart -k gui/$UID/com.armada.fleet`. **26 ms** to a new PID. This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
-- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and its step restarted — both in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
+- **On any restart.** Reconciles SQLite job state against live OS processes, for every repository it serves. A Job marked running with no matching process is flagged `interrupted`, and Fleet then restarts its step, signed as Fleet's own act. A Drone that is still alive is adopted instead, and a Drone that is there and cannot be adopted is ended and then treated as a gone one, so its step is restarted unless a stop holds — all in [Drone](drone.md), with the `setsid` constraint below. Also sweeps worktrees for terminal Jobs past retention.
 - **While it reconciles.** The listener serves first and reconciliation runs in a task of its own, since it can re-run a Job's whole gate from a pending-evidence row and took 6m47s doing so. Health and every read answer at once. A command waits until reconciliation finishes, so none lands between two of its Job moves, and the turn loop starts after it. A stop during it ends the task where it stands, as a crash would, and the next boot repairs what was left.
 - **Uninstall.** Must `launchctl bootout`, not merely delete the plist. A loaded job survives deletion of its own plist — verified.
 
@@ -295,6 +295,10 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **The step's baseline is read after the rebase, never before.** A rebase writes content: a clean one replays the branch onto a base that itself moved, and a conflicted one leaves markers in the files it could not merge. A baseline taken before it credits the step with git's output, and a Drone that resolved nothing then passes `diff_nonempty` on what it was handed.
 
+**The baseline is taken once, when the step first begins, and kept in the store.** A requeue, a retry and a Fleet that restarted all put a Drone back on a worktree that already holds the step's uncommitted work, so a baseline read again would count that work as inherited and the step could never pass. Every later entry loads the stored one instead, and a gate that rules at boot on a submission the last Fleet never ruled on is measured against it too. The row goes when the step advances, so a step a later one sends work back to starts afresh. A step with no stored baseline fails `diff_nonempty` rather than passing it.
+
+**A rebase on a re-entry is carried across.** Fleet reads the worktree just before the catch-up and again after it, and what differs between the two is the rebase's: those paths take their new entry in the stored baseline, so markers and merged files are inherited, and the step's own work in every path the rebase did not touch keeps counting.
+
 ### Network loss mid-Job
 
 **The Drone and Job auto-retry on reconnect** and resume where they left off. A Fleet restart flags `interrupted` and then restarts the step — see the daemon lifecycle above.
@@ -411,8 +415,9 @@ worktrees a repository leases* — until a person changes the pool on this machi
 **An agent's lease is held for a process, recorded beside the slot as its pid
 and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
-release at a time. The holder is the process that ran the shell the command was
-run from — an agent's session, or the terminal a person typed in.
+release at a time. The holder is the first process above the command that is not a shell
+— an agent's session, or the terminal a person typed in — so a subshell or a
+pipeline between the two does not become the holder.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease

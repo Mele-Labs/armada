@@ -18,14 +18,21 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    // Read at run time, never `env!`: that bakes the path of whichever tree
+    // compiled this script into the binary, and a target directory carried to
+    // another worktree then reads the old tree's file.
+    let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it"));
+    let root = manifest
         .parent()
         .and_then(|p| p.parent())
         .expect("crates/ipc sits two levels below the repo root")
         .to_path_buf();
     let source = root.join("protocol-version.toml");
 
-    println!("cargo:rerun-if-changed={}", source.display());
+    // Relative to the package, so the fingerprint a target directory keeps names
+    // the file of the tree it is used in. An absolute path pinned it to the tree
+    // that built it: a preview with minor 45 kept reporting 41.
+    println!("cargo:rerun-if-changed=../../protocol-version.toml");
 
     let text = fs::read_to_string(&source).unwrap_or_else(|e| {
         panic!(
@@ -44,8 +51,8 @@ fn main() {
     )
     .expect("OUT_DIR is writable");
 
-    let inventory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("operations.toml");
-    println!("cargo:rerun-if-changed={}", inventory.display());
+    let inventory = manifest.join("operations.toml");
+    println!("cargo:rerun-if-changed=operations.toml");
     let named = fs::read_to_string(&inventory).unwrap_or_else(|e| {
         panic!(
             "{} is the authority on which operations an agent may reach: {e}",

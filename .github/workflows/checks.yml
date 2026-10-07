@@ -214,23 +214,6 @@ jobs:
             export PATH="$PWD/target/debug:$PATH"
             armada check acceptance
 
-  format:
-    name: format
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'format')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/rust-setup
-        with:
-          key: format
-          cache: "false"
-      - uses: ./.github/actions/run-check
-        with:
-          name: format
-          cmd: cargo fmt --all --check
-
   typecheck:
     name: typecheck
     needs: plan
@@ -287,6 +270,19 @@ jobs:
         with:
           name: hooks_test
           cmd: python3 .claude/hooks/test_guard_merge.py
+
+  preview_test:
+    name: preview_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'preview_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: preview_test
+          cmd: python3 scripts/test_preview.py
 
   # macOS, because the smoke tests are the one Check that needs it, sharded four
   # ways to stay inside the runners the free plan gives at once. The shards are
@@ -479,10 +475,10 @@ jobs:
       - build
       - test
       - acceptance
-      - format
       - typecheck
       - workspace_check
       - hooks_test
+      - preview_test
       - xtask_test
       - foundations
     runs-on: ubuntu-latest

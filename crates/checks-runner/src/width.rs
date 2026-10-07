@@ -13,6 +13,11 @@
 /// covers one channel and a `package.json` script reads the other.
 pub const WIDTH_ENV: &str = "ARMADA_CHECK_WIDTH";
 
+/// Set to `1` on a machine that runs one thing, a CI runner, and `${width}` is
+/// every core. Not `WIDTH_ENV`: that one is what a Check is handed, and a Check
+/// inside a Check would read its parent's number back as a claim on the machine.
+pub const SOLE_TENANT_ENV: &str = "ARMADA_SOLE_TENANT";
+
 /// How many concurrent workers one Check may start.
 ///
 /// **No `Default`**, for `fleet::places::ChecksAtOnce`'s reason: the shipped
@@ -57,7 +62,24 @@ impl CheckWidth {
     /// the same number without either asking the other.
     pub fn read(drones_at_once: usize) -> CheckWidth {
         let cores = std::thread::available_parallelism().map_or(1, |cores| cores.get());
-        CheckWidth::for_machine(cores, drones_at_once)
+        CheckWidth::for_tenancy(
+            cores,
+            drones_at_once,
+            std::env::var(SOLE_TENANT_ENV).ok().as_deref(),
+        )
+    }
+
+    /// `for_machine`, unless `sole_tenant` is `1`: nobody shares a CI runner,
+    /// so the Check gets every core.
+    pub fn for_tenancy(
+        cores: usize,
+        drones_at_once: usize,
+        sole_tenant: Option<&str>,
+    ) -> CheckWidth {
+        match sole_tenant {
+            Some("1") => CheckWidth::of(cores as u32),
+            _ => CheckWidth::for_machine(cores, drones_at_once),
+        }
     }
 
     /// What a Check declaring `width` gets: its own number, never above the
@@ -101,6 +123,13 @@ mod tests {
         // 18 logical cores, two Drones: half is nine, and two Jobs at a test
         // step get four each rather than eighteen each.
         assert_eq!(CheckWidth::for_machine(18, 2).get(), 4);
+    }
+
+    #[test]
+    fn a_sole_tenant_machine_hands_a_check_every_core() {
+        assert_eq!(CheckWidth::for_tenancy(4, 1, Some("1")).get(), 4);
+        assert_eq!(CheckWidth::for_tenancy(18, 2, None).get(), 4);
+        assert_eq!(CheckWidth::for_tenancy(18, 2, Some("0")).get(), 4);
     }
 
     #[test]

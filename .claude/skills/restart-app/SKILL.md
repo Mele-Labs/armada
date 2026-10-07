@@ -36,6 +36,11 @@ database. Run it with `--dry-run` first and put what that printed in front of
 the owner; it changes nothing. `docs/practices/running-locally.md`, *A preview
 of unlanded work*.
 
+**Read what the dry run says Bridge will run.** It prints the `out/` of the tree
+it builds, and a real run reads launchd's loaded working directory back and
+fails if that is another tree. At the end, compare the protocol printed with the
+tree's `protocol-version.toml`; the script fails if they differ.
+
 **Say what it will do before you call it.** Not "restarting Fleet" — whether
 a Drone is working right now (it refuses if one is, naming the Job, unless
 you pass `--adopt`, which restarts anyway and prints what that costs the

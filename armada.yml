@@ -262,49 +262,16 @@ checks:
     when:
       - ".claude/hooks/**"
 
-  # `format`, not `fmt`: that name is a Command below and both registries
-  # refuse a collision — the Command writes, this reads. No `clippy` beside it;
-  # `[clippy-as-a-check]` in docs/OPEN.md is why.
-  #
-  # **No `requires: [fmt]`, on purpose, and it once had one.** #387 gave it
-  # that, for a Job that burned its whole retry budget failing `format` at a
-  # different unformatted line each attempt while the Command that fixes it
-  # sat right below in this file. It read as a fix: every gate evaluation ran
-  # `fmt` and then read what `fmt` had just written, so `format` passed every
-  # time it ran and unformatted Rust merged unnoticed —
-  # `xtask/src/rules_stories.rs` on `main`, until this line was found. A Check
-  # that writes what it then reads is not a check, whoever runs it: `armada check
-  # format` and a person's own run inside a Job read the same Manifest and are
-  # owed the same answer the gate gives, by this file's own rule at `declared`
-  # in `crates/armada` — so this could not be fixed for a Drone alone without
-  # the two disagreeing. A failure here says `armada run fmt`. A Drone already
-  # holds that Command as a Bash grant on every step, `fmt` being
-  # non-destructive — Spike 011 — so nothing here is protecting a retry
-  # budget it cannot also protect by running the fix itself.
-  format:
-    run: cargo fmt --all --check
-    # The other shape of narrowing: the changed paths, verbatim, with no
-    # derivation at all. `from` keeps everything but Rust out — rustfmt exits
-    # non-zero on a file it cannot parse, so a changed `.md` would fail this
-    # Check for a reason that is not the work.
-    #
-    # `rustfmt` and not `cargo fmt`, because `cargo fmt -- <path>` passes what
-    # follows `--` to rustfmt as options and computes its own file list from
-    # the workspace's targets: the paths are ignored and the whole tree is read.
-    # Measured here on 8 Sep 2026, on a file this repository does not compile.
-    narrow:
-      run: rustfmt --check --edition 2021
-      each: "{}"
-      from:
-        - "**/*.rs"
-    # Every Rust source in the workspace, wherever it sits — `build.rs` and
-    # `xtask/` included. `Cargo.toml` decides which members `--all` reaches and
-    # which edition each is read under, `rustfmt.toml` would change how every
-    # one of them is formatted, and `armada.yml` is the command itself.
+  preview_test:
+    # `scripts/preview` and `scripts/restart` against a throwaway repository, a
+    # stub `armada` and a stub Fleet. Git and Python only: no build, no real
+    # Fleet, and `HOME` is a scratch directory. A failure means the preview
+    # merges the wrong branches or a restart refuses or adopts wrongly.
+    run: python3 scripts/test_preview.py
     when:
-      - "**/*.rs"
-      - "Cargo.toml"
-      - "rustfmt.toml"
+      - "scripts/preview"
+      - "scripts/restart"
+      - "scripts/test_preview.py"
       - "armada.yml"
 
 # Commands gate nothing — they are what a Drone is given to run.

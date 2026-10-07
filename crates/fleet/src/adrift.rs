@@ -469,19 +469,6 @@ pub enum Adrift {
     /// An override was asked for on a step one of whose mechanical Checks did
     /// not pass.
     ///
-    /// **`build` failing is not a matter of opinion**, and this is the guard
-    /// that says so out of the record rather than out of the tier ordering. A
-    /// refusal implies the mechanical tier held, so ordinarily this cannot
-    /// fire; a gate that could not decide *after* running the Checks records
-    /// what they did and stops the step, and that path can leave a stopped step
-    /// with a failing Check on it. The check runs are read again before
-    /// anything moves so that no arrangement of triggers turns this route into
-    /// an approve-anything.
-    CheckDidNotPass {
-        job: JobId,
-        step: StepId,
-        check: String,
-    },
     /// The gate was asked again on a step it had already ruled on.
     ///
     /// **[`NotTheJudges`](Adrift::NotTheJudges) from the other side**, though
