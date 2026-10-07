@@ -22,10 +22,12 @@ export type RowLinkProps = {
   tone?: "passed" | "failed";
   /** The accessible name, where the line's own text does not say it whole. */
   label?: string;
+  /** What the line's word rests on, said on hover. */
+  hint?: string;
   onOpen?: () => void;
 };
 
-export function RowLink({ mark, children, mono = false, says, tone, label, onOpen }: RowLinkProps) {
+export function RowLink({ mark, children, mono = false, says, tone, label, hint, onOpen }: RowLinkProps) {
   const line = (
     <>
       <span className="armada-row-link__mark" aria-hidden={label === undefined ? undefined : true}>
@@ -38,11 +40,11 @@ export function RowLink({ mark, children, mono = false, says, tone, label, onOpe
     </>
   );
   return onOpen === undefined ? (
-    <span className="armada-row-link" data-tone={tone}>
+    <span className="armada-row-link" data-tone={tone} title={hint}>
       {line}
     </span>
   ) : (
-    <button type="button" className="armada-row-link" data-tone={tone} aria-label={label} onClick={onOpen}>
+    <button type="button" className="armada-row-link" data-tone={tone} aria-label={label} title={hint} onClick={onOpen}>
       {line}
     </button>
   );
