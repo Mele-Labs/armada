@@ -299,6 +299,30 @@ async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
     assert!(!record().await.mod_out_of_date);
 }
 
+/// The installed copy of the mod is the one compared against, and the repository's file is the fallback.
+#[tokio::test]
+async fn the_installed_mod_is_compared_before_the_repositorys() {
+    let rig = rig();
+    let repo = std::path::Path::new(&rig.root).join(adapters::MOD_MANIFEST);
+    std::fs::create_dir_all(repo.parent().unwrap()).unwrap();
+    std::fs::write(&repo, r#"{"name":"armada","version":"0.5.0"}"#).unwrap();
+    let installed = crate::runtime::mod_dir(rig._home.path().to_str().unwrap()).join("armada/.claude-plugin/plugin.json");
+    std::fs::create_dir_all(installed.parent().unwrap()).unwrap();
+    std::fs::write(&installed, r#"{"name":"armada","version":"0.10.0"}"#).unwrap();
+    rig.reports(SessionFact::Started {
+        cwd: rig.root.clone(),
+        title: None,
+        origin: SessionOrigin::Terminal,
+        mod_version: Some("0.9.0".into()),
+    })
+    .await;
+    let record = Arc::clone(&rig.fleet).get_session(SessionId::carried(ID)).await.unwrap().session;
+    assert!(record.mod_out_of_date, "0.9 is older than the installed 0.10, though the repository says 0.5");
+    std::fs::remove_file(&installed).unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(SessionId::carried(ID)).await.unwrap().session;
+    assert!(!record.mod_out_of_date, "with no installed copy the repository's 0.5 is the one");
+}
+
 /// The mod reports a constant, since it cannot read the plugin's manifest while it runs: the two are one number.
 #[test]
 fn the_version_the_mod_reports_is_the_plugins_own() {

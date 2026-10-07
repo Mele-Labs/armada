@@ -154,7 +154,7 @@ where
         let Some((_, root)) = roots.iter().find(|(id, _)| id == manifest) else {
             return false;
         };
-        let Some(current) = mod_version_in(root) else {
+        let Some(current) = mod_version_in(&self.host().home, root) else {
             return false;
         };
         mod_is_older(session.mod_version.as_deref(), &current)
@@ -462,13 +462,17 @@ where
     }
 }
 
-/// The `version` the repository's `armada` plugin declares, where it carries one.
-fn mod_version_in(root: &str) -> Option<String> {
+/// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
+/// first, which is the one a session loads, and the repository's own where there is none.
+fn mod_version_in(home: &str, root: &str) -> Option<String> {
     #[derive(serde::Deserialize)]
     struct Manifest {
         version: Option<String>,
     }
-    let bytes = std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)).ok()?;
+    let installed = crate::runtime::mod_dir(home).join("armada/.claude-plugin/plugin.json");
+    let bytes = std::fs::read(installed)
+        .or_else(|_| std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)))
+        .ok()?;
     ipc::decode::<Manifest>("the armada plugin's manifest", &bytes)
         .ok()?
         .version
