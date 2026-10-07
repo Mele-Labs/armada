@@ -37,8 +37,14 @@ impl TempRepo {
     /// A repository initialised and never committed to.
     pub fn empty() -> TempRepo {
         let root = std::env::temp_dir().join(format!(
-            "armada-adapters-{}-{}",
+            "armada-adapters-{}-{}-{}",
             std::process::id(),
+            // A recycled pid with the counter at zero repeats a name, and a
+            // directory an earlier killed run left is then reused with its
+            // branches and scratch worktrees still in it.
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |since| since.as_nanos()),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir_all(&root).expect("a temporary directory");
