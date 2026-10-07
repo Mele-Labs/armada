@@ -41,7 +41,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the matrix)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `format`, `hooks_test`, `preview_test`). A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job builds `armada` and pipes the changed paths into `armada covers`.**
 It is the same answer the merge line and Fleet's gate ask
@@ -79,6 +79,7 @@ requires for the Checks below. `needs` and later `desktop_test` are to be added.
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
 | Every workspace key except the desktop tests and the excluded: `typecheck`, `bridge_build` of `apps/desktop`, `storybook` and `components_test` of `packages/components`, `screens_test` of `packages/screens`, a surface's `test` | `ubuntu-latest`, one matrix entry per key | `armada check <key>`, with the `armada` the plan built | node_modules, and Playwright where a browser opens |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
+| `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
 | `desktop_test` of `apps/desktop` | `macos-latest`, sharded | `vitest run --shard=N/4 --maxWorkers=2`, direct, since `armada check` takes no shard | node_modules, Playwright |
@@ -156,6 +157,7 @@ setup before the step: restoring caches, installing, building `armada`.
 | `screens_test` | 49 to 55 | |
 | `components_test` | 64 to 108 | |
 | `hooks_test` | 1 | |
+| `preview_test` | 10 | Measured locally, not on a runner |
 | `foundations`, whole job | 40 cold, 28 to 32 warm | Main's own run adds 8 when its reading is not cached. Setup and checkout are most of the rest |
 | `desktop_test` per shard | 68 to 275 | The slowest shard varied the most between runs |
 
@@ -170,7 +172,7 @@ failure, which was a Linux-only test failing on `main`.
 | `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 
-`hooks_test` runs when `.claude/hooks/**` changes, since that is its `when:`.
+`hooks_test` runs when `.claude/hooks/**` changes, since that is its `when:`. `preview_test` runs when `scripts/preview`, `scripts/restart`, its own test or `armada.yml` changes.
 
 ## Safety posture
 

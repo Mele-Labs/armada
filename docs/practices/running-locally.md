@@ -251,7 +251,15 @@ its own, so you can use work while agents are still landing it.** In flight is a
 local branch with commits ahead of `main` that a slot holds
 (`armada worktree --status`) or the merge line has queued
 (`armada land --status`). `main`, `preview` and remote-only branches are
-ignored. It needs git and an `armada` on `PATH`, builds nothing, and
+ignored.
+
+**A branch held only by a stranded Job is left out, and named.** Stranded is a
+slot read as `kept` (the Job ended and could not give the slot back), or held by
+a Job that Fleet reports as killed, failed, rejected or superseded, or as
+running with no Drone. It comes back when the Job is restarted. A slot held by a
+live session, a Job waiting on a person, or a branch on the merge line keeps its
+branch in. Where Fleet does not answer, a Job's slot counts as live. An open
+pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
 `ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
@@ -286,7 +294,8 @@ to it. Everything in *Restarting onto another tree* applies, including the
 migration refusal and the snapshot. To go back, run `scripts/restart` as before.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
-with git alone. It is not part of the gate.
+with git alone, and a stub Fleet. CI runs it as `preview_test` when
+`scripts/preview` or `scripts/restart` changes.
 
 ## A Fleet of your own
 
