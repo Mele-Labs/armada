@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; pullRequest?: string } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -21,7 +21,7 @@ function world(
   const asked: unknown[] = []
   const ran: { command: string; args?: string }[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
-  mock.env(on, { HOME: '/home/user' })
+  mock.env(on, { HOME: '/home/user', ...options.env })
   on('fs.read', (_$, e) => {
     attempts.reads += 1
     if (!running()) throw new Error('no such file')
@@ -84,6 +84,16 @@ test('a session starting is told to Fleet with its directory and its branch', as
     kind: 'attached',
     attachment: { kind: 'branch', target: 'fleet/session-ledger' },
   })
+})
+
+test('a Drone, Judge call or scout is not told to Fleet', async ($, on) => {
+  const { posts, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: URL, stderr: '', interrupted: false }, text: URL }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'gh pr create --base main' })
+  await clock.settle()
+
+  expect(posts).toEqual([])
 })
 
 test('a pull request a session opens is attached from the address gh printed', async ($, on) => {
