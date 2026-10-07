@@ -140,6 +140,25 @@ export const ModeLocked: Story = {
   },
 };
 
+/** In a narrow box the menus shrink and Send stays on their row. */
+export const NarrowBar: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: "520px" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  args: { models: ["haiku", "sonnet", "opus"], efforts: ["low", "medium", "high"], model: "sonnet", effort: "medium" },
+  play: async ({ canvas }) => {
+    const send = canvas.getByRole("button", { name: "Send" }).getBoundingClientRect();
+    for (const name of ["Permission mode", "Model", "Effort"]) {
+      const menu = canvas.getByRole("combobox", { name }).getBoundingClientRect();
+      await expect(Math.abs(send.top + send.height / 2 - (menu.top + menu.height / 2))).toBeLessThan(send.height);
+    }
+  },
+};
+
 /** Until a terminal has reported its mode there is none to show. */
 export const ModeUnknown: Story = {
   args: { modeLocked: true, modeHidden: true },
