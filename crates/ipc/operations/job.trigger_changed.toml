@@ -1,0 +1,16 @@
+[operations."job.trigger_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One of a Job's Triggers moved: it started, was skipped, is held for the owner, or ended"
+notes = """
+Protocol 23.58. `JobTriggerChanged`: `job_id`, `trigger` (a `JobTrigger`, the row whole) and `at`. Published when Fleet opens a firing (`running`, `skipped` or `awaiting_owner`) and when a running one ends (`passed` or `failed`), so an open Job's Triggers move without a read. `get_job`'s `triggers` is the same rows, with the pending ones.
+
+**A failed Trigger with `repair` on moves through `repairing`, `rerunning` and `fix_ready` (23.60)**, one message each time the repair writes its row, so the count above is two plus a few per repair try. `trigger.repair` carries the try, the repair branch, the files the fix changes, the owner's choice and the pull request it opened.
+
+**Whole, and keyed by `name`, `when` and `step`**, with `started_at` telling a step run again apart. Nothing a Command printed rides along: `trigger.log_at` names the Job's log line, and `get_job_log` has it.
+
+**Effect on the unbounded-sink risk `docs/practices/protocol.md` names: slightly worse, and bounded.** At most two messages per firing, one to open and one to end, and a firing is a Trigger at a moment, a handful per step even for a person with many. The stream is the one bounded drop-oldest channel every Job shares, and this adds nothing to what a Drone produces. A Bridge that missed some re-reads `get_job`, which is where the rows are whole. `[broadcast-capacity]` is where the measured rate goes.
+
+`agent_access` is `Bridge only`, `job.judging`'s reason.
+"""

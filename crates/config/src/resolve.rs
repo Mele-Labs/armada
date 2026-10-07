@@ -328,6 +328,7 @@ fn resolve_step(
     // step: the file was required to say, and `config` already refused a
     // second step saying yes, so there is nothing left to decide here.
     .delivering(step.delivers())
+    .drafting(step.draft_pr())
     // **What the expansion above cannot leave behind.** One entry per declared
     // Check is what runs; that the step asked for all of them is a separate
     // fact, and on a repository declaring none it is the only one left.

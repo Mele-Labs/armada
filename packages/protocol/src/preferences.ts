@@ -10,6 +10,9 @@ export type Preferences = {
   /** Whether Job detail's *Where things are* chapter opens collapsed
    * (`false`) or expanded (`true`). */
   where_things_are_open: boolean;
+  /** Whether this machine offers a pull request as a draft unless the repository, the
+   * workflow or the Job says otherwise. Since 23.57. Absent is `false`. */
+  draft_pull_requests?: boolean;
 };
 
 /**

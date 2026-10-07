@@ -8,6 +8,7 @@ use ipc::{AddRepository, CloneRepository};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Authoring, Commands, Queries};
+use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -115,6 +116,113 @@ pub(crate) async fn list_left_out_workflows<D: Queries>(
         .await
     {
         Ok(left_out) => answer(StatusCode::OK, &left_out, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// What one repository runs at each moment of a Job, and the files it left out.
+pub(crate) async fn list_triggers<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+) -> Response {
+    match served.daemon().list_triggers(scope.manifest()).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?when=`, `?step=`, `?name=` and `?source=` on `get_trigger`, beside
+/// `?manifest_id=`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OneTrigger {
+    when: ipc::TriggerMoment,
+    #[serde(default)]
+    step: Option<String>,
+    name: String,
+    #[serde(default)]
+    source: Option<ipc::TriggerLevel>,
+    #[serde(default)]
+    manifest_id: Option<String>,
+}
+
+/// One Trigger as its file holds it. A 422 where this repository holds none.
+pub(crate) async fn get_trigger<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<OneTrigger>,
+) -> Response {
+    match served
+        .daemon()
+        .get_trigger(
+            asked.when,
+            asked.step.map(ipc::StepId::carried),
+            asked.name,
+            asked.source,
+            asked.manifest_id.map(ipc::ManifestId::carried),
+        )
+        .await
+    {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Check one Trigger and write it in the scope named. **200 and not 201**, for
+/// `save_workflow`'s reason.
+pub(crate) async fn save_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SaveTrigger = match ipc::decode("a Trigger to save", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_trigger(asked, scope.manifest()).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Delete the file that holds one Trigger in a scope.
+pub(crate) async fn remove_trigger<D: Authoring>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::RemoveTrigger = match ipc::decode("a Trigger to remove", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .remove_trigger(asked, scope.manifest())
+        .await
+    {
+        Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Where a failed Trigger's held fix goes. **409 and nothing moved** where no
+/// firing of the Trigger holds a fix, where the fix could not be placed, where
+/// it conflicts with the Job's branch as it now stands, and where every
+/// worktree slot is held. It may take as long as the Command takes: the daemon
+/// runs it as a task of its own, and Bridge sends `NO_WAIT`.
+pub(crate) async fn choose_trigger_fix<D: Authoring>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let chose: ipc::ChooseTriggerFix = match ipc::decode("a fix to place", &body) {
+        Ok(chose) => chose,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .shared()
+        .choose_trigger_fix(job.id().clone(), chose)
+        .await
+    {
+        Ok(chosen) => answer(StatusCode::OK, &chosen, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

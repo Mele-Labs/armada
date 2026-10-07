@@ -6,7 +6,7 @@ import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened, FixMain } from "@armada/protocol";
+import type { CaptureOpened, ChooseTriggerFix, FixMain } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -47,6 +47,15 @@ import type { CheckoutRunDiffRead } from "@armada/protocol";
 import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
+import type {
+  ReadingTrigger,
+  RemovingTrigger,
+  SavingTrigger,
+  TriggerDefinitionRead,
+  TriggerRemoveAnswer,
+  TriggerSaveAnswer,
+  TriggersRead,
+} from "../shared/triggers";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -475,6 +484,16 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readWorkflowDefinition, workflowId, source),
   saveWorkflow: (saving: SavingWorkflow): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
+
+  readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
+  readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
+    ipcRenderer.invoke(CHANNELS.readTrigger, reading),
+  saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
+  removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
+    ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
+  chooseTriggerFix: (jobId: string, body: ChooseTriggerFix): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.chooseTriggerFix, jobId, body),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why

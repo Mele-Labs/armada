@@ -864,7 +864,7 @@ export function App({ draft }: AppProps = {}) {
                   onDropTask={commands.dropTask}
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob} onSetLandingTarget={commands.setLandingTarget} onToProposer={commands.toProposer}
-                  onShowAgain={showAgain}
+                  onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
@@ -1105,6 +1105,7 @@ export function App({ draft }: AppProps = {}) {
                   live={live}
                   health={state.health}
                   onSave={commands.saveLimits}
+                  preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
                 />
               </Boundary>

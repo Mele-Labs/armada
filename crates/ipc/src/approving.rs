@@ -194,7 +194,9 @@ pub struct LandingChoice {
     /// Refused at `group`: one branch per Job is all Fleet runs.
     #[serde(default)]
     pub branching: LandingUnit,
-    /// `ready` or `draft`. Left out is `ready`.
+    /// `ready` or `draft`. Left out is the default: the delivering step's
+    /// `draft_pr`, the repository's `pr_mode`, this machine's preference, then
+    /// `ready`. `JobDetail.pr_mode_default` serves it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr_mode: Option<crate::PrMode>,
     #[serde(default)]

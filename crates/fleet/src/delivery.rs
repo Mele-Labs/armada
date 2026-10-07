@@ -343,7 +343,7 @@ where
     ///
     /// **Inference is what the adapter does when nothing was declared**, so
     /// the fallback lives beside the repository it is reading rather than here.
-    async fn the_base(
+    pub(crate) async fn the_base(
         &self,
         job_id: &core_model::JobId,
         worktree: &Worktree,

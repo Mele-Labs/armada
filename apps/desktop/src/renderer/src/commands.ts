@@ -32,7 +32,8 @@ import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
-import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
+import type { EditManifest, SaveManifestFile, TriggerFixChoice } from "@armada/protocol";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
   AddTask,
@@ -255,6 +256,11 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
+/** Triggers: what the picked repository runs, one as its file holds it, a save and a removal. */
+export const readTriggers = () => window.armada.readTriggers();
+export const readTrigger = (reading: ReadingTrigger) => window.armada.readTrigger(reading);
+export const saveTrigger = (saving: SavingTrigger) => window.armada.saveTrigger(saving);
+export const removeTrigger = (removing: RemovingTrigger) => window.armada.removeTrigger(removing);
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
@@ -400,6 +406,17 @@ export function useCommands(sending: Sending) {
   async function fixMain(fix: FixMain): Promise<void> {
     const answer = await window.armada.fixMain(fix);
     if (!answer.ok) setOutcome(answer);
+  }
+
+  /**
+   * Where a failed Trigger's held fix goes. **A refusal goes to the pipeline every command failure
+   * uses**, in Fleet's own words; an accepted one says nothing, since the branch moves a beat later
+   * as `job.trigger_changed` re-reads the Job. The answer tells the branch whether to ask again.
+   */
+  async function chooseTriggerFix(jobId: string, trigger: string, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
+    const answer = await window.armada.chooseTriggerFix(jobId, { trigger, choice });
+    if (!answer.ok) setOutcome(answer);
+    return { ok: answer.ok };
   }
 
   /**
@@ -1047,6 +1064,7 @@ export function useCommands(sending: Sending) {
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,
     fixMain,
+    chooseTriggerFix,
     dismissFinding,
     rerunFailedChecks,
     investigateFailedChecks,

@@ -1,0 +1,14 @@
+[operations.list_triggers]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The Triggers one repository runs at each moment of a Job, what each replaced, and the files left out with why"
+notes = """
+`GET /triggers?manifest_id=`, protocol 23.58. The answer is a `TriggerList`: `triggers`, one per identity (`when`, `step`, `name`), each with `level` (`armada`, `repository` or `machine`), `file`, `workflow?`, `runs` (a `command` or a `skill`, with its name), `block`, `repair`, `skipped?` where it names a Command this repository does not declare, and `overrides`: the copies of that identity a more specific level replaced, which a list draws struck through beside the one that runs. `left_out` is each file that would not parse or shares an identity with another in its place, with `level`, `file` and the loader's `said`.
+
+**One object, where workflows are two routes.** `list_left_out_workflows` is a route of its own because a list cannot grow a sibling without a major bump; this answer starts as an object, so there is nothing to work around.
+
+**Read from the files on every call**, never held: the repository's from the base branch and this machine's from its folder, the reads freezing a Job makes. A save is on the next list, and a repository's own is on it once it is on `main`.
+
+`agent_access` is `Yes` on `list_workflows`' terms: an agent about to say what runs when a step passes should read what does.
+"""

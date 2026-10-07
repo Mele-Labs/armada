@@ -51,6 +51,7 @@ import { heldByAFlag } from "./gaming";
 import { checksAgain } from "./gates";
 import { GamingHeld } from "./gaming-held";
 import type { Opens } from "./phases";
+import { withRepair, type ChooseTriggerFixCall } from "./repair-branch";
 import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 import { pulseViewOf } from "./draft/pulse";
 import { holdingOf, lookOf } from "./mine";
@@ -153,6 +154,8 @@ export type WorkflowTabProps = {
    * person's.
    */
   opensStep?: string;
+  /** Where a failed Trigger's held fix goes. Absent draws the branch with no choice on it. */
+  onChooseTriggerFix?: ChooseTriggerFixCall;
 };
 
 export function WorkflowTab({
@@ -188,6 +191,7 @@ export function WorkflowTab({
   trail,
   opensStep,
   pulse,
+  onChooseTriggerFix,
 }: WorkflowTabProps) {
   // The node a person has open. **Not the running step held in state** — that
   // moves under them as the Job advances, and a panel that changed subject
@@ -299,7 +303,7 @@ export function WorkflowTab({
   const groups = given ?? taskGroupsOf(whole);
   const groupsUnder = stepThatWorksTheGroups(whole);
   // The steps. A press on one opens it in the panel.
-  const run = workflowRunOf({
+  const plain = workflowRunOf({
     whole,
     groups,
     drones,
@@ -307,6 +311,8 @@ export function WorkflowTab({
     onOpen: openStep,
     ...(heldCommand === undefined ? {} : { held: heldCommand }),
   });
+  // A failed Trigger with Self repair grows a branch off the step it fired at.
+  const { run, asking } = withRepair(whole.triggers, job.id, stepNodeId, plain, onChooseTriggerFix);
   // **Nothing is open until a press opens it** (owner, 25 Sep 2026) — here, or
   // on the step's name in the Record's reading, which lands with it open. The panel
   // used to land on the step the Job is on, so the column beside the canvas was
@@ -493,6 +499,7 @@ export function WorkflowTab({
                   opensOn={run.opensOn}
                   hangsFromTop
                   runsDown
+                  reveals={asking}
                 />
               </div>
             </div>

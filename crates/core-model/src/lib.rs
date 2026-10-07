@@ -36,13 +36,15 @@ mod kit;
 mod retro;
 /// A Studio, its nodes and its edges. `docs/concepts/studio.md`.
 mod studio;
+/// Something that runs at a moment in a Job. `docs/concepts/trigger.md`.
+mod trigger;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
 };
 pub use job::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, CriterionOrigin,
-    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, ProposalEdit,
+    IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use job::{collisions, under};
 pub use job::{
@@ -89,4 +91,9 @@ pub use studio::{
     StudioEdgeKind, StudioEdgeStanding, StudioFinding, StudioGraph, StudioId, StudioName,
     StudioNode, StudioNodeContent, StudioNodeId, StudioNodeKind, StudioNodeState, StudioPosition,
     StudioRelation, StudioRun, StudioRunKept, ToItself,
+};
+pub use trigger::{
+    FixChoice, FrozenTrigger, OnTriggerFailure, RepairRecord, Trigger, TriggerFiring,
+    TriggerIdentity, TriggerResolution, TriggerRuns, TriggerSkipped, TriggerSource, TriggerState,
+    TriggerWhen, REPAIR_TRIES,
 };

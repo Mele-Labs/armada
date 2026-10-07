@@ -20,7 +20,7 @@ The settings that describe **this installation** — its resources, its timing, 
 
 There is no project-level version of *how loudly Armada notifies you*; the notion does not parse.
 
-**Your Kit travels. The Machine does not.**
+**Your Kit travels. The Machine does not.** A [Trigger](trigger.md) set for this machine is Machine's, kept in `~/.armada/machine/triggers/`.
 
 **Port block granule is the one knowing exception.** A project-level version does parse — a monorepo of compose stacks wants a larger granule than a repo of libraries — so the test above says Kit.
 
@@ -55,6 +55,7 @@ It stays Machine because the preference is unfelt: demand already drives a claim
 - Helm budget soft-warning threshold
 - Helm session retention
 - Helm action authority
+- Draft pull requests
 
 **Helm action authority is Machine, not Kit.** Why: what Helm may do is a property of the installation, not of a repo.
 
@@ -63,6 +64,12 @@ It stays Machine because the preference is unfelt: demand already drives a claim
 **Routing is a Machine setting with one value and no merge.** What bounds it is a **product rule on `../contracts/design-system.md`**, not a config tier: the loudness order, and the rule that an approval may never be promoted to push.
 
 That rule holds because escalations and approvals mean different things. An escalation means work has stopped and nothing progresses until a person looks. An approval means work is waiting to start and will keep.
+
+## Draft pull requests
+
+**Whether this machine offers a pull request as a draft is the bottom of five tiers.** The Job's own choice at approval, the delivering step's `draft_pr`, the repository's `pr_mode` and then this machine's all sit above ready, the most specific winning. It is off until a person turns it on, through `save_preferences` as `draft_pull_requests`, and it is kept in Fleet's store and does not travel with [Kit](kit.md). [Landing](landing.md), *What the landing rule carries*.
+
+**It is a Machine setting with a repository tier above it, which the rule above does not describe.** The budget caps went the same way on 8 Sept 2026 and the settings registry files both *Kit → Manifest*, with no Kit tier in either. Bridge has no control for it yet.
 
 ## Voice/tone
 

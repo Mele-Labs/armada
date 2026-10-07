@@ -206,7 +206,9 @@ where
             let pool = pool_of(&served);
             for reading in self.vcs().slot_pool(&pool) {
                 let job = match &reading.held {
-                    SlotHeld::Job(id) => job_of(id),
+                    // A repair's slot is held under its own id and shown under its Job.
+                    SlotHeld::Job(id) => job_of(id)
+                        .or_else(|| crate::repair_recovery::job_of_holder(id).and_then(job_of)),
                     _ => None,
                 };
                 let job_title = job.map(|job| job.title().as_str().to_string());

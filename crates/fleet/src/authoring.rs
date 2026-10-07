@@ -149,4 +149,28 @@ where
     ) -> Result<WorkflowSaved, Refusal> {
         self.save_workflow_file(asked, &self.served_named(manifest_id.as_ref())?)
     }
+
+    async fn choose_trigger_fix(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choose: ipc::ChooseTriggerFix,
+    ) -> Result<ipc::TriggerFixChosen, Refusal> {
+        self.fix_chosen(job_id, choose).await
+    }
+
+    async fn save_trigger(
+        &self,
+        asked: ipc::SaveTrigger,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerSaved, Refusal> {
+        self.save_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
+
+    async fn remove_trigger(
+        &self,
+        asked: ipc::RemoveTrigger,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> Result<ipc::TriggerRemoved, Refusal> {
+        self.remove_trigger_file(asked, &self.served_named(manifest_id.as_ref())?)
+    }
 }

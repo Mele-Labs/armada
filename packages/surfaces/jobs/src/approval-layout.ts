@@ -10,7 +10,7 @@ import { LANES } from "./approval-canvas";
 import type { ApprovalNode, Lane } from "./approval-canvas";
 
 /** A card, as `RunNode.css` draws it: full, and narrow (`--w-workflow-node`, `--w-workflow-task-node`). */
-const CARD = { height: 112, width: 260, narrow: 196 };
+export const CARD = { height: 112, width: 260, narrow: 196 };
 
 /** A gate stage, the lighter card between two steps (`RUN_NODE_GATE_HEIGHT`, `RUN_NODE_GATE_WIDTH`). */
 const GATE = { height: 44, width: 216 };

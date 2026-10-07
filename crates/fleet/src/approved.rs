@@ -14,7 +14,7 @@ use core_model::{
 };
 
 use crate::adrift::Adrift;
-use crate::approving::{decided, edited, Decided, Refused};
+use crate::approving::{decided_under, edited, Decided, Refused};
 use crate::daemon::Fleet;
 
 /// Which branch each Job's worktree was cut from, keyed by the Job's branch,
@@ -168,7 +168,9 @@ where
             .as_ref()
             .and_then(|named| workflows.get(&named.to_domain()))
             .map(|held| held.frozen().clone());
-        let decided = decided(&job, body, held.as_ref()).map_err(|why| refused(job_id, why))?;
+        let (repository, machine) = self.pr_modes_beneath(&served).await;
+        let decided = decided_under(&job, body, held.as_ref(), repository, machine)
+            .map_err(|why| refused(job_id, why))?;
         if let Some(tiers) = &decided.tiers {
             for (_, model) in tiers.named() {
                 self.offered(model.as_str())
@@ -380,6 +382,7 @@ where
                 .collect();
             store.events_for(job.id()).unwrap_or_default()
         };
+        self.pr_mode_served(job, detail).await;
         // The press: a person's move off the approval gate to `queued`. The
         // last one, since a Job sent back to the gate is approved again.
         detail.approved_at = events

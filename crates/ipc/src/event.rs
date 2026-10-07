@@ -32,6 +32,7 @@ use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
+use crate::triggers::JobTriggerChanged;
 use crate::underway::ChecksUnderway;
 use crate::version::ProtocolVersion;
 use crate::waiting::QuestionInFlight;
@@ -137,6 +138,9 @@ pub enum Event {
     // The counts and not the plan; `crate::work_plan` says why.
     #[serde(rename = "job.plan_changed")]
     JobPlanChanged(JobPlanChanged),
+    // One of the Job's Triggers moved, whole. Since 23.58.
+    #[serde(rename = "job.trigger_changed")]
+    JobTriggerChanged(JobTriggerChanged),
     #[serde(rename = "proposal.moved")]
     ProposalMoved(ProposalMoved),
     #[serde(rename = "manifest.reread")]
