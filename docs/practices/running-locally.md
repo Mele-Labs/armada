@@ -213,6 +213,20 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
+**Bridge runs that tree's own binary.** Its job launches
+`<tree>/apps/desktop/node_modules/.bin/electron-vite preview` from
+`<tree>/apps/desktop`, not `pnpm --filter`, and is booted out and back in
+because `launchctl kickstart -k` keeps the definition launchd already holds and
+ignores the new plist. The script reads the loaded working directory back,
+refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
+prints it too.
+
+**It checks the protocol it built.** `cargo` can call `ipc`'s build script fresh
+when `protocol-version.toml` changed (an older mtime, or a `target/` carried from
+another tree), and Fleet then reports the previous minor. The script touches the
+file when the last `ipc` build differs from it, and fails after Fleet is up if
+the version Fleet reports is not the file's.
+
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
 from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
@@ -264,7 +278,15 @@ its own, so you can use work while agents are still landing it.** In flight is a
 local branch with commits ahead of `main` that a slot holds
 (`armada worktree --status`) or the merge line has queued
 (`armada land --status`). `main`, `preview` and remote-only branches are
-ignored. It needs git and an `armada` on `PATH`, builds nothing, and
+ignored.
+
+**A branch held only by a stranded Job is left out, and named.** Stranded is a
+slot read as `kept` (the Job ended and could not give the slot back), or held by
+a Job that Fleet reports as killed, failed, rejected or superseded, or as
+running with no Drone. It comes back when the Job is restarted. A slot held by a
+live session, a Job waiting on a person, or a branch on the merge line keeps its
+branch in. Where Fleet does not answer, a Job's slot counts as live. An open
+pull request is not read. It needs git and an `armada` on `PATH`, builds nothing, and
 `ARMADA_LAND_ARMADA` names another `armada` as it does for `scripts/land`.
 
 **It runs no Checks.** Nothing in a preview was gated, so it can be red where
@@ -299,7 +321,8 @@ to it. Everything in *Restarting onto another tree* applies, including the
 migration guard and the snapshot. To go back, run `scripts/restart` as before.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
-with git alone. It is not part of the gate.
+with git alone, and a stub Fleet. CI runs it as `preview_test` when
+`scripts/preview` or `scripts/restart` changes.
 
 ## A Fleet of your own
 

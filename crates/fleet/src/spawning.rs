@@ -25,6 +25,7 @@
 //! now, which is what makes that true by construction rather than by care.
 
 use std::sync::Arc;
+use verification::TheBaseMoved;
 
 use adapter_traits::{
     AgentHarness, Delivery, DroneSpawnConfig, Effort, Grant, McpConfig, Model, Prompt,
@@ -87,6 +88,9 @@ where
         working: &mut Option<Working>,
     ) -> Result<(), Adrift> {
         let job_id = job.id().clone();
+        // Read before the catch-up where the step already has a baseline, so
+        // `marked` can tell what a rebase wrote from what the step did.
+        let before_the_catch_up = self.read_before_catch_up(&job_id, step, &worktree).await;
         let moved = match self.caught_up_onto(&job_id, &worktree).await {
             Ok(moved) => moved,
             Err(cause) => {
@@ -335,7 +339,14 @@ where
         // `diff_nonempty` is asking whether *this* attempt wrote something, and
         // a Drone that resolved nothing would pass it on the markers it was
         // handed.
-        self.marked(working);
+        //
+        // **Kept across entries, and carried across a rebase where one wrote
+        // into the tree.** See `marked`.
+        let rebased = matches!(
+            moved.as_ref(),
+            Some(TheBaseMoved::BroughtUpToDate { .. } | TheBaseMoved::Conflicted { .. })
+        );
+        self.marked(working, rebased, before_the_catch_up).await;
         Ok(())
     }
 

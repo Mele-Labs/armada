@@ -13,11 +13,8 @@
 //! matches over one set is how a button and the sentence beside it come to
 //! disagree.
 //!
-//! Two things here are not in either document because they are about this code.
-//! [`overridable`](Fleet::overridable) reads the recorded Check runs rather than
-//! resting on the tier ordering that makes a failed Check unreachable — a guard
-//! that holds by an argument about ordering stops holding the day the ordering
-//! moves. And whether a Drone is there decides nothing at all any more: the act
+//! One thing here is not in either document because it is about this code.
+//! Whether a Drone is there decides nothing at all: the act
 //! applies either way and the Job carries on the same way either way, because
 //! the overridden part's Drone is ended and a fresh one takes the next part.
 //! That a live session exists is still what separates `crate::resume`'s two
@@ -105,6 +102,7 @@ where
         let slot = self.slot_for(job_id).await;
         let mut working = slot.lock().await;
         let job = self.load(job_id).await?;
+        self.not_while_checks_run_again(&job)?;
         let (step, overruled) = self.overridable(&job).await?;
         // **Blank is refused on a refusal and taken on a gaming flag or an
         // undecided gate.** A flag's record already names the pattern, the
@@ -181,24 +179,24 @@ where
 
     /// The step a person may overrule, and the verdict they are overruling.
     ///
-    /// Four things have to hold, and each refusal names a different act as the
-    /// one that applies. The Job is escalated; a step of it stopped; the
-    /// trigger that stopped it is one [`StepLevelTrigger::overrulable`] admits,
-    /// which includes a machine having been unable to rule; and no
-    /// Check the gate ran on that step failed.
+    /// Three things have to hold, and each refusal names a different act as the
+    /// one that applies. The Job is `escalated` or `awaiting_repair`; a step of
+    /// it stopped; and the trigger that stopped it is one
+    /// [`StepLevelTrigger::overrulable`] admits, which includes a machine having
+    /// been unable to rule.
     ///
-    /// **The last is read out of the store and not inferred.** A refusal
-    /// implies the mechanical tier held, so ordinarily it is redundant — and a
-    /// guard that is redundant by an argument about tier ordering is a guard
-    /// that stops holding the day the ordering changes.
-    ///
-    /// **Which is why `awaiting_repair` is refused twice over.** A Job held for
-    /// a spent retry budget carries a step stopped on `gate_failure`, the same
-    /// trigger a Judge refusal writes — so the status test above is what keeps
-    /// it out, and the Check reading would keep it out on its own. `build`
-    /// failing is not a matter of opinion, and `#208` did not make it one.
+    /// **A failed Check is overruled the same way a Judge's refusal is.** A Job
+    /// held at `awaiting_repair` carries a step stopped on `gate_failure`, the
+    /// trigger a Judge refusal writes too, and the owner ruled on 2026-10-06
+    /// that any failed Check, `build` and `test` included, may be moved on by a
+    /// person who knows the work is done. Nothing reads the Check runs: what
+    /// failed stays on the record as `failed(gate_failure)` beside `advanced`,
+    /// and the Check runs themselves are not rewritten.
     async fn overridable(&self, job: &Job) -> Result<(StepId, StepLevelTrigger), Adrift> {
-        if job.status() != JobStatus::Escalated {
+        if !matches!(
+            job.status(),
+            JobStatus::Escalated | JobStatus::AwaitingRepair
+        ) {
             return Err(Adrift::NotResumable {
                 job: job.id().clone(),
                 status: job.status(),
@@ -219,38 +217,7 @@ where
                 trigger: overruled.trigger(),
             });
         }
-        self.every_check_passed(job, &step).await?;
         Ok((step, overruled))
-    }
-
-    /// What the gate's Checks did on this step, read back off the record.
-    ///
-    /// **The first failure names itself**, because a person told a Check failed
-    /// needs to know which one to go and run.
-    ///
-    /// A skipped Check is not one: `advances` asks whether anything failed, and
-    /// a Check whose paths the step never touched is not a reason to refuse an
-    /// override.
-    async fn every_check_passed(&self, job: &Job, step: &StepId) -> Result<(), Adrift> {
-        let runs = self
-            .store()
-            .lock()
-            .await
-            .step_checks(job.id())
-            .map_err(Adrift::Reading)?;
-        let failed = runs
-            .iter()
-            .filter(|(id, _)| id == step)
-            .flat_map(|(_, checks)| checks.iter())
-            .find(|check| !check.outcome.advances());
-        match failed {
-            None => Ok(()),
-            Some(check) => Err(Adrift::CheckDidNotPass {
-                job: job.id().clone(),
-                step: step.clone(),
-                check: check.name.clone(),
-            }),
-        }
     }
 
     /// Write the override into the Job's own log.

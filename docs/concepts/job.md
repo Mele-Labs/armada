@@ -120,7 +120,7 @@ flowchart LR
   AR -->|"approve, criterion owed"| AT
 
   R -->|retries spent| REP["awaiting_repair"]
-  REP -->|restart| Q
+  REP -->|"restart / override"| Q
   REP -->|"run Checks again, and they rule"| R
 
   PR -->|"declined, or the call faulted"| ESC
@@ -158,7 +158,7 @@ different name.** They are ordered here by how much they take away.
 
 | Act | Where the Job stands | What survives | Where it lands |
 |---|---|---|---|
-| **Override the verdict** | Anywhere | Everything, including the refused step's own work | `queued`, then the **next** step when there is room. On the workflow's last step, `completed_success` |
+| **Override the verdict** | Anywhere, and at `awaiting_repair` over a failed Check | Everything, including the refused step's own work | `queued`, then the **next** step when there is room. On the workflow's last step, `completed_success` |
 | **Redirect** | Mid-step, or at a boundary | The worktree and every step so far. Mid-step the session too; at a boundary there is none, and the words go into the next Drone's opening brief | `running` the same step where a step stopped; where none did, the Job stays `escalated` until the work turns |
 | **Restart a step** | A step stopped, and is to be worked again | The worktree and the branch; earlier steps' work | `queued`, then the same step with a new Drone when there is room |
 | **Redispatch** | Anywhere | No work. A new Job carries a reference back, and its brief names the failed attempt's branch | A replacement at the approval gate, starting at the first step |
@@ -188,9 +188,20 @@ are alternatives rather than a partition. **A failed mechanical Check is handed 
 produced the work**, with the Check's own output, and the step retries under its
 gate-failure retry limit. A red the gate can confirm is first run again alone,
 and only one that is still red alone reaches the Drone ([Manifest](manifest.md),
-Confirming a red). `build` failing is not a matter of opinion — which is
-why it cannot be overruled, and not a reason to end the Job over it. A failing
-test is work, and the Drone that wrote the code is the thing that should fix it.
+Confirming a red). A failing test is work, and the Drone that wrote the code is
+the thing that should fix it — not a reason to end the Job over it.
+
+**A person may overrule a failed Check once that budget is spent**, `build` and
+`test` included. This reverses what this page said until 2026-10-06, that a
+failed Check is not a matter of opinion and cannot be overruled (#208). The
+owner's reason: "I should be able to override things like this, not just judge
+checks. If I know the job has the work completed and it should move on I should
+be able to move it forward." A Check can be wrong about work that is done — a
+baseline bug failed `diff_nonempty` on Job 12 with every other Check green — and
+the three acts left at `awaiting_repair` each ran the same Check again or threw
+the work away. The override is recorded the way a Judge's is: the step reads
+`advanced` with `failed(gate_failure)` still on it, the person is the actor, and
+the reason is required, as it is on any `gate_failure`.
 
 **A spent budget lands at `awaiting_repair`.** Not `completed_failed`, which
 says the Job failed when the work is merely unfinished, and not `escalated`,
@@ -217,10 +228,11 @@ Drone** (#1105): `rerun_checks` asks the stopped step's gate again on the
 worktree as it stands, spends no retry, and takes the Job straight back to
 `running` only where the reading goes somewhere. A Check that still fails moves
 nothing. A pass settles the tasks the red run had marked `failed`, so the Judge
-reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). **A pass closes the group it ruled on and moves the step only when no group is left** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792): with a group after it the step stays `running` and the Job is `queued`, and admission starts the next group's Drone. The act that does *not* reach it is
-the override: `Stuck` reads whether the step's Checks passed out of the record
-rather than inferring the tier from the trigger, and they did not pass here.
-`build` failing is still not a matter of opinion.
+reads them `done` (4 Oct 2026, Job 3; `plan.md`, *failed*). **A pass closes the group it ruled on and moves the step only when no group is left** (5 Oct 2026, #1792, https://github.com/NickMele/armada/issues/1792): with a group after it the step stays `running` and the Job is `queued`, and admission starts the next group's Drone. **The override reaches it too** (6 Oct 2026): where the person knows the work
+is done, it advances the stopped step with the failed Check still on the
+record, and the Job takes `awaiting_repair -> queued`, or finishes where that
+was the last step. `Stuck` offers it wherever the worktree is on disk, whether
+or not the Checks passed.
 
 **What a person types has no road from here yet.** `request_changes` gives
 `awaiting_review`'s note somewhere to wait — on the Job's own record, delivered
@@ -338,7 +350,7 @@ verdict, which is the same act wherever the Job stands.
 concurrency cap bounds how many Drones run at once, and the only thing that
 starts one is admission — so an act that spawned for itself would let a person
 push Fleet past its own cap, one press at a time. Both instead take
-`escalated -> queued` and wait their turn, which is the shape approving at a
+`escalated -> queued` (or `awaiting_repair -> queued`) and wait their turn, which is the shape approving at a
 human gate has always had.
 
 **Neither is refused when the cap is spent.** The decision is taken at the

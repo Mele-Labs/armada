@@ -101,8 +101,24 @@ where
             step: row.step_id.clone(),
         })?;
         let worktree = self.surviving_worktree(slot)?;
+        // The start the step was measured from before Fleet stopped. `None`
+        // for a step that began before it was kept, which is read from what
+        // its earlier gate recorded, as it was.
+        let entered_with = self
+            .store()
+            .lock()
+            .await
+            .step_baseline(&job_id, &row.step_id)
+            .ok()
+            .flatten();
         let ruling = self
-            .ruled_with_no_drone(slot, &row.step_id, &worktree, &submission)
+            .ruled_with_no_drone(
+                slot,
+                &row.step_id,
+                &worktree,
+                &submission,
+                entered_with.as_ref(),
+            )
             .await?;
         self.noted_recovered(&job_id, &row.step_id, &ruling);
         self.noted_undecided(&job_id, &row.step_id, &ruling);

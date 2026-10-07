@@ -262,6 +262,18 @@ checks:
     when:
       - ".claude/hooks/**"
 
+  preview_test:
+    # `scripts/preview` and `scripts/restart` against a throwaway repository, a
+    # stub `armada` and a stub Fleet. Git and Python only: no build, no real
+    # Fleet, and `HOME` is a scratch directory. A failure means the preview
+    # merges the wrong branches or a restart refuses or adopts wrongly.
+    run: python3 scripts/test_preview.py
+    when:
+      - "scripts/preview"
+      - "scripts/restart"
+      - "scripts/test_preview.py"
+      - "armada.yml"
+
   # `format`, not `fmt`: that name is a Command below and both registries
   # refuse a collision — the Command writes, this reads. No `clippy` beside it;
   # `[clippy-as-a-check]` in docs/OPEN.md is why.

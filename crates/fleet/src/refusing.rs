@@ -416,8 +416,8 @@ where
             // What an act on a stopped step refuses with — plus a redirect
             // asked for with no Drone, or a restart asked for with one still
             // there or its worktree gone, the same two acts refusing the
-            // other's precondition. `NotTheJudges` and `CheckDidNotPass` are
-            // an override's; the rest are a gate re-run's.
+            // other's precondition. `NotTheJudges` is an
+            // override's; the rest are a gate re-run's.
             Adrift::DroneNotLive { job, drone } => Refusal::IllegalMove(
                 WireError::raised(DRONE_NOT_LIVE, said, self.run_id())
                     .about_job(ipc::JobId::from(job))
@@ -431,7 +431,6 @@ where
             | Adrift::WorktreeGone { job, .. }
             | Adrift::SlotLost { job, .. }
             | Adrift::NotTheJudges { job, .. }
-            | Adrift::CheckDidNotPass { job, .. }
             | Adrift::NotUndecided { job, .. }
             | Adrift::NotStandingThere { job }
             | Adrift::NothingToRuleOn { job, .. }

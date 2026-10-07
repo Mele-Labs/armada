@@ -213,3 +213,57 @@ test("an accepted Checks re-run answers accepted, and the next press clears it",
   await expect.element(rerun).toHaveAttribute("aria-busy", "true");
   await expect.element(rerun).not.toHaveAttribute("data-answer");
 });
+
+/**
+ * The same stopped Job with `override_verdict` offered, the way Fleet will for
+ * any failed Check once the retries are spent (owner, 6 Oct 2026). `failed` is
+ * the Checks that failed on the step's one attempt; none is a Judge's refusal.
+ */
+function overridable(failed: string[]): void {
+  const base = awaitingRepair();
+  const whole: JobWhole = {
+    ...base,
+    steps: [
+      {
+        ...checkStoppedStep(),
+        check_runs: failed.map((name) => ({ attempt: 1, name, outcome: "failed" })),
+      },
+    ],
+    stuck: { ...base.stuck!, recourse: ["rerun_checks", "restart_step", "override_verdict", "redispatch_job"] },
+  };
+  mount(
+    <StepActs
+      job={whole.job}
+      whole={whole}
+      opens={{ jobId: whole.job.id, open: async () => ({ ok: true }), onSaid: () => {} }}
+      render="stopped"
+      acting={false}
+      rerunningChecks={false}
+      stale={false}
+      onAct={() => {}}
+      onRedirect={() => {}}
+      onOverrule={() => {}}
+      onRerun={() => {}}
+      onRerunChecks={() => {}}
+    />,
+  );
+}
+
+const labels = () => page.getByRole("button").elements().map((one) => one.textContent);
+
+test("a failed Check's override is the third act and names the Check", async () => {
+  overridable(["diff_nonempty"]);
+  await expect.element(page.getByRole("button", { name: "Overrule diff_nonempty" })).toBeInTheDocument();
+  expect(labels()).toEqual(["Run Checks again", "Restart step", "Overrule diff_nonempty"]);
+});
+
+test("several failed Checks are overruled together", async () => {
+  overridable(["diff_nonempty", "typecheck"]);
+  await expect.element(page.getByRole("button", { name: "Overrule the Checks" })).toBeInTheDocument();
+});
+
+test("a Judge's refusal keeps its own wording and its place first", async () => {
+  overridable([]);
+  await expect.element(page.getByRole("button", { name: "Overrule the verdict" })).toBeInTheDocument();
+  expect(labels()).toEqual(["Overrule the verdict", "Run Checks again", "Restart step"]);
+});

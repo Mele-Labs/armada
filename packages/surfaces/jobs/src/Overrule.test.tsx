@@ -213,3 +213,34 @@ test("evidence_suspect: the brief opens by its whole path", async () => {
   await userEvent.click(page.getByRole("dialog").getByRole("button", { name: /the brief/ }));
   expect(asked).toEqual([{ kept: BRIEF, what: "brief" }]);
 });
+
+/**
+ * **A failed Check is overruled in its own words.** Fleet spells it
+ * `gate_failure` like a Judge's refusal, so the Check is read off the step's
+ * runs, and the button, the dialog and the reason all name it instead of
+ * "the verdict".
+ */
+test("a failed Check is named on the button, the dialog and the reason", async () => {
+  const said: [string, string][] = [];
+  mount(
+    <OverruleControl
+      jobId="job_2d90bb"
+      overrule={{ step: step(), trigger: "gate_failure", commits: false, checks: ["diff_nonempty"] }}
+      opens={{ jobId: "job_2d90bb", open: async () => ({ ok: true }), onSaid: () => {} }}
+      disabled={false}
+      onOverrule={(jobId, reason) => said.push([jobId, reason])}
+    />,
+  );
+  await userEvent.click(page.getByRole("button", { name: "Overrule diff_nonempty" }));
+
+  const dialog = page.getByRole("dialog", { name: "Overrule diff_nonempty on this step?" });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog.getByText(/diff_nonempty failed on Implement\. The step advances, recorded as failed\./)).toBeVisible();
+  expect(dialog.element().textContent).not.toMatch(/judge|verdict/i);
+
+  const confirmed = dialog.getByRole("button", { name: "Overrule diff_nonempty" });
+  await expect.element(confirmed).toBeDisabled();
+  await userEvent.fill(page.getByRole("textbox", { name: "Why this step is done" }), "the change is on the branch");
+  await userEvent.click(confirmed);
+  expect(said).toEqual([["job_2d90bb", "the change is on the branch"]]);
+});

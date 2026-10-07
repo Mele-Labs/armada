@@ -113,3 +113,28 @@ impl<'de> Deserialize<'de> for ProtocolVersion {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PROTOCOL_VERSION;
+
+    /// The constant is compiled in from a file cargo decides whether to re-read.
+    /// Twice a preview reported the previous minor until `cargo clean -p ipc`.
+    #[test]
+    fn the_constant_is_the_file() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../protocol-version.toml");
+        let text = std::fs::read_to_string(path).expect("protocol-version.toml is readable");
+        let number = |key: &str| -> u32 {
+            text.lines()
+                .map(str::trim)
+                .find_map(|l| l.strip_prefix(key)?.trim().strip_prefix('='))
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or_else(|| panic!("no `{key} = <integer>` line in {path}"))
+        };
+        assert_eq!(
+            (PROTOCOL_VERSION.major, PROTOCOL_VERSION.minor),
+            (number("major"), number("minor")),
+            "ipc was built from a different protocol-version.toml than the tree holds; `cargo clean -p ipc`"
+        );
+    }
+}

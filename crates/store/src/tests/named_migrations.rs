@@ -123,14 +123,11 @@ fn two_branches_each_adding_a_migration_both_apply_in_either_merge_order() {
 #[test]
 fn a_file_with_extra_additive_names_is_opened_by_an_older_build() {
     let dir = TempDir::new();
-    let newer = with(&[Migration::additive("step_baseline.survives_restart", A)]);
+    let newer = with(&[Migration::additive("unlanded_branch.things", A)]);
     drop(Store::open_with(&dir.db(), &newer).expect("the newer build"));
 
     let store = Store::open(&dir.db()).expect("an older build accepts additive names it lacks");
-    assert_eq!(
-        store.unknown_migrations(),
-        ["step_baseline.survives_restart"]
-    );
+    assert_eq!(store.unknown_migrations(), ["unlanded_branch.things"]);
     drop(store);
 
     // And the newer build still opens it afterwards, applying nothing twice.
