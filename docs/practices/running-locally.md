@@ -890,9 +890,9 @@ branch, or deletes the branch. **The needs are Fleet's** (`docs/capabilities/nee
 
 ### What is left of the merge line
 
-`armada land` and `scripts/land` are gone. Fleet still reads the outcome files an
-earlier `armada land` left under `.git/armada-land/`, for the merge line Bridge
-draws.
+`armada land` and `scripts/land` are gone, and Fleet no longer reads the files
+an earlier `armada land` left under `.git/armada-land/`. The merge line Bridge
+draws is the forge's: main's CI and the open pull requests.
 
 **What gates the hook that keeps a merge on that path:** `armada check
 hooks_test` runs `.claude/hooks/test_guard_merge.py` against it. It is a Check

@@ -27,8 +27,8 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 
 /// The branch name a log asked for under when it is main's own run. It is the
-/// word the head sends whatever the repository calls its base, and a line never
-/// queues the base, so it names no branch of `armada land`'s.
+/// word the head sends whatever the repository calls its base, and no branch
+/// is named for the base, so it names no Job's.
 pub(crate) const MAIN: &str = "main";
 
 /// A log read off the forge and held, read the way a file is.

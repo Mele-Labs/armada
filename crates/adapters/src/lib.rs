@@ -58,8 +58,6 @@ mod inline_comments;
 mod issue_lookup;
 mod judge;
 mod keeping_current;
-/// `armada land`'s state on disk, which the binary writes and Fleet reads.
-pub mod land_state;
 mod landing;
 /// The pool of warm worktrees a repository leases out, shared by agents.
 pub mod leasing;
@@ -67,9 +65,9 @@ mod main_ci;
 mod mcp;
 mod merging_in;
 mod merging_the_base_in;
-/// What a branch needs on a path, shared by `armada need` and Fleet's Jobs. `#1059`.
+/// What a branch needs on a path, as the files kept it before the ledger. `#1059`.
 pub mod needs;
-/// The step onto a base, shared by `armada land` and `merge_by: push`.
+/// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
 mod pull_request_diff;
 mod pull_request_facts;

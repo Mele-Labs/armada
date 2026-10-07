@@ -626,13 +626,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 PROVISIONAL_TURN_INTERVAL,
                 |why| eprintln!("a pull request or issue was not read: {why}"),
             );
-            // Each served repository's merge line, read off disk and published when it
-            // moves: the process that wrote it tells Fleet nothing.
+            // Each served repository's merge line, published when its hub moves.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),
                 fleet::merge_lines::EVERY,
-                |unread| eprintln!("{unread}"),
             );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(

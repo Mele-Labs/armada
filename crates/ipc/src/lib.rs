@@ -109,7 +109,7 @@ mod judged;
 mod kit;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
-/// The merge line `armada land` keeps in each served repository, as Fleet reads it.
+/// The merge line of each served repository, as Fleet serves it.
 /// Every Check run one repository's Jobs asked for or ran. Since 23.40.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, and the edits and Write that finish it.

@@ -1,5 +1,4 @@
-//! What the forge says about a repository, beside the queue `armada land`
-//! keeps: where main's CI stands and which pull requests are open. It rides on
+//! What the forge says about a repository, beside the queue lists: where main's CI stands and which pull requests are open. It rides on
 //! [`MergeLine`](crate::MergeLine) as `hub`, since 23.41.
 //!
 //! **Fleet's reading of the forge, redacted to what a person is shown.** A job

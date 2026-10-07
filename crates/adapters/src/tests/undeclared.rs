@@ -23,8 +23,8 @@ fn repo() -> TempRepo {
     repo
 }
 
-/// What the caller says the branch has declared: Fleet reads its ledger for it
-/// and `armada land` the files, and this function is told either way.
+/// What the caller says the branch has declared: Fleet reads its ledger for it,
+/// and this function is told.
 fn answer(repo: &TempRepo, declared: &[&str]) -> Option<String> {
     let declared: Vec<String> = declared.iter().map(|path| path.to_string()).collect();
     undeclared(repo.root(), "main", "work", &declared).expect("git read")

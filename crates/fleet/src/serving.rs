@@ -934,7 +934,7 @@ where
         Fleet::merge_hubs(self).await
     }
 
-    /// One Check's log on a served line — [`crate::merge_lines::land_log`].
+    /// One Check's log on main or a commit of it; a branch's line has none to open.
     async fn observe_land_check(
         &self,
         root: String,
@@ -946,7 +946,7 @@ where
         let found = match branch.strip_prefix(&on_main) {
             Some(commit) => self.main_run_log(root, commit.to_string(), check).await,
             None if branch == crate::main_hub::MAIN => self.main_log(root, check).await,
-            None => crate::merge_lines::land_log(self, root, branch, check).await,
+            None => None,
         };
         found.ok_or_else(|| {
             let (root, branch, check) = asked;

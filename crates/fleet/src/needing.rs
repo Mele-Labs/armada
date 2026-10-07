@@ -106,8 +106,8 @@ where
     /// frees the Job on its next press without anything being told.
     ///
     /// **And refused outright where the Job changes a watched path it never
-    /// declared a need on**, `adapters::undeclared`: the rule `armada land`
-    /// holds a session to, so a Job is held to the same one. A diff git cannot
+    /// declared a need on**, `adapters::undeclared`: the rule a session
+    /// is held to too, so a Job is held to the same one. A diff git cannot
     /// read is a line in the log and not a refusal, as a ledger that cannot be
     /// read is: neither says anything about the Job.
     pub(crate) async fn held_behind_needs(&self, job: &Job) -> Result<(), Adrift> {
