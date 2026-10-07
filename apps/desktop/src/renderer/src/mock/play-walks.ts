@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, expect, onTestFinished, test } from "vitest";
 import { isNotice } from "@armada/shell";
+import { page } from "vitest/browser";
 
 import { pace } from "@armada/jobs/fake";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -70,6 +71,11 @@ export function playWalks(part: number, of: number): void {
   for (const [name, script] of walksIn(part, of)) {
     test(`the walk ${name} plays to its last step`, async () => {
       const heard = thrown();
+      // A walk that names its own window is played in it, and the next test gets its own back.
+      if (script.viewport !== undefined) {
+        await page.viewport(script.viewport.width, script.viewport.height);
+        onTestFinished(() => page.viewport(1440, 900));
+      }
       mount(script.scenario);
       await onScreen();
       await walkThrough(script.steps);

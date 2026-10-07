@@ -4,6 +4,7 @@ import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
 import { reclaimable } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { OwnerChip } from "../OwnerChip/OwnerChip";
 import { PausedMark } from "../PausedMark/PausedMark";
 import { Mark } from "./SlotFinding";
 import { holdsSaid } from "./TileHolds";
@@ -207,9 +208,17 @@ export function PoolTile({
         <Holder row={row} onOpenJob={onOpenJob} />
         {row.paused === undefined ? null : <PausedMark said={row.paused} />}
         {(slot?.branch ?? held?.branch) === undefined ? null : (
-          <Tooltip label={(slot?.branch ?? held?.branch)!}>
+          // A Session that owns the branch is named on hover; where none does, the tooltip is what it was.
+          <OwnerChip
+            chip={{ kind: "branch", name: (slot?.branch ?? held?.branch)! }}
+            plain={
+              <Tooltip label={(slot?.branch ?? held?.branch)!}>
+                <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>
+              </Tooltip>
+            }
+          >
             <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>
-          </Tooltip>
+          </OwnerChip>
         )}
         <div className="armada-bay__foot">
           {slot?.rescue?.state === "reading" ? (

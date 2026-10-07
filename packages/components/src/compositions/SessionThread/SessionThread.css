@@ -1,0 +1,209 @@
+/* A Session's thread: Helm's rows (HelmThread.css), the first write as a
+   filled row, and a message from another Session under a band of its own. */
+
+.armada-session-thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-session-thread__rows {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The first write: the one row that is not a message, filled in the slot's
+   leased hue so it reads before anything around it. */
+.armada-session-lease {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--slot-held);
+  color: var(--fg-inverse);
+}
+
+.armada-session-lease__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-lease__facts {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.armada-session-lease__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--fg-inverse);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-lease__at {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* Another Session's message: a raised card with its own band, so it is not
+   read as the agent's. The band is the press that opens the sender. */
+.armada-session-from {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.armada-session-from__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  background: var(--accent-faint);
+  color: var(--fg-default);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-from__band:hover {
+  background: var(--accent-muted);
+}
+
+.armada-session-from__band:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-session-from__id,
+.armada-session-from__at {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-from__title {
+  flex: 1;
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-from__body {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* What a message was sent with, under its bubble. */
+.armada-session-sent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.armada-session-sent__picture {
+  max-width: calc(var(--space-12) * 4);
+  max-height: calc(var(--space-12) * 3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.armada-helm-thread__row[data-actor="you"] .armada-session-sent {
+  justify-content: flex-end;
+}
+
+.armada-session-thread__ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-thread__command {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-thread__answers {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* What a piloted Session starts with: a filled head like the first write's, and
+   the bundle's fields as a definition list, in the order the bundle holds them. */
+.armada-session-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--slot-held);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-session-handoff__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: calc(var(--space-2) * -1) calc(var(--space-3) * -1) 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--slot-held);
+  color: var(--fg-inverse);
+}
+
+.armada-session-handoff__fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-handoff__fields dt {
+  color: var(--fg-muted);
+}
+
+.armada-session-handoff__fields dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.armada-session-handoff__fields ul,
+.armada-session-handoff__fields ol {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.armada-session-handoff__fields code {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}

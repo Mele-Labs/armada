@@ -1,0 +1,5 @@
+.armada-pr-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
