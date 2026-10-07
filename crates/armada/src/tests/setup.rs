@@ -75,6 +75,7 @@ fn this_repositorys_own_setup_loads_and_resolves() {
             "build".to_string(),
             "hooks_test".to_string(),
             "preview_test".to_string(),
+            "sync_mod_test".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
         ],
@@ -134,7 +135,12 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
         .collect();
     let root: Vec<(&str, &str)> = resolved
         .iter()
-        .filter(|(dir, name, _)| dir.is_empty() && *name != "hooks_test" && *name != "preview_test")
+        .filter(|(dir, name, _)| {
+            dir.is_empty()
+                && *name != "hooks_test"
+                && *name != "preview_test"
+                && *name != "sync_mod_test"
+        })
         .map(|(_, name, run)| (*name, *run))
         .collect();
 
@@ -255,11 +261,12 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "typecheck",
             "hooks_test",
             "preview_test",
+            "sync_mod_test",
         ],
         "the order `armada.yml` declares them in, which is the order they answer \
          in — not `check_names`' alphabetical"
     );
-    // The same six, and no seventh: the expansion is the registry and the
+    // The same seven, and no eighth: the expansion is the registry and the
     // registry is what `check_names` lists.
     let mut sorted = names.clone();
     sorted.sort_unstable();
