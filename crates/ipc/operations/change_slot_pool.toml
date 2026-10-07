@@ -1,0 +1,20 @@
+[operations.change_slot_pool]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Adds a slot to a repository's worktree pool, removes one, or closes or reopens one, on this machine only"
+notes = """
+`POST /worktrees/slots?manifest_id=`, body `ChangeSlotPool`: `act` is `add`, `remove`, `close` or `open`, and `slot` names the slot for all but `add`. Since 23.17. The answer, `SlotPoolChanged`, names the slot changed, the new one for `add`.
+
+**This machine only.** The pool writes it at `.armada/slots/pool`, beside each slot's lease record, so it outlives Fleet, is never committed, and `armada worktree lease` honours it exactly as Fleet does. `setup.worktrees` stays the size a fresh machine starts at; once a person adds or removes a slot here, this machine's list of slots stands in for it.
+
+**Slots are numbers, not a count.** Removing slot 3 of 5 takes slot 3, the one pressed, and leaves 1, 2, 4 and 5 where they are. `add` takes the lowest number unused, and its slot is not made until a lease makes it.
+
+**`remove` gives a made slot's checkout back with `git worktree remove`**, and only a free or unmade one. A held, stranded or busy slot, a directory that is not a checkout, uncommitted files, and the last slot are each a 409 with its own code — `fleet.slot_held`, `fleet.slot_stranded`, `fleet.slot_busy`, `fleet.slot_not_a_checkout`, `fleet.slot_dirty`, `fleet.slot_last` — so Bridge says why on the slot. A slot the pool does not have is a 422, `fleet.no_such_slot`.
+
+**`release` hands back a slot an agent session holds** (since 23.37), as Clear does for a Job's. The body names `slot` and the `holder` the person was shown, as the slot read it (`claude (pid 44698)`). The pool commits whatever is uncommitted there, untracked in and ignored out, to the slot's branch as a WIP commit and frees the slot; nothing is pushed and the session's process is not touched. The answer's `released` names the branch and, where files were committed, the commit and the files. A slot held by anyone else now, or by nobody, is a 409 `fleet.slot_holder_changed` and is left as it is; a release with no holder is a 422 `fleet.slot_holder_unnamed`. A detached HEAD, the base branch, another branch than the lease names, or a refused release after the commit is a 409 `fleet.slot_not_parkable` with git's own words; a lease or release under way is `fleet.slot_busy`.
+
+**`close` lasts until `open`**, across restarts. No lease takes a closed slot; a holder keeps one closed under it until its lease ends, and it stays closed after.
+
+`Helm only` for `reclaim_worktree`'s reason: it changes what this machine holds, and a person asks for it.
+"""

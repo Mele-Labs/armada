@@ -70,3 +70,48 @@ export const Found: Story = {
     await expect(canvas.getByRole("img", { name: "Matched Pull request #1843" })).toBeInTheDocument();
   },
 };
+
+/** Many pull requests wrap on the ledger's own line; the title keeps the line above it. */
+export const Crowded: Story = {
+  args: {
+    groups: [
+      {
+        label: "Running",
+        rows: [
+          {
+            ...FLAKY,
+            pullRequests: [1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850].map((number) => ({ number, checks: "passed" as const, said: "Checks passed" })),
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("listitem", { name: "Flaky store test" });
+    const title = row.querySelector(".armada-session-list__title")!.getBoundingClientRect();
+    const ledger = row.querySelector(".armada-session-list__chips")!.getBoundingClientRect();
+    await expect(ledger.top).toBeGreaterThanOrEqual(title.bottom);
+  },
+};
+
+/** The time is how long ago the last turn was; the tooltip keeps the clock time. */
+export const LastTurnAgo: Story = {
+  args: {
+    now: Date.parse("2026-10-07T14:34:00Z"),
+    groups: [
+      {
+        label: "Running",
+        rows: [
+          { ...LIVE, id: "a", title: "Four minutes", lastTurn: "14:30", lastTurnAt: "2026-10-07T14:30:00Z" },
+          { ...LIVE, id: "b", title: "Two hours", lastTurn: "12:20", lastTurnAt: "2026-10-07T12:20:00Z" },
+          { ...LIVE, id: "c", title: "Three days", lastTurn: "13:15", lastTurnAt: "2026-10-04T13:15:00Z" },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByLabelText("Last turn 14:30")).toHaveTextContent("4m");
+    await expect(canvas.getByLabelText("Last turn 12:20")).toHaveTextContent("2h");
+    await expect(canvas.getByLabelText("Last turn 13:15")).toHaveTextContent("3d");
+  },
+};

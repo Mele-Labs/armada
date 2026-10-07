@@ -2,7 +2,7 @@
 //! carry the rest of the reasoning.
 //!
 //! **Not `.gitignore`-aware, and that is a named gap rather than a decision.**
-//! `crates/ipc/operations.toml` says the same: the bound and the ignore rules
+//! `crates/ipc/operations/` says the same: the bound and the ignore rules
 //! both need a repository sized in the design workspace before either is
 //! settled, and this excludes the handful of directories large enough to make
 //! an uninformed walk useless in the meantime.

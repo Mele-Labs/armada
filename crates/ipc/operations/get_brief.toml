@@ -1,0 +1,16 @@
+[operations.get_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One brief a Judge or a gaming check was asked, read back into the app"
+notes = """
+**The other end of `brief_path`.** `Judged.brief_path` and a gaming flag's `brief_path` have named the file a verdict was argued from since Fleet kept it, and `JobResources.logs` lists it as kind `brief` — but nothing served its contents, so the row opened outside Bridge. The owner decided on 2 Oct 2026 that a brief opens in Pulse's log panel the way a transcript does, and this is what that panel reads.
+
+The split is `get_check_output`'s, on the same measurement: a brief carries the whole branch diff, so it rides no event and no `get_job`. The cheap fact — that there is one, and where — rides the row; the bytes are fetched once, by whoever pressed it.
+
+**`:name` is the last part of a `brief_path`, resolved inside this Job's briefs directory.** That directory is the allowlist where a Check's rows are `get_check_output`'s, because a brief can exist with no row: Fleet writes it before the call goes out, and a call that failed leaves a brief and no judgment. The name must be one path component, and the file it names must still sit directly in that directory once links are followed — so `..`, another Job's brief and a link planted in the directory all answer the 422 a name never kept answers.
+
+**The tail, through `get_check_output`'s window**: 2,000 lines and 256 KiB. A brief ends on what it asks — the diff comes before the question and the answer format — so a cut brief keeps the question. `from_line` is the file's own numbering, `total_lines` is exact and `whole` is stated.
+
+`agent_access` is `Yes` for `get_check_output`'s reason, and the door cuts an answer over 64 KiB and says so. An agent asked why a Judge refused has the verdict and the citation, and without this not the question it answered.
+"""

@@ -1,0 +1,13 @@
+[icons.folder-git-2]
+  means = "repository"
+  group = "Git and config"
+  size = "12px"
+  status = "Specified"
+  notes = "Detail views only, never in a Job Board row. Precedes a mono value in --fg-muted."
+
+  [[icons.folder-git-2.usage]]
+    means = "A workflow that lives in this repository, and a step the repository decides"
+    group = "Workflows"
+    size = "12px"
+    status = "Specified"
+    notes = "Added 5 Oct 2026 with the Workflow creator. Two uses on one surface, each with its tooltip: the row's mark for a definition in `.armada/workflows`, and the gate's `Repository decides` line on a step. Both mean the repository, which is the row's own meaning."

@@ -1,0 +1,10 @@
+[operations.disagree_lesson]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Disagree with one retro item: its state becomes discarded and the row stays"
+notes = """
+Since 23.26. `POST /lessons/:lesson_id/disagree`, no body. Answers with the `Lesson` as it now stands.
+
+The row is kept, so the owner's evidence is not lost, and the default listing omits it: `?state=discarded` lists it. An item that is not `open` answers with the state it stands in. **A Job already proposed for an agreed item is never taken back by this**, because disagreeing with an item has no say over a Job a person may already have approved. An id that names no item is a 404 `fleet.no_such_lesson`.
+"""

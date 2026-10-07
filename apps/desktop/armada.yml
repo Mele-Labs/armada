@@ -13,6 +13,7 @@ id: armada-desktop
 # `crates/core-model/domain/**` and `protocol-version.toml`: codegen emits
 # TypeScript from them, so a change there is a change to compiled code.
 depends_on:
+  - ".github/**"
   - "packages/**"
   - "crates/core-model/domain/**"
   - "protocol-version.toml"

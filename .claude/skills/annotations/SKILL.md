@@ -75,9 +75,12 @@ in this session first, and the brief carries his answer as a given.
 reads, asks, briefs, verifies and marks done. The agent builds.
 
 **One agent per change**: a note, or a group of notes on one component.
-`bridge-engineer` for anything under `apps/` or `packages/`, with
-`isolation: "worktree"`. `work-issue`'s *Dispatching several agents at once*
-section applies in full. Scopes must be disjoint to run in parallel, and two
+`bridge-engineer` for anything under `apps/` or `packages/`, in a slot you lease
+for it (`armada worktree lease <branch>`), with the slot's absolute path in the
+brief and no `isolation: "worktree"`: the preview sees only slots. Confirmed
+7 Oct 2026: three branches dispatched with isolation were missing from the
+owner's preview. `agent-worktrees` has the lease and the release.
+`work-issue`'s *Dispatching several agents at once* section applies in full. Scopes must be disjoint to run in parallel, and two
 changes that touch one file run one after the other.
 
 The brief is the only context the agent has, so it carries:
@@ -88,7 +91,7 @@ The brief is the only context the agent has, so it carries:
 | Where it is | The component and file already found in step 2, and the mock `?scenario=` that reproduces it |
 | The decision | The option the owner picked, and its stated cost, word for word |
 | The proof | `armada-components`: a story `play` or a mock test through `App`, run once against the change broken on purpose. A screenshot is how it is looked at, not the proof |
-| The evidence | For a visual change, a walk under `mock/walks/` covering every surface it changed, on fixture data that shows the change, in a file named for this change alone. The report names the walk and the worktree's absolute path, so the mock can be served from it |
+| The evidence | For a visual change, a walk under `mock/walks/` covering every surface it changed, on fixture data that shows the change, in a file named for this change alone. The report names the walk and the slot's absolute path, so the mock can be served from it |
 | The landing | Commit and push after each piece that passes, open a PR, **do not merge**. Run heavy commands in the foreground and wait. A decision it runs into goes in a single `**QUESTION:**` line at the end, and nothing that depends on the answer gets built |
 
 **Verify what comes back yourself.** Read the diff, rerun the tests it added,
@@ -109,7 +112,7 @@ and Terminal on his screen. Playwright's own clipboard answers the same question
 walk committed under `apps/desktop/src/renderer/src/mock/walks/` covering every
 surface it changed, on fixture data that shows the change
 (`docs/practices/running-locally.md`, *Walks*). Serve the mock from the agent's
-worktree (`pnpm -C <worktree>/apps/desktop mock`), send him `?walk=<name>` on
+slot (`pnpm -C <slot>/apps/desktop mock`), send him `?walk=<name>` on
 it, and wait for his OK before you open the pull request. A renderer change with no screen
 to reach yet sends a Storybook story link instead. Confirmed 1 Oct 2026: five
 agents were dispatched on the markdown change, and the plan landed them with no

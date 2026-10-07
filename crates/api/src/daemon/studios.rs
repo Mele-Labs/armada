@@ -184,7 +184,7 @@ pub trait Studios: Send + Sync + 'static {
     /// `start_studio_run` — run one Manifest entry in the checkout of the
     /// repository this Studio belongs to, and put a Run node on it. `#1289`.
     ///
-    /// **By `Arc`, for `Commands::start_checkout_run`'s reason**: it is that
+    /// **By `Arc`, for `Rehearsing::start_checkout_run`'s reason**: it is that
     /// run, started in the working tree as it is on disk, and the task that
     /// runs it outlives the request.
     ///

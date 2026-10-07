@@ -9,7 +9,7 @@
 //! for.
 //!
 //! **Over 500 lines and left as one file.** One `#[serde(tag = "kind")]` enum
-//! is the closed set a rule compares against `operations.toml` row by row, so a
+//! is the closed set a rule compares against `operations/` row by row, so a
 //! split would assemble that roster from two places. It was at exactly 500
 //! before `job.asking` and crossed the warning with `job.landed`.
 
@@ -95,7 +95,7 @@ pub struct Missed {
     pub dropped: u64,
 }
 
-/// An unsolicited push. The `kind` is the dotted name `operations.toml` keys it
+/// An unsolicited push. The `kind` is the dotted name `operations/` keys it
 /// under, so a rule can compare the two without a mapping in between.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -194,7 +194,7 @@ pub enum Event {
 }
 
 impl Event {
-    /// The dotted name this publishes under — `operations.toml`'s own key.
+    /// The dotted name this publishes under — `operations/`'s own key.
     ///
     /// **Read out of the serialisation, never matched.** A `match` here would
     /// be a second spelling of the `#[serde(rename)]` lines above, and the two

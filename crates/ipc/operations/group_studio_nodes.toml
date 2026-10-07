@@ -1,0 +1,14 @@
+[operations.group_studio_nodes]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Accept several nodes on a Studio as one Cluster, or read them in order as one Outline, and answer with the Studio"
+notes = """
+The first rung of `docs/concepts/studio.md`'s *Promotion* that joins nodes rather than adding one. The new node is placed where the request says and the Studio draws a `produced` edge from each node in `from`, **in the order they were given** — an Outline is an ordered reading, and edges read back oldest first, so the order a person picked is the order it keeps.
+
+`agent_access` is `Bridge only`: a Cluster is Notes a person accepted as one thing, and accepting is a person's act whatever Helm's authority setting says.
+
+**A Cluster is drawn round its Notes** (since 23.0, #1620): it lands inside the frame they all share, or on the board, at their corner, and each Note goes inside it where it was; `position` places an Outline only. A Note already in a Cluster is refused as `fleet.studio_note_in_a_cluster` — one Cluster at a time, decided with the owner on 2 Oct 2026.
+
+Only a Cluster or an Outline decodes here; any other kind is refused as `fleet.studio_group_not_a_group`, because every other kind has a rung of its own that makes it. A Cluster of anything but Notes is refused as `fleet.studio_cluster_is_of_notes`. A node named twice, or none at all, is `fleet.studio_group_is_of_several`. A blank field is `fleet.studio_node_blank`, as `add_studio_node` has it.
+"""

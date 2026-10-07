@@ -1,0 +1,6 @@
+[icons.loader-circle]
+  means = "An open ring, spinning - a take or a release under way"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot being taken or given back. The one animated mark in the group; held still under reduced motion."

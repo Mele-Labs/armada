@@ -484,7 +484,7 @@ do.**
   claims it. **What names the remote** — a Manifest knows its repository and
   the wire does not carry it, so either the operation grows a field or Bridge
   reads it from somewhere that is not the wire. **Whether Armada sends at all**
-  — `crates/ipc/operations.toml` already records the strongest `No` in the file
+  — `crates/ipc/operations/` already records the strongest `No` in the file
   against an agent filing on the owner's behalf, on the grounds that the record
   is evidence and his reason is the finding; whether that reasoning extends to
   the owner pressing Send himself is a different question and is not answered

@@ -1,0 +1,7 @@
+[icons.square-terminal]
+  means = "A square with a prompt caret inside it — a Session, a raw conversation with a hosted agent"
+  group = "Navigation"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "A Session: its rail row, its band, its card. Never Pilot, which is `terminal`'s, and never Helm, which is `message-square`."
+  notes = "Proposed 6 Oct 2026 for the walk `sessions`, for the owner to rule on. A Session sits beside Helm and is not Helm, and it is a conversation and not a Pilot window, so neither of their glyphs could carry it. The square keeps it a different outline from `terminal` at 12px. A Navigation glyph is the owner's to mint, as `shield-check` on Checks was."

@@ -1,0 +1,16 @@
+[operations.get_remarks]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What anybody has written on a Job's open pull request, and which of it has already reached a Drone"
+notes = """
+**The read a person chooses from.** `fleet::under_review` already asks the forge this on `noticing`'s rotation, keeps nothing and writes a line when the count changes; this is the same ask, made when somebody is looking at the pull request and about to decide. It is not that sweep and does not ride it — the sweep answers *has anything changed*, and this answers *what does it say*.
+
+**Read when it is asked for and never on a timer.** It costs a process talking to a forge, so it is not a field on `get_job`, which is fetched on every open of a Job and again on every event naming it. It is `get_diff`'s rule one route over.
+
+Refused where the Job is not at `awaiting_review` and where its record holds no pull request, which are the two states in which there is nothing to choose from. A forge that would not answer is a 500 and never an empty list: a pull request nobody has commented on and a forge nobody could reach are opposite answers, and `adapter_traits::UnderReview` keeps them apart one crate down.
+
+`taken_up` is the one field on a comment that Armada wrote. Without it a comment already handed to a Drone reads exactly like one nobody has touched, and a person picks it again believing it new — the thing this whole road has to not do.
+
+`agent_access` is `No`, for the reason `get_diff` and `observe_job` have it: whatever anybody typed into a comment box, pulled into a Helm session, stays in that session for the rest of it. The reader this exists for is a person looking at a screen.
+"""

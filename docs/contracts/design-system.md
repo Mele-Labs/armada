@@ -1384,7 +1384,7 @@ shortcut, and a shortcut cannot exist without a label to display next to
 it.
 
 **The glyph is named, never redrawn.** An entry's icon is a key in
-`packages/icons/icons.toml`, which stays the authority on what a
+`packages/icons/icons/`, which stays the authority on what a
 silhouette may mean; the gate refuses one that is unregistered or
 banned.
 
@@ -1419,6 +1419,12 @@ and an ask to Helm are both prose — so the key that sends has to carry a
 modifier, and a single-key binding would be suppressed inside a field anyway
 by the rule below. It is drawn on the Send button only while `⌘` is held, per
 `kbd` below.
+
+**`⌘[ ⌘]` are the one Global pair a focused field keeps.** In a field they are
+outdent and indent, which is what a person typing meant, so the press passes
+through to it. Everywhere else they step through the places visited: the
+surface, the open Job and its tab, the open Session, and the open Studio and
+its node.
 
 **Contextual — single-key, on the focused row or the open job.** This is
 what makes triage fast: move down the queue and act without reaching for

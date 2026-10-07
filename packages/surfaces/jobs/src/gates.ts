@@ -182,7 +182,7 @@ export function didPass(run: CheckRun): boolean {
  * What a tier the run has not got to stands at.
  *
  * **The registry's word, and `criterion_verdict_check` owns it**: the five
- * `check_outcome` carries are what a Check that *ran* did, and `icons.toml`
+ * `check_outcome` carries are what a Check that *ran* did, and `icons/`
  * already calls "not reached" a Check state. Once here for every surface that
  * says it, rather than typed at each.
  */

@@ -27,7 +27,7 @@
 use std::path::PathBuf;
 
 use core_model::{
-    EvidenceScope, FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep, RunsAt, WorkflowId,
+    EvidenceScope, FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep, WorkflowId,
     WorkflowSource,
 };
 
@@ -258,22 +258,7 @@ fn resolve_step(
             // halves. `ResolvedStep::gates_on_every_check` carries it.
             MechanicalCheck::EveryManifestCheck => {
                 for gated in gating {
-                    for name in gated.checks_as_written() {
-                        let declared = gated
-                            .check(name)
-                            .expect("`checks_as_written` holds the keys of `checks`");
-                        // A handoff-only Check is left to the one step that runs it
-                        // before handoff; `held_for_handoff` names it on the rest.
-                        if declared.runs_at() == RunsAt::Handoff && !runs_handoff {
-                            continue;
-                        }
-                        checks.push(lifted(
-                            name.clone(),
-                            declared,
-                            declared.expect_exit_code(),
-                            gated.dir(),
-                        ));
-                    }
+                    checks.extend(crate::widening::every_check_of(gated, runs_handoff));
                 }
             }
             MechanicalCheck::ManifestCheck {
@@ -454,7 +439,12 @@ fn fenced(scope: &EvidenceScope, manifest: &Manifest) -> EvidenceScope {
 /// names a Check and a step that gates on every one of them must freeze
 /// identical rows, and two copies of five field assignments is how the second
 /// one loses `narrow` the next time a key is added.
-fn lifted(name: String, declared: &Check, expect_exit_code: i64, dir: &str) -> ResolvedCheck {
+pub(crate) fn lifted(
+    name: String,
+    declared: &Check,
+    expect_exit_code: i64,
+    dir: &str,
+) -> ResolvedCheck {
     ResolvedCheck::ManifestCheck {
         name,
         run: declared.run().to_string(),

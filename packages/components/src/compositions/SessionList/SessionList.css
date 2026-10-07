@@ -48,9 +48,9 @@
 
 .armada-session-list__row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
   min-width: 0;
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-subtle);
@@ -85,6 +85,7 @@
 }
 
 .armada-session-list__title {
+  font-weight: var(--weight-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -101,13 +102,18 @@
   color: var(--fg-subtle);
 }
 
+/* The ledger is its own line under the title, in line with the title's text and not the mark. */
 .armada-session-list__chips {
   display: flex;
-  flex: none;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-2);
+  padding-inline-start: calc(var(--space-4) + var(--space-2));
+  font-family: var(--font-mono);
+}
+
+.armada-session-list__chips:empty {
+  display: none;
 }
 
 .armada-session-list__pr {

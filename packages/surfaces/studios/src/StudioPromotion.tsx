@@ -155,7 +155,7 @@ export function useStudioPromotion(props: StudioPromotionProps): StudioPromotion
   // In the order a person climbs them: what several nodes become, then what one
   // node becomes, then how a Contradiction ends.
   //
-  // **A glyph where `packages/icons/icons.toml` holds one, the word where it
+  // **A glyph where `packages/icons/icons/` holds one, the word where it
   // does not.** Edit draft and Edit line draw words because `pencil` is
   // reserved to the sketch pad's pen and banned there from meaning edit; the
   // two ways a Contradiction ends draw words because the difference between

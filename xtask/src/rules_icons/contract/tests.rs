@@ -35,7 +35,7 @@ fn ran(contract: &str, registry: &str, states: &str, verbs: &str) -> Vec<String>
 fn contract(rail: &[&str]) -> String {
     format!(
         "# Iconography\n\n\
-         The mapping is `packages/icons/icons.toml`, group `Job state`.\n\n\
+         The mapping is `packages/icons/icons/`, group `Job state`.\n\n\
          {SECTION}\n\n```\n{}\n```\n\n## Navigation\n",
         rail.join("\n")
     )
@@ -363,7 +363,7 @@ fn a_step_state_annotated_as_not_one_is_named() {
 #[test]
 fn a_section_with_no_block_fails_rather_than_passing() {
     let contract = format!(
-        "# Iconography\n\nThe mapping is `packages/icons/icons.toml`, group `Job state`.\n\n\
+        "# Iconography\n\nThe mapping is `packages/icons/icons/`, group `Job state`.\n\n\
          {SECTION}\n\nThe rail borrows from the badge set. See the registry.\n\n## Navigation\n"
     );
     let found = ran(
@@ -386,7 +386,7 @@ fn a_section_with_no_block_fails_rather_than_passing() {
 #[test]
 fn a_group_no_entry_carries_is_named() {
     let contract = format!(
-        "# Iconography\n\nThe mapping is `packages/icons/icons.toml`, group\n`Rail state`.\n\n\
+        "# Iconography\n\nThe mapping is `packages/icons/icons/`, group\n`Rail state`.\n\n\
          {SECTION}\n\n```\n{}\n```\n\n## Navigation\n",
         RAIL.join("\n")
     );
@@ -454,7 +454,7 @@ fn an_unknown_source_is_named() {
 #[test]
 fn a_line_opening_with_an_issue_number_does_not_end_the_section() {
     let contract = format!(
-        "# Iconography\n\nThe mapping is `packages/icons/icons.toml`, group `Job state`.\n\n\
+        "# Iconography\n\nThe mapping is `packages/icons/icons/`, group `Job state`.\n\n\
          {SECTION}\n\nEach pointing at the other is what let\n#347 stand.\n\n```\n{}\n```\n\n\
          ## Navigation\n",
         RAIL.join("\n")

@@ -1,0 +1,12 @@
+[operations."job.paused"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job was paused"
+notes = """
+Since 23.39. **The event a gate Job needs**: pausing one moves no status, so `job.state_changed` is silent and a Board would draw nothing. It carries the row whole, `job.landed`'s shape and reason, with `paused` set.
+
+Published once per act that sets the marker: a pause, and a pause that called off a resume's wait.
+
+`agent_access` is `Bridge only`, `job.remarks_changed`'s: a screen's wake-up, and Helm has `get_job` for the answer.
+"""

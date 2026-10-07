@@ -113,3 +113,6 @@ __screenshots__/
 # Python bytecode cache, produced by `python3 -m py_compile` or an import
 # while testing `scripts/job` by hand.
 __pycache__/
+
+# Written by crates/fleet/build.rs: one `mod` a test file.
+crates/fleet/src/tests/mods.inc

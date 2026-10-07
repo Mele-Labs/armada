@@ -1,0 +1,8 @@
+[icons.door-closed-locked]
+  means = "A shut door with a lock on it - a slot a person closed"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Specified"
+  reserved = "A worktree slot no lease takes until a person reopens it, and the act that closes one. Never a permission, a secret or a step that cannot be skipped, which is lock."
+  paired_with = "door-open"
+  notes = "Proposed 4 Oct 2026 for the pool's controls, on the walk `aPoolOfWorktreeSlots`. The free bay is door-open, so the closed one is the same door shut and locked: one outline family for whether a lease may enter. Refused: `lock`, reserved to a step that cannot be skipped and never a locked thing; `ban`, a person declining a whole Job; `door-closed` alone, which at 12px reads as door-open's neighbour without saying it stays shut."

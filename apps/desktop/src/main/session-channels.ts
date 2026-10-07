@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -26,10 +26,10 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
 export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
-  ipc.handle(CHANNELS.startSession, (event, title?: string) => {
+  ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string) => {
     const fleet = connection();
     if (fleet === null) return unsent;
-    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined);
+    return fleet.startSession(fleet.repositories.pickedByWindow.of(windowIdOf(event)), typeof title === "string" && title !== "" ? title : undefined, text(root) ? root : undefined);
   });
   ipc.handle(CHANNELS.pilotJob, (_event, jobId: string, outcome: string) =>
     text(jobId) && OUTCOMES.includes(outcome) ? (connection()?.pilotJob(jobId, outcome as "take_over" | "restart_step") ?? unsent) : unsent,
@@ -44,6 +44,10 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
   ipc.handle(CHANNELS.answerSessionAsk, (_event, answer: AnswerSessionAsk) => {
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unsent;
     return connection()?.sessions.answer(answer) ?? unsent;
+  });
+  ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
+    if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
+    return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;
   });
   ipc.handle(CHANNELS.tuneSession, (_event, tune: TuneSession) => {
     if (!text(tune?.session_id) || !MODES.includes(tune.mode)) return unsent;

@@ -1,0 +1,5 @@
+[operations.list_alerts]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Alerts by level — Blocked, Waiting"

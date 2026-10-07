@@ -58,6 +58,29 @@ impl WorkProduct for GitVcs {
         Ok(Footprint::of(entries))
     }
 
+    fn unmerged_paths(&self, worktree: &Worktree) -> Result<Vec<String>, Self::Error> {
+        let path = worktree.path();
+        let failed = |cause| ReadWorkProductError::DiffFailed {
+            worktree: path.to_string(),
+            cause,
+        };
+        let repo =
+            Repository::open(path).map_err(|cause| ReadWorkProductError::WorktreeUnreadable {
+                worktree: path.to_string(),
+                cause,
+            })?;
+        let index = repo.index().map_err(failed)?;
+        let mut unmerged = Vec::new();
+        for conflict in index.conflicts().map_err(failed)? {
+            let conflict = conflict.map_err(failed)?;
+            let entry = conflict.our.or(conflict.their).or(conflict.ancestor);
+            if let Some(entry) = entry {
+                unmerged.push(String::from_utf8_lossy(&entry.path).into_owned());
+            }
+        }
+        Ok(unmerged)
+    }
+
     fn measured(&self, worktree: &Worktree) -> Measured {
         let Ok((_repo, base)) = opened(worktree) else {
             return Measured::uncommitted_only();

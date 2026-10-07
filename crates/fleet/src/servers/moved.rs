@@ -75,7 +75,7 @@ where
         self.servers().moved_on(&holder, commits, |state| {
             // The whole row in the kind its phase is, because the three
             // `server.*` kinds each carry the whole `ServerState` and a reader
-            // replaces a row rather than patching it — `crates/ipc/operations.toml`.
+            // replaces a row rather than patching it — `crates/ipc/operations/`.
             let event = match state.phase {
                 ServerPhase::Serving => Event::ServerServing(state.clone()),
                 ServerPhase::Starting => Event::ServerStarting(state.clone()),

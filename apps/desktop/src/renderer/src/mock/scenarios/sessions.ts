@@ -12,7 +12,9 @@ import { escalatedGateFailure, review, running } from "@armada/jobs/fixtures/bui
 
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import { sessionsStore } from "../sessions/script";
+import type { BoardControl } from "../sessions/script";
 
 const AT = "/Users/user/armada/.armada/slots";
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -85,5 +87,10 @@ export const s200Sessions: Scenario = {
       return new Promise(() => {});
     },
   }),
-  draft: { sessions: (board) => sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(plain, 44, 1), state: "review" }, { ...dispatched(stuck, 55, 9), state: "escalated" }], board, [pin.job, sleeps.job]) },
+  draft: { sessions: sessionsOf },
 };
+
+/** The walk's Sessions store, with `more` Sessions open beside the usual ones. */
+function sessionsOf(board: BoardControl, more: readonly Session[] = []) {
+  return sessionsStore([dispatched(pin, 52, 4), dispatched(sleeps, 53, 6)], dispatched(inspecting, 54, 8), [{ ...dispatched(plain, 44, 1), state: "review" }, { ...dispatched(stuck, 55, 9), state: "escalated" }], board, [pin.job, sleeps.job], more);
+}

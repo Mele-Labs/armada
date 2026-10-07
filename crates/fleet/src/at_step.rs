@@ -127,6 +127,12 @@ impl<'a> AtStep<'a> {
         AtStep { gated, ..self }
     }
 
+    /// The same position in `workflow`, a widened copy of the Job's own for one
+    /// gate pass. `crate::keeping_gates`.
+    pub(crate) fn within(self, workflow: &'a FrozenWorkflow) -> AtStep<'a> {
+        AtStep { workflow, ..self }
+    }
+
     /// Which manifests the change reached, where the repository has workspaces.
     pub(crate) fn gated(&self) -> Option<&'a Gated> {
         self.gated

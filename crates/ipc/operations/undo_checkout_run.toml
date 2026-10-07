@@ -1,0 +1,12 @@
+[operations.undo_checkout_run]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Put back the files one checkout run changed, from the snapshot taken just before it"
+notes = """
+**`?repository=<root>` names the checkout where `?manifest_id=` cannot**: a repository whose root has no `armada.yml` has no id, and a workspace there still runs. Naming both is refused with `fleet.repository_named_twice`, rather than one quietly winning.
+
+**Never offered where no snapshot was taken.** This tree holds a person's own uncommitted work, which no Job's worktree does, so a run with nothing kept behind it is refused rather than discarded from — `CheckoutRunRecord.undoable` is that answer, given before anything is offered.
+
+Refused while a run is in flight, on a run already undone or with no snapshot, and where a path the run changed has moved since. The confirmation naming what would be discarded is Bridge's.
+"""

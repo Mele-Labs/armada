@@ -1,0 +1,6 @@
+[icons.hourglass]
+  means = "nothing — banned outright"
+  group = "Banned"
+  status = "Banned"
+  reserved = "Banned."
+  notes = "Removed from stalled because it reads as be patient for the state that most needs to read as wrong. Nothing in Armada may use it."

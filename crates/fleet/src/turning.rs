@@ -149,7 +149,8 @@ pub struct Turned {
     /// finished holds no slot and has no `Worked` entry to sit on — and there
     /// is at most one a turn by construction, because the rotation asks about
     /// one pull request every sweep. Empty on every other turn, which is nearly
-    /// all of them.
+    /// all of them. **Not the whole record of a landing**: `crate::notice_loop`
+    /// reads the same rotation beside the turn, and what it reads is not here.
     pub noticed: Option<Noticed>,
     /// Where a repository's main went red, or went green again, on the turn the
     /// sweep read that it had. **Empty on nearly every turn**, and the one thing
@@ -294,6 +295,9 @@ where
         // where the dependent walk already sits — and for a milder version of
         // its reason: this touches no slot and starts nothing, so what it
         // wants is only to run once for the turn rather than once per Drone.
+        // **Also read beside the turn**, `crate::notice_loop`, on the same
+        // interval gate: whichever reaches it first reads, and this call is
+        // then usually empty.
         turned.noticed = self.notice_a_merge().await?;
         // Beside it, on its own interval and cursor: it reads a repository's
         // main, where that reads one Job's pull request. `crate::main_ci`.
@@ -302,12 +306,13 @@ where
         // back to it, and a green ends the takes. `crate::main_fix`.
         self.main_acted_on(&turned.main_changed).await;
         // Beside the merge notice, on its interval and with a cursor of its
-        // own: a Job that came from an issue has no pull request to be in that
+        // own, and read by `crate::notice_loop` as well: a Job that came from an issue has no pull request to be in that
         // rotation by, and sharing its cursor would slow every pull request's
         // reading by the number of such Jobs (spike 022, answer 5).
         turned.issue_moved = self.notice_an_issue().await?;
         // **After the notice**, so a Job owed news of a landing read this turn
-        // is told on this turn. It takes each slot for one write, the way
+        // is told on this turn; one read by `crate::notice_loop` is told there,
+        // and this finds nothing owed. It takes each slot for one write, the way
         // `crate::work_plan` delivers. #998.
         self.tell_peers().await;
         // **After the notice, so a run started this turn is not drained on it.**

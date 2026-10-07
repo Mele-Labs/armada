@@ -1,0 +1,7 @@
+[icons.rocket]
+  means = "A hull with fins, on a diagonal"
+  group = "Node bar"
+  size = "16px"
+  status = "Specified"
+  reserved = "Sending a Studio node's text or address through the Job proposer. Never a Job running, never a step starting, and never the title row's Dispatch, which is `plus`."
+  notes = "Minted 2026-09-28 with the node bar's mint. An object standing for its verb, the construction `pin`, `stamp` and `wrench` already use, so P1's confinement of metaphor to proper nouns is not crossed. **The reservation is the load-bearing half**: nothing runs on this press \u2014 the node goes to the proposer and waits at the approval gate \u2014 and a launch silhouette left unreserved reads as *start it now* the first time somebody meets it. Refused: `plus`, whose own row reserves it to the title row's Dispatch segment *only*, and that word is the owner's to move rather than this file's; `send`, which means dispatched, the act a composed request performs once sent, and so names the wrong end of this one; `play`, a triangle, which separates from `triangle-alert` at 16px on interior detail alone; `ship`, whose subject is `armada-mark`'s and reserved absolutely."

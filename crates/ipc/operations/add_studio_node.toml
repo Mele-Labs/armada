@@ -1,0 +1,24 @@
+[operations.add_studio_node]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Add a node to a Studio where a person or Helm places it, and answer with the Studio"
+notes = """
+A node starts in its kind's first state and nothing in the request sets one. `produced_by` names the node that made this one, and the Studio draws the `produced` edge itself.
+
+**From Helm, only a kind that starts `proposed`** — a Finding today — and anything else is refused as `fleet.studio_node_not_helms`: Helm adds proposed nodes, and a Note is what a person pointed at. A blank field is refused as `fleet.studio_node_blank`.
+
+**From Bridge, only a kind a person makes**: a Note typed, an address pasted, a Sketch placed, decided with the owner on #1364, a File's path pasted, decided with him on 1 Oct 2026, a Picture pasted, decided with him on 28 Sep 2026, and an empty Zone put down, #1620. An address arrives as a Link and Fleet writes what it is — an Issue, a Pull request, an Epic, or the Link it stays — because which host is the forge is `crates/adapters`' to know and nothing on this seam may name a kind an address did not earn (`#1394`). Anything else is refused as `fleet.studio_node_not_a_persons` — a Finding comes from a scout, a Run from a run, a Cluster or a Deferral from promotion, an Issue draft from writing up, a Job from dispatch. So the two refusals meet over the kinds neither side mints by hand, and the route carries a person's `+ Node` as well as Helm's proposal.
+
+**A Picture arrives as `staged`, never as `frame`**: the PNG Bridge's main staged, which Fleet keeps the way `capture_studio_note` keeps a frame — over 4 MiB is `fleet.studio_frame_too_large` and a file it cannot read `fleet.studio_frame_unreadable` — and answers with the Picture naming the file it kept. A body naming a kept `frame` does not decode, since `get_studio_frame` opens what a node names, and neither does a Note whose `capture.frame` is set: a captured Note's frame arrives staged, through `capture_note`.
+
+**A Sketch arrives as its drawing, each picture its `staged` file**, decided with the owner on 1 Oct 2026: the dispatch composer's pad, kept on the Studio. Fleet keeps each picture's PNG as a frame under a name it mints, by the Picture's path and cap, and answers with the Sketch naming what it kept. A picture with nothing staged names nothing Fleet keeps yet and is refused as `fleet.studio_sketch_picture_not_kept`. A drawing whose join reaches no box or picture, whose ids repeat, or whose stroke is a single point does not decode; one with nothing drawn on it is refused as `fleet.studio_node_blank`.
+
+**No act here writes a node's content afterwards**, which is what fixes a Note at capture. A Sketch is drawn on afterwards through `edit_studio_sketch`.
+
+From Helm it also publishes `studio.helm_acted`, after `studio.changed`: Helm's act is its own event type.
+
+**A Finding is added as its ask alone.** One carrying a checkout, files read or an ending is refused as `fleet.studio_finding_is_the_scouts`: those are a scout's to record, through `ask_scout` and `start_scout`.
+
+**No act writes a node's content afterwards but a scout's own reading**, which is what fixes a Note at capture.
+"""

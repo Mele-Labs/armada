@@ -870,6 +870,14 @@ impl ResolvedStep {
         &self.checks
     }
 
+    /// This step with `more` Checks after the ones it froze. **A copy for one
+    /// gate pass**: the Job's own frozen step is not changed, and nothing is
+    /// stored from this.
+    pub fn also_checking(mut self, more: Vec<ResolvedCheck>) -> ResolvedStep {
+        self.checks.extend(more);
+        self
+    }
+
     /// The Checks a Drone's own run asks, in the step's order: every one
     /// declared [`RunsAt::Everywhere`]. The gate still runs the rest. #849.
     pub fn mid_step_checks(&self) -> Vec<ResolvedCheck> {

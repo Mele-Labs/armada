@@ -37,7 +37,7 @@ const member = (studioId: string, act = "") => `/studios/${encodeURIComponent(st
 /** How far under the lowest node a capture lands, in canvas units. A node card's height and a gap. */
 const NOTE_APART = 260;
 
-/** Where each rung of promotion is served. `crates/ipc/operations.toml` is the authority. */
+/** Where each rung of promotion is served. `crates/ipc/operations/` is the authority. */
 const PROMOTION_ROUTE: Readonly<Record<StudioPromotion["act"], string>> = {
   group: "/group_nodes",
   defer: "/defer",

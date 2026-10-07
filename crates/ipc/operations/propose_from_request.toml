@@ -1,0 +1,83 @@
+[operations.propose_from_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Drafts only"
+description = "Reads a request and drafts the Jobs it proposes onto the approval gate"
+notes = """
+The dispatch path a person describing work takes, and the only caller of the Job
+proposer. What comes back is every Job the request became, all at
+awaiting_approval, exactly as propose_job answers for one — this adds no gate and
+removes none, and the person approves the same proposal at the same place.
+
+**Since 23.8 the request may carry `settings`** (`DispatchSettings`: `workflow_id?`,
+`tiers?`, `drone_cap?`, `lands?`, spike 022 slice 4), each absent where decided
+elsewhere. They are refused before any Job exists where nothing could keep them,
+and laid on every Job the request became once the proposer answers, through the
+approval's own path without the press: `lands` sets the delivering step's gate,
+`you_at_review` a person and `auto` none. A person can still change each at the
+approval gate.
+
+**A request linking an issue** marks every criterion the proposer read as the
+issue's, and keeps the issue on each Job it became for the issue rotation (spike
+022, answer 5): `Criterion.origin` names it and `origin_moved_at` says when it was
+edited after the read.
+
+**The request is a Job before the call goes out** (#1714): a row at `proposing`,
+the request as its title, no workflow and no steps, published as `job.created`.
+The answer moves that same Job to the gate as the head of the plan, under the
+proposer's title, and any other Jobs it split into arrive naming it through
+`dispatched_by`. Every `proposal.moved` names it on `job_id`. The call runs on a
+task of its own, so a caller that stops waiting does not stop it.
+
+It answers with a plan rather than a Job because one request can be several, and
+approving is a different act depending on how many: one Job is dispatched by its
+approval, several are a plan whose members each take their own in turn. A member
+approved before the one it waits on stays queued until that one reaches
+completed_success, which Fleet enforces at admission rather than trusting the
+order approvals arrived in.
+
+It does not propose write_targets. Which files the work touches is the first
+step's, declared through declare_scope by a Drone that has read the code, and
+checked against the real diff by the drift check that already exists. A Job
+therefore reaches the gate with write_targets null — not empty — and its shape
+underivable until that step runs.
+
+attachments carries files staged against the request before it was sent, the way
+propose_job's own field does for hand entry. Additive: a caller that predates
+this field sends nothing and decodes exactly as it did before. A request can
+become several Jobs; these land on the head of the plan alone; scope stays a
+member's own, and duplicating an attachment onto every Job in a chain is not
+this field's decision to make on a caller's behalf.
+
+Where no workflow resolves the request is refused and returned unchanged, on the
+error envelope's `request` field, and the Job it was dispatched as is escalated
+with `no_workflow_fits`, so the words survive on the Board. Nothing here assigns a
+workflow by default: the resolved definition is frozen into the Job and becomes
+what the work is judged against, so a nearest fit would be the standard rather
+than a guess somebody could correct.
+
+A call that could not be made — the network, the quota, the timeout — is a
+fault and not that refusal. The two answer different statuses because a person
+does different things about them. On the Job, a fault, an unreadable answer, a
+model this machine does not run and a Fleet restart under the call all escalate
+with `proposer_failed`, and the Job's log says which (#1716).
+
+An answer that could not be read is asked for once more, stating what was
+wrong with it; a second answer that still cannot be read is a fault carrying
+proposer_unreadable, never proposer_unreachable — the call was made both
+times, and it is what came back that could not be turned into a plan. `#831`.
+
+The call it makes is watched. A proposal is the one model call in Armada made
+with a person waiting in front of a form for it, so Fleet publishes proposal.moved
+as the call gets somewhere — started, at the vendor, thinking, answering — and a
+client draws the wait against the budget rather than against nothing. The events
+carry client_ref back unchanged where the request sent one, which is how a client
+recognises its own call before Fleet's own id has reached it. Fleet reads nothing
+from that token and keeps none of it.
+
+A caller that has waited long enough stops it with stop_proposal rather than
+abandoning the request, and the difference is real: abandoning leaves the call
+running and spending until Fleet's own budget expires, and stopping kills it. The
+request then answers as a fault carrying proposer_stopped, which is not an error —
+somebody decided, and a surface drawing it in red would say Armada broke.
+"""
