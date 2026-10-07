@@ -66,8 +66,9 @@ pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;
 pub use runners::{detected, shipped, RunnerDescription};
 pub use triggers::{
-    carried as carried_triggers, parse as parse_trigger, Catalogue as TriggerCatalogue,
-    LeftOut as TriggerLeftOut, ResolvedTrigger, ResolvedTriggers, WhyLeftOut as WhyTriggerLeftOut,
+    carried as carried_triggers, fit as fit_trigger, parse as parse_trigger,
+    Catalogue as TriggerCatalogue, Fitted as FittedTrigger, LeftOut as TriggerLeftOut,
+    ReplacedTrigger, ResolvedTrigger, ResolvedTriggers, WhyLeftOut as WhyTriggerLeftOut,
     Written as TriggerWritten,
 };
 pub use widening::with_manifests_added;

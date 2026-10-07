@@ -208,6 +208,7 @@ where
                 None
             }
         };
+        self.trigger_moved(job, &opened);
         let Some(command) = one.to_run() else {
             self.logged(job.id(), self.firing_line(job, &opened, None));
             return;
@@ -222,11 +223,25 @@ where
             }
         }
         self.logged(job.id(), self.firing_line(job, &ended, Some(&attempt)));
+        self.trigger_moved(job, &ended);
+    }
+
+    /// `job.trigger_changed`, the row whole. One per state a firing reaches.
+    fn trigger_moved(&self, job: &Job, firing: &TriggerFiring) {
+        self.publish(ipc::Event::JobTriggerChanged(ipc::JobTriggerChanged {
+            job_id: ipc::JobId::from(job.id()),
+            trigger: firing.into(),
+            at: (&self.now()).into(),
+        }));
     }
 
     fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {
+        self.trigger_line_at(job, self.now(), level, said)
+    }
+
+    fn trigger_line_at(&self, job: &Job, at: Timestamp, level: Level, said: &str) -> Envelope {
         Envelope::new(
-            self.now(),
+            at,
             level,
             Component::Fleet,
             self.run().clone(),
@@ -256,8 +271,11 @@ where
             (None, state) => format!("Trigger `{}` {}", firing.name, state.as_wire()),
         };
         let text = |value: &str| FieldValue::Str(value.to_string());
+        // Stamped with the firing's own end, which is what `JobTrigger::log_at`
+        // points at: the line is found by the instant the record already holds.
+        let at = firing.ended_at.clone().unwrap_or(firing.started_at.clone());
         let mut line = self
-            .trigger_line(job, level, &said)
+            .trigger_line_at(job, at, level, &said)
             .with_field("trigger", text(&firing.name))
             .with_field("when", text(firing.when.as_wire()))
             .with_field("step", text(firing.step.as_str()))

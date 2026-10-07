@@ -5,13 +5,14 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into four tables joined at compile
+//! **Split again at the 1200-line rule**, into five tables joined at compile
 //! time: Studios' in [`studios`](mod@studios), the published event kinds in
-//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), and every
-//! other row here. Each is a subject a
+//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), workflows' and Triggers' in
+//! [`authoring`](mod@authoring), and every other row here. Each is a subject a
 //! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
 //! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
 
+mod authoring;
 mod events;
 mod piloting;
 mod studios;
@@ -39,12 +40,24 @@ pub struct Route {
 /// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
 /// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
 pub const SERVED: &[Route] = &joined::<
-    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() + piloting::ROUTES.len() },
->([ROUTES, studios::ROUTES, events::ROUTES, piloting::ROUTES]);
+    {
+        ROUTES.len()
+            + studios::ROUTES.len()
+            + events::ROUTES.len()
+            + piloting::ROUTES.len()
+            + authoring::ROUTES.len()
+    },
+>([
+    ROUTES,
+    studios::ROUTES,
+    events::ROUTES,
+    piloting::ROUTES,
+    authoring::ROUTES,
+]);
 
-/// The four tables as one, in order. A count that disagrees with `N` fails
+/// The five tables as one, in order. A count that disagrees with `N` fails
 /// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 4]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 5]) -> [Route; N] {
     // Filled from the first row and overwritten below: a literal `Route` here
     // would read as a row to the gate rule, which parses this file as text.
     let mut out = [tables[0][0]; N];
@@ -62,7 +75,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 4]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's, a pilot's nor a published event kind.
+/// Every row that is neither a Studio's, a pilot's, a workflow's, a Trigger's nor a published event kind.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -462,28 +475,6 @@ const ROUTES: &[Route] = &[
         operation: "get_brief",
         method: "GET",
         path: "/jobs/:job_id/briefs/:name",
-    },
-    Route {
-        operation: "list_workflows",
-        method: "GET",
-        path: "/workflows",
-    },
-    Route {
-        operation: "get_workflow",
-        method: "GET",
-        path: "/workflows/definition",
-    },
-    Route {
-        operation: "list_left_out_workflows",
-        method: "GET",
-        path: "/workflows/left_out",
-    },
-    // The act in the last segment, beside `/manifest/save_file`'s. Under
-    // `/workflows` with the reads, since what it writes is what they list.
-    Route {
-        operation: "save_workflow",
-        method: "POST",
-        path: "/workflows/save",
     },
     // The ledger of agent sessions a person runs: the harness's intake, then the
     // two reads. `docs/concepts/session.md`.

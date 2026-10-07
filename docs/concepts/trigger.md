@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, and Fleet firing a Command Trigger. Skills, `block`, `repair` and asking the owner are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, and the wire to Bridge. Skills, `block`, `repair`, asking the owner and Bridge's screens are not.
 
 ## What a Trigger is
 
@@ -67,5 +67,26 @@ A Command runs in the Job's worktree under the Check budget, with no shell. What
 > Why: a Trigger is not a Check. `block` and `repair` are carried in the record and nothing acts on them yet.
 
 The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
+
+## On the wire
+
+Protocol 23.58, the four operations and one event, `docs/practices/protocol.md`.
+
+| Operation | What it does |
+|---|---|
+| `list_triggers` | What a repository runs, each with its level and file, what it replaced, and the files left out with why |
+| `get_trigger` | One Trigger as YAML text, from any level that holds a copy |
+| `save_trigger`, `remove_trigger` | Write or delete a file in the repository's folder or this machine's |
+| `job.trigger_changed` | One of a Job's Triggers moved. `JobDetail.triggers` is the rows, with the pending ones |
+
+> **Rule.** A save is checked with the loader's rules before anything is written.
+> Why: a Trigger that is saved is one that loads.
+
+**A repository's save refuses a Command its `armada.yml` lacks, and a machine's does not.** The loader skips a Trigger like that so the same file is right in the next repository. A machine's applies to every repository, so refusing it for the one in front of a person would undo that. Its answer says it is skipped here.
+
+> **Rule.** A repository's Trigger runs once it is on `main`.
+> Why: Fleet reads a repository's files from the base branch. A save writes the checkout and answers `waits_for_main`, and a removal there waits the same way.
+
+Nothing is held, so a save is on the next `list_triggers`. A Job's log line for a firing is stamped with the firing's own end, which is what `JobTrigger.log_at` points at.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

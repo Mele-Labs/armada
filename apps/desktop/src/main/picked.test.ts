@@ -18,6 +18,7 @@ import { Picked, repositoryToStart } from "./picked";
 import { RepositoryAllowsCommands } from "./repository-allows";
 import { composingOf, holdingsOf, manifestReadingOf } from "./request";
 import { ServerCommands } from "./servers";
+import { TriggerCommands } from "./triggers";
 import { WorkflowCommands } from "./workflows";
 
 const FIRST: RepositorySummary = {
@@ -198,6 +199,11 @@ async function everyCall(port: number, picked: Picked): Promise<void> {
   await workflows.list();
   await workflows.definition("bug", "repository");
   await workflows.save(null, { scope: "kit", definition: "{}" });
+  const triggers = new TriggerCommands(at, picked);
+  await triggers.list();
+  await triggers.definition({ identity: { when: "step_passes", name: "tidy" } });
+  await triggers.save({ manifestId: null, body: { scope: "machine", definition: "name: tidy\n" } });
+  await triggers.remove({ manifestId: null, body: { scope: "machine", when: "step_passes", name: "tidy" } });
   const commands = new JobCommands(boardOn(port, picked));
   await commands.searchFiles("src");
   await commands.proposeFromRequest("Fix the parser", []);
@@ -235,6 +241,10 @@ const EVERY_ROUTE = [
   "/repository/scan",
   "/repository/write_proposal",
   "/servers/start",
+  "/triggers",
+  "/triggers/definition",
+  "/triggers/remove",
+  "/triggers/save",
   "/workflows",
   "/workflows/definition",
   "/workflows/left_out",
@@ -359,7 +369,7 @@ describe("every per-repository call", () => {
   });
 
   it("is built through the pick wherever `src/main` spells a per-repository route", () => {
-    const routes = /["`](\/manifest\/|\/repository\/|\/workflows\/left_out|\/servers\/start|\/jobs\/from_request)/;
+    const routes = /["`](\/manifest\/|\/repository\/|\/workflows\/left_out|\/triggers|\/servers\/start|\/jobs\/from_request)/;
     const dir = __dirname;
     const unnamed = readdirSync(dir)
       .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts") && file !== "picked.ts")

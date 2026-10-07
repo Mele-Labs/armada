@@ -335,6 +335,8 @@ pub mod tasking;
 pub mod terms;
 mod tooling;
 pub mod transcript;
+mod trigger_authoring;
+mod trigger_wire;
 /// What a Job's Triggers come to at each moment, and where Fleet fires them.
 pub mod triggering;
 /// A step's tuning at the approval press. 23.20.
@@ -427,6 +429,7 @@ pub use silence::{Liveness, Poke, Quiet, Vigil};
 pub use slots::Concurrency;
 pub use sub_dispatch::NotDispatched;
 pub use transcript::{history, log_of, transcript_of, Live, Recording, Spine, Tap, Taps};
+pub use trigger_wire::{job_triggers, trigger_definition, trigger_list};
 pub use turning::{keep_turning, Turned, Turning, Worked};
 pub use underway::{Announcing, LiveLog, Underway};
 pub use watch::{Drained, Progress, Watching};

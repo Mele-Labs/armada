@@ -36,6 +36,28 @@ impl Locating for Arc<Files> {
     fn triggers(&self, _root: &Path, _base: Option<&str>) -> Vec<TriggerWritten> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
+    fn save_trigger(
+        &self,
+        _: &Path,
+        manifest: &Manifest,
+        asked: &ipc::SaveTrigger,
+    ) -> Result<crate::repositories::SavedTrigger, crate::repositories::TriggerNotSaved> {
+        let file = Path::new("/home/user/.armada/machine/triggers/saved.yml");
+        let fitted = config::fit_trigger(file, &asked.definition, manifest).map_err(|why| {
+            crate::repositories::TriggerNotSaved::Unfit {
+                why: why.to_string(),
+            }
+        })?;
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(TriggerWritten::on_machine(file.into(), asked.definition.clone()));
+        Ok(crate::repositories::SavedTrigger {
+            trigger: fitted,
+            file: file.display().to_string(),
+            replaced: false,
+        })
+    }
     fn save_workflow(
         &self,
         _: &Path,
@@ -232,4 +254,113 @@ async fn a_trigger_saved_after_the_approval_does_not_touch_the_job() {
 
     let fired: Vec<_> = firings(&fleet, job.id()).await.into_iter().map(|f| f.0).collect();
     assert_eq!(fired, ["deploy"]);
+}
+
+#[tokio::test]
+async fn the_job_lists_what_is_frozen_and_what_fired_and_each_change_is_published() {
+    let home = TempDir::new();
+    let files = Arc::new(Files::default());
+    files.say(vec![
+        machine("begin.yml", "name: begin\nwhen: step_starts\ncommand: fmt\n"),
+        deploys(),
+    ]);
+    let fleet = a_fleet(&home, &files, manifest(Some("false")), Delivering::default());
+    let mut heard = fleet.events().subscribe();
+    let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
+    worktree_directory(&home, &job);
+    dispatched(&fleet, job.id()).await.unwrap();
+
+    let wire = ipc::JobId::from(job.id());
+    let detail = fleet.job_detail(wire.clone()).await.unwrap();
+    let states: Vec<_> = detail
+        .triggers
+        .iter()
+        .map(|t| (t.name.as_str(), t.step.as_str(), t.state))
+        .collect();
+    use ipc::TriggerFiringState::{Passed, Pending};
+    assert_eq!(
+        states,
+        [
+            ("begin", "implement", Passed),
+            ("begin", "summarise", Pending),
+            ("deploy", "summarise", Pending),
+        ]
+    );
+
+    submitted_by_the_one(&fleet, diff_evidence()).await.unwrap();
+    fleet.turn().await.unwrap();
+    let detail = fleet.job_detail(wire.clone()).await.unwrap();
+    let deploy = detail.triggers.iter().find(|t| t.name == "deploy").unwrap();
+    assert_eq!(deploy.state, ipc::TriggerFiringState::Failed);
+    assert_eq!(deploy.exit_code, Some(1));
+    assert!(deploy.log_at.is_some());
+
+    let seen = crate::tests::under_review::published(&mut heard).await;
+    let moves: Vec<_> = seen
+        .iter()
+        .filter_map(|event| match event {
+            ipc::Event::JobTriggerChanged(changed) if changed.trigger.name == "deploy" => {
+                Some(changed.trigger.state)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        moves,
+        [ipc::TriggerFiringState::Running, ipc::TriggerFiringState::Failed],
+        "one message to open and one to end: {seen:?}"
+    );
+    let line = log(&fleet, &home, &job);
+    assert!(
+        line.contains(deploy.log_at.as_ref().unwrap().as_str()),
+        "the log line carries the instant the detail points at"
+    );
+}
+
+#[tokio::test]
+async fn a_saved_trigger_is_on_the_next_list_and_says_what_runs() {
+    use api::{Authoring, Queries};
+    let home = TempDir::new();
+    let files = Arc::new(Files::default());
+    files.say(vec![TriggerWritten::in_repository(
+        ".armada/triggers/tidy.yml".into(),
+        "name: tidy\nwhen: step_passes\ncommand: fmt\n".into(),
+    )]);
+    let fleet = a_fleet(&home, &files, manifest(None), Delivering::default());
+
+    let mine = "name: tidy\nwhen: step_passes\ncommand: fmt\non_failure: {repair: true}\n";
+    let saved = fleet
+        .save_trigger(
+            ipc::SaveTrigger {
+                scope: ipc::TriggerScope::Machine,
+                definition: mine.into(),
+                overwrite: false,
+            },
+            None,
+        )
+        .await
+        .expect("saved");
+    assert_eq!(saved.runs_from, Some(ipc::TriggerLevel::Machine));
+    assert!(!saved.waits_for_main, "a machine's is not waiting on anything");
+
+    let listed = fleet.list_triggers(None).await.expect("listed");
+    let [one] = listed.triggers.as_slice() else {
+        panic!("one identity: {listed:?}");
+    };
+    assert_eq!(one.level, ipc::TriggerLevel::Machine);
+    assert!(one.repair);
+    assert_eq!(one.overrides.len(), 1);
+
+    let theirs = fleet
+        .get_trigger(
+            ipc::TriggerMoment::StepPasses,
+            None,
+            "tidy".into(),
+            Some(ipc::TriggerLevel::Repository),
+            None,
+        )
+        .await
+        .expect("the replaced copy can still be read");
+    assert_eq!(theirs.overridden_by, Some(ipc::TriggerLevel::Machine));
+    assert!(theirs.definition.contains("command: fmt"));
 }

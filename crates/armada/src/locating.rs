@@ -142,29 +142,29 @@ impl Locating for Locator {
         }
     }
 
+    fn save_trigger(
+        &self,
+        root: &Path,
+        manifest: &config::Manifest,
+        asked: &ipc::SaveTrigger,
+    ) -> Result<fleet::repositories::SavedTrigger, fleet::repositories::TriggerNotSaved> {
+        crate::trigger_authoring::save(root, &self.machine, manifest, asked)
+    }
+
+    fn remove_trigger(
+        &self,
+        root: &Path,
+        asked: &ipc::RemoveTrigger,
+    ) -> Result<String, fleet::repositories::TriggerNotRemoved> {
+        crate::trigger_authoring::remove(root, &self.machine, asked)
+    }
+
     fn triggers(&self, root: &Path, base: Option<&str>) -> Vec<config::TriggerWritten> {
         let mut written: Vec<_> = adapters::triggers_on_base(root, base)
             .into_iter()
             .map(|(path, text)| config::TriggerWritten::in_repository(path, text))
             .collect();
-        let folder = self.machine.join("machine").join("triggers");
-        let mut own: Vec<_> = std::fs::read_dir(&folder)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| {
-                matches!(
-                    path.extension().and_then(|e| e.to_str()),
-                    Some("yml" | "yaml")
-                )
-            })
-            .collect();
-        own.sort();
-        written.extend(own.into_iter().filter_map(|path| {
-            let text = std::fs::read_to_string(&path).ok()?;
-            Some(config::TriggerWritten::on_machine(path, text))
-        }));
+        written.extend(crate::trigger_authoring::on_machine(&self.machine));
         written
     }
 
