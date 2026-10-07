@@ -139,7 +139,7 @@ pub struct Forgotten {
     pub merge_line_entries: usize,
     /// What each step's worktree held when it began, one row per step.
     pub step_baselines: usize,
-    /// The Triggers frozen onto the Job and every firing of one, one row each.
+    /// The Triggers frozen onto the Job, every firing of one, and the steps added to it, one row each.
     pub triggers: usize,
     /// Rows removed from a table this build has no field for.
     ///
@@ -213,7 +213,7 @@ impl Forgotten {
             "job_walk_notes" => &mut self.walk_notes,
             "merge_line_entries" => &mut self.merge_line_entries,
             "job_step_baselines" => &mut self.step_baselines,
-            "job_frozen_triggers" | "job_triggers" => &mut self.triggers,
+            "job_frozen_triggers" | "job_triggers" | "job_additions" => &mut self.triggers,
             _ => return None,
         })
     }
