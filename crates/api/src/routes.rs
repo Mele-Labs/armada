@@ -98,15 +98,9 @@ pub use served::{Route, SERVED};
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
-    let waiting = served.waiting_on().map(|over| (over, served.run_id().clone()));
-    let app = surface(served.clone())
-        .merge(crate::door::mounted::<D>(served.clone(), surface(served)));
-    // Inside the refusal, so a page is turned away at once and not after the wait.
-    let app = match waiting {
-        Some(waiting) => app.layer(from_fn_with_state(waiting, crate::reconciling::hold_commands)),
-        None => app,
-    };
-    app.layer(refusing_a_page)
+    surface(served.clone())
+        .merge(crate::door::mounted::<D>(served.clone(), surface(served)))
+        .layer(refusing_a_page)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.
