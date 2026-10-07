@@ -29,7 +29,7 @@ export type StartSession = {
    */
   pilot?: { job_id: string; outcome: PilotOutcome };
   /**
-   * Start as a copy of an ended or dead session's conversation. Since 23.55. A new session with its own
+   * Start as a copy of an ended or dead session's conversation. Since 23.61. A new session with its own
    * id and ledger, holding none of the old one's. Refused 409 `fleet.session_fork_live` for a live one.
    */
   fork?: { session_id: string };
@@ -139,6 +139,10 @@ export type SessionRow =
     }
   /** A tool call, one line. */
   | { kind: "tool"; id: string; at: string; text: string }
+  /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
+  | { kind: "command"; id: string; at: string; text: string }
+  /** The summary the CLI wrote where it compacted the conversation. Not the person's words. Since 23.56. */
+  | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
   /**

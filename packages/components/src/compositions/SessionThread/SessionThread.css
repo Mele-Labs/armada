@@ -112,7 +112,7 @@
   line-height: var(--leading-sm);
 }
 
-/* What a message was sent with, under its bubble. */
+/* What a message was sent with, under its words. */
 .armada-session-sent {
   display: flex;
   flex-wrap: wrap;
@@ -125,10 +125,6 @@
   max-height: calc(var(--space-12) * 3);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
-}
-
-.armada-helm-thread__row[data-actor="you"] .armada-session-sent {
-  justify-content: flex-end;
 }
 
 .armada-session-thread__ask {
@@ -206,4 +202,85 @@
 .armada-session-handoff__fields code {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
+}
+
+/* A command or a tool call: one mono line, with no fill of its own. */
+.armada-session-command {
+  min-width: 0;
+}
+
+.armada-session-command__text {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A quiet row that opens: the tool calls folded into one, and a compaction. */
+.armada-session-fold {
+  min-width: 0;
+}
+
+.armada-session-fold__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}
+
+.armada-session-fold__head::-webkit-details-marker {
+  display: none;
+}
+
+.armada-session-fold__head:hover {
+  color: var(--fg-default);
+}
+
+.armada-session-fold__head:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-fold__chevron {
+  flex: none;
+  transition: transform var(--duration-fast) ease;
+}
+
+.armada-session-fold details[open] > .armada-session-fold__head .armada-session-fold__chevron {
+  transform: rotate(90deg);
+}
+
+.armada-session-fold__names {
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-fold__calls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0 0 0 var(--space-4);
+  list-style: none;
+}
+
+.armada-session-fold__body {
+  margin-top: var(--space-1);
+  padding-inline-start: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
 }

@@ -70,6 +70,10 @@ struct Envelope {
     sidechain: bool,
     #[serde(rename = "isMeta", default)]
     meta: bool,
+    /// The summary the CLI writes in place of a conversation it compacted. It
+    /// is a user line and it is not the person's.
+    #[serde(rename = "isCompactSummary", default)]
+    compact: bool,
     #[serde(default)]
     origin: Option<Origin>,
 }
@@ -116,7 +120,30 @@ fn drawn(line: &str) -> Vec<SessionRow> {
             n => format!("{uuid}.{n}"),
         };
         match event {
+            DroneEvent::Said { text, .. } if person && envelope.compact => {
+                rows.push(SessionRow::Compaction {
+                    id,
+                    at: at.clone(),
+                    text: text.trim().to_string(),
+                });
+            }
             DroneEvent::Said { text, by } if !text.trim().is_empty() => {
+                let text = if person {
+                    match worded(&text) {
+                        Worded::Skip => continue,
+                        Worded::Command(text) => {
+                            rows.push(SessionRow::Command {
+                                id,
+                                at: at.clone(),
+                                text,
+                            });
+                            continue;
+                        }
+                        Worded::Said(text) => text,
+                    }
+                } else {
+                    text
+                };
                 let from = match (person, by) {
                     (true, Speaker::Armada) => SessionVoice::You,
                     (false, Speaker::Drone) => SessionVoice::Agent,
@@ -148,4 +175,76 @@ fn drawn(line: &str) -> Vec<SessionRow> {
         }
     }
     rows
+}
+
+/// What a user line's text is, once the CLI's own wrapper tags are read.
+enum Worded {
+    /// Markup the CLI wrote for itself: a command's output, a caveat, a
+    /// reminder, another session's hand-back. **Nothing of it reaches the thread.**
+    Skip,
+    /// A slash command or a `!` shell line, as the person typed it.
+    Command(String),
+    Said(String),
+}
+
+/// Tags whose whole line is the CLI's and not the conversation.
+const NOT_SPOKEN: [&str; 7] = [
+    "local-command-stdout",
+    "local-command-stderr",
+    "local-command-caveat",
+    "bash-stdout",
+    "system-reminder",
+    "task-notification",
+    "agent-message",
+];
+
+fn worded(text: &str) -> Worded {
+    let text = without_reminders(text);
+    let text = text.trim();
+    if text.is_empty()
+        || text.starts_with("Another Claude session sent a message")
+        || NOT_SPOKEN.iter().any(|tag| text.starts_with(&format!("<{tag}")))
+    {
+        return Worded::Skip;
+    }
+    if let Some(shell) = inside(text, "bash-input") {
+        return Worded::Command(format!("! {}", shell.trim()));
+    }
+    if let Some(name) = inside(text, "command-name") {
+        let name = name.trim();
+        let name = if name.starts_with('/') { name.to_string() } else { format!("/{name}") };
+        let args = inside(text, "command-args").unwrap_or_default().trim();
+        return Worded::Command(if args.is_empty() { name } else { format!("{name} {args}") });
+    }
+    // What was pasted is what the person said; the tag around it is not.
+    match (text.starts_with("<pasted_content"), text.find('>')) {
+        (true, Some(open)) => {
+            let rest = &text[open + 1..];
+            Worded::Said(rest.strip_suffix("</pasted_content>").unwrap_or(rest).trim().to_string())
+        }
+        _ => Worded::Said(text.to_string()),
+    }
+}
+
+/// The text between `<tag>` and `</tag>`, where the line has both.
+fn inside<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{tag}>");
+    let from = text.find(&open)? + open.len();
+    let to = text[from..].find(&format!("</{tag}>"))?;
+    Some(&text[from..from + to])
+}
+
+/// The text with every `<system-reminder>` block taken out.
+fn without_reminders(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(open) = rest.find("<system-reminder>") {
+        out.push_str(&rest[..open]);
+        match rest[open..].find("</system-reminder>") {
+            Some(close) => rest = &rest[open + close + "</system-reminder>".len()..],
+            None => return out,
+        }
+    }
+    out.push_str(rest);
+    out
 }
