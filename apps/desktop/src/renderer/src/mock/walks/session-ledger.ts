@@ -21,8 +21,8 @@ function steps(narrow: boolean): Step[] {
     ...(narrow
       ? []
       : [
-          { press: button("Hide attachments"), say: "One button in the header hides the ledger and the thread takes the width" },
-          { press: button("Show attachments"), say: "The same button shows it again" },
+          { press: button("Hide attachments"), say: "The button in the ledger panel's head hides it and the conversation takes the width" },
+          { press: button("Show attachments"), say: "The conversation's header holds the button that shows it again" },
         ]),
     { press: rail("Sessions"), say: "Back to the list" },
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that made three things" },

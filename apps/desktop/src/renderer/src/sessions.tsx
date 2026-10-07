@@ -585,17 +585,33 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                         <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
-                  ) : (
-                    <Tooltip label={minimized ? "Show attachments" : "Hide attachments"}>
-                      <Button variant="ghost" size="sm" aria-label={minimized ? "Show attachments" : "Hide attachments"} aria-pressed={!minimized} onClick={() => minimize(!minimized)}>
-                        {minimized ? <PanelRightOpen size={16} strokeWidth={2} aria-hidden /> : <PanelRightClose size={16} strokeWidth={2} aria-hidden />}
+                  ) : minimized ? (
+                    <Tooltip label="Show attachments">
+                      <Button variant="ghost" size="sm" aria-label="Show attachments" onClick={() => minimize(false)}>
+                        <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
                       </Button>
                     </Tooltip>
-                  )}
+                  ) : null}
                 </>
               ),
             }}
-        {...(narrow || minimized ? {} : { aside: <SessionLedger entries={entries} /> })}
+        {...(narrow || minimized
+          ? {}
+          : {
+              aside: (
+                <>
+                  <div className="armada-session-frame__aside-head">
+                    <h2>Ledger</h2>
+                    <Tooltip label="Hide attachments">
+                      <Button variant="ghost" size="sm" aria-label="Hide attachments" onClick={() => minimize(true)}>
+                        <PanelRightClose size={16} strokeWidth={2} aria-hidden />
+                      </Button>
+                    </Tooltip>
+                  </div>
+                  <SessionLedger entries={entries} />
+                </>
+              ),
+            })}
       >
         <div className="armada-session-frame__centre">
           <Refused />
