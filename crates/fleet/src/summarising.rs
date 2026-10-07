@@ -111,6 +111,7 @@ where
             let store = self.store().lock().await;
             summary.fixes_main = self.fixes_main_of(&store, job);
             summary.piloted = self.piloted_on_row(&store, job);
+            summary.alert = self.alert_on_row(&store, job);
         }
         Ok(summary)
     }

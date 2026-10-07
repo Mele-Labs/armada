@@ -115,18 +115,35 @@ where
             let Some(job) = loaded.jobs.iter().find(|job| job.id() == &job_id) else {
                 continue;
             };
-            if !owned(job) {
+            // A hold on a Job that is over holds nothing.
+            let over = firing.state == core_model::TriggerState::Held && job.status().is_terminal();
+            if !owned(job) || over {
                 continue;
             }
-            let summary = self.summarised(job).await?;
-            let mut alert = self.alerted(job, &summary).await?;
-            alert.why = Some(match firing.state {
+            let why = match firing.state {
+                core_model::TriggerState::Held => crate::trigger_hold::held_said(&firing.name),
                 core_model::TriggerState::FixReady => {
                     crate::trigger_repair::fix_waiting(&firing.name)
                 }
                 _ => crate::trigger_repair::alert(&firing.name),
-            });
-            alert.since = firing.repair.settled_at.as_ref().map(Into::into);
+            };
+            // A Job a hold stopped is already blocked: it says which Trigger.
+            if let Some(stopped) = blocked
+                .iter_mut()
+                .find(|one| one.job_id == ipc::JobId::from(&job_id))
+            {
+                stopped.why = Some(why);
+                continue;
+            }
+            let summary = self.summarised(job).await?;
+            let mut alert = self.alerted(job, &summary).await?;
+            alert.why = Some(why);
+            alert.since = firing
+                .repair
+                .settled_at
+                .as_ref()
+                .or(firing.ended_at.as_ref())
+                .map(Into::into);
             waiting.push(alert);
         }
         Ok(AlertList { blocked, waiting })

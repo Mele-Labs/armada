@@ -296,13 +296,32 @@ where
         record: &RepairRecord,
         said: &str,
     ) {
-        self.repair_kept(job, waiting, state, record, state == TriggerState::Failed)
-            .await;
+        // A failure that was not fixed still holds the Job where the Trigger blocks.
+        let state = self.held_where_it_blocks(job, waiting.firing, state).await;
+        let over = matches!(state, TriggerState::Failed | TriggerState::Held);
+        self.repair_kept(job, waiting, state, record, over).await;
         let level = match state {
-            TriggerState::Failed => Level::Warn,
+            TriggerState::Failed | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
         let said = format!("Trigger `{}` {}: {said}", waiting.trigger, state.as_wire());
         self.logged(job.id(), self.trigger_line(job, level, &said));
+        // A repair that ends passed lets the hold go by itself.
+        if state == TriggerState::Passed {
+            let _ = self.store().lock().await.mark_hold_released(waiting.firing);
+            self.hold_let_go(job.id(), core_model::Actor::Fleet).await;
+        }
+    }
+
+    async fn held_where_it_blocks(
+        &self,
+        job: &Job,
+        firing: i64,
+        state: TriggerState,
+    ) -> TriggerState {
+        let held = self.store().lock().await.firings_with_ids(job.id());
+        held.ok()
+            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing))
+            .map_or(state, |(_, firing)| firing.settled_as(state))
     }
 }

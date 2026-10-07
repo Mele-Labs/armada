@@ -3,8 +3,8 @@
 
 use crate::tests::{detail_of, job};
 use crate::{
-    decode, encode, ChooseTriggerFix, Event, Instant, JobTrigger, JobTriggerChanged, SaveTrigger,
-    StepId, TriggerFiringState, TriggerFixChoice, TriggerFixChosen, TriggerLevel, TriggerMoment,
+    decode, encode, ChooseTriggerFix, Event, HoldAct, HoldSettled, Instant, JobAlert, JobAlertKind,
+    JobTrigger, JobTriggerChanged, SaveTrigger, StepId, TriggerFiringState, TriggerFixChoice, TriggerFixChosen, TriggerLevel, TriggerMoment,
     TriggerPullRequest, TriggerRepair, TriggerSkip, TriggerSkipReason,
 };
 
@@ -21,6 +21,7 @@ fn a_failed_firing() -> JobTrigger {
         ended_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         log_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         repair: None,
+        blocks: false,
     }
 }
 
@@ -116,6 +117,7 @@ fn a_pending_one_has_no_times_and_a_skipped_one_says_why() {
         ended_at: None,
         log_at: None,
         repair: None,
+        blocks: false,
         ..a_failed_firing()
     };
     let text = encode(&pending).expect("encodes");
@@ -174,4 +176,71 @@ fn a_save_without_overwrite_reads_as_false_and_a_peer_ignores_what_it_does_not_k
     let said = br#"{"scope":"machine","definition":"name: x\n","later":1}"#;
     let save: SaveTrigger = decode("a save", said).expect("decodes");
     assert!(!save.overwrite);
+}
+
+/// **The TypeScript side's fixture too**, as `FIRED` is.
+pub const HELD: &str = r#"{"name":"deploy","when":"pr_opened","step":"summarise","level":"machine","state":"held","exit_code":1,"started_at":"2026-10-07T10:00:00.000Z","ended_at":"2026-10-07T10:00:02.000Z","log_at":"2026-10-07T10:00:02.000Z","blocks":true}"#;
+
+fn a_held_firing() -> JobTrigger {
+    JobTrigger {
+        name: "deploy".into(),
+        when: TriggerMoment::PrOpened,
+        step: StepId::carried("summarise"),
+        state: TriggerFiringState::Held,
+        blocks: true,
+        ..a_failed_firing()
+    }
+}
+
+#[test]
+fn a_held_trigger_says_it_blocks_and_one_that_does_not_leaves_it_out() {
+    assert_eq!(encode(&a_held_firing()).expect("encodes"), HELD);
+    let back: JobTrigger = decode("a trigger", HELD.as_bytes()).expect("decodes");
+    assert_eq!(back, a_held_firing());
+    assert!(!encode(&a_failed_firing()).expect("encodes").contains("blocks"));
+    let before: JobTrigger = decode("a trigger", FIRED.as_bytes()).expect("decodes");
+    assert!(!before.blocks, "a Fleet before 23.63 sends none");
+}
+
+#[test]
+fn the_bell_on_a_row_names_the_trigger_and_where_it_fired() {
+    let alert = JobAlert {
+        kind: JobAlertKind::Held,
+        trigger: "deploy".into(),
+        when: TriggerMoment::PrOpened,
+        step: StepId::carried("summarise"),
+    };
+    let text = encode(&alert).expect("encodes");
+    assert_eq!(
+        text,
+        r#"{"kind":"held","trigger":"deploy","when":"pr_opened","step":"summarise"}"#
+    );
+    let back: JobAlert = decode("an alert", text.as_bytes()).expect("decodes");
+    assert_eq!(back, alert);
+    let mut row = crate::JobSummary::from(&job());
+    assert!(!encode(&row).expect("encodes").contains("alert"));
+    row.alert = Some(alert);
+    let text = encode(&row).expect("encodes");
+    let back: crate::JobSummary = decode("a row", text.as_bytes()).expect("decodes");
+    assert_eq!(back, row);
+    for kind in [JobAlertKind::FixReady, JobAlertKind::Failed] {
+        assert!(encode(&kind).expect("encodes").starts_with('"'));
+    }
+}
+
+#[test]
+fn the_two_acts_name_a_trigger_or_an_added_step_and_the_answer_says_where_it_stands() {
+    let body: HoldAct = decode("a hold", br#"{"trigger":"deploy"}"#).expect("decodes");
+    assert_eq!((body.trigger.as_deref(), body.addition), (Some("deploy"), None));
+    let body: HoldAct = decode("a hold", br#"{"addition":"a1"}"#).expect("decodes");
+    assert_eq!(body.addition.as_deref(), Some("a1"));
+    let said = encode(&HoldSettled {
+        state: TriggerFiringState::Skipped,
+        released: true,
+    })
+    .expect("encodes");
+    assert_eq!(said, r#"{"state":"skipped","released":true}"#);
+    let back: TriggerSkip = decode("a skip", br#"{"reason":"by_owner","name":"","said":"skipped by you while it held the Job"}"#)
+        .expect("decodes");
+    assert_eq!(back.reason, TriggerSkipReason::ByOwner);
 }

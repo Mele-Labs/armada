@@ -146,6 +146,7 @@ impl Row {
                     }
                     (Some("skill_not_run"), Some(skill)) => Some(NotRun::SkillNotRun { skill }),
                     (Some("drone_step_not_run"), _) => Some(NotRun::DroneStepNotRun),
+                    (Some("by_owner"), _) => Some(NotRun::ByOwner),
                     (Some(other), _) => return Err(unknown("not_run_why", other.to_string())),
                 };
                 Some(Fired {
@@ -274,6 +275,7 @@ impl Store {
             }
             Some(NotRun::SkillNotRun { skill }) => (Some("skill_not_run"), Some(skill.as_str())),
             Some(NotRun::DroneStepNotRun) => (Some("drone_step_not_run"), None),
+            Some(NotRun::ByOwner) => (Some("by_owner"), None),
             None => (None, None),
         };
         self.conn
@@ -294,6 +296,27 @@ impl Store {
                 ],
             )
             .map_err(fault("recording how an added step went"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Settle an addition that held its Job: the firing as it now stands, and
+    /// whether the next entry to its moment must pass it by, which is a
+    /// `step_starts` hold's alone.
+    pub fn settle_addition_hold(
+        &mut self,
+        job_id: &JobId,
+        addition_id: &str,
+        fired: &Fired,
+        released: bool,
+    ) -> Result<(), WriteError> {
+        self.set_addition_fired(job_id, addition_id, fired)?;
+        self.conn
+            .execute(
+                "UPDATE job_additions SET released = ?3 WHERE job_id = ?1 AND addition_id = ?2",
+                (job_id.as_str(), addition_id, released),
+            )
+            .map_err(fault("recording how a held added step was settled"))
             .map_err(WriteError::Database)?;
         Ok(())
     }

@@ -11,7 +11,8 @@
 //! | A Trigger naming a Command the repository does not declare is marked skipped, and the others stand | That a Command really runs in the Job's worktree under the Check budget. `fleet::tests::triggering` runs `true` and `false` there |
 //! | A file that will not parse is left out with its reason, and the others stand | That the three moments are where Fleet calls this from. `fleet::tests::triggering` drives a Job through each |
 //! | A machine `pr_opened` Trigger is frozen onto the delivering step of any workflow, runs its Command once and is recorded passed | That the frozen set is written at the approval and survives a restart. `store`'s own tests and `fleet::tests::triggering` |
-//! | A Command that exits non-zero is recorded failed, or `repairing` with `repair` on, and the Job stays where it was. A repair is told what failed, is bound at two tries, holds a passing fix for the owner, and each choice is a different delivery | `block`, which nothing acts on. A Drone on a branch, a push, a merge and the alert: `fleet::tests::trigger_repair` drives those with a fake Drone and `FakeVcs` |
+//! | A Command that exits non-zero is recorded failed, or `repairing` with `repair` on, and the Job stays where it was. A repair is told what failed, is bound at two tries, holds a passing fix for the owner, and each choice is a different delivery | A Drone on a branch, a push, a merge and the alert: `fleet::tests::trigger_repair` drives those with a fake Drone and `FakeVcs` |
+//! | A Trigger that blocks and fails is `held` and holds the Job, through a repair and until a rerun passes, the owner skips it or a repair ends passed. A failure that does not block holds nothing, and neither does the last step's `step_passes` | Where each moment holds, the rerun, the skip and the refusals: `fleet::tests::trigger_hold` drives a Job through each, and the walk `aTriggerHoldsTheJob` is Bridge's |
 //! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run | That the owner is asked. Nothing asks him yet |
 //! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
@@ -607,4 +608,66 @@ async fn a_failed_repairing_trigger_is_repaired_twice_at_most_and_the_fix_waits_
         before
     );
     assert_eq!(run.job.status(), JobStatus::Running);
+}
+
+const BLOCKING_DEPLOY: &str =
+    "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\non_failure:\n  block: true\n";
+
+/// `deploy_qa` fails after the pull request opens and the Trigger blocks. The
+/// firing is `held` and holds the Job; the Job's own record is where Fleet
+/// puts the hold, and the claim here is the rule that decides it.
+#[tokio::test]
+async fn a_blocking_trigger_that_fails_holds_the_job_until_it_is_let_go() {
+    let run = a_job_entering_its_delivering_step().await;
+    let delivering = run.job.workflow().delivering_step().expect("one delivers");
+    let manifest = manifest_text(DECLARING_DEPLOY);
+    let fail = Commands::exiting(Exit::Code(1));
+    let one = |file: &str| {
+        fired(
+            &run.job,
+            vec![machine("deploy.yml", file)],
+            &manifest,
+            TriggerWhen::PrOpened,
+            delivering.id(),
+            &fail,
+        )
+        .remove(0)
+    };
+
+    let held = one(BLOCKING_DEPLOY);
+    assert_eq!(held.state, TriggerState::Held);
+    assert!(held.ended_at.is_some(), "the failure ended; the hold did not");
+    assert!(held.holds_the_job());
+    // The Job a person sees is where it was: the hold stands in front of the gate.
+    assert_eq!(run.job.status(), JobStatus::Running);
+
+    // A failure that does not block holds nothing.
+    let plain = one("name: deploy\nwhen: pr_opened\ncommand: deploy_qa\n");
+    assert_eq!(plain.state, TriggerState::Failed);
+    assert!(!plain.holds_the_job());
+
+    // With `repair` on the hold waits through it, and a repair that did not fix it
+    // leaves the hold and not a plain failure.
+    let repairing = one(
+        "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\non_failure:\n  block: true\n  repair: true\n",
+    );
+    assert_eq!(repairing.state, TriggerState::Repairing);
+    assert!(repairing.holds_the_job());
+    assert_eq!(repairing.settled_as(TriggerState::Failed), TriggerState::Held);
+    assert_eq!(plain.settled_as(TriggerState::Failed), TriggerState::Failed);
+    assert_eq!(repairing.settled_as(TriggerState::Passed), TriggerState::Passed);
+
+    // The owner's skip is a record of who, and it holds nothing.
+    let skipped = held.skipped_by_the_owner(at(9));
+    assert_eq!(skipped.state, TriggerState::Skipped);
+    assert_eq!(skipped.skipped, Some(TriggerSkipped::ByOwner));
+    assert!(!skipped.holds_the_job());
+
+    // Nothing stands in front of the end of a Job's last step.
+    let last = run.job.workflow().steps().last().expect("a step");
+    let first = run.job.workflow().steps().first().expect("a step");
+    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::StepStarts, first.id()));
+    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::StepPasses, first.id()));
+    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::PrOpened, delivering.id()));
+    assert!(!core_model::can_hold(run.job.workflow(), TriggerWhen::StepPasses, last.id()));
 }

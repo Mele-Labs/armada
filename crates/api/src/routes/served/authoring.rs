@@ -53,6 +53,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/choose_trigger_fix",
     },
+    // The owner's two acts on a Trigger that holds the Job. Since 23.63.
+    Route {
+        operation: "rerun_trigger",
+        method: "POST",
+        path: "/jobs/:job_id/rerun_trigger",
+    },
+    Route {
+        operation: "skip_trigger",
+        method: "POST",
+        path: "/jobs/:job_id/skip_trigger",
+    },
     // Steps added to one Job. Since 23.59.
     Route {
         operation: "add_job_step",

@@ -298,6 +298,13 @@ pub enum EscalationTrigger {
     /// [`NotConfigurable`](Self::NotConfigurable), where the values were
     /// wrong and nothing was ever asked to start.
     WouldNotStart,
+    /// A Trigger or an added step that blocks failed, and the Job waits on it.
+    /// **No Drone is wrong and no work was weighed**: the thing a person asked
+    /// to have run at this moment did not pass, and they said a failure should
+    /// stop the Job there. Not [`GateFailure`](Self::GateFailure), which is a
+    /// Check, and a Trigger is not one. The owner reruns the Command or skips
+    /// it, and the Job goes on.
+    TriggerHeld,
 }
 
 /// Whether a row is a trigger of its own or a sub-kind of another, as the
@@ -411,6 +418,7 @@ impl StepLevelTrigger {
             | EscalationTrigger::Silent
             | EscalationTrigger::Stalled
             | EscalationTrigger::Unheard
+            | EscalationTrigger::TriggerHeld
             | EscalationTrigger::WouldNotStart => false,
         }
     }
@@ -445,6 +453,7 @@ impl EscalationTrigger {
         EscalationTrigger::Silent,
         EscalationTrigger::Stalled,
         EscalationTrigger::Thrashing,
+        EscalationTrigger::TriggerHeld,
         EscalationTrigger::Unheard,
         EscalationTrigger::WouldNotStart,
     ];
@@ -478,6 +487,7 @@ impl EscalationTrigger {
             EscalationTrigger::Silent => "silent",
             EscalationTrigger::Stalled => "stalled",
             EscalationTrigger::Thrashing => "thrashing",
+            EscalationTrigger::TriggerHeld => "trigger_held",
             EscalationTrigger::Unheard => "unheard",
             EscalationTrigger::WouldNotStart => "would_not_start",
         }
@@ -541,6 +551,7 @@ impl EscalationTrigger {
             | EscalationTrigger::ProposerFailed
             | EscalationTrigger::ResourceExhausted
             | EscalationTrigger::Stalled
+            | EscalationTrigger::TriggerHeld
             | EscalationTrigger::Unheard
             | EscalationTrigger::WouldNotStart => TriggerLevel::Job,
             // A sub-kind has no level of its own. It pauses the Job exactly as

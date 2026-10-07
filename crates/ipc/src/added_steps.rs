@@ -82,6 +82,8 @@ pub enum AddedSkipReason {
     SkillNotRun,
     /// A Drone step, which is not run yet.
     DroneStepNotRun,
+    /// It failed and held the Job, and the owner skipped it. Since 23.63.
+    ByOwner,
 }
 
 /// An addition that will not run, and why.
@@ -214,6 +216,7 @@ impl From<&core_model::NotRun> for AddedSkip {
                 core_model::NotRun::NotInThisRepo { .. } => AddedSkipReason::NotInThisRepo,
                 core_model::NotRun::SkillNotRun { .. } => AddedSkipReason::SkillNotRun,
                 core_model::NotRun::DroneStepNotRun => AddedSkipReason::DroneStepNotRun,
+                core_model::NotRun::ByOwner => AddedSkipReason::ByOwner,
             },
             said: not_run.to_string(),
         }

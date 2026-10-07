@@ -195,6 +195,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         paused: None,
         fixes_main: None,
         piloted: None,
+        alert: None,
     }
 }
 

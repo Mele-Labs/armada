@@ -190,6 +190,7 @@ mod studio_sketch;
 /// The Triggers a repository runs, saving one, and what a Job did with each.
 /// Since 23.58.
 mod added_steps;
+mod trigger_holds;
 mod triggers;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
@@ -427,6 +428,7 @@ pub use added_steps::{
     AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
     JobAdditionChanged, KeptFrom, RemoveAddedStep,
 };
+pub use trigger_holds::{HoldAct, HoldSettled, JobAlert, JobAlertKind};
 pub use triggers::{
     ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
     RemoveTrigger, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,

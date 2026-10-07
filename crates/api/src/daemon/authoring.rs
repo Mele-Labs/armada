@@ -9,9 +9,9 @@
 use std::future::Future;
 
 use ipc::{
-    AddStep, AddedStep, AddedStepRemoved, ChooseTriggerFix, JobId, ManifestId, RemoveAddedStep,
-    RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerFixChosen, TriggerRemoved, TriggerSaved,
-    WorkflowSaved,
+    AddStep, AddedStep, AddedStepRemoved, ChooseTriggerFix, HoldAct, HoldSettled, JobId,
+    ManifestId, RemoveAddedStep, RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerFixChosen,
+    TriggerRemoved, TriggerSaved, WorkflowSaved,
 };
 
 use crate::daemon::Refusal;
@@ -66,6 +66,29 @@ pub trait Authoring: Send + Sync + 'static {
         job_id: JobId,
         choose: ChooseTriggerFix,
     ) -> impl Future<Output = Result<TriggerFixChosen, Refusal>> + Send;
+
+    /// `rerun_trigger` — run a held Trigger's Command again, with no Drone,
+    /// and let the Job go if it passes. **By `Arc`**, for
+    /// `choose_trigger_fix`'s reason: it runs the Command, and a client that
+    /// stops waiting must not stop it halfway. Since 23.63.
+    ///
+    /// [`Refusal::IllegalMove`] where nothing holds the Job under that name,
+    /// where a repair is under way, where a fix waits on a choice, where there
+    /// is nothing Fleet can run, and where the Job's branch could not be
+    /// reached. [`Refusal::Unacceptable`] where the body names both or neither.
+    fn rerun_trigger(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        act: HoldAct,
+    ) -> impl Future<Output = Result<HoldSettled, Refusal>> + Send;
+
+    /// `skip_trigger` — let a held Trigger go without its Command passing, and
+    /// record it skipped by the owner. Since 23.63.
+    fn skip_trigger(
+        &self,
+        job_id: JobId,
+        act: HoldAct,
+    ) -> impl Future<Output = Result<HoldSettled, Refusal>> + Send;
 
     /// `add_job_step` — one step added to a Job that is underway, for this Job
     /// only. **Refused where its moment has already come**: a 409

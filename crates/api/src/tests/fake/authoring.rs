@@ -71,6 +71,24 @@ impl Authoring for FakeDaemon {
         )))
     }
 
+    /// Refuses as Fleet does where nothing holds the Job, which is all a daemon
+    /// that runs no Trigger can honestly say.
+    async fn rerun_trigger(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.no_hold(job_id, act)
+    }
+
+    async fn skip_trigger(
+        &self,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.no_hold(job_id, act)
+    }
+
     async fn add_job_step(
         &self,
         _job_id: ipc::JobId,
@@ -101,5 +119,20 @@ impl Authoring for FakeDaemon {
         remove: ipc::RemoveAddedStep,
     ) -> Result<ipc::AddedStepRemoved, Refusal> {
         Ok(ipc::AddedStepRemoved { id: remove.id })
+    }
+}
+
+impl FakeDaemon {
+    fn no_hold(&self, job_id: ipc::JobId, act: ipc::HoldAct) -> Result<ipc::HoldSettled, Refusal> {
+        let held = self.jobs.lock().expect("not poisoned");
+        if !held.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        let named = act.trigger.or(act.addition).unwrap_or_default();
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.no_hold",
+            format!("nothing named `{named}` holds this Job"),
+            crate::tests::shapes::run_id(),
+        )))
     }
 }

@@ -29,6 +29,7 @@
 import type { Settled } from "./detail";
 import type { FixesMain } from "./merge-lines";
 import type { Piloted } from "./piloting";
+import type { JobAlert } from "./trigger-holds";
 import type { Requester } from "./requester";
 import type { TaskCounts } from "./work-plan";
 
@@ -219,6 +220,11 @@ export type JobSummary = {
   fixes_main?: FixesMain;
   /** Who took it over and how that ended. Absent is a job nobody piloted. Since 23.50. */
   piloted?: Piloted;
+  /**
+   * Why this row carries the bell, and which Trigger it is about: one holds the job, a repair's fix
+   * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.63.
+   */
+  alert?: JobAlert;
 };
 
 /** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */

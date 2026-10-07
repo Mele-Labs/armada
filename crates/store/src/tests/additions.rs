@@ -62,7 +62,7 @@ fn an_addition_reads_back_whole_after_a_reopen_and_its_firing_is_kept() {
         .set_addition_fired(&id, "a1", &running)
         .expect("opened");
     store
-        .set_addition_fired(&id, "a1", &running.clone().ended(Some(0), at("03")))
+        .set_addition_fired(&id, "a1", &running.clone().ended(Some(0), false, at("03")))
         .expect("settled");
     store
         .set_addition_kept(&id, "a1", Kept::Machine)
