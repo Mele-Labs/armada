@@ -1,0 +1,136 @@
+/* A chip anywhere, and the card of the Session that owns what it names. The
+   card is a bay's drawing: a band filled in the owner's state hue over a body,
+   its edge in the same hue. Hue is --status-<hue>, named by data-hue, as
+   SessionFrame names it. */
+
+.armada-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+.armada-ref-chip[data-matched] {
+  border-color: var(--accent);
+  color: var(--fg-default);
+}
+
+.armada-owner-chip {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.armada-owner-chip__press {
+  display: inline-flex;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-owner-chip__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Fixed under the chip, drawn in the body so no tile or row clips it, with no
+   gap, so the pointer crosses from one to the other without leaving the pair. */
+.armada-owner-card {
+  position: fixed;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--space-12) * 5);
+  border: var(--border-width) solid var(--owner-hue, var(--border-default));
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  white-space: normal;
+}
+
+.armada-owner-card[data-hue="not-started"] { --owner-hue: var(--status-not-started); }
+.armada-owner-card[data-hue="running"] { --owner-hue: var(--status-running); }
+.armada-owner-card[data-hue="awaiting-review"] { --owner-hue: var(--status-awaiting-review); }
+.armada-owner-card[data-hue="completed-failed"] { --owner-hue: var(--status-completed-failed); }
+
+.armada-owner-card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--owner-hue);
+  color: var(--fg-inverse);
+}
+
+/* The one legal ALL CAPS, an eyebrow: --text-2xs at --tracking-caps. */
+.armada-owner-card__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-owner-card__id {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-owner-card__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.armada-owner-card__title {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+.armada-owner-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-owner-card__facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-owner-card__checks {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-owner-card__last {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-subtle);
+}

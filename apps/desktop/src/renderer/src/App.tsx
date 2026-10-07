@@ -137,6 +137,7 @@ import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
+import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView, useWorkflowView } from "./remembered-views";
@@ -225,7 +226,8 @@ export function App({ draft }: AppProps = {}) {
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
   const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
-  const hidden = hiddenSurfaces(state); // Left off the rail and the palette.
+  const [sessioning, setSessioning] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
+  const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined)]; // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
   // own view, and it needs no Job to draw**: it is read off the file Fleet
   // already holds, which is what lets a person run this project's lint with
@@ -498,6 +500,11 @@ export function App({ draft }: AppProps = {}) {
    * A clear-then-set rather than a branch per destination: a branch is where a
    * view gets left standing under the next one.
    */
+  function openSession(id: string): void {
+    goTo(SURFACE.sessions);
+    setSessionOpen(id);
+  }
+
   function goTo(surfaceId: string): void {
     setOpenJob(null);
     setComposing(false);
@@ -511,6 +518,8 @@ export function App({ draft }: AppProps = {}) {
     asked.setMergeFocus(undefined);
     setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks);
     setStudying(surfaceId === SURFACE.studios);
+    setSessioning(surfaceId === SURFACE.sessions);
+    setSessionOpen(null);
     setOpenStudio(null);
     setStudioNode(null);
     if (surfaceId !== SURFACE.manifest) setPicked(null);
@@ -617,6 +626,7 @@ export function App({ draft }: AppProps = {}) {
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
       <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
+        <SessionsOwnership onOpen={openSession}>
         <Shell
           hidden={hidden} warned={workflowsWarned(state.health)}
           connection={state.connection}
@@ -688,7 +698,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking,
+            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
           })}
           onSurface={goTo}
         >
@@ -905,7 +915,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : learning ? (
+            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />) : sessioning ? (<SessionsSurface openId={sessionOpen} onOpen={openSession} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink }} />) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -1109,6 +1119,7 @@ export function App({ draft }: AppProps = {}) {
                   land={landing}
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink}
+                  onOpenSession={openSession}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
@@ -1208,6 +1219,7 @@ export function App({ draft }: AppProps = {}) {
           said={telling}
           onCopied={setCopied}
         />
+        </SessionsOwnership>
       </GuidanceProvider>
     </ProseLinks.Provider>
   );

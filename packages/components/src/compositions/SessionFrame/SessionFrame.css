@@ -1,0 +1,75 @@
+/* A Session open: the frame in its state's hue, a filled band over a body.
+   The same recipe as a bay (PoolSlots.css): --row-tint of the hue in the
+   body, --fg-inverse on the band. Contrast follows the bay's, which is worked
+   there for these same four hues. */
+
+.armada-session-frame {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-width) solid var(--session-hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--session-hue) var(--row-tint), var(--bg-raised));
+  overflow: hidden;
+}
+
+.armada-session-frame[data-hue="not-started"] { --session-hue: var(--status-not-started); }
+.armada-session-frame[data-hue="running"] { --session-hue: var(--status-running); }
+.armada-session-frame[data-hue="awaiting-review"] { --session-hue: var(--status-awaiting-review); }
+.armada-session-frame[data-hue="completed-failed"] { --session-hue: var(--status-completed-failed); }
+
+.armada-session-frame__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--session-hue);
+  color: var(--fg-inverse);
+}
+
+/* The one legal ALL CAPS, an eyebrow: --text-2xs at --tracking-caps. */
+.armada-session-frame__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-frame__id {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-frame__title {
+  flex: 1;
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-frame__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.armada-session-mark {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The running mark breathes as Badge's does: only the inner dot moves. */
+.armada-session-mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}

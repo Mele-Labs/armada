@@ -9,8 +9,6 @@
 
 import { computeAccessibleName, getRole, isInaccessible } from "dom-accessibility-api";
 
-import type { ComponentType } from "react";
-
 import { timePasses } from "./time-passes";
 
 /** What a name is matched against: a string inside it, any case, or a pattern. */
@@ -40,15 +38,11 @@ export type Step =
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
-/**
- * `stage` is a mock-only window drawn in place of the app: a feature not built yet,
- * walked before Fleet owes it anything. `scenario` is then only its name.
- */
-export type Walk = { scenario: string; steps: readonly Step[]; stage?: ComponentType };
+export type Walk = { scenario: string; steps: readonly Step[] };
 
 /** A walk over `scenario`. Its name is the name it is exported under. */
-export function walk(scenario: string, steps: readonly Step[], stage?: ComponentType): Walk {
-  return stage === undefined ? { scenario, steps } : { scenario, steps, stage };
+export function walk(scenario: string, steps: readonly Step[]): Walk {
+  return { scenario, steps };
 }
 
 const quoted = (name: Name) => (typeof name === "string" ? `“${name}”` : String(name));

@@ -15,6 +15,7 @@ import { unanswered } from "./moment";
 import type { Scenario } from "./moment";
 import { SLICES } from "./slices";
 import type { AnySlice } from "./slices";
+import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
 /** Which surfaces a fake answers for. Core is always among them. */
@@ -32,6 +33,14 @@ export type LiveDraft = {
  * (`moment.ts`' `draft`), and the preload has no such member to type it by.
  */
 const DRAFTS = new WeakMap<BridgeApi, LiveDraft>();
+
+/** The Sessions a window was mounted holding, by the api it talks to. */
+const SESSIONS = new WeakMap<BridgeApi, SessionsStore>();
+
+/** The Sessions `api`'s fake holds, where it holds any. `mount.tsx` hands them to the window. */
+export function heldSessions(api: BridgeApi): SessionsStore | undefined {
+  return SESSIONS.get(api);
+}
 
 /** The draft `api`'s fake holds, where `api` is one. `mount.tsx` draws from it. */
 export function liveDraft(api: BridgeApi): LiveDraft | undefined {
@@ -52,14 +61,17 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   const api = compose(kept, left, scenario, fleet);
   const fake = { ...api, ...scenario.behaves?.({ state: fleet.state, publish: fleet.publish }) };
   let passed = 0;
+  const sessions = scenario.draft?.sessions?.();
   onTimePassing(
-    scenario.later === undefined
+    scenario.later === undefined && sessions === undefined
       ? undefined
       : () => {
           const change = scenario.later?.[passed++];
           if (change !== undefined) fleet.publish(change);
+          sessions?.later();
         },
   );
+  if (sessions !== undefined) SESSIONS.set(fake, sessions);
   DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });
   return fake;
 }

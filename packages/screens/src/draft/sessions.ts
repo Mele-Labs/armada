@@ -13,9 +13,9 @@ export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
   | { kind: "slot"; slot: number }
   | { kind: "branch"; name: string; slot: number }
-  | { kind: "pull_request"; number: number; title: string; branch: string; checks: SessionChecks }
+  | { kind: "pull_request"; number: number; title: string; branch: string; address: string; checks: SessionChecks }
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
-  | { kind: "job"; id: string; title: string; state: SessionJobState; branch: string; slot: number }
+  | { kind: "job"; id: string; number: number; title: string; state: SessionJobState; branch: string; slot: number }
   | { kind: "studio"; id: string; title: string }
   | { kind: "subagent"; id: string; task: string; state: "running" | "done" };
 
@@ -50,6 +50,28 @@ export type Session = {
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */
   lastTurn?: string;
+  /** What the agent is held on, while it is. */
+  asked?: SessionAsk;
+};
+
+/** A permission a Session's agent is held on. */
+export type SessionAsk = { command: string };
+
+/**
+ * What the window holds of Sessions, and the acts on them. **The mock's seam**
+ * (`apps/desktop/src/renderer/src/sessions-draft.tsx`): a real Fleet gives none,
+ * so a surface that reads this draws nothing and the rail row is left off. When
+ * Fleet serves Sessions this becomes a read and these acts become commands.
+ */
+export type SessionsDraft = {
+  get: () => readonly Session[];
+  subscribe: (onChange: () => void) => () => void;
+  /** Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes. */
+  start: () => string;
+  /** A message from the person. It takes a turn. */
+  send: (id: string, text: string) => void;
+  /** Answers the permission a Session is held on. */
+  answer: (id: string) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */

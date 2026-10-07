@@ -14,8 +14,8 @@ const flaky: Session = {
   attachments: [
     { kind: "slot", slot: 3 },
     { kind: "branch", name: "fix/flaky-store", slot: 3 },
-    { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/flaky-store", checks: { state: "passed" } },
-    { kind: "job", id: "52", title: "Pin the clock", state: "running", branch: "fix/52-pin-clock", slot: 4 },
+    { kind: "pull_request", number: 1843, title: "Pin the store clock", branch: "fix/flaky-store", address: "https://example.com/pull/1843", checks: { state: "passed" } },
+    { kind: "job", id: "52", number: 52, title: "Pin the clock", state: "running", branch: "fix/52-pin-clock", slot: 4 },
   ],
 };
 const notes: Session = {
@@ -25,7 +25,7 @@ const notes: Session = {
   rows: [],
   attachments: [
     { kind: "branch", name: "rel/notes", slot: 5 },
-    { kind: "pull_request", number: 1847, title: "Notes script", branch: "rel/notes", checks: { state: "passed" } },
+    { kind: "pull_request", number: 1847, title: "Notes script", branch: "rel/notes", address: "https://example.com/pull/1847", checks: { state: "passed" } },
   ],
 };
 const all = [blank, flaky, notes];

@@ -14,6 +14,7 @@ import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { MergeLinePanel } from "./merge-line";
+import { SessionsListing } from "./sessions";
 import { usePanelOpen } from "./panel-open";
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
@@ -36,6 +37,7 @@ export function Overview({
   land,
   onLanded,
   onOpenLink,
+  onOpenSession,
 }: {
   state: BridgeState;
   now: number;
@@ -69,6 +71,8 @@ export function Overview({
   onLanded?: () => void;
   /** Hands an address to whatever opens addresses on this machine: the merge line's pull requests. */
   onOpenLink: (address: string) => void;
+  /** A Session the list opened. Where no Sessions are served the list draws nothing. */
+  onOpenSession: (sessionId: string) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -150,6 +154,7 @@ export function Overview({
           onCopied={onCopied}
           onCursor={onCursor}
         />
+        <SessionsListing onOpen={onOpenSession} />
         <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} />
       </div>
     </Boundary>

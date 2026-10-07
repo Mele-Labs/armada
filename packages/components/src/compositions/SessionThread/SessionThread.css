@@ -1,0 +1,104 @@
+/* A Session's thread: Helm's rows (HelmThread.css) under a composer, with the
+   first write as a filled row and a sender's message with an accent edge. */
+
+.armada-session-thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
+}
+
+.armada-session-thread__rows {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The first write: the one row that is not a message, filled in the slot's
+   leased hue so it reads before anything around it. */
+.armada-session-lease {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--slot-held);
+  color: var(--fg-inverse);
+}
+
+.armada-session-lease__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-lease__facts {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.armada-session-lease__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--fg-inverse);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-lease__at {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* A message another Session wrote: its sender is in the head, and its bubble
+   carries the accent edge, so it is not read as the agent's own. */
+.armada-helm-thread__row[data-from="session"] .armada-helm-thread__message {
+  border-inline-start: var(--space-1) solid var(--accent);
+}
+
+.armada-session-thread__ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-thread__command {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-thread__answers {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-session-thread__composer > :first-child {
+  flex: 1;
+}
