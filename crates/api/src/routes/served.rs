@@ -5,13 +5,15 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into three tables joined at compile
+//! **Split again at the 1200-line rule**, into four tables joined at compile
 //! time: Studios' in [`studios`](mod@studios), the published event kinds in
-//! [`events`](mod@events), and every other row here. Each is a subject a
+//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), and every
+//! other row here. Each is a subject a
 //! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
 //! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
 
 mod events;
+mod piloting;
 mod studios;
 
 /// One operation, and where it is served.
@@ -37,12 +39,12 @@ pub struct Route {
 /// on paths Bridge set first (`crate::processes`). The lifeboat's `POST
 /// /v0/jobs/:id/kill` is `kill_job` under a frozen prefix, by design.
 pub const SERVED: &[Route] = &joined::<
-    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() },
->([ROUTES, studios::ROUTES, events::ROUTES]);
+    { ROUTES.len() + studios::ROUTES.len() + events::ROUTES.len() + piloting::ROUTES.len() },
+>([ROUTES, studios::ROUTES, events::ROUTES, piloting::ROUTES]);
 
-/// The three tables as one, in order. A count that disagrees with `N` fails
+/// The four tables as one, in order. A count that disagrees with `N` fails
 /// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 3]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 4]) -> [Route; N] {
     // Filled from the first row and overwritten below: a literal `Route` here
     // would read as a row to the gate rule, which parses this file as text.
     let mut out = [tables[0][0]; N];
@@ -60,7 +62,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 3]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's nor a published event kind.
+/// Every row that is neither a Studio's, a pilot's nor a published event kind.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -977,32 +979,6 @@ const ROUTES: &[Route] = &[
         operation: "redirect_drone",
         method: "POST",
         path: "/jobs/:job_id/redirect",
-    },
-    // A person taking a Job over, and the three ways back: `docs/concepts/pilot.md`.
-    Route {
-        operation: "take_over",
-        method: "POST",
-        path: "/jobs/:job_id/take_over",
-    },
-    Route {
-        operation: "get_handoff",
-        method: "GET",
-        path: "/jobs/:job_id/handoff",
-    },
-    Route {
-        operation: "submit_for_verification",
-        method: "POST",
-        path: "/jobs/:job_id/submit_for_verification",
-    },
-    Route {
-        operation: "attest_complete",
-        method: "POST",
-        path: "/jobs/:job_id/attest_complete",
-    },
-    Route {
-        operation: "close_as_superseded",
-        method: "POST",
-        path: "/jobs/:job_id/close_as_superseded",
     },
     // A pause is not a kill and not a hold on a Drone: the Job's work is
     // parked and its slot freed, and the Job itself is kept.
