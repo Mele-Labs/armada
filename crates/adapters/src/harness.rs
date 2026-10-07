@@ -32,6 +32,7 @@ use std::fmt;
 
 use adapter_traits::{
     AgentHarness, AmbientServers, DroneEvent, DroneSpawnConfig, Effort, Grant, Launch, Prompting,
+    Repair,
 };
 
 use crate::git_guard;
@@ -310,7 +311,11 @@ impl AgentHarness for HeadlessAgent {
         // three surprises that shape this list.
         // A held-off path rides the same flag. An `Edit` rule covers every
         // tool that edits a file, by the CLI's own docs; not measured. #1673.
-        let mut denied = git_guard::disallowed_git_rules();
+        let repairing_the_index = config
+            .toolbelt()
+            .granted()
+            .contains(&Grant::RepairTheWorktree(Repair::TheIndex));
+        let mut denied = git_guard::disallowed_git_rules(repairing_the_index);
         for path in config.toolbelt().held_off() {
             denied.extend(held_off_rules(path)?);
         }
@@ -394,6 +399,15 @@ fn allowlist(config: &DroneSpawnConfig) -> Result<String, HarnessRefused> {
             Grant::RunADeclaredCommand(run) | Grant::RunAnAllowedCommand(run) => {
                 allowed.push(command_rule(run)?)
             }
+            // What each repair needs and nothing more. The install is the
+            // repository's own declared command, rendered as any declared one
+            // is, so the push and git refusals apply to it too.
+            Grant::RepairTheWorktree(Repair::TheIndex) => {
+                for verb in ["add", "rm", "restore"] {
+                    allowed.push(format!("Bash(git {verb}:*)"));
+                }
+            }
+            Grant::RepairTheWorktree(Repair::TheInstall(run)) => allowed.push(command_rule(run)?),
             Grant::DispatchAJob => allowed.push(DISPATCH_TOOL.into()),
             Grant::RecordThePlan => allowed.push(RECORD_PLAN_TOOL.into()),
             Grant::WorkThePlan => {

@@ -92,6 +92,7 @@ mod groups;
 mod handoff_checks;
 mod headings;
 mod headroom;
+mod healing;
 mod helm_conversation;
 mod helm_deciding;
 mod helm_door;

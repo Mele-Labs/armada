@@ -39,6 +39,12 @@ const MUTATING_GIT_VERBS: &[&str] = &[
     "branch",
 ];
 
+/// The three verbs a repair of the index is granted, and so the three whose
+/// deny is lifted for a launch carrying that grant and for no other. Deny beats
+/// allow, so a grant alone would render a rule the launch then refuses. None
+/// writes a commit, a ref or history.
+const INDEX_REPAIR_VERBS: &[&str] = &["add", "rm", "restore"];
+
 /// Denies every git invocation that carries a global flag before its
 /// subcommand, whatever that subcommand is.
 ///
@@ -56,9 +62,10 @@ const GLOBAL_FLAG_DENY: &str = "Bash(git -*)";
 /// it was granted — not conditioned on
 /// [`adapter_traits::Grant::ReadTheRepository`], so the floor holds for a
 /// Drone with no git access too.
-pub(crate) fn disallowed_git_rules() -> Vec<String> {
+pub(crate) fn disallowed_git_rules(repairing_the_index: bool) -> Vec<String> {
     let mut rules: Vec<String> = MUTATING_GIT_VERBS
         .iter()
+        .filter(|verb| !(repairing_the_index && INDEX_REPAIR_VERBS.contains(verb)))
         .map(|verb| format!("Bash(git {verb}:*)"))
         .collect();
     rules.push(String::from("Bash(git push:*)"));
