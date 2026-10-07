@@ -3,7 +3,7 @@
 // `workflows.ts`'s shape. A save names the Manifest it is checked against, which is not always the
 // pick's: a machine Trigger is checked against whichever repository the person is looking at.
 
-import type { TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
+import type { ChooseTriggerFix, Outcome, TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
 
 import type {
   ReadingTrigger,
@@ -15,9 +15,9 @@ import type {
   TriggersRead,
 } from "../shared/triggers";
 import type { Picked } from "./picked";
-import { ask, NOT_SET_UP } from "./request";
+import { ask, NOT_SET_UP, NO_WAIT, route } from "./request";
 
-/** `list_triggers`, `get_trigger`, `save_trigger` and `remove_trigger`. */
+/** `list_triggers`, `get_trigger`, `save_trigger`, `remove_trigger` and `choose_trigger_fix`. */
 export class TriggerCommands {
   private readonly port: () => number | null;
   private readonly picked: Picked;
@@ -74,5 +74,20 @@ export class TriggerCommands {
     const answer = await ask(port, "POST", path, body);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, removed: answer.body as TriggerRemoved };
+  }
+
+  /**
+   * Say where a failed Trigger's held fix goes. **`NO_WAIT`**: Fleet merges, pushes and runs the
+   * Command again, and gives up on none of it for a client that stopped waiting, so a bound here
+   * would be a guess by the side that knows least. **The answer is only that Fleet took it, and
+   * nothing is re-read after**: every state the
+   * repair passes through is a `job.trigger_changed`, which re-reads the open Job.
+   */
+  async chooseFix(jobId: string, body: ChooseTriggerFix): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return { ok: false, why: "not_connected" };
+    const answer = await ask(port, "POST", route(jobId, "choose_trigger_fix"), body, NO_WAIT);
+    if (answer.ok !== true) return answer.outcome;
+    return { ok: true };
   }
 }

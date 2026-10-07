@@ -2,7 +2,7 @@
 // locating a repository, its always-allows and Kit. Out of `index.ts` for the gate's length.
 
 import { BrowserWindow, dialog, type IpcMain } from "electron";
-import type { EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
+import type { ChooseTriggerFix, EditManifest, EditManifestProposal, SaveManifestFile, WriteManifestProposal } from "@armada/protocol";
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../shared/triggers";
 import type { SavingWorkflow } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
@@ -112,5 +112,8 @@ export function handleRepositories({ ipc, connection, windowIdOf }: Hosts): void
   );
   ipc.handle(CHANNELS.removeTrigger, (event, removing: RemovingTrigger) =>
     connection()?.triggersFor(windowIdOf(event)).remove(removing),
+  );
+  ipc.handle(CHANNELS.chooseTriggerFix, (event, jobId: string, body: ChooseTriggerFix) =>
+    connection()?.triggersFor(windowIdOf(event)).chooseFix(jobId, body),
   );
 }

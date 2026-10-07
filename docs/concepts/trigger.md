@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, and Bridge's saved Triggers, step cards and Job card. Skills, `block` and asking the owner about a destructive Command are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, and Bridge's saved Triggers, step cards, Job card and the repair branch on a Job's canvases. Skills, `block` and asking the owner about a destructive Command are not.
 
 ## What a Trigger is
 

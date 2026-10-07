@@ -7,7 +7,7 @@
 
 import type { JobTrigger, Noted } from "@armada/protocol";
 
-const at = (second: number) => `2026-10-01T21:2${Math.floor(second / 60)}:${String(second % 60).padStart(2, "0")}.000Z`;
+export const at = (second: number) => `2026-10-01T21:2${Math.floor(second / 60)}:${String(second % 60).padStart(2, "0")}.000Z`;
 
 /** Every state, in the order a Job meets the moments: `implement` passes, then `handoff` opens its pull request. */
 export const JOB_2_TRIGGERS: JobTrigger[] = [
@@ -36,11 +36,14 @@ const SAID: Record<JobTrigger["state"], string> = {
   passed: "passed",
   failed: "failed",
   awaiting_owner: "awaiting_owner",
+  repairing: "repairing",
+  rerunning: "rerunning",
+  fix_ready: "fix_ready",
 };
 
 /** The log's line for each firing that has one, after the notes already in the log. */
-export function triggerNotes(after: number): Noted[] {
-  return JOB_2_TRIGGERS.flatMap((one, i): Noted[] => {
+export function triggerNotes(after: number, triggers: readonly JobTrigger[] = JOB_2_TRIGGERS): Noted[] {
+  return triggers.flatMap((one, i): Noted[] => {
     if (one.log_at === undefined) return [];
     return [
       {

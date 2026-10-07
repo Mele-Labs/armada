@@ -6,7 +6,7 @@ import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened, FixMain } from "@armada/protocol";
+import type { CaptureOpened, ChooseTriggerFix, FixMain } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -492,6 +492,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.saveTrigger, saving),
   removeTrigger: (removing: RemovingTrigger): Promise<TriggerRemoveAnswer> =>
     ipcRenderer.invoke(CHANNELS.removeTrigger, removing),
+  chooseTriggerFix: (jobId: string, body: ChooseTriggerFix): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.chooseTriggerFix, jobId, body),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why

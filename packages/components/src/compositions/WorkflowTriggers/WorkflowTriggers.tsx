@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Briefcase, Check, CircleDashed, CircleDot, Eye, FolderGit2, GitBranch, Minus, Package, Trash2, X } from "lucide-react";
+import { Bell, Briefcase, Check, CircleDashed, CircleDot, Eye, FolderGit2, GitBranch, GitPullRequest, Minus, Package, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { JobTrigger, TriggerFiringState, TriggerLevel, TriggerSaved, TriggerScope, TriggerSkip, TriggerSummary } from "@armada/protocol";
+import type { JobTrigger, TriggerFiringState, TriggerFixChoice, TriggerLevel, TriggerSaved, TriggerScope, TriggerSkip, TriggerSummary } from "@armada/protocol";
 
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
@@ -351,12 +351,18 @@ const STATE: Record<TriggerFiringState, { Glyph: LucideIcon; said: string; hue?:
   passed: { Glyph: Check, said: "Passed", hue: "passed" },
   failed: { Glyph: X, said: "Failed", hue: "failed" },
   awaiting_owner: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
+  repairing: { Glyph: CircleDot, said: "Repair Drone working", hue: "running" },
+  rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running" },
+  fix_ready: { Glyph: Eye, said: "Waiting on you", hue: "waiting" },
 };
+
+/** The states a mark pulses in: what is still working. */
+const WORKING: readonly TriggerFiringState[] = ["running", "repairing", "rerunning"];
 
 export function FiringMark({ trigger }: { trigger: JobTrigger }) {
   const { Glyph, said, hue } = STATE[trigger.state];
   const label = trigger.state === "skipped" && trigger.skipped !== undefined ? trigger.skipped.said : trigger.state === "failed" && trigger.exit_code !== undefined ? `${said}, exit ${trigger.exit_code}` : said;
-  return <Mark icon={Glyph} label={label} {...(hue === undefined ? {} : { hue })} pulsing={trigger.state === "running"} />;
+  return <Mark icon={Glyph} label={label} {...(hue === undefined ? {} : { hue })} pulsing={WORKING.includes(trigger.state)} />;
 }
 
 /**
@@ -384,4 +390,126 @@ export function FiredTriggers({ triggers, onOpenLog }: { triggers: readonly JobT
       ))}
     </ul>
   );
+}
+
+/**
+ * Where a failed Trigger's repair stands, read off its row. `asking` is a fix held with no choice
+ * made; `placing` is one chosen and kept until it can be placed. `none` is a Trigger no repair
+ * Drone has been put on.
+ */
+export type RepairPhase = "none" | "working" | "rerunning" | "asking" | "placing" | "done" | "failed";
+
+export function repairPhase(trigger: JobTrigger): RepairPhase {
+  if (trigger.repair === undefined) return "none";
+  switch (trigger.state) {
+    case "repairing":
+      return "working";
+    case "rerunning":
+      return "rerunning";
+    case "fix_ready":
+      return trigger.repair.choice === undefined ? "asking" : "placing";
+    case "passed":
+      return "done";
+    case "failed":
+      return "failed";
+    default:
+      return "none";
+  }
+}
+
+/** A Job's Triggers that have a repair under way, held or ended, in the order they fired. */
+export function repairsOf(triggers: readonly JobTrigger[]): JobTrigger[] {
+  return triggers.filter((one) => repairPhase(one) !== "none");
+}
+
+/**
+ * Whether a Job has an alert from its Triggers: a fix held with no choice made, and a repair that
+ * found no fix. Fleet's own rule for `list_alerts`, kept to the latest firing of each Trigger.
+ */
+export function triggerAlert(triggers: readonly JobTrigger[]): boolean {
+  const latest = new Map<string, JobTrigger>();
+  for (const one of triggers) latest.set(one.name, one);
+  return [...latest.values()].some((one) => {
+    const phase = repairPhase(one);
+    return phase === "asking" || phase === "failed";
+  });
+}
+
+/** What a repair makes of the Trigger's own mark where it is on the branch. */
+const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: string; pulsing?: true } | undefined> = {
+  none: undefined,
+  working: { Glyph: CircleDot, said: "Repair Drone working", hue: "running", pulsing: true },
+  rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running", pulsing: true },
+  asking: undefined,
+  placing: { Glyph: CircleDashed, said: "Pending" },
+  done: { Glyph: Check, said: "Passed", hue: "passed" },
+  failed: { Glyph: X, said: "Failed", hue: "failed" },
+};
+
+/**
+ * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
+ * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases
+ * and in its stacked run, from the Trigger's row. **A choice is sent once**: the buttons wait for
+ * the answer, and come back where Fleet refused it.
+ */
+export function RepairNode({ trigger, onChoose }: { trigger: JobTrigger; onChoose?: (trigger: JobTrigger, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void }) {
+  const [sent, setSent] = useState(false);
+  const phase = repairPhase(trigger);
+  const mark = REPAIR_MARK[phase];
+  const files = trigger.repair?.files ?? [];
+  const choose = async (choice: TriggerFixChoice) => {
+    if (onChoose === undefined) return;
+    setSent(true);
+    const answer = await onChoose(trigger, choice);
+    if (answer !== undefined && !answer.ok) setSent(false);
+  };
+  return (
+    <div className="armada-repair" data-phase={phase}>
+      <div className="armada-repair__head">
+        <Mark icon={GitBranch} label="Repair branch" />
+        <span className="armada-triggers__name">{trigger.name}</span>
+        <span className="armada-repair__state">
+          {mark === undefined ? null : <Mark icon={mark.Glyph} label={mark.said} {...(mark.hue === undefined ? {} : { hue: mark.hue })} pulsing={mark.pulsing === true} />}
+        </span>
+      </div>
+      {files.length === 0 || phase === "working" ? null : (
+        <ul className="armada-repair__fix" aria-label="The fix">
+          {files.map((path) => (
+            <li key={path}>
+              <span className="armada-triggers__name">{path}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {phase === "asking" ? (
+        <div className="armada-repair__choice nodrag nopan" role="group" aria-label="Where the fix goes">
+          <Button variant="primary" disabled={sent} onClick={() => void choose("this_branch")}>
+            This branch
+          </Button>
+          <Button variant="secondary" disabled={sent} onClick={() => void choose("new_pr")}>
+            New PR
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The end of a branch that became a pull request of its own, with its number where Fleet read one. */
+export function RepairPrMark({ trigger }: { trigger: JobTrigger }) {
+  const number = trigger.repair?.pull_request?.number;
+  return (
+    <div className="armada-repair armada-repair--pr">
+      <Mark icon={GitPullRequest} label="New PR" />
+      {number === undefined ? null : <span className="armada-triggers__name">#{number}</span>}
+    </div>
+  );
+}
+
+/** Whether a repair ended in a pull request of its own, which is where its branch stops. */
+export const endsInPr = (trigger: JobTrigger): boolean => repairPhase(trigger) === "done" && trigger.repair?.choice === "new_pr";
+
+/** The Job's alert: a fix held for him, or a repair that found none. */
+export function TriggerAlertMark() {
+  return <Mark icon={Bell} label="Alert" hue="failed" />;
 }

@@ -14,7 +14,7 @@
 // conversation comment and no review with text. `job2AtReviewBefore235` is the
 // recording as served, a pull request no read has named since.
 
-import type { ChangedFile, JobDetail, JobSummary, StepDetail, Submitted } from "@armada/protocol";
+import type { ChangedFile, JobDetail, JobSummary, JobTrigger, StepDetail, Submitted } from "@armada/protocol";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { recorded } from "@armada/screens/src/fixtures/recorded";
 
@@ -59,6 +59,11 @@ const TITLE = "Retire guides 8 and 20, add validation that every guide's piece i
 
 /** Job 2 at its review gate, as a 23.5 Fleet serves it: its pull request's title and count. */
 export function job2AtReview(): JobFixture {
+  return job2AtReviewWith(JOB_2_TRIGGERS);
+}
+
+/** The same Job holding `triggers`, each with the log's line for it. */
+export function job2AtReviewWith(triggers: JobTrigger[]): JobFixture {
   const fixture = job2AtReviewBefore235();
   if (fixture.watched.state !== "read") return fixture;
   const { detail } = fixture.watched;
@@ -67,11 +72,11 @@ export function job2AtReview(): JobFixture {
   const { journalled } = fixture;
   const held = journalled.state === "watching" || journalled.state === "ended" || journalled.state === "failed" ? journalled : undefined;
   const notes = held?.log.notes ?? [];
-  const log = { skipped: held?.log.skipped ?? 0, notes: [...notes, ...triggerNotes(Math.max(0, ...notes.map((one) => one.seq)))] };
+  const log = { skipped: held?.log.skipped ?? 0, notes: [...notes, ...triggerNotes(Math.max(0, ...notes.map((one) => one.seq)), triggers)] };
   return {
     ...fixture,
     name: "Job 2, at its review gate, as Fleet served it",
-    watched: { ...fixture.watched, detail: { ...detail, delivery, triggers: JOB_2_TRIGGERS } },
+    watched: { ...fixture.watched, detail: { ...detail, delivery, triggers } },
     journalled: held === undefined ? { state: "watching", jobId: detail.job.id, log } : { ...held, log },
   };
 }

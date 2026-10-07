@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { JobTrigger, TriggerSummary } from "@armada/protocol";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { FiredTriggers, TriggerRows } from "./WorkflowTriggers";
+import { FiredTriggers, RepairNode, RepairPrMark, TriggerAlertMark, TriggerRows } from "./WorkflowTriggers";
 
 /** What `list_triggers` answers: the machine's copy of `gate` over the repository's, and one the repository cannot run. */
 const LISTED: TriggerSummary[] = [
@@ -81,5 +81,49 @@ export const Fired: Story = {
     await expect(rows.getByRole("img", { name: "`deploy_qa` is not a Command this repository declares" })).toBeVisible();
     await expect(rows.getByRole("button", { name: "fmt" })).toBeVisible();
     await expect(rows.queryByRole("button", { name: "smoke" })).toBeNull();
+  },
+};
+
+/** `deploy_qa` failed after the pull request opened, and a repair is on it. */
+const REPAIRED: JobTrigger = {
+  name: "deploy_qa",
+  when: "pr_opened",
+  step: "handoff",
+  level: "machine",
+  state: "fix_ready",
+  exit_code: 1,
+  started_at: AT,
+  log_at: AT,
+  repair: { attempt: 1, branch: "armada/repair-deploy_qa-1", files: ["deploy/qa.sh", ".armada/qa.env"] },
+};
+
+/** A fix held for the owner: the files it changes beside the choice, which Fleet never makes. */
+export const RepairAsks: Story = {
+  render: () => <RepairNode trigger={REPAIRED} onChoose={fn().mockResolvedValue({ ok: true })} />,
+  play: async ({ canvasElement }) => {
+    const branch = within(canvasElement);
+    await expect(branch.getByRole("img", { name: "Repair branch" })).toBeVisible();
+    await expect(branch.getByRole("list", { name: "The fix" })).toBeVisible();
+    await expect(branch.getByRole("group", { name: "Where the fix goes" })).toBeVisible();
+  },
+};
+
+/** Each state of a repair is a mark with a tooltip, and the two ends are marks of their own. */
+export const RepairEnds: Story = {
+  render: () => (
+    <>
+      <RepairNode trigger={{ ...REPAIRED, state: "repairing", repair: { attempt: 1 } }} />
+      <RepairNode trigger={{ ...REPAIRED, state: "failed", repair: { attempt: 2 } }} />
+      <RepairNode trigger={{ ...REPAIRED, state: "passed", repair: { ...REPAIRED.repair!, choice: "new_pr", pull_request: { url: "https://forge.test/pull/1751", number: 1751 } } }} />
+      <RepairPrMark trigger={{ ...REPAIRED, state: "passed", repair: { ...REPAIRED.repair!, choice: "new_pr", pull_request: { url: "https://forge.test/pull/1751", number: 1751 } } }} />
+      <TriggerAlertMark />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const ends = within(canvasElement);
+    for (const name of ["Repair Drone working", "Failed", "Passed", "New PR", "Alert"]) {
+      await expect(ends.getAllByRole("img", { name })[0]).toBeVisible();
+    }
+    await expect(ends.getByText("#1751")).toBeVisible();
   },
 };

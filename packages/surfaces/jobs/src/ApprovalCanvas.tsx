@@ -56,7 +56,8 @@ import type {
 import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask, stepsReadOf } from "./approval-canvas";
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
-import { layoutOf, narrowOf } from "./approval-layout";
+import { CARD, layoutOf, narrowOf } from "./approval-layout";
+import { nextAfter, repairBranches, type ChooseTriggerFixCall } from "./repair-branch";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -177,6 +178,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenTask?: (taskId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
   onOpenStudio?: OpenStudioFrom;
+  /** Past the gate, where a failed Trigger's held fix goes: the branch the repair grows asks. */
+  onChooseTriggerFix?: ChooseTriggerFixCall;
 };
 
 export function ApprovalCanvas({
@@ -189,6 +192,7 @@ export function ApprovalCanvas({
   onOpenGroup,
   onOpenTask,
   onOpenStudio,
+  onChooseTriggerFix,
   whole,
   edits,
   onEdits,
@@ -296,7 +300,20 @@ export function ApprovalCanvas({
       : frame.name === "Groups"
         ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
         : undefined;
-  const drawnEdges = flowingOf(nodes, layout.edges, steps);
+  // A failed Trigger with Self repair grows a branch off where it fired: the pull request for
+  // `pr_opened`, whose delivering step is that node's own, and the step for any other moment.
+  const branch = repairBranches(
+    whole.triggers ?? [],
+    whole.job.id,
+    (trigger) => {
+      const at = nodes.find((node) => node.id === (trigger.when === "pr_opened" ? "pr" : trigger.step));
+      const place = at === undefined ? undefined : layout.places.get(at.id);
+      return at === undefined || place === undefined ? undefined : { id: at.id, x: place.x, y: place.y, width: CARD.width };
+    },
+    (anchor) => nextAfter(layout.edges, anchor),
+    onChooseTriggerFix,
+  );
+  const drawnEdges = [...flowingOf(nodes, layout.edges, steps), ...branch.edges];
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,
@@ -472,13 +489,14 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed]}
+        nodes={[...backdrops, ...placed, ...branch.nodes]}
         edges={drawnEdges}
         label="Run"
         runsDown
         downOnly
         centred
         opensOn={[opensOnOf(nodes, layout.places)]}
+        reveals={branch.asking}
       />
     </section>
     {panel}

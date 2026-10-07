@@ -8,6 +8,7 @@ export * from "./fake/feature-running";
 export * from "./fake/held-fleet";
 export * from "./fake/job-2-at-review";
 export * from "./fake/job-2-landed";
+export * from "./fake/job-2-repair";
 export * from "./fake/job-3-retro";
 export * from "./fake/job-detail-fixtures";
 export * from "./fake/job-detail-refusal";
