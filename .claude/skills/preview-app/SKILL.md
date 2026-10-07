@@ -38,5 +38,10 @@ Read the dry run's Job list to him in the question, not the machinery. A roster
 that does not answer refuses even with `--adopt`. `--watch` refuses `--adopt`:
 a watch never restarts Fleet.
 
+**What runs after `--restart` is the preview's.** Bridge is launched from
+`.armada/preview/apps/desktop` with its own `electron-vite`, and the run fails
+if launchd loaded any other tree or Fleet reports a protocol other than the
+preview's `protocol-version.toml`. Read the `Bridge runs ...` line in the output.
+
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.

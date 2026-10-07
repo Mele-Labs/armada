@@ -213,6 +213,20 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
+**Bridge runs that tree's own binary.** Its job launches
+`<tree>/apps/desktop/node_modules/.bin/electron-vite preview` from
+`<tree>/apps/desktop`, not `pnpm --filter`, and is booted out and back in
+because `launchctl kickstart -k` keeps the definition launchd already holds and
+ignores the new plist. The script reads the loaded working directory back,
+refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
+prints it too.
+
+**It checks the protocol it built.** `cargo` can call `ipc`'s build script fresh
+when `protocol-version.toml` changed (an older mtime, or a `target/` carried from
+another tree), and Fleet then reports the previous minor. The script touches the
+file when the last `ipc` build differs from it, and fails after Fleet is up if
+the version Fleet reports is not the file's.
+
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
 from the files in `crates/store/migrations/` (and the frozen `legacy_migrations.rs`), the database's from its
