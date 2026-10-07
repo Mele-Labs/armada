@@ -612,6 +612,7 @@ fn queue_of(pull: &OpenPull, queue: &[QueueEntry]) -> Option<HubQueue> {
     if let Some(entry) = queue.iter().find(|entry| entry.number == pull.number) {
         return Some(HubQueue {
             state: match entry.state {
+                QueueState::InQueue => HubQueueState::InQueue,
                 QueueState::Queued => HubQueueState::Queued,
                 QueueState::AwaitingChecks => HubQueueState::AwaitingChecks,
                 QueueState::Mergeable => HubQueueState::Mergeable,

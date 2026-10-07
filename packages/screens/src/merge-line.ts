@@ -136,7 +136,7 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
   const main = mainOf(hub);
   return {
     ...(main === undefined ? {} : { main }),
-    pulls: (hub.pull_requests ?? []).map((pull) => ({
+    pulls: queueFirst(hub.pull_requests ?? []).map((pull) => ({
       number: pull.number,
       url: pull.url,
       branch: pull.branch,
@@ -146,6 +146,15 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
     })),
     recent,
   };
+}
+
+/** The queue first, by position, then the pull requests waiting for ci to join it, then the rest as listed. */
+function queueFirst<T extends { queue?: { state: string; position?: number } }>(pulls: readonly T[]): T[] {
+  const rank = (pull: T) => (pull.queue?.position !== undefined ? 0 : pull.queue?.state === "waiting_for_ci" ? 1 : 2);
+  return pulls
+    .map((pull, at) => ({ pull, at }))
+    .sort((a, b) => rank(a.pull) - rank(b.pull) || (a.pull.queue?.position ?? 0) - (b.pull.queue?.position ?? 0) || a.at - b.at)
+    .map(({ pull }) => pull);
 }
 
 function mainOf({ main, fixing }: WireHub): MainState | undefined {

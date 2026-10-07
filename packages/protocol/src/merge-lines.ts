@@ -158,7 +158,7 @@ export type HubPullRequest = {
   queue?: HubQueue;
 };
 
-/** `state` is `waiting_for_ci`, `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.65. */
+/** `state` is `waiting_for_ci`, `in_queue` (a state this build does not know), `queued`, `awaiting_checks`, `mergeable` or `unmergeable`. Since 23.65. */
 export type HubQueue = {
   state: string;
   /** 1 is next to merge. Absent for `waiting_for_ci`. */

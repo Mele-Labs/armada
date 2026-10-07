@@ -55,14 +55,14 @@ fn entry_of_line(line: &str) -> Option<QueueEntry> {
     })
 }
 
-/// **A word with no name here is unmergeable**: a queue entry the forge holds
-/// for a reason this does not know is not one that will merge next.
+/// **A word with no name here is only in the queue**: nothing is claimed of it.
 fn state_of(word: &str) -> QueueState {
     match word {
         "QUEUED" => QueueState::Queued,
         "AWAITING_CHECKS" => QueueState::AwaitingChecks,
         "MERGEABLE" => QueueState::Mergeable,
-        _ => QueueState::Unmergeable,
+        "UNMERGEABLE" => QueueState::Unmergeable,
+        _ => QueueState::InQueue,
     }
 }
 
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn entries_read_in_position_order_with_the_forges_states() {
-        let lines = "21\t2\tQUEUED\n20\t1\tAWAITING_CHECKS\n22\t3\tMERGEABLE\n23\t4\tLOCKED\nx\t5\tQUEUED\n";
+        let lines = "21\t2\tQUEUED\n20\t1\tAWAITING_CHECKS\n22\t3\tMERGEABLE\n23\t4\tUNMERGEABLE\n24\t5\tLOCKED\nx\t5\tQUEUED\n";
         let mut queue: MergeQueue = lines.lines().filter_map(entry_of_line).collect();
         queue.sort_by_key(|entry| entry.position);
         let seen: Vec<(u64, u32, QueueState)> = queue
@@ -86,6 +86,7 @@ mod tests {
                 (21, 2, QueueState::Queued),
                 (22, 3, QueueState::Mergeable),
                 (23, 4, QueueState::Unmergeable),
+                (24, 5, QueueState::InQueue),
             ]
         );
     }

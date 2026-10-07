@@ -106,5 +106,7 @@ test("an open pull request wears its merge queue mark and place, and its owner",
   await expect.element(entry("docs/typo-in-the-readme").getByRole("img", { name: "Waiting for ci to join the merge queue" })).toBeVisible();
   await expect.element(entry("chore/bump-the-lockfile").getByRole("img", { name: "In the merge queue, cannot merge" })).toBeVisible();
   await expect.element(entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" })).toBeVisible();
+  const order = [...line.element().querySelectorAll('ul[aria-label="Open pull requests"] > li')].map((li) => li.getAttribute("aria-label")?.split(",")[0]);
+  expect(order).toEqual(["fix/61-order-store-migrations", "fix/pin-store-clock", "chore/bump-the-lockfile", "docs/typo-in-the-readme", "wip/not-in-the-queue"]);
   expect(entry("wip/not-in-the-queue").element().querySelector(".armada-merge-line__place")?.textContent).toBe("");
 });

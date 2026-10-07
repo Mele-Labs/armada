@@ -82,6 +82,8 @@ pub struct OpenPull {
 /// Where the forge's merge queue holds a pull request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueueState {
+    /// A state the forge named that this build does not know: in the queue, nothing more.
+    InQueue,
     Queued,
     AwaitingChecks,
     Mergeable,

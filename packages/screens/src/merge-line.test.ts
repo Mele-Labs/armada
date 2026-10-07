@@ -239,6 +239,14 @@ describe("the hub Fleet serves beside the line", () => {
     ]);
   });
 
+  test("the queue draws first by position, then pull requests waiting for ci, then the rest as listed", () => {
+    const pull = (number: number, queue?: { state: string; position?: number }) => ({ number, title: "t", branch: `b/${number}`, url: `${PULL}${number}`, ...(queue === undefined ? {} : { queue }) });
+    const hub = hubOf({
+      pull_requests: [pull(1), pull(2, { state: "waiting_for_ci" }), pull(3, { state: "queued", position: 2 }), pull(4), pull(5, { state: "in_queue", position: 1 })],
+    });
+    expect(hub?.pulls.map((one) => one.number)).toEqual([5, 3, 2, 1, 4]);
+  });
+
   test("a green main is a mark, and each open pull request keeps its ci, its Job and nothing it was not told", () => {
     const hub = hubOf({
       main: { state: "green", commit: COMMIT, read_at: "2026-10-06T10:00:00Z" },

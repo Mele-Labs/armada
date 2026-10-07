@@ -135,7 +135,7 @@ export type HubPull = {
   /** The Job it came from. Absent for a person's. */
   job?: HubJob;
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
-  queue?: { state: "waiting_for_ci" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
+  queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
@@ -555,6 +555,7 @@ const CI: Record<NonNullable<HubPull["ci"]>, { reading: { icon: LucideIcon | nul
  */
 const QUEUE: Record<NonNullable<HubPull["queue"]>["state"], { reading: { icon: LucideIcon | null; statusToken: string | null } | undefined; says: string; pulsing: boolean }> = {
   waiting_for_ci: { reading: LAND_STATE.preparing, says: "Waiting for ci to join the merge queue", pulsing: true },
+  in_queue: { reading: LAND_STATE.waiting, says: "In the merge queue", pulsing: false },
   queued: { reading: LAND_STATE.waiting, says: "In the merge queue, waiting its turn", pulsing: false },
   awaiting_checks: { reading: LAND_STATE.gating, says: "In the merge queue, running its checks", pulsing: true },
   mergeable: { reading: LAND_STATE.merging, says: "In the merge queue, ready to merge", pulsing: true },

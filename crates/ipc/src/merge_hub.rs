@@ -208,6 +208,7 @@ pub struct HubQueue {
 #[serde(rename_all = "snake_case")]
 pub enum HubQueueState {
     WaitingForCi,
+    InQueue,
     Queued,
     AwaitingChecks,
     Mergeable,
