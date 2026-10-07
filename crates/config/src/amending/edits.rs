@@ -9,7 +9,7 @@
 //! outright, so clearing a list removes the key rather than writing one that
 //! would not load.
 
-use core_model::{AutoMerge, ReviewGate};
+use core_model::{AutoMerge, PrMode, ReviewGate};
 use serde_yaml_ng::{Mapping, Number, Value};
 
 use super::drafts::{
@@ -48,6 +48,8 @@ pub enum Edit {
     TurnCapPerJob(Option<u32>),
     /// `base`. `None` removes the key, and Armada infers one.
     Base(Option<String>),
+    /// `pr_mode`. `None` removes the key, and the repository defers to this machine's.
+    PrMode(Option<PrMode>),
     Evidence(EvidenceEdit),
     /// `after_merge.checks`. Empty removes `after_merge`, which holds nothing else.
     AfterMergeChecks(Vec<String>),
@@ -181,6 +183,7 @@ impl Edit {
             Edit::CostCapMicrosPerJob(_) => "drone.cost_cap_micros_per_job".to_string(),
             Edit::TurnCapPerJob(_) => "drone.turn_cap_per_job".to_string(),
             Edit::Base(_) => "base".to_string(),
+            Edit::PrMode(_) => "pr_mode".to_string(),
             Edit::Evidence(_) => "evidence".to_string(),
             Edit::AfterMergeChecks(_) => "after_merge.checks".to_string(),
             Edit::QuietAfterSeconds(_) => "drone.quiet_after_seconds".to_string(),
@@ -225,6 +228,10 @@ impl Edit {
             Edit::CostCapMicrosPerJob(cap) => Ok(vec![dial(doc, "cost_cap_micros_per_job", *cap)]),
             Edit::TurnCapPerJob(cap) => Ok(vec![dial(doc, "turn_cap_per_job", *cap)]),
             Edit::Base(base) => Ok(vec![optional(&["base"], base.as_deref())]),
+            Edit::PrMode(mode) => Ok(vec![policy(
+                "pr_mode",
+                mode.as_ref().map(PrMode::as_wire),
+            )]),
             Edit::Evidence(edit) => evidence(doc, edit),
             Edit::AfterMergeChecks(names) => Ok(vec![match names.is_empty() {
                 true => Op::remove(&["after_merge"]),

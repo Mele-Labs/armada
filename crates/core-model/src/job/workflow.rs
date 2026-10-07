@@ -34,6 +34,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::num::NonZeroU32;
 
+use crate::job::approval::PrMode;
 use crate::job::attempt::{Iteration, Spent};
 use crate::job::covers::Covers;
 use crate::job::declared::{AdvanceGate, EvidenceType};
@@ -439,6 +440,9 @@ pub struct ResolvedStep {
     /// the reading back where it was — the last step delivered, what every
     /// Job in flight was created under.
     delivers: bool,
+    /// How its pull request is offered. **`None` defers** to the repository's
+    /// default, then the machine's: every step but the delivering one.
+    draft_pr: Option<PrMode>,
     /// How many passes over this step a loop may make before the cap is spent.
     /// **Zero on a step no verdict routes back to**, which is every step of
     /// every linear workflow — and a count rather than an `Option` for
@@ -555,6 +559,7 @@ impl ResolvedStep {
             about: None,
             may_dispatch_jobs: false,
             delivers: false,
+            draft_pr: None,
             captured: false,
             walked: false,
             gates_on_every_check: false,
@@ -665,6 +670,12 @@ impl ResolvedStep {
     /// declares it and every other step would be restating a `false`.
     pub fn delivering(mut self, delivers: bool) -> ResolvedStep {
         self.delivers = delivers;
+        self
+    }
+
+    /// The pull request mode this step asks for.
+    pub fn drafting(mut self, draft_pr: Option<PrMode>) -> ResolvedStep {
+        self.draft_pr = draft_pr;
         self
     }
 
@@ -1034,6 +1045,11 @@ impl ResolvedStep {
     /// four of the eight shipped workflows want.
     pub fn delivers(&self) -> bool {
         self.delivers
+    }
+
+    /// How its pull request is offered. **`None` defers.**
+    pub fn draft_pr(&self) -> Option<PrMode> {
+        self.draft_pr
     }
 
     /// How long this step's Drone may say nothing, in seconds, where the step

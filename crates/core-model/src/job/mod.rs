@@ -71,7 +71,7 @@ mod tests;
 pub use allowed::{AllowedCommand, Reach, WhenBlocked};
 pub use approval::{
     branch_named, criterion_numbered, next_criterion_number, CompleteWhen, IssueSource, Landing,
-    NotAtApproval, PrMode, ProposalEdit,
+    NotAtApproval, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use asking::WhenRefused;
 pub use attempt::{Attempt, Iteration, Spent};

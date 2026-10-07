@@ -19,6 +19,7 @@ import type {
 } from "@armada/protocol";
 import type { WaveJobView } from "../draft/wave";
 import { HARNESS } from "@armada/screens/src/fixtures/harness";
+import { placedBy } from "./added-fleet";
 
 /** The Job one press later: `queued`, carrying what the body set, approved `at`. */
 export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined, at: string): JobDetail {
@@ -51,6 +52,8 @@ export function approvedAs(detail: JobDetail, body: ApproveDispatch | undefined,
   if (body?.drone_cap === undefined) delete approved.drone_cap;
   else approved.drone_cap = body.drone_cap;
   if (body?.landing !== undefined) approved.landing = landingAs(body.landing);
+  // Placed at the press; left out keeps what was placed, and `[]` clears it.
+  if (body?.additions !== undefined) approved.additions = placedBy(body.additions, at);
   return approved;
 }
 

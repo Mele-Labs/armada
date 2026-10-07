@@ -143,6 +143,12 @@ pub enum ManifestEdit {
         #[serde(deserialize_with = "stated")]
         base: Option<String>,
     },
+    /// `pr_mode`. `null` removes the key, and the repository defers to this
+    /// machine's default. Since 23.68.
+    SetPrMode {
+        #[serde(deserialize_with = "stated")]
+        pr_mode: Option<crate::PrMode>,
+    },
     AddEvidence {
         evidence: EvidenceDraft,
     },
@@ -329,6 +335,10 @@ pub struct ManifestDeclared {
     /// `drone.exclude_paths`, empty where the file defers.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude_paths: Vec<String>,
+    /// `pr_mode`, absent where the file defers to this machine's default.
+    /// Since 23.68.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr_mode: Option<crate::PrMode>,
 }
 
 /// A Check the file declares, by name.

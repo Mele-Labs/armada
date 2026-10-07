@@ -64,6 +64,29 @@ describe("what the editor changes is all that moves", () => {
     expect(gone).not.toHaveProperty("iteration_cap");
   });
 
+  it("sets draft_pr on the delivering step only and takes it away again where the file said nothing", () => {
+    const def = opened(feature);
+    const at = def.steps.findIndex((one) => one.delivers === true);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(def.steps.filter((one) => one.delivers === true)).toHaveLength(1);
+    def.steps[at]!.draftPr = true;
+    const written = parsed(writeDefinition(def)) as { steps: Record<string, unknown>[] };
+    expect(written.steps[at]).toEqual({ ...original.steps[at], draft_pr: true });
+    expect(written.steps.filter((one) => "draft_pr" in one)).toHaveLength(1);
+    // Off where the file never said: the key goes, so the switch never writes `ready` it was not asked for.
+    delete def.steps[at]!.draftPr;
+    expect(parsed(writeDefinition(def))).toEqual(original);
+  });
+
+  it("reads draft_pr as written, false included, and writes false back only when it is set", () => {
+    const text = JSON.stringify({ workflow_id: "w", steps: [{ id: "land", delivers: true, draft_pr: false }] });
+    const def = opened(text);
+    expect(def.steps[0]).toMatchObject({ delivers: true, draftPr: false });
+    expect(parsed(writeDefinition(def))).toMatchObject({ steps: [{ draft_pr: false }] });
+    def.steps[0]!.draftPr = true;
+    expect(parsed(writeDefinition(def))).toMatchObject({ steps: [{ draft_pr: true }] });
+  });
+
   it("never writes a structure key", () => {
     const out = parsed(writeDefinition(opened(feature))) as { steps: object[] };
     expect(out).not.toHaveProperty("structure");

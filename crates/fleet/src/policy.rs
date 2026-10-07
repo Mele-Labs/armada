@@ -179,6 +179,10 @@ pub enum HeldBecause {
     /// wrong in is the same one: a person sees the branch before anything
     /// claims it went out. `#691`.
     TheBranchDidNotGoOut,
+    /// A Trigger that blocks failed when the pull request opened, so the gate
+    /// is the owner's until the hold is let go. **Not a policy answer**, as
+    /// `TheBranchDidNotGoOut` is not.
+    ATriggerHoldsIt,
 }
 
 impl HeldBecause {
@@ -201,6 +205,10 @@ impl HeldBecause {
                 "this repository's review_gate is auto_if_judge_passes and this step asks the \
                  Judge nothing, so it is held for a person rather than advanced on the \
                  mechanical tier alone",
+            ),
+            HeldBecause::ATriggerHoldsIt => Some(
+                "a Trigger that blocks failed when the pull request opened, so this is held \
+                 for a person and cannot be approved or merged until the hold is let go",
             ),
             HeldBecause::TheBranchDidNotGoOut => Some(
                 "this step delivers and its own catch-up conflicted with its base, so the \

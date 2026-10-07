@@ -8,7 +8,7 @@
 //! `setup.requires`, `setup.seed` ([`seed`]) and `setup.worktrees`; the three keys [`drone`] reads, the one section here that
 //! is a dial rather than a registry; and the two policies a
 //! `manifest_rule:<key>` gate names, `auto_merge` and `review_gate`;
-//! `merge_by`, [`merge_by`]; and
+//! `merge_by`, [`merge_by`]; `pr_mode`, [`pr_mode`]; and
 //! `freeze`, [`freeze`]; `standing_rules`, [`standing`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
@@ -30,6 +30,7 @@ mod auto_release;
 mod declared;
 mod harness;
 mod merge_by;
+mod pr_mode;
 mod referring;
 mod runner;
 mod seed;
@@ -85,6 +86,8 @@ const TOP_LEVEL: &[&str] = &[
     "review_gate",
     // How work lands, beside whether it may: [`merge_by`].
     "merge_by",
+    // How a pull request is offered: [`pr_mode`].
+    "pr_mode",
     "freeze",
     "standing_rules",
     // Which other paths gate a workspace: [`workspace`].
@@ -602,6 +605,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
     };
     let (auto_merge, review_gate) = policies::read(&mut top, out);
     let merge_by = merge_by::read(&mut top, out);
+    let pr_mode = pr_mode::read(&mut top, out);
     let freeze = freeze::read(&mut top, out);
     let standing_rules = standing::read(&mut top, out);
     // After `checks` for `setup.requires`' reason, one registry along: every
@@ -650,6 +654,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
             auto_merge,
             review_gate,
             merge_by,
+            pr_mode,
             freeze,
         }),
     })

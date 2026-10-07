@@ -1,5 +1,6 @@
 import { ADVANCE_GATE, AUTO_MERGE, type Rendering } from "../../generated/vocabulary";
 import { Select } from "../../primitives/Select/Select";
+import { Switch } from "../../primitives/Switch/Switch";
 
 import { Section } from "./Entries";
 import type { ManifestFormProps } from "./ManifestForm";
@@ -41,6 +42,9 @@ export function PolicySection({ draft, onDraft, autoMergeWords, reviewGateWords 
           </option>
         ))}
       </Select>
+      <Switch checked={draft.draftPr} onChange={(event) => onDraft({ ...draft, draftPr: event.target.checked })}>
+        Draft pull requests
+      </Switch>
     </Section>
   );
 }

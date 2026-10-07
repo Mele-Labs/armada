@@ -192,6 +192,12 @@ impl fmt::Display for Adrift {
                  end the Job over a pull request that does not carry it",
                 job.as_str()
             ),
+            Adrift::TriggerHolds { job, trigger } => write!(
+                out,
+                "{} is held by the Trigger `{trigger}`, which failed: rerun it or skip it, and \
+                 then the Job can go on",
+                job.as_str()
+            ),
             Adrift::NotMerged { job, why } => write!(
                 out,
                 "{}'s pull request was not merged and nothing retries — {}",
@@ -819,6 +825,7 @@ impl Adrift {
             | Adrift::FindingAlreadyQueued { job, .. }
             | Adrift::NoStepToRedo { job }
             | Adrift::UnpushedDelivery { job, .. }
+            | Adrift::TriggerHolds { job, .. }
             | Adrift::NotMerged { job, .. }
             | Adrift::ReviewUnreadable { job, .. }
             | Adrift::NoRemarksChosen { job }
@@ -1071,6 +1078,7 @@ impl Error for Adrift {
             // remote. It says what the delivery record holds, not what
             // failed underneath it.
             | Adrift::UnpushedDelivery { .. }
+            | Adrift::TriggerHolds { .. }
             // Four of a review's comments' own refusals. Each says what a
             // press could not be, and none wraps a failure underneath it —
             // `RemarksFileUnwritable`, the fifth, does and is above with the

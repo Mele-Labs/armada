@@ -3,3 +3,10 @@
   group = "Git and config"
   size = "12px"
   status = "Specified"
+
+[[icons.git-pull-request.usage]]
+  means = "A failed Trigger's repair that became a pull request of its own, with its number"
+  group = "Trigger"
+  size = "12px"
+  status = "Specified"
+  notes = "Added 7 Oct 2026 with Self repair. Tooltip `New PR`. Ends the repair branch on a canvas; the number beside it is the forge's."
