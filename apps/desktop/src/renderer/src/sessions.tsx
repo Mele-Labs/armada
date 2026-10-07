@@ -7,24 +7,29 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ChipOwnership,
+  Prose,
+  PullRequestCard,
+  Sheet,
+  SessionComposer,
   SessionFrame,
   SessionLedger,
   SessionList,
   SessionThread,
-  hueOf,
+  SketchPreview,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
+  SessionGroup,
   SessionRowView,
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
-import { SURFACE } from "@armada/shell";
+import { SURFACE, useAtFloor } from "@armada/shell";
 
 import { useSessions, useSessionsDraft } from "./sessions-draft";
 
@@ -32,7 +37,6 @@ import { useSessions, useSessionsDraft } from "./sessions-draft";
 export function sessionsHidden(served: boolean): readonly string[] {
   return served ? [] : [SURFACE.sessions];
 }
-
 
 function stateOf(session: Session): { state: SessionState; said: string } {
   if (session.turn.state === "working") {
@@ -45,20 +49,21 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   return { state: "waiting", said: "Waiting on you" };
 }
 
-const checksSaid = (checks: { state: "pending" | "passed" | "failed"; failing?: string }) =>
+type Checks = Extract<SessionAttachment, { kind: "pull_request" }>["checks"];
+
+const checksSaid = (checks: Checks) =>
   checks.state === "failed" ? `Checks failed: ${checks.failing}` : checks.state === "pending" ? "Checks running" : "Checks passed";
+
+const pullRequestsOf = (session: Session) =>
+  attachmentsOf(session, "pull_request").map((one) => ({ number: one.number, checks: one.checks.state, said: checksSaid(one.checks) }));
 
 function summaryOf(session: Session): OwnerSummary {
   return {
     id: session.id,
     ...(session.title === undefined ? {} : { title: session.title }),
-    hue: hueOf(stateOf(session).state),
+    ...stateOf(session),
     slots: attachmentsOf(session, "slot").map((one) => one.slot),
-    pullRequests: attachmentsOf(session, "pull_request").map((one) => ({
-      number: one.number,
-      checks: one.checks.state,
-      said: checksSaid(one.checks.state === "failed" ? one.checks : { state: one.checks.state }),
-    })),
+    pullRequests: pullRequestsOf(session),
     jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
     ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
   };
@@ -95,13 +100,20 @@ function chipOf(attachment: SessionAttachment): OwnerChipRef | undefined {
   }
 }
 
+/** The headings Overview's lists use, over the Sessions each holds. A heading with no row is not drawn. */
+const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
+  { label: "Needs you", has: (state) => state === "waiting" || state === "failing" },
+  { label: "Running", has: (state) => state === "working" },
+  { label: "Not started", has: (state) => state === "blank" },
+];
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
 export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   if (draft === undefined) return null;
-  const rows: SessionRowView[] = sessionsMatching(sessions, query).map(({ session, matched }) => {
+  const views: SessionRowView[] = sessionsMatching(sessions, query).map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
     return {
@@ -109,19 +121,33 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.title === undefined ? {} : { title: session.title }),
       state,
       said,
+      slots: attachmentsOf(session, "slot").map((one) => one.slot),
+      pullRequests: pullRequestsOf(session),
+      jobs: attachmentsOf(session, "job").map((one) => ({ id: one.id, number: one.number })),
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
     };
   });
-  return <SessionList rows={rows} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => onOpen(draft.start())} />;
+  const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  return <SessionList groups={groups} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => onOpen(draft.start())} />;
 }
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
   return session.rows.map((row): SessionThreadRow => {
     if (row.kind === "lease" || row.kind === "tool") return row;
-    return row.from.kind === "session"
-      ? { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text }
-      : { id: row.id, at: row.at, kind: "message", from: row.from.kind, text: row.text };
+    if (row.from.kind === "session") {
+      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
+    }
+    return {
+      id: row.id,
+      at: row.at,
+      kind: "message",
+      from: row.from.kind,
+      text: row.text,
+      ...(row.files === undefined ? {} : { files: row.files }),
+      ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
+      ...(row.mentions === undefined ? {} : { mentions: row.mentions }),
+    };
   });
 }
 
@@ -132,11 +158,44 @@ export type LedgerGoes = {
   onOpenLink: (address: string) => void;
 };
 
-function entriesOf(session: Session, goes: LedgerGoes): LedgerEntry[] {
+/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent. */
+function Reading({ one, onClose, onOpenLink }: { one: SessionAttachment | undefined; onClose: () => void; onOpenLink: (address: string) => void }) {
+  const floor = useAtFloor();
+  const title =
+    one === undefined
+      ? ""
+      : one.kind === "pull_request"
+        ? `Pull request #${one.number}`
+        : one.kind === "sketch"
+          ? `Sketch ${one.title}`
+          : one.kind === "subagent"
+            ? `Subagent ${one.task}`
+            : "";
+  return (
+    <Sheet kind="session-reading" open={one !== undefined && title !== ""} floating floor={floor} title={title} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
+      {one?.kind === "pull_request" ? (
+        <PullRequestCard
+          number={`#${one.number}`}
+          address={one.address}
+          title={one.title}
+          branch={one.branch}
+          checks={checksSaid(one.checks)}
+          onOpen={() => onOpenLink(one.address)}
+        />
+      ) : one?.kind === "sketch" ? (
+        <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={[]} pictures={[]} />
+      ) : one?.kind === "subagent" ? (
+        one.report === undefined ? null : <Prose text={one.report} />
+      ) : null}
+    </Sheet>
+  );
+}
+
+function entriesOf(session: Session, goes: LedgerGoes, read: (one: SessionAttachment) => void): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "slot":
-        return { key: `slot${one.slot}`, kind: "slot", name: `Slot ${one.slot}`, text: <code>{one.slot}</code>, onOpen: () => goes.onGoTo(SURFACE.worktrees) };
+        return { key: `slot${one.slot}`, kind: "slot", name: `Worktree slot ${one.slot}`, text: <code>{one.slot}</code>, onOpen: () => goes.onGoTo(SURFACE.worktrees) };
       case "branch":
         return { key: one.name, kind: "branch", name: `Branch ${one.name}`, text: <code>{one.name}</code>, onOpen: () => goes.onGoTo(SURFACE.worktrees) };
       case "pull_request":
@@ -149,8 +208,8 @@ function entriesOf(session: Session, goes: LedgerGoes): LedgerEntry[] {
               <code>#{one.number}</code> {one.title}
             </>
           ),
-          mark: { glyph: one.checks.state, said: checksSaid(one.checks.state === "failed" ? one.checks : { state: one.checks.state }) },
-          onOpen: () => goes.onOpenLink(one.address),
+          mark: { glyph: one.checks.state, said: checksSaid(one.checks) },
+          onOpen: () => read(one),
         };
       case "job":
         return {
@@ -167,6 +226,8 @@ function entriesOf(session: Session, goes: LedgerGoes): LedgerEntry[] {
         };
       case "studio":
         return { key: one.id, kind: "studio", name: `Studio ${one.title}`, text: one.title, onOpen: () => goes.onGoTo(SURFACE.studios) };
+      case "sketch":
+        return { key: one.id, kind: "sketch", name: `Sketch ${one.title}`, text: one.title, onOpen: () => read(one) };
       case "subagent":
         return {
           key: one.id,
@@ -174,27 +235,48 @@ function entriesOf(session: Session, goes: LedgerGoes): LedgerEntry[] {
           name: `Subagent ${one.task}, ${one.state}`,
           text: one.task,
           mark: { glyph: one.state, said: one.state === "running" ? "Running" : "Done" },
-          onOpen: () => undefined,
+          onOpen: () => read(one),
         };
     }
   });
 }
 
-/** One Session open: its conversation in the middle and what it holds at the side, one view. */
-function SessionView({ session, goes }: { session: Session; goes: LedgerGoes }) {
+/** One Session open: its conversation in the middle and what it holds at the side, one panel. */
+function SessionView({ session, goes, onOpen }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
+  const sessions = useSessions();
+  const [reading, setReading] = useState<SessionAttachment | undefined>();
   const { state, said } = stateOf(session);
+  if (draft === undefined) return null;
   return (
-    <SessionFrame state={state} said={said} id={session.id} {...(session.title === undefined ? {} : { title: session.title })}>
-      <SessionThread
-        rows={threadRowsOf(session)}
-        {...(session.asked === undefined ? {} : { asked: session.asked })}
-        onAnswer={() => draft?.answer(session.id)}
-        working={session.turn.state === "working"}
-        onSend={(text) => draft?.send(session.id, text)}
-      />
-      <SessionLedger entries={entriesOf(session, goes)} />
-    </SessionFrame>
+    <>
+      <SessionFrame state={state} said={said} id={session.id} {...(session.title === undefined ? {} : { title: session.title })}>
+        <div className="armada-session-frame__centre">
+          <SessionThread
+            rows={threadRowsOf(session)}
+            {...(session.asked === undefined ? {} : { asked: session.asked })}
+            onAnswer={() => draft.answer(session.id)}
+            onOpenSession={onOpen}
+          />
+          <SessionComposer
+            working={session.turn.state === "working"}
+            model={session.model ?? null}
+            effort={session.effort ?? null}
+            models={draft.models}
+            efforts={draft.efforts}
+            onTune={(tuning) => draft.tune(session.id, tuning)}
+            commands={draft.commands}
+            sessions={sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one) => ({ id: one.id, title: one.title! }))}
+            sketches={draft.sketches}
+            onSend={(sent) =>
+              draft.send(session.id, { text: sent.text, files: sent.files, sketches: sent.sketches, mentions: sent.mentions })
+            }
+          />
+        </div>
+        <SessionLedger entries={entriesOf(session, goes, setReading)} />
+      </SessionFrame>
+      <Reading one={reading} onClose={() => setReading(undefined)} onOpenLink={goes.onOpenLink} />
+    </>
   );
 }
 
@@ -204,8 +286,7 @@ export function SessionsSurface({ openId, onOpen, goes }: { openId: string | nul
   const open = sessions.find((one) => one.id === openId);
   return (
     <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} />}
     </div>
   );
 }
-

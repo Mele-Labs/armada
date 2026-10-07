@@ -35,6 +35,8 @@ export type Step =
   /** Looked at, and then time passes: the scenario publishes its next moment as the walk moves on. */
   | { later: Target; say: string }
   | { type: string; into: Target; say: string }
+  /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
+  | { paste: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
@@ -87,6 +89,7 @@ export function inside(scope: Target, target: Target): Target {
 export function targetOf(step: Step): Target {
   if ("hover" in step) return step.hover;
   if ("later" in step) return step.later;
+  if ("paste" in step) return step.paste;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
@@ -94,6 +97,7 @@ export function targetOf(step: Step): Target {
 function verb(step: Step): string {
   if ("hover" in step) return "hover over";
   if ("later" in step) return "look at";
+  if ("paste" in step) return "paste into";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
@@ -287,6 +291,43 @@ function drag(element: HTMLElement, by: { x: number; y: number }): void {
   window.dispatchEvent(new MouseEvent("mouseup", at(from.x + by.x, from.y + by.y, 0)));
 }
 
+/**
+ * A screenshot pasted as a browser delivers one: a paste event on the field
+ * carrying a PNG in a clipboard of its own. **Never the machine's clipboard**,
+ * so a walk, a test and a person's own copy cannot meet. The picture is drawn
+ * here from the window's own tokens: a window with a failing test in it.
+ */
+function pasteScreenshot(element: HTMLElement): void {
+  const tone = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "gray";
+  const canvas = document.createElement("canvas");
+  canvas.width = 480;
+  canvas.height = 280;
+  const draw = canvas.getContext("2d");
+  if (draw === null) return;
+  draw.fillStyle = tone("--bg-sunken");
+  draw.fillRect(0, 0, 480, 280);
+  draw.fillStyle = tone("--border-default");
+  draw.fillRect(0, 0, 480, 28);
+  draw.font = `${tone("--text-xs")} monospace`;
+  const lines: [string, string][] = [
+    ["--fg-muted", "running 31 tests"],
+    ["--fg-muted", "test store_open ... ok"],
+    ["--fg-muted", "test store_close ... ok"],
+    ["--status-completed-failed", "test store_flaky ... FAILED"],
+    ["--status-completed-failed", "assertion failed: at.second() == 0"],
+  ];
+  lines.forEach(([color, words], at) => {
+    draw.fillStyle = tone(color);
+    draw.fillText(words, 16, 64 + at * 24);
+  });
+  canvas.toBlob((blob) => {
+    if (blob === null) return;
+    const clipboard = new DataTransfer();
+    clipboard.items.add(new File([blob], "Screenshot 2026-10-07 at 14.02.png", { type: "image/png" }));
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  }, "image/png");
+}
+
 /** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
   if ("hover" in step) pointerOver(element, false);
@@ -294,6 +335,7 @@ export function act(step: Step, element: HTMLElement): void {
   else if ("press" in step) press(element);
   else if ("drag" in step) drag(element, step.by);
   else if ("type" in step) fill(element, step.type);
+  else if ("paste" in step) pasteScreenshot(element);
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */

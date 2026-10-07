@@ -6,7 +6,8 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import type { SessionHue } from "../SessionFrame/SessionFrame";
+import { SessionMark } from "../SessionFrame/SessionFrame";
+import type { SessionState } from "../SessionFrame/SessionFrame";
 
 /**
  * A branch, pull request, slot or Job named anywhere in Bridge, and who owns it.
@@ -28,7 +29,9 @@ export type OwnerChipRef =
 export type OwnerSummary = {
   id: string;
   title?: string;
-  hue: SessionHue;
+  state: SessionState;
+  /** What the state's mark says on hover. */
+  said: string;
   slots: readonly number[];
   pullRequests: readonly { number: number; checks: "pending" | "passed" | "failed"; said: string }[];
   jobs: readonly { id: string; number: number }[];
@@ -55,7 +58,7 @@ const NAME = (chip: OwnerChipRef): string => {
     case "pull_request":
       return `Pull request #${chip.number}`;
     case "slot":
-      return `Slot ${chip.slot}`;
+      return `Worktree slot ${chip.slot}`;
     case "job":
       return `Job ${chip.number}`;
   }
@@ -94,7 +97,7 @@ export function Chip({ chip, matched = false }: { chip: OwnerChipRef; matched?: 
 
 const CHECKS: Record<"pending" | "passed" | "failed", LucideIcon> = { pending: ShieldEllipsis, passed: ShieldCheck, failed: ShieldX };
 
-/** The card: a band in the owner's state hue over a body, as a bay is drawn. */
+/** The card: the Session's head, with its state's mark, over what it holds. */
 export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: () => void; at?: { top: number; left: number } }) {
   return (
     <div
@@ -102,16 +105,15 @@ export function OwnerCard({ owner, onOpen, at }: { owner: OwnerSummary; onOpen: 
       data-owner-chip
       role="group"
       aria-label={`Owned by ${owner.title ?? owner.id}`}
-      data-hue={owner.hue}
       style={at === undefined ? undefined : { top: at.top, left: at.left }}
     >
       <div className="armada-owner-card__band">
         <SquareTerminal size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-owner-card__eyebrow">Session</span>
         <span className="armada-owner-card__id">{owner.id}</span>
+        <span className="armada-owner-card__title">{owner.title}</span>
+        <SessionMark state={owner.state} said={owner.said} />
       </div>
       <div className="armada-owner-card__body">
-        <p className="armada-owner-card__title">{owner.title ?? owner.id}</p>
         <ul className="armada-owner-card__facts">
           {owner.slots.map((slot) => (
             <li key={slot}>

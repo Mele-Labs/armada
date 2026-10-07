@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import type { Session, SessionAttachment, SessionRow, SessionsDraft } from "@armada/screens/src/draft/sessions";
+import type { OwnSketch, Session, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
 export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void };
@@ -15,6 +15,56 @@ export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => 
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
 
 const idle = { state: "idle" } as const;
+
+/** The models Fleet lists, as `list_models` answers them, and the efforts a Drone's settings offer. */
+const MODELS = ["haiku", "sonnet", "opus"];
+const EFFORTS = ["low", "medium", "high"];
+
+/** What `/` offers, as a terminal session lists them: skills first, then the commands. */
+const COMMANDS: readonly SessionCommand[] = [
+  { name: "review", says: "Review the pull request" },
+  { name: "simplify", says: "Simplify the changed code" },
+  { name: "security-review", says: "Review the pending changes for security" },
+  { name: "init", says: "Write the repository notes an agent reads first" },
+  { name: "compact", says: "Clear the history and keep a summary" },
+  { name: "clear", says: "Start over with an empty history" },
+  { name: "model", says: "Set the model for this Session" },
+];
+
+const drawing = (boxes: [string, number, number, string][], lines: [string, string][] = []): SessionSketch => ({
+  boxes: boxes.map(([id, x, y, body]) => ({ id, x, y, body })),
+  lines: lines.map(([from, to], at) => ({ id: `l${at}`, from, to })),
+});
+
+/** The person's own sketches, from Dispatch and Studios. */
+const OWN_SKETCHES: readonly OwnSketch[] = [
+  {
+    id: "k1",
+    title: "Store clock",
+    drawing: drawing(
+      [
+        ["a", 0, 0, "wall clock"],
+        ["b", 320, 0, "pinned instant"],
+        ["c", 160, 140, "store tests"],
+      ],
+      [
+        ["a", "c"],
+        ["b", "c"],
+      ],
+    ),
+  },
+  {
+    id: "k2",
+    title: "Release notes flow",
+    drawing: drawing(
+      [
+        ["a", 0, 0, "merged PRs"],
+        ["b", 320, 0, "group by crate"],
+      ],
+      [["a", "b"]],
+    ),
+  },
+];
 
 /** The Sessions already open beside the walk's own. */
 function others(): Session[] {
@@ -111,6 +161,7 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
         tool("subagent: Read the CI history of store_flaky"),
         tool("subagent: Find other tests that read the wall clock"),
         tool("studio: Flaky store shapes"),
+        tool("publish_sketch: CI history of store_flaky"),
         said("Two Jobs dispatched and two subagents reading."),
       ],
       [
@@ -119,9 +170,34 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
         { kind: "subagent", id: "a1", task: "Read the CI history of store_flaky", state: "running" },
         { kind: "subagent", id: "a2", task: "Find other tests that read the wall clock", state: "running" },
         { kind: "studio", id: "st2", title: "Flaky store shapes" },
+        {
+          kind: "sketch",
+          id: "k3",
+          title: "CI history of store_flaky",
+          by: "agent",
+          drawing: drawing(
+            [
+              ["a", 0, 0, "store_flaky passes"],
+              ["b", 320, 0, "store_flaky fails"],
+              ["c", 160, 140, "the wall clock crosses a second"],
+            ],
+            [
+              ["c", "a"],
+              ["c", "b"],
+            ],
+          ),
+        },
       ],
     );
-    after(1500, () => attach((a) => a.kind === "subagent" && a.id === "a1", { kind: "subagent", id: "a1", task: "Read the CI history of store_flaky", state: "done" }));
+    after(1500, () =>
+      attach((a) => a.kind === "subagent" && a.id === "a1", {
+        kind: "subagent",
+        id: "a1",
+        task: "Read the CI history of store_flaky",
+        state: "done",
+        report: "store_flaky failed 4 of the last 30 runs, each when the test crossed a second boundary.",
+      }),
+    );
   };
 
   const opening = () => {
@@ -161,11 +237,27 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
       set([{ id: MINE, attachments: [], rows: [], turn: idle }, ...now]);
       return MINE;
     },
-    send(id, text) {
-      if (text.trim() === "") return;
+    send(id, sent) {
+      if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.mentions.length === 0) return;
+      const shared = OWN_SKETCHES.filter((one) => sent.sketches.includes(one.id));
+      const tagged = now.filter((one) => sent.mentions.includes(one.id)).map((one) => ({ id: one.id, title: one.title ?? one.id }));
       edit(id, (one) => ({
         ...one,
-        rows: [...one.rows, row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: text.trim() }))],
+        rows: [
+          ...one.rows,
+          row((rid, stamp) => ({
+            id: rid,
+            at: stamp,
+            kind: "message",
+            from: { kind: "you" },
+            text: sent.text,
+            ...(sent.files.length === 0 ? {} : { files: sent.files }),
+            ...(shared.length === 0 ? {} : { sketches: shared.map((k) => ({ id: k.id, title: k.title })) }),
+            ...(tagged.length === 0 ? {} : { mentions: tagged }),
+          })),
+        ],
+        // A sketch shared with a Session is on its ledger, beside the ones the agent publishes.
+        attachments: [...one.attachments, ...shared.map((k): SessionAttachment => ({ kind: "sketch", id: k.id, title: k.title, by: "you", drawing: k.drawing }))],
         turn: { state: "working" },
       }));
       if (id === MINE && !started) {
@@ -173,7 +265,23 @@ export function sessionsStore(jobs: readonly [DispatchedJob, DispatchedJob]): Se
         after(600, firstTurn);
       }
     },
-    answer: (id) => edit(id, (one) => ({ ...one, asked: undefined })),
+    tune: (id, tuning) =>
+      edit(id, (one) => {
+        const { model, effort, ...rest } = one;
+        void model;
+        void effort;
+        return { ...rest, ...(tuning.model === null ? {} : { model: tuning.model }), ...(tuning.effort === null ? {} : { effort: tuning.effort }) };
+      }),
+    models: MODELS,
+    efforts: EFFORTS,
+    commands: COMMANDS,
+    sketches: OWN_SKETCHES,
+    answer: (id) =>
+      edit(id, (one) => {
+        const { asked, ...rest } = one;
+        void asked;
+        return rest;
+      }),
     later() {
       const next = turns[moment];
       moment += 1;

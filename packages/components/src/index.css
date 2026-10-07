@@ -390,6 +390,7 @@
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/SessionThread/SessionThread.css";
+@import "./compositions/SessionComposer/SessionComposer.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/SessionList/SessionList.css";
 

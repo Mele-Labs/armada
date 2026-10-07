@@ -2,25 +2,18 @@ import type { ReactNode } from "react";
 import { CircleDashed, CircleDot, Eye, ShieldX, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Card } from "../../primitives/Card/Card";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
- * A Session, framed as a bay is: a band filled in the state's hue over a body,
- * and the same hue on the frame, so the state is in the frame and not in a
- * sentence beside it. The hues are the Job state machine's and nothing new:
- * **blank** is not-started, **working** is running, **waiting** on you is
- * awaiting-review, and **failing** is a pull request whose Checks are red.
+ * A Session open, in the glass panel a Job's detail and Overview's panels are
+ * (`Card` on the canvas). **The state is one registry mark in the header with
+ * its tooltip**, not a colour on the frame: blank is a step not yet started,
+ * working is a Drone running, waiting is a Job at review, and failing is a
+ * pull request's Checks red. `[conventions.session_state_borrowing]` in
+ * `packages/icons/icons.toml` lends them.
  */
-export type SessionHue = "not-started" | "running" | "awaiting-review" | "completed-failed";
-
 export type SessionState = "blank" | "working" | "waiting" | "failing";
-
-const HUE: Record<SessionState, SessionHue> = {
-  blank: "not-started",
-  working: "running",
-  waiting: "awaiting-review",
-  failing: "completed-failed",
-};
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
@@ -28,8 +21,6 @@ const MARK: Record<SessionState, LucideIcon> = {
   waiting: Eye,
   failing: ShieldX,
 };
-
-export const hueOf = (state: SessionState): SessionHue => HUE[state];
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
 export function SessionMark({ state, said }: { state: SessionState; said: string }) {
@@ -55,15 +46,14 @@ export type SessionFrameProps = {
 
 export function SessionFrame({ state, said, id, title, children }: SessionFrameProps) {
   return (
-    <section className="armada-session-frame" data-hue={HUE[state]} aria-label={`Session ${id}`}>
-      <header className="armada-session-frame__band">
+    <Card className="armada-session-frame" role="region" aria-label={`Session ${id}`}>
+      <header className="armada-session-frame__head">
         <SquareTerminal size={16} strokeWidth={2} aria-hidden />
-        <span className="armada-session-frame__eyebrow">Session</span>
         <span className="armada-session-frame__id">{id}</span>
         <span className="armada-session-frame__title">{title}</span>
         <SessionMark state={state} said={said} />
       </header>
       <div className="armada-session-frame__body">{children}</div>
-    </section>
+    </Card>
   );
 }

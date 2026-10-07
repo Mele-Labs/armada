@@ -1,4 +1,5 @@
-/* The Sessions list: a row each, its edge in the Session's state hue. */
+/* The Sessions list: headed like Overview's lists, a row each. A row's state
+   is its one mark, not a colour on its edge. */
 
 .armada-session-list {
   display: flex;
@@ -11,6 +12,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.armada-session-list__title-bar {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+}
+
+.armada-session-list__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .armada-session-list__eyebrow {
@@ -39,17 +53,16 @@
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--session-hue);
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
 
-.armada-session-list__row[data-hue="not-started"] { --session-hue: var(--status-not-started); }
-.armada-session-list__row[data-hue="running"] { --session-hue: var(--status-running); }
-.armada-session-list__row[data-hue="awaiting-review"] { --session-hue: var(--status-awaiting-review); }
-.armada-session-list__row[data-hue="completed-failed"] { --session-hue: var(--status-completed-failed); }
+.armada-session-list__row:hover {
+  background: var(--bg-hover);
+}
 
 .armada-session-list__open {
   display: flex;
@@ -91,6 +104,19 @@
 .armada-session-list__chips {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
+}
+
+.armada-session-list__pr {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-session-list__checks {
+  display: inline-flex;
+  color: var(--fg-muted);
 }

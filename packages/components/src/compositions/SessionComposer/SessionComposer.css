@@ -1,0 +1,86 @@
+/* A Session's message box. The typeahead and the sketch list borrow the
+   `@` mention popup's own rows (MentionPopover.css) and hang above their
+   anchor rather than under it, since the box sits at the foot of the window. */
+
+.armada-session-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__entry {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__field {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-session-composer__offer,
+.armada-session-composer__sketches {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: var(--space-1);
+}
+
+.armada-session-composer__sketches {
+  right: auto;
+  width: calc(var(--space-12) * 6);
+}
+
+.armada-session-composer__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-composer__says {
+  margin-inline-start: var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-composer__tools {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-session-composer__share {
+  position: relative;
+  display: inline-flex;
+}
+
+.armada-session-composer__sketch {
+  display: flex;
+  height: auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+}
+
+.armada-session-composer__thumb {
+  display: inline-flex;
+  width: calc(var(--space-12) * 2);
+  height: calc(var(--space-12) * 1.25);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.armada-session-composer__thumb > svg {
+  width: 100%;
+  height: 100%;
+}

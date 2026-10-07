@@ -1,7 +1,5 @@
-/* A chip anywhere, and the card of the Session that owns what it names. The
-   card is a bay's drawing: a band filled in the owner's state hue over a body,
-   its edge in the same hue. Hue is --status-<hue>, named by data-hue, as
-   SessionFrame names it. */
+/* A chip anywhere, and the card of the Session that owns what it names: its
+   head with the state's mark, over what it holds. */
 
 .armada-ref-chip {
   display: inline-flex;
@@ -54,7 +52,7 @@
   display: flex;
   flex-direction: column;
   width: calc(var(--space-12) * 5);
-  border: var(--border-width) solid var(--owner-hue, var(--border-default));
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   box-shadow: var(--shadow-overlay);
@@ -66,27 +64,14 @@
   white-space: normal;
 }
 
-.armada-owner-card[data-hue="not-started"] { --owner-hue: var(--status-not-started); }
-.armada-owner-card[data-hue="running"] { --owner-hue: var(--status-running); }
-.armada-owner-card[data-hue="awaiting-review"] { --owner-hue: var(--status-awaiting-review); }
-.armada-owner-card[data-hue="completed-failed"] { --owner-hue: var(--status-completed-failed); }
 
 .armada-owner-card__band {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--owner-hue);
-  color: var(--fg-inverse);
-}
-
-/* The one legal ALL CAPS, an eyebrow: --text-2xs at --tracking-caps. */
-.armada-owner-card__eyebrow {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-muted);
 }
 
 .armada-owner-card__id {
@@ -95,17 +80,18 @@
   line-height: var(--leading-2xs);
 }
 
+.armada-owner-card__title {
+  flex: 1;
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
 .armada-owner-card__body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3) var(--space-3);
-}
-
-.armada-owner-card__title {
-  margin: 0;
-  font-weight: var(--weight-medium);
 }
 
 .armada-owner-card__facts {

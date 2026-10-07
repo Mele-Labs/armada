@@ -17,7 +17,25 @@ export type SessionAttachment =
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
   | { kind: "job"; id: string; number: number; title: string; state: SessionJobState; branch: string; slot: number }
   | { kind: "studio"; id: string; title: string }
-  | { kind: "subagent"; id: string; task: string; state: "running" | "done" };
+  /** A sketch the agent published into the Session, or one the person shared with it. */
+  | { kind: "sketch"; id: string; title: string; by: "agent" | "you"; drawing: SessionSketch }
+  | { kind: "subagent"; id: string; task: string; state: "running" | "done"; report?: string };
+
+/**
+ * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
+ * **The same shape the pad draws** (`SketchBox`, `SketchLine`), so the ledger
+ * reads it with the preview Studios already draws.
+ */
+export type SessionSketch = {
+  boxes: readonly { id: string; x: number; y: number; body: string }[];
+  lines: readonly { id: string; from: string; to: string }[];
+};
+
+/** A sketch the person owns, on offer to share with a Session. */
+export type OwnSketch = { id: string; title: string; drawing: SessionSketch };
+
+/** A file or picture sent with a message. `src` is a `blob:` address for a picture. */
+export type SentFile = { id: string; name: string; src?: string };
 
 export type SessionChecks = { state: "pending" } | { state: "passed" } | { state: "failed"; failing: string };
 
@@ -32,7 +50,18 @@ export type SessionVoice =
   | { kind: "session"; id: string; title: string };
 
 export type SessionRow =
-  | { id: string; at: string; kind: "message"; from: SessionVoice; text: string }
+  | {
+      id: string;
+      at: string;
+      kind: "message";
+      from: SessionVoice;
+      text: string;
+      /** What the person sent with it. */
+      files?: readonly SentFile[];
+      sketches?: readonly { id: string; title: string }[];
+      /** Sessions tagged with `@`, so the agent knows to talk to them. */
+      mentions?: readonly { id: string; title: string }[];
+    }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
@@ -52,7 +81,21 @@ export type Session = {
   lastTurn?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /** The model and effort the next turn runs on. Absent is Auto. */
+  model?: string;
+  effort?: string;
 };
+
+/** What a message carries: its words, and what was attached to it. */
+export type SentMessage = {
+  text: string;
+  files: readonly SentFile[];
+  sketches: readonly string[];
+  mentions: readonly string[];
+};
+
+/** A skill or command `/` offers, as a terminal session lists them. */
+export type SessionCommand = { name: string; says: string };
 
 /** A permission a Session's agent is held on. */
 export type SessionAsk = { command: string };
@@ -68,8 +111,17 @@ export type SessionsDraft = {
   subscribe: (onChange: () => void) => () => void;
   /** Starts a blank Session and returns its id. It holds no slot and no branch until the agent writes. */
   start: () => string;
-  /** A message from the person. It takes a turn. */
-  send: (id: string, text: string) => void;
+  /** A message from the person, with what they sent along. It takes a turn. */
+  send: (id: string, sent: SentMessage) => void;
+  /** Sets the model and effort a Session's next turn runs on. `null` is Auto. */
+  tune: (id: string, tuning: { model: string | null; effort: string | null }) => void;
+  /** The models and efforts a Session may be set to, as Dispatch offers them. */
+  models: readonly string[];
+  efforts: readonly string[];
+  /** The skills and commands `/` offers. */
+  commands: readonly SessionCommand[];
+  /** The person's own sketches, from Dispatch and Studios, which a message can share. */
+  sketches: readonly OwnSketch[];
   /** Answers the permission a Session is held on. */
   answer: (id: string) => void;
 };

@@ -1,6 +1,8 @@
-/* A Session's ledger: a sunken column of groups, each an eyebrow over rows. A
-   row that has just arrived steps down from the running tint, as a Job row's
-   recent tint does. */
+/* A Session's ledger: a sunken column of sections, each an eyebrow over rows.
+   A section with nothing in it is dim, its heading at --fg-subtle over an
+   empty dashed well; its first row replaces the well in place. A row that has
+   just arrived steps down from the running tint, as a Job row's recent tint
+   does. Every row is one press, with a pointer and a hover. */
 
 .armada-session-ledger {
   display: flex;
@@ -9,7 +11,7 @@
   width: var(--w-dock);
   min-height: 0;
   padding: var(--space-4);
-  border-inline-start: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
   overflow: auto;
 }
@@ -30,6 +32,10 @@
   text-transform: uppercase;
 }
 
+.armada-session-ledger__group[data-empty] .armada-session-ledger__eyebrow {
+  color: var(--fg-subtle);
+}
+
 .armada-session-ledger__rows {
   display: flex;
   flex-direction: column;
@@ -39,19 +45,27 @@
   list-style: none;
 }
 
+/* The well: nothing in it, and a row's height so nothing moves when one lands. */
+.armada-session-ledger__group[data-empty] .armada-session-ledger__rows {
+  min-height: var(--h-row);
+  border: var(--border-width) dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
 .armada-session-ledger__row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   animation: armada-session-arrive var(--duration-decay) var(--ease);
+}
+
+.armada-session-ledger__row:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
 
 @keyframes armada-session-arrive {
@@ -66,8 +80,9 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  padding: 0;
+  padding: var(--space-2) var(--space-3);
   border: none;
+  border-radius: inherit;
   background: none;
   color: inherit;
   font: inherit;
@@ -78,10 +93,10 @@
 .armada-session-ledger__open:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
 }
 
 .armada-session-ledger__text {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
