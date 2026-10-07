@@ -10,7 +10,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; pullRequest?: string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -43,6 +43,7 @@ function world(
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
+    if (options.pullRequest !== undefined) return { value: { exitCode: 0, stdout: options.pullRequest, stderr: '' } }
     return { value: { exitCode: 1, stdout: '', stderr: 'no pull requests found' } }
   })
   on('session.id', () => ({ value: 'S1' }))
@@ -96,6 +97,23 @@ test('a pull request a session opens is attached from the address gh printed', a
   expect(facts(posts)).toContainEqual({
     kind: 'attached',
     attachment: { kind: 'pr', target: '1853', detail: { url: URL } },
+  })
+})
+
+test('a pull request read off the branch carries its title, branch and address', async ($, on) => {
+  const { posts, clock } = world(on, {
+    pullRequest: JSON.stringify({ number: 1853, url: URL, state: 'OPEN', title: 'Pin the store clock', headRefName: 'fix/store-clock', isDraft: true }),
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({
+    kind: 'attached',
+    attachment: {
+      kind: 'pr',
+      target: '1853',
+      detail: { url: URL, address: URL, state: 'draft', title: 'Pin the store clock', branch: 'fix/store-clock' },
+    },
   })
 })
 

@@ -114,6 +114,8 @@ test("Pilot wired: an attestation is closed on a person's word, and the ledger s
   mount(served(fleet));
   await pilotIt();
   await userEvent.click(exits().getByRole("button", { name: "Attest complete" }));
+  // An ended Job is drawn under All.
+  await userEvent.click(ledger().getByRole("region", { name: "Jobs" }).getByRole("radio", { name: "All" }));
   await expect.element(ledger().getByRole("img", { name: "Closed by your word, not verified" })).toBeVisible();
 });
 
