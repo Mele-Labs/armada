@@ -75,3 +75,20 @@ test("a landed pull request wears the Job's own badge for how it ended, and its 
   await expect.element(notes.getByText("Closed without merging", { exact: true })).toBeVisible();
 });
 
+
+test("each entry names who it came from: a Session by its title, a Job by its title, nobody by nothing", async () => {
+  mount("merge-line-owners");
+  await onScreen();
+
+  await row().click();
+  const line = panel("Merge line");
+  const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
+  await expect.element(entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" })).toHaveTextContent("Pin the store clock");
+  await expect.element(entry("fix/61-order-store-migrations").getByText("Order the store migrations")).toBeVisible();
+  const bare = entry("docs/typo-in-the-readme").element();
+  expect(bare.querySelector(".armada-merge-line__owner")).toBeNull();
+  expect(bare.querySelector(".armada-owner-chip")).toBeNull();
+
+  await entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" }).click();
+  await expect.element(page.getByRole("group", { name: "Owned by Pin the store clock" })).toBeVisible();
+});

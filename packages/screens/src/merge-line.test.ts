@@ -134,6 +134,27 @@ describe("the merge line Fleet serves", () => {
     ]);
   });
 
+  test("an entry names the Job whose branch it is, and the forge's own Job where it says one", () => {
+    const jobs = [
+      { id: "J1", title: "Order the migrations", branch: "fleet/push-the-base" },
+      { id: "J2", title: "Newer", branch: "fleet/helm-kills-processes", ended_at: "2026-10-07T10:00:00Z" },
+      { id: "J3", title: "Older", branch: "fleet/helm-kills-processes", ended_at: "2026-10-06T10:00:00Z" },
+    ] as JobSummary[];
+    const [one] = mergeLineViews(SERVED, "/repo", REPOSITORIES, jobs);
+    expect(one?.line.map((row) => [row.branch, row.job])).toEqual([
+      ["docs/wire-lock-signed", undefined],
+      ["worktree-agent-a", undefined],
+      ["fleet/gate-policy-every-run", undefined],
+      ["fleet/push-the-base", { id: "J1", title: "Order the migrations" }],
+      ["fleet/helm-kills-processes", { id: "J2", title: "Newer" }],
+      ["fleet/read-in-cluster-membership", undefined],
+    ]);
+    const forged: MergeLines = {
+      lines: [{ root: "/repo", line: [], off: [], landed: [], sent_back: [], hub: { merged: [{ number: 5, title: "t", branch: "b", url: "u", merged_at: "x", job: { id: "J9", title: "Forged" } }] } }],
+    };
+    expect(mergeLineViews(forged, null, REPOSITORIES)[0]?.landed[0]?.job).toEqual({ id: "J9", title: "Forged" });
+  });
+
   test("a landed pull request wears the Job's own badge for how it ended, and one in line its number alone", () => {
     const [one] = views(SERVED, "/repo");
     expect(one?.line.find((row) => row.pr !== undefined)?.pr).toEqual({ number: 1770, url: `${PULL}1770` });
