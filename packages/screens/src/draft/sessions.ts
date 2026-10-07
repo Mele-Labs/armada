@@ -54,7 +54,8 @@ export type SessionAttachment =
    */
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
   /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
-  | { kind: "forked_to" | "forked_from"; id: string };
+  | { kind: "forked_to"; id: string }
+  | { kind: "forked_from"; id: string };
 
 export type SessionArtifactForm = "page" | "file" | "doc";
 

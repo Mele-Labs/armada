@@ -10,6 +10,7 @@ import {
   Alert,
   Button,
   ChipOwnership,
+  ForkedFrom,
   OpenInSession,
   PilotAct,
   PilotConfirm,
@@ -556,6 +557,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     return () => onWant(false);
   }, [onWant]);
   const { state, said } = stateOf(session);
+  // The conversation a fork began as a copy of, which is the other Session's own rows.
+  const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
+  const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -635,6 +639,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
       >
         <div className="armada-session-frame__centre">
           <Refused />
+          {origin === undefined ? null : (
+            <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
+              <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />
+            </ForkedFrom>
+          )}
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}

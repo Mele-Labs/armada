@@ -1,0 +1,21 @@
+/* One quiet row above a fork's thread, which opens onto the conversation it copied. */
+
+.armada-forked-from {
+  flex: none;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-forked-from__head {
+  padding: var(--space-2) var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.armada-forked-from__rows {
+  display: flex;
+  max-height: calc(var(--space-12) * 6);
+  padding: 0 var(--space-3) var(--space-3);
+}

@@ -77,3 +77,21 @@ test("Pressing Fork asks Fleet to fork that Session and opens the new one, linke
   await expect.element(message()).toBeVisible();
   await expect.element(fork()).not.toBeInTheDocument();
 });
+
+test("Fork: the thread opens on one closed row holding the old conversation, read when it is pressed", async () => {
+  const old = terminal("01QUIETAAAAAAAAAAAAAAAAAA", { title: "A terminal gone quiet", terminal: {} });
+  const fleet = new FakeSessionsFleet([old], {
+    [old.id]: [{ kind: "message", id: "m1", at: "2026-10-07T13:48:02.000Z", from: { kind: "agent" }, text: "It splits on newlines." }],
+  });
+  mount(served(fleet));
+  await onScreen();
+
+  await open("A terminal gone quiet");
+  await userEvent.click(fork());
+
+  const folded = page.getByRole("group", { name: "Forked from A terminal gone quiet" });
+  await expect.element(folded).toBeVisible();
+  await expect.element(page.getByText("It splits on newlines.")).not.toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Forked from A terminal gone quiet", exact: true }));
+  await expect.element(page.getByText("It splits on newlines.")).toBeVisible();
+});
