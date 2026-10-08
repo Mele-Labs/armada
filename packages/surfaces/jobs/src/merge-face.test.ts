@@ -12,6 +12,7 @@ test("a failed run blocks and names what failed", () => {
   expect(mergeFaceOf({ kind: "some_failed", checks: 2, failed: ["a", "b"] }, undefined)).toEqual({
     how: "merge",
     blocked: "a, b failed",
+    off: true,
   });
   expect(forgeChecksOf({ kind: "some_failed", checks: 2, failed: ["a", "b"] })).toEqual({ checks: "failed", failing: ["a", "b"] });
 });
