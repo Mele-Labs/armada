@@ -731,6 +731,11 @@ const ROUTES: &[Route] = &[
         path: "/jobs/:job_id/merge",
     },
     Route {
+        operation: "enable_job_auto_merge",
+        method: "POST",
+        path: "/jobs/:job_id/auto_merge",
+    },
+    Route {
         operation: "rerun_failed_checks",
         method: "POST",
         path: "/jobs/:job_id/rerun_failed_checks",

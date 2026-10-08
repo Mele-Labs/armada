@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { Button, STILL_WAITING, useStillWaiting, type ButtonAnswer } from "../../primitives/Button/Button";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SplitButton, type SplitButtonItem } from "../../primitives/SplitButton/SplitButton";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 
@@ -95,6 +96,11 @@ export type ReviewDecisionProps = {
    * says so first.
    */
   mergeBlockedReason?: ReactNode;
+  /**
+   * Merge is drawn above, as `MergeAct` beside the pull request (owner, 8 Oct 2026). Approve is then a
+   * button of its own here, secondary, and the note and the reason belong to `MergeAct`.
+   */
+  mergeAbove?: boolean;
   /** Take the work, leaving the pull request where it is. Sent on the press. */
   onApprove: () => void;
   /** Send it back with the note. Refused while the note is blank. */
@@ -174,6 +180,7 @@ export function ReviewDecision({
   onRemoveChange,
   onMerge,
   mergeBlockedReason,
+  mergeAbove = false,
   onApprove,
   onRequestChanges,
   onReject,
@@ -197,7 +204,7 @@ export function ReviewDecision({
   // Presence and never a flag: the caller has the pull request or it has not,
   // and a boolean beside a handler would let a surface offer an act with
   // nothing behind it.
-  const merging = onMerge !== undefined;
+  const merging = onMerge !== undefined && !mergeAbove;
   const disabled = refused || pending !== undefined;
   const stillWaiting = useStillWaiting(pending !== undefined);
   const mergeReasonId = useId();
@@ -288,7 +295,7 @@ export function ReviewDecision({
           </SplitButton>
         ) : (
           <Button
-            variant="primary"
+            variant={mergeAbove ? "secondary" : "primary"}
             pending={pending === "approve"}
             answer={answerOn("approve")}
             disabled={disabled}
@@ -319,7 +326,7 @@ export function ReviewDecision({
 
       {/* Under the row so a long sentence never widens Merge's column;
           `faceDescribedBy` keeps it read as Merge's own reason. */}
-      {mergeBlockedReason === undefined ? null : (
+      {mergeBlockedReason === undefined || mergeAbove ? null : (
         <p id={mergeReasonId} className="armada-review-decision__said" role="note">
           {mergeBlockedReason}
         </p>
@@ -330,6 +337,57 @@ export function ReviewDecision({
           {STILL_WAITING}
         </p>
       ) : refused && disabledNote !== undefined ? (
+        <p className="armada-review-decision__said" role="note">
+          {disabledNote}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Merge, drawn with the pull request it acts on rather than among the other answers. The same
+ * act, props and answer as the face it replaces in `ReviewDecision`: pending, the line, the
+ * reason it is off. **Only beside a pull request**, so `onMerge` is required here.
+ */
+export type MergeActProps = Pick<
+  ReviewDecisionProps,
+  "mergeBlockedReason" | "mergeNote" | "mergeLabel" | "disabled" | "disabledNote" | "pending" | "answered"
+> & { onMerge: () => void };
+
+export function MergeAct({
+  onMerge,
+  mergeBlockedReason,
+  mergeNote = "Merges the pull request on its code host. Armada runs the repository's after-merge checks against what landed; merging it there yourself skips them.",
+  mergeLabel = "Merge pull request",
+  disabled: refused = false,
+  disabledNote,
+  pending,
+  answered,
+}: MergeActProps) {
+  const reasonId = useId();
+  const off = refused || pending !== undefined;
+  const own = pending === "merge";
+  return (
+    <div className="armada-review-decision__merge">
+      <Tooltip label={mergeNote}>
+        <Button
+          variant="primary"
+          disabled={off || mergeBlockedReason !== undefined}
+          pending={own}
+          answer={answered?.act === "merge" ? answered.answer : undefined}
+          {...(mergeBlockedReason === undefined ? {} : { "aria-describedby": reasonId })}
+          onClick={onMerge}
+        >
+          {own ? UNDERWAY.merge : mergeLabel}
+        </Button>
+      </Tooltip>
+      {mergeBlockedReason === undefined ? null : (
+        <p id={reasonId} className="armada-review-decision__said" role="note">
+          {mergeBlockedReason}
+        </p>
+      )}
+      {refused && disabledNote !== undefined ? (
         <p className="armada-review-decision__said" role="note">
           {disabledNote}
         </p>

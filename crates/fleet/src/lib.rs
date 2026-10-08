@@ -40,6 +40,8 @@ mod amending;
 /// serves it. Spike 022, slice 4.
 mod approved;
 pub mod approving;
+/// Merge pressed while the forge's checks run: auto-merge asked for, and the Job taken when it lands.
+mod auto_merging;
 pub mod asked;
 pub mod asked_run;
 pub mod asking;

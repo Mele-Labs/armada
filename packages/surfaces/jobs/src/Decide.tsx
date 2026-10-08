@@ -44,10 +44,11 @@
 // still the only one on this surface that reaches outside a worktree Fleet
 // made. The dialog is what stands between the press and the write. #533.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Dialog,
   ReviewComments,
+  MergeAct,
   ReviewDecision,
   UnifiedDiff,
   type DecisionChange,
@@ -57,7 +58,8 @@ import {
 import { answerTo, isDecision, type ActAnswer, type DecidingAct } from "./pending";
 import { isWalked, noteWithChanges, walkedChange, walkedId } from "./changes";
 
-import type { Diff, Evidence, Remarks, WalkNote } from "@armada/protocol";
+import type { Diff, Evidence, PullRequestChecks, PullRequestState, Remarks, WalkNote } from "@armada/protocol";
+import { confirmAutoMerge, mergeFaceOf } from "./merge-face";
 import type { JobSummary } from "@armada/protocol";
 import type { Work } from "@armada/protocol";
 import {
@@ -121,6 +123,21 @@ export type DecideProps = {
   /** Merge that pull request, then take the work. */
   onMerge: (jobId: string) => void;
   /**
+   * What the forge's own checks on it came to, as the sweep last read them. Still running turns
+   * Merge into Enable auto-merge, and a failed run turns it off with the names.
+   */
+  checks?: PullRequestChecks | undefined;
+  /** Ask the forge to merge it when the checks pass; the Job stays at the gate. Falls to `onMerge` where absent. */
+  onAutoMerge?: (jobId: string) => void;
+  /** The pull request as the forge showed it after the last press here. */
+  forgeReading?: PullRequestState | undefined;
+  /**
+   * Where Merge goes: given the Merge control, and the other answers, it returns the whole. **The
+   * caller puts Merge beside the pull request** (owner, 8 Oct 2026). Absent draws both in one
+   * block, Merge first, as the gate was before.
+   */
+  render?: (merge: ReactNode, decision: ReactNode) => ReactNode;
+  /**
    * The branch conflicts with main. `#663`, `#1131`. **Merge stays drawn and
    * is disabled**, not hidden — a person who has not read the pull request
    * block above should not wonder where the button went, and the reason
@@ -181,6 +198,10 @@ export function Decide({
   answered,
   pullRequest,
   onMerge,
+  checks,
+  onAutoMerge,
+  forgeReading,
+  render,
   conflicted = false,
   onApprove,
   onRequestChanges,
@@ -245,31 +266,48 @@ export function Decide({
   // so `merge` is never drawn from where `pullRequest ?? ""` stands in for it —
   // the fallback only keeps the dialog's props typed while it cannot open.
   const host = pullRequest === undefined ? undefined : hostLabel(pullRequest);
-  const merge = confirmMerge(pullRequest ?? "");
+  const face = mergeFaceOf(checks, forgeReading);
+  const auto = face.how === "auto_merge";
+  const merge = auto ? confirmAutoMerge(host ?? "the forge") : confirmMerge(pullRequest ?? "");
   const frozen = frozenBy(job);
 
-  return (
-    <>
+  const mergeNote =
+    frozen.length > 0
+      ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
+      : `Merges the pull request on ${host}. Armada runs the ` +
+        `repository's after-merge checks against what landed; merging it on ${host} ` +
+        "yourself skips them.";
+  const apart = render !== undefined && pullRequest !== undefined;
+  const conflictSaid = "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.";
+  const merging = apart ? (
+    <MergeAct
+      onMerge={() => setAsking("merge")}
+      mergeNote={mergeNote}
+      {...(face.label === undefined ? {} : { mergeLabel: face.label })}
+      {...(conflicted ? { mergeBlockedReason: conflictSaid } : {})}
+      {...(waiting === undefined
+        ? { disabled: off || face.off === true, ...(why === undefined ? {} : { disabledNote: why }) }
+        : { pending: waiting })}
+      {...(decision === undefined ? {} : { answered: decision as ReviewDecisionAnswered })}
+    />
+  ) : null;
+  const decisions = (
       <ReviewDecision
+        {...(apart ? { mergeAbove: true } : {})}
         note={note}
         onNote={setNote}
         {...(pullRequest === undefined
           ? {}
           : {
               onMerge: () => setAsking("merge"),
-              mergeNote:
-                frozen.length > 0
-                  ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
-                  : `Merges the pull request on ${host}. Armada runs the ` +
-                    `repository's after-merge checks against what landed; merging it on ${host} ` +
-                    "yourself skips them.",
+              mergeNote,
               approveNote: "Takes the work without merging — the pull request stays open.",
+              ...(face.label === undefined ? {} : { mergeLabel: face.label }),
               ...(conflicted
-                ? {
-                    mergeBlockedReason:
-                      "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.",
-                  }
-                : {}),
+                ? { mergeBlockedReason: conflictSaid }
+                : face.blocked === undefined
+                  ? {}
+                  : { mergeBlockedReason: face.blocked }),
             })}
         changes={listed}
         {...(onRemoveChange === undefined && onRemoveWalkNote === undefined
@@ -291,6 +329,11 @@ export function Decide({
           : { pending: waiting })}
         {...(decision === undefined ? {} : { answered: decision as ReviewDecisionAnswered })}
       />
+  );
+
+  return (
+    <>
+      {render === undefined ? decisions : render(merging, decisions)}
 
       <Dialog
         open={asking === "approve"}
@@ -322,11 +365,11 @@ export function Decide({
         open={asking === "merge"}
         tone="neutral"
         title={merge.title}
-        confirmLabel="Merge pull request"
+        confirmLabel={auto ? "Enable auto-merge" : "Merge pull request"}
         onCancel={() => setAsking(null)}
         onConfirm={() => {
           setAsking(null);
-          onMerge(job.id);
+          (auto && onAutoMerge !== undefined ? onAutoMerge : onMerge)(job.id);
         }}
       >
         {merge.body}

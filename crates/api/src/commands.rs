@@ -189,6 +189,18 @@ pub(crate) async fn merge_pull_request<D: Commands>(
     }
 }
 
+/// Merge pressed while the checks run: the forge merges it when they pass. 409 off the gate,
+/// once the checks have passed (merge it) or failed, and with the forge's words where it refused.
+pub(crate) async fn enable_job_auto_merge<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+) -> Response {
+    match served.daemon().enable_job_auto_merge(job.id()).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Start the pull request's failed CI runs again. #905. 409 with no open pull request,
 /// and 409 carrying the forge's words where it would not.
 pub(crate) async fn rerun_failed_checks<D: Commands>(

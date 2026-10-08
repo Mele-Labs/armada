@@ -55,6 +55,7 @@ import { Preferring } from "./preferences";
 import { Reporting } from "./reporting";
 import { proposeFromRequest as propose } from "./proposing";
 import {
+  autoMerge,
   captureWalkNote,
   decide,
   dismiss,
@@ -1106,6 +1107,7 @@ export class JobCommands {
   async mergePullRequest(jobId: string): Promise<Outcome> {
     return this.settleWork(jobId, "merge");
   }
+  async autoMergePullRequest(jobId: string): Promise<Outcome> { return autoMerge(jobId, (send) => this.act(jobId, this.deciding, "already_deciding", send)); }
 
   /** Ask the forge to start the pull request's failed CI runs again. #905. */
   async rerunFailedChecks(jobId: string): Promise<Outcome> {

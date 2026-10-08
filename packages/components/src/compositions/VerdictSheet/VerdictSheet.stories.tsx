@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CircleCheck, CircleX, GitMerge, Minus, ShieldCheck } from "lucide-react";
-import { expect } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { VerdictSheet } from "./VerdictSheet";
 import { Button } from "../../primitives/Button/Button";
 import { CheckRuns } from "../CheckRuns/CheckRuns";
 import { PullRequestCard } from "../PullRequestCard/PullRequestCard";
-import { ReviewDecision } from "../ReviewDecision/ReviewDecision";
+import { MergeAct, ReviewDecision } from "../ReviewDecision/ReviewDecision";
 import { ReviewComments } from "../ReviewComments/ReviewComments";
 
 /**
@@ -99,8 +99,11 @@ export const PullRequestOpen: Story = {
         branch="armada/01K20E8JS4…"
         checks="3/3 Checks passed"
         comments={0}
+        forge={{ checks: "running" }}
       />
     ),
+    // Merge sits with the pull request, first on the sheet; the other answers stay below.
+    mergeAct: <MergeAct onMerge={() => {}} mergeLabel="Enable auto-merge" />,
     // The card names the branch, so the figures do not.
     figures: [
       { label: "Files", value: "5", mono: true },
@@ -122,6 +125,7 @@ export const PullRequestOpen: Story = {
           note=""
           onNote={() => {}}
           onMerge={() => {}}
+          mergeAbove
           onApprove={() => {}}
           onRequestChanges={() => {}}
           onReject={() => {}}
@@ -129,6 +133,17 @@ export const PullRequestOpen: Story = {
         <ReviewComments comments={[]} onTakeUp={() => {}} />
       </>
     ),
+  },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement);
+    const merge = sheet.getByRole("button", { name: "Enable auto-merge" });
+    const asked = sheet.getByRole("region", { name: "What you asked for" });
+    // Merge precedes every card, and Approve is a button of its own below it.
+    expect(merge.compareDocumentPosition(asked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sheet.getByRole("button", { name: "Approve the work" })).toBeTruthy();
+    // One column: the cards share a left edge.
+    const left = (name: string) => sheet.getByRole("region", { name }).getBoundingClientRect().left;
+    expect(left("What you asked for")).toBe(left("What was done"));
   },
 };
 

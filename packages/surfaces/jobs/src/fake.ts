@@ -6,6 +6,7 @@ export * from "./fake/check-logs-fleet";
 export * from "./fake/feature-at-approval";
 export * from "./fake/feature-gates";
 export * from "./fake/feature-running";
+export * from "./fake/gate-merge-fixtures";
 export * from "./fake/held-fleet";
 export * from "./fake/job-2-at-review";
 export * from "./fake/job-2-hold";

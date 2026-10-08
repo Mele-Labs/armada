@@ -909,6 +909,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.mergePullRequest, (_event, jobId: string) =>
     connection?.commands.mergePullRequest(jobId),
   );
+  ipcMain.handle(CHANNELS.autoMergePullRequest, (_event, jobId: string) =>
+    connection?.commands.autoMergePullRequest(jobId),
+  );
   ipcMain.handle(CHANNELS.rerunFailedChecks, (_event, jobId: string) =>
     connection?.commands.rerunFailedChecks(jobId),
   );

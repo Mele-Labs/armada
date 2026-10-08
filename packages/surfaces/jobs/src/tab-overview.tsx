@@ -467,6 +467,8 @@ export function OverviewTab(props: OverviewTabProps) {
     deciding: props.deciding,
     decidingAct: props.decidingAct,
     onMergePullRequest: props.onMergePullRequest,
+    onAutoMergePullRequest: props.onAutoMergePullRequest,
+    forgeReading: props.forgeReading,
     onRerunFailedChecks: props.onRerunFailedChecks,
     onInvestigateFailedChecks: props.onInvestigateFailedChecks,
     onQueueAfterFinding: props.onQueueAfterFinding,
